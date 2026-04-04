@@ -16,16 +16,20 @@ class StencilRoutes(private val handler: StencilHandler) {
             GET("/new", handler::newForm)
             POST("", handler::create)
 
-            GET("/{stencilId}", handler::detail)
-            PATCH("/{stencilId}", handler::update)
-            POST("/{stencilId}/delete", handler::delete)
-            PUT("/{stencilId}/draft", handler::updateDraft)
+            "/{stencilId}".nest {
+                GET("", handler::detail)
+                PATCH("", handler::update)
+                POST("/delete", handler::delete)
+                PUT("/draft", handler::updateDraft)
 
-            GET("/{stencilId}/versions", handler::listVersions)
-            GET("/{stencilId}/versions/{versionId}", handler::getVersion)
-            POST("/{stencilId}/versions", handler::createVersion)
-            POST("/{stencilId}/versions/{versionId}/publish", handler::publishVersion)
-            POST("/{stencilId}/versions/{versionId}/archive", handler::archiveVersion)
+                "/versions".nest {
+                    GET("", handler::listVersions)
+                    POST("", handler::createVersion)
+                    GET("/{versionId}", handler::getVersion)
+                    POST("/{versionId}/publish", handler::publishVersion)
+                    POST("/{versionId}/archive", handler::archiveVersion)
+                }
+            }
         }
     }
 }
