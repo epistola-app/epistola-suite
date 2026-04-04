@@ -51,11 +51,10 @@ export type CheckStencilUpgradesFn = (
   refs: Array<{ stencilId: string; version: number }>,
 ) => Promise<Array<{ stencilId: string; currentVersion: number; latestVersion: number }>>;
 
-/** Create a stencil from editor content and publish the first version. */
-export type PublishAsStencilFn = (
+/** Create a new stencil entity with an empty draft. Returns the stencilId and draft version. */
+export type CreateStencilFn = (
   slug: string,
   name: string,
-  content: import('../../types/index.js').TemplateDocument,
 ) => Promise<{ stencilId: string; version: number }>;
 
 /** Push updated content back to a stencil as a new draft version. */
@@ -76,7 +75,7 @@ export interface StencilCallbacks {
   listVersions: ListStencilVersionsFn;
   getStencilVersion: GetStencilVersionFn;
   checkUpgrades?: CheckStencilUpgradesFn;
-  publishAsStencil?: PublishAsStencilFn;
+  createStencil?: CreateStencilFn;
   updateStencil?: UpdateStencilFn;
   startEditing?: StartEditingFn;
   publishDraft?: PublishDraftFn;

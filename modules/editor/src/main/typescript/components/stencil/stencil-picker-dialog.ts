@@ -16,7 +16,7 @@ import type {
 } from './types.js';
 
 export type StencilPickerResult =
-  | { action: 'create-new' }
+  | { action: 'create-new'; stencilId: string; version: number }
   | { action: 'use-existing'; versionInfo: StencilVersionInfo }
   | null;
 
@@ -44,7 +44,25 @@ export async function openStencilPickerDialog(
           </div>
         </div>
 
-        <!-- Step 2: Version picker (hidden initially) -->
+        <!-- Step 2: Create new stencil form (hidden initially) -->
+        <div id="stencil-step-create" style="display: none;">
+          <div style="padding: var(--ep-space-3) var(--ep-space-6);">
+            <button type="button" id="stencil-back-create" class="stencil-picker-btn" style="margin-bottom: var(--ep-space-2);">&larr; Back to stencils</button>
+            <div style="font-weight: 500; font-size: var(--ep-text-sm); margin-bottom: var(--ep-space-3);">Create New Stencil</div>
+            <div style="margin-bottom: var(--ep-space-2);">
+              <label style="font-size: var(--ep-text-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">Name</label>
+              <input type="text" id="create-stencil-name" class="ep-input" style="width: 100%;" placeholder="Corporate Header" />
+            </div>
+            <div style="margin-bottom: var(--ep-space-2);">
+              <label style="font-size: var(--ep-text-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">ID (slug)</label>
+              <input type="text" id="create-stencil-slug" class="ep-input" style="width: 100%;" placeholder="corporate-header" />
+              <div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-top: 2px;">Lowercase letters, numbers, and hyphens only</div>
+            </div>
+            <div id="create-stencil-error" style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626); display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Step 3: Version picker (hidden initially) -->
         <div id="stencil-step-versions" style="display: none;">
           <div style="padding: var(--ep-space-3) var(--ep-space-6);">
             <button type="button" id="stencil-back" class="stencil-picker-btn" style="margin-bottom: var(--ep-space-2);">&larr; Back to stencils</button>
@@ -56,15 +74,17 @@ export async function openStencilPickerDialog(
         </div>
 
         <div class="stencil-picker-footer">
-          <button type="button" class="stencil-picker-btn create-new">Create New (Empty)</button>
+          <button type="button" class="stencil-picker-btn create-new">Create New</button>
           <div style="flex: 1;"></div>
           <button type="button" class="stencil-picker-btn cancel">Cancel</button>
           <button type="button" class="stencil-picker-btn insert" disabled>Insert</button>
+          <button type="button" class="stencil-picker-btn insert create-confirm" style="display: none;" disabled>Create</button>
         </div>
       </div>
     `;
 
     const stepList = dialog.querySelector<HTMLElement>('#stencil-step-list')!;
+    const stepCreate = dialog.querySelector<HTMLElement>('#stencil-step-create')!;
     const stepVersions = dialog.querySelector<HTMLElement>('#stencil-step-versions')!;
     const list = dialog.querySelector<HTMLElement>('#stencil-list')!;
     const versionList = dialog.querySelector<HTMLElement>('#stencil-version-list')!;
@@ -75,6 +95,10 @@ export async function openStencilPickerDialog(
     const insertBtn = dialog.querySelector<HTMLButtonElement>('.insert')!;
     const createNewBtn = dialog.querySelector<HTMLElement>('.create-new')!;
     const backBtn = dialog.querySelector<HTMLElement>('#stencil-back')!;
+    const backCreateBtn = dialog.querySelector<HTMLElement>('#stencil-back-create')!;
+    const createNameInput = dialog.querySelector<HTMLInputElement>('#create-stencil-name')!;
+    const createSlugInput = dialog.querySelector<HTMLInputElement>('#create-stencil-slug')!;
+    const createError = dialog.querySelector<HTMLElement>('#create-stencil-error')!;
 
     let selectedStencil: StencilSummary | null = null;
     let selectedVersion: StencilVersionSummary | null = null;
@@ -200,9 +224,77 @@ export async function openStencilPickerDialog(
 
     function showStencilList() {
       stepVersions.style.display = 'none';
+      stepCreate.style.display = 'none';
       stepList.style.display = '';
       insertBtn.disabled = true;
+      insertBtn.style.display = '';
+      createNewBtn.style.display = '';
       selectedVersion = null;
+    }
+
+    // ── Create new stencil ──
+
+    function showCreateForm() {
+      stepList.style.display = 'none';
+      stepVersions.style.display = 'none';
+      stepCreate.style.display = '';
+      insertBtn.style.display = 'none';
+      createNewBtn.style.display = 'none';
+      createNameInput.value = '';
+      createSlugInput.value = '';
+      createError.style.display = 'none';
+      createNameInput.focus();
+    }
+
+    let slugManuallyEdited = false;
+
+    createNameInput.addEventListener('input', () => {
+      if (!slugManuallyEdited) {
+        createSlugInput.value = nameToSlug(createNameInput.value);
+      }
+      updateCreateButtonState();
+    });
+
+    createSlugInput.addEventListener('input', () => {
+      slugManuallyEdited = createSlugInput.value !== nameToSlug(createNameInput.value);
+      updateCreateButtonState();
+    });
+
+    function updateCreateButtonState() {
+      const createBtn = dialog.querySelector<HTMLButtonElement>('.stencil-picker-btn.create-confirm');
+      if (createBtn) {
+        createBtn.disabled = !createNameInput.value.trim() || !createSlugInput.value.trim();
+      }
+    }
+
+    function nameToSlug(name: string): string {
+      return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    async function doCreate() {
+      if (!callbacks.createStencil) return;
+      const name = createNameInput.value.trim();
+      const slug = createSlugInput.value.trim();
+      if (!name || !slug) return;
+
+      createError.style.display = 'none';
+      const createBtn = dialog.querySelector<HTMLButtonElement>('.stencil-picker-btn.create-confirm');
+      if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.textContent = 'Creating...';
+      }
+
+      try {
+        const result = await callbacks.createStencil(slug, name);
+        close({ action: 'create-new', stencilId: result.stencilId, version: result.version });
+      } catch (e) {
+        createError.textContent = (e as Error).message || 'Failed to create stencil';
+        createError.style.display = '';
+        if (createBtn) {
+          createBtn.disabled = false;
+          createBtn.textContent = 'Create';
+        }
+      }
     }
 
     // ── Insert ──
@@ -250,8 +342,21 @@ export async function openStencilPickerDialog(
     closeBtn.addEventListener('click', () => close(null));
     cancelBtn.addEventListener('click', () => close(null));
     insertBtn.addEventListener('click', async () => doInsert());
-    createNewBtn.addEventListener('click', () => close({ action: 'create-new' }));
+    createNewBtn.addEventListener('click', () => {
+      if (callbacks.createStencil) {
+        showCreateForm();
+        // Show the create-confirm button, hide insert
+        const createConfirmBtn = dialog.querySelector<HTMLElement>('.create-confirm');
+        if (createConfirmBtn) createConfirmBtn.style.display = '';
+      } else {
+        // No create callback — insert empty (legacy fallback)
+        close({ action: 'create-new', stencilId: '', version: 0 });
+      }
+    });
+    const createConfirmBtn = dialog.querySelector<HTMLButtonElement>('.create-confirm');
+    createConfirmBtn?.addEventListener('click', () => doCreate());
     backBtn.addEventListener('click', () => showStencilList());
+    backCreateBtn.addEventListener('click', () => showStencilList());
 
     dialog.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {

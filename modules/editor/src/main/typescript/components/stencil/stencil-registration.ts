@@ -94,8 +94,12 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       if (!result) return null; // Cancelled
 
       if (result.action === 'create-new') {
-        // Empty stencil — no stencilId/version yet
-        return {};
+        // Stencil entity created on backend — insert with stencilId in draft mode
+        return {
+          stencilId: result.stencilId,
+          version: result.version,
+          isDraft: true,
+        };
       }
 
       // Use existing stencil — store content temporarily for createSubtree

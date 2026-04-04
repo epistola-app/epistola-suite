@@ -32,7 +32,7 @@ export type {
   SearchStencilsFn,
   GetStencilVersionFn,
   CheckStencilUpgradesFn,
-  PublishAsStencilFn,
+  CreateStencilFn,
   UpdateStencilFn,
   StartEditingFn,
   PublishDraftFn,

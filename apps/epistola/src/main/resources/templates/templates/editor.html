@@ -190,13 +190,16 @@
                     const v = await resp.json();
                     return { stencilId: v.stencilId ?? stencilId, stencilName: stencilId, version: v.id ?? version, content: v.content };
                 },
-                publishAsStencil: async (slug, name, content) => {
+                createStencil: async (slug, name) => {
                     const resp = await fetch('/tenants/' + tenantId + '/stencils', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-                        body: JSON.stringify({ id: slug, name, content, publish: true }),
+                        body: JSON.stringify({ id: slug, name }),
                     });
-                    if (!resp.ok) throw new Error('Failed to publish stencil');
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        throw new Error(err.message || err.error || 'Stencil ID already exists or invalid');
+                    }
                     return await resp.json();
                 },
                 startEditing: async (stencilId) => {
