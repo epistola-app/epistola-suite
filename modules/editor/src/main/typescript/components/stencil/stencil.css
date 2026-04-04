@@ -200,3 +200,26 @@
 .stencil-picker-btn.create-new {
   border-style: dashed;
 }
+
+.stencil-picker-status {
+  display: inline-block;
+  padding: 0 var(--ep-space-1-5);
+  border-radius: var(--ep-radius-sm);
+  font-size: var(--ep-text-xs);
+  font-weight: 500;
+}
+
+.stencil-picker-status--draft {
+  background: var(--ep-amber-50, #fffbeb);
+  color: var(--ep-amber-700, #b45309);
+}
+
+.stencil-picker-status--published {
+  background: var(--ep-green-50, #f0fdf4);
+  color: var(--ep-green-700, #15803d);
+}
+
+.stencil-picker-status--archived {
+  background: var(--ep-gray-100);
+  color: var(--ep-gray-500);
+}

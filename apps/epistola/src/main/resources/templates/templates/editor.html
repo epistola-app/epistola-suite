@@ -151,6 +151,14 @@
                     const data = await resp.json();
                     return data.items ?? data;
                 },
+                listVersions: async (stencilId) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions', {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) return [];
+                    const data = await resp.json();
+                    return data.items ?? data;
+                },
                 getStencilVersion: async (stencilId, version) => {
                     const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version, {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
@@ -160,24 +168,26 @@
                     return { stencilId: v.stencilId ?? stencilId, stencilName: stencilId, version: v.id ?? version, content: v.content };
                 },
                 publishAsStencil: async (slug, name, content) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/publish-from-editor', {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-                        body: JSON.stringify({ slug, name, content }),
+                        body: JSON.stringify({ id: slug, name, content, publish: true }),
                     });
                     if (!resp.ok) throw new Error('Failed to publish stencil');
                     return await resp.json();
                 },
                 startEditing: async (stencilId) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/start-editing', {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: '{}',
                     });
                     if (!resp.ok) throw new Error('Failed to start editing');
-                    return await resp.json();
+                    const data = await resp.json();
+                    return { draftVersion: data.version };
                 },
-                publishDraft: async (stencilId) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/publish-draft', {
+                publishDraft: async (stencilId, version) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version + '/publish', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
@@ -185,8 +195,8 @@
                     return await resp.json();
                 },
                 updateStencil: async (stencilId, content) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/update-from-editor', {
-                        method: 'POST',
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/draft', {
+                        method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: JSON.stringify({ content }),
                     });

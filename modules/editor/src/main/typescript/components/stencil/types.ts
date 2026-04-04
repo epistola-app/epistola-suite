@@ -26,8 +26,19 @@ export interface StencilVersionInfo {
   content: import('../../types/index.js').TemplateDocument;
 }
 
+/** Version summary for the version picker. */
+export interface StencilVersionSummary {
+  version: number;
+  status: 'draft' | 'published' | 'archived';
+  createdAt: string;
+  publishedAt?: string;
+}
+
 /** Search/browse available stencils. */
 export type SearchStencilsFn = (query: string) => Promise<StencilSummary[]>;
+
+/** List all versions for a stencil (for the version picker). */
+export type ListStencilVersionsFn = (stencilId: string) => Promise<StencilVersionSummary[]>;
 
 /** Fetch a specific published stencil version's content. */
 export type GetStencilVersionFn = (
@@ -56,12 +67,13 @@ export type UpdateStencilFn = (
 /** Ensure a draft exists for a stencil (creates one if needed). */
 export type StartEditingFn = (stencilId: string) => Promise<{ draftVersion: number }>;
 
-/** Publish the current draft version. */
-export type PublishDraftFn = (stencilId: string) => Promise<{ version: number }>;
+/** Publish a specific version. */
+export type PublishDraftFn = (stencilId: string, version: number) => Promise<{ version: number }>;
 
 /** All stencil-related callbacks provided by the hosting app. */
 export interface StencilCallbacks {
   searchStencils: SearchStencilsFn;
+  listVersions: ListStencilVersionsFn;
   getStencilVersion: GetStencilVersionFn;
   checkUpgrades?: CheckStencilUpgradesFn;
   publishAsStencil?: PublishAsStencilFn;

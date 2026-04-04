@@ -36,6 +36,8 @@ export type {
   UpdateStencilFn,
   StartEditingFn,
   PublishDraftFn,
+  ListStencilVersionsFn,
+  StencilVersionSummary,
 } from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';

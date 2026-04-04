@@ -869,3 +869,142 @@ describe('Delete stencil after modifying content', () => {
     expect(orphanedSlots).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multiple instances of the same stencil — version scenarios
+// ---------------------------------------------------------------------------
+
+describe('Multiple instances of the same stencil version', () => {
+  it('inserting the same version twice produces independent copies with different IDs', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const s1 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+    const s2 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+
+    // Both reference the same stencil + version
+    expect(engine.doc.nodes[s1].props?.stencilId).toBe('header');
+    expect(engine.doc.nodes[s1].props?.version).toBe(1);
+    expect(engine.doc.nodes[s2].props?.stencilId).toBe('header');
+    expect(engine.doc.nodes[s2].props?.version).toBe(1);
+
+    // But their content is independent (different node IDs)
+    const slot1 = engine.doc.slots[getStencilSlot(engine, s1)];
+    const slot2 = engine.doc.slots[getStencilSlot(engine, s2)];
+    expect(slot1.children.length).toBe(slot2.children.length);
+    for (const childId of slot1.children) {
+      expect(slot2.children).not.toContain(childId);
+    }
+  });
+
+  it('editing one instance does not affect the other', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const s1 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+    const s2 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+
+    const slot1 = getStencilSlot(engine, s1);
+    const slot2 = getStencilSlot(engine, s2);
+    const s2ChildCount = engine.doc.slots[slot2].children.length;
+
+    // Add content to instance 1
+    insertText(engine, registry, slot1, 'Only in instance 1');
+
+    // Instance 2 is unchanged
+    expect(engine.doc.slots[slot2].children.length).toBe(s2ChildCount);
+  });
+
+  it('instances can reference different versions of the same stencil', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const contentV1 = createSampleStencilContent();
+
+    const s1 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: contentV1,
+    });
+
+    // Simulate v2 content (different structure)
+    resetCounter();
+    const contentV2: TemplateDocument = {
+      modelVersion: 1,
+      root: nodeId('v2-root') as NodeId,
+      nodes: {
+        [nodeId('v2-root')]: { id: nodeId('v2-root-dup'), type: 'root', slots: [slotId('v2-slot')] },
+        [nodeId('v2-text')]: { id: nodeId('v2-text-dup'), type: 'text', slots: [], props: { content: 'Version 2' } },
+      } as Record<NodeId, Node>,
+      slots: {
+        [slotId('v2-slot-dup')]: { id: slotId('v2-slot-dup2'), nodeId: nodeId('v2-root-dup2'), name: 'children', children: [nodeId('v2-text-dup2')] },
+      } as Record<SlotId, Slot>,
+      themeRef: { type: 'inherit' },
+    };
+
+    // This is a simplified test — in practice the content would come from the backend.
+    // Just verify different props can coexist.
+    const s2 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 2,
+    });
+
+    expect(engine.doc.nodes[s1].props?.version).toBe(1);
+    expect(engine.doc.nodes[s2].props?.version).toBe(2);
+  });
+
+  it('no orphaned nodes when two instances of same content exist', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+    insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+
+    // Verify no orphans
+    const reachable = new Set<string>();
+    function walk(nodeId: NodeId) {
+      reachable.add(nodeId as string);
+      const node = engine.doc.nodes[nodeId];
+      if (!node) return;
+      for (const sid of node.slots) {
+        reachable.add(sid as string);
+        const slot = engine.doc.slots[sid];
+        if (!slot) continue;
+        for (const cid of slot.children) walk(cid);
+      }
+    }
+    walk(engine.doc.root);
+
+    const orphanedNodes = Object.keys(engine.doc.nodes).filter((id) => !reachable.has(id));
+    expect(orphanedNodes).toEqual([]);
+  });
+
+  it('deleting one instance does not affect the other', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const s1 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+    const s2 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+
+    const s2Slot = getStencilSlot(engine, s2);
+    const s2ChildCount = engine.doc.slots[s2Slot].children.length;
+
+    // Delete instance 1
+    engine.dispatch({ type: 'RemoveNode', nodeId: s1 });
+
+    // Instance 2 still intact
+    expect(engine.doc.nodes[s2]).toBeDefined();
+    expect(engine.doc.slots[s2Slot].children.length).toBe(s2ChildCount);
+  });
+});

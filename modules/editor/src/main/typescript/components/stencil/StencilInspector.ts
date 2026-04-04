@@ -27,6 +27,7 @@ export class StencilInspector extends LitElement {
 
   @state() private _busy = false;
   @state() private _message = '';
+  @state() private _draftVersion: number | null = null;
 
   private get _stencilId(): string | null {
     return (this.node.props?.stencilId as string) ?? null;
@@ -214,7 +215,8 @@ export class StencilInspector extends LitElement {
     this._message = '';
 
     try {
-      await this.callbacks.startEditing(this._stencilId);
+      const result = await this.callbacks.startEditing(this._stencilId);
+      this._draftVersion = result.draftVersion;
 
       this.engine.dispatch({
         type: 'UpdateNodeProps',
@@ -251,7 +253,7 @@ export class StencilInspector extends LitElement {
   }
 
   private async _handlePublishDraft() {
-    if (!this.callbacks?.publishDraft || !this._stencilId) return;
+    if (!this.callbacks?.publishDraft || !this._stencilId || !this._draftVersion) return;
     this._busy = true;
     this._message = '';
 
@@ -263,7 +265,7 @@ export class StencilInspector extends LitElement {
       }
 
       // Publish the draft
-      const result = await this.callbacks.publishDraft(this._stencilId);
+      const result = await this.callbacks.publishDraft(this._stencilId, this._draftVersion);
 
       // Update node to reference the new published version and exit draft mode
       this.engine.dispatch({

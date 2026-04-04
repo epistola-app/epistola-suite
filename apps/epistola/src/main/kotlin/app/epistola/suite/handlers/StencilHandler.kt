@@ -20,6 +20,8 @@ import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilVersions
@@ -30,10 +32,18 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * Stencil handler serving both the management UI (HTMX) and editor callbacks (JSON).
+ * Content negotiation: HTMX requests (HX-Request header) get fragments, others get JSON.
+ */
 @Component
 class StencilHandler(
     private val objectMapper: ObjectMapper,
 ) {
+    private fun ServerRequest.isHtmx(): Boolean = headers().firstHeader("HX-Request") != null
+
+    // ── List & Search ──────────────────────────────────────────────────────
+
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencils = ListStencils(tenantId = tenantId).query()
@@ -49,10 +59,25 @@ class StencilHandler(
         val searchTerm = request.queryParam("q")
         val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
 
-        // Non-HTMX requests with JSON accept header → JSON response (for editor callbacks)
-        val isHtmx = request.headers().firstHeader("HX-Request") != null
-        if (!isHtmx) {
-            return searchJson(request)
+        if (!request.isHtmx()) {
+            val items = stencils.map { stencil ->
+                val versions = ListStencilVersions(stencilId = StencilId(stencil.id, tenantId)).query()
+                val latestPublished = versions
+                    .filter { it.status == StencilVersionStatus.PUBLISHED }
+                    .maxByOrNull { it.id.value }?.id?.value
+                val latestVersion = versions.maxByOrNull { it.id.value }?.id?.value
+                mapOf(
+                    "id" to stencil.id.value,
+                    "name" to stencil.name,
+                    "description" to stencil.description,
+                    "tags" to stencil.tags,
+                    "latestPublishedVersion" to latestPublished,
+                    "latestVersion" to latestVersion,
+                )
+            }
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("items" to items))
         }
 
         return request.htmx {
@@ -64,6 +89,8 @@ class StencilHandler(
         }
     }
 
+    // ── Create ─────────────────────────────────────────────────────────────
+
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         return ServerResponse.ok().page("stencils/new") {
@@ -72,9 +99,24 @@ class StencilHandler(
         }
     }
 
+    /**
+     * Create a stencil. Supports two modes:
+     * - Form POST (HTMX): creates stencil from form fields, redirects to detail
+     * - JSON POST (editor): { id, name, content?, publish? }
+     *     content → creates draft v1 with that content
+     *     publish → also publishes v1
+     */
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
 
+        if (!request.isHtmx()) {
+            return createJson(request, tenantId)
+        }
+
+        return createForm(request, tenantId)
+    }
+
+    private fun createForm(request: ServerRequest, tenantId: TenantId): ServerResponse {
         val form = request.form {
             field("slug") {
                 required()
@@ -137,6 +179,43 @@ class StencilHandler(
             .build()
     }
 
+    private data class CreateStencilJsonRequest(
+        val id: String,
+        val name: String,
+        val description: String? = null,
+        val tags: List<String>? = null,
+        val content: app.epistola.template.model.TemplateDocument? = null,
+        val publish: Boolean = false,
+    )
+
+    private fun createJson(request: ServerRequest, tenantId: TenantId): ServerResponse {
+        val body = request.body(String::class.java)
+        val req = objectMapper.readValue(body, CreateStencilJsonRequest::class.java)
+
+        val stencilId = StencilId(StencilKey.of(req.id), tenantId)
+
+        CreateStencil(
+            id = stencilId,
+            name = req.name,
+            description = req.description,
+            tags = req.tags ?: emptyList(),
+            content = req.content,
+        ).execute()
+
+        var publishedVersion: Int? = null
+        if (req.publish && req.content != null) {
+            val versionIdComposite = StencilVersionId(VersionKey.of(1), stencilId)
+            PublishStencilVersion(versionId = versionIdComposite).execute()
+            publishedVersion = 1
+        }
+
+        return ServerResponse.status(201)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("stencilId" to req.id, "version" to (publishedVersion ?: 1)))
+    }
+
+    // ── Detail & Update & Delete ───────────────────────────────────────────
+
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -160,7 +239,7 @@ class StencilHandler(
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        data class UpdateStencilRequest(
+        data class UpdateRequest(
             val name: String? = null,
             val description: String? = null,
             val clearDescription: Boolean = false,
@@ -168,14 +247,14 @@ class StencilHandler(
         )
 
         val body = request.body(String::class.java)
-        val updateRequest = objectMapper.readValue(body, UpdateStencilRequest::class.java)
+        val req = objectMapper.readValue(body, UpdateRequest::class.java)
 
         val stencil = UpdateStencil(
             id = stencilId,
-            name = updateRequest.name,
-            description = updateRequest.description,
-            clearDescription = updateRequest.clearDescription,
-            tags = updateRequest.tags,
+            name = req.name,
+            description = req.description,
+            clearDescription = req.clearDescription,
+            tags = req.tags,
         ).execute() ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -191,35 +270,51 @@ class StencilHandler(
             )
     }
 
-    /** JSON endpoint for the editor's stencil search callback. */
-    fun searchJson(request: ServerRequest): ServerResponse {
+    fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val searchTerm = request.queryParam("q")
-        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
 
-        val items = stencils.map { stencil ->
-            val versions = ListStencilVersions(stencilId = StencilId(stencil.id, tenantId)).query()
-            val latestPublished = versions
-                .filter { it.status == app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED }
-                .maxByOrNull { it.id.value }
-                ?.id?.value
-            val latestVersion = versions.maxByOrNull { it.id.value }?.id?.value
-            mapOf(
-                "id" to stencil.id.value,
-                "name" to stencil.name,
-                "description" to stencil.description,
-                "tags" to stencil.tags,
-                "latestPublishedVersion" to latestPublished,
-                "latestVersion" to latestVersion,
-            )
+        DeleteStencil(id = stencilId).execute()
+
+        val stencils = ListStencils(tenantId = tenantId).query()
+        return request.htmx {
+            fragment("stencils/list", "rows") {
+                "tenantId" to tenantId.key
+                "stencils" to stencils
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
         }
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("items" to items))
     }
 
-    /** JSON endpoint for the editor to fetch a specific stencil version. */
+    // ── Versions ───────────────────────────────────────────────────────────
+
+    /** List versions. HTMX → fragment; JSON → version list. */
+    fun listVersions(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val versions = ListStencilVersions(stencilId = stencilId).query()
+
+        if (!request.isHtmx()) {
+            val items = versions.map { v ->
+                mapOf(
+                    "version" to v.id.value,
+                    "status" to v.status.name.lowercase(),
+                    "createdAt" to v.createdAt.toString(),
+                    "publishedAt" to v.publishedAt?.toString(),
+                )
+            }
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("items" to items))
+        }
+
+        return versionListFragment(request, tenantId, stencilId)
+    }
+
+    /** Get a specific version's content (JSON only). */
     fun getVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -243,32 +338,12 @@ class StencilHandler(
             )
     }
 
-    /** JSON endpoint for the editor: publish the current draft version. */
-    fun publishDraftFromEditor(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-
-        // Find the draft version
-        val versions = ListStencilVersions(stencilId = stencilId).query()
-        val draft = versions.find { it.status == app.epistola.suite.stencils.model.StencilVersionStatus.DRAFT }
-            ?: return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "No draft version to publish"))
-
-        val versionIdComposite = StencilVersionId(draft.id, stencilId)
-        val published = PublishStencilVersion(versionId = versionIdComposite).execute()
-            ?: return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "Failed to publish draft"))
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("version" to published.id.value))
-    }
-
-    /** JSON endpoint for the editor: ensure a draft exists for editing. */
-    fun startEditing(request: ServerRequest): ServerResponse {
+    /**
+     * Create a version. Idempotent — returns existing draft if one exists.
+     * HTMX → version list fragment; JSON → { version, status }.
+     * Optional JSON payload: { content?, publish? }
+     */
+    fun createVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
@@ -276,22 +351,16 @@ class StencilHandler(
         val draft = CreateStencilVersion(stencilId = stencilId).execute()
             ?: return ServerResponse.notFound().build()
 
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("draftVersion" to draft.id.value))
-    }
-
-    fun createVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-
-        CreateStencilVersion(stencilId = stencilId).execute()
-            ?: return ServerResponse.notFound().build()
+        if (!request.isHtmx()) {
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("version" to draft.id.value, "status" to draft.status.name.lowercase()))
+        }
 
         return versionListFragment(request, tenantId, stencilId)
     }
 
+    /** Publish a version. HTMX → fragment; JSON → { version, status }. */
     fun publishVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -300,12 +369,19 @@ class StencilHandler(
             ?: return ServerResponse.badRequest().build()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
 
-        PublishStencilVersion(versionId = versionIdComposite).execute()
+        val published = PublishStencilVersion(versionId = versionIdComposite).execute()
             ?: return ServerResponse.notFound().build()
+
+        if (!request.isHtmx()) {
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("version" to published.id.value, "status" to "published"))
+        }
 
         return versionListFragment(request, tenantId, stencilId)
     }
 
+    /** Archive a version. HTMX → fragment; JSON → { version, status }. */
     fun archiveVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -314,77 +390,40 @@ class StencilHandler(
             ?: return ServerResponse.badRequest().build()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
 
-        ArchiveStencilVersion(versionId = versionIdComposite).execute()
+        val archived = ArchiveStencilVersion(versionId = versionIdComposite).execute()
             ?: return ServerResponse.notFound().build()
+
+        if (!request.isHtmx()) {
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("version" to archived.id.value, "status" to "archived"))
+        }
 
         return versionListFragment(request, tenantId, stencilId)
     }
 
-    private fun versionListFragment(request: ServerRequest, tenantId: TenantId, stencilId: StencilId): ServerResponse {
-        val versions = ListStencilVersions(stencilId = stencilId).query()
-        return request.htmx {
-            fragment("stencils/detail", "versions") {
-                "tenantId" to tenantId.key
-                "stencil" to GetStencil(id = stencilId).query()
-                "versions" to versions
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.key}") }
-        }
-    }
+    // ── Draft content ──────────────────────────────────────────────────────
 
-    /** JSON endpoint for the editor: create stencil + publish first version. */
-    fun publishFromEditor(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-
-        data class PublishFromEditorRequest(
-            val slug: String,
-            val name: String,
-            val content: app.epistola.template.model.TemplateDocument,
-        )
-
-        val body = request.body(String::class.java)
-        val req = objectMapper.readValue(body, PublishFromEditorRequest::class.java)
-
-        val stencilId = StencilId(StencilKey.of(req.slug), tenantId)
-
-        // Create stencil with initial content
-        CreateStencil(
-            id = stencilId,
-            name = req.name,
-            content = req.content,
-        ).execute()
-
-        // Publish the draft (version 1)
-        val versionIdComposite = StencilVersionId(VersionKey.of(1), stencilId)
-        PublishStencilVersion(versionId = versionIdComposite).execute()
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("stencilId" to req.slug, "version" to 1))
-    }
-
-    /** JSON endpoint for the editor: save content to the stencil's draft version. */
-    fun updateFromEditor(request: ServerRequest): ServerResponse {
+    /** Save content to the current draft version (editor auto-save). */
+    fun updateDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        data class UpdateFromEditorRequest(
+        data class DraftRequest(
             val content: app.epistola.template.model.TemplateDocument,
         )
 
         val body = request.body(String::class.java)
-        val req = objectMapper.readValue(body, UpdateFromEditorRequest::class.java)
+        val req = objectMapper.readValue(body, DraftRequest::class.java)
 
-        // Ensure a draft exists (idempotent — returns existing draft if one exists)
-        val draft = CreateStencilVersion(
-            stencilId = stencilId,
-        ).execute() ?: return ServerResponse.notFound().build()
+        // Ensure a draft exists (idempotent)
+        val draft = CreateStencilVersion(stencilId = stencilId).execute()
+            ?: return ServerResponse.notFound().build()
 
         // Update the draft's content
-        val versionIdComposite = StencilVersionId(draft.id, stencilId)
-        app.epistola.suite.stencils.commands.UpdateStencilDraft(
-            versionId = versionIdComposite,
+        UpdateStencilDraft(
+            versionId = StencilVersionId(draft.id, stencilId),
             content = req.content,
         ).execute()
 
@@ -393,20 +432,21 @@ class StencilHandler(
             .body(mapOf("version" to draft.id.value))
     }
 
-    fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
+    // ── Shared ─────────────────────────────────────────────────────────────
 
-        DeleteStencil(id = stencilId).execute()
-
-        val stencils = ListStencils(tenantId = tenantId).query()
+    private fun versionListFragment(
+        request: ServerRequest,
+        tenantId: TenantId,
+        stencilId: StencilId,
+    ): ServerResponse {
+        val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
-            fragment("stencils/list", "rows") {
+            fragment("stencils/detail", "versions") {
                 "tenantId" to tenantId.key
-                "stencils" to stencils
+                "stencil" to GetStencil(id = stencilId).query()
+                "versions" to versions
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.key}") }
         }
     }
 }
