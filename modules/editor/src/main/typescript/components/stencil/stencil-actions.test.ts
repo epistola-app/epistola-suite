@@ -424,3 +424,184 @@ describe('getLabel', () => {
     expect(label).toBe('Stencil: header v3');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Full inspector action flows (callback + engine interaction)
+// ---------------------------------------------------------------------------
+
+describe('Inspector action flows with callbacks', () => {
+  it('publish as stencil: calls callback with extracted content and updates props', async () => {
+    const callbacks = createMockCallbacks({
+      publishAsStencil: vi.fn().mockResolvedValue({ stencilId: 'new-header', version: 1 }),
+    });
+    const { engine, registry, rootSlotId } = setupEngine(callbacks);
+    const nodeId = insertStencil(engine, registry, rootSlotId);
+    const stencilSlot = getStencilSlot(engine, nodeId);
+    insertText(engine, registry, stencilSlot, 'Header content');
+
+    // Simulate what _handlePublish does (minus prompt)
+    const content = extractSubtree(engine.doc, nodeId);
+    const result = await callbacks.publishAsStencil!('new-header', 'New Header', content);
+
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId,
+      props: { ...engine.doc.nodes[nodeId].props, stencilId: result.stencilId, version: result.version, isDraft: false },
+    });
+
+    expect(callbacks.publishAsStencil).toHaveBeenCalledOnce();
+    expect(engine.doc.nodes[nodeId].props?.stencilId).toBe('new-header');
+    expect(engine.doc.nodes[nodeId].props?.version).toBe(1);
+    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
+  });
+
+  it('start editing: calls callback and sets isDraft', async () => {
+    const callbacks = createMockCallbacks({
+      startEditing: vi.fn().mockResolvedValue({ draftVersion: 2 }),
+    });
+    const { engine, registry, rootSlotId } = setupEngine(callbacks);
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, isDraft: false,
+    });
+
+    // Simulate _handleStartEditing
+    await callbacks.startEditing!('header');
+
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId,
+      props: { ...engine.doc.nodes[nodeId].props, isDraft: true },
+    });
+
+    expect(callbacks.startEditing).toHaveBeenCalledWith('header');
+    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(true);
+  });
+
+  it('save to draft: calls callback with extracted content', async () => {
+    const callbacks = createMockCallbacks({
+      updateStencil: vi.fn().mockResolvedValue({ version: 2 }),
+    });
+    const { engine, registry, rootSlotId } = setupEngine(callbacks);
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, isDraft: true,
+    });
+    const stencilSlot = getStencilSlot(engine, nodeId);
+    insertText(engine, registry, stencilSlot, 'Edited content');
+
+    // Simulate _handleSaveDraft
+    const content = extractSubtree(engine.doc, nodeId);
+    await callbacks.updateStencil!('header', content);
+
+    expect(callbacks.updateStencil).toHaveBeenCalledWith('header', expect.objectContaining({
+      modelVersion: 1,
+      root: expect.any(String),
+    }));
+  });
+
+  it('upgrade: replaces content and updates version', async () => {
+    const newContent = createSampleContent();
+    const callbacks = createMockCallbacks({
+      getStencilVersion: vi.fn().mockResolvedValue({
+        stencilId: 'header',
+        stencilName: 'Header',
+        version: 3,
+        content: newContent,
+      }),
+    });
+    const { engine, registry, rootSlotId } = setupEngine(callbacks);
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, isDraft: false,
+    });
+    const stencilSlot = getStencilSlot(engine, nodeId);
+    insertText(engine, registry, stencilSlot, 'Old content');
+
+    // Simulate _handleUpgrade: remove old content, insert new, update props
+    const versionInfo = await callbacks.getStencilVersion!('header', 3);
+
+    // Remove old children
+    while (engine.doc.slots[stencilSlot].children.length > 0) {
+      engine.dispatch({ type: 'RemoveNode', nodeId: engine.doc.slots[stencilSlot].children[0] });
+    }
+
+    // Insert re-keyed new content
+    const reKeyed = reKeyContent(versionInfo!.content);
+    for (const childId of reKeyed.childNodeIds) {
+      const childNode = reKeyed.nodes.find((n) => n.id === childId)!;
+      const ownSlots = reKeyed.slots.filter((s) => s.nodeId === childId);
+      const descNodes = reKeyed.nodes.filter((n) => n.id !== childId);
+      engine.dispatch({
+        type: 'InsertNode',
+        node: childNode,
+        slots: ownSlots,
+        targetSlotId: stencilSlot,
+        index: -1,
+        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
+      });
+    }
+
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId,
+      props: { ...engine.doc.nodes[nodeId].props, version: 3 },
+    });
+
+    expect(callbacks.getStencilVersion).toHaveBeenCalledWith('header', 3);
+    expect(engine.doc.nodes[nodeId].props?.version).toBe(3);
+    // New content present
+    const newChildren = engine.doc.slots[stencilSlot].children;
+    expect(newChildren.length).toBeGreaterThan(0);
+    const textNodes = newChildren
+      .map((id) => engine.doc.nodes[id])
+      .filter((n) => n?.type === 'text' && n?.props?.content === 'Sample');
+    expect(textNodes).toHaveLength(1);
+  });
+
+  it('publish draft: saves content then publishes', async () => {
+    const callbacks = createMockCallbacks({
+      updateStencil: vi.fn().mockResolvedValue({ version: 2 }),
+      publishDraft: vi.fn().mockResolvedValue({ version: 2 }),
+    });
+    const { engine, registry, rootSlotId } = setupEngine(callbacks);
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, isDraft: true,
+    });
+    const stencilSlot = getStencilSlot(engine, nodeId);
+    insertText(engine, registry, stencilSlot, 'Draft content');
+
+    // Simulate _handlePublishDraft: save then publish
+    const content = extractSubtree(engine.doc, nodeId);
+    await callbacks.updateStencil!('header', content);
+    const result = await callbacks.publishDraft!('header', 2);
+
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId,
+      props: { ...engine.doc.nodes[nodeId].props, version: result.version, isDraft: false },
+    });
+
+    expect(callbacks.updateStencil).toHaveBeenCalledOnce();
+    expect(callbacks.publishDraft).toHaveBeenCalledWith('header', 2);
+    expect(engine.doc.nodes[nodeId].props?.version).toBe(2);
+    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
+  });
+
+  it('callback failure does not corrupt engine state', async () => {
+    const callbacks = createMockCallbacks({
+      startEditing: vi.fn().mockRejectedValue(new Error('Server error')),
+    });
+    const { engine, registry, rootSlotId } = setupEngine(callbacks);
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, isDraft: false,
+    });
+
+    // Simulate _handleStartEditing with failure
+    try {
+      await callbacks.startEditing!('header');
+    } catch {
+      // Error caught — engine state should NOT have changed
+    }
+
+    expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
+    expect(engine.doc.nodes[nodeId].props?.version).toBe(1);
+  });
+});
