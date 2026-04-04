@@ -153,12 +153,12 @@
                                     <td th:text="${u.instanceCount}"></td>
                                     <td class="actions">
                                         <th:block th:if="${u.versionStatus == 'draft' and auth.has('TEMPLATE_EDIT')}">
-                                            <th:block th:with="latestPublished=${versions.?[status.name() == 'PUBLISHED'].^[id.value > u.stencilVersion]}">
-                                                <button th:if="${latestPublished != null and latestPublished.id.value > u.stencilVersion}"
+                                            <th:block th:with="latestPublishedVer=${versions.?[status.name() == 'PUBLISHED'].isEmpty() ? null : versions.?[status.name() == 'PUBLISHED'].get(0).id}">
+                                                <button th:if="${latestPublishedVer != null and latestPublishedVer > u.stencilVersion}"
                                                         type="button"
                                                         class="btn btn-sm btn-primary"
-                                                        th:attr="onclick='upgradeStencilInTemplate(this, \'' + ${u.templateId} + '\', \'' + ${u.variantId} + '\', ' + ${latestPublished.id} + ')'">
-                                                    Upgrade to v<span th:text="${latestPublished.id}"></span>
+                                                        th:attr="onclick='upgradeStencilInTemplate(this, \'' + ${u.templateId} + '\', \'' + ${u.variantId} + '\', ' + ${latestPublishedVer} + ')'">
+                                                    Upgrade to v<span th:text="${latestPublishedVer}"></span>
                                                 </button>
                                             </th:block>
                                         </th:block>
