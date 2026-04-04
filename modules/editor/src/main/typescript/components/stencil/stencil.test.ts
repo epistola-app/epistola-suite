@@ -389,6 +389,111 @@ describe('Multiple stencils on one page', () => {
     expect(engine.doc.slots[slot1].children).not.toContain(text2);
     expect(engine.doc.slots[slot2].children).not.toContain(text1);
   });
+
+  it('can add content to a published stencil after setting isDraft=true', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+
+    // Stencil is locked (isDraft defaults to false)
+    expect(engine.doc.nodes[stencilNodeId].props?.isDraft).toBeFalsy();
+
+    // Simulate "Start Editing"
+    const result = engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: stencilNodeId,
+      props: { ...engine.doc.nodes[stencilNodeId].props, isDraft: true },
+    });
+    expect(result.ok).toBe(true);
+    expect(engine.doc.nodes[stencilNodeId].props?.isDraft).toBe(true);
+
+    // Now add content — should work
+    const stencilSlot = getStencilSlot(engine, stencilNodeId);
+    const textId = insertText(engine, registry, stencilSlot, 'New content');
+    expect(engine.doc.slots[stencilSlot].children).toContain(textId);
+  });
+
+  it('published stencil with content: verify slot structure is intact', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+
+    const node = engine.doc.nodes[stencilNodeId];
+    // Node should have exactly one slot
+    expect(node.slots).toHaveLength(1);
+
+    const slot = engine.doc.slots[node.slots[0]];
+    // Slot should exist and reference the stencil node
+    expect(slot).toBeDefined();
+    expect(slot.nodeId).toBe(stencilNodeId);
+    expect(slot.name).toBe('children');
+    // Should have 2 children from the sample content (text + container)
+    expect(slot.children).toHaveLength(2);
+
+    // All children should exist as nodes in the document
+    for (const childId of slot.children) {
+      expect(engine.doc.nodes[childId]).toBeDefined();
+    }
+  });
+
+  it('two instances of the same stencil have independent node trees', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const s1 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+    const s2 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header', version: 1, _content: content,
+    });
+
+    const slot1 = engine.doc.slots[getStencilSlot(engine, s1)];
+    const slot2 = engine.doc.slots[getStencilSlot(engine, s2)];
+
+    // Both have children but none are shared
+    expect(slot1.children.length).toBeGreaterThan(0);
+    expect(slot2.children.length).toBeGreaterThan(0);
+
+    for (const childId of slot1.children) {
+      expect(slot2.children).not.toContain(childId);
+    }
+
+    // Check ALL nodes in both subtrees are independent
+    const collectDescendants = (nodeId: NodeId): Set<string> => {
+      const ids = new Set<string>();
+      ids.add(nodeId as string);
+      const node = engine.doc.nodes[nodeId];
+      if (!node) return ids;
+      for (const sid of node.slots) {
+        const slot = engine.doc.slots[sid];
+        if (!slot) continue;
+        ids.add(sid as string);
+        for (const cid of slot.children) {
+          for (const id of collectDescendants(cid)) ids.add(id);
+        }
+      }
+      return ids;
+    };
+
+    const tree1 = collectDescendants(s1);
+    const tree2 = collectDescendants(s2);
+
+    // No overlap except for the root slot/document level
+    for (const id of tree1) {
+      if (id === (s1 as string)) continue;
+      expect(tree2.has(id)).toBe(false);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
