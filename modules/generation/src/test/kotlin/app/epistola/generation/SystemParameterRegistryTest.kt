@@ -31,18 +31,6 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `registry contains pageOfTotal descriptor`() {
-        val descriptors = SystemParameterRegistry.all()
-
-        val pageOfTotal = descriptors.find { it.path == "page.pageOfTotal" }
-        assertTrue(pageOfTotal != null, "page.pageOfTotal descriptor should be registered")
-        assertEquals("string", pageOfTotal.type)
-        assertEquals(SystemParamScope.PAGE_SCOPED, pageOfTotal.scope)
-        assertEquals("sys.page.pageOfTotal", pageOfTotal.fullPath)
-        assertEquals("1 of 1", pageOfTotal.mockValue)
-    }
-
-    @Test
     fun `fullPath includes sys prefix`() {
         val descriptor = SystemParameterDescriptor(
             path = "page.total",
@@ -100,7 +88,6 @@ class SystemParameterRegistryTest {
         val page = result["page"] as Map<String, Any?>
         assertEquals(5, page["number"])
         assertEquals(10, page["total"])
-        assertEquals("5 of 10", page["pageOfTotal"])
     }
 
     @Test

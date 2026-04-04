@@ -59,15 +59,6 @@ object SystemParameterRegistry {
                 mockValue = 1,
             ),
         )
-        register(
-            SystemParameterDescriptor(
-                path = "page.pageOfTotal",
-                description = "Page number and total in format '1 of 5'. Available in page headers/footers only.",
-                type = "string",
-                scope = SystemParamScope.PAGE_SCOPED,
-                mockValue = "1 of 1",
-            ),
-        )
     }
 
     fun register(descriptor: SystemParameterDescriptor) {
@@ -96,7 +87,6 @@ object SystemParameterRegistry {
         mapOf(
             "page.number" to pageNumber,
             "page.total" to totalPages,
-            "page.pageOfTotal" to "$pageNumber of $totalPages",
         ),
     )
 

@@ -901,8 +901,8 @@ class DirectPdfRendererTest {
     }
 
     @Test
-    fun `footer with pageOfTotal shows correct total on all pages with page breaks`() {
-        // Create footer with pageOfTotal expression
+    fun `footer with page number and total shows correct total on all pages with page breaks`() {
+        // Create footer with composed page number + total expression
         val footerText = Node(
             id = "footer-text",
             type = "text",
@@ -915,7 +915,12 @@ class DirectPdfRendererTest {
                             "content" to listOf(
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.page.pageOfTotal"),
+                                    "attrs" to mapOf("expression" to "sys.page.number"),
+                                ),
+                                mapOf("type" to "text", "text" to "/"),
+                                mapOf(
+                                    "type" to "expression",
+                                    "attrs" to mapOf("expression" to "sys.page.total"),
                                 ),
                             ),
                         ),
@@ -991,10 +996,10 @@ class DirectPdfRendererTest {
         val pdfBytes = output.toByteArray()
         val extracted = PdfContentExtractor.extract(pdfBytes)
 
-        // Expected: all 3 pages should show "1 of 3", "2 of 3", "3 of 3"
-        // The bug would show: "1 of 2", "2 of 3", "3 of 4" (or similar incorrect values)
-        assertTrue(extracted.contains("1 of 3"), "Page 1 should show '1 of 3' but got:\n$extracted")
-        assertTrue(extracted.contains("2 of 3"), "Page 2 should show '2 of 3' but got:\n$extracted")
-        assertTrue(extracted.contains("3 of 3"), "Page 3 should show '3 of 3' but got:\n$extracted")
+        // Expected: all 3 pages should show "1/3", "2/3", "3/3"
+        // The bug would show: "1/2", "2/3", "3/4" (or similar incorrect values)
+        assertTrue(extracted.contains("1/3"), "Page 1 should show '1/3' but got:\n$extracted")
+        assertTrue(extracted.contains("2/3"), "Page 2 should show '2/3' but got:\n$extracted")
+        assertTrue(extracted.contains("3/3"), "Page 3 should show '3/3' but got:\n$extracted")
     }
 }

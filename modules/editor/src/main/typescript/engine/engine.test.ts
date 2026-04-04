@@ -2083,8 +2083,6 @@ describe('fieldPaths', () => {
 // ---------------------------------------------------------------------------
 
 describe('getExampleData', () => {
-  // const systemMockData = { sys: { page: { number: 1, total: 1, pageOfTotal: '1 of 1' } } };
-
   it('returns system mock data when no examples are set', () => {
     const registry = testRegistry();
     const doc = createTestDocument();

@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Page total in PDF header and footer**: New system parameters `sys.page.total` (total pages) and `sys.page.pageOfTotal` ("1 of 5" format) for PDF header and footer.
+- **Page total in PDF header and footer**: New system parameter `sys.page.total` (total pages) for PDF header and footer. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`.
 
 ### Changed
 

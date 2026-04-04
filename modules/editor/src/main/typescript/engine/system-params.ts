@@ -25,13 +25,6 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     system: true,
     description: 'Total number of pages. Available in page headers/footers only.',
   },
-  {
-    path: 'sys.page.pageOfTotal',
-    type: 'string',
-    system: true,
-    description:
-      "Page number and total in format '1 of 5'. Available in page headers/footers only.",
-  },
 ];
 
 /**
@@ -46,7 +39,6 @@ export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
     page: {
       number: 1,
       total: TOTAL_PAGES,
-      pageOfTotal: `1 of ${TOTAL_PAGES}`,
     },
   },
 };
