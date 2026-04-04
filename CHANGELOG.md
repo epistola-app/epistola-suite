@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Page total in PDF header and footer**: New system parameter `sys.page.total` (total pages) for PDF header and footer. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`.
+
 ### Changed
 
 - **Navigation: grouped dropdowns**: Replaced 12 flat header links with 4 grouped dropdown menus (Authoring, Resources, Operations, Settings). Includes keyboard navigation (arrow keys, Escape), ARIA attributes, and responsive mobile overlay menu with hamburger toggle.

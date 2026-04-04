@@ -70,11 +70,12 @@ class RenderContextTest {
     @Test
     fun `withPageParams injects page number`() {
         val context = createContext()
-        val pageContext = context.withPageParams(5)
+        val pageContext = context.withPageParams(5, 10)
 
         @Suppress("UNCHECKED_CAST")
         val page = pageContext.systemParams["page"] as Map<String, Any?>
         assertEquals(5, page["number"])
+        assertEquals(10, page["total"])
     }
 
     @Test
@@ -82,20 +83,21 @@ class RenderContextTest {
         val context = createContext(
             systemParams = mapOf("existing" to "value"),
         )
-        val pageContext = context.withPageParams(2)
+        val pageContext = context.withPageParams(2, 5)
 
         assertEquals("value", pageContext.systemParams["existing"])
 
         @Suppress("UNCHECKED_CAST")
         val page = pageContext.systemParams["page"] as Map<String, Any?>
         assertEquals(2, page["number"])
+        assertEquals(5, page["total"])
     }
 
     @Test
     fun `withPageParams creates independent context copy`() {
         val context = createContext()
-        val page1 = context.withPageParams(1)
-        val page2 = context.withPageParams(2)
+        val page1 = context.withPageParams(1, 3)
+        val page2 = context.withPageParams(2, 3)
 
         @Suppress("UNCHECKED_CAST")
         val p1 = page1.systemParams["page"] as Map<String, Any?>
@@ -103,13 +105,15 @@ class RenderContextTest {
         @Suppress("UNCHECKED_CAST")
         val p2 = page2.systemParams["page"] as Map<String, Any?>
         assertEquals(1, p1["number"])
+        assertEquals(3, p1["total"])
         assertEquals(2, p2["number"])
+        assertEquals(3, p2["total"])
     }
 
     @Test
     fun `effectiveData with withPageParams works end-to-end`() {
         val context = createContext(data = mapOf("greeting" to "Hello"))
-        val pageContext = context.withPageParams(7)
+        val pageContext = context.withPageParams(7, 20)
 
         val effective = pageContext.effectiveData
         assertEquals("Hello", effective["greeting"])
@@ -120,5 +124,6 @@ class RenderContextTest {
         @Suppress("UNCHECKED_CAST")
         val page = sys["page"] as Map<String, Any?>
         assertEquals(7, page["number"])
+        assertEquals(20, page["total"])
     }
 }

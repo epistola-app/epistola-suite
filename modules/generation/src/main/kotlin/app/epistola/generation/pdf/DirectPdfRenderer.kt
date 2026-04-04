@@ -4,6 +4,7 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
+import app.epistola.template.model.Node
 import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.TemplateDocument
@@ -61,28 +62,213 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
-        val writer = PdfWriter(outputStream)
-        val pdfDocument = if (pdfaCompliant) {
-            val outputIntent = createSrgbOutputIntent()
-            PdfADocument(writer, PdfAConformance.PDF_A_2B, outputIntent)
+        val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
+        val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
+        val hasHeaderFooter = headerNode != null || footerNode != null
+
+        if (hasHeaderFooter) {
+            renderTwoPass(
+                document = document,
+                data = data,
+                outputStream = outputStream,
+                blockStylePresets = blockStylePresets,
+                resolvedDocumentStyles = resolvedDocumentStyles,
+                metadata = metadata,
+                pdfaCompliant = pdfaCompliant,
+                assetResolver = assetResolver,
+                renderingDefaults = renderingDefaults,
+                spacingUnit = spacingUnit,
+                headerNode = headerNode,
+                footerNode = footerNode,
+            )
         } else {
-            PdfDocument(writer)
+            renderSinglePass(
+                document = document,
+                data = data,
+                outputStream = outputStream,
+                blockStylePresets = blockStylePresets,
+                resolvedDocumentStyles = resolvedDocumentStyles,
+                metadata = metadata,
+                pdfaCompliant = pdfaCompliant,
+                assetResolver = assetResolver,
+                renderingDefaults = renderingDefaults,
+                spacingUnit = spacingUnit,
+            )
         }
+    }
 
-        // Set document metadata
-        applyMetadata(pdfDocument, metadata)
-
-        // Resolve page settings: template override, or versioned default
+    private fun renderSinglePass(
+        document: TemplateDocument,
+        data: Map<String, Any?>,
+        outputStream: OutputStream,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        resolvedDocumentStyles: DocumentStyles?,
+        metadata: PdfMetadata,
+        pdfaCompliant: Boolean,
+        assetResolver: AssetResolver?,
+        renderingDefaults: RenderingDefaults,
+        spacingUnit: Float,
+    ) {
         val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
-        val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
-        val iTextDocument = Document(pdfDocument, pageSize)
-
-        // Resolve document styles: caller-provided (pre-merged theme+template), or template override, or empty
         val effectiveDocumentStyles = resolvedDocumentStyles
             ?: document.documentStylesOverride
             ?: emptyMap()
 
-        // Create render context
+        performRender(
+            outputStream = outputStream,
+            data = data,
+            effectiveDocumentStyles = effectiveDocumentStyles,
+            headerNode = null,
+            footerNode = null,
+            document = document,
+            metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
+            pageSettings = pageSettings,
+            topMargin = 0f,
+            bottomMargin = 0f,
+            rightMargin = pageSettings.margins.right.toFloat(),
+            leftMargin = pageSettings.margins.left.toFloat(),
+            blockStylePresets = blockStylePresets,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
+        )
+    }
+
+    private fun renderTwoPass(
+        document: TemplateDocument,
+        data: Map<String, Any?>,
+        outputStream: OutputStream,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        resolvedDocumentStyles: DocumentStyles?,
+        metadata: PdfMetadata,
+        pdfaCompliant: Boolean,
+        assetResolver: AssetResolver?,
+        renderingDefaults: RenderingDefaults,
+        spacingUnit: Float,
+        headerNode: Node?,
+        footerNode: Node?,
+    ) {
+        val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
+        val margins = pageSettings.margins
+        val effectiveDocumentStyles = resolvedDocumentStyles
+            ?: document.documentStylesOverride
+            ?: emptyMap()
+
+        val heightFontCache = FontCache(pdfaCompliant)
+        val heightTipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
+        val heightContext = RenderContext(
+            data = data,
+            loopContext = emptyMap(),
+            documentStyles = effectiveDocumentStyles,
+            expressionEvaluator = expressionEvaluator,
+            tipTapConverter = heightTipTapConverter,
+            defaultExpressionLanguage = defaultExpressionLanguage,
+            fontCache = heightFontCache,
+            blockStylePresets = blockStylePresets,
+            document = document,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
+        )
+
+        val headerHeight = headerNode?.let {
+            parseNodeHeight(it, heightContext) ?: renderingDefaults.pageHeaderHeight
+        } ?: 0f
+        val footerHeight = footerNode?.let {
+            parseNodeHeight(it, heightContext) ?: renderingDefaults.pageFooterHeight
+        } ?: 0f
+
+        val topMargin = margins.top.toFloat() +
+            if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
+        val bottomMargin = margins.bottom.toFloat() +
+            if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
+
+        val firstPassFontCache = FontCache(pdfaCompliant)
+        val firstPassTipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
+        val firstPassContext = RenderContext(
+            data = data,
+            loopContext = emptyMap(),
+            documentStyles = effectiveDocumentStyles,
+            expressionEvaluator = expressionEvaluator,
+            tipTapConverter = firstPassTipTapConverter,
+            defaultExpressionLanguage = defaultExpressionLanguage,
+            fontCache = firstPassFontCache,
+            blockStylePresets = blockStylePresets,
+            document = document,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
+        )
+
+        val tempOutput = java.io.ByteArrayOutputStream()
+        val totalPages = performRenderWithContext(
+            outputStream = tempOutput,
+            context = firstPassContext,
+            headerNode = headerNode,
+            footerNode = footerNode,
+            document = document,
+            metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
+            pageSettings = pageSettings,
+            topMargin = topMargin,
+            bottomMargin = bottomMargin,
+            rightMargin = margins.right.toFloat(),
+            leftMargin = margins.left.toFloat(),
+        )
+
+        val finalFontCache = FontCache(pdfaCompliant)
+        val finalTipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
+        val finalContext = RenderContext(
+            data = data,
+            loopContext = emptyMap(),
+            documentStyles = effectiveDocumentStyles,
+            expressionEvaluator = expressionEvaluator,
+            tipTapConverter = finalTipTapConverter,
+            defaultExpressionLanguage = defaultExpressionLanguage,
+            fontCache = finalFontCache,
+            blockStylePresets = blockStylePresets,
+            document = document,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
+        ).withTotalPages(totalPages)
+
+        performRenderWithContext(
+            outputStream = outputStream,
+            context = finalContext,
+            headerNode = headerNode,
+            footerNode = footerNode,
+            document = document,
+            metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
+            pageSettings = pageSettings,
+            topMargin = topMargin,
+            bottomMargin = bottomMargin,
+            rightMargin = margins.right.toFloat(),
+            leftMargin = margins.left.toFloat(),
+        )
+    }
+
+    private fun performRender(
+        outputStream: OutputStream,
+        data: Map<String, Any?>,
+        effectiveDocumentStyles: DocumentStyles,
+        headerNode: Node?,
+        footerNode: Node?,
+        document: TemplateDocument,
+        metadata: PdfMetadata,
+        pdfaCompliant: Boolean,
+        pageSettings: app.epistola.template.model.PageSettings,
+        topMargin: Float,
+        bottomMargin: Float,
+        rightMargin: Float,
+        leftMargin: Float,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        assetResolver: AssetResolver?,
+        renderingDefaults: RenderingDefaults,
+        spacingUnit: Float,
+    ): Int {
         val fontCache = FontCache(pdfaCompliant)
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
         val context = RenderContext(
@@ -99,64 +285,66 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
         )
-
-        // Set default font on the document so all text uses embedded Liberation Sans
-        iTextDocument.setFont(fontCache.regular)
-
-        // Find special nodes (page header/footer) from the document
-        val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
-        val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
-
-        // Register page header event handler if present
-        if (headerNode != null) {
-            val headerHandler = PageHeaderEventHandler(
-                headerNodeId = headerNode.id,
-                document = document,
-                context = context,
-                registry = nodeRendererRegistry,
-            )
-            pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, headerHandler)
-        }
-
-        // Register page footer event handler if present
-        if (footerNode != null) {
-            val footerHandler = PageFooterEventHandler(
-                footerNodeId = footerNode.id,
-                document = document,
-                context = context,
-                registry = nodeRendererRegistry,
-            )
-            pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, footerHandler)
-        }
-
-        // Apply margins from page settings, reserving extra space for header/footer
-        val margins = pageSettings.margins
-        val headerHeight = headerNode?.let {
-            parseNodeHeight(it, context) ?: renderingDefaults.pageHeaderHeight
-        } ?: 0f
-        val footerHeight = footerNode?.let {
-            parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
-        } ?: 0f
-        val topMargin = margins.top.toFloat() +
-            if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
-        val bottomMargin = margins.bottom.toFloat() +
-            if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
-        iTextDocument.setMargins(
-            topMargin,
-            margins.right.toFloat(),
-            bottomMargin,
-            margins.left.toFloat(),
+        return performRenderWithContext(
+            outputStream = outputStream,
+            context = context,
+            headerNode = headerNode,
+            footerNode = footerNode,
+            document = document,
+            metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
+            pageSettings = pageSettings,
+            topMargin = topMargin,
+            bottomMargin = bottomMargin,
+            rightMargin = rightMargin,
+            leftMargin = leftMargin,
         )
+    }
 
-        // Render content: start from the root node.
-        // The root node renderer will traverse its slots, which contain the content nodes.
-        // Page header/footer nodes are excluded from content flow because they are registered
-        // as no-op renderers (PageHeaderNodeRenderer / PageFooterNodeRenderer) -- they only
-        // render via event handlers. They are typically not children of the root slot anyway,
-        // but in case they are, the no-op renderers ensure they produce no elements.
+    private fun performRenderWithContext(
+        outputStream: OutputStream,
+        context: RenderContext,
+        headerNode: Node?,
+        footerNode: Node?,
+        document: TemplateDocument,
+        metadata: PdfMetadata,
+        pdfaCompliant: Boolean,
+        pageSettings: app.epistola.template.model.PageSettings,
+        topMargin: Float,
+        bottomMargin: Float,
+        rightMargin: Float,
+        leftMargin: Float,
+    ): Int {
+        val writer = PdfWriter(outputStream)
+        val pdfDocument = createPdfDocument(writer, pdfaCompliant)
+        applyMetadata(pdfDocument, metadata)
+
+        val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
+        val iTextDocument = Document(pdfDocument, pageSize)
+        iTextDocument.setFont(context.fontCache.regular)
+        iTextDocument.setMargins(topMargin, rightMargin, bottomMargin, leftMargin)
+
+        val headerHandler = headerNode?.let {
+            PageHeaderEventHandler(
+                headerNodeId = it.id,
+                document = document,
+                context = context,
+                registry = nodeRendererRegistry,
+            )
+        }
+        val footerHandler = footerNode?.let {
+            PageFooterEventHandler(
+                footerNodeId = it.id,
+                document = document,
+                context = context,
+                registry = nodeRendererRegistry,
+            )
+        }
+
+        headerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
+        footerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
+
         val elements = nodeRendererRegistry.renderNode(document.root, document, context)
-
-        // Add elements to document
         for (element in elements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> iTextDocument.add(element)
@@ -165,8 +353,16 @@ class DirectPdfRenderer(
             }
         }
 
-        // Close document (flushes to output stream)
+        val totalPages = pdfDocument.numberOfPages
         iTextDocument.close()
+        return totalPages
+    }
+
+    private fun createPdfDocument(writer: PdfWriter, pdfaCompliant: Boolean): PdfDocument = if (pdfaCompliant) {
+        val outputIntent = createSrgbOutputIntent()
+        PdfADocument(writer, PdfAConformance.PDF_A_2B, outputIntent)
+    } else {
+        PdfDocument(writer)
     }
 
     private fun createSrgbOutputIntent(): PdfOutputIntent {
