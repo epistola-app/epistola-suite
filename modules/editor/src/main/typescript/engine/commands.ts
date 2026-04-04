@@ -365,8 +365,14 @@ function applyRemoveNode(
   // Capture the removed subtree for undo
   const removedNodes: Node[] = [];
   const removedSlots: Slot[] = [];
-  for (const id of nodeIdsToRemove) removedNodes.push(doc.nodes[id]);
-  for (const id of slotIdsToRemove) removedSlots.push(doc.slots[id]);
+  for (const id of nodeIdsToRemove) {
+    const n = doc.nodes[id];
+    if (n) removedNodes.push(n);
+  }
+  for (const id of slotIdsToRemove) {
+    const s = doc.slots[id];
+    if (s) removedSlots.push(s);
+  }
 
   // Find index in parent slot
   const indexInParent = parentSlot.children.indexOf(cmd.nodeId);
