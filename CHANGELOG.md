@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-04-04
+
 ### Added
 
 - **Stencils domain model**: New `stencils` package in epistola-core with full CQRS implementation for reusable template components. Includes `Stencil` and `StencilVersion` entities, version lifecycle (draft/publish/archive), usage tracking across templates, and no-nesting validation at publish time.
@@ -13,6 +15,10 @@
 - **Resource exchange design**: Design document for exchanging templates between Epistola instances via externally hosted catalogs. Defines the catalog protocol (manifest + detail URL format), content hashing for version detection, and upgrade strategy with local change protection.
 - **Catalog module (Phase 1)**: New `epistola-catalog` module for importing templates from remote catalogs. Register a catalog URL, browse available templates, and install them. Includes catalog entity, HTTP client, CQRS commands/queries, and settings UI.
 - **Shared testing module**: New `modules/testing` module consolidating test infrastructure (Testcontainers, IntegrationTestBase, Scenario DSL, TestFixture DSL, TestIdHelpers) previously duplicated across modules.
+
+### Fixed
+
+- **Data contract editor remount on boosted navigation**: Fixed editor not remounting when navigating between templates via HTMX boost.
 
 ## [0.11.0] - 2026-04-02
 
