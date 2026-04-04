@@ -44,19 +44,23 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       version: null,
     },
 
-    renderCanvas: ({ node }) => {
+    renderCanvas: ({ node, renderSlot }) => {
       const stencilId = node.props?.stencilId as string | null;
       const version = node.props?.version as number | null;
 
-      if (!stencilId) {
-        return html`<div class="canvas-stencil-badge canvas-stencil-badge--unpublished">
-          <span class="canvas-stencil-badge-label">Unpublished stencil</span>
-        </div>`;
-      }
+      const badgeLabel = stencilId
+        ? `${stencilId} v${version ?? '?'}`
+        : 'Unpublished stencil';
+      const badgeClass = stencilId
+        ? 'canvas-stencil-badge'
+        : 'canvas-stencil-badge canvas-stencil-badge--unpublished';
 
-      return html`<div class="canvas-stencil-badge">
-        <span class="canvas-stencil-badge-label">${stencilId} v${version ?? '?'}</span>
-      </div>`;
+      return html`
+        <div class="${badgeClass}">
+          <span class="canvas-stencil-badge-label">${badgeLabel}</span>
+        </div>
+        ${node.slots.map((slotId) => renderSlot(slotId))}
+      `;
     },
 
     renderInspector: ({ node, engine: eng }) => {
