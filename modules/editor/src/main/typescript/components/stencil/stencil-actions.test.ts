@@ -41,9 +41,7 @@ function createMockCallbacks(overrides?: Partial<StencilCallbacks>): StencilCall
 
 function setupEngine(callbacks?: StencilCallbacks) {
   const registry = createDefaultRegistry();
-  registry.register(
-    createStencilDefinition({ callbacks: callbacks ?? createMockCallbacks() }),
-  );
+  registry.register(createStencilDefinition({ callbacks: callbacks ?? createMockCallbacks() }));
   const doc = createTestDocument();
   const engine = new EditorEngine(doc, registry);
   const rootSlotId = doc.nodes[doc.root].slots[0];
@@ -273,7 +271,9 @@ describe('Stencil props state transitions', () => {
   it('start editing: sets isDraft=true', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
 
     engine.dispatch({
@@ -288,7 +288,9 @@ describe('Stencil props state transitions', () => {
   it('publish draft: sets version to new, isDraft=false', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: true,
+      stencilId: 'header',
+      version: 1,
+      isDraft: true,
     });
 
     engine.dispatch({
@@ -304,7 +306,9 @@ describe('Stencil props state transitions', () => {
   it('discard: sets isDraft=false, keeps original version', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: true,
+      stencilId: 'header',
+      version: 1,
+      isDraft: true,
     });
 
     engine.dispatch({
@@ -320,7 +324,9 @@ describe('Stencil props state transitions', () => {
   it('upgrade: sets version to latest', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
 
     engine.dispatch({
@@ -335,7 +341,9 @@ describe('Stencil props state transitions', () => {
   it('detach: clears stencilId, version, isDraft', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
 
     engine.dispatch({
@@ -371,7 +379,9 @@ describe('getLabel', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 2, isDraft: false,
+      stencilId: 'header',
+      version: 2,
+      isDraft: false,
     });
 
     const def = registry.get('stencil');
@@ -384,7 +394,9 @@ describe('getLabel', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: true,
+      stencilId: 'header',
+      version: 1,
+      isDraft: true,
     });
 
     const def = registry.get('stencil');
@@ -397,7 +409,9 @@ describe('getLabel', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
 
     // Set upgrade state
@@ -413,7 +427,9 @@ describe('getLabel', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 3, isDraft: false,
+      stencilId: 'header',
+      version: 3,
+      isDraft: false,
     });
 
     engine.setComponentState('stencil:upgrades', { header: 3 });
@@ -446,7 +462,12 @@ describe('Inspector action flows with callbacks', () => {
     engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId,
-      props: { ...engine.doc.nodes[nodeId].props, stencilId: result.stencilId, version: result.version, isDraft: false },
+      props: {
+        ...engine.doc.nodes[nodeId].props,
+        stencilId: result.stencilId,
+        version: result.version,
+        isDraft: false,
+      },
     });
 
     expect(callbacks.publishAsStencil).toHaveBeenCalledOnce();
@@ -461,7 +482,9 @@ describe('Inspector action flows with callbacks', () => {
     });
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const nodeId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
 
     // Simulate _handleStartEditing
@@ -483,7 +506,9 @@ describe('Inspector action flows with callbacks', () => {
     });
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const nodeId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: true,
+      stencilId: 'header',
+      version: 1,
+      isDraft: true,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     insertText(engine, registry, stencilSlot, 'Edited content');
@@ -492,10 +517,13 @@ describe('Inspector action flows with callbacks', () => {
     const content = extractSubtree(engine.doc, nodeId);
     await callbacks.updateStencil!('header', content);
 
-    expect(callbacks.updateStencil).toHaveBeenCalledWith('header', expect.objectContaining({
-      modelVersion: 1,
-      root: expect.any(String),
-    }));
+    expect(callbacks.updateStencil).toHaveBeenCalledWith(
+      'header',
+      expect.objectContaining({
+        modelVersion: 1,
+        root: expect.any(String),
+      }),
+    );
   });
 
   it('upgrade: replaces content and updates version', async () => {
@@ -510,13 +538,15 @@ describe('Inspector action flows with callbacks', () => {
     });
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const nodeId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     insertText(engine, registry, stencilSlot, 'Old content');
 
     // Simulate _handleUpgrade: remove old content, insert new, update props
-    const versionInfo = await callbacks.getStencilVersion!('header', 3);
+    const versionInfo = await callbacks.getStencilVersion('header', 3);
 
     // Remove old children
     while (engine.doc.slots[stencilSlot].children.length > 0) {
@@ -563,7 +593,9 @@ describe('Inspector action flows with callbacks', () => {
     });
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const nodeId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: true,
+      stencilId: 'header',
+      version: 1,
+      isDraft: true,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
     insertText(engine, registry, stencilSlot, 'Draft content');
@@ -591,7 +623,9 @@ describe('Inspector action flows with callbacks', () => {
     });
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const nodeId = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, isDraft: false,
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
     });
 
     // Simulate _handleStartEditing with failure

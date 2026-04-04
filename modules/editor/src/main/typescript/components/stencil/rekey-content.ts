@@ -28,10 +28,10 @@ export function reKeyContent(content: TemplateDocument): ReKeyResult {
 
   // Generate new IDs for all nodes and slots
   for (const nodeId of Object.keys(content.nodes)) {
-    nodeIdMap.set(nodeId, nanoid() as NodeId);
+    nodeIdMap.set(nodeId, nanoid());
   }
   for (const slotId of Object.keys(content.slots)) {
-    slotIdMap.set(slotId, nanoid() as SlotId);
+    slotIdMap.set(slotId, nanoid());
   }
 
   // Identify the root node and its slot — these should NOT be included in the

@@ -50,16 +50,18 @@ export class StencilInspector extends LitElement {
 
   /** Check for upgrades for this specific stencil on every selection. */
   private async _checkForUpgrades() {
-    if (!this.callbacks?.listVersions || !this._stencilId || !this._version || this._isDraft) return;
+    if (!this.callbacks?.listVersions || !this._stencilId || !this._version || this._isDraft)
+      return;
 
     try {
       const versions = await this.callbacks.listVersions(this._stencilId);
       const latestPublished = versions
         .filter((v) => v.status === 'published')
-        .sort((a, b) => b.version - a.version)[0];
+        .toSorted((a, b) => b.version - a.version)[0];
 
       if (latestPublished && latestPublished.version > this._version) {
-        const current = this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
+        const current =
+          this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
         this.engine.setComponentState('stencil:upgrades', {
           ...current,
           [this._stencilId]: latestPublished.version,
@@ -78,8 +80,12 @@ export class StencilInspector extends LitElement {
   }
 
   private get _hasUpgrade(): boolean {
-    return this._latestVersion != null && this._version != null
-      && this._latestVersion > this._version && !this._isDraft;
+    return (
+      this._latestVersion != null &&
+      this._version != null &&
+      this._latestVersion > this._version &&
+      !this._isDraft
+    );
   }
 
   private get _stencilId(): string | null {
@@ -110,9 +116,13 @@ export class StencilInspector extends LitElement {
         ${this._isUnlinked ? this._renderUnlinked() : nothing}
         ${this._isLocked ? this._renderLocked() : nothing}
         ${this._isDraft ? this._renderDraft() : nothing}
-
         ${this._message
-          ? html`<div class="inspector-field" style="font-size: var(--ep-font-size-sm); margin-top: var(--ep-space-2); color: var(--ep-color-success, #16a34a);">${this._message}</div>`
+          ? html`<div
+              class="inspector-field"
+              style="font-size: var(--ep-font-size-sm); margin-top: var(--ep-space-2); color: var(--ep-color-success, #16a34a);"
+            >
+              ${this._message}
+            </div>`
           : nothing}
       </div>
     `;
@@ -133,7 +143,9 @@ export class StencilInspector extends LitElement {
         >
           ${this._busy ? 'Publishing...' : 'Publish as Stencil'}
         </button>
-        <div style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-top: var(--ep-space-1);">
+        <div
+          style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-top: var(--ep-space-1);"
+        >
           Create a reusable stencil from this content.
         </div>
       </div>
@@ -160,7 +172,6 @@ export class StencilInspector extends LitElement {
               ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
             </button>`
           : nothing}
-
         ${this.callbacks?.startEditing
           ? html`<button
               class="btn btn-sm ${this._hasUpgrade ? 'btn-outline' : 'btn-primary'}"
@@ -172,11 +183,7 @@ export class StencilInspector extends LitElement {
             </button>`
           : nothing}
 
-        <button
-          class="btn btn-sm btn-ghost"
-          style="width: 100%;"
-          @click=${this._handleDetach}
-        >
+        <button class="btn btn-sm btn-ghost" style="width: 100%;" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
       </div>
@@ -203,7 +210,6 @@ export class StencilInspector extends LitElement {
               ${this._busy ? 'Saving...' : 'Save to Draft'}
             </button>`
           : nothing}
-
         ${this.callbacks?.publishDraft
           ? html`<button
               class="btn btn-sm btn-outline"
@@ -214,7 +220,6 @@ export class StencilInspector extends LitElement {
               ${this._busy ? 'Publishing...' : 'Publish Draft'}
             </button>`
           : nothing}
-
         ${this.callbacks?.getStencilVersion
           ? html`<button
               class="btn btn-sm btn-outline"
@@ -226,11 +231,7 @@ export class StencilInspector extends LitElement {
             </button>`
           : nothing}
 
-        <button
-          class="btn btn-sm btn-ghost"
-          style="width: 100%;"
-          @click=${this._handleDetach}
-        >
+        <button class="btn btn-sm btn-ghost" style="width: 100%;" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
       </div>
@@ -246,10 +247,22 @@ export class StencilInspector extends LitElement {
 
     try {
       const name = prompt('Stencil name:');
-      if (!name) { this._busy = false; return; }
+      if (!name) {
+        this._busy = false;
+        return;
+      }
 
-      const slug = prompt('Stencil ID (slug):', name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
-      if (!slug) { this._busy = false; return; }
+      const slug = prompt(
+        'Stencil ID (slug):',
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, ''),
+      );
+      if (!slug) {
+        this._busy = false;
+        return;
+      }
 
       const content = extractSubtree(this.engine.doc, this.node.id);
       const result = await this.callbacks.publishAsStencil(slug, name, content);
@@ -305,7 +318,10 @@ export class StencilInspector extends LitElement {
     this._message = '';
 
     try {
-      const versionInfo = await this.callbacks.getStencilVersion(this._stencilId, this._latestVersion);
+      const versionInfo = await this.callbacks.getStencilVersion(
+        this._stencilId,
+        this._latestVersion,
+      );
       if (!versionInfo) {
         this._message = 'Could not load the new version';
         return;

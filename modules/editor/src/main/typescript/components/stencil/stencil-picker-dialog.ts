@@ -20,7 +20,9 @@ export type StencilPickerResult =
   | { action: 'use-existing'; versionInfo: StencilVersionInfo }
   | null;
 
-export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<StencilPickerResult> {
+export async function openStencilPickerDialog(
+  callbacks: StencilCallbacks,
+): Promise<StencilPickerResult> {
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'stencil-picker-dialog';
@@ -147,14 +149,13 @@ export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<St
 
     function renderVersionList(versions: StencilVersionSummary[]) {
       if (versions.length === 0) {
-        versionList.innerHTML =
-          '<div class="stencil-picker-empty">No versions available.</div>';
+        versionList.innerHTML = '<div class="stencil-picker-empty">No versions available.</div>';
         return;
       }
 
       // Sort: draft first, then published (newest first), then archived
       const sorted = [...versions].sort((a, b) => {
-        const order = { draft: 0, published: 1, archived: 2 };
+        const order: Record<string, number> = { draft: 0, published: 1, archived: 2 };
         if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
         return b.version - a.version;
       });
@@ -180,7 +181,9 @@ export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<St
         `;
 
         card.addEventListener('click', () => {
-          versionList.querySelectorAll('.stencil-picker-card').forEach((c) => c.classList.remove('selected'));
+          versionList
+            .querySelectorAll('.stencil-picker-card')
+            .forEach((c) => c.classList.remove('selected'));
           card.classList.add('selected');
           selectedVersion = version;
           insertBtn.disabled = false;
@@ -246,7 +249,7 @@ export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<St
 
     closeBtn.addEventListener('click', () => close(null));
     cancelBtn.addEventListener('click', () => close(null));
-    insertBtn.addEventListener('click', () => doInsert());
+    insertBtn.addEventListener('click', async () => doInsert());
     createNewBtn.addEventListener('click', () => close({ action: 'create-new' }));
     backBtn.addEventListener('click', () => showStencilList());
 

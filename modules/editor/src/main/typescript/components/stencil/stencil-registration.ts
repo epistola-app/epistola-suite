@@ -40,7 +40,8 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
 
       const upgrades = engine.getComponentState<Record<string, number>>('stencil:upgrades');
       const latestVersion = upgrades?.[stencilId];
-      const hasUpgrade = latestVersion != null && version != null && latestVersion > version && !isDraft;
+      const hasUpgrade =
+        latestVersion != null && version != null && latestVersion > version && !isDraft;
 
       if (isDraft) return `Stencil: ${stencilId} — editing draft`;
       if (hasUpgrade) return `Stencil: ${stencilId} v${version} ⬆ v${latestVersion}`;

@@ -109,8 +109,18 @@ function createSampleStencilContent(): TemplateDocument {
       [innerTextId]: { id: innerTextId, type: 'text', slots: [], props: { content: 'Inner' } },
     } as Record<NodeId, Node>,
     slots: {
-      [rootSlot]: { id: rootSlot, nodeId: rootId, name: 'children', children: [textId, containerId] },
-      [containerSlot]: { id: containerSlot, nodeId: containerId, name: 'children', children: [innerTextId] },
+      [rootSlot]: {
+        id: rootSlot,
+        nodeId: rootId,
+        name: 'children',
+        children: [textId, containerId],
+      },
+      [containerSlot]: {
+        id: containerSlot,
+        nodeId: containerId,
+        name: 'children',
+        children: [innerTextId],
+      },
     } as Record<SlotId, Slot>,
     themeRef: { type: 'inherit' },
   };
@@ -254,9 +264,7 @@ describe('Insert stencil with content (re-keying)', () => {
 
     // Find the re-keyed text node by type and props
     const allNodes = Object.values(engine.doc.nodes);
-    const textNodes = allNodes.filter(
-      (n) => n.type === 'text' && n.props?.content === 'Hello',
-    );
+    const textNodes = allNodes.filter((n) => n.type === 'text' && n.props?.content === 'Hello');
     expect(textNodes.length).toBe(1);
 
     const innerTextNodes = allNodes.filter(
@@ -451,10 +459,14 @@ describe('Multiple stencils on one page', () => {
     const content = createSampleStencilContent();
 
     const s1 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
     const s2 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
 
     const slot1 = engine.doc.slots[getStencilSlot(engine, s1)];
@@ -633,7 +645,9 @@ describe('reKeyContent', () => {
     const content = createSampleStencilContent();
     const result = reKeyContent(content);
 
-    const containerSlot = result.slots.find((s) => s.name === 'children' && s.children.length === 1);
+    const containerSlot = result.slots.find(
+      (s) => s.name === 'children' && s.children.length === 1,
+    );
     expect(containerSlot).toBeDefined();
 
     // The child should be the re-keyed inner text node
@@ -880,10 +894,14 @@ describe('Multiple instances of the same stencil version', () => {
     const content = createSampleStencilContent();
 
     const s1 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
     const s2 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
 
     // Both reference the same stencil + version
@@ -906,10 +924,14 @@ describe('Multiple instances of the same stencil version', () => {
     const content = createSampleStencilContent();
 
     const s1 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
     const s2 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
 
     const slot1 = getStencilSlot(engine, s1);
@@ -928,20 +950,36 @@ describe('Multiple instances of the same stencil version', () => {
     const contentV1 = createSampleStencilContent();
 
     const s1 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: contentV1,
+      stencilId: 'header',
+      version: 1,
+      _content: contentV1,
     });
 
     // Simulate v2 content (different structure)
     resetCounter();
     const contentV2: TemplateDocument = {
       modelVersion: 1,
-      root: nodeId('v2-root') as NodeId,
+      root: nodeId('v2-root'),
       nodes: {
-        [nodeId('v2-root')]: { id: nodeId('v2-root-dup'), type: 'root', slots: [slotId('v2-slot')] },
-        [nodeId('v2-text')]: { id: nodeId('v2-text-dup'), type: 'text', slots: [], props: { content: 'Version 2' } },
+        [nodeId('v2-root')]: {
+          id: nodeId('v2-root-dup'),
+          type: 'root',
+          slots: [slotId('v2-slot')],
+        },
+        [nodeId('v2-text')]: {
+          id: nodeId('v2-text-dup'),
+          type: 'text',
+          slots: [],
+          props: { content: 'Version 2' },
+        },
       } as Record<NodeId, Node>,
       slots: {
-        [slotId('v2-slot-dup')]: { id: slotId('v2-slot-dup2'), nodeId: nodeId('v2-root-dup2'), name: 'children', children: [nodeId('v2-text-dup2')] },
+        [slotId('v2-slot-dup')]: {
+          id: slotId('v2-slot-dup2'),
+          nodeId: nodeId('v2-root-dup2'),
+          name: 'children',
+          children: [nodeId('v2-text-dup2')],
+        },
       } as Record<SlotId, Slot>,
       themeRef: { type: 'inherit' },
     };
@@ -949,7 +987,8 @@ describe('Multiple instances of the same stencil version', () => {
     // This is a simplified test — in practice the content would come from the backend.
     // Just verify different props can coexist.
     const s2 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 2,
+      stencilId: 'header',
+      version: 2,
     });
 
     expect(engine.doc.nodes[s1].props?.version).toBe(1);
@@ -961,10 +1000,14 @@ describe('Multiple instances of the same stencil version', () => {
     const content = createSampleStencilContent();
 
     insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
     insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
 
     // Verify no orphans
@@ -991,10 +1034,14 @@ describe('Multiple instances of the same stencil version', () => {
     const content = createSampleStencilContent();
 
     const s1 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
     const s2 = insertStencil(engine, registry, rootSlotId, {
-      stencilId: 'header', version: 1, _content: content,
+      stencilId: 'header',
+      version: 1,
+      _content: content,
     });
 
     const s2Slot = getStencilSlot(engine, s2);
