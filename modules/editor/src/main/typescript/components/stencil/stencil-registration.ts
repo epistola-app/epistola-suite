@@ -6,16 +6,21 @@
  * (stencilId + version) for tracking origin and detecting available upgrades.
  *
  * On the canvas, the stencil renders its children normally but with a visual
- * badge indicating the stencil name and version.
+ * badge indicating the stencil name and version. When stencilId is null, the
+ * stencil is "unpublished" — content lives only in the template until the user
+ * explicitly publishes it.
  */
 
 import type { ComponentDefinition } from '../../engine/registry.js';
-import type { NodeId, SlotId } from '../../types/index.js';
+import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
+import { openStencilPickerDialog } from './stencil-picker-dialog.js';
+import { reKeyContent } from './rekey-content.js';
+import { nanoid } from 'nanoid';
 import { html } from 'lit';
 
 export interface StencilOptions {
-  /** Null when stencil operations aren't wired — component still renders but insert is disabled. */
+  /** Null when stencil operations aren't wired — component still renders but browse is disabled. */
   callbacks: StencilCallbacks | null;
 }
 
@@ -42,57 +47,67 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       const version = node.props?.version as number | null;
 
       if (!stencilId) {
-        return html`<div class="canvas-stencil-empty">
-          <span>Empty stencil reference</span>
+        return html`<div class="canvas-stencil-badge canvas-stencil-badge--unpublished">
+          <span class="canvas-stencil-badge-label">Unpublished stencil</span>
         </div>`;
       }
 
-      // The children are rendered by the engine's default slot rendering.
-      // We just add a badge overlay to identify this as a stencil instance.
       return html`<div class="canvas-stencil-badge">
         <span class="canvas-stencil-badge-label">${stencilId} v${version ?? '?'}</span>
       </div>`;
     },
 
-    onBeforeInsert: options.callbacks
-      ? async () => {
-          const callbacks = options.callbacks!;
-          // Open stencil browser — search, pick a stencil and version, return props.
-          // For now, use a simple prompt. The full browser dialog is Phase 4 step 4.
-          const stencilId = prompt('Enter stencil ID:');
-          if (!stencilId) return null;
+    onBeforeInsert: async () => {
+      if (!options.callbacks) {
+        // No callbacks — create empty stencil container
+        return {};
+      }
 
-          // Fetch the latest published version
-          const summaries = await callbacks.searchStencils(stencilId);
-          const match = summaries.find((s) => s.id === stencilId);
-          if (!match || !match.latestPublishedVersion) {
-            alert(`Stencil "${stencilId}" not found or has no published version.`);
-            return null;
-          }
+      const result = await openStencilPickerDialog(options.callbacks);
+      if (!result) return null; // Cancelled
 
-          const versionInfo = await callbacks.getStencilVersion(
-            stencilId,
-            match.latestPublishedVersion,
-          );
-          if (!versionInfo) {
-            alert(`Could not load stencil version.`);
-            return null;
-          }
+      if (result.action === 'create-new') {
+        // Empty stencil — no stencilId/version yet
+        return {};
+      }
 
-          return {
-            stencilId: versionInfo.stencilId,
-            version: versionInfo.version,
-          };
-        }
-      : undefined,
+      // Use existing stencil — store content temporarily for createSubtree
+      return {
+        stencilId: result.versionInfo.stencilId,
+        version: result.versionInfo.version,
+        _content: result.versionInfo.content,
+      };
+    },
 
-    // When a stencil is inserted, copy the stencil version's content as
-    // child nodes inside this component's slot.
-    createSubtree: (nodeId: NodeId) => {
-      // createSubtree is called synchronously after onBeforeInsert returns.
-      // The actual content injection from the stencil version will be handled
-      // by the insert command in a later phase. For now, create an empty slot.
-      const slotId = `slot-${nodeId}-children` as SlotId;
+    createSubtree: (nodeId: NodeId, props?: Record<string, unknown>) => {
+      const content = props?._content as TemplateDocument | undefined;
+
+      // Remove transient _content from persisted props
+      if (props) {
+        delete props._content;
+      }
+
+      if (content) {
+        // Deep-copy the stencil version's content with fresh IDs
+        const reKeyed = reKeyContent(content);
+
+        const slotId = nanoid() as SlotId;
+        const parentSlot: Slot = {
+          id: slotId,
+          nodeId,
+          name: 'children',
+          children: reKeyed.childNodeIds,
+        };
+
+        return {
+          slots: [parentSlot],
+          extraNodes: reKeyed.nodes,
+          extraSlots: reKeyed.slots,
+        };
+      }
+
+      // Empty stencil — just create an empty slot
+      const slotId = nanoid() as SlotId;
       return {
         slots: [
           {
@@ -102,8 +117,8 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
             children: [] as NodeId[],
           },
         ],
-        extraNodes: [],
-        extraSlots: [],
+        extraNodes: [] as Node[],
+        extraSlots: [] as Slot[],
       };
     },
   };
