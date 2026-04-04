@@ -43,27 +43,53 @@ export function reKeyContent(content: TemplateDocument): ReKeyResult {
   // Re-key nodes (exclude the root node)
   const nodes: Node[] = Object.values(content.nodes)
     .filter((node) => (node.id as string) !== (content.root as string))
-    .map((node) => ({
-      ...node,
-      id: nodeIdMap.get(node.id)!,
-      slots: node.slots.map((sid) => slotIdMap.get(sid as string) ?? (sid as SlotId)),
-    }));
+    .map((node) => {
+      const newId = nodeIdMap.get(node.id as string);
+      if (!newId) throw new Error(`reKeyContent: no mapping for node ${node.id}`);
+      return {
+        ...node,
+        id: newId,
+        slots: node.slots.map((sid) => {
+          const newSid = slotIdMap.get(sid as string);
+          if (!newSid) throw new Error(`reKeyContent: no mapping for slot ${sid}`);
+          return newSid;
+        }),
+      };
+    });
 
   // Re-key slots (exclude the root's slot)
   const slots: Slot[] = Object.values(content.slots)
     .filter((slot) => (slot.id as string) !== rootSlotId)
-    .map((slot) => ({
-      ...slot,
-      id: slotIdMap.get(slot.id)!,
-      nodeId: nodeIdMap.get(slot.nodeId)!,
-      children: slot.children.map((cid) => nodeIdMap.get(cid as string) ?? (cid as NodeId)),
-    }));
+    .map((slot) => {
+      const newId = slotIdMap.get(slot.id as string);
+      if (!newId) throw new Error(`reKeyContent: no mapping for slot ${slot.id}`);
+      const newNodeId = nodeIdMap.get(slot.nodeId as string);
+      if (!newNodeId) throw new Error(`reKeyContent: no mapping for node ${slot.nodeId}`);
+      return {
+        ...slot,
+        id: newId,
+        nodeId: newNodeId,
+        children: slot.children.map((cid) => {
+          const newCid = nodeIdMap.get(cid as string);
+          if (!newCid) throw new Error(`reKeyContent: no mapping for child node ${cid}`);
+          return newCid;
+        }),
+      };
+    });
 
   // Get the root's children as the top-level children for the stencil's slot
   const rootSlot = rootSlotId ? (content.slots as Record<string, Slot>)[rootSlotId] : null;
   const childNodeIds = rootSlot
-    ? rootSlot.children.map((cid: NodeId) => nodeIdMap.get(cid as string) ?? cid)
-    : [nodeIdMap.get(content.root as string)!];
+    ? rootSlot.children.map((cid: NodeId) => {
+        const newCid = nodeIdMap.get(cid as string);
+        if (!newCid) throw new Error(`reKeyContent: no mapping for root child ${cid}`);
+        return newCid;
+      })
+    : (() => {
+        const newRoot = nodeIdMap.get(content.root as string);
+        if (!newRoot) throw new Error(`reKeyContent: no mapping for root ${content.root}`);
+        return [newRoot];
+      })();
 
   return { childNodeIds, nodes, slots };
 }

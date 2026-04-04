@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -74,8 +75,8 @@ class CreateStencilVersionHandler(
             .mapTo(Int::class.java)
             .one()
 
-        require(nextVersionId <= VersionKey.MAX_VERSION) {
-            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for stencil ${command.stencilId.key}"
+        if (nextVersionId > VersionKey.MAX_VERSION) {
+            throw ValidationException("versionId", "Maximum version limit (${VersionKey.MAX_VERSION}) reached for stencil ${command.stencilId.key}")
         }
 
         // Use provided content or copy from latest published version
@@ -94,7 +95,7 @@ class CreateStencilVersionHandler(
                 .mapTo(String::class.java)
                 .findOne()
                 .orElse(null)
-                ?: error("No content provided and no published version to copy from for stencil ${command.stencilId.key}")
+                ?: throw ValidationException("content", "No content provided and no published version to copy from for stencil ${command.stencilId.key}")
         }
 
         handle.createQuery(

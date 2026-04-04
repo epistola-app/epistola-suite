@@ -1,42 +1,7 @@
 /* ── Stencil block canvas styles ──────────────────────────────────────── */
-
-.canvas-stencil-badge {
-  display: flex;
-  align-items: center;
-  gap: var(--ep-space-2);
-  padding: var(--ep-space-1) var(--ep-space-3);
-  background-color: var(--ep-blue-50);
-  border: 1px solid var(--ep-blue-200, var(--ep-border-color));
-  border-radius: var(--ep-radius-md);
-  margin-bottom: var(--ep-space-2);
-  font-size: var(--ep-text-xs);
-  color: var(--ep-blue-700, var(--ep-foreground));
-}
-
-.canvas-stencil-badge--locked {
-  background-color: var(--ep-gray-50);
-  border-color: var(--ep-gray-300, var(--ep-border-color));
-  color: var(--ep-gray-600, var(--ep-foreground));
-}
-
-.canvas-stencil-badge--upgrade {
-  background-color: var(--ep-amber-50, #fffbeb);
-  border-color: var(--ep-amber-400, #fbbf24);
-  color: var(--ep-amber-800, #92400e);
-}
-
-.canvas-stencil-badge--draft {
-  background-color: var(--ep-amber-50, #fffbeb);
-  border-color: var(--ep-amber-300, #fcd34d);
-  color: var(--ep-amber-700, #b45309);
-}
-
-.canvas-stencil-badge--empty {
-  background-color: var(--ep-gray-50);
-  border-color: var(--ep-border-color);
-  color: var(--ep-muted-foreground);
-  border-style: dashed;
-}
+/* State info (name, version, upgrade) is in the block header via getLabel. */
+/* renderCanvas only adds a locked/content wrapper — these are the only    */
+/* canvas classes needed.                                                    */
 
 .canvas-stencil-content {
   /* Editable state — no restrictions */
@@ -46,10 +11,6 @@
   pointer-events: none;
   opacity: 0.7;
   position: relative;
-}
-
-.canvas-stencil-badge-label {
-  font-weight: 500;
 }
 
 /* ── Stencil picker dialog ───────────────────────────────────────────── */
