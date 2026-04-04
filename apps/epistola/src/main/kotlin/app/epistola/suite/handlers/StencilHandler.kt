@@ -3,6 +3,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -13,8 +14,11 @@ import app.epistola.suite.htmx.stencilId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.ArchiveStencilVersion
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.DeleteStencil
+import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilVersion
@@ -235,6 +239,57 @@ class StencilHandler(
                     "content" to version.content,
                 ),
             )
+    }
+
+    fun createVersion(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        CreateStencilVersion(stencilId = stencilId).execute()
+            ?: return ServerResponse.notFound().build()
+
+        return versionListFragment(request, tenantId, stencilId)
+    }
+
+    fun publishVersion(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val versionId = request.pathVariable("versionId").toIntOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
+
+        PublishStencilVersion(versionId = versionIdComposite).execute()
+            ?: return ServerResponse.notFound().build()
+
+        return versionListFragment(request, tenantId, stencilId)
+    }
+
+    fun archiveVersion(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val versionId = request.pathVariable("versionId").toIntOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
+
+        ArchiveStencilVersion(versionId = versionIdComposite).execute()
+            ?: return ServerResponse.notFound().build()
+
+        return versionListFragment(request, tenantId, stencilId)
+    }
+
+    private fun versionListFragment(request: ServerRequest, tenantId: TenantId, stencilId: StencilId): ServerResponse {
+        val versions = ListStencilVersions(stencilId = stencilId).query()
+        return request.htmx {
+            fragment("stencils/detail", "versions") {
+                "tenantId" to tenantId.key
+                "stencil" to GetStencil(id = stencilId).query()
+                "versions" to versions
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.key}") }
+        }
     }
 
     fun delete(request: ServerRequest): ServerResponse {

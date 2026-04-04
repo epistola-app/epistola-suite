@@ -37,36 +37,85 @@
             </div>
 
             <div class="card">
-                <div class="card-header">Versions</div>
-                <div class="card-content">
-                    <div th:if="${#lists.isEmpty(versions)}" class="text-muted" style="padding: var(--ep-space-4);">
-                        No versions yet. Content will be created in the editor.
-                    </div>
-                    <table th:if="${!#lists.isEmpty(versions)}" class="ep-table ep-table-compact">
-                        <thead>
-                            <tr>
-                                <th>Version</th>
-                                <th>Status</th>
-                                <th>Created</th>
-                                <th>Published</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="version : ${versions}">
-                                <td th:text="${version.id}"></td>
-                                <td>
-                                    <span class="badge"
-                                          th:classappend="${version.status.name() == 'PUBLISHED'} ? 'badge-success' : (${version.status.name() == 'DRAFT'} ? 'badge-warning' : 'badge-muted')"
-                                          th:text="${version.status.name().toLowerCase()}"></span>
-                                </td>
-                                <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                                <td>
-                                    <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                                    <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="card-header">
+                    <span>Versions</span>
+                </div>
+                <div class="card-content" id="version-list">
+                    <th:block th:fragment="versions">
+                        <div th:if="${#lists.isEmpty(versions)}" class="text-muted" style="padding: var(--ep-space-4);">
+                            No versions yet. Add a stencil block in the template editor to create content.
+                        </div>
+
+                        <div th:if="${!#lists.isEmpty(versions)}">
+                            <!-- New Draft button when no draft exists -->
+                            <div th:if="${auth.has('STENCIL_EDIT')}" style="margin-bottom: var(--ep-space-3);">
+                                <th:block th:unless="${#lists.isEmpty(versions)}">
+                                    <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
+                                        <form th:unless="${hasDraft}"
+                                              th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions(tenantId=${tenantId},stencilId=${stencil.id})}"
+                                              hx-target="#version-list"
+                                              hx-swap="innerHTML"
+                                              style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline">
+                                                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                                                New Draft
+                                            </button>
+                                        </form>
+                                    </th:block>
+                                </th:block>
+                            </div>
+
+                            <table class="ep-table ep-table-compact">
+                                <thead>
+                                    <tr>
+                                        <th>Version</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Published</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="version : ${versions}">
+                                        <td th:text="${version.id}"></td>
+                                        <td>
+                                            <span class="badge"
+                                                  th:classappend="${version.status.name() == 'PUBLISHED'} ? 'badge-success' : (${version.status.name() == 'DRAFT'} ? 'badge-warning' : 'badge-muted')"
+                                                  th:text="${version.status.name().toLowerCase()}"></span>
+                                        </td>
+                                        <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                                        <td>
+                                            <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                            <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                                        </td>
+                                        <td class="actions">
+                                            <!-- Publish button for drafts -->
+                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT'}"
+                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},stencilId=${stencil.id},versionId=${version.id})}"
+                                                  hx-target="#version-list"
+                                                  hx-swap="innerHTML"
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-primary" title="Publish this version">
+                                                    Publish
+                                                </button>
+                                            </form>
+                                            <!-- Archive button for published -->
+                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED'}"
+                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},stencilId=${stencil.id},versionId=${version.id})}"
+                                                  hx-target="#version-list"
+                                                  hx-swap="innerHTML"
+                                                  hx-confirm="Archive version? It will no longer be available for insertion into templates."
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-ghost" title="Archive this version">
+                                                    Archive
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </th:block>
                 </div>
             </div>
         </div>
