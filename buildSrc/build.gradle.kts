@@ -13,7 +13,7 @@ repositories {
 
 // These versions must be kept in sync with gradle/libs.versions.toml
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.10")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20")
     implementation("org.jlleitschuh.gradle:ktlint-gradle:14.2.0")
-    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.7")
+    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.8")
 }
