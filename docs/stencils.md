@@ -140,6 +140,7 @@ The `UpdateStencilInTemplate` command upgrades all instances of a stencil within
 
 - **Concurrent edits**: If two users upgrade different stencils in the same template draft simultaneously, the last write wins. This is a rare scenario — bulk upgrades are sequential, and editing a draft while a bulk upgrade runs is unlikely.
 - **No preview before upgrade**: The bulk upgrade applies immediately to drafts. A side-by-side before/after preview is planned for a future release.
+- **No structural validation of TemplateDocument content**: The editor is trusted to produce valid documents. Content saved to stencil drafts is not validated for structural integrity (valid root, consistent node/slot references, no orphans, no circular references). Only the no-nesting rule is enforced at publish time. A general-purpose `TemplateDocumentValidator` should be added in the future to catch editor bugs before they corrupt stored data.
 - **No catalogs**: Stencils are browsed directly. Named collections (catalogs) for organizing stencils are a future feature.
 
 ## API endpoints
