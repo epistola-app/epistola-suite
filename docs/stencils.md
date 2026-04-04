@@ -5,9 +5,11 @@ Stencils are versioned, reusable components that can be inserted into any templa
 ## Concepts
 
 ### Stencil
+
 A stencil is a named, reusable component with metadata (name, description, tags) and versioned content. Stencils are scoped to a tenant.
 
 ### Stencil Version
+
 Each stencil has one or more versions following the same lifecycle as template versions:
 
 - **Draft** — editable content, not yet available for insertion
@@ -17,6 +19,7 @@ Each stencil has one or more versions following the same lifecycle as template v
 At most one draft version exists per stencil at a time.
 
 ### Stencil Instance
+
 When a stencil is inserted into a template, a **copy** of the stencil version's content is placed in the template. The stencil node tracks which stencil and version it came from (`stencilId` and `version` in props), but the content itself is a regular part of the template document — fully editable and independently savable.
 
 ## Working with stencils
@@ -24,17 +27,19 @@ When a stencil is inserted into a template, a **copy** of the stencil version's 
 ### Creating a stencil
 
 **From the management page:**
+
 1. Go to Stencils in the navigation
 2. Click "New Stencil"
 3. Enter an ID (slug), name, optional description and tags
 4. The stencil is created with no versions — add content from the template editor
 
 **From the template editor:**
+
 1. Add a "Stencil" block from the palette
-2. Choose "Create New (Empty)"
-3. Add content to the stencil container
-4. In the inspector, click "Publish as Stencil" — enter name and slug
-5. The content is published as version 1
+2. Choose "Create New" — enter name and slug in the dialog
+3. The stencil entity is created on the backend with an empty draft
+4. Add content to the stencil container
+5. Click "Save to Draft" to persist, then "Publish Draft" to make it available
 
 ### Inserting an existing stencil
 
@@ -48,13 +53,13 @@ When a stencil is inserted into a template, a **copy** of the stencil version's 
 
 Stencil instances in a template have three states:
 
-| State | Block header shows | Content | Actions |
-|-------|-------------------|---------|---------|
-| **Locked** | `Stencil: header v1` | Read-only (dimmed) | Start Editing, Detach |
-| **Editing draft** | `Stencil: header — editing draft` | Fully editable | Save to Draft, Publish Draft, Discard, Detach |
-| **Unlinked** | `Stencil` | Fully editable | Publish as Stencil |
+| State             | Block header shows                | Content            | Actions                                       |
+| ----------------- | --------------------------------- | ------------------ | --------------------------------------------- |
+| **Locked**        | `Stencil: header v1`              | Read-only (dimmed) | Start Editing, Detach                         |
+| **Editing draft** | `Stencil: header — editing draft` | Fully editable     | Save to Draft, Publish Draft, Discard, Detach |
 
 **To edit a published stencil's content:**
+
 1. Click the stencil node to select it
 2. In the inspector, click "Start Editing" — this creates a draft on the backend and unlocks the content
 3. Edit the content as needed
@@ -67,11 +72,13 @@ Stencil instances in a template have three states:
 When a newer version of a stencil is published, templates using an older version see an upgrade indicator.
 
 **From the template editor:**
+
 - The block header shows `⬆ v3` when a newer version exists
 - Click the stencil, then "Upgrade to v3" in the inspector
 - Content is replaced with the new version's content
 
 **From the stencil management page:**
+
 - The stencil detail page shows a "Templates using this stencil" table
 - Select rows using checkboxes (or "Select all")
 - Choose a target version from the dropdown
@@ -92,6 +99,7 @@ Stencils cannot be nested — you cannot place a stencil inside another stencil.
 ### Data model
 
 Stencils are stored in two tables:
+
 - `stencils` — metadata (id, name, description, tags, timestamps)
 - `stencil_versions` — versioned content (version number, status, content as JSONB, timestamps)
 
@@ -107,8 +115,9 @@ A stencil instance is a node with `type: "stencil"` and a `children` slot. The s
 - PDF rendering treats stencils as containers
 
 Props on the stencil node:
-- `stencilId` — slug of the source stencil (null if unlinked)
-- `version` — version number the content was copied from (null if unlinked)
+
+- `stencilId` — slug of the source stencil
+- `version` — version number the content was copied from
 - `isDraft` — whether the user is in draft editing mode
 
 ### Editor integration
@@ -137,22 +146,22 @@ The `UpdateStencilInTemplate` command upgrades all instances of a stencil within
 
 All stencil endpoints are under `/tenants/{tenantId}/stencils` and use content negotiation — HTMX requests get Thymeleaf fragments, non-HTMX requests get JSON.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | List stencils |
-| GET | `/search` | Search stencils (HTMX fragment or JSON) |
-| POST | `/` | Create stencil (form or JSON with optional content + publish) |
-| GET | `/{id}` | Stencil detail |
-| PATCH | `/{id}` | Update metadata |
-| DELETE | `/{id}/delete` | Delete stencil |
-| PUT | `/{id}/draft` | Save content to draft |
-| GET | `/{id}/usage` | Usage details (which templates use this stencil) |
-| POST | `/{id}/upgrade` | Upgrade stencil in a specific template draft |
-| GET | `/{id}/versions` | List versions |
-| POST | `/{id}/versions` | Create version (idempotent) |
-| GET | `/{id}/versions/{v}` | Get version content |
-| POST | `/{id}/versions/{v}/publish` | Publish version |
-| POST | `/{id}/versions/{v}/archive` | Archive version |
+| Method | Path                         | Description                                                   |
+| ------ | ---------------------------- | ------------------------------------------------------------- |
+| GET    | `/`                          | List stencils                                                 |
+| GET    | `/search`                    | Search stencils (HTMX fragment or JSON)                       |
+| POST   | `/`                          | Create stencil (form or JSON with optional content + publish) |
+| GET    | `/{id}`                      | Stencil detail                                                |
+| PATCH  | `/{id}`                      | Update metadata                                               |
+| DELETE | `/{id}/delete`               | Delete stencil                                                |
+| PUT    | `/{id}/draft`                | Save content to draft                                         |
+| GET    | `/{id}/usage`                | Usage details (which templates use this stencil)              |
+| POST   | `/{id}/upgrade`              | Upgrade stencil in a specific template draft                  |
+| GET    | `/{id}/versions`             | List versions                                                 |
+| POST   | `/{id}/versions`             | Create version (idempotent)                                   |
+| GET    | `/{id}/versions/{v}`         | Get version content                                           |
+| POST   | `/{id}/versions/{v}/publish` | Publish version                                               |
+| POST   | `/{id}/versions/{v}/archive` | Archive version                                               |
 
 ## Test coverage
 

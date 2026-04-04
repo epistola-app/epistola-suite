@@ -179,7 +179,10 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   if (options.stencilOptions?.checkUpgrades) {
     const stencilRefs = Object.values(doc.nodes)
       .filter((n) => n.type === 'stencil' && n.props?.stencilId && n.props?.version)
-      .map((n) => ({ stencilId: n.props!.stencilId as string, version: n.props!.version as number }));
+      .map((n) => ({
+        stencilId: n.props!.stencilId as string,
+        version: n.props!.version as number,
+      }));
 
     if (stencilRefs.length > 0) {
       options.stencilOptions.checkUpgrades(stencilRefs).then((upgrades) => {

@@ -32,7 +32,10 @@ export async function handleDrop(
       overrideProps = result;
     }
 
-    const { node, slots, extraNodes } = engine.registry.createNode(dragData.blockType, overrideProps);
+    const { node, slots, extraNodes } = engine.registry.createNode(
+      dragData.blockType,
+      overrideProps,
+    );
     const result = engine.dispatch({
       type: 'InsertNode',
       node,
