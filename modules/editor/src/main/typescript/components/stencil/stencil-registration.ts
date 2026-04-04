@@ -33,7 +33,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     icon: 'puzzle',
     category: 'layout',
     slots: [{ name: 'children' }],
-    allowedChildren: { mode: 'all' },
+    allowedChildren: { mode: 'denylist', types: ['stencil'] },
     applicableStyles: 'all',
     inspector: [
       { key: 'stencilId', label: 'Stencil ID', type: 'text' },
@@ -44,21 +44,27 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       version: null,
     },
 
-    renderCanvas: ({ node, renderSlot }) => {
+    renderCanvas: ({ node, renderSlot, doc }) => {
       const stencilId = node.props?.stencilId as string | null;
       const version = node.props?.version as number | null;
+      const hasChildren = node.slots.length > 0 &&
+        (doc.slots[node.slots[0]]?.children?.length ?? 0) > 0;
 
-      const badgeLabel = stencilId
-        ? `${stencilId} v${version ?? '?'}`
-        : 'Unpublished stencil';
-      const badgeClass = stencilId
-        ? 'canvas-stencil-badge'
-        : 'canvas-stencil-badge canvas-stencil-badge--unpublished';
+      // Linked stencil: show badge with name + version
+      // Unlinked with content: no badge (acts like a container)
+      // Empty: show placeholder
+      const badge = stencilId
+        ? html`<div class="canvas-stencil-badge">
+            <span class="canvas-stencil-badge-label">${stencilId} v${version ?? '?'}</span>
+          </div>`
+        : !hasChildren
+          ? html`<div class="canvas-stencil-badge canvas-stencil-badge--empty">
+              <span class="canvas-stencil-badge-label">Stencil — add content</span>
+            </div>`
+          : html``;
 
       return html`
-        <div class="${badgeClass}">
-          <span class="canvas-stencil-badge-label">${badgeLabel}</span>
-        </div>
+        ${badge}
         ${node.slots.map((slotId) => renderSlot(slotId))}
       `;
     },
