@@ -128,11 +128,18 @@
                         <div th:if="${auth.has('TEMPLATE_EDIT')}" style="display: flex; align-items: center; gap: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
                             <label class="ep-label" style="margin: 0; white-space: nowrap;">Upgrade to:</label>
                             <select id="upgrade-version-select" class="ep-input" style="width: auto; min-width: 10rem;">
-                                <th:block th:each="v : ${versions}">
-                                    <option th:if="${v.status.name() != 'ARCHIVED'}"
-                                            th:value="${v.id}"
-                                            th:text="'v' + ${v.id} + ' (' + ${v.status.name().toLowerCase()} + ')'"
-                                            th:selected="${v.status.name() == 'PUBLISHED'}"></option>
+                                <!--/* Show published versions first (latest = default selected), then drafts. Exclude archived. */-->
+                                <th:block th:with="publishedVersions=${versions.?[status.name() == 'PUBLISHED']},
+                                                   draftVersions=${versions.?[status.name() == 'DRAFT']}">
+                                    <th:block th:each="v, stat : ${publishedVersions}">
+                                        <option th:value="${v.id}"
+                                                th:text="'v' + ${v.id} + ' (published)'"
+                                                th:selected="${stat.first}"></option>
+                                    </th:block>
+                                    <th:block th:each="v : ${draftVersions}">
+                                        <option th:value="${v.id}"
+                                                th:text="'v' + ${v.id} + ' (draft)'"></option>
+                                    </th:block>
                                 </th:block>
                             </select>
                             <button type="button" class="btn btn-sm btn-primary" id="apply-upgrade-btn" onclick="applyUpgrade()">
