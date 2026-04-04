@@ -75,7 +75,9 @@ export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<St
           : '';
         const versionLabel = stencil.latestPublishedVersion
           ? `v${stencil.latestPublishedVersion}`
-          : '<span class="text-muted">no published version</span>';
+          : stencil.latestVersion
+            ? `v${stencil.latestVersion} (draft)`
+            : '<span class="text-muted">no versions</span>';
 
         card.innerHTML = `
           <div class="stencil-picker-card-name">${stencil.name}</div>
@@ -86,16 +88,16 @@ export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<St
           ${stencil.description ? `<div class="stencil-picker-card-desc">${stencil.description}</div>` : ''}
         `;
 
-        const isInsertable = stencil.latestPublishedVersion != null;
+        const insertableVersion = stencil.latestPublishedVersion ?? stencil.latestVersion;
 
         card.addEventListener('click', () => {
           list.querySelectorAll('.stencil-picker-card').forEach((c) => c.classList.remove('selected'));
           card.classList.add('selected');
           selectedStencil = stencil;
-          insertBtn.disabled = !isInsertable;
+          insertBtn.disabled = !insertableVersion;
         });
 
-        if (isInsertable) {
+        if (insertableVersion) {
           card.addEventListener('dblclick', () => {
             selectedStencil = stencil;
             doInsert();
@@ -107,13 +109,14 @@ export function openStencilPickerDialog(callbacks: StencilCallbacks): Promise<St
     }
 
     async function doInsert() {
-      if (!selectedStencil || !selectedStencil.latestPublishedVersion) return;
+      const version = selectedStencil?.latestPublishedVersion ?? selectedStencil?.latestVersion;
+      if (!selectedStencil || !version) return;
       insertBtn.disabled = true;
       insertBtn.textContent = 'Loading...';
 
       const versionInfo = await callbacks.getStencilVersion(
         selectedStencil.id,
-        selectedStencil.latestPublishedVersion,
+        version,
       );
       if (!versionInfo) {
         insertBtn.textContent = 'Insert';

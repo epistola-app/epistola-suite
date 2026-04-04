@@ -13,6 +13,8 @@ export interface StencilSummary {
   description?: string;
   tags: string[];
   latestPublishedVersion: number | null;
+  /** Highest version number (any status). Used as fallback when no published version exists. */
+  latestVersion: number | null;
 }
 
 /** A specific stencil version with its content. */

@@ -203,12 +203,14 @@ class StencilHandler(
                 .filter { it.status == app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED }
                 .maxByOrNull { it.id.value }
                 ?.id?.value
+            val latestVersion = versions.maxByOrNull { it.id.value }?.id?.value
             mapOf(
                 "id" to stencil.id.value,
                 "name" to stencil.name,
                 "description" to stencil.description,
                 "tags" to stencil.tags,
                 "latestPublishedVersion" to latestPublished,
+                "latestVersion" to latestVersion,
             )
         }
 
