@@ -3,7 +3,11 @@ package app.epistola.suite.handlers
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -21,7 +25,9 @@ import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
 import app.epistola.suite.stencils.queries.GetStencil
+import app.epistola.suite.stencils.queries.GetStencilUsageDetails
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilSummaries
 import app.epistola.suite.stencils.queries.ListStencilVersions
@@ -221,12 +227,14 @@ class StencilHandler(
             ?: return ServerResponse.notFound().build()
 
         val versions = ListStencilVersions(stencilId = stencilId).query()
+        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
 
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
             "tenantId" to tenantId.key
             "stencil" to stencil
             "versions" to versions
+            "usage" to usage
         }
     }
 
@@ -281,6 +289,78 @@ class StencilHandler(
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
         }
+    }
+
+    // ── Usage & Upgrade ──────────────────────────────────────────────────
+
+    /** Usage details: which templates use this stencil, with version info. */
+    fun usageDetails(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val usage = GetStencilUsageDetails(stencilId = stencilId).query()
+
+        if (!request.isHtmx()) {
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "items" to usage.map { u ->
+                            mapOf(
+                                "templateId" to u.templateId.value,
+                                "templateName" to u.templateName,
+                                "variantId" to u.variantId.value,
+                                "versionId" to u.versionId.value,
+                                "versionStatus" to u.versionStatus,
+                                "stencilVersion" to u.stencilVersion,
+                                "instanceCount" to u.instanceCount,
+                            )
+                        },
+                    ),
+                )
+        }
+
+        val stencil = GetStencil(id = stencilId).query()
+        val versions = ListStencilVersions(stencilId = stencilId).query()
+        return request.htmx {
+            fragment("stencils/detail", "usage") {
+                "tenantId" to tenantId.key
+                "stencil" to stencil
+                "versions" to versions
+                "usage" to usage
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.key}") }
+        }
+    }
+
+    /** Upgrade a stencil in a specific template variant's draft. */
+    fun upgradeInTemplate(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        data class UpgradeRequest(
+            val templateId: String,
+            val variantId: String,
+            val newVersion: Int,
+        )
+
+        val body = request.body(String::class.java)
+        val req = objectMapper.readValue(body, UpgradeRequest::class.java)
+
+        val templateId = TemplateId(TemplateKey.of(req.templateId), tenantId)
+        val variantId = VariantId(VariantKey.of(req.variantId), templateId)
+
+        val count = UpdateStencilInTemplate(
+            variantId = variantId,
+            stencilId = stencilId,
+            newVersion = req.newVersion,
+        ).execute()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("upgraded" to (count ?: 0)))
     }
 
     // ── Versions ───────────────────────────────────────────────────────────

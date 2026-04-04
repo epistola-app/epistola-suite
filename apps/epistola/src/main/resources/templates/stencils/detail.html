@@ -118,6 +118,83 @@
                     </th:block>
                 </div>
             </div>
+            <div class="card" th:if="${usage != null and !#lists.isEmpty(usage)}">
+                <div class="card-header">
+                    <span>Templates using this stencil</span>
+                </div>
+                <div class="card-content" id="usage-list">
+                    <th:block th:fragment="usage">
+                        <table class="ep-table ep-table-compact">
+                            <thead>
+                                <tr>
+                                    <th>Template</th>
+                                    <th>Variant</th>
+                                    <th>Version</th>
+                                    <th>Status</th>
+                                    <th>Stencil Version</th>
+                                    <th>Instances</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="u : ${usage}">
+                                    <td>
+                                        <a th:href="@{/tenants/{tenantId}/templates/{templateId}(tenantId=${tenantId},templateId=${u.templateId})}"
+                                           th:text="${u.templateName}" style="font-weight: 500;"></a>
+                                    </td>
+                                    <td th:text="${u.variantId}"></td>
+                                    <td th:text="'v' + ${u.versionId}"></td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="${u.versionStatus == 'published'} ? 'badge-success' : (${u.versionStatus == 'draft'} ? 'badge-warning' : 'badge-muted')"
+                                              th:text="${u.versionStatus}"></span>
+                                    </td>
+                                    <td th:text="'v' + ${u.stencilVersion}"></td>
+                                    <td th:text="${u.instanceCount}"></td>
+                                    <td class="actions">
+                                        <th:block th:if="${u.versionStatus == 'draft' and auth.has('TEMPLATE_EDIT')}">
+                                            <th:block th:with="latestPublished=${versions.?[status.name() == 'PUBLISHED'].^[id.value > u.stencilVersion]}">
+                                                <button th:if="${latestPublished != null and latestPublished.id.value > u.stencilVersion}"
+                                                        type="button"
+                                                        class="btn btn-sm btn-primary"
+                                                        th:attr="onclick='upgradeStencilInTemplate(this, \'' + ${u.templateId} + '\', \'' + ${u.variantId} + '\', ' + ${latestPublished.id} + ')'">
+                                                    Upgrade to v<span th:text="${latestPublished.id}"></span>
+                                                </button>
+                                            </th:block>
+                                        </th:block>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <script th:inline="javascript">
+                            function upgradeStencilInTemplate(btn, templateId, variantId, newVersion) {
+                                btn.disabled = true;
+                                btn.textContent = 'Upgrading...';
+                                const tenantId = /*[[${tenantId}]]*/ '';
+                                const stencilId = /*[[${stencil.id}]]*/ '';
+                                fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/upgrade', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-XSRF-TOKEN': document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '',
+                                    },
+                                    body: JSON.stringify({ templateId, variantId, newVersion }),
+                                }).then(resp => {
+                                    if (resp.ok) {
+                                        btn.textContent = 'Done';
+                                        btn.classList.remove('btn-primary');
+                                        btn.classList.add('btn-ghost');
+                                    } else {
+                                        btn.textContent = 'Failed';
+                                        btn.disabled = false;
+                                    }
+                                });
+                            }
+                        </script>
+                    </th:block>
+                </div>
+            </div>
         </div>
     </th:block>
 </body>
