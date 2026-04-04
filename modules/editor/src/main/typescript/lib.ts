@@ -16,6 +16,8 @@ import type { EditorPlugin } from './plugins/types.js';
 import { createDefaultRegistry } from './engine/registry.js';
 import { createImageDefinition } from './components/image/image-registration.js';
 import type { AssetInfo } from './components/image/asset-picker-dialog.js';
+import { createStencilDefinition } from './components/stencil/stencil-registration.js';
+import type { StencilCallbacks } from './components/stencil/types.js';
 import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
 import { nanoid } from 'nanoid';
 
@@ -23,6 +25,14 @@ validateCoreShortcutRegistriesOnStartup();
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js';
 export type { AssetInfo } from './components/image/asset-picker-dialog.js';
+export type {
+  StencilCallbacks,
+  StencilSummary,
+  StencilVersionInfo,
+  SearchStencilsFn,
+  GetStencilVersionFn,
+  CheckStencilUpgradesFn,
+} from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';
 export type {
@@ -64,6 +74,8 @@ export interface EditorOptions {
     uploadAsset: (file: File) => Promise<AssetInfo>;
     contentUrlPattern: string;
   };
+  /** Optional stencil support with search/get/upgrade callbacks. */
+  stencilOptions?: StencilCallbacks;
 }
 
 export interface EditorInstance {
@@ -142,6 +154,13 @@ export function mountEditor(options: EditorOptions): EditorInstance {
       }),
     );
   }
+
+  // Register stencil component (always — so existing stencil nodes render correctly)
+  registry.register(
+    createStencilDefinition({
+      callbacks: options.stencilOptions ?? null,
+    }),
+  );
 
   // Initialize the engine with data model context
   editorEl.initEngine(doc, registry, { dataModel, dataExamples });

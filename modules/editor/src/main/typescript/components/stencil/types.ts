@@ -1,0 +1,46 @@
+/**
+ * Callback types for stencil operations.
+ *
+ * The editor never calls endpoints directly — the hosting app provides
+ * implementations via EditorOptions.stencilOptions, following the same
+ * delegation pattern used for SaveFn, FetchPreviewFn, and AssetPickerCallbacks.
+ */
+
+/** Summary of a stencil for browse/search results. */
+export interface StencilSummary {
+  id: string;
+  name: string;
+  description?: string;
+  tags: string[];
+  latestPublishedVersion: number | null;
+}
+
+/** A specific stencil version with its content. */
+export interface StencilVersionInfo {
+  stencilId: string;
+  stencilName: string;
+  version: number;
+  /** The template document fragment (nodes + slots) to embed. */
+  content: import('../../types/index.js').TemplateDocument;
+}
+
+/** Search/browse available stencils. */
+export type SearchStencilsFn = (query: string) => Promise<StencilSummary[]>;
+
+/** Fetch a specific published stencil version's content. */
+export type GetStencilVersionFn = (
+  stencilId: string,
+  version: number,
+) => Promise<StencilVersionInfo | null>;
+
+/** Check which stencil instances in the document have newer versions available. */
+export type CheckStencilUpgradesFn = (
+  refs: Array<{ stencilId: string; version: number }>,
+) => Promise<Array<{ stencilId: string; currentVersion: number; latestVersion: number }>>;
+
+/** All stencil-related callbacks provided by the hosting app. */
+export interface StencilCallbacks {
+  searchStencils: SearchStencilsFn;
+  getStencilVersion: GetStencilVersionFn;
+  checkUpgrades?: CheckStencilUpgradesFn;
+}
