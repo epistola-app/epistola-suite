@@ -185,27 +185,44 @@
                             const _tenantId = /*[[${tenantId}]]*/ '';
                             const _stencilId = /*[[${stencil.id}]]*/ '';
                             const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
+                            let _abortController = null;
 
                             function toggleSelectAll(checked) {
-                                document.querySelectorAll('.usage-select').forEach(cb => cb.checked = checked);
+                                document.querySelectorAll('.usage-select:not(:disabled)').forEach(cb => cb.checked = checked);
                             }
 
                             async function applyUpgrade() {
                                 const version = parseInt(document.getElementById('upgrade-version-select').value);
-                                const selected = document.querySelectorAll('.usage-select:checked');
+                                const selected = [...document.querySelectorAll('.usage-select:checked')];
                                 if (selected.length === 0) {
                                     document.getElementById('upgrade-status').textContent = 'No rows selected';
                                     return;
                                 }
 
+                                // Confirm before proceeding
+                                const versionLabel = document.getElementById('upgrade-version-select').selectedOptions[0].textContent;
+                                if (!confirm(`This will modify ${selected.length} template draft(s) to use stencil ${versionLabel}.\n\nThis operation modifies drafts only — published versions in environments are not affected.\n\nContinue?`)) {
+                                    return;
+                                }
+
                                 const btn = document.getElementById('apply-upgrade-btn');
                                 const status = document.getElementById('upgrade-status');
-                                btn.disabled = true;
-                                btn.textContent = 'Upgrading...';
+                                _abortController = new AbortController();
+
+                                // Switch to cancel mode
+                                btn.textContent = 'Cancel';
+                                btn.onclick = () => { _abortController.abort(); };
+                                btn.classList.remove('btn-primary');
+                                btn.classList.add('btn-outline');
                                 status.textContent = '';
 
-                                let success = 0, failed = 0;
+                                let success = 0, failed = 0, cancelled = false;
                                 for (const cb of selected) {
+                                    if (_abortController.signal.aborted) {
+                                        cancelled = true;
+                                        break;
+                                    }
+
                                     const templateId = cb.dataset.templateId;
                                     const variantId = cb.dataset.variantId;
                                     try {
@@ -213,25 +230,38 @@
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
                                             body: JSON.stringify({ templateId, variantId, newVersion: version }),
+                                            signal: _abortController.signal,
                                         });
                                         if (resp.ok) {
                                             cb.closest('tr').style.opacity = '0.5';
+                                            cb.checked = false;
                                             cb.disabled = true;
                                             success++;
                                         } else {
                                             failed++;
                                         }
-                                    } catch {
+                                    } catch (e) {
+                                        if (e.name === 'AbortError') {
+                                            cancelled = true;
+                                            break;
+                                        }
                                         failed++;
                                     }
                                     status.textContent = `${success + failed} / ${selected.length}...`;
                                 }
 
-                                btn.disabled = false;
+                                // Reset button
                                 btn.textContent = 'Apply to selected';
-                                status.textContent = failed > 0
-                                    ? `Done: ${success} upgraded, ${failed} failed`
-                                    : `Done: ${success} upgraded`;
+                                btn.onclick = applyUpgrade;
+                                btn.classList.remove('btn-outline');
+                                btn.classList.add('btn-primary');
+                                _abortController = null;
+
+                                const parts = [];
+                                if (success > 0) parts.push(`${success} upgraded`);
+                                if (failed > 0) parts.push(`${failed} failed`);
+                                if (cancelled) parts.push('cancelled');
+                                status.textContent = parts.length > 0 ? parts.join(', ') : '';
                             }
                         </script>
                     </th:block>
