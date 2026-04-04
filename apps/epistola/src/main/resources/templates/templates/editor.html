@@ -141,6 +141,29 @@
                 },
             },
             stencilOptions: {
+                checkUpgrades: async (refs) => {
+                    const uniqueIds = [...new Set(refs.map(r => r.stencilId))];
+                    const results = [];
+                    for (const sid of uniqueIds) {
+                        const resp = await fetch('/tenants/' + tenantId + '/stencils/' + sid + '/versions', {
+                            headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        });
+                        if (!resp.ok) continue;
+                        const data = await resp.json();
+                        const versions = data.items ?? data;
+                        const latestPublished = versions.filter(v => v.status === 'published')
+                            .sort((a, b) => b.version - a.version)[0];
+                        if (latestPublished) {
+                            const currentVersions = refs.filter(r => r.stencilId === sid);
+                            for (const ref of currentVersions) {
+                                if (latestPublished.version > ref.version) {
+                                    results.push({ stencilId: sid, currentVersion: ref.version, latestVersion: latestPublished.version });
+                                }
+                            }
+                        }
+                    }
+                    return results;
+                },
                 searchStencils: async (query) => {
                     const params = new URLSearchParams();
                     if (query) params.set('q', query);

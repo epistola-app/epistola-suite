@@ -28,6 +28,36 @@ export class StencilInspector extends LitElement {
   @state() private _busy = false;
   @state() private _message = '';
   @state() private _draftVersion: number | null = null;
+  @state() private _latestVersion: number | null = null;
+
+  private _unsubState?: () => void;
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this._readUpgradeState();
+    this._unsubState = this.engine.events.on('component-state:change', ({ key }) => {
+      if (key === 'stencil:upgrades') {
+        this._readUpgradeState();
+      }
+    });
+  }
+
+  override disconnectedCallback(): void {
+    this._unsubState?.();
+    super.disconnectedCallback();
+  }
+
+  private _readUpgradeState() {
+    const upgrades = this.engine.getComponentState<Record<string, number>>('stencil:upgrades');
+    if (upgrades && this._stencilId) {
+      this._latestVersion = upgrades[this._stencilId] ?? null;
+    }
+  }
+
+  private get _hasUpgrade(): boolean {
+    return this._latestVersion != null && this._version != null
+      && this._latestVersion > this._version && !this._isDraft;
+  }
 
   private get _stencilId(): string | null {
     return (this.node.props?.stencilId as string) ?? null;
@@ -97,9 +127,20 @@ export class StencilInspector extends LitElement {
           <span style="color: var(--ep-color-text-muted);">(locked)</span>
         </div>
 
-        ${this.callbacks?.startEditing
+        ${this._hasUpgrade
           ? html`<button
               class="btn btn-sm btn-primary"
+              style="width: 100%; margin-bottom: var(--ep-space-2);"
+              ?disabled=${this._busy}
+              @click=${this._handleUpgrade}
+            >
+              ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
+            </button>`
+          : nothing}
+
+        ${this.callbacks?.startEditing
+          ? html`<button
+              class="btn btn-sm ${this._hasUpgrade ? 'btn-outline' : 'btn-primary'}"
               style="width: 100%; margin-bottom: var(--ep-space-2);"
               ?disabled=${this._busy}
               @click=${this._handleStartEditing}
@@ -228,6 +269,40 @@ export class StencilInspector extends LitElement {
       });
 
       this._message = 'Editing mode — changes are local until you save to draft';
+    } catch (e) {
+      this._message = `Error: ${(e as Error).message}`;
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private async _handleUpgrade() {
+    if (!this.callbacks?.getStencilVersion || !this._stencilId || !this._latestVersion) return;
+    this._busy = true;
+    this._message = '';
+
+    try {
+      const versionInfo = await this.callbacks.getStencilVersion(this._stencilId, this._latestVersion);
+      if (!versionInfo) {
+        this._message = 'Could not load the new version';
+        return;
+      }
+
+      // Replace current content with the new version
+      this._replaceContent(versionInfo.content);
+
+      // Update version prop
+      this.engine.dispatch({
+        type: 'UpdateNodeProps',
+        nodeId: this.node.id,
+        props: {
+          ...this.node.props,
+          version: this._latestVersion,
+        },
+      });
+
+      this._latestVersion = null; // No more upgrade available
+      this._message = `Upgraded to v${versionInfo.version}`;
     } catch (e) {
       this._message = `Error: ${(e as Error).message}`;
     } finally {

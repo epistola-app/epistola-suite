@@ -19,6 +19,12 @@
   color: var(--ep-gray-600, var(--ep-foreground));
 }
 
+.canvas-stencil-badge--upgrade {
+  background-color: var(--ep-amber-50, #fffbeb);
+  border-color: var(--ep-amber-400, #fbbf24);
+  color: var(--ep-amber-800, #92400e);
+}
+
 .canvas-stencil-badge--draft {
   background-color: var(--ep-amber-50, #fffbeb);
   border-color: var(--ep-amber-300, #fcd34d);

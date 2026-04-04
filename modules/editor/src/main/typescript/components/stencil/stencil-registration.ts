@@ -45,23 +45,33 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       isDraft: false,
     },
 
-    renderCanvas: ({ node, renderSlot }) => {
+    renderCanvas: ({ node, renderSlot, engine: eng }) => {
+      const engine = eng as EditorEngine;
       const stencilId = node.props?.stencilId as string | null;
       const version = node.props?.version as number | null;
       const isDraft = node.props?.isDraft as boolean | undefined;
       const isLocked = stencilId !== null && !isDraft;
 
+      // Check if an upgrade is available
+      const upgrades = engine.getComponentState<Record<string, number>>('stencil:upgrades');
+      const latestVersion = stencilId ? upgrades?.[stencilId] : null;
+      const hasUpgrade = latestVersion != null && version != null && latestVersion > version && !isDraft;
+
       // Badge — always present, content/style varies by state
       const badgeLabel = stencilId && isDraft
         ? `${stencilId} — editing draft`
-        : stencilId
-          ? `🔒 ${stencilId} v${version ?? '?'}`
-          : 'Stencil';
+        : stencilId && hasUpgrade
+          ? `🔒 ${stencilId} v${version} ⬆ v${latestVersion} available`
+          : stencilId
+            ? `🔒 ${stencilId} v${version ?? '?'}`
+            : 'Stencil';
       const badgeClass = stencilId && isDraft
         ? 'canvas-stencil-badge--draft'
-        : stencilId
-          ? 'canvas-stencil-badge--locked'
-          : 'canvas-stencil-badge--empty';
+        : hasUpgrade
+          ? 'canvas-stencil-badge--upgrade'
+          : stencilId
+            ? 'canvas-stencil-badge--locked'
+            : 'canvas-stencil-badge--empty';
 
       // IMPORTANT: Template structure must be identical across all states.
       // Lit's template diffing caches by template string shape. If we returned

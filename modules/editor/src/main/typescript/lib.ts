@@ -175,6 +175,29 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   container.innerHTML = '';
   container.appendChild(editorEl);
 
+  // Check for stencil upgrades after mount
+  if (options.stencilOptions?.checkUpgrades) {
+    const stencilRefs = Object.values(doc.nodes)
+      .filter((n) => n.type === 'stencil' && n.props?.stencilId && n.props?.version)
+      .map((n) => ({ stencilId: n.props!.stencilId as string, version: n.props!.version as number }));
+
+    if (stencilRefs.length > 0) {
+      options.stencilOptions.checkUpgrades(stencilRefs).then((upgrades) => {
+        if (upgrades.length > 0) {
+          const upgradeMap: Record<string, number> = {};
+          for (const u of upgrades) {
+            if (u.latestVersion > u.currentVersion) {
+              upgradeMap[u.stencilId] = u.latestVersion;
+            }
+          }
+          if (Object.keys(upgradeMap).length > 0) {
+            editorEl.engine?.setComponentState('stencil:upgrades', upgradeMap);
+          }
+        }
+      });
+    }
+  }
+
   return {
     unmount() {
       editorEl.remove();
