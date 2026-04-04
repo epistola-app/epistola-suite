@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}">Stencils</a> &raquo;
+            <span th:text="${stencil.name}">Stencil Name</span>
+        </nav>
+
+        <div class="page-header">
+            <h1 th:text="${stencil.name}">Stencil Name</h1>
+        </div>
+
+        <div class="detail-grid">
+            <div class="card">
+                <div class="card-header">Details</div>
+                <div class="card-content">
+                    <dl class="detail-list">
+                        <dt>ID</dt>
+                        <dd th:text="${stencil.id}"></dd>
+                        <dt>Description</dt>
+                        <dd>
+                            <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
+                            <span th:unless="${stencil.description != null}" class="text-muted">No description</span>
+                        </dd>
+                        <dt>Tags</dt>
+                        <dd>
+                            <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+                            <span th:if="${stencil.tags.isEmpty()}" class="text-muted">No tags</span>
+                        </dd>
+                        <dt>Created</dt>
+                        <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                        <dt>Last Modified</dt>
+                        <dd th:text="${#temporals.format(stencil.lastModified, 'yyyy-MM-dd HH:mm')}"></dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Versions</div>
+                <div class="card-content">
+                    <div th:if="${#lists.isEmpty(versions)}" class="text-muted" style="padding: var(--ep-space-4);">
+                        No versions yet. Content will be created in the editor.
+                    </div>
+                    <table th:if="${!#lists.isEmpty(versions)}" class="ep-table ep-table-compact">
+                        <thead>
+                            <tr>
+                                <th>Version</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Published</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="version : ${versions}">
+                                <td th:text="${version.id}"></td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${version.status.name() == 'PUBLISHED'} ? 'badge-success' : (${version.status.name() == 'DRAFT'} ? 'badge-warning' : 'badge-muted')"
+                                          th:text="${version.status.name().toLowerCase()}"></span>
+                                </td>
+                                <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                                <td>
+                                    <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                    <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

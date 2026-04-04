@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Stencils</h1>
+            <div class="page-actions">
+                <div th:replace="~{fragments/search :: search-box(
+                    placeholder='Search stencils...',
+                    searchUrl=@{/tenants/{tenantId}/stencils/search(tenantId=${tenantId})},
+                    targetId='stencil-rows'
+                )}"></div>
+                <a th:if="${auth.has('STENCIL_EDIT')}"
+                   th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Stencil
+                </a>
+            </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(stencils)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='puzzle', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No stencils yet</div>
+            <div class="empty-state-description">Create a stencil to build reusable template components.</div>
+            <a th:if="${auth.has('STENCIL_EDIT')}"
+               th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                New Stencil
+            </a>
+        </div>
+
+        <table th:if="${!#lists.isEmpty(stencils)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Tags</th>
+                    <th>Last Modified</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="stencil-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="stencil : ${stencils}">
+                        <td>
+                            <a th:href="@{/tenants/{tenantId}/stencils/{stencilId}(tenantId=${tenantId},stencilId=${stencil.id})}"
+                               th:text="${stencil.name}" style="font-weight: 500;"></a>
+                        </td>
+                        <td>
+                            <span th:if="${stencil.description != null}" th:text="${stencil.description}" class="text-truncate"></span>
+                            <span th:unless="${stencil.description != null}" class="text-muted">-</span>
+                        </td>
+                        <td>
+                            <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+                        </td>
+                        <td th:text="${#temporals.format(stencil.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="actions">
+                            <a th:href="@{/tenants/{tenantId}/stencils/{stencilId}(tenantId=${tenantId},stencilId=${stencil.id})}"
+                               class="btn btn-sm btn-icon btn-ghost" title="View stencil">
+                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            </a>
+                            <button th:if="${auth.has('STENCIL_EDIT')}"
+                                    type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete stencil"
+                                    data-confirm-title="Delete Stencil"
+                                    th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{stencilId}/delete(tenantId=${tenantId},stencilId=${stencil.id})}"
+                                    data-confirm-target="#stencil-rows"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+</body>
+</html>

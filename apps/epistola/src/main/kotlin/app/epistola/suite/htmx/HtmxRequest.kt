@@ -6,6 +6,8 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.FeedbackKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -110,6 +112,15 @@ fun ServerRequest.versionId(variantId: VariantId): VersionId? {
 fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
     val key = ThemeKey.validateOrNull(pathVariable("themeId")) ?: return null
     return ThemeId(key, tenantId)
+}
+
+/**
+ * Extract and validate a [StencilId] from the `stencilId` path variable.
+ * Returns null if the stencil key is invalid.
+ */
+fun ServerRequest.stencilId(tenantId: TenantId): StencilId? {
+    val key = StencilKey.validateOrNull(pathVariable("stencilId")) ?: return null
+    return StencilId(key, tenantId)
 }
 
 /**

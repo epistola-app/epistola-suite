@@ -64,6 +64,7 @@ class ShellModelInterceptor : HandlerInterceptor {
 
     private fun resolveActiveSection(path: String): String = when {
         "/templates" in path -> "templates"
+        "/stencils" in path -> "stencils"
         "/themes" in path -> "themes"
         "/environments" in path -> "environments"
         "/attributes" in path -> "attributes"

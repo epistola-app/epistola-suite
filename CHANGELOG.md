@@ -5,8 +5,10 @@
 ### Added
 
 - **Stencils domain model**: New `stencils` package in epistola-core with full CQRS implementation for reusable template components. Includes `Stencil` and `StencilVersion` entities, version lifecycle (draft/publish/archive), usage tracking across templates, and no-nesting validation at publish time.
+- **Stencils REST API**: Full CRUD controller implementing the generated `StencilsApi` interface — stencil and version management, usage tracking, and upgrade preview endpoints at `/api/tenants/{tenantId}/stencils/...`.
+- **Stencils management UI**: List, create, and detail pages with HTMX search, form validation, and version history. Navigation link added to sidebar.
 - **Stencil permissions**: `STENCIL_VIEW`, `STENCIL_EDIT`, `STENCIL_PUBLISH` permissions mapped to reader, editor, and manager roles respectively.
-- **Stencil database schema**: Flyway migration V17 creating `stencils` and `stencil_versions` tables with GIN indexes for tag and content search.
+- **Stencil database schema**: Flyway migration V19 creating `stencils` and `stencil_versions` tables with GIN indexes for tag and content search.
 - **Resource exchange design**: Design document for exchanging templates between Epistola instances via externally hosted catalogs. Defines the catalog protocol (manifest + detail URL format), content hashing for version detection, and upgrade strategy with local change protection.
 - **Catalog module (Phase 1)**: New `epistola-catalog` module for importing templates from remote catalogs. Register a catalog URL, browse available templates, and install them. Includes catalog entity, HTTP client, CQRS commands/queries, and settings UI.
 - **Shared testing module**: New `modules/testing` module consolidating test infrastructure (Testcontainers, IntegrationTestBase, Scenario DSL, TestFixture DSL, TestIdHelpers) previously duplicated across modules.
