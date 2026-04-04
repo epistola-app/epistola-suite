@@ -35,7 +35,7 @@ class GetStencilUsageDetailsHandler(
             """
                 SELECT tv.template_key, dt.name as template_name,
                        tv.variant_key, tv.id as version_id, tv.status as version_status,
-                       (node.value -> 'props' ->> 'version')::int as stencil_version,
+                       COALESCE((node.value -> 'props' ->> 'version')::int, 0) as stencil_version,
                        COUNT(*) as instance_count
                 FROM template_versions tv
                 JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
@@ -44,7 +44,7 @@ class GetStencilUsageDetailsHandler(
                   AND node.value ->> 'type' = 'stencil'
                   AND node.value -> 'props' ->> 'stencilId' = :stencilId
                 GROUP BY tv.template_key, dt.name, tv.variant_key, tv.id, tv.status,
-                         (node.value -> 'props' ->> 'version')::int
+                         COALESCE((node.value -> 'props' ->> 'version')::int, 0)
                 ORDER BY dt.name, tv.variant_key, tv.id DESC
                 """,
         )

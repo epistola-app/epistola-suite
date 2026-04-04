@@ -2,7 +2,11 @@ package app.epistola.suite.stencils
 
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -18,6 +22,7 @@ import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.validation.ValidationException
@@ -263,5 +268,56 @@ class StencilIntegrationTest : IntegrationTestBase() {
         assertThat(t1Stencils[0].name).isEqualTo("T1 Stencil")
         assertThat(t2Stencils).hasSize(1)
         assertThat(t2Stencils[0].name).isEqualTo("T2 Stencil")
+    }
+
+    // ── Upgrade stencil in template ──
+
+    @Test
+    fun `upgrade stencil in template - no draft returns null`() = test {
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+
+        // Use a non-existent template
+        val fakeTemplateId = TemplateId(TemplateKey.of("non-existent"), tenantId)
+        val fakeVariantId = VariantId(VariantKey.of("non-existent"), fakeTemplateId)
+
+        val result = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
+            variantId = fakeVariantId,
+            stencilId = stencilId,
+            newVersion = 1,
+        ).execute()
+
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `upgrade stencil in template - no stencil instances returns zero`() = test {
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+
+        // Create a template WITHOUT stencil nodes
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, tenantId)
+        CreateDocumentTemplate(
+            id = templateId,
+            name = "Test Template",
+        ).execute()
+
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
+
+        val count = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
+            variantId = variantId,
+            stencilId = stencilId,
+            newVersion = 1,
+        ).execute()
+
+        assertThat(count).isEqualTo(0)
     }
 }

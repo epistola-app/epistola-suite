@@ -358,9 +358,15 @@ class StencilHandler(
             newVersion = req.newVersion,
         ).execute()
 
+        if (count == null) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "No draft version found for this template variant"))
+        }
+
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("upgraded" to (count ?: 0)))
+            .body(mapOf("upgraded" to count))
     }
 
     // ── Versions ───────────────────────────────────────────────────────────

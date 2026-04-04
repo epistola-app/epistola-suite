@@ -182,7 +182,7 @@
                                               th:classappend="${u.versionStatus == 'published'} ? 'badge-success' : (${u.versionStatus == 'draft'} ? 'badge-warning' : 'badge-muted')"
                                               th:text="${u.versionStatus}"></span>
                                     </td>
-                                    <td th:text="'v' + ${u.stencilVersion}"></td>
+                                    <td th:text="${u.stencilVersion > 0} ? ('v' + ${u.stencilVersion}) : 'unlinked'"></td>
                                     <td th:text="${u.instanceCount}"></td>
                                 </tr>
                             </tbody>
