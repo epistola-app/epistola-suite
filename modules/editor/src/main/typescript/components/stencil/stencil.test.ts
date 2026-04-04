@@ -349,6 +349,46 @@ describe('Multiple stencils on one page', () => {
     const uniqueChildren = new Set(allChildren);
     expect(uniqueChildren.size).toBe(allChildren.length);
   });
+
+  it('can insert the SAME stencil content twice and add children to both', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    // Insert the same content object for both
+    const stencil1 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+    const stencil2 = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+
+    const slot1 = getStencilSlot(engine, stencil1);
+    const slot2 = getStencilSlot(engine, stencil2);
+
+    // Both should have content
+    expect(engine.doc.slots[slot1].children.length).toBe(2);
+    expect(engine.doc.slots[slot2].children.length).toBe(2);
+
+    // No ID collisions — all node IDs in the document should be unique
+    const allNodeIds = Object.keys(engine.doc.nodes);
+    expect(new Set(allNodeIds).size).toBe(allNodeIds.length);
+
+    const allSlotIds = Object.keys(engine.doc.slots);
+    expect(new Set(allSlotIds).size).toBe(allSlotIds.length);
+
+    // Can add new content to both
+    const text1 = insertText(engine, registry, slot1, 'Added to first');
+    const text2 = insertText(engine, registry, slot2, 'Added to second');
+
+    expect(engine.doc.slots[slot1].children).toContain(text1);
+    expect(engine.doc.slots[slot2].children).toContain(text2);
+    expect(engine.doc.slots[slot1].children).not.toContain(text2);
+    expect(engine.doc.slots[slot2].children).not.toContain(text1);
+  });
 });
 
 // ---------------------------------------------------------------------------
