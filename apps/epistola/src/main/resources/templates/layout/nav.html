@@ -19,6 +19,11 @@
                    th:classappend="${activeNavSection == 'themes'} ? ' active' : ''">
                     Themes
                 </a>
+                <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''">
+                    Stencils
+                </a>
                 <a th:href="@{/tenants/{id}/environments(id=${tenantId})}"
                    class="app-nav-link"
                    th:classappend="${activeNavSection == 'environments'} ? ' active' : ''">

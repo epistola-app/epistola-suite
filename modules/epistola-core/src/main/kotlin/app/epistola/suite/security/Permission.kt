@@ -15,6 +15,10 @@ enum class Permission {
     TEMPLATE_EDIT,
     TEMPLATE_PUBLISH,
 
+    STENCIL_VIEW,
+    STENCIL_EDIT,
+    STENCIL_PUBLISH,
+
     DOCUMENT_VIEW,
     DOCUMENT_GENERATE,
 
@@ -36,16 +40,19 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.TEMPLATE_VIEW,
         Permission.DOCUMENT_VIEW,
         Permission.THEME_VIEW,
+        Permission.STENCIL_VIEW,
     )
     TenantRole.EDITOR -> setOf(
         Permission.TEMPLATE_EDIT,
         Permission.THEME_EDIT,
+        Permission.STENCIL_EDIT,
     )
     TenantRole.GENERATOR -> setOf(
         Permission.DOCUMENT_GENERATE,
     )
     TenantRole.MANAGER -> setOf(
         Permission.TEMPLATE_PUBLISH,
+        Permission.STENCIL_PUBLISH,
         Permission.TENANT_SETTINGS,
         Permission.TENANT_USERS,
     )

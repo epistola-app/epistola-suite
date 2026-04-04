@@ -269,6 +269,42 @@ value class ThemeKey(@JsonValue override val value: String) : SlugKey<ThemeKey> 
 }
 
 /**
+ * Typed key for Stencil entities.
+ */
+@JvmInline
+value class StencilKey(@JsonValue override val value: String) : SlugKey<StencilKey> {
+    init {
+        require(value.length in 3..50) {
+            "Stencil ID must be 3-50 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Stencil ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+        require(value !in RESERVED_WORDS) {
+            "Stencil ID '$value' is reserved and cannot be used"
+        }
+    }
+
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        private val RESERVED_WORDS = setOf(
+            "admin", "api", "www", "system", "internal", "null", "undefined",
+            "new", "create", "edit", "delete",
+        )
+
+        fun of(value: String): StencilKey = StencilKey(value)
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): StencilKey = StencilKey(value)
+
+        fun validateOrNull(value: String): StencilKey? = runCatching { StencilKey(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Typed key for Asset entities.
  */
 @JvmInline

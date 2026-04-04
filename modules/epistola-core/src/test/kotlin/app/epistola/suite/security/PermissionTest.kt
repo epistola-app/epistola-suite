@@ -14,6 +14,7 @@ class PermissionTest {
             Permission.TEMPLATE_VIEW,
             Permission.DOCUMENT_VIEW,
             Permission.THEME_VIEW,
+            Permission.STENCIL_VIEW,
         )
     }
 
@@ -23,6 +24,7 @@ class PermissionTest {
         assertThat(permissions).containsExactlyInAnyOrder(
             Permission.TEMPLATE_EDIT,
             Permission.THEME_EDIT,
+            Permission.STENCIL_EDIT,
         )
     }
 
@@ -37,6 +39,7 @@ class PermissionTest {
         val permissions = TenantRole.MANAGER.permissions()
         assertThat(permissions).containsExactlyInAnyOrder(
             Permission.TEMPLATE_PUBLISH,
+            Permission.STENCIL_PUBLISH,
             Permission.TENANT_SETTINGS,
             Permission.TENANT_USERS,
         )
@@ -57,6 +60,8 @@ class PermissionTest {
             Permission.DOCUMENT_VIEW,
             Permission.THEME_VIEW,
             Permission.THEME_EDIT,
+            Permission.STENCIL_VIEW,
+            Permission.STENCIL_EDIT,
         )
     }
 
@@ -68,6 +73,7 @@ class PermissionTest {
             Permission.DOCUMENT_VIEW,
             Permission.DOCUMENT_GENERATE,
             Permission.THEME_VIEW,
+            Permission.STENCIL_VIEW,
         )
     }
 }

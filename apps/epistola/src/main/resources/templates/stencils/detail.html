@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}">Stencils</a> &raquo;
+            <span th:text="${stencil.name}">Stencil Name</span>
+        </nav>
+
+        <div class="page-header">
+            <h1 th:text="${stencil.name}">Stencil Name</h1>
+        </div>
+
+        <div class="detail-grid">
+            <div class="card">
+                <div class="card-header">Details</div>
+                <div class="card-content">
+                    <dl class="detail-list">
+                        <dt>ID</dt>
+                        <dd th:text="${stencil.id}"></dd>
+                        <dt>Description</dt>
+                        <dd>
+                            <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
+                            <span th:unless="${stencil.description != null}" class="text-muted">No description</span>
+                        </dd>
+                        <dt>Tags</dt>
+                        <dd>
+                            <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+                            <span th:if="${stencil.tags.isEmpty()}" class="text-muted">No tags</span>
+                        </dd>
+                        <dt>Created</dt>
+                        <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                        <dt>Last Modified</dt>
+                        <dd th:text="${#temporals.format(stencil.lastModified, 'yyyy-MM-dd HH:mm')}"></dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>Versions</span>
+                </div>
+                <div class="card-content" id="version-list">
+                    <th:block th:fragment="versions">
+                        <div th:if="${#lists.isEmpty(versions)}" class="text-muted" style="padding: var(--ep-space-4);">
+                            No versions yet. Add a stencil block in the template editor to create content.
+                        </div>
+
+                        <div th:if="${!#lists.isEmpty(versions)}">
+                            <!-- New Draft button when no draft exists -->
+                            <div th:if="${auth.has('STENCIL_EDIT')}" style="margin-bottom: var(--ep-space-3);">
+                                <th:block th:unless="${#lists.isEmpty(versions)}">
+                                    <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
+                                        <form th:unless="${hasDraft}"
+                                              th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions(tenantId=${tenantId},stencilId=${stencil.id})}"
+                                              hx-target="#version-list"
+                                              hx-swap="innerHTML"
+                                              style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline">
+                                                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                                                New Draft
+                                            </button>
+                                        </form>
+                                    </th:block>
+                                </th:block>
+                            </div>
+
+                            <table class="ep-table ep-table-compact">
+                                <thead>
+                                    <tr>
+                                        <th>Version</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Published</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="version : ${versions}">
+                                        <td th:text="${version.id}"></td>
+                                        <td>
+                                            <span class="badge"
+                                                  th:classappend="${version.status.name() == 'PUBLISHED'} ? 'badge-success' : (${version.status.name() == 'DRAFT'} ? 'badge-warning' : 'badge-muted')"
+                                                  th:text="${version.status.name().toLowerCase()}"></span>
+                                        </td>
+                                        <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                                        <td>
+                                            <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                            <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                                        </td>
+                                        <td class="actions">
+                                            <!-- Publish button for drafts -->
+                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT'}"
+                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},stencilId=${stencil.id},versionId=${version.id})}"
+                                                  hx-target="#version-list"
+                                                  hx-swap="innerHTML"
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-primary" title="Publish this version">
+                                                    Publish
+                                                </button>
+                                            </form>
+                                            <!-- Archive button for published -->
+                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED'}"
+                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},stencilId=${stencil.id},versionId=${version.id})}"
+                                                  hx-target="#version-list"
+                                                  hx-swap="innerHTML"
+                                                  hx-confirm="Archive version? It will no longer be available for insertion into templates."
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-ghost" title="Archive this version">
+                                                    Archive
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </th:block>
+                </div>
+            </div>
+            <div class="card" th:if="${usage != null and !#lists.isEmpty(usage)}">
+                <div class="card-header">
+                    <span>Templates using this stencil</span>
+                </div>
+                <div class="card-content" id="usage-list">
+                    <th:block th:fragment="usage">
+                        <!-- Toolbar: version picker + apply button -->
+                        <div th:if="${auth.has('TEMPLATE_EDIT')}" style="display: flex; align-items: center; gap: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
+                            <label class="ep-label" style="margin: 0; white-space: nowrap;">Upgrade to:</label>
+                            <select id="upgrade-version-select" class="ep-input" style="width: auto; min-width: 10rem;">
+                                <!--/* Show published versions first (latest = default selected), then drafts. Exclude archived. */-->
+                                <th:block th:with="publishedVersions=${versions.?[status.name() == 'PUBLISHED']},
+                                                   draftVersions=${versions.?[status.name() == 'DRAFT']}">
+                                    <th:block th:each="v, stat : ${publishedVersions}">
+                                        <option th:value="${v.id}"
+                                                th:text="'v' + ${v.id} + ' (published)'"
+                                                th:selected="${stat.first}"></option>
+                                    </th:block>
+                                    <th:block th:each="v : ${draftVersions}">
+                                        <option th:value="${v.id}"
+                                                th:text="'v' + ${v.id} + ' (draft)'"></option>
+                                    </th:block>
+                                </th:block>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-primary" id="apply-upgrade-btn" onclick="applyUpgrade()">
+                                Apply to selected
+                            </button>
+                            <span id="upgrade-status" style="font-size: var(--ep-font-size-sm); color: var(--ep-color-text-muted);"></span>
+                        </div>
+
+                        <table class="ep-table ep-table-compact">
+                            <thead>
+                                <tr>
+                                    <th style="width: 2rem;">
+                                        <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all draft rows">
+                                    </th>
+                                    <th>Template</th>
+                                    <th>Variant</th>
+                                    <th>Version</th>
+                                    <th>Status</th>
+                                    <th>Stencil Version</th>
+                                    <th>Instances</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="u : ${usage}" th:classappend="${u.versionStatus == 'draft'} ? 'usage-row-selectable' : ''">
+                                    <td>
+                                        <input th:if="${u.versionStatus == 'draft'}"
+                                               type="checkbox"
+                                               class="usage-select"
+                                               th:data-template-id="${u.templateId}"
+                                               th:data-variant-id="${u.variantId}">
+                                    </td>
+                                    <td>
+                                        <a th:href="@{/tenants/{tenantId}/templates/{templateId}(tenantId=${tenantId},templateId=${u.templateId})}"
+                                           th:text="${u.templateName}" style="font-weight: 500;"></a>
+                                    </td>
+                                    <td th:text="${u.variantId}"></td>
+                                    <td th:text="'v' + ${u.versionId}"></td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="${u.versionStatus == 'published'} ? 'badge-success' : (${u.versionStatus == 'draft'} ? 'badge-warning' : 'badge-muted')"
+                                              th:text="${u.versionStatus}"></span>
+                                    </td>
+                                    <td th:text="${u.stencilVersion > 0} ? ('v' + ${u.stencilVersion}) : 'unlinked'"></td>
+                                    <td th:text="${u.instanceCount}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <script th:inline="javascript">
+                            const _tenantId = /*[[${tenantId}]]*/ '';
+                            const _stencilId = /*[[${stencil.id}]]*/ '';
+                            const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
+                            let _abortController = null;
+
+                            function toggleSelectAll(checked) {
+                                document.querySelectorAll('.usage-select:not(:disabled)').forEach(cb => cb.checked = checked);
+                            }
+
+                            async function applyUpgrade() {
+                                const version = parseInt(document.getElementById('upgrade-version-select').value);
+                                const selected = [...document.querySelectorAll('.usage-select:checked')];
+                                if (selected.length === 0) {
+                                    document.getElementById('upgrade-status').textContent = 'No rows selected';
+                                    return;
+                                }
+
+                                // Confirm before proceeding
+                                const versionLabel = document.getElementById('upgrade-version-select').selectedOptions[0].textContent;
+                                if (!confirm(`This will modify ${selected.length} template draft(s) to use stencil ${versionLabel}.\n\nThis operation modifies drafts only — published versions in environments are not affected.\n\nContinue?`)) {
+                                    return;
+                                }
+
+                                const btn = document.getElementById('apply-upgrade-btn');
+                                const status = document.getElementById('upgrade-status');
+                                _abortController = new AbortController();
+
+                                // Switch to cancel mode
+                                btn.textContent = 'Cancel';
+                                btn.onclick = () => { _abortController.abort(); };
+                                btn.classList.remove('btn-primary');
+                                btn.classList.add('btn-outline');
+                                status.textContent = '';
+
+                                let success = 0, failed = 0, cancelled = false;
+                                for (const cb of selected) {
+                                    if (_abortController.signal.aborted) {
+                                        cancelled = true;
+                                        break;
+                                    }
+
+                                    const templateId = cb.dataset.templateId;
+                                    const variantId = cb.dataset.variantId;
+                                    try {
+                                        const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _stencilId + '/upgrade', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
+                                            body: JSON.stringify({ templateId, variantId, newVersion: version }),
+                                            signal: _abortController.signal,
+                                        });
+                                        if (resp.ok) {
+                                            cb.closest('tr').style.opacity = '0.5';
+                                            cb.checked = false;
+                                            cb.disabled = true;
+                                            success++;
+                                        } else {
+                                            failed++;
+                                        }
+                                    } catch (e) {
+                                        if (e.name === 'AbortError') {
+                                            cancelled = true;
+                                            break;
+                                        }
+                                        failed++;
+                                    }
+                                    status.textContent = `${success + failed} / ${selected.length}...`;
+                                }
+
+                                // Reset button
+                                btn.textContent = 'Apply to selected';
+                                btn.onclick = applyUpgrade;
+                                btn.classList.remove('btn-outline');
+                                btn.classList.add('btn-primary');
+                                _abortController = null;
+
+                                const parts = [];
+                                if (success > 0) parts.push(`${success} upgraded`);
+                                if (failed > 0) parts.push(`${failed} failed`);
+                                if (cancelled) parts.push('cancelled');
+                                status.textContent = parts.length > 0 ? parts.join(', ') : '';
+                            }
+                        </script>
+                    </th:block>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

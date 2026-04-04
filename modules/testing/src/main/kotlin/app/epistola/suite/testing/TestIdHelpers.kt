@@ -2,6 +2,7 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
 import java.util.concurrent.atomic.AtomicInteger
@@ -15,6 +16,7 @@ object TestIdHelpers {
     private val variantIdCounter = AtomicInteger(0)
     private val environmentIdCounter = AtomicInteger(0)
     private val attributeIdCounter = AtomicInteger(0)
+    private val stencilIdCounter = AtomicInteger(0)
 
     /**
      * Generates a unique TemplateId for testing purposes.
@@ -40,6 +42,8 @@ object TestIdHelpers {
      */
     fun nextAttributeId(): AttributeKey = AttributeKey.of("test-attr-${attributeIdCounter.incrementAndGet()}")
 
+    fun nextStencilId(): StencilKey = StencilKey.of("test-stencil-${stencilIdCounter.incrementAndGet()}")
+
     /**
      * Resets all counters. Use this in test setup if needed.
      */
@@ -48,5 +52,6 @@ object TestIdHelpers {
         variantIdCounter.set(0)
         environmentIdCounter.set(0)
         attributeIdCounter.set(0)
+        stencilIdCounter.set(0)
     }
 }

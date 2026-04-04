@@ -140,6 +140,96 @@
                     return await resp.json();
                 },
             },
+            stencilOptions: {
+                checkUpgrades: async (refs) => {
+                    const uniqueIds = [...new Set(refs.map(r => r.stencilId))];
+                    const results = [];
+                    for (const sid of uniqueIds) {
+                        const resp = await fetch('/tenants/' + tenantId + '/stencils/' + sid + '/versions', {
+                            headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        });
+                        if (!resp.ok) continue;
+                        const data = await resp.json();
+                        const versions = data.items ?? data;
+                        const latestPublished = versions.filter(v => v.status === 'published')
+                            .sort((a, b) => b.version - a.version)[0];
+                        if (latestPublished) {
+                            const currentVersions = refs.filter(r => r.stencilId === sid);
+                            for (const ref of currentVersions) {
+                                if (latestPublished.version > ref.version) {
+                                    results.push({ stencilId: sid, currentVersion: ref.version, latestVersion: latestPublished.version });
+                                }
+                            }
+                        }
+                    }
+                    return results;
+                },
+                searchStencils: async (query) => {
+                    const params = new URLSearchParams();
+                    if (query) params.set('q', query);
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) return [];
+                    const data = await resp.json();
+                    return data.items ?? data;
+                },
+                listVersions: async (stencilId) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions', {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) return [];
+                    const data = await resp.json();
+                    return data.items ?? data;
+                },
+                getStencilVersion: async (stencilId, version) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version, {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) return null;
+                    const v = await resp.json();
+                    return { stencilId: v.stencilId ?? stencilId, stencilName: stencilId, version: v.id ?? version, content: v.content };
+                },
+                createStencil: async (slug, name) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: JSON.stringify({ id: slug, name }),
+                    });
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        throw new Error(err.message || err.error || 'Stencil ID already exists or invalid');
+                    }
+                    return await resp.json();
+                },
+                startEditing: async (stencilId) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: '{}',
+                    });
+                    if (!resp.ok) throw new Error('Failed to start editing');
+                    const data = await resp.json();
+                    return { draftVersion: data.version };
+                },
+                publishDraft: async (stencilId, version) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version + '/publish', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) throw new Error('Failed to publish draft');
+                    return await resp.json();
+                },
+                updateStencil: async (stencilId, content) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/draft', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: JSON.stringify({ content }),
+                    });
+                    if (!resp.ok) throw new Error('Failed to update stencil');
+                    return await resp.json();
+                },
+            },
             onSave: async (template) => {
                 const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
                     method: 'PUT',

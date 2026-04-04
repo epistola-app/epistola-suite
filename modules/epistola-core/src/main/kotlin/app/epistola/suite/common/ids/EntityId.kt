@@ -61,6 +61,18 @@ class VersionId(key: VersionKey, variantId: VariantId) : EntityId<VersionKey, In
     val variantKey = variantId.key
 }
 
+data class StencilId(override val key: StencilKey, val tenantId: TenantId) : EntityId<StencilKey, String, TenantId>(key, tenantId) {
+    override val type = "stencil"
+    val tenantKey = tenantId.key
+}
+
+class StencilVersionId(key: VersionKey, stencilId: StencilId) : EntityId<VersionKey, Int, StencilId>(key, stencilId) {
+    override val type = "stencil-version"
+    val tenantId = stencilId.tenantId
+    val tenantKey = stencilId.tenantKey
+    val stencilKey = stencilId.key
+}
+
 class ThemeId(key: ThemeKey, tenantId: TenantId) : EntityId<ThemeKey, String, TenantId>(key, tenantId) {
     override val type = "theme"
     val tenantKey = tenantId.key

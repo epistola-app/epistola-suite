@@ -214,6 +214,7 @@ class DirectPdfRenderer(
                 "root" to ContainerNodeRenderer(),
                 "text" to TextNodeRenderer(),
                 "container" to ContainerNodeRenderer(),
+                "stencil" to ContainerNodeRenderer(),
                 "columns" to ColumnsNodeRenderer(),
                 "table" to TableNodeRenderer(),
                 "conditional" to ConditionalNodeRenderer(),

@@ -375,7 +375,7 @@ export class EpistolaCanvas extends LitElement {
 
     const isSelected = this.selectedNodeId === nodeId;
     const def = this.engine!.registry.get(node.type);
-    const label = def?.label ?? node.type;
+    const label = def?.getLabel?.(node, this.engine!) ?? def?.label ?? node.type;
     const collapsible = this._isCollapsible(nodeId);
     const collapsed = collapsible && this._collapsedNodes.has(nodeId);
 

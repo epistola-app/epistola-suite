@@ -1,0 +1,192 @@
+/* ── Stencil block canvas styles ──────────────────────────────────────── */
+/* State info (name, version, upgrade) is in the block header via getLabel. */
+/* renderCanvas only adds a locked/content wrapper — these are the only    */
+/* canvas classes needed.                                                    */
+
+.canvas-stencil-content {
+  /* Editable state — no restrictions */
+}
+
+.canvas-stencil-locked {
+  pointer-events: none;
+  opacity: 0.7;
+  position: relative;
+}
+
+/* ── Stencil picker dialog ───────────────────────────────────────────── */
+
+.stencil-picker-dialog {
+  border: none;
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-xl);
+  padding: 0;
+  max-width: 36rem;
+  width: 90%;
+  max-height: 80vh;
+}
+
+.stencil-picker-dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.stencil-picker-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.stencil-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.stencil-picker-header h3 {
+  margin: 0;
+  font-size: var(--ep-text-base);
+}
+
+.stencil-picker-close {
+  background: none;
+  border: none;
+  font-size: var(--ep-text-xl);
+  cursor: pointer;
+  color: var(--ep-muted-foreground);
+  padding: var(--ep-space-1);
+  line-height: 1;
+}
+
+.stencil-picker-close:hover {
+  color: var(--ep-foreground);
+}
+
+.stencil-picker-search {
+  padding: var(--ep-space-3) var(--ep-space-6);
+}
+
+.stencil-picker-list {
+  overflow-y: auto;
+  max-height: 300px;
+  min-height: 80px;
+  padding: 0 var(--ep-space-6);
+}
+
+.stencil-picker-loading,
+.stencil-picker-empty {
+  text-align: center;
+  padding: var(--ep-space-8);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.stencil-picker-card {
+  padding: var(--ep-space-3) var(--ep-space-4);
+  border: 2px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  margin-bottom: var(--ep-space-2);
+}
+
+.stencil-picker-card:hover {
+  border-color: var(--ep-gray-400);
+}
+
+.stencil-picker-card.selected {
+  border-color: var(--ep-primary);
+  box-shadow: 0 0 0 1px var(--ep-primary);
+}
+
+.stencil-picker-card-name {
+  font-weight: 500;
+  font-size: var(--ep-text-sm);
+}
+
+.stencil-picker-card-meta {
+  display: flex;
+  gap: var(--ep-space-2);
+  align-items: center;
+  margin-top: var(--ep-space-1);
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+}
+
+.stencil-picker-card-desc {
+  margin-top: var(--ep-space-1);
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+}
+
+.stencil-picker-tag {
+  background: var(--ep-gray-100);
+  padding: 0 var(--ep-space-1-5);
+  border-radius: var(--ep-radius-sm);
+  font-size: var(--ep-text-xs);
+}
+
+.stencil-picker-footer {
+  display: flex;
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-top: 1px solid var(--ep-border-color);
+}
+
+.stencil-picker-btn {
+  padding: var(--ep-space-1-5) var(--ep-space-4);
+  border-radius: var(--ep-radius-md);
+  font-size: var(--ep-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--ep-border-color);
+  background: var(--ep-white);
+  color: var(--ep-foreground);
+}
+
+.stencil-picker-btn:hover {
+  background: var(--ep-gray-50);
+}
+
+.stencil-picker-btn.insert {
+  background: var(--ep-primary);
+  color: var(--ep-primary-foreground);
+  border-color: var(--ep-primary);
+}
+
+.stencil-picker-btn.insert:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.stencil-picker-btn.insert:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stencil-picker-btn.create-new {
+  border-style: dashed;
+}
+
+.stencil-picker-status {
+  display: inline-block;
+  padding: 0 var(--ep-space-1-5);
+  border-radius: var(--ep-radius-sm);
+  font-size: var(--ep-text-xs);
+  font-weight: 500;
+}
+
+.stencil-picker-status--draft {
+  background: var(--ep-amber-50, #fffbeb);
+  color: var(--ep-amber-700, #b45309);
+}
+
+.stencil-picker-status--published {
+  background: var(--ep-green-50, #f0fdf4);
+  color: var(--ep-green-700, #15803d);
+}
+
+.stencil-picker-status--archived {
+  background: var(--ep-gray-100);
+  color: var(--ep-gray-500);
+}
