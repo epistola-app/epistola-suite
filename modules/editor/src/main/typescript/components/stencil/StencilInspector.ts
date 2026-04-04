@@ -363,16 +363,12 @@ export class StencilInspector extends LitElement {
 
   private _handleDetach() {
     this.engine.dispatch({
-      type: 'UpdateNodeProps',
+      type: 'ReplaceNode',
       nodeId: this.node.id,
-      props: {
-        ...this.node.props,
-        stencilId: null,
-        version: null,
-        isDraft: false,
-      },
+      newType: 'container',
+      newProps: {},
     });
-    this._message = 'Detached from stencil';
+    this._message = 'Converted to container';
   }
 
   /**

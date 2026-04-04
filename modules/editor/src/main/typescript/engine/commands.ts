@@ -30,6 +30,7 @@ export type Command =
   | UpdateNodeProps
   | UpdateNodeStyles
   | SetStylePreset
+  | ReplaceNode
   | UpdateDocumentStyles
   | UpdatePageSettings
   | AddColumnSlot
@@ -76,6 +77,15 @@ export interface UpdateNodeProps {
   props: Record<string, unknown>;
   /** Opaque metadata carried through to events and inverse commands. */
   metadata?: Record<string, unknown>;
+}
+
+export interface ReplaceNode {
+  type: 'ReplaceNode';
+  nodeId: NodeId;
+  /** New component type (e.g., 'container'). */
+  newType: string;
+  /** New props to replace the existing props. */
+  newProps?: Record<string, unknown>;
 }
 
 export interface UpdateNodeStyles {
@@ -147,6 +157,7 @@ const BUILTIN_COMMAND_TYPES: ReadonlySet<string> = new Set([
   'UpdateNodeProps',
   'UpdateNodeStyles',
   'SetStylePreset',
+  'ReplaceNode',
   'UpdateDocumentStyles',
   'UpdatePageSettings',
   'AddColumnSlot',
@@ -188,6 +199,8 @@ function applyBuiltinCommand(
       return applyUpdateNodeStyles(doc, command);
     case 'SetStylePreset':
       return applySetStylePreset(doc, command);
+    case 'ReplaceNode':
+      return applyReplaceNode(doc, command);
     case 'UpdateDocumentStyles':
       return applyUpdateDocumentStyles(doc, command);
     case 'UpdatePageSettings':
@@ -542,6 +555,33 @@ function applyUpdateNodeProps(doc: TemplateDocument, cmd: UpdateNodeProps): Comm
   const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode };
 
   return ok({ ...doc, nodes: newNodes }, inverse, false);
+}
+
+// ---------------------------------------------------------------------------
+// ReplaceNode
+// ---------------------------------------------------------------------------
+
+function applyReplaceNode(doc: TemplateDocument, cmd: ReplaceNode): CommandResult {
+  const node = doc.nodes[cmd.nodeId];
+  if (!node) return err(`Node ${cmd.nodeId} not found`);
+
+  if (cmd.nodeId === doc.root) return err('Cannot replace root node');
+
+  const inverse: ReplaceNode = {
+    type: 'ReplaceNode',
+    nodeId: cmd.nodeId,
+    newType: node.type,
+    newProps: node.props ? structuredClone(node.props) : undefined,
+  };
+
+  const newNode = {
+    ...node,
+    type: cmd.newType,
+    props: cmd.newProps ? structuredClone(cmd.newProps) : undefined,
+  };
+  const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode };
+
+  return ok({ ...doc, nodes: newNodes }, inverse, true);
 }
 
 // ---------------------------------------------------------------------------

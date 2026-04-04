@@ -617,6 +617,51 @@ describe('Inspector action flows with callbacks', () => {
     expect(engine.doc.nodes[nodeId].props?.isDraft).toBe(false);
   });
 
+  it('detach converts stencil to container via ReplaceNode', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
+    });
+    const stencilSlot = getStencilSlot(engine, nodeId);
+    insertText(engine, registry, stencilSlot, 'Content');
+
+    engine.dispatch({
+      type: 'ReplaceNode',
+      nodeId,
+      newType: 'container',
+      newProps: {},
+    });
+
+    const node = engine.doc.nodes[nodeId];
+    expect(node.type).toBe('container');
+    expect(node.props).toEqual({});
+    expect(engine.doc.slots[stencilSlot].children).toHaveLength(1);
+  });
+
+  it('detach is undoable — restores stencil type and props', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
+    });
+
+    engine.dispatch({
+      type: 'ReplaceNode',
+      nodeId,
+      newType: 'container',
+      newProps: {},
+    });
+    expect(engine.doc.nodes[nodeId].type).toBe('container');
+
+    engine.undo();
+    expect(engine.doc.nodes[nodeId].type).toBe('stencil');
+    expect(engine.doc.nodes[nodeId].props?.stencilId).toBe('header');
+    expect(engine.doc.nodes[nodeId].props?.version).toBe(1);
+  });
+
   it('callback failure does not corrupt engine state', async () => {
     const callbacks = createMockCallbacks({
       startEditing: vi.fn().mockRejectedValue(new Error('Server error')),
