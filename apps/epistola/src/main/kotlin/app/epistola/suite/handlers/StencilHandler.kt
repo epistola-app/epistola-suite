@@ -292,6 +292,60 @@ class StencilHandler(
         }
     }
 
+    /** JSON endpoint for the editor: create stencil + publish first version. */
+    fun publishFromEditor(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+
+        data class PublishFromEditorRequest(
+            val slug: String,
+            val name: String,
+            val content: app.epistola.template.model.TemplateDocument,
+        )
+
+        val body = request.body(String::class.java)
+        val req = objectMapper.readValue(body, PublishFromEditorRequest::class.java)
+
+        val stencilId = StencilId(StencilKey.of(req.slug), tenantId)
+
+        // Create stencil with initial content
+        CreateStencil(
+            id = stencilId,
+            name = req.name,
+            content = req.content,
+        ).execute()
+
+        // Publish the draft (version 1)
+        val versionIdComposite = StencilVersionId(VersionKey.of(1), stencilId)
+        PublishStencilVersion(versionId = versionIdComposite).execute()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("stencilId" to req.slug, "version" to 1))
+    }
+
+    /** JSON endpoint for the editor: push updated content as a new draft version. */
+    fun updateFromEditor(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        data class UpdateFromEditorRequest(
+            val content: app.epistola.template.model.TemplateDocument,
+        )
+
+        val body = request.body(String::class.java)
+        val req = objectMapper.readValue(body, UpdateFromEditorRequest::class.java)
+
+        val version = CreateStencilVersion(
+            stencilId = stencilId,
+            content = req.content,
+        ).execute() ?: return ServerResponse.notFound().build()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("version" to version.id.value))
+    }
+
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)

@@ -32,6 +32,8 @@ export type {
   SearchStencilsFn,
   GetStencilVersionFn,
   CheckStencilUpgradesFn,
+  PublishAsStencilFn,
+  UpdateStencilFn,
 } from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';

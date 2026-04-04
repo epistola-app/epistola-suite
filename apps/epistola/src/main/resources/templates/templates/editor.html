@@ -159,6 +159,24 @@
                     const v = await resp.json();
                     return { stencilId: v.stencilId ?? stencilId, stencilName: stencilId, version: v.id ?? version, content: v.content };
                 },
+                publishAsStencil: async (slug, name, content) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/publish-from-editor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: JSON.stringify({ slug, name, content }),
+                    });
+                    if (!resp.ok) throw new Error('Failed to publish stencil');
+                    return await resp.json();
+                },
+                updateStencil: async (stencilId, content) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/update-from-editor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: JSON.stringify({ content }),
+                    });
+                    if (!resp.ok) throw new Error('Failed to update stencil');
+                    return await resp.json();
+                },
             },
             onSave: async (template) => {
                 const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {

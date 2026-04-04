@@ -12,10 +12,12 @@
  */
 
 import type { ComponentDefinition } from '../../engine/registry.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
+import './StencilInspector.js';
 import { nanoid } from 'nanoid';
 import { html } from 'lit';
 
@@ -55,6 +57,15 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       return html`<div class="canvas-stencil-badge">
         <span class="canvas-stencil-badge-label">${stencilId} v${version ?? '?'}</span>
       </div>`;
+    },
+
+    renderInspector: ({ node, engine: eng }) => {
+      const engine = eng as EditorEngine;
+      return html`<stencil-inspector
+        .node=${node}
+        .engine=${engine}
+        .callbacks=${options.callbacks}
+      ></stencil-inspector>`;
     },
 
     onBeforeInsert: async () => {
