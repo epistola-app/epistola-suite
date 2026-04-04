@@ -180,6 +180,21 @@ price.toFixed(2); // Number formatting
 
 Implementation: GraalJS with sandbox (no file/network access, execution limits)
 
+#### System Parameters
+
+System parameters are runtime values provided by the rendering engine:
+
+| Parameter         | Type              | Description                                                                   |
+| ----------------- | ----------------- | ----------------------------------------------------------------------------- |
+| `sys.today`       | string (ISO date) | Today's date (YYYY-MM-DD). Use `$formatDate()` for locale-specific formatting |
+| `sys.page.number` | integer           | Current page number (available in headers/footers only)                       |
+
+Example:
+
+```jsonata
+$formatDate(sys.today, "dd-MM-yyyy")  // Formats as "03-04-2026"
+```
+
 #### Evaluator Architecture
 
 ```

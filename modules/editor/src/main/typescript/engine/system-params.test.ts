@@ -10,6 +10,14 @@ describe('SYSTEM_PARAMETER_PATHS', () => {
     expect(pageNumber!.description).toBeTruthy();
   });
 
+  it('contains sys.today', () => {
+    const today = SYSTEM_PARAMETER_PATHS.find((fp) => fp.path === 'sys.today');
+    expect(today).toBeDefined();
+    expect(today!.type).toBe('date');
+    expect(today!.system).toBe(true);
+    expect(today!.description).toBeTruthy();
+  });
+
   it('all entries are marked as system parameters', () => {
     for (const fp of SYSTEM_PARAMETER_PATHS) {
       expect(fp.system).toBe(true);
@@ -30,5 +38,11 @@ describe('SYSTEM_PARAM_MOCK_DATA', () => {
     const page = sys.page as Record<string, unknown>;
     expect(page).toBeDefined();
     expect(page.number).toBe(1);
+  });
+
+  it('contains sys.today mock value', () => {
+    const sys = SYSTEM_PARAM_MOCK_DATA.sys as Record<string, unknown>;
+    expect(sys).toBeDefined();
+    expect(sys.today).toBe('2026-04-03');
   });
 });

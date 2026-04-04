@@ -107,6 +107,52 @@ class RenderContextTest {
     }
 
     @Test
+    fun `withGlobalParams injects today date`() {
+        val context = createContext()
+        val globalContext = context.withGlobalParams()
+
+        assertEquals(java.time.LocalDate.now().toString(), globalContext.systemParams["today"])
+    }
+
+    @Test
+    fun `withGlobalParams makes today available in effectiveData`() {
+        val context = createContext(data = mapOf("name" to "John"))
+        val globalContext = context.withGlobalParams()
+
+        val effective = globalContext.effectiveData
+        assertEquals("John", effective["name"])
+
+        @Suppress("UNCHECKED_CAST")
+        val sys = effective["sys"] as Map<String, Any?>
+        assertEquals(java.time.LocalDate.now().toString(), sys["today"])
+    }
+
+    @Test
+    fun `withGlobalParams preserves existing system params`() {
+        val context = createContext(
+            systemParams = mapOf("page" to mapOf("number" to 5)),
+        )
+        val globalContext = context.withGlobalParams()
+
+        @Suppress("UNCHECKED_CAST")
+        val page = globalContext.systemParams["page"] as Map<String, Any?>
+        assertEquals(5, page["number"])
+        assertEquals(java.time.LocalDate.now().toString(), globalContext.systemParams["today"])
+    }
+
+    @Test
+    fun `withGlobalParams creates independent context copy`() {
+        val context = createContext()
+        val global1 = context.withGlobalParams()
+        val global2 = context.withGlobalParams()
+
+        assertEquals(java.time.LocalDate.now().toString(), global1.systemParams["today"])
+        assertEquals(java.time.LocalDate.now().toString(), global2.systemParams["today"])
+        assertSame(context.data, global1.data)
+        assertSame(context.data, global2.data)
+    }
+
+    @Test
     fun `effectiveData with withPageParams works end-to-end`() {
         val context = createContext(data = mapOf("greeting" to "Hello"))
         val pageContext = context.withPageParams(7)
