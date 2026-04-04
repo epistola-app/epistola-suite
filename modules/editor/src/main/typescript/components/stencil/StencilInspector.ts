@@ -142,7 +142,7 @@ export class StencilInspector extends LitElement {
       const content = extractSubtree(this.engine.doc, this.node.id);
       const result = await this.callbacks.updateStencil(this._stencilId, content);
 
-      this._message = `Draft v${result.version} created`;
+      this._message = `Draft v${result.version} saved`;
     } catch (e) {
       this._message = `Error: ${(e as Error).message}`;
     } finally {

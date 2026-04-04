@@ -325,7 +325,7 @@ class StencilHandler(
             .body(mapOf("stencilId" to req.slug, "version" to 1))
     }
 
-    /** JSON endpoint for the editor: push updated content as a new draft version. */
+    /** JSON endpoint for the editor: save content to the stencil's draft version. */
     fun updateFromEditor(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -338,14 +338,21 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, UpdateFromEditorRequest::class.java)
 
-        val version = CreateStencilVersion(
+        // Ensure a draft exists (idempotent — returns existing draft if one exists)
+        val draft = CreateStencilVersion(
             stencilId = stencilId,
-            content = req.content,
         ).execute() ?: return ServerResponse.notFound().build()
+
+        // Update the draft's content
+        val versionIdComposite = StencilVersionId(draft.id, stencilId)
+        app.epistola.suite.stencils.commands.UpdateStencilDraft(
+            versionId = versionIdComposite,
+            content = req.content,
+        ).execute()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("version" to version.id.value))
+            .body(mapOf("version" to draft.id.value))
     }
 
     fun delete(request: ServerRequest): ServerResponse {
