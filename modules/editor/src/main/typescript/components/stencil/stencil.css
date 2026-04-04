@@ -13,11 +13,29 @@
   color: var(--ep-blue-700, var(--ep-foreground));
 }
 
+.canvas-stencil-badge--locked {
+  background-color: var(--ep-gray-50);
+  border-color: var(--ep-gray-300, var(--ep-border-color));
+  color: var(--ep-gray-600, var(--ep-foreground));
+}
+
+.canvas-stencil-badge--draft {
+  background-color: var(--ep-amber-50, #fffbeb);
+  border-color: var(--ep-amber-300, #fcd34d);
+  color: var(--ep-amber-700, #b45309);
+}
+
 .canvas-stencil-badge--empty {
   background-color: var(--ep-gray-50);
   border-color: var(--ep-border-color);
   color: var(--ep-muted-foreground);
   border-style: dashed;
+}
+
+.canvas-stencil-locked {
+  pointer-events: none;
+  opacity: 0.7;
+  position: relative;
 }
 
 .canvas-stencil-badge-label {

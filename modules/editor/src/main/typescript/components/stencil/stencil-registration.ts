@@ -42,30 +42,47 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     defaultProps: {
       stencilId: null,
       version: null,
+      isDraft: false,
     },
 
     renderCanvas: ({ node, renderSlot, doc }) => {
       const stencilId = node.props?.stencilId as string | null;
       const version = node.props?.version as number | null;
+      const isDraft = node.props?.isDraft as boolean | undefined;
+      const isLocked = stencilId !== null && !isDraft;
       const hasChildren = node.slots.length > 0 &&
         (doc.slots[node.slots[0]]?.children?.length ?? 0) > 0;
 
-      // Linked stencil: show badge with name + version
-      // Unlinked with content: no badge (acts like a container)
-      // Empty: show placeholder
-      const badge = stencilId
-        ? html`<div class="canvas-stencil-badge">
-            <span class="canvas-stencil-badge-label">${stencilId} v${version ?? '?'}</span>
-          </div>`
-        : !hasChildren
-          ? html`<div class="canvas-stencil-badge canvas-stencil-badge--empty">
-              <span class="canvas-stencil-badge-label">Stencil — add content</span>
-            </div>`
-          : html``;
+      // Badge content depends on state
+      let badge;
+      if (stencilId && isDraft) {
+        badge = html`<div class="canvas-stencil-badge canvas-stencil-badge--draft">
+          <span class="canvas-stencil-badge-label">${stencilId} — editing draft</span>
+        </div>`;
+      } else if (stencilId) {
+        badge = html`<div class="canvas-stencil-badge canvas-stencil-badge--locked">
+          <span class="canvas-stencil-badge-label">🔒 ${stencilId} v${version ?? '?'}</span>
+        </div>`;
+      } else if (!hasChildren) {
+        badge = html`<div class="canvas-stencil-badge canvas-stencil-badge--empty">
+          <span class="canvas-stencil-badge-label">Stencil — add content</span>
+        </div>`;
+      } else {
+        badge = html``;
+      }
+
+      // Wrap children in a locked overlay when not editable
+      const children = node.slots.map((slotId) => renderSlot(slotId));
+      if (isLocked) {
+        return html`
+          ${badge}
+          <div class="canvas-stencil-locked">${children}</div>
+        `;
+      }
 
       return html`
         ${badge}
-        ${node.slots.map((slotId) => renderSlot(slotId))}
+        ${children}
       `;
     },
 

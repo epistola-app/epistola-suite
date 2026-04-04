@@ -53,6 +53,9 @@ export type UpdateStencilFn = (
   content: import('../../types/index.js').TemplateDocument,
 ) => Promise<{ version: number }>;
 
+/** Ensure a draft exists for a stencil (creates one if needed). */
+export type StartEditingFn = (stencilId: string) => Promise<{ draftVersion: number }>;
+
 /** All stencil-related callbacks provided by the hosting app. */
 export interface StencilCallbacks {
   searchStencils: SearchStencilsFn;
@@ -60,4 +63,5 @@ export interface StencilCallbacks {
   checkUpgrades?: CheckStencilUpgradesFn;
   publishAsStencil?: PublishAsStencilFn;
   updateStencil?: UpdateStencilFn;
+  startEditing?: StartEditingFn;
 }

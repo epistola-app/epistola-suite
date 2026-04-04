@@ -243,6 +243,20 @@ class StencilHandler(
             )
     }
 
+    /** JSON endpoint for the editor: ensure a draft exists for editing. */
+    fun startEditing(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val draft = CreateStencilVersion(stencilId = stencilId).execute()
+            ?: return ServerResponse.notFound().build()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("draftVersion" to draft.id.value))
+    }
+
     fun createVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)

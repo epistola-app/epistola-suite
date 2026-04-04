@@ -168,6 +168,14 @@
                     if (!resp.ok) throw new Error('Failed to publish stencil');
                     return await resp.json();
                 },
+                startEditing: async (stencilId) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/start-editing', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) throw new Error('Failed to start editing');
+                    return await resp.json();
+                },
                 updateStencil: async (stencilId, content) => {
                     const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/update-from-editor', {
                         method: 'POST',
