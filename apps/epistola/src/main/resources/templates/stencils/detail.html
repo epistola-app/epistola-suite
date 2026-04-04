@@ -124,6 +124,18 @@
                 </div>
                 <div class="card-content" id="usage-list">
                     <th:block th:fragment="usage">
+                        <div th:with="latestPublishedVer=${versions.?[status.name() == 'PUBLISHED'].isEmpty() ? null : versions.?[status.name() == 'PUBLISHED'].get(0).id},
+                                      upgradeable=${usage.?[versionStatus == 'draft']}">
+                            <div th:if="${latestPublishedVer != null and !upgradeable.isEmpty()}"
+                                 style="margin-bottom: var(--ep-space-3);">
+                                <button type="button"
+                                        class="btn btn-sm btn-primary"
+                                        id="upgrade-all-btn"
+                                        th:attr="onclick='upgradeAllDrafts(this, ' + ${latestPublishedVer} + ')'">
+                                    Upgrade all drafts to v<span th:text="${latestPublishedVer}"></span>
+                                </button>
+                            </div>
+                        </div>
                         <table class="ep-table ep-table-compact">
                             <thead>
                                 <tr>
@@ -168,19 +180,19 @@
                         </table>
 
                         <script th:inline="javascript">
-                            function upgradeStencilInTemplate(btn, templateId, variantId, newVersion) {
+                            const _tenantId = /*[[${tenantId}]]*/ '';
+                            const _stencilId = /*[[${stencil.id}]]*/ '';
+                            const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
+
+                            async function upgradeStencilInTemplate(btn, templateId, variantId, newVersion) {
                                 btn.disabled = true;
                                 btn.textContent = 'Upgrading...';
-                                const tenantId = /*[[${tenantId}]]*/ '';
-                                const stencilId = /*[[${stencil.id}]]*/ '';
-                                fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/upgrade', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-XSRF-TOKEN': document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '',
-                                    },
-                                    body: JSON.stringify({ templateId, variantId, newVersion }),
-                                }).then(resp => {
+                                try {
+                                    const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _stencilId + '/upgrade', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
+                                        body: JSON.stringify({ templateId, variantId, newVersion }),
+                                    });
                                     if (resp.ok) {
                                         btn.textContent = 'Done';
                                         btn.classList.remove('btn-primary');
@@ -189,7 +201,50 @@
                                         btn.textContent = 'Failed';
                                         btn.disabled = false;
                                     }
-                                });
+                                } catch {
+                                    btn.textContent = 'Failed';
+                                    btn.disabled = false;
+                                }
+                            }
+
+                            async function upgradeAllDrafts(btn, newVersion) {
+                                btn.disabled = true;
+                                btn.textContent = 'Upgrading...';
+                                const buttons = document.querySelectorAll('#usage-list .actions .btn-primary');
+                                let success = 0;
+                                let failed = 0;
+                                for (const rowBtn of buttons) {
+                                    if (rowBtn === btn || rowBtn.disabled) continue;
+                                    const onclick = rowBtn.getAttribute('onclick');
+                                    if (!onclick) continue;
+                                    // Extract args from onclick: upgradeStencilInTemplate(this, 'templateId', 'variantId', version)
+                                    const match = onclick.match(/upgradeStencilInTemplate\(this,\s*'([^']+)',\s*'([^']+)',\s*(\d+)\)/);
+                                    if (!match) continue;
+                                    const [, templateId, variantId] = match;
+                                    try {
+                                        const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _stencilId + '/upgrade', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
+                                            body: JSON.stringify({ templateId, variantId, newVersion }),
+                                        });
+                                        if (resp.ok) {
+                                            rowBtn.textContent = 'Done';
+                                            rowBtn.classList.remove('btn-primary');
+                                            rowBtn.classList.add('btn-ghost');
+                                            rowBtn.disabled = true;
+                                            success++;
+                                        } else {
+                                            failed++;
+                                        }
+                                    } catch {
+                                        failed++;
+                                    }
+                                }
+                                btn.textContent = failed > 0
+                                    ? `Done (${success} ok, ${failed} failed)`
+                                    : `Done (${success} upgraded)`;
+                                btn.classList.remove('btn-primary');
+                                btn.classList.add('btn-ghost');
                             }
                         </script>
                     </th:block>
