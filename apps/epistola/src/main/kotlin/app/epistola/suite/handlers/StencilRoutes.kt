@@ -19,6 +19,7 @@ class StencilRoutes(private val handler: StencilHandler) {
             GET("/{stencilId}", handler::detail)
             PATCH("/{stencilId}", handler::update)
             POST("/{stencilId}/delete", handler::delete)
+            GET("/{stencilId}/versions/{versionId}", handler::getVersion)
         }
     }
 }

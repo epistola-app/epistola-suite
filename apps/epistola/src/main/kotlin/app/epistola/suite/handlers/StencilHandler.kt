@@ -2,6 +2,8 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -15,6 +17,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.queries.GetStencil
+import app.epistola.suite.stencils.queries.GetStencilVersion
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
 import org.springframework.http.MediaType
@@ -41,6 +44,13 @@ class StencilHandler(
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
         val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
+
+        // JSON response for editor callbacks (Accept: application/json)
+        val acceptsJson = request.headers().accept().any { it.isCompatibleWith(MediaType.APPLICATION_JSON) }
+        if (acceptsJson) {
+            return searchJson(request)
+        }
+
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key
@@ -173,6 +183,56 @@ class StencilHandler(
                     "description" to stencil.description,
                     "tags" to stencil.tags,
                     "lastModified" to stencil.lastModified,
+                ),
+            )
+    }
+
+    /** JSON endpoint for the editor's stencil search callback. */
+    fun searchJson(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val searchTerm = request.queryParam("q")
+        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
+
+        val items = stencils.map { stencil ->
+            val versions = ListStencilVersions(stencilId = StencilId(stencil.id, tenantId)).query()
+            val latestPublished = versions
+                .filter { it.status == app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED }
+                .maxByOrNull { it.id.value }
+                ?.id?.value
+            mapOf(
+                "id" to stencil.id.value,
+                "name" to stencil.name,
+                "description" to stencil.description,
+                "tags" to stencil.tags,
+                "latestPublishedVersion" to latestPublished,
+            )
+        }
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("items" to items))
+    }
+
+    /** JSON endpoint for the editor to fetch a specific stencil version. */
+    fun getVersion(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val versionId = request.pathVariable("versionId").toIntOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
+
+        val version = GetStencilVersion(versionId = versionIdComposite).query()
+            ?: return ServerResponse.notFound().build()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(
+                mapOf(
+                    "id" to version.id.value,
+                    "stencilId" to version.stencilKey.value,
+                    "status" to version.status.name.lowercase(),
+                    "content" to version.content,
                 ),
             )
     }

@@ -32,8 +32,6 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       { key: 'stencilId', label: 'Stencil ID', type: 'text' },
       { key: 'version', label: 'Version', type: 'number' },
     ],
-    // Hide from block palette when callbacks aren't wired (read-only stencil rendering)
-    hidden: !options.callbacks,
     defaultProps: {
       stencilId: null,
       version: null,

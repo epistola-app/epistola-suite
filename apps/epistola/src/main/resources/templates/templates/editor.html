@@ -140,6 +140,26 @@
                     return await resp.json();
                 },
             },
+            stencilOptions: {
+                searchStencils: async (query) => {
+                    const params = new URLSearchParams();
+                    if (query) params.set('q', query);
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) return [];
+                    const data = await resp.json();
+                    return data.items ?? data;
+                },
+                getStencilVersion: async (stencilId, version) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version, {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) return null;
+                    const v = await resp.json();
+                    return { stencilId: v.stencilId ?? stencilId, stencilName: stencilId, version: v.id ?? version, content: v.content };
+                },
+            },
             onSave: async (template) => {
                 const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
                     method: 'PUT',
