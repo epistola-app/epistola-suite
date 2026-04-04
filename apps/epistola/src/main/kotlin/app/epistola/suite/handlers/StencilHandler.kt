@@ -499,11 +499,12 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, DraftRequest::class.java)
 
-        // Ensure a draft exists (idempotent)
-        val draft = CreateStencilVersion(stencilId = stencilId).execute()
+        // Ensure a draft exists (idempotent). Pass content so it works even
+        // for brand-new stencils with no published versions to copy from.
+        val draft = CreateStencilVersion(stencilId = stencilId, content = req.content).execute()
             ?: return ServerResponse.notFound().build()
 
-        // Update the draft's content
+        // Always update — CreateStencilVersion returns existing draft without updating content
         UpdateStencilDraft(
             versionId = StencilVersionId(draft.id, stencilId),
             content = req.content,
