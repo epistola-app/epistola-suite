@@ -416,42 +416,64 @@ export class StencilInspector extends LitElement {
    * Removes existing children, re-keys the new content, and inserts.
    */
   private _replaceContent(content: import('../../types/index.js').TemplateDocument) {
-    const doc = this.engine.doc;
     const slotId = this.node.slots[0];
     if (!slotId) return;
 
-    const slot = doc.slots[slotId];
-    if (!slot) return;
-
-    // Remove existing children (in reverse to maintain indices)
-    for (let i = slot.children.length - 1; i >= 0; i--) {
-      this.engine.dispatch({ type: 'RemoveNode', nodeId: slot.children[i] });
+    // Remove existing children (re-read doc after each removal since it's immutable)
+    while (true) {
+      const currentSlot = this.engine.doc.slots[slotId];
+      if (!currentSlot || currentSlot.children.length === 0) break;
+      this.engine.dispatch({ type: 'RemoveNode', nodeId: currentSlot.children[0] });
     }
 
-    // Re-key and insert new content
+    // Re-key the new content and insert each top-level node
     const reKeyed = reKeyContent(content);
-    for (const newNode of reKeyed.nodes) {
-      // Find which slot this node should be a child of
-      const parentSlot = reKeyed.slots.find((s) =>
-        s.children.includes(newNode.id),
-      );
-      if (!parentSlot) continue;
 
-      // Only insert top-level nodes (children of the root slot)
-      if (reKeyed.childNodeIds.includes(newNode.id)) {
-        // Build the slots for this node
-        const nodeSlots = reKeyed.slots.filter((s) => s.nodeId === newNode.id);
-        const descendantNodes = reKeyed.nodes.filter((n) => n.id !== newNode.id);
+    // Build a set of node IDs that are descendants of each top-level node
+    const nodeById = new Map(reKeyed.nodes.map((n) => [n.id as string, n]));
+    const slotById = new Map(reKeyed.slots.map((s) => [s.id as string, s]));
 
-        this.engine.dispatch({
-          type: 'InsertNode',
-          node: newNode,
-          slots: [...nodeSlots, ...reKeyed.slots.filter((s) => !nodeSlots.includes(s) && s.nodeId !== newNode.id)],
-          targetSlotId: slotId,
-          index: -1,
-          _restoreNodes: descendantNodes,
-        });
+    for (const childId of reKeyed.childNodeIds) {
+      const childNode = nodeById.get(childId as string);
+      if (!childNode) continue;
+
+      // Collect this node's descendant nodes and slots
+      const descNodes: import('../../types/index.js').Node[] = [];
+      const descSlots: import('../../types/index.js').Slot[] = [];
+
+      function collectDescendants(nodeId: import('../../types/index.js').NodeId) {
+        const node = nodeById.get(nodeId as string);
+        if (!node) return;
+        for (const sid of node.slots) {
+          const slot = slotById.get(sid as string);
+          if (slot) {
+            descSlots.push(slot);
+            for (const cid of slot.children) {
+              const child = nodeById.get(cid as string);
+              if (child) {
+                descNodes.push(child);
+                collectDescendants(cid);
+              }
+            }
+          }
+        }
       }
+
+      collectDescendants(childId);
+
+      // Get this node's own slots
+      const ownSlots = childNode.slots
+        .map((sid) => slotById.get(sid as string))
+        .filter(Boolean) as import('../../types/index.js').Slot[];
+
+      this.engine.dispatch({
+        type: 'InsertNode',
+        node: childNode,
+        slots: [...ownSlots, ...descSlots],
+        targetSlotId: slotId,
+        index: -1,
+        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
+      });
     }
   }
 }
