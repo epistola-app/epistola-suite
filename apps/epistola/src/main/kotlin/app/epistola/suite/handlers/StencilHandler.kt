@@ -21,9 +21,9 @@ import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.commands.UpdateStencilDraft
-import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilVersion
+import app.epistola.suite.stencils.queries.ListStencilSummaries
 import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
 import org.springframework.http.MediaType
@@ -57,22 +57,17 @@ class StencilHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
-        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
 
         if (!request.isHtmx()) {
-            val items = stencils.map { stencil ->
-                val versions = ListStencilVersions(stencilId = StencilId(stencil.id, tenantId)).query()
-                val latestPublished = versions
-                    .filter { it.status == StencilVersionStatus.PUBLISHED }
-                    .maxByOrNull { it.id.value }?.id?.value
-                val latestVersion = versions.maxByOrNull { it.id.value }?.id?.value
+            val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
+            val items = summaries.map { s ->
                 mapOf(
-                    "id" to stencil.id.value,
-                    "name" to stencil.name,
-                    "description" to stencil.description,
-                    "tags" to stencil.tags,
-                    "latestPublishedVersion" to latestPublished,
-                    "latestVersion" to latestVersion,
+                    "id" to s.id.value,
+                    "name" to s.name,
+                    "description" to s.description,
+                    "tags" to s.tags,
+                    "latestPublishedVersion" to s.latestPublishedVersion,
+                    "latestVersion" to s.latestVersion,
                 )
             }
             return ServerResponse.ok()
@@ -80,6 +75,7 @@ class StencilHandler(
                 .body(mapOf("items" to items))
         }
 
+        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key

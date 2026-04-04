@@ -32,8 +32,8 @@ import app.epistola.suite.stencils.commands.UpdateStencilDraft
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsage
 import app.epistola.suite.stencils.queries.GetStencilVersion
+import app.epistola.suite.stencils.queries.ListStencilSummaries
 import app.epistola.suite.stencils.queries.ListStencilVersions
-import app.epistola.suite.stencils.queries.ListStencils
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
@@ -54,7 +54,7 @@ class EpistolaStencilApi(
         tag: String?,
     ): ResponseEntity<StencilListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencils = ListStencils(
+        val stencils = ListStencilSummaries(
             tenantId = tenantIdComposite,
             searchTerm = q,
             tag = tag,
@@ -62,17 +62,7 @@ class EpistolaStencilApi(
 
         return ResponseEntity.ok(
             StencilListResponse(
-                items = stencils.map { stencil ->
-                    // For list view, find latest published version number
-                    val versions = ListStencilVersions(
-                        stencilId = StencilId(stencil.id, tenantIdComposite),
-                    ).query()
-                    val latestPublished = versions
-                        .filter { it.status == app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED }
-                        .maxByOrNull { it.id.value }
-                        ?.id?.value
-                    stencil.toSummaryDto(latestPublished)
-                },
+                items = stencils.map { it.toSummaryDto() },
             ),
         )
     }

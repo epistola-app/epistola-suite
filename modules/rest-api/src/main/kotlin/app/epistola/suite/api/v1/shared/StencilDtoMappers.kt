@@ -6,6 +6,7 @@ import app.epistola.api.model.StencilUsageDto
 import app.epistola.api.model.StencilVersionDto
 import app.epistola.api.model.StencilVersionSummaryDto
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.StencilSummaryWithVersionInfo
 import app.epistola.suite.stencils.model.StencilUsage
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.stencils.model.StencilVersionStatus
@@ -24,6 +25,17 @@ internal fun Stencil.toDto(versions: List<StencilVersionSummary>) = StencilDto(
 )
 
 internal fun Stencil.toSummaryDto(latestPublishedVersion: Int?) = StencilSummaryDto(
+    id = id.value,
+    tenantId = tenantKey.value,
+    name = name,
+    description = description,
+    tags = tags.ifEmpty { null },
+    latestPublishedVersion = latestPublishedVersion,
+    createdAt = createdAt,
+    lastModified = lastModified,
+)
+
+internal fun StencilSummaryWithVersionInfo.toSummaryDto() = StencilSummaryDto(
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
