@@ -45,44 +45,36 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       isDraft: false,
     },
 
-    renderCanvas: ({ node, renderSlot, doc }) => {
+    renderCanvas: ({ node, renderSlot }) => {
       const stencilId = node.props?.stencilId as string | null;
       const version = node.props?.version as number | null;
       const isDraft = node.props?.isDraft as boolean | undefined;
       const isLocked = stencilId !== null && !isDraft;
-      const hasChildren = node.slots.length > 0 &&
-        (doc.slots[node.slots[0]]?.children?.length ?? 0) > 0;
 
-      // Badge content depends on state
-      let badge;
-      if (stencilId && isDraft) {
-        badge = html`<div class="canvas-stencil-badge canvas-stencil-badge--draft">
-          <span class="canvas-stencil-badge-label">${stencilId} — editing draft</span>
-        </div>`;
-      } else if (stencilId) {
-        badge = html`<div class="canvas-stencil-badge canvas-stencil-badge--locked">
-          <span class="canvas-stencil-badge-label">🔒 ${stencilId} v${version ?? '?'}</span>
-        </div>`;
-      } else if (!hasChildren) {
-        badge = html`<div class="canvas-stencil-badge canvas-stencil-badge--empty">
-          <span class="canvas-stencil-badge-label">Stencil — add content</span>
-        </div>`;
-      } else {
-        badge = html``;
-      }
+      // Badge — always present, content/style varies by state
+      const badgeLabel = stencilId && isDraft
+        ? `${stencilId} — editing draft`
+        : stencilId
+          ? `🔒 ${stencilId} v${version ?? '?'}`
+          : 'Stencil';
+      const badgeClass = stencilId && isDraft
+        ? 'canvas-stencil-badge--draft'
+        : stencilId
+          ? 'canvas-stencil-badge--locked'
+          : 'canvas-stencil-badge--empty';
 
-      // Wrap children in a locked overlay when not editable
-      const children = node.slots.map((slotId) => renderSlot(slotId));
-      if (isLocked) {
-        return html`
-          ${badge}
-          <div class="canvas-stencil-locked">${children}</div>
-        `;
-      }
-
+      // IMPORTANT: Template structure must be identical across all states.
+      // Lit's template diffing caches by template string shape. If we returned
+      // different template structures (e.g., locked wrapper vs bare slots),
+      // Lit can't reconcile the DOM, causing slot content to not render after
+      // state transitions. The locked/editable difference is CSS-only.
       return html`
-        ${badge}
-        ${children}
+        <div class="canvas-stencil-badge ${badgeClass}">
+          <span class="canvas-stencil-badge-label">${badgeLabel}</span>
+        </div>
+        <div class=${isLocked ? 'canvas-stencil-locked' : 'canvas-stencil-content'}>
+          ${node.slots.map((slotId) => renderSlot(slotId))}
+        </div>
       `;
     },
 

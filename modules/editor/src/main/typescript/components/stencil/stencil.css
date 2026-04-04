@@ -32,6 +32,10 @@
   border-style: dashed;
 }
 
+.canvas-stencil-content {
+  /* Editable state — no restrictions */
+}
+
 .canvas-stencil-locked {
   pointer-events: none;
   opacity: 0.7;

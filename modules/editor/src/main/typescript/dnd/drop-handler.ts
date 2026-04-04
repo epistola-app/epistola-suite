@@ -33,7 +33,7 @@ export async function handleDrop(
     }
 
     const { node, slots, extraNodes } = engine.registry.createNode(dragData.blockType, overrideProps);
-    engine.dispatch({
+    const result = engine.dispatch({
       type: 'InsertNode',
       node,
       slots,
@@ -41,6 +41,7 @@ export async function handleDrop(
       index,
       _restoreNodes: extraNodes,
     });
+    if (!result.ok) return;
     engine.selectNode(node.id);
   } else if (isBlockDrag(dragData)) {
     engine.dispatch({ type: 'MoveNode', nodeId: dragData.nodeId, targetSlotId, index });
