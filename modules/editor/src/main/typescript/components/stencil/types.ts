@@ -56,6 +56,9 @@ export type UpdateStencilFn = (
 /** Ensure a draft exists for a stencil (creates one if needed). */
 export type StartEditingFn = (stencilId: string) => Promise<{ draftVersion: number }>;
 
+/** Publish the current draft version. */
+export type PublishDraftFn = (stencilId: string) => Promise<{ version: number }>;
+
 /** All stencil-related callbacks provided by the hosting app. */
 export interface StencilCallbacks {
   searchStencils: SearchStencilsFn;
@@ -64,4 +67,5 @@ export interface StencilCallbacks {
   publishAsStencil?: PublishAsStencilFn;
   updateStencil?: UpdateStencilFn;
   startEditing?: StartEditingFn;
+  publishDraft?: PublishDraftFn;
 }

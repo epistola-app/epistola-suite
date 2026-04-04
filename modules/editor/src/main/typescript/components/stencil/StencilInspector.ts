@@ -139,6 +139,17 @@ export class StencilInspector extends LitElement {
             </button>`
           : nothing}
 
+        ${this.callbacks?.publishDraft
+          ? html`<button
+              class="btn btn-sm btn-outline"
+              style="width: 100%; margin-bottom: var(--ep-space-2);"
+              ?disabled=${this._busy}
+              @click=${this._handlePublishDraft}
+            >
+              ${this._busy ? 'Publishing...' : 'Publish Draft'}
+            </button>`
+          : nothing}
+
         ${this.callbacks?.getStencilVersion
           ? html`<button
               class="btn btn-sm btn-outline"
@@ -232,6 +243,40 @@ export class StencilInspector extends LitElement {
       const result = await this.callbacks.updateStencil(this._stencilId, content);
 
       this._message = `Draft v${result.version} saved`;
+    } catch (e) {
+      this._message = `Error: ${(e as Error).message}`;
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private async _handlePublishDraft() {
+    if (!this.callbacks?.publishDraft || !this._stencilId) return;
+    this._busy = true;
+    this._message = '';
+
+    try {
+      // Save current content to draft first
+      if (this.callbacks.updateStencil) {
+        const content = extractSubtree(this.engine.doc, this.node.id);
+        await this.callbacks.updateStencil(this._stencilId, content);
+      }
+
+      // Publish the draft
+      const result = await this.callbacks.publishDraft(this._stencilId);
+
+      // Update node to reference the new published version and exit draft mode
+      this.engine.dispatch({
+        type: 'UpdateNodeProps',
+        nodeId: this.node.id,
+        props: {
+          ...this.node.props,
+          version: result.version,
+          isDraft: false,
+        },
+      });
+
+      this._message = `Published v${result.version}`;
     } catch (e) {
       this._message = `Error: ${(e as Error).message}`;
     } finally {

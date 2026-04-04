@@ -243,6 +243,30 @@ class StencilHandler(
             )
     }
 
+    /** JSON endpoint for the editor: publish the current draft version. */
+    fun publishDraftFromEditor(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        // Find the draft version
+        val versions = ListStencilVersions(stencilId = stencilId).query()
+        val draft = versions.find { it.status == app.epistola.suite.stencils.model.StencilVersionStatus.DRAFT }
+            ?: return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "No draft version to publish"))
+
+        val versionIdComposite = StencilVersionId(draft.id, stencilId)
+        val published = PublishStencilVersion(versionId = versionIdComposite).execute()
+            ?: return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Failed to publish draft"))
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("version" to published.id.value))
+    }
+
     /** JSON endpoint for the editor: ensure a draft exists for editing. */
     fun startEditing(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
