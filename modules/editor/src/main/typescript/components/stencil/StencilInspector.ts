@@ -35,6 +35,7 @@ export class StencilInspector extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     this._readUpgradeState();
+    this._checkForUpgrades();
     this._unsubState = this.engine.events.on('component-state:change', ({ key }) => {
       if (key === 'stencil:upgrades') {
         this._readUpgradeState();
@@ -45,6 +46,28 @@ export class StencilInspector extends LitElement {
   override disconnectedCallback(): void {
     this._unsubState?.();
     super.disconnectedCallback();
+  }
+
+  /** Check for upgrades for this specific stencil on every selection. */
+  private async _checkForUpgrades() {
+    if (!this.callbacks?.listVersions || !this._stencilId || !this._version || this._isDraft) return;
+
+    try {
+      const versions = await this.callbacks.listVersions(this._stencilId);
+      const latestPublished = versions
+        .filter((v) => v.status === 'published')
+        .sort((a, b) => b.version - a.version)[0];
+
+      if (latestPublished && latestPublished.version > this._version) {
+        const current = this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
+        this.engine.setComponentState('stencil:upgrades', {
+          ...current,
+          [this._stencilId]: latestPublished.version,
+        });
+      }
+    } catch {
+      // Silently fail — upgrade check is non-critical
+    }
   }
 
   private _readUpgradeState() {
