@@ -52,10 +52,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'denylist', types: ['stencil'] },
     applicableStyles: 'all',
-    inspector: [
-      { key: 'stencilId', label: 'Stencil ID', type: 'text' },
-      { key: 'version', label: 'Version', type: 'number' },
-    ],
+    inspector: [],
     defaultProps: {
       stencilId: null,
       version: null,

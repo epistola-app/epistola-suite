@@ -29,6 +29,9 @@ export class StencilInspector extends LitElement {
   @state() private _message = '';
   @state() private _draftVersion: number | null = null;
   @state() private _latestVersion: number | null = null;
+  @state() private _showPublishForm = false;
+  @state() private _publishName = '';
+  @state() private _publishSlug = '';
 
   private _unsubState?: () => void;
 
@@ -133,23 +136,54 @@ export class StencilInspector extends LitElement {
   private _renderUnlinked() {
     if (!this.callbacks?.publishAsStencil) return nothing;
 
+    if (!this._showPublishForm) {
+      return html`
+        <div class="inspector-field">
+          <button class="btn btn-sm btn-primary" style="width: 100%;" @click=${() => { this._showPublishForm = true; }}>
+            Publish as Stencil
+          </button>
+          <div style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-top: var(--ep-space-1);">
+            Create a reusable stencil from this content.
+          </div>
+        </div>
+      `;
+    }
+
     return html`
       <div class="inspector-field">
-        <button
-          class="btn btn-sm btn-primary"
-          style="width: 100%;"
-          ?disabled=${this._busy}
-          @click=${this._handlePublish}
-        >
-          ${this._busy ? 'Publishing...' : 'Publish as Stencil'}
-        </button>
-        <div
-          style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-top: var(--ep-space-1);"
-        >
-          Create a reusable stencil from this content.
+        <div style="margin-bottom: var(--ep-space-2);">
+          <label style="font-size: var(--ep-font-size-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">Name</label>
+          <input class="ep-input" style="width: 100%;" placeholder="Corporate Header"
+            .value=${this._publishName}
+            @input=${(e: Event) => {
+              this._publishName = (e.target as HTMLInputElement).value;
+              if (!this._publishSlug || this._publishSlug === this._nameToSlug(this._publishName.slice(0, -1))) {
+                this._publishSlug = this._nameToSlug(this._publishName);
+              }
+            }} />
+        </div>
+        <div style="margin-bottom: var(--ep-space-2);">
+          <label style="font-size: var(--ep-font-size-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">ID (slug)</label>
+          <input class="ep-input" style="width: 100%;" placeholder="corporate-header"
+            .value=${this._publishSlug}
+            @input=${(e: Event) => { this._publishSlug = (e.target as HTMLInputElement).value; }} />
+        </div>
+        <div style="display: flex; gap: var(--ep-space-2);">
+          <button class="btn btn-sm btn-primary" style="flex: 1;"
+            ?disabled=${this._busy || !this._publishName || !this._publishSlug}
+            @click=${this._handlePublish}>
+            ${this._busy ? 'Publishing...' : 'Publish'}
+          </button>
+          <button class="btn btn-sm btn-ghost" @click=${() => { this._showPublishForm = false; }}>
+            Cancel
+          </button>
         </div>
       </div>
     `;
+  }
+
+  private _nameToSlug(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
 
   // ── Locked: published version, not editing ──
@@ -241,31 +275,13 @@ export class StencilInspector extends LitElement {
   // ── Actions ──
 
   private async _handlePublish() {
-    if (!this.callbacks?.publishAsStencil) return;
+    if (!this.callbacks?.publishAsStencil || !this._publishName || !this._publishSlug) return;
     this._busy = true;
     this._message = '';
 
     try {
-      const name = prompt('Stencil name:');
-      if (!name) {
-        this._busy = false;
-        return;
-      }
-
-      const slug = prompt(
-        'Stencil ID (slug):',
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, ''),
-      );
-      if (!slug) {
-        this._busy = false;
-        return;
-      }
-
       const content = extractSubtree(this.engine.doc, this.node.id);
-      const result = await this.callbacks.publishAsStencil(slug, name, content);
+      const result = await this.callbacks.publishAsStencil(this._publishSlug, this._publishName, content);
 
       this.engine.dispatch({
         type: 'UpdateNodeProps',
@@ -278,6 +294,9 @@ export class StencilInspector extends LitElement {
         },
       });
 
+      this._showPublishForm = false;
+      this._publishName = '';
+      this._publishSlug = '';
       this._message = `Published as ${result.stencilId} v${result.version}`;
     } catch (e) {
       this._message = `Error: ${(e as Error).message}`;
