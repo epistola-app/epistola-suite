@@ -28,6 +28,7 @@
 - **Catalog module (Phase 1)**: New `epistola-catalog` module for importing templates from remote catalogs. Register a catalog URL, browse available templates, and install them. Includes catalog entity, HTTP client, CQRS commands/queries, and settings UI.
 - **Shared testing module**: New `modules/testing` module consolidating test infrastructure (Testcontainers, IntegrationTestBase, Scenario DSL, TestFixture DSL, TestIdHelpers) previously duplicated across modules.
 - **System parameter `sys.render.time`**: Added `sys.render.time` system parameter that returns the render timestamp as ISO-8601 UTC datetime. Use `$formatDate()` for locale-specific formatting (date and/or time). `$formatDate` converts to the configured timezone (default: Europe/Amsterdam). Available in all expression contexts (body, headers, footers).
+- **Manual workflow dispatch**: Build workflow can now be triggered manually via `workflow_dispatch` as a fallback when release events don't fire.
 
 ### Fixed
 
