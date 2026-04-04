@@ -49,9 +49,9 @@ class StencilHandler(
         val searchTerm = request.queryParam("q")
         val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
 
-        // JSON response for editor callbacks (Accept: application/json)
-        val acceptsJson = request.headers().accept().any { it.isCompatibleWith(MediaType.APPLICATION_JSON) }
-        if (acceptsJson) {
+        // Non-HTMX requests with JSON accept header → JSON response (for editor callbacks)
+        val isHtmx = request.headers().firstHeader("HX-Request") != null
+        if (!isHtmx) {
             return searchJson(request)
         }
 
