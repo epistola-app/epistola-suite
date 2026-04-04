@@ -261,14 +261,19 @@ export async function openStencilPickerDialog(
     });
 
     function updateCreateButtonState() {
-      const createBtn = dialog.querySelector<HTMLButtonElement>('.stencil-picker-btn.create-confirm');
+      const createBtn = dialog.querySelector<HTMLButtonElement>(
+        '.stencil-picker-btn.create-confirm',
+      );
       if (createBtn) {
         createBtn.disabled = !createNameInput.value.trim() || !createSlugInput.value.trim();
       }
     }
 
     function nameToSlug(name: string): string {
-      return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
     }
 
     async function doCreate() {
@@ -278,7 +283,9 @@ export async function openStencilPickerDialog(
       if (!name || !slug) return;
 
       createError.style.display = 'none';
-      const createBtn = dialog.querySelector<HTMLButtonElement>('.stencil-picker-btn.create-confirm');
+      const createBtn = dialog.querySelector<HTMLButtonElement>(
+        '.stencil-picker-btn.create-confirm',
+      );
       if (createBtn) {
         createBtn.disabled = true;
         createBtn.textContent = 'Creating...';
