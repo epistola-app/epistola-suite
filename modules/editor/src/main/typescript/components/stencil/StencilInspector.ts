@@ -243,6 +243,7 @@ export class StencilInspector extends LitElement {
     try {
       const content = extractSubtree(this.engine.doc, this.node.id);
       const result = await this.callbacks.updateStencil(this._stencilId, content);
+      this._draftVersion = result.version;
 
       this._message = `Draft v${result.version} saved`;
     } catch (e) {
@@ -253,7 +254,8 @@ export class StencilInspector extends LitElement {
   }
 
   private async _handlePublishDraft() {
-    if (!this.callbacks?.publishDraft || !this._stencilId || !this._draftVersion) return;
+    const draftVersion = this._draftVersion ?? this._version;
+    if (!this.callbacks?.publishDraft || !this._stencilId || !draftVersion) return;
     this._busy = true;
     this._message = '';
 
@@ -265,7 +267,7 @@ export class StencilInspector extends LitElement {
       }
 
       // Publish the draft
-      const result = await this.callbacks.publishDraft(this._stencilId, this._draftVersion);
+      const result = await this.callbacks.publishDraft(this._stencilId, draftVersion);
 
       // Update node to reference the new published version and exit draft mode
       this.engine.dispatch({
