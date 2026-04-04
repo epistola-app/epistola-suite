@@ -34,25 +34,33 @@ export function reKeyContent(content: TemplateDocument): ReKeyResult {
     slotIdMap.set(slotId, nanoid() as SlotId);
   }
 
-  // Re-key nodes
-  const nodes: Node[] = Object.values(content.nodes).map((node) => ({
-    ...node,
-    id: nodeIdMap.get(node.id)!,
-    slots: node.slots.map((sid) => slotIdMap.get(sid as string) ?? (sid as SlotId)),
-  }));
-
-  // Re-key slots
-  const slots: Slot[] = Object.values(content.slots).map((slot) => ({
-    ...slot,
-    id: slotIdMap.get(slot.id)!,
-    nodeId: nodeIdMap.get(slot.nodeId)!,
-    children: slot.children.map((cid) => nodeIdMap.get(cid as string) ?? (cid as NodeId)),
-  }));
-
-  // Find the root node's slot to get the top-level children
+  // Identify the root node and its slot — these should NOT be included in the
+  // result because only the root's children are injected into the stencil's slot.
+  // Including the root would create duplicate parent references for child nodes.
   const rootNode = content.nodes[content.root];
-  const rootSlotId = rootNode?.slots[0];
-  const rootSlot = rootSlotId ? (content.slots as Record<string, Slot>)[rootSlotId as string] : null;
+  const rootSlotId = rootNode?.slots[0] as string | undefined;
+
+  // Re-key nodes (exclude the root node)
+  const nodes: Node[] = Object.values(content.nodes)
+    .filter((node) => (node.id as string) !== (content.root as string))
+    .map((node) => ({
+      ...node,
+      id: nodeIdMap.get(node.id)!,
+      slots: node.slots.map((sid) => slotIdMap.get(sid as string) ?? (sid as SlotId)),
+    }));
+
+  // Re-key slots (exclude the root's slot)
+  const slots: Slot[] = Object.values(content.slots)
+    .filter((slot) => (slot.id as string) !== rootSlotId)
+    .map((slot) => ({
+      ...slot,
+      id: slotIdMap.get(slot.id)!,
+      nodeId: nodeIdMap.get(slot.nodeId)!,
+      children: slot.children.map((cid) => nodeIdMap.get(cid as string) ?? (cid as NodeId)),
+    }));
+
+  // Get the root's children as the top-level children for the stencil's slot
+  const rootSlot = rootSlotId ? (content.slots as Record<string, Slot>)[rootSlotId] : null;
   const childNodeIds = rootSlot
     ? rootSlot.children.map((cid: NodeId) => nodeIdMap.get(cid as string) ?? cid)
     : [nodeIdMap.get(content.root as string)!];

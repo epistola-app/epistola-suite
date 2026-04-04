@@ -774,3 +774,98 @@ describe('Undo/redo', () => {
     expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Delete stencil after editing
+// ---------------------------------------------------------------------------
+
+describe('Delete stencil after modifying content', () => {
+  it('can delete stencil after removing a child', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+
+    const stencilSlot = getStencilSlot(engine, stencilNodeId);
+    const childrenBefore = [...engine.doc.slots[stencilSlot].children];
+    expect(childrenBefore.length).toBe(2);
+
+    // Remove the first child
+    const childToRemove = childrenBefore[0];
+    const result1 = engine.dispatch({ type: 'RemoveNode', nodeId: childToRemove });
+    expect(result1.ok).toBe(true);
+    // Re-read from the NEW document (engine.doc is updated after dispatch)
+    expect(engine.doc.slots[stencilSlot].children.length).toBe(1);
+    expect(engine.doc.slots[stencilSlot].children).not.toContain(childToRemove);
+
+    // Now delete the stencil itself — should not crash
+    const result2 = engine.dispatch({ type: 'RemoveNode', nodeId: stencilNodeId });
+    expect(result2.ok).toBe(true);
+    expect(engine.doc.nodes[stencilNodeId]).toBeUndefined();
+  });
+
+  it('can delete stencil after adding and removing children', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+
+    const stencilSlot = getStencilSlot(engine, stencilNodeId);
+
+    // Add a new child
+    const textId = insertText(engine, registry, stencilSlot, 'New text');
+    expect(engine.doc.slots[stencilSlot].children).toContain(textId);
+
+    // Remove it
+    engine.dispatch({ type: 'RemoveNode', nodeId: textId });
+    expect(engine.doc.slots[stencilSlot].children).not.toContain(textId);
+
+    // Delete the stencil — should not crash
+    const result = engine.dispatch({ type: 'RemoveNode', nodeId: stencilNodeId });
+    expect(result.ok).toBe(true);
+  });
+
+  it('no orphaned nodes after re-keyed stencil insert', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const content = createSampleStencilContent();
+
+    const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      _content: content,
+    });
+
+    // Every node in the document should be reachable from the root
+    const reachableNodes = new Set<string>();
+    const reachableSlots = new Set<string>();
+
+    function walk(nodeId: NodeId) {
+      reachableNodes.add(nodeId as string);
+      const node = engine.doc.nodes[nodeId];
+      if (!node) return;
+      for (const sid of node.slots) {
+        reachableSlots.add(sid as string);
+        const slot = engine.doc.slots[sid];
+        if (!slot) continue;
+        for (const cid of slot.children) walk(cid);
+      }
+    }
+    walk(engine.doc.root);
+
+    const allNodeIds = Object.keys(engine.doc.nodes);
+    const orphanedNodes = allNodeIds.filter((id) => !reachableNodes.has(id));
+    expect(orphanedNodes).toEqual([]);
+
+    const allSlotIds = Object.keys(engine.doc.slots);
+    const orphanedSlots = allSlotIds.filter((id) => !reachableSlots.has(id));
+    expect(orphanedSlots).toEqual([]);
+  });
+});
