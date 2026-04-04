@@ -74,6 +74,8 @@ export interface ScopeDeclaration {
 export interface ComponentDefinition {
   type: string;
   label: string;
+  /** Dynamic label based on node state. If defined, takes precedence over static `label`. */
+  getLabel?: (node: Node, engine: unknown) => string;
   icon?: string;
   category: ComponentCategory;
   /** Hide from the block palette (e.g. child-only components like datatable-column). */

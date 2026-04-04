@@ -30,6 +30,22 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
   return {
     type: 'stencil',
     label: 'Stencil',
+    getLabel: (node, eng) => {
+      const engine = eng as EditorEngine;
+      const stencilId = node.props?.stencilId as string | null;
+      const version = node.props?.version as number | null;
+      const isDraft = node.props?.isDraft as boolean | undefined;
+
+      if (!stencilId) return 'Stencil';
+
+      const upgrades = engine.getComponentState<Record<string, number>>('stencil:upgrades');
+      const latestVersion = upgrades?.[stencilId];
+      const hasUpgrade = latestVersion != null && version != null && latestVersion > version && !isDraft;
+
+      if (isDraft) return `Stencil: ${stencilId} — editing draft`;
+      if (hasUpgrade) return `Stencil: ${stencilId} v${version} ⬆ v${latestVersion}`;
+      return `Stencil: ${stencilId} v${version}`;
+    },
     icon: 'puzzle',
     category: 'layout',
     slots: [{ name: 'children' }],
@@ -45,43 +61,16 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       isDraft: false,
     },
 
-    renderCanvas: ({ node, renderSlot, engine: eng }) => {
-      const engine = eng as EditorEngine;
+    renderCanvas: ({ node, renderSlot }) => {
       const stencilId = node.props?.stencilId as string | null;
-      const version = node.props?.version as number | null;
       const isDraft = node.props?.isDraft as boolean | undefined;
       const isLocked = stencilId !== null && !isDraft;
 
-      // Check if an upgrade is available
-      const upgrades = engine.getComponentState<Record<string, number>>('stencil:upgrades');
-      const latestVersion = stencilId ? upgrades?.[stencilId] : null;
-      const hasUpgrade = latestVersion != null && version != null && latestVersion > version && !isDraft;
-
-      // Badge — always present, content/style varies by state
-      const badgeLabel = stencilId && isDraft
-        ? `${stencilId} — editing draft`
-        : stencilId && hasUpgrade
-          ? `🔒 ${stencilId} v${version} ⬆ v${latestVersion} available`
-          : stencilId
-            ? `🔒 ${stencilId} v${version ?? '?'}`
-            : 'Stencil';
-      const badgeClass = stencilId && isDraft
-        ? 'canvas-stencil-badge--draft'
-        : hasUpgrade
-          ? 'canvas-stencil-badge--upgrade'
-          : stencilId
-            ? 'canvas-stencil-badge--locked'
-            : 'canvas-stencil-badge--empty';
-
       // IMPORTANT: Template structure must be identical across all states.
-      // Lit's template diffing caches by template string shape. If we returned
-      // different template structures (e.g., locked wrapper vs bare slots),
-      // Lit can't reconcile the DOM, causing slot content to not render after
-      // state transitions. The locked/editable difference is CSS-only.
+      // Lit's template diffing caches by template string shape. The
+      // locked/editable difference is CSS-only. State info (name, version,
+      // upgrade indicator) is in the block header via getLabel.
       return html`
-        <div class="canvas-stencil-badge ${badgeClass}">
-          <span class="canvas-stencil-badge-label">${badgeLabel}</span>
-        </div>
         <div class=${isLocked ? 'canvas-stencil-locked' : 'canvas-stencil-content'}>
           ${node.slots.map((slotId) => renderSlot(slotId))}
         </div>
