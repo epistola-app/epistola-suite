@@ -2,96 +2,295 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
     <nav th:fragment="nav" id="app-nav" class="app-nav">
-        <div class="app-nav-left">
-            <a th:href="@{/tenants/{id}(id=${tenantId})}" class="app-nav-logo" title="Tenant home">
-                <th:block th:replace="~{fragments/icon :: icon(name='mail', class='ep-icon')}" />
-                <span>Epistola</span>
-            </a>
+        <!-- Top bar (always visible) -->
+        <div class="app-nav-bar">
+            <div class="app-nav-left">
+                <a th:href="@{/tenants/{id}(id=${tenantId})}" class="app-nav-logo" title="Tenant home">
+                    <th:block th:replace="~{fragments/icon :: icon(name='mail', class='ep-icon')}" />
+                    <span>Epistola</span>
+                </a>
 
-            <div class="app-nav-links">
-                <a th:href="@{/tenants/{id}/templates(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'templates'} ? ' active' : ''">
-                    Templates
-                </a>
-                <a th:href="@{/tenants/{id}/themes(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'themes'} ? ' active' : ''">
-                    Themes
-                </a>
-                <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''">
-                    Stencils
-                </a>
-                <a th:href="@{/tenants/{id}/environments(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'environments'} ? ' active' : ''">
-                    Environments
-                </a>
-                <a th:href="@{/tenants/{id}/assets(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'assets'} ? ' active' : ''">
-                    Assets
-                </a>
-                <a th:href="@{/tenants/{id}/attributes(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''">
-                    Attributes
-                </a>
-                <a th:if="${auth.has('DOCUMENT_VIEW')}"
-                   th:href="@{/tenants/{id}/generation-history(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'generation-history'} ? ' active' : ''">
-                    Generation
-                </a>
-                <a th:if="${auth.has('DOCUMENT_GENERATE')}"
-                   th:href="@{/tenants/{id}/load-tests(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
-                    Load Tests
-                </a>
-                <a th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
-                    Feedback
-                </a>
-                <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{id}/catalogs(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''">
-                    Catalogs
-                </a>
-                <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
-                   class="app-nav-link"
-                   th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">
-                    Admin
-                </a>
+                <div class="app-nav-links">
+                    <!-- Authoring dropdown -->
+                    <div class="app-nav-dropdown"
+                         th:classappend="${#lists.contains({'templates','themes','stencils'}, activeNavSection)} ? ' active' : ''">
+                        <button class="app-nav-dropdown-trigger" type="button"
+                                aria-expanded="false" aria-haspopup="true">
+                            Authoring
+                            <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <div class="app-nav-dropdown-menu" role="menu">
+                            <a th:href="@{/tenants/{id}/templates(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'templates'} ? ' active' : ''">
+                                Templates
+                            </a>
+                            <a th:href="@{/tenants/{id}/themes(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'themes'} ? ' active' : ''">
+                                Themes
+                            </a>
+                            <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''">
+                                Stencils
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Resources dropdown -->
+                    <div class="app-nav-dropdown"
+                         th:classappend="${#lists.contains({'environments','assets','attributes'}, activeNavSection)} ? ' active' : ''">
+                        <button class="app-nav-dropdown-trigger" type="button"
+                                aria-expanded="false" aria-haspopup="true">
+                            Resources
+                            <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <div class="app-nav-dropdown-menu" role="menu">
+                            <a th:href="@{/tenants/{id}/environments(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'environments'} ? ' active' : ''">
+                                Environments
+                            </a>
+                            <a th:href="@{/tenants/{id}/assets(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'assets'} ? ' active' : ''">
+                                Assets
+                            </a>
+                            <a th:href="@{/tenants/{id}/attributes(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''">
+                                Attributes
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Operations dropdown -->
+                    <div class="app-nav-dropdown"
+                         th:classappend="${#lists.contains({'generation-history','load-tests','feedback'}, activeNavSection)} ? ' active' : ''">
+                        <button class="app-nav-dropdown-trigger" type="button"
+                                aria-expanded="false" aria-haspopup="true">
+                            Operations
+                            <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <div class="app-nav-dropdown-menu" role="menu">
+                            <a th:if="${auth.has('DOCUMENT_VIEW')}"
+                               th:href="@{/tenants/{id}/generation-history(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'generation-history'} ? ' active' : ''">
+                                Generation
+                            </a>
+                            <a th:if="${auth.has('DOCUMENT_GENERATE')}"
+                               th:href="@{/tenants/{id}/load-tests(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
+                                Load Tests
+                            </a>
+                            <a th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
+                                Feedback
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Settings dropdown (managers only) -->
+                    <div th:if="${auth.has('TENANT_SETTINGS')}"
+                         class="app-nav-dropdown"
+                         th:classappend="${#lists.contains({'catalogs','admin'}, activeNavSection)} ? ' active' : ''">
+                        <button class="app-nav-dropdown-trigger" type="button"
+                                aria-expanded="false" aria-haspopup="true">
+                            Settings
+                            <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <div class="app-nav-dropdown-menu" role="menu">
+                            <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''">
+                                Catalogs
+                            </a>
+                            <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">
+                                Admin
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile hamburger toggle -->
+                <button class="app-nav-hamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav">
+                    <th:block th:replace="~{fragments/icon :: icon(name='menu', class='ep-icon')}" />
+                </button>
             </div>
 
-            <!-- Mobile hamburger toggle -->
-            <button class="app-nav-hamburger" onclick="this.closest('.app-nav').classList.toggle('nav-open')" aria-label="Toggle navigation">
-                <th:block th:replace="~{fragments/icon :: icon(name='menu', class='ep-icon')}" />
-            </button>
-        </div>
+            <div class="app-nav-right">
+                <a th:href="@{/}" class="app-nav-tenant" title="Switch tenant">
+                    <th:block th:replace="~{fragments/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
+                    <span th:text="${tenantName} ?: 'Tenant'">Tenant</span>
+                </a>
 
-        <div class="app-nav-right">
-            <a th:href="@{/}" class="app-nav-tenant" title="Switch tenant">
-                <th:block th:replace="~{fragments/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
-                <span th:text="${tenantName} ?: 'Tenant'">Tenant</span>
-            </a>
-
-            <div class="app-nav-user" sec:authorize="isAuthenticated()">
-                <span class="app-nav-username" sec:authentication="name">user</span>
-                <span class="app-nav-separator">|</span>
-                <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
-                <span class="app-nav-separator">|</span>
-                <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
-                    <button type="submit" class="app-nav-link-sm app-nav-logout">Logout</button>
-                </form>
+                <div class="app-nav-user" sec:authorize="isAuthenticated()">
+                    <span class="app-nav-username" sec:authentication="name">user</span>
+                    <span class="app-nav-separator">|</span>
+                    <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
+                    <span class="app-nav-separator">|</span>
+                    <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
+                        <button type="submit" class="app-nav-link-sm app-nav-logout">Logout</button>
+                    </form>
+                </div>
             </div>
         </div>
+
+        <!-- Mobile menu panel (below header, overlay) -->
+        <div id="mobile-nav" class="app-nav-mobile" role="menu">
+            <div class="app-nav-mobile-backdrop"></div>
+            <div class="app-nav-mobile-panel">
+                <div class="app-nav-mobile-group">
+                    <div class="app-nav-mobile-label">Authoring</div>
+                    <a th:href="@{/tenants/{id}/templates(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'templates'} ? ' active' : ''" role="menuitem">Templates</a>
+                    <a th:href="@{/tenants/{id}/themes(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'themes'} ? ' active' : ''" role="menuitem">Themes</a>
+                    <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''" role="menuitem">Stencils</a>
+                </div>
+                <div class="app-nav-mobile-group">
+                    <div class="app-nav-mobile-label">Resources</div>
+                    <a th:href="@{/tenants/{id}/environments(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'environments'} ? ' active' : ''" role="menuitem">Environments</a>
+                    <a th:href="@{/tenants/{id}/assets(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'assets'} ? ' active' : ''" role="menuitem">Assets</a>
+                    <a th:href="@{/tenants/{id}/attributes(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''" role="menuitem">Attributes</a>
+                </div>
+                <div class="app-nav-mobile-group">
+                    <div class="app-nav-mobile-label">Operations</div>
+                    <a th:if="${auth.has('DOCUMENT_VIEW')}"
+                       th:href="@{/tenants/{id}/generation-history(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'generation-history'} ? ' active' : ''" role="menuitem">Generation</a>
+                    <a th:if="${auth.has('DOCUMENT_GENERATE')}"
+                       th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''" role="menuitem">Load Tests</a>
+                    <a th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>
+                </div>
+                <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">
+                    <div class="app-nav-mobile-label">Settings</div>
+                    <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''" role="menuitem">Catalogs</a>
+                    <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'admin'} ? ' active' : ''" role="menuitem">Admin</a>
+                </div>
+                <div class="app-nav-mobile-footer">
+                    <a th:href="@{/}" class="app-nav-mobile-item" role="menuitem">
+                        <th:block th:replace="~{fragments/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
+                        Switch tenant
+                    </a>
+                    <a th:href="@{/api-docs}" class="app-nav-mobile-item" hx-boost="false" target="_blank" rel="noopener" role="menuitem">
+                        <th:block th:replace="~{fragments/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                        API Docs
+                    </a>
+                    <form th:action="@{/logout}" method="post" hx-boost="false">
+                        <button type="submit" class="app-nav-mobile-item app-nav-mobile-logout" role="menuitem">
+                            <th:block th:replace="~{fragments/icon :: icon(name='log-out', class='ep-icon ep-icon-sm')}" />
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script th:inline="none">
+        (function() {
+            /* ── Desktop dropdown keyboard support ── */
+            document.querySelectorAll('.app-nav-dropdown').forEach(function(dropdown) {
+                var trigger = dropdown.querySelector('.app-nav-dropdown-trigger');
+                var menu = dropdown.querySelector('.app-nav-dropdown-menu');
+
+                function open() {
+                    dropdown.classList.add('open');
+                    trigger.setAttribute('aria-expanded', 'true');
+                }
+                function close() {
+                    dropdown.classList.remove('open');
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
+
+                trigger.addEventListener('click', function() {
+                    var isOpen = dropdown.classList.contains('open');
+                    closeAllDropdowns();
+                    if (!isOpen) {
+                        open();
+                        var first = menu.querySelector('[role="menuitem"]');
+                        if (first) first.focus();
+                    }
+                });
+
+                trigger.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        open();
+                        var first = menu.querySelector('[role="menuitem"]');
+                        if (first) first.focus();
+                    }
+                });
+
+                menu.addEventListener('keydown', function(e) {
+                    var items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+                    var idx = items.indexOf(document.activeElement);
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (idx < items.length - 1) items[idx + 1].focus();
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (idx > 0) items[idx - 1].focus();
+                        else trigger.focus();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        close();
+                        trigger.focus();
+                    }
+                });
+            });
+
+            function closeAllDropdowns() {
+                document.querySelectorAll('.app-nav-dropdown.open').forEach(function(d) {
+                    d.classList.remove('open');
+                    d.querySelector('.app-nav-dropdown-trigger').setAttribute('aria-expanded', 'false');
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.app-nav-dropdown')) closeAllDropdowns();
+            });
+
+            /* ── Mobile hamburger menu ── */
+            var nav = document.getElementById('app-nav');
+            var hamburger = nav.querySelector('.app-nav-hamburger');
+            var backdrop = nav.querySelector('.app-nav-mobile-backdrop');
+
+            function toggleMobile() {
+                var isOpen = nav.classList.toggle('nav-open');
+                hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+
+            function closeMobile() {
+                nav.classList.remove('nav-open');
+                hamburger.setAttribute('aria-expanded', 'false');
+            }
+
+            hamburger.addEventListener('click', toggleMobile);
+            if (backdrop) backdrop.addEventListener('click', closeMobile);
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && nav.classList.contains('nav-open')) {
+                    closeMobile();
+                    hamburger.focus();
+                }
+            });
+        })();
+        </script>
     </nav>
 </body>
 </html>

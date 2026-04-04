@@ -73,6 +73,7 @@ class ShellModelInterceptor : HandlerInterceptor {
         "/assets" in path -> "assets"
         "/settings" in path -> "settings"
         "/feedback" in path -> "feedback"
+        "/catalogs" in path -> "catalogs"
         "/admin" in path -> "admin"
         else -> "home"
     }

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Navigation: grouped dropdowns**: Replaced 12 flat header links with 4 grouped dropdown menus (Authoring, Resources, Operations, Settings). Includes keyboard navigation (arrow keys, Escape), ARIA attributes, and responsive mobile overlay menu with hamburger toggle.
+
 ## [0.12.0] - 2026-04-04
 
 ### Added
