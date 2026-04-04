@@ -124,32 +124,46 @@
                 </div>
                 <div class="card-content" id="usage-list">
                     <th:block th:fragment="usage">
-                        <div th:with="latestPublishedVer=${versions.?[status.name() == 'PUBLISHED'].isEmpty() ? null : versions.?[status.name() == 'PUBLISHED'].get(0).id},
-                                      upgradeable=${usage.?[versionStatus == 'draft']}">
-                            <div th:if="${latestPublishedVer != null and !upgradeable.isEmpty()}"
-                                 style="margin-bottom: var(--ep-space-3);">
-                                <button type="button"
-                                        class="btn btn-sm btn-primary"
-                                        id="upgrade-all-btn"
-                                        th:attr="onclick='upgradeAllDrafts(this, ' + ${latestPublishedVer} + ')'">
-                                    Upgrade all drafts to v<span th:text="${latestPublishedVer}"></span>
-                                </button>
-                            </div>
+                        <!-- Toolbar: version picker + apply button -->
+                        <div th:if="${auth.has('TEMPLATE_EDIT')}" style="display: flex; align-items: center; gap: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
+                            <label class="ep-label" style="margin: 0; white-space: nowrap;">Upgrade to:</label>
+                            <select id="upgrade-version-select" class="ep-input" style="width: auto; min-width: 10rem;">
+                                <th:block th:each="v : ${versions}">
+                                    <option th:if="${v.status.name() != 'ARCHIVED'}"
+                                            th:value="${v.id}"
+                                            th:text="'v' + ${v.id} + ' (' + ${v.status.name().toLowerCase()} + ')'"
+                                            th:selected="${v.status.name() == 'PUBLISHED'}"></option>
+                                </th:block>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-primary" id="apply-upgrade-btn" onclick="applyUpgrade()">
+                                Apply to selected
+                            </button>
+                            <span id="upgrade-status" style="font-size: var(--ep-font-size-sm); color: var(--ep-color-text-muted);"></span>
                         </div>
+
                         <table class="ep-table ep-table-compact">
                             <thead>
                                 <tr>
+                                    <th style="width: 2rem;">
+                                        <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all draft rows">
+                                    </th>
                                     <th>Template</th>
                                     <th>Variant</th>
                                     <th>Version</th>
                                     <th>Status</th>
                                     <th>Stencil Version</th>
                                     <th>Instances</th>
-                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr th:each="u : ${usage}">
+                                <tr th:each="u : ${usage}" th:classappend="${u.versionStatus == 'draft'} ? 'usage-row-selectable' : ''">
+                                    <td>
+                                        <input th:if="${u.versionStatus == 'draft'}"
+                                               type="checkbox"
+                                               class="usage-select"
+                                               th:data-template-id="${u.templateId}"
+                                               th:data-variant-id="${u.variantId}">
+                                    </td>
                                     <td>
                                         <a th:href="@{/tenants/{tenantId}/templates/{templateId}(tenantId=${tenantId},templateId=${u.templateId})}"
                                            th:text="${u.templateName}" style="font-weight: 500;"></a>
@@ -163,18 +177,6 @@
                                     </td>
                                     <td th:text="'v' + ${u.stencilVersion}"></td>
                                     <td th:text="${u.instanceCount}"></td>
-                                    <td class="actions">
-                                        <th:block th:if="${u.versionStatus == 'draft' and auth.has('TEMPLATE_EDIT')}">
-                                            <th:block th:with="latestPublishedVer=${versions.?[status.name() == 'PUBLISHED'].isEmpty() ? null : versions.?[status.name() == 'PUBLISHED'].get(0).id}">
-                                                <button th:if="${latestPublishedVer != null and latestPublishedVer > u.stencilVersion}"
-                                                        type="button"
-                                                        class="btn btn-sm btn-primary"
-                                                        th:attr="onclick='upgradeStencilInTemplate(this, \'' + ${u.templateId} + '\', \'' + ${u.variantId} + '\', ' + ${latestPublishedVer} + ')'">
-                                                    Upgrade to v<span th:text="${latestPublishedVer}"></span>
-                                                </button>
-                                            </th:block>
-                                        </th:block>
-                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -184,54 +186,37 @@
                             const _stencilId = /*[[${stencil.id}]]*/ '';
                             const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
 
-                            async function upgradeStencilInTemplate(btn, templateId, variantId, newVersion) {
-                                btn.disabled = true;
-                                btn.textContent = 'Upgrading...';
-                                try {
-                                    const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _stencilId + '/upgrade', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
-                                        body: JSON.stringify({ templateId, variantId, newVersion }),
-                                    });
-                                    if (resp.ok) {
-                                        btn.textContent = 'Done';
-                                        btn.classList.remove('btn-primary');
-                                        btn.classList.add('btn-ghost');
-                                    } else {
-                                        btn.textContent = 'Failed';
-                                        btn.disabled = false;
-                                    }
-                                } catch {
-                                    btn.textContent = 'Failed';
-                                    btn.disabled = false;
-                                }
+                            function toggleSelectAll(checked) {
+                                document.querySelectorAll('.usage-select').forEach(cb => cb.checked = checked);
                             }
 
-                            async function upgradeAllDrafts(btn, newVersion) {
+                            async function applyUpgrade() {
+                                const version = parseInt(document.getElementById('upgrade-version-select').value);
+                                const selected = document.querySelectorAll('.usage-select:checked');
+                                if (selected.length === 0) {
+                                    document.getElementById('upgrade-status').textContent = 'No rows selected';
+                                    return;
+                                }
+
+                                const btn = document.getElementById('apply-upgrade-btn');
+                                const status = document.getElementById('upgrade-status');
                                 btn.disabled = true;
                                 btn.textContent = 'Upgrading...';
-                                const buttons = document.querySelectorAll('#usage-list .actions .btn-primary');
-                                let success = 0;
-                                let failed = 0;
-                                for (const rowBtn of buttons) {
-                                    if (rowBtn === btn || rowBtn.disabled) continue;
-                                    const onclick = rowBtn.getAttribute('onclick');
-                                    if (!onclick) continue;
-                                    // Extract args from onclick: upgradeStencilInTemplate(this, 'templateId', 'variantId', version)
-                                    const match = onclick.match(/upgradeStencilInTemplate\(this,\s*'([^']+)',\s*'([^']+)',\s*(\d+)\)/);
-                                    if (!match) continue;
-                                    const [, templateId, variantId] = match;
+                                status.textContent = '';
+
+                                let success = 0, failed = 0;
+                                for (const cb of selected) {
+                                    const templateId = cb.dataset.templateId;
+                                    const variantId = cb.dataset.variantId;
                                     try {
                                         const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _stencilId + '/upgrade', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
-                                            body: JSON.stringify({ templateId, variantId, newVersion }),
+                                            body: JSON.stringify({ templateId, variantId, newVersion: version }),
                                         });
                                         if (resp.ok) {
-                                            rowBtn.textContent = 'Done';
-                                            rowBtn.classList.remove('btn-primary');
-                                            rowBtn.classList.add('btn-ghost');
-                                            rowBtn.disabled = true;
+                                            cb.closest('tr').style.opacity = '0.5';
+                                            cb.disabled = true;
                                             success++;
                                         } else {
                                             failed++;
@@ -239,12 +224,14 @@
                                     } catch {
                                         failed++;
                                     }
+                                    status.textContent = `${success + failed} / ${selected.length}...`;
                                 }
-                                btn.textContent = failed > 0
-                                    ? `Done (${success} ok, ${failed} failed)`
-                                    : `Done (${success} upgraded)`;
-                                btn.classList.remove('btn-primary');
-                                btn.classList.add('btn-ghost');
+
+                                btn.disabled = false;
+                                btn.textContent = 'Apply to selected';
+                                status.textContent = failed > 0
+                                    ? `Done: ${success} upgraded, ${failed} failed`
+                                    : `Done: ${success} upgraded`;
                             }
                         </script>
                     </th:block>
