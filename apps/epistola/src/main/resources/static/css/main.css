@@ -1030,6 +1030,69 @@ a.stat-card:hover {
   border-top: 1px solid var(--ep-border-color);
 }
 
+/* ── Changelog dialog ─────────────────────────────────────────────────── */
+
+.changelog-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-foreground);
+}
+
+.changelog-content h1 {
+  margin: 0 0 var(--ep-space-4);
+  font-size: var(--ep-text-lg);
+}
+
+.changelog-content h2 {
+  margin: var(--ep-space-5) 0 var(--ep-space-3);
+  font-size: var(--ep-text-base);
+}
+
+.changelog-content h3 {
+  margin: var(--ep-space-4) 0 var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+}
+
+.changelog-content p {
+  margin: 0 0 var(--ep-space-3);
+}
+
+.changelog-content ul,
+.changelog-content ol {
+  margin: 0 0 var(--ep-space-3);
+  padding-left: var(--ep-space-5);
+}
+
+.changelog-content li {
+  margin-bottom: var(--ep-space-1);
+}
+
+.changelog-content code {
+  font-family: var(--ep-font-mono);
+  font-size: var(--ep-text-xs);
+  background: var(--ep-muted);
+  padding: 0 var(--ep-space-1);
+  border-radius: var(--ep-radius-sm);
+}
+
+.changelog-content pre {
+  background: var(--ep-muted);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-3);
+  overflow-x: auto;
+}
+
+.changelog-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.changelog-loading,
+.changelog-error {
+  color: var(--ep-muted-foreground);
+}
+
 /* ── Wide dialog variant ──────────────────────────────────────────────── */
 
 .ep-dialog-wide {

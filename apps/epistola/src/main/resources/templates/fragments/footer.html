@@ -6,6 +6,20 @@
             <span th:text="${appName} ?: 'Epistola'">Epistola</span> <span class="version" th:text="'v' + (${appVersion} ?: 'dev')">v0.0.0</span>
             <span class="separator">|</span>
             <a th:href="@{/api-docs}" target="_blank" rel="noopener">API Docs</a>
+            <span class="separator">|</span>
+            <button type="button"
+                    class="link-button"
+                    id="changelog-button"
+                    aria-haspopup="dialog"
+                    aria-controls="changelog-dialog"
+                    command="show-modal"
+                    commandfor="changelog-dialog"
+                    th:hx-get="@{/changelog}"
+                    hx-target="#changelog-content"
+                    hx-swap="innerHTML"
+                    hx-trigger="click once">
+                Changelog
+            </button>
             <span sec:authorize="isAuthenticated()" class="user-info">
                 <span class="separator">|</span>
                 <span sec:authentication="name">username</span>
@@ -15,6 +29,20 @@
                 </form>
             </span>
         </footer>
+
+        <dialog id="changelog-dialog" class="ep-dialog ep-dialog-wide" aria-labelledby="changelog-title">
+            <div class="ep-dialog-header">
+                <h2 id="changelog-title">Changelog</h2>
+            </div>
+            <div class="ep-dialog-body">
+                <div id="changelog-content" aria-live="polite">
+                    <p class="changelog-loading">Loading changelog...</p>
+                </div>
+            </div>
+            <form method="dialog" class="ep-dialog-footer">
+                <button type="submit" class="btn btn-outline" autofocus>Close</button>
+            </form>
+        </dialog>
 
         <!-- Session expiry dialogs (only for authenticated users) -->
         <th:block sec:authorize="isAuthenticated()">
