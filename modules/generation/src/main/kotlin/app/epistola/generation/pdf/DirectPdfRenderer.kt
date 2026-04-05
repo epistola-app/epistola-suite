@@ -227,8 +227,8 @@ class DirectPdfRenderer(
         val bottomMargin = margins.bottom.toFloat() +
             if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
 
-        // First pass: render to count total pages
-        val tempOutput = java.io.ByteArrayOutputStream()
+        // First pass: render to count total pages (bytes are discarded)
+        val tempOutput = OutputStream.nullOutputStream()
         val firstPassContext = createRenderContext(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
