@@ -62,11 +62,11 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
-        val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
-        val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
-        val hasHeaderFooter = headerNode != null || footerNode != null
+        TwoPassAnalyzer.validate(document)
 
-        if (hasHeaderFooter) {
+        if (TwoPassAnalyzer.requiresTwoPassRendering(document)) {
+            val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
+            val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
             renderTwoPass(
                 document = document,
                 data = data,
@@ -138,6 +138,7 @@ class DirectPdfRenderer(
         spacingUnit: Float,
     ) {
         val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
+        val margins = pageSettings.margins
         val effectiveDocumentStyles = resolvedDocumentStyles
             ?: document.documentStylesOverride
             ?: emptyMap()
@@ -152,19 +153,34 @@ class DirectPdfRenderer(
             spacingUnit = spacingUnit,
         )
 
+        val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
+        val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
+
+        val headerHeight = headerNode?.let {
+            parseNodeHeight(it, context) ?: renderingDefaults.pageHeaderHeight
+        } ?: 0f
+        val footerHeight = footerNode?.let {
+            parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
+        } ?: 0f
+
+        val topMargin = margins.top.toFloat() +
+            if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
+        val bottomMargin = margins.bottom.toFloat() +
+            if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
+
         performRenderWithContext(
             outputStream = outputStream,
             context = context,
-            headerNode = null,
-            footerNode = null,
+            headerNode = headerNode,
+            footerNode = footerNode,
             document = document,
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             pageSettings = pageSettings,
-            topMargin = 0f,
-            bottomMargin = 0f,
-            rightMargin = pageSettings.margins.right.toFloat(),
-            leftMargin = pageSettings.margins.left.toFloat(),
+            topMargin = topMargin,
+            bottomMargin = bottomMargin,
+            rightMargin = margins.right.toFloat(),
+            leftMargin = margins.left.toFloat(),
         )
     }
 
