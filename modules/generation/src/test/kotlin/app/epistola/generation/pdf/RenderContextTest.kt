@@ -8,6 +8,7 @@ import app.epistola.template.model.TemplateDocument
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class RenderContextTest {
     private val evaluator = CompositeExpressionEvaluator()
@@ -107,15 +108,18 @@ class RenderContextTest {
     }
 
     @Test
-    fun `withGlobalParams injects today date`() {
+    fun `withGlobalParams injects render time`() {
         val context = createContext()
         val globalContext = context.withGlobalParams()
 
-        assertEquals(java.time.LocalDate.now().toString(), globalContext.systemParams["today"])
+        @Suppress("UNCHECKED_CAST")
+        val render = globalContext.systemParams["render"] as Map<String, Any?>
+        val time = render["time"] as String
+        java.time.OffsetDateTime.parse(time, java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
     }
 
     @Test
-    fun `withGlobalParams makes today available in effectiveData`() {
+    fun `withGlobalParams makes render time available in effectiveData`() {
         val context = createContext(data = mapOf("name" to "John"))
         val globalContext = context.withGlobalParams()
 
@@ -124,7 +128,11 @@ class RenderContextTest {
 
         @Suppress("UNCHECKED_CAST")
         val sys = effective["sys"] as Map<String, Any?>
-        assertEquals(java.time.LocalDate.now().toString(), sys["today"])
+
+        @Suppress("UNCHECKED_CAST")
+        val render = sys["render"] as Map<String, Any?>
+        val time = render["time"] as String
+        java.time.OffsetDateTime.parse(time, java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
     }
 
     @Test
@@ -137,7 +145,7 @@ class RenderContextTest {
         @Suppress("UNCHECKED_CAST")
         val page = globalContext.systemParams["page"] as Map<String, Any?>
         assertEquals(5, page["number"])
-        assertEquals(java.time.LocalDate.now().toString(), globalContext.systemParams["today"])
+        assertTrue(globalContext.systemParams.containsKey("render"))
     }
 
     @Test
@@ -146,8 +154,8 @@ class RenderContextTest {
         val global1 = context.withGlobalParams()
         val global2 = context.withGlobalParams()
 
-        assertEquals(java.time.LocalDate.now().toString(), global1.systemParams["today"])
-        assertEquals(java.time.LocalDate.now().toString(), global2.systemParams["today"])
+        assertTrue(global1.systemParams.containsKey("render"))
+        assertTrue(global2.systemParams.containsKey("render"))
         assertSame(context.data, global1.data)
         assertSame(context.data, global2.data)
     }

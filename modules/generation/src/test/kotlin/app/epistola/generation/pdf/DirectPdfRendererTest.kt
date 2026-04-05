@@ -736,7 +736,7 @@ class DirectPdfRendererTest {
             ),
         )
 
-        // A footer text node with sys.today expression
+        // A footer text node with sys.render.time expression
         val footerText = Node(
             id = "footer-text",
             type = "text",
@@ -749,7 +749,7 @@ class DirectPdfRendererTest {
                             "content" to listOf(
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.today"),
+                                    "attrs" to mapOf("expression" to "sys.render.time"),
                                 ),
                             ),
                         ),

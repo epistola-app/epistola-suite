@@ -184,15 +184,16 @@ Implementation: GraalJS with sandbox (no file/network access, execution limits)
 
 System parameters are runtime values provided by the rendering engine:
 
-| Parameter         | Type              | Description                                                                   |
-| ----------------- | ----------------- | ----------------------------------------------------------------------------- |
-| `sys.today`       | string (ISO date) | Today's date (YYYY-MM-DD). Use `$formatDate()` for locale-specific formatting |
-| `sys.page.number` | integer           | Current page number (available in headers/footers only)                       |
+| Parameter         | Type                  | Description                                                          |
+| ----------------- | --------------------- | -------------------------------------------------------------------- |
+| `sys.render.time` | string (ISO-8601 UTC) | Render timestamp. Use `$formatDate()` for locale-specific formatting |
+| `sys.page.number` | integer               | Current page number (available in headers/footers only)              |
 
 Example:
 
 ```jsonata
-$formatDate(sys.today, "dd-MM-yyyy")  // Formats as "03-04-2026"
+$formatDate(sys.render.time, "dd-MM-yyyy")       // "03-04-2026"
+$formatDate(sys.render.time, "dd-MM-yyyy HH:mm") // "03-04-2026 10:30"
 ```
 
 #### Evaluator Architecture

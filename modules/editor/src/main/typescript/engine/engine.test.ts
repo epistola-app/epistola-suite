@@ -2082,7 +2082,7 @@ describe('fieldPaths', () => {
 // ---------------------------------------------------------------------------
 
 describe('getExampleData', () => {
-  const systemMockData = { sys: { page: { number: 1 }, today: '2026-04-03' } };
+  const systemMockData = { sys: { page: { number: 1 }, render: { time: '2026-04-03T08:30:00Z' } } };
 
   it('returns system mock data when no examples are set', () => {
     const registry = testRegistry();
@@ -2119,7 +2119,7 @@ describe('getExampleData', () => {
     const result = engine.getExampleData();
     expect(result.name).toBe('Test');
     expect(result.amount).toBe(42);
-    expect(result.sys).toEqual({ page: { number: 1 }, today: '2026-04-03' });
+    expect(result.sys).toEqual({ page: { number: 1 }, render: { time: '2026-04-03T08:30:00Z' } });
   });
 });
 

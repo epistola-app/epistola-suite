@@ -1,8 +1,10 @@
 package app.epistola.generation
 
-import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class SystemParameterRegistryTest {
@@ -20,15 +22,15 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `registry contains today descriptor`() {
+    fun `registry contains render time descriptor`() {
         val descriptors = SystemParameterRegistry.all()
 
-        val today = descriptors.find { it.path == "today" }
-        assertTrue(today != null, "today descriptor should be registered")
-        assertEquals("date", today.type)
-        assertEquals(SystemParamScope.GLOBAL, today.scope)
-        assertEquals("sys.today", today.fullPath)
-        assertEquals("2026-04-03", today.mockValue)
+        val renderTime = descriptors.find { it.path == "render.time" }
+        assertTrue(renderTime != null, "render.time descriptor should be registered")
+        assertEquals("datetime", renderTime.type)
+        assertEquals(SystemParamScope.GLOBAL, renderTime.scope)
+        assertEquals("sys.render.time", renderTime.fullPath)
+        assertEquals("2026-04-03T08:30:00Z", renderTime.mockValue)
     }
 
     @Test
@@ -91,8 +93,15 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams returns today's date`() {
+    fun `buildGlobalParams returns current offset datetime`() {
         val result = SystemParameterRegistry.buildGlobalParams()
-        assertEquals(LocalDate.now().toString(), result["today"])
+
+        @Suppress("UNCHECKED_CAST")
+        val render = result["render"] as Map<String, Any?>
+        val time = render["time"] as String
+        assertNotNull(time)
+        // Verify it parses as a valid ISO offset datetime
+        val parsed = OffsetDateTime.parse(time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        assertNotNull(parsed)
     }
 }

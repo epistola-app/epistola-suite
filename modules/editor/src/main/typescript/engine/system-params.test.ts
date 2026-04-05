@@ -10,12 +10,12 @@ describe('SYSTEM_PARAMETER_PATHS', () => {
     expect(pageNumber!.description).toBeTruthy();
   });
 
-  it('contains sys.today', () => {
-    const today = SYSTEM_PARAMETER_PATHS.find((fp) => fp.path === 'sys.today');
-    expect(today).toBeDefined();
-    expect(today!.type).toBe('date');
-    expect(today!.system).toBe(true);
-    expect(today!.description).toBeTruthy();
+  it('contains sys.render.time', () => {
+    const renderTime = SYSTEM_PARAMETER_PATHS.find((fp) => fp.path === 'sys.render.time');
+    expect(renderTime).toBeDefined();
+    expect(renderTime!.type).toBe('datetime');
+    expect(renderTime!.system).toBe(true);
+    expect(renderTime!.description).toBeTruthy();
   });
 
   it('all entries are marked as system parameters', () => {
@@ -40,9 +40,11 @@ describe('SYSTEM_PARAM_MOCK_DATA', () => {
     expect(page.number).toBe(1);
   });
 
-  it('contains sys.today mock value', () => {
+  it('contains sys.render.time mock value', () => {
     const sys = SYSTEM_PARAM_MOCK_DATA.sys as Record<string, unknown>;
     expect(sys).toBeDefined();
-    expect(sys.today).toBe('2026-04-03');
+    const render = sys.render as Record<string, unknown>;
+    expect(render).toBeDefined();
+    expect(render.time).toBe('2026-04-03T08:30:00Z');
   });
 });
