@@ -252,6 +252,9 @@ class DirectPdfRenderer(
             bottomMargin = bottomMargin,
             rightMargin = margins.right.toFloat(),
             leftMargin = margins.left.toFloat(),
+            enablePdfA = false,
+            enableMetadata = false,
+            enableHeaderFooter = false,
         )
 
         // Second pass: render with known total page count
@@ -295,35 +298,40 @@ class DirectPdfRenderer(
         bottomMargin: Float,
         rightMargin: Float,
         leftMargin: Float,
+        enablePdfA: Boolean = pdfaCompliant,
+        enableMetadata: Boolean = true,
+        enableHeaderFooter: Boolean = true,
     ): Int {
         val writer = PdfWriter(outputStream)
-        val pdfDocument = createPdfDocument(writer, pdfaCompliant)
-        applyMetadata(pdfDocument, metadata)
+        val pdfDocument = createPdfDocument(writer, enablePdfA)
+        if (enableMetadata) applyMetadata(pdfDocument, metadata)
 
         val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
         val iTextDocument = Document(pdfDocument, pageSize)
         iTextDocument.setFont(context.fontCache.regular)
         iTextDocument.setMargins(topMargin, rightMargin, bottomMargin, leftMargin)
 
-        val headerHandler = headerNode?.let {
-            PageHeaderEventHandler(
-                headerNodeId = it.id,
-                document = document,
-                context = context,
-                registry = nodeRendererRegistry,
-            )
-        }
-        val footerHandler = footerNode?.let {
-            PageFooterEventHandler(
-                footerNodeId = it.id,
-                document = document,
-                context = context,
-                registry = nodeRendererRegistry,
-            )
-        }
+        if (enableHeaderFooter) {
+            val headerHandler = headerNode?.let {
+                PageHeaderEventHandler(
+                    headerNodeId = it.id,
+                    document = document,
+                    context = context,
+                    registry = nodeRendererRegistry,
+                )
+            }
+            val footerHandler = footerNode?.let {
+                PageFooterEventHandler(
+                    footerNodeId = it.id,
+                    document = document,
+                    context = context,
+                    registry = nodeRendererRegistry,
+                )
+            }
 
-        headerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
-        footerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
+            headerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
+            footerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
+        }
 
         val elements = nodeRendererRegistry.renderNode(document.root, document, context)
         for (element in elements) {
