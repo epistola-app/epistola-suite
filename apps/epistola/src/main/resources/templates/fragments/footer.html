@@ -15,7 +15,7 @@
                     command="show-modal"
                     commandfor="changelog-dialog"
                     th:hx-get="@{/changelog}"
-                    hx-target="#changelog-content"
+                    hx-target="#changelog-dialog-content"
                     hx-swap="innerHTML"
                     hx-trigger="click once">
                 Changelog
@@ -31,17 +31,9 @@
         </footer>
 
         <dialog id="changelog-dialog" class="ep-dialog ep-dialog-wide" aria-labelledby="changelog-title">
-            <div class="ep-dialog-header">
-                <h2 id="changelog-title">Changelog</h2>
+            <div id="changelog-dialog-content">
+                <p class="changelog-loading">Loading changelog...</p>
             </div>
-            <div class="ep-dialog-body">
-                <div id="changelog-content" aria-live="polite">
-                    <p class="changelog-loading">Loading changelog...</p>
-                </div>
-            </div>
-            <form method="dialog" class="ep-dialog-footer">
-                <button type="submit" class="btn btn-outline" autofocus>Close</button>
-            </form>
         </dialog>
 
         <!-- Session expiry dialogs (only for authenticated users) -->

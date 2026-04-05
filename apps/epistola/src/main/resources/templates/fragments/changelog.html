@@ -2,9 +2,21 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <article class="changelog-content" th:utext="${changelogHtml}">
-            <p class="changelog-error">Changelog is not available.</p>
-        </article>
+        <div class="ep-dialog-header">
+            <h2 id="changelog-title">Changelog</h2>
+            <button type="button"
+                    class="btn btn-ghost btn-icon"
+                    command="close"
+                    commandfor="changelog-dialog"
+                    aria-label="Close changelog">
+                <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon')}" />
+            </button>
+        </div>
+        <div class="ep-dialog-body">
+            <article class="changelog-content" aria-live="polite" th:utext="${changelogHtml}">
+                <p class="changelog-error">Changelog is not available.</p>
+            </article>
+        </div>
     </th:block>
 </body>
 </html>
