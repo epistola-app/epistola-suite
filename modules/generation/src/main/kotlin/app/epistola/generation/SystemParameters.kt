@@ -1,6 +1,7 @@
 package app.epistola.generation
 
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Scope at which a system parameter is available.
@@ -32,6 +33,9 @@ data class SystemParameterDescriptor(
     /** Full dotted path including the `sys.` prefix (e.g., "sys.page.number"). */
     val fullPath: String get() = "sys.$path"
 }
+
+/** Default timezone used for date-related rendering (e.g., sys.today, $formatDate). */
+val DEFAULT_RENDER_TIMEZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
 
 /**
  * Registry of system parameters available to templates at render time.
@@ -88,5 +92,5 @@ object SystemParameterRegistry {
     fun buildPageParams(pageNumber: Int): Map<String, Any?> = buildNestedMap(mapOf("page.number" to pageNumber))
 
     /** Build global system parameters (e.g., today's date). */
-    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(mapOf("today" to LocalDate.now().toString()))
+    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(mapOf("today" to LocalDate.now(DEFAULT_RENDER_TIMEZONE).toString()))
 }
