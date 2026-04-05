@@ -97,6 +97,34 @@ class DirectPdfRenderer(
         }
     }
 
+    private fun createRenderContext(
+        data: Map<String, Any?>,
+        effectiveDocumentStyles: DocumentStyles,
+        document: TemplateDocument,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        pdfaCompliant: Boolean,
+        assetResolver: AssetResolver?,
+        renderingDefaults: RenderingDefaults,
+        spacingUnit: Float,
+    ): RenderContext {
+        val fontCache = FontCache(pdfaCompliant)
+        val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
+        return RenderContext(
+            data = data,
+            loopContext = emptyMap(),
+            documentStyles = effectiveDocumentStyles,
+            expressionEvaluator = expressionEvaluator,
+            tipTapConverter = tipTapConverter,
+            defaultExpressionLanguage = defaultExpressionLanguage,
+            fontCache = fontCache,
+            blockStylePresets = blockStylePresets,
+            document = document,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
+        )
+    }
+
     private fun renderSinglePass(
         document: TemplateDocument,
         data: Map<String, Any?>,
@@ -113,11 +141,20 @@ class DirectPdfRenderer(
         val effectiveDocumentStyles = resolvedDocumentStyles
             ?: document.documentStylesOverride
             ?: emptyMap()
-
-        performRender(
-            outputStream = outputStream,
+        val context = createRenderContext(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
+            document = document,
+            blockStylePresets = blockStylePresets,
+            pdfaCompliant = pdfaCompliant,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
+        )
+
+        performRenderWithContext(
+            outputStream = outputStream,
+            context = context,
             headerNode = null,
             footerNode = null,
             document = document,
@@ -128,10 +165,6 @@ class DirectPdfRenderer(
             bottomMargin = 0f,
             rightMargin = pageSettings.margins.right.toFloat(),
             leftMargin = pageSettings.margins.left.toFloat(),
-            blockStylePresets = blockStylePresets,
-            assetResolver = assetResolver,
-            renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
         )
     }
 
@@ -155,18 +188,12 @@ class DirectPdfRenderer(
             ?: document.documentStylesOverride
             ?: emptyMap()
 
-        val heightFontCache = FontCache(pdfaCompliant)
-        val heightTipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
-        val heightContext = RenderContext(
+        val heightContext = createRenderContext(
             data = data,
-            loopContext = emptyMap(),
-            documentStyles = effectiveDocumentStyles,
-            expressionEvaluator = expressionEvaluator,
-            tipTapConverter = heightTipTapConverter,
-            defaultExpressionLanguage = defaultExpressionLanguage,
-            fontCache = heightFontCache,
-            blockStylePresets = blockStylePresets,
+            effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
+            blockStylePresets = blockStylePresets,
+            pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
@@ -184,24 +211,18 @@ class DirectPdfRenderer(
         val bottomMargin = margins.bottom.toFloat() +
             if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
 
-        val firstPassFontCache = FontCache(pdfaCompliant)
-        val firstPassTipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
-        val firstPassContext = RenderContext(
+        // First pass: render to count total pages
+        val tempOutput = java.io.ByteArrayOutputStream()
+        val firstPassContext = createRenderContext(
             data = data,
-            loopContext = emptyMap(),
-            documentStyles = effectiveDocumentStyles,
-            expressionEvaluator = expressionEvaluator,
-            tipTapConverter = firstPassTipTapConverter,
-            defaultExpressionLanguage = defaultExpressionLanguage,
-            fontCache = firstPassFontCache,
-            blockStylePresets = blockStylePresets,
+            effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
+            blockStylePresets = blockStylePresets,
+            pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
         )
-
-        val tempOutput = java.io.ByteArrayOutputStream()
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
             context = firstPassContext,
@@ -217,18 +238,13 @@ class DirectPdfRenderer(
             leftMargin = margins.left.toFloat(),
         )
 
-        val finalFontCache = FontCache(pdfaCompliant)
-        val finalTipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
-        val finalContext = RenderContext(
+        // Second pass: render with known total page count
+        val finalContext = createRenderContext(
             data = data,
-            loopContext = emptyMap(),
-            documentStyles = effectiveDocumentStyles,
-            expressionEvaluator = expressionEvaluator,
-            tipTapConverter = finalTipTapConverter,
-            defaultExpressionLanguage = defaultExpressionLanguage,
-            fontCache = finalFontCache,
-            blockStylePresets = blockStylePresets,
+            effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
+            blockStylePresets = blockStylePresets,
+            pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
@@ -247,57 +263,6 @@ class DirectPdfRenderer(
             bottomMargin = bottomMargin,
             rightMargin = margins.right.toFloat(),
             leftMargin = margins.left.toFloat(),
-        )
-    }
-
-    private fun performRender(
-        outputStream: OutputStream,
-        data: Map<String, Any?>,
-        effectiveDocumentStyles: DocumentStyles,
-        headerNode: Node?,
-        footerNode: Node?,
-        document: TemplateDocument,
-        metadata: PdfMetadata,
-        pdfaCompliant: Boolean,
-        pageSettings: app.epistola.template.model.PageSettings,
-        topMargin: Float,
-        bottomMargin: Float,
-        rightMargin: Float,
-        leftMargin: Float,
-        blockStylePresets: Map<String, Map<String, Any>>,
-        assetResolver: AssetResolver?,
-        renderingDefaults: RenderingDefaults,
-        spacingUnit: Float,
-    ): Int {
-        val fontCache = FontCache(pdfaCompliant)
-        val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
-        val context = RenderContext(
-            data = data,
-            loopContext = emptyMap(),
-            documentStyles = effectiveDocumentStyles,
-            expressionEvaluator = expressionEvaluator,
-            tipTapConverter = tipTapConverter,
-            defaultExpressionLanguage = defaultExpressionLanguage,
-            fontCache = fontCache,
-            blockStylePresets = blockStylePresets,
-            document = document,
-            assetResolver = assetResolver,
-            renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
-        )
-        return performRenderWithContext(
-            outputStream = outputStream,
-            context = context,
-            headerNode = headerNode,
-            footerNode = footerNode,
-            document = document,
-            metadata = metadata,
-            pdfaCompliant = pdfaCompliant,
-            pageSettings = pageSettings,
-            topMargin = topMargin,
-            bottomMargin = bottomMargin,
-            rightMargin = rightMargin,
-            leftMargin = leftMargin,
         )
     }
 

@@ -111,6 +111,15 @@ class RenderContextTest {
     }
 
     @Test
+    fun `withTotalPages sets totalPages field`() {
+        val context = createContext()
+        assertEquals(null, context.totalPages)
+
+        val withTotal = context.withTotalPages(10)
+        assertEquals(10, withTotal.totalPages)
+    }
+
+    @Test
     fun `effectiveData with withPageParams works end-to-end`() {
         val context = createContext(data = mapOf("greeting" to "Hello"))
         val pageContext = context.withPageParams(7, 20)

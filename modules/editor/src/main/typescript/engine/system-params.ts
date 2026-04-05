@@ -31,14 +31,11 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
  * Mock values for system parameters, used in expression preview
  * within the editor. Structured to match the nested `sys.*` namespace.
  */
-
-const TOTAL_PAGES = 1;
-
 export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
   sys: {
     page: {
       number: 1,
-      total: TOTAL_PAGES,
+      total: 1,
     },
   },
 };

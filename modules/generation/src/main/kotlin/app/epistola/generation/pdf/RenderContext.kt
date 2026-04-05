@@ -32,6 +32,8 @@ data class RenderContext(
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
     val systemParams: Map<String, Any?> = emptyMap(),
+    /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
+    val totalPages: Int? = null,
 ) {
     /**
      * Data map with system parameters merged under the `sys` key.
@@ -55,7 +57,5 @@ data class RenderContext(
      * Returns a copy of this context with a pre-calculated total pages value.
      * Used for two-pass rendering where the total is determined in the first pass.
      */
-    fun withTotalPages(totalPages: Int): RenderContext = copy(
-        systemParams = systemParams + SystemParameterRegistry.buildPageParams(1, totalPages),
-    )
+    fun withTotalPages(totalPages: Int): RenderContext = copy(totalPages = totalPages)
 }
