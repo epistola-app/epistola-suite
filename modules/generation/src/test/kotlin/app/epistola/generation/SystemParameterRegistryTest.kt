@@ -25,7 +25,7 @@ class SystemParameterRegistryTest {
         val pageTotal = descriptors.find { it.path == "page.total" }
         assertTrue(pageTotal != null, "page.total descriptor should be registered")
         assertEquals("integer", pageTotal.type)
-        assertEquals(SystemParamScope.PAGE_SCOPED, pageTotal.scope)
+        assertEquals(SystemParamScope.GLOBAL, pageTotal.scope)
         assertEquals("sys.page.total", pageTotal.fullPath)
         assertEquals(1, pageTotal.mockValue)
     }
@@ -36,7 +36,7 @@ class SystemParameterRegistryTest {
             path = "page.total",
             description = "Total page count",
             type = "integer",
-            scope = SystemParamScope.PAGE_SCOPED,
+            scope = SystemParamScope.GLOBAL,
         )
         assertEquals("sys.page.total", descriptor.fullPath)
     }
@@ -91,8 +91,17 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams returns empty map`() {
-        val result = SystemParameterRegistry.buildGlobalParams()
+    fun `buildGlobalParams returns empty map when totalPages is null`() {
+        val result = SystemParameterRegistry.buildGlobalParams(null)
         assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `buildGlobalParams includes page total when provided`() {
+        val result = SystemParameterRegistry.buildGlobalParams(10)
+
+        @Suppress("UNCHECKED_CAST")
+        val page = result["page"] as Map<String, Any?>
+        assertEquals(10, page["total"])
     }
 }

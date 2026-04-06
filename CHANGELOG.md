@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Page total in PDF header and footer**: New system parameter `sys.page.total` (total pages) for PDF header and footer. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.page.total` is used; `sys.page.total` is validated against use in conditionals/loops to prevent page count instability.
+- **Page total system parameter**: New system parameter `sys.page.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.page.total` is used; `sys.page.total` is validated against use in conditionals/loops to prevent page count instability.
 
 ### Changed
 

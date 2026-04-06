@@ -53,9 +53,9 @@ object SystemParameterRegistry {
         register(
             SystemParameterDescriptor(
                 path = "page.total",
-                description = "Total number of pages. Available in page headers/footers only.",
+                description = "Total number of pages in the document.",
                 type = "integer",
-                scope = SystemParamScope.PAGE_SCOPED,
+                scope = SystemParamScope.GLOBAL,
                 mockValue = 1,
             ),
         )
@@ -82,7 +82,7 @@ object SystemParameterRegistry {
         return result
     }
 
-    /** Build page-scoped system parameters (for headers/footers). */
+    /** Build page-scoped system parameters (page number + total for headers/footers). */
     fun buildPageParams(pageNumber: Int, totalPages: Int): Map<String, Any?> = buildNestedMap(
         mapOf(
             "page.number" to pageNumber,
@@ -90,6 +90,6 @@ object SystemParameterRegistry {
         ),
     )
 
-    /** Build global system parameters (currently empty, but extensible). */
-    fun buildGlobalParams(): Map<String, Any?> = emptyMap()
+    /** Build global system parameters that are available in all contexts (body, headers, footers). */
+    fun buildGlobalParams(totalPages: Int?): Map<String, Any?> = if (totalPages != null) buildNestedMap(mapOf("page.total" to totalPages)) else emptyMap()
 }

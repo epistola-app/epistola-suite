@@ -120,6 +120,19 @@ class RenderContextTest {
     }
 
     @Test
+    fun `withTotalPages injects page total into effectiveData`() {
+        val context = createContext()
+        val withTotal = context.withTotalPages(10)
+
+        @Suppress("UNCHECKED_CAST")
+        val sys = withTotal.effectiveData["sys"] as Map<String, Any?>
+
+        @Suppress("UNCHECKED_CAST")
+        val page = sys["page"] as Map<String, Any?>
+        assertEquals(10, page["total"])
+    }
+
+    @Test
     fun `effectiveData with withPageParams works end-to-end`() {
         val context = createContext(data = mapOf("greeting" to "Hello"))
         val pageContext = context.withPageParams(7, 20)
