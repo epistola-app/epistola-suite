@@ -23,7 +23,13 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     path: 'sys.page.total',
     type: 'integer',
     system: true,
-    description: 'Total number of pages. Available in page headers/footers only.',
+    description: 'Total number of pages in the document.',
+  },
+  {
+    path: 'sys.render.time',
+    type: 'datetime',
+    system: true,
+    description: 'Render timestamp as ISO-8601 offset datetime. Use $formatDate() to format.',
   },
 ];
 
@@ -36,6 +42,9 @@ export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
     page: {
       number: 1,
       total: 1,
+    },
+    render: {
+      time: '2026-04-03T08:30:00Z',
     },
   },
 };

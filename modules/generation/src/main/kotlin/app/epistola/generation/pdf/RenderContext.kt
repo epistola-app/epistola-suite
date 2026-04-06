@@ -60,6 +60,6 @@ data class RenderContext(
      */
     fun withTotalPages(totalPages: Int): RenderContext = copy(
         totalPages = totalPages,
-        systemParams = systemParams + SystemParameterRegistry.buildGlobalParams(totalPages),
+        systemParams = systemParams + SystemParameterRegistry.buildNestedMap(mapOf("page.total" to totalPages)),
     )
 }

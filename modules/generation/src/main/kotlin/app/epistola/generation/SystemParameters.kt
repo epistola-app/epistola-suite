@@ -1,5 +1,9 @@
 package app.epistola.generation
 
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 /**
  * Scope at which a system parameter is available.
  */
@@ -31,6 +35,9 @@ data class SystemParameterDescriptor(
     val fullPath: String get() = "sys.$path"
 }
 
+/** Default timezone used for date-related rendering (e.g., sys.render.time, $formatDate). */
+val DEFAULT_RENDER_TIMEZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
+
 /**
  * Registry of system parameters available to templates at render time.
  *
@@ -57,6 +64,15 @@ object SystemParameterRegistry {
                 type = "integer",
                 scope = SystemParamScope.GLOBAL,
                 mockValue = 1,
+            ),
+        )
+        register(
+            SystemParameterDescriptor(
+                path = "render.time",
+                description = "Render timestamp as ISO-8601 offset datetime. Use \$formatDate() to format.",
+                type = "datetime",
+                scope = SystemParamScope.GLOBAL,
+                mockValue = "2026-04-03T08:30:00Z",
             ),
         )
     }
@@ -91,5 +107,13 @@ object SystemParameterRegistry {
     )
 
     /** Build global system parameters that are available in all contexts (body, headers, footers). */
-    fun buildGlobalParams(totalPages: Int?): Map<String, Any?> = if (totalPages != null) buildNestedMap(mapOf("page.total" to totalPages)) else emptyMap()
+    fun buildGlobalParams(totalPages: Int? = null): Map<String, Any?> {
+        val params = mutableMapOf<String, Any?>(
+            "render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+        )
+        if (totalPages != null) {
+            params["page.total"] = totalPages
+        }
+        return buildNestedMap(params)
+    }
 }

@@ -1,14 +1,17 @@
 package app.epistola.generation
 
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class SystemParameterRegistryTest {
     @Test
     fun `registry contains page number descriptor`() {
         val descriptors = SystemParameterRegistry.all()
-        assertTrue(descriptors.isNotEmpty(), "Registry should have at least one descriptor")
+        assertTrue(descriptors.size >= 2, "Registry should have at least two descriptors")
 
         val pageNumber = descriptors.find { it.path == "page.number" }
         assertTrue(pageNumber != null, "page.number descriptor should be registered")
@@ -28,6 +31,18 @@ class SystemParameterRegistryTest {
         assertEquals(SystemParamScope.GLOBAL, pageTotal.scope)
         assertEquals("sys.page.total", pageTotal.fullPath)
         assertEquals(1, pageTotal.mockValue)
+    }
+
+    @Test
+    fun `registry contains render time descriptor`() {
+        val descriptors = SystemParameterRegistry.all()
+
+        val renderTime = descriptors.find { it.path == "render.time" }
+        assertTrue(renderTime != null, "render.time descriptor should be registered")
+        assertEquals("datetime", renderTime.type)
+        assertEquals(SystemParamScope.GLOBAL, renderTime.scope)
+        assertEquals("sys.render.time", renderTime.fullPath)
+        assertEquals("2026-04-03T08:30:00Z", renderTime.mockValue)
     }
 
     @Test
@@ -91,9 +106,15 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams returns empty map when totalPages is null`() {
-        val result = SystemParameterRegistry.buildGlobalParams(null)
-        assertTrue(result.isEmpty())
+    fun `buildGlobalParams returns render time when no totalPages`() {
+        val result = SystemParameterRegistry.buildGlobalParams()
+
+        @Suppress("UNCHECKED_CAST")
+        val render = result["render"] as Map<String, Any?>
+        val time = render["time"] as String
+        assertNotNull(time)
+        val parsed = OffsetDateTime.parse(time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        assertNotNull(parsed)
     }
 
     @Test
@@ -103,5 +124,10 @@ class SystemParameterRegistryTest {
         @Suppress("UNCHECKED_CAST")
         val page = result["page"] as Map<String, Any?>
         assertEquals(10, page["total"])
+
+        // render.time should still be present
+        @Suppress("UNCHECKED_CAST")
+        val render = result["render"] as Map<String, Any?>
+        assertNotNull(render["time"])
     }
 }
