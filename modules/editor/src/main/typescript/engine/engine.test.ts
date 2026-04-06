@@ -16,6 +16,7 @@ import {
   resetCounter,
 } from './test-helpers.js';
 import type { NodeId, SlotId, TemplateDocument, Node, Slot } from '../types/index.js';
+import { SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
 
 beforeEach(() => {
   resetCounter();
@@ -2046,7 +2047,7 @@ describe('fieldPaths', () => {
     // Should contain system params even without data model
     expect(paths.length).toBeGreaterThan(0);
     expect(paths.every((p) => p.system === true)).toBe(true);
-    expect(paths.find((p) => p.path === 'sys.page.number')).toBeDefined();
+    expect(paths.find((p) => p.path === 'sys.pages.current')).toBeDefined();
   });
 
   it('includes system params after data model fields', () => {
@@ -2060,7 +2061,7 @@ describe('fieldPaths', () => {
 
     const paths = engine.fieldPaths;
     const nameIndex = paths.findIndex((p) => p.path === 'name');
-    const sysIndex = paths.findIndex((p) => p.path === 'sys.page.number');
+    const sysIndex = paths.findIndex((p) => p.path === 'sys.pages.current');
     expect(nameIndex).toBeLessThan(sysIndex);
     expect(paths[sysIndex].system).toBe(true);
   });
@@ -2078,18 +2079,66 @@ describe('fieldPaths', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getAvailableVariablesAt — page-scoped filtering
+// ---------------------------------------------------------------------------
+
+describe('getAvailableVariablesAt', () => {
+  it('excludes pageOnly params for body nodes', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry);
+    const rootSlotId = doc.nodes[doc.root].slots[0];
+    const bodyNodeId = doc.slots[rootSlotId].children[0];
+
+    const vars = engine.getAvailableVariablesAt(bodyNodeId);
+    expect(vars.find((v) => v.path === 'sys.pages.current')).toBeUndefined();
+    expect(vars.find((v) => v.path === 'sys.pages.total')).toBeDefined();
+  });
+
+  it('includes pageOnly params for nodes inside a page footer', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const rootSlotId = doc.nodes[doc.root].slots[0];
+
+    // Insert a page footer
+    const engine = new EditorEngine(doc, registry);
+    const footer = registry.createNode('pagefooter');
+    engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    });
+
+    // Insert a text node inside the footer
+    const footerSlotId = footer.node.slots[0];
+    const textNode = registry.createNode('text');
+    engine.dispatch({
+      type: 'InsertNode',
+      node: textNode.node,
+      slots: textNode.slots,
+      targetSlotId: footerSlotId,
+      index: -1,
+    });
+
+    const vars = engine.getAvailableVariablesAt(textNode.node.id);
+    expect(vars.find((v) => v.path === 'sys.pages.current')).toBeDefined();
+    expect(vars.find((v) => v.path === 'sys.pages.total')).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getExampleData
 // ---------------------------------------------------------------------------
 
 describe('getExampleData', () => {
-  const systemMockData = { sys: { page: { number: 1 } } };
-
   it('returns system mock data when no examples are set', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
-    expect(engine.getExampleData()).toEqual(systemMockData);
+    expect(engine.getExampleData()).toEqual(SYSTEM_PARAM_MOCK_DATA);
   });
 
   it('unwraps backend DataExample format and merges system mock data', () => {
@@ -2098,7 +2147,9 @@ describe('getExampleData', () => {
     const examples = [{ id: 'ex1', name: 'Test', data: { customer: 'John' } }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
-    expect(engine.getExampleData()).toEqual({ customer: 'John', ...systemMockData });
+    expect(engine.getExampleData()).toEqual(
+      Object.assign({ customer: 'John' }, SYSTEM_PARAM_MOCK_DATA),
+    );
   });
 
   it('returns flat format with system mock data merged', () => {
@@ -2107,7 +2158,9 @@ describe('getExampleData', () => {
     const examples = [{ customer: 'John', age: 30 }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
-    expect(engine.getExampleData()).toEqual({ customer: 'John', age: 30, ...systemMockData });
+    expect(engine.getExampleData()).toEqual(
+      Object.assign({ customer: 'John', age: 30 }, SYSTEM_PARAM_MOCK_DATA),
+    );
   });
 
   it('system params do not overwrite user example data', () => {
@@ -2119,7 +2172,7 @@ describe('getExampleData', () => {
     const result = engine.getExampleData();
     expect(result.name).toBe('Test');
     expect(result.amount).toBe(42);
-    expect(result.sys).toEqual({ page: { number: 1 } });
+    expect(result.sys).toEqual(SYSTEM_PARAM_MOCK_DATA.sys);
   });
 });
 

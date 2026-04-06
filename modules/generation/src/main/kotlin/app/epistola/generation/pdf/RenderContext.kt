@@ -32,14 +32,16 @@ data class RenderContext(
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
     val systemParams: Map<String, Any?> = emptyMap(),
+    /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
+    val totalPages: Int? = null,
 ) {
     /**
      * Data map with system parameters merged under the `sys` key.
      * Returns the original [data] map when no system parameters are set.
      *
      * Note: If user data contains a top-level `sys` key, it will be
-     * overwritten by system parameters in page-scoped contexts (headers/footers).
-     * The `sys` namespace is reserved for engine-provided values.
+     * overwritten by system parameters. The `sys` namespace is reserved
+     * for engine-provided values.
      */
     val effectiveData: Map<String, Any?>
         get() = if (systemParams.isEmpty()) data else data + mapOf("sys" to systemParams)
@@ -47,7 +49,17 @@ data class RenderContext(
     /**
      * Returns a copy of this context with page-scoped system parameters injected.
      */
-    fun withPageParams(pageNumber: Int): RenderContext = copy(
-        systemParams = systemParams + SystemParameterRegistry.buildPageParams(pageNumber),
+    fun withPageParams(pageNumber: Int, totalPages: Int): RenderContext = copy(
+        systemParams = systemParams + SystemParameterRegistry.buildPageParams(pageNumber, totalPages),
+    )
+
+    /**
+     * Returns a copy of this context with a pre-calculated total pages value.
+     * Used for two-pass rendering where the total is determined in the first pass.
+     * Injects `pages.total` into system params so it is available in body content.
+     */
+    fun withTotalPages(totalPages: Int): RenderContext = copy(
+        totalPages = totalPages,
+        systemParams = systemParams + SystemParameterRegistry.buildNestedMap(mapOf("pages.total" to totalPages)),
     )
 }

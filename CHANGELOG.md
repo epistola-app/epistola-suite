@@ -5,6 +5,11 @@
 ### Added
 
 - **In-app changelog dialog**: Added a `Changelog` action in the app footer that opens a native dialog and loads release notes from `CHANGELOG.md` via a server-rendered HTMX fragment.
+- **Page total system parameter**: New system parameter `sys.pages.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.pages.current` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.pages.total` is used; `sys.pages.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
+
+### Fixed
+
+- **Restrict `sys.pages.current` to page headers/footers**: The current page number is only available during per-page rendering and cannot work in body content. The renderer now validates this at render time, and the editor expression dialog hides `sys.pages.current` for nodes outside page headers/footers.
 
 ### Changed
 
@@ -23,6 +28,8 @@
 - **Resource exchange design**: Design document for exchanging templates between Epistola instances via externally hosted catalogs. Defines the catalog protocol (manifest + detail URL format), content hashing for version detection, and upgrade strategy with local change protection.
 - **Catalog module (Phase 1)**: New `epistola-catalog` module for importing templates from remote catalogs. Register a catalog URL, browse available templates, and install them. Includes catalog entity, HTTP client, CQRS commands/queries, and settings UI.
 - **Shared testing module**: New `modules/testing` module consolidating test infrastructure (Testcontainers, IntegrationTestBase, Scenario DSL, TestFixture DSL, TestIdHelpers) previously duplicated across modules.
+- **System parameter `sys.render.time`**: Added `sys.render.time` system parameter that returns the render timestamp as ISO-8601 UTC datetime. Use `$formatDate()` for locale-specific formatting (date and/or time). `$formatDate` converts to the configured timezone (default: Europe/Amsterdam). Available in all expression contexts (body, headers, footers).
+- **Manual workflow dispatch**: Build workflow can now be triggered manually via `workflow_dispatch` as a fallback when release events don't fire.
 
 ### Fixed
 
@@ -276,8 +283,8 @@
   - **Visual regression tests**: Canonical templates rendered against stored baselines catch accidental rendering changes from code modifications, library upgrades, or constant changes. Run with `-DupdateBaselines=true` to regenerate baselines after deliberate changes.
   - **Engine version tracking**: Every generated PDF embeds an `EngineVersion` metadata field (e.g., `epistola-gen-1+itext-9.5.0`) for traceability.
 - **Rendering upgrade documentation**: `docs/rendering-upgrades.md` documents procedures for iText upgrades, rendering defaults changes, and engine version tracking.
-- **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.page.number`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
-- **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.page.number` previews as "1").
+- **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.pages.current`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
+- **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.pages.current` previews as "1").
 
 ### Changed
 

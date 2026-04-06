@@ -17,7 +17,7 @@ import type { Change, ChangeContext } from './change.js';
 import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
-import type { ComponentRegistry } from './registry.js';
+import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
 import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
 import { EventEmitter, type EngineEvents } from './events.js';
@@ -176,7 +176,7 @@ export class EditorEngine {
    * Get the current example's data, unwrapping the backend DataExample wrapper
    * format `{ id, name, data: {...} }` if present.
    *
-   * Always includes system parameter mock data (e.g., `sys.page.number`)
+   * Always includes system parameter mock data (e.g., `sys.pages.current`)
    * for expression preview in the editor. When no example data is set,
    * returns just the system mock data.
    */
@@ -202,7 +202,11 @@ export class EditorEngine {
   getAvailableVariablesAt(nodeId: NodeId): FieldPath[] {
     const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : [];
     const scopedFields = this._collectAncestorScopes(nodeId);
-    return [...dataFields, ...scopedFields, ...SYSTEM_PARAMETER_PATHS];
+    const inPageBlock = this._isInsidePageBlock(nodeId);
+    const sysParams = inPageBlock
+      ? SYSTEM_PARAMETER_PATHS
+      : SYSTEM_PARAMETER_PATHS.filter((fp) => !fp.pageOnly);
+    return [...dataFields, ...scopedFields, ...sysParams];
   }
 
   /**
@@ -231,6 +235,19 @@ export class EditorEngine {
     }
 
     return data;
+  }
+
+  /** Check if a node is inside a page header or footer (or is one itself). */
+  private _isInsidePageBlock(nodeId: NodeId): boolean {
+    const node = this._doc.nodes[nodeId];
+    if (node && isAnchoredPageBlock(node.type)) return true;
+    let current: NodeId | undefined = this._indexes.parentNodeByNodeId.get(nodeId);
+    while (current !== undefined) {
+      const ancestor = this._doc.nodes[current];
+      if (ancestor && isAnchoredPageBlock(ancestor.type)) return true;
+      current = this._indexes.parentNodeByNodeId.get(current);
+    }
+    return false;
   }
 
   /** Collect scoped variables from ancestor scope providers. */
