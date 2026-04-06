@@ -56,10 +56,10 @@ data class RenderContext(
     /**
      * Returns a copy of this context with a pre-calculated total pages value.
      * Used for two-pass rendering where the total is determined in the first pass.
-     * Injects `page.total` into system params so it is available in body content.
+     * Injects `pages.total` into system params so it is available in body content.
      */
     fun withTotalPages(totalPages: Int): RenderContext = copy(
         totalPages = totalPages,
-        systemParams = systemParams + SystemParameterRegistry.buildNestedMap(mapOf("page.total" to totalPages)),
+        systemParams = systemParams + SystemParameterRegistry.buildNestedMap(mapOf("pages.total" to totalPages)),
     )
 }

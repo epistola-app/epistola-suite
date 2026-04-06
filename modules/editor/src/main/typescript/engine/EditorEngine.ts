@@ -176,7 +176,7 @@ export class EditorEngine {
    * Get the current example's data, unwrapping the backend DataExample wrapper
    * format `{ id, name, data: {...} }` if present.
    *
-   * Always includes system parameter mock data (e.g., `sys.page.number`)
+   * Always includes system parameter mock data (e.g., `sys.pages.current`)
    * for expression preview in the editor. When no example data is set,
    * returns just the system mock data.
    */

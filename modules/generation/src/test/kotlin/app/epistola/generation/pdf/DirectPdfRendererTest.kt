@@ -648,7 +648,7 @@ class DirectPdfRendererTest {
             ),
         )
 
-        // A footer text node with sys.page.number expression
+        // A footer text node with sys.pages.current expression
         val footerText = Node(
             id = "footer-text",
             type = "text",
@@ -661,7 +661,7 @@ class DirectPdfRendererTest {
                             "content" to listOf(
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.page.number"),
+                                    "attrs" to mapOf("expression" to "sys.pages.current"),
                                 ),
                             ),
                         ),
@@ -1003,12 +1003,12 @@ class DirectPdfRendererTest {
                             "content" to listOf(
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.page.number"),
+                                    "attrs" to mapOf("expression" to "sys.pages.current"),
                                 ),
                                 mapOf("type" to "text", "text" to "/"),
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.page.total"),
+                                    "attrs" to mapOf("expression" to "sys.pages.total"),
                                 ),
                             ),
                         ),

@@ -12,14 +12,14 @@ import app.epistola.template.model.TemplateDocument
  * could change content volume and destabilize the page count between passes.
  *
  * To minimise layout instability the first (counting) pass injects a placeholder
- * value for `sys.page.total` (see [DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER]).
+ * value for `sys.pages.total` (see [DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER]).
  * Because the placeholder is wider than or equal to most real totals, the actual value
  * in the second pass is unlikely to widen the text enough to push content to a new page.
  */
 object TwoPassAnalyzer {
 
     /** Expression substrings that require two-pass rendering. */
-    private val TWO_PASS_PATTERNS = listOf("sys.page.total")
+    private val TWO_PASS_PATTERNS = listOf("sys.pages.total")
 
     /** Node types whose expressions affect content flow (conditionals, loops). */
     private val FLOW_AFFECTING_TYPES = setOf("conditional", "loop", "datatable")

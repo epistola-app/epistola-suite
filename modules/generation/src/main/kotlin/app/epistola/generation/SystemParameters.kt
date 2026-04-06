@@ -18,7 +18,7 @@ enum class SystemParamScope {
 /**
  * Describes a single system parameter that the rendering engine provides.
  *
- * @param path Dot-notation path under the `sys` namespace (e.g., "page.number")
+ * @param path Dot-notation path under the `sys` namespace (e.g., "pages.current")
  * @param description Human-readable description for editor UI
  * @param type The value type (e.g., "integer", "string")
  * @param scope Where this parameter is available
@@ -31,7 +31,7 @@ data class SystemParameterDescriptor(
     /** Mock value used by the editor for expression preview. */
     val mockValue: Any? = null,
 ) {
-    /** Full dotted path including the `sys.` prefix (e.g., "sys.page.number"). */
+    /** Full dotted path including the `sys.` prefix (e.g., "sys.pages.current"). */
     val fullPath: String get() = "sys.$path"
 }
 
@@ -50,7 +50,7 @@ object SystemParameterRegistry {
     init {
         register(
             SystemParameterDescriptor(
-                path = "page.number",
+                path = "pages.current",
                 description = "Current page number. Available in page headers/footers only.",
                 type = "integer",
                 scope = SystemParamScope.PAGE_SCOPED,
@@ -59,7 +59,7 @@ object SystemParameterRegistry {
         )
         register(
             SystemParameterDescriptor(
-                path = "page.total",
+                path = "pages.total",
                 description = "Total number of pages in the document.",
                 type = "integer",
                 scope = SystemParamScope.GLOBAL,
@@ -101,8 +101,8 @@ object SystemParameterRegistry {
     /** Build page-scoped system parameters (page number + total for headers/footers). */
     fun buildPageParams(pageNumber: Int, totalPages: Int): Map<String, Any?> = buildNestedMap(
         mapOf(
-            "page.number" to pageNumber,
-            "page.total" to totalPages,
+            "pages.current" to pageNumber,
+            "pages.total" to totalPages,
         ),
     )
 
@@ -112,7 +112,7 @@ object SystemParameterRegistry {
             "render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
         )
         if (totalPages != null) {
-            params["page.total"] = totalPages
+            params["pages.total"] = totalPages
         }
         return buildNestedMap(params)
     }

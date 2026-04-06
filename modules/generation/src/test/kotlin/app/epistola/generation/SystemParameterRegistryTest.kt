@@ -9,28 +9,28 @@ import kotlin.test.assertTrue
 
 class SystemParameterRegistryTest {
     @Test
-    fun `registry contains page number descriptor`() {
+    fun `registry contains pages current descriptor`() {
         val descriptors = SystemParameterRegistry.all()
         assertTrue(descriptors.size >= 2, "Registry should have at least two descriptors")
 
-        val pageNumber = descriptors.find { it.path == "page.number" }
-        assertTrue(pageNumber != null, "page.number descriptor should be registered")
-        assertEquals("integer", pageNumber.type)
-        assertEquals(SystemParamScope.PAGE_SCOPED, pageNumber.scope)
-        assertEquals("sys.page.number", pageNumber.fullPath)
-        assertEquals(1, pageNumber.mockValue)
+        val pagesCurrent = descriptors.find { it.path == "pages.current" }
+        assertTrue(pagesCurrent != null, "pages.current descriptor should be registered")
+        assertEquals("integer", pagesCurrent.type)
+        assertEquals(SystemParamScope.PAGE_SCOPED, pagesCurrent.scope)
+        assertEquals("sys.pages.current", pagesCurrent.fullPath)
+        assertEquals(1, pagesCurrent.mockValue)
     }
 
     @Test
-    fun `registry contains page total descriptor`() {
+    fun `registry contains pages total descriptor`() {
         val descriptors = SystemParameterRegistry.all()
 
-        val pageTotal = descriptors.find { it.path == "page.total" }
-        assertTrue(pageTotal != null, "page.total descriptor should be registered")
-        assertEquals("integer", pageTotal.type)
-        assertEquals(SystemParamScope.GLOBAL, pageTotal.scope)
-        assertEquals("sys.page.total", pageTotal.fullPath)
-        assertEquals(1, pageTotal.mockValue)
+        val pagesTotal = descriptors.find { it.path == "pages.total" }
+        assertTrue(pagesTotal != null, "pages.total descriptor should be registered")
+        assertEquals("integer", pagesTotal.type)
+        assertEquals(SystemParamScope.GLOBAL, pagesTotal.scope)
+        assertEquals("sys.pages.total", pagesTotal.fullPath)
+        assertEquals(1, pagesTotal.mockValue)
     }
 
     @Test
@@ -48,24 +48,24 @@ class SystemParameterRegistryTest {
     @Test
     fun `fullPath includes sys prefix`() {
         val descriptor = SystemParameterDescriptor(
-            path = "page.total",
+            path = "pages.total",
             description = "Total page count",
             type = "integer",
             scope = SystemParamScope.GLOBAL,
         )
-        assertEquals("sys.page.total", descriptor.fullPath)
+        assertEquals("sys.pages.total", descriptor.fullPath)
     }
 
     @Test
     fun `buildNestedMap creates nested structure from dot paths`() {
         val result = SystemParameterRegistry.buildNestedMap(
-            mapOf("page.number" to 3, "page.total" to 10),
+            mapOf("pages.current" to 3, "pages.total" to 10),
         )
 
         @Suppress("UNCHECKED_CAST")
-        val page = result["page"] as Map<String, Any?>
-        assertEquals(3, page["number"])
-        assertEquals(10, page["total"])
+        val pages = result["pages"] as Map<String, Any?>
+        assertEquals(3, pages["current"])
+        assertEquals(10, pages["total"])
     }
 
     @Test
@@ -96,13 +96,13 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildPageParams creates page number and total structure`() {
+    fun `buildPageParams creates pages current and total structure`() {
         val result = SystemParameterRegistry.buildPageParams(5, 10)
 
         @Suppress("UNCHECKED_CAST")
-        val page = result["page"] as Map<String, Any?>
-        assertEquals(5, page["number"])
-        assertEquals(10, page["total"])
+        val pages = result["pages"] as Map<String, Any?>
+        assertEquals(5, pages["current"])
+        assertEquals(10, pages["total"])
     }
 
     @Test
@@ -118,12 +118,12 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams includes page total when provided`() {
+    fun `buildGlobalParams includes pages total when provided`() {
         val result = SystemParameterRegistry.buildGlobalParams(10)
 
         @Suppress("UNCHECKED_CAST")
-        val page = result["page"] as Map<String, Any?>
-        assertEquals(10, page["total"])
+        val pages = result["pages"] as Map<String, Any?>
+        assertEquals(10, pages["total"])
 
         // render.time should still be present
         @Suppress("UNCHECKED_CAST")

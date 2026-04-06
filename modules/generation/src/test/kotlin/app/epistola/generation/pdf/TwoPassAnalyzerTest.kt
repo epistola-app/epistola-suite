@@ -49,20 +49,20 @@ class TwoPassAnalyzerTest {
 
     @Test
     fun `sys page number only returns false`() {
-        val doc = minimalDocument(textNodeWithExpression("t1", "sys.page.number"))
+        val doc = minimalDocument(textNodeWithExpression("t1", "sys.pages.current"))
         assertFalse(TwoPassAnalyzer.requiresTwoPassRendering(doc))
     }
 
     @Test
     fun `sys page total in inline expression returns true`() {
-        val doc = minimalDocument(textNodeWithExpression("t1", "sys.page.total"))
+        val doc = minimalDocument(textNodeWithExpression("t1", "sys.pages.total"))
         assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc))
     }
 
     @Test
     fun `sys page total in larger expression returns true`() {
         val doc = minimalDocument(
-            textNodeWithExpression("t1", "sys.page.number & '/' & sys.page.total"),
+            textNodeWithExpression("t1", "sys.pages.current & '/' & sys.pages.total"),
         )
         assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc))
     }
@@ -73,7 +73,7 @@ class TwoPassAnalyzerTest {
             Node(
                 id = "qr1",
                 type = "qrcode",
-                props = mapOf("value" to mapOf("raw" to "sys.page.total", "language" to "jsonata")),
+                props = mapOf("value" to mapOf("raw" to "sys.pages.total", "language" to "jsonata")),
             ),
         )
         assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc))
@@ -82,7 +82,7 @@ class TwoPassAnalyzerTest {
     @Test
     fun `sys page total in header returns true`() {
         val doc = minimalDocument(
-            textNodeWithExpression("h1", "sys.page.total").copy(type = "pageheader"),
+            textNodeWithExpression("h1", "sys.pages.total").copy(type = "pageheader"),
         )
         assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc))
     }
@@ -91,14 +91,14 @@ class TwoPassAnalyzerTest {
 
     @Test
     fun `validate passes for text node with sys page total`() {
-        val doc = minimalDocument(textNodeWithExpression("t1", "sys.page.total"))
+        val doc = minimalDocument(textNodeWithExpression("t1", "sys.pages.total"))
         TwoPassAnalyzer.validate(doc) // should not throw
     }
 
     @Test
     fun `validate passes for header with sys page total`() {
         val doc = minimalDocument(
-            textNodeWithExpression("h1", "sys.page.total").copy(type = "pageheader"),
+            textNodeWithExpression("h1", "sys.pages.total").copy(type = "pageheader"),
         )
         TwoPassAnalyzer.validate(doc) // should not throw
     }
@@ -106,7 +106,7 @@ class TwoPassAnalyzerTest {
     @Test
     fun `validate passes for footer with sys page total`() {
         val doc = minimalDocument(
-            textNodeWithExpression("f1", "sys.page.total").copy(type = "pagefooter"),
+            textNodeWithExpression("f1", "sys.pages.total").copy(type = "pagefooter"),
         )
         TwoPassAnalyzer.validate(doc) // should not throw
     }
@@ -114,7 +114,7 @@ class TwoPassAnalyzerTest {
     @Test
     fun `validate passes for static table with sys page total`() {
         val doc = minimalDocument(
-            textNodeWithExpression("t1", "sys.page.total").copy(type = "table"),
+            textNodeWithExpression("t1", "sys.pages.total").copy(type = "table"),
         )
         TwoPassAnalyzer.validate(doc) // should not throw — static tables have fixed rows
     }
@@ -126,14 +126,14 @@ class TwoPassAnalyzerTest {
                 id = "dt1",
                 type = "datatable",
                 props = mapOf(
-                    "expression" to mapOf("raw" to "sys.page.total", "language" to "jsonata"),
+                    "expression" to mapOf("raw" to "sys.pages.total", "language" to "jsonata"),
                 ),
             ),
         )
         val error = assertFailsWith<IllegalArgumentException> { TwoPassAnalyzer.validate(doc) }
         assertTrue(error.message!!.contains("dt1"))
         assertTrue(error.message!!.contains("datatable"))
-        assertTrue(error.message!!.contains("sys.page.total"))
+        assertTrue(error.message!!.contains("sys.pages.total"))
     }
 
     @Test
@@ -143,13 +143,13 @@ class TwoPassAnalyzerTest {
                 id = "cond1",
                 type = "conditional",
                 props = mapOf(
-                    "condition" to mapOf("raw" to "sys.page.total > 1", "language" to "jsonata"),
+                    "condition" to mapOf("raw" to "sys.pages.total > 1", "language" to "jsonata"),
                 ),
             ),
         )
         val error = assertFailsWith<IllegalArgumentException> { TwoPassAnalyzer.validate(doc) }
         assertTrue(error.message!!.contains("cond1"))
-        assertTrue(error.message!!.contains("sys.page.total"))
+        assertTrue(error.message!!.contains("sys.pages.total"))
         assertTrue(error.message!!.contains("conditional"))
     }
 
@@ -160,7 +160,7 @@ class TwoPassAnalyzerTest {
                 id = "loop1",
                 type = "loop",
                 props = mapOf(
-                    "expression" to mapOf("raw" to "sys.page.total", "language" to "jsonata"),
+                    "expression" to mapOf("raw" to "sys.pages.total", "language" to "jsonata"),
                 ),
             ),
         )
@@ -184,7 +184,7 @@ class TwoPassAnalyzerTest {
                             "content" to listOf(
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.page.total"),
+                                    "attrs" to mapOf("expression" to "sys.pages.total"),
                                 ),
                             ),
                         ),
@@ -204,15 +204,15 @@ class TwoPassAnalyzerTest {
                 id = "my-conditional",
                 type = "conditional",
                 props = mapOf(
-                    "condition" to mapOf("raw" to "sys.page.total > 5", "language" to "jsonata"),
+                    "condition" to mapOf("raw" to "sys.pages.total > 5", "language" to "jsonata"),
                 ),
             ),
         )
         val error = assertFailsWith<IllegalArgumentException> { TwoPassAnalyzer.validate(doc) }
         assertEquals(
-            "Expression 'sys.page.total > 5' in conditional node 'my-conditional' references 'sys.page.total', " +
+            "Expression 'sys.pages.total > 5' in conditional node 'my-conditional' references 'sys.pages.total', " +
                 "which is not allowed in conditional nodes because it could destabilize page count between render passes. " +
-                "Use 'sys.page.total' only in text, headers, or footers.",
+                "Use 'sys.pages.total' only in text, headers, or footers.",
             error.message,
         )
     }

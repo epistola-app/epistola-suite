@@ -2047,7 +2047,7 @@ describe('fieldPaths', () => {
     // Should contain system params even without data model
     expect(paths.length).toBeGreaterThan(0);
     expect(paths.every((p) => p.system === true)).toBe(true);
-    expect(paths.find((p) => p.path === 'sys.page.number')).toBeDefined();
+    expect(paths.find((p) => p.path === 'sys.pages.current')).toBeDefined();
   });
 
   it('includes system params after data model fields', () => {
@@ -2061,7 +2061,7 @@ describe('fieldPaths', () => {
 
     const paths = engine.fieldPaths;
     const nameIndex = paths.findIndex((p) => p.path === 'name');
-    const sysIndex = paths.findIndex((p) => p.path === 'sys.page.number');
+    const sysIndex = paths.findIndex((p) => p.path === 'sys.pages.current');
     expect(nameIndex).toBeLessThan(sysIndex);
     expect(paths[sysIndex].system).toBe(true);
   });

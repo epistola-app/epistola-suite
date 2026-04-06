@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Page total system parameter**: New system parameter `sys.page.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.page.total` is used; `sys.page.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
+- **Page total system parameter**: New system parameter `sys.pages.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.pages.current` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.pages.total` is used; `sys.pages.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
 
 ### Changed
 
@@ -277,8 +277,8 @@
   - **Visual regression tests**: Canonical templates rendered against stored baselines catch accidental rendering changes from code modifications, library upgrades, or constant changes. Run with `-DupdateBaselines=true` to regenerate baselines after deliberate changes.
   - **Engine version tracking**: Every generated PDF embeds an `EngineVersion` metadata field (e.g., `epistola-gen-1+itext-9.5.0`) for traceability.
 - **Rendering upgrade documentation**: `docs/rendering-upgrades.md` documents procedures for iText upgrades, rendering defaults changes, and engine version tracking.
-- **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.page.number`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
-- **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.page.number` previews as "1").
+- **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.pages.current`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
+- **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.pages.current` previews as "1").
 
 ### Changed
 

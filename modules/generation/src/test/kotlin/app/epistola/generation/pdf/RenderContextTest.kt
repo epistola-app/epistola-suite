@@ -40,7 +40,7 @@ class RenderContextTest {
     @Test
     fun `effectiveData merges system params under sys key`() {
         val context = createContext(
-            systemParams = mapOf("page" to mapOf("number" to 3)),
+            systemParams = mapOf("pages" to mapOf("current" to 3)),
         )
 
         val effective = context.effectiveData
@@ -50,8 +50,8 @@ class RenderContextTest {
         val sys = effective["sys"] as Map<String, Any?>
 
         @Suppress("UNCHECKED_CAST")
-        val page = sys["page"] as Map<String, Any?>
-        assertEquals(3, page["number"])
+        val pages = sys["pages"] as Map<String, Any?>
+        assertEquals(3, pages["current"])
     }
 
     @Test
@@ -59,7 +59,7 @@ class RenderContextTest {
         val data = mapOf("a" to 1, "b" to "two")
         val context = createContext(
             data = data,
-            systemParams = mapOf("page" to mapOf("number" to 1)),
+            systemParams = mapOf("pages" to mapOf("current" to 1)),
         )
 
         val effective = context.effectiveData
@@ -68,14 +68,14 @@ class RenderContextTest {
     }
 
     @Test
-    fun `withPageParams injects page number`() {
+    fun `withPageParams injects page params`() {
         val context = createContext()
         val pageContext = context.withPageParams(5, 10)
 
         @Suppress("UNCHECKED_CAST")
-        val page = pageContext.systemParams["page"] as Map<String, Any?>
-        assertEquals(5, page["number"])
-        assertEquals(10, page["total"])
+        val pages = pageContext.systemParams["pages"] as Map<String, Any?>
+        assertEquals(5, pages["current"])
+        assertEquals(10, pages["total"])
     }
 
     @Test
@@ -88,9 +88,9 @@ class RenderContextTest {
         assertEquals("value", pageContext.systemParams["existing"])
 
         @Suppress("UNCHECKED_CAST")
-        val page = pageContext.systemParams["page"] as Map<String, Any?>
-        assertEquals(2, page["number"])
-        assertEquals(5, page["total"])
+        val pages = pageContext.systemParams["pages"] as Map<String, Any?>
+        assertEquals(2, pages["current"])
+        assertEquals(5, pages["total"])
     }
 
     @Test
@@ -100,13 +100,13 @@ class RenderContextTest {
         val page2 = context.withPageParams(2, 3)
 
         @Suppress("UNCHECKED_CAST")
-        val p1 = page1.systemParams["page"] as Map<String, Any?>
+        val p1 = page1.systemParams["pages"] as Map<String, Any?>
 
         @Suppress("UNCHECKED_CAST")
-        val p2 = page2.systemParams["page"] as Map<String, Any?>
-        assertEquals(1, p1["number"])
+        val p2 = page2.systemParams["pages"] as Map<String, Any?>
+        assertEquals(1, p1["current"])
         assertEquals(3, p1["total"])
-        assertEquals(2, p2["number"])
+        assertEquals(2, p2["current"])
         assertEquals(3, p2["total"])
     }
 
@@ -120,7 +120,7 @@ class RenderContextTest {
     }
 
     @Test
-    fun `withTotalPages injects page total into effectiveData`() {
+    fun `withTotalPages injects pages total into effectiveData`() {
         val context = createContext()
         val withTotal = context.withTotalPages(10)
 
@@ -128,20 +128,20 @@ class RenderContextTest {
         val sys = withTotal.effectiveData["sys"] as Map<String, Any?>
 
         @Suppress("UNCHECKED_CAST")
-        val page = sys["page"] as Map<String, Any?>
-        assertEquals(10, page["total"])
+        val pages = sys["pages"] as Map<String, Any?>
+        assertEquals(10, pages["total"])
     }
 
     @Test
-    fun `withTotalPages placeholder provides sys page total for body content`() {
+    fun `withTotalPages placeholder provides sys pages total for body content`() {
         val context = createContext().withTotalPages(DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
 
         @Suppress("UNCHECKED_CAST")
         val sys = context.effectiveData["sys"] as Map<String, Any?>
 
         @Suppress("UNCHECKED_CAST")
-        val page = sys["page"] as Map<String, Any?>
-        assertEquals(DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER, page["total"])
+        val pages = sys["pages"] as Map<String, Any?>
+        assertEquals(DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER, pages["total"])
     }
 
     @Test
@@ -156,8 +156,8 @@ class RenderContextTest {
         val sys = effective["sys"] as Map<String, Any?>
 
         @Suppress("UNCHECKED_CAST")
-        val page = sys["page"] as Map<String, Any?>
-        assertEquals(7, page["number"])
-        assertEquals(20, page["total"])
+        val pages = sys["pages"] as Map<String, Any?>
+        assertEquals(7, pages["current"])
+        assertEquals(20, pages["total"])
     }
 }
