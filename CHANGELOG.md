@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Page total system parameter**: New system parameter `sys.page.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.page.total` is used; `sys.page.total` is validated against use in conditionals/loops to prevent page count instability.
+- **Page total system parameter**: New system parameter `sys.page.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.page.number` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.page.total` is used; `sys.page.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
 
 ### Changed
 

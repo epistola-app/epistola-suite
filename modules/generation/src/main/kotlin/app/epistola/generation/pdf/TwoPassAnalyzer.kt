@@ -7,9 +7,14 @@ import app.epistola.template.model.TemplateDocument
  * and validates that two-pass expressions are not used in flow-affecting contexts.
  *
  * Two-pass rendering is needed when expressions reference values that are only known
- * after a complete render (e.g., total page count). These expressions are safe in text
- * and headers/footers (fixed-size, no layout impact), but must not appear in conditionals
- * or loops where they could change content volume and destabilize the page count between passes.
+ * after a complete render (e.g., total page count). These expressions are safe in body
+ * text, headers, and footers, but must not appear in conditionals or loops where they
+ * could change content volume and destabilize the page count between passes.
+ *
+ * To minimise layout instability the first (counting) pass injects a placeholder
+ * value for `sys.page.total` (see [DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER]).
+ * Because the placeholder is wider than or equal to most real totals, the actual value
+ * in the second pass is unlikely to widen the text enough to push content to a new page.
  */
 object TwoPassAnalyzer {
 

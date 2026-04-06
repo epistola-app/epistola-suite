@@ -227,7 +227,9 @@ class DirectPdfRenderer(
         val bottomMargin = margins.bottom.toFloat() +
             if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
 
-        // First pass: render to count total pages (bytes are discarded)
+        // First pass: render to count total pages (bytes are discarded).
+        // Use a 2-digit placeholder (99) so body expressions reserve enough
+        // character width and the layout stays stable for documents up to 99 pages.
         val tempOutput = OutputStream.nullOutputStream()
         val firstPassContext = createRenderContext(
             data = data,
@@ -238,7 +240,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
-        )
+        ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
             context = firstPassContext,
@@ -390,6 +392,14 @@ class DirectPdfRenderer(
 
     companion object {
         private const val ICC_PROFILE_PATH = "/color/sRGB.icc"
+
+        /**
+         * Placeholder page total used during the first (counting) pass.
+         * A 2-digit value reserves enough character width in body expressions
+         * so that the actual total (up to 99 pages) never widens the text and
+         * destabilizes the page count between passes.
+         */
+        internal const val FIRST_PASS_PAGE_TOTAL_PLACEHOLDER = 99
 
         /**
          * Creates the default node renderer registry with all built-in renderers.
