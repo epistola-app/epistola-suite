@@ -2079,6 +2079,56 @@ describe('fieldPaths', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getAvailableVariablesAt — page-scoped filtering
+// ---------------------------------------------------------------------------
+
+describe('getAvailableVariablesAt', () => {
+  it('excludes pageOnly params for body nodes', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry);
+    const rootSlotId = doc.nodes[doc.root].slots[0];
+    const bodyNodeId = doc.slots[rootSlotId].children[0];
+
+    const vars = engine.getAvailableVariablesAt(bodyNodeId);
+    expect(vars.find((v) => v.path === 'sys.pages.current')).toBeUndefined();
+    expect(vars.find((v) => v.path === 'sys.pages.total')).toBeDefined();
+  });
+
+  it('includes pageOnly params for nodes inside a page footer', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const rootSlotId = doc.nodes[doc.root].slots[0];
+
+    // Insert a page footer
+    const engine = new EditorEngine(doc, registry);
+    const footer = registry.createNode('pagefooter');
+    engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    });
+
+    // Insert a text node inside the footer
+    const footerSlotId = footer.node.slots[0];
+    const textNode = registry.createNode('text');
+    engine.dispatch({
+      type: 'InsertNode',
+      node: textNode.node,
+      slots: textNode.slots,
+      targetSlotId: footerSlotId,
+      index: -1,
+    });
+
+    const vars = engine.getAvailableVariablesAt(textNode.node.id);
+    expect(vars.find((v) => v.path === 'sys.pages.current')).toBeDefined();
+    expect(vars.find((v) => v.path === 'sys.pages.total')).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getExampleData
 // ---------------------------------------------------------------------------
 

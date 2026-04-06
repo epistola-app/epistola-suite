@@ -216,4 +216,63 @@ class TwoPassAnalyzerTest {
             error.message,
         )
     }
+
+    // --- page-scoped validation ---
+
+    private fun documentWithPageFooterChild(childNode: Node): TemplateDocument {
+        val footerSlot = Slot(id = "s-footer", nodeId = "footer", name = "children", children = listOf(childNode.id))
+        val footerNode = Node(id = "footer", type = "pagefooter", slots = listOf("s-footer"))
+        val rootSlot = Slot(id = "s1", nodeId = "root", name = "children", children = emptyList())
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("s1")),
+                "footer" to footerNode,
+                childNode.id to childNode,
+            ),
+            slots = mapOf("s1" to rootSlot, "s-footer" to footerSlot),
+        )
+    }
+
+    @Test
+    fun `validate passes for sys pages current inside pagefooter`() {
+        val doc = documentWithPageFooterChild(
+            textNodeWithExpression("ft1", "sys.pages.current"),
+        )
+        TwoPassAnalyzer.validate(doc) // should not throw
+    }
+
+    @Test
+    fun `validate passes for sys pages current inside pageheader`() {
+        val headerSlot = Slot(id = "s-header", nodeId = "header", name = "children", children = listOf("ht1"))
+        val headerNode = Node(id = "header", type = "pageheader", slots = listOf("s-header"))
+        val rootSlot = Slot(id = "s1", nodeId = "root", name = "children", children = emptyList())
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("s1")),
+                "header" to headerNode,
+                "ht1" to textNodeWithExpression("ht1", "sys.pages.current"),
+            ),
+            slots = mapOf("s1" to rootSlot, "s-header" to headerSlot),
+        )
+        TwoPassAnalyzer.validate(doc) // should not throw
+    }
+
+    @Test
+    fun `validate throws for sys pages current in body text node`() {
+        val doc = minimalDocument(textNodeWithExpression("t1", "sys.pages.current"))
+        val error = assertFailsWith<IllegalArgumentException> { TwoPassAnalyzer.validate(doc) }
+        assertTrue(error.message!!.contains("sys.pages.current"))
+        assertTrue(error.message!!.contains("only available in page headers and footers"))
+    }
+
+    @Test
+    fun `validate throws for sys pages current in body expression`() {
+        val doc = minimalDocument(
+            textNodeWithExpression("t1", "sys.pages.current & ' / ' & sys.pages.total"),
+        )
+        val error = assertFailsWith<IllegalArgumentException> { TwoPassAnalyzer.validate(doc) }
+        assertTrue(error.message!!.contains("sys.pages.current"))
+    }
 }

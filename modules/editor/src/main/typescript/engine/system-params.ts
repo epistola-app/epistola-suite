@@ -17,6 +17,7 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     path: 'sys.pages.current',
     type: 'integer',
     system: true,
+    pageOnly: true,
     description: 'Current page number. Available in page headers/footers only.',
   },
   {

@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
 
 describe('SYSTEM_PARAMETER_PATHS', () => {
-  it('contains sys.pages.current', () => {
+  it('contains sys.pages.current as page-only', () => {
     const pagesCurrent = SYSTEM_PARAMETER_PATHS.find((fp) => fp.path === 'sys.pages.current');
     expect(pagesCurrent).toBeDefined();
     expect(pagesCurrent!.type).toBe('integer');
     expect(pagesCurrent!.system).toBe(true);
+    expect(pagesCurrent!.pageOnly).toBe(true);
     expect(pagesCurrent!.description).toBeTruthy();
   });
 

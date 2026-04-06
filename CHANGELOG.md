@@ -6,6 +6,10 @@
 
 - **Page total system parameter**: New system parameter `sys.pages.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.pages.current` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.pages.total` is used; `sys.pages.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
 
+### Fixed
+
+- **Restrict `sys.pages.current` to page headers/footers**: The current page number is only available during per-page rendering and cannot work in body content. The renderer now validates this at render time, and the editor expression dialog hides `sys.pages.current` for nodes outside page headers/footers.
+
 ### Changed
 
 - **Navigation: grouped dropdowns**: Replaced 12 flat header links with 4 grouped dropdown menus (Authoring, Resources, Operations, Settings). Includes keyboard navigation (arrow keys, Escape), ARIA attributes, and responsive mobile overlay menu with hamburger toggle.

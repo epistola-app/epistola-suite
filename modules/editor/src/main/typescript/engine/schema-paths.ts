@@ -16,6 +16,8 @@ export interface FieldPath {
   description?: string;
   /** Loop scope alias (e.g., "item") — marks this as an iteration-scoped variable. */
   scope?: string;
+  /** When true, this parameter is only available inside page headers/footers. */
+  pageOnly?: boolean;
 }
 
 const MAX_DEPTH = 5;
