@@ -51,7 +51,8 @@ class PageFooterEventHandler(
         // Render the footer node's slots with page-scoped system parameters
         if (footerNode != null) {
             val pageNumber = pdfDoc.getPageNumber(page)
-            val pageContext = context.withPageParams(pageNumber)
+            val totalPages = context.totalPages ?: pdfDoc.numberOfPages
+            val pageContext = context.withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(footerNode, document, pageContext)
             for (element in elements) {
                 when (element) {

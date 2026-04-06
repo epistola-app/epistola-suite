@@ -54,7 +54,8 @@ class PageHeaderEventHandler(
         // Render the header node's slots with page-scoped system parameters
         if (headerNode != null) {
             val pageNumber = pdfDoc.getPageNumber(page)
-            val pageContext = context.withPageParams(pageNumber)
+            val totalPages = context.totalPages ?: pdfDoc.numberOfPages
+            val pageContext = context.withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(headerNode, document, pageContext)
             for (element in elements) {
                 when (element) {

@@ -184,10 +184,11 @@ Implementation: GraalJS with sandbox (no file/network access, execution limits)
 
 System parameters are runtime values provided by the rendering engine:
 
-| Parameter         | Type                  | Description                                                          |
-| ----------------- | --------------------- | -------------------------------------------------------------------- |
-| `sys.render.time` | string (ISO-8601 UTC) | Render timestamp. Use `$formatDate()` for locale-specific formatting |
-| `sys.page.number` | integer               | Current page number (available in headers/footers only)              |
+| Parameter           | Type                  | Description                                                          |
+| ------------------- | --------------------- | -------------------------------------------------------------------- |
+| `sys.render.time`   | string (ISO-8601 UTC) | Render timestamp. Use `$formatDate()` for locale-specific formatting |
+| `sys.pages.current` | integer               | Current page number (available in headers/footers only)              |
+| `sys.pages.total`   | integer               | Total number of pages in the document                                |
 
 Example:
 

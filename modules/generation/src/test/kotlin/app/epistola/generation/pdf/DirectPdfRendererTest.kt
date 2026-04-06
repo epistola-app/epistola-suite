@@ -648,7 +648,7 @@ class DirectPdfRendererTest {
             ),
         )
 
-        // A footer text node with sys.page.number expression
+        // A footer text node with sys.pages.current expression
         val footerText = Node(
             id = "footer-text",
             type = "text",
@@ -661,7 +661,7 @@ class DirectPdfRendererTest {
                             "content" to listOf(
                                 mapOf(
                                     "type" to "expression",
-                                    "attrs" to mapOf("expression" to "sys.page.number"),
+                                    "attrs" to mapOf("expression" to "sys.pages.current"),
                                 ),
                             ),
                         ),
@@ -986,5 +986,108 @@ class DirectPdfRendererTest {
 
         assertEquals("Epistola Suite", info.creator)
         readDoc.close()
+    }
+
+    @Test
+    fun `footer with page number and total shows correct total on all pages with page breaks`() {
+        // Create footer with composed page number + total expression
+        val footerText = Node(
+            id = "footer-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf(
+                                    "type" to "expression",
+                                    "attrs" to mapOf("expression" to "sys.pages.current"),
+                                ),
+                                mapOf("type" to "text", "text" to "/"),
+                                mapOf(
+                                    "type" to "expression",
+                                    "attrs" to mapOf("expression" to "sys.pages.total"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val footerSlotId = "slot-footer-children"
+        val footerNode = Node(
+            id = "pagefooter1",
+            type = "pagefooter",
+            slots = listOf(footerSlotId),
+        )
+        val footerSlot = Slot(
+            id = footerSlotId,
+            nodeId = "pagefooter1",
+            name = "children",
+            children = listOf("footer-text"),
+        )
+
+        // Text content for each "page"
+        fun makeTextNode(id: String, text: String): Node = Node(
+            id = id,
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(mapOf("type" to "text", "text" to text)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val pageBreakNode = Node(id = "pagebreak1", type = "pagebreak")
+        val pageBreakNode2 = Node(id = "pagebreak2", type = "pagebreak")
+
+        val rootNodeId = "root-1"
+        val rootSlotId = "slot-root"
+        val rootNode = Node(id = rootNodeId, type = "root", slots = listOf(rootSlotId))
+        val rootSlot = Slot(
+            id = rootSlotId,
+            nodeId = rootNodeId,
+            name = "children",
+            children = listOf("text1", "pagebreak1", "text2", "pagebreak2", "text3"),
+        )
+
+        val document = TemplateDocument(
+            root = rootNodeId,
+            nodes = mapOf(
+                rootNodeId to rootNode,
+                "text1" to makeTextNode("text1", "Page 1 content"),
+                "pagebreak1" to pageBreakNode,
+                "text2" to makeTextNode("text2", "Page 2 content"),
+                "pagebreak2" to pageBreakNode2,
+                "text3" to makeTextNode("text3", "Page 3 content"),
+                "pagefooter1" to footerNode,
+                "footer-text" to footerText,
+            ),
+            slots = mapOf(
+                rootSlotId to rootSlot,
+                footerSlotId to footerSlot,
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        val extracted = PdfContentExtractor.extract(pdfBytes)
+
+        // Expected: all 3 pages should show "1/3", "2/3", "3/3"
+        // The bug would show: "1/2", "2/3", "3/4" (or similar incorrect values)
+        assertTrue(extracted.contains("1/3"), "Page 1 should show '1/3' but got:\n$extracted")
+        assertTrue(extracted.contains("2/3"), "Page 2 should show '2/3' but got:\n$extracted")
+        assertTrue(extracted.contains("3/3"), "Page 3 should show '3/3' but got:\n$extracted")
     }
 }
