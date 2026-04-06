@@ -1161,6 +1161,47 @@
         }
       },
 
+      "n-page-footer": {
+        "id": "n-page-footer",
+        "type": "pagefooter",
+        "slots": ["s-page-footer-children"],
+        "props": {
+          "height": "20pt"
+        }
+      },
+      "n-page-footer-text": {
+        "id": "n-page-footer-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "8pt",
+          "color": "#9ca3af",
+          "textAlign": "center"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Page " },
+                  {
+                    "type": "expression",
+                    "attrs": { "expression": "sys.pages.current" }
+                  },
+                  { "type": "text", "text": " / " },
+                  {
+                    "type": "expression",
+                    "attrs": { "expression": "sys.pages.total" }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
       "n-footer-contact": {
         "id": "n-footer-contact",
         "type": "text",
@@ -1335,6 +1376,13 @@
         "nodeId": "n-notes-section",
         "name": "children",
         "children": ["n-notes-label", "n-notes-content"]
+      },
+
+      "s-page-footer-children": {
+        "id": "s-page-footer-children",
+        "nodeId": "n-page-footer",
+        "name": "children",
+        "children": ["n-page-footer-text"]
       },
 
       "s-footer-children": {
