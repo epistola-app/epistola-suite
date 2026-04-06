@@ -11,5 +11,6 @@ class ChangelogRoutes(private val handler: ChangelogHandler) {
     @Bean
     fun changelogRouterFunction(): RouterFunction<ServerResponse> = router {
         GET("/changelog", handler::view)
+        POST("/changelog/acknowledge", handler::acknowledge)
     }
 }

@@ -9,6 +9,44 @@
             </div>
         </div>
 
+        <!-- What's New card (shown when there are unacknowledged changelog entries) -->
+        <div th:if="${changelogEntries != null and !changelogEntries.isEmpty()}"
+             id="whats-new-banner"
+             class="whats-new-card">
+            <div class="whats-new-header">
+                <h2>
+                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon')}" />
+                    What's New
+                </h2>
+                <button type="button"
+                        class="btn btn-ghost btn-sm"
+                        th:hx-post="@{/changelog/acknowledge}"
+                        hx-target="#whats-new-banner"
+                        hx-swap="delete">
+                    <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon')}" />
+                    Dismiss
+                </button>
+            </div>
+            <div class="whats-new-content changelog-content">
+                <th:block th:each="entry : ${changelogEntries}">
+                    <h3 th:text="'v' + ${entry.version} + ' — ' + ${entry.date}">v0.12.0 — 2026-04-04</h3>
+                    <div th:utext="${entry.html}">Changelog content</div>
+                </th:block>
+            </div>
+            <div class="whats-new-footer">
+                <button type="button"
+                        class="link-button"
+                        command="show-modal"
+                        commandfor="changelog-dialog"
+                        th:hx-get="@{/changelog}"
+                        hx-target="#changelog-dialog-content"
+                        hx-swap="innerHTML"
+                        hx-trigger="click once">
+                    View full changelog
+                </button>
+            </div>
+        </div>
+
         <div class="dashboard-stats">
             <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="stat-card">
                 <div class="stat-card-value" th:text="${templateCount}">0</div>

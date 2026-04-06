@@ -1033,8 +1033,6 @@ a.stat-card:hover {
 /* ── Changelog dialog ─────────────────────────────────────────────────── */
 
 .changelog-content {
-  max-height: 60vh;
-  overflow-y: auto;
   font-size: var(--ep-text-sm);
   color: var(--ep-foreground);
 }
@@ -1089,8 +1087,98 @@ a.stat-card:hover {
 }
 
 .changelog-loading,
-.changelog-error {
+.changelog-error,
+.changelog-empty {
   color: var(--ep-muted-foreground);
+}
+
+/* ── Changelog two-panel layout ──────────────────────────────────────── */
+
+.changelog-layout {
+  display: flex;
+  max-height: 60vh;
+}
+
+.changelog-version-list {
+  flex: 0 0 10rem;
+  border-right: 1px solid var(--ep-border-color);
+  overflow-y: auto;
+  padding: var(--ep-space-2) 0;
+}
+
+.changelog-version-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--ep-space-2) var(--ep-space-3);
+  font-size: var(--ep-text-xs);
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--ep-foreground);
+  text-align: left;
+}
+
+.changelog-version-item:hover {
+  background: var(--ep-muted);
+}
+
+.changelog-version-item.active {
+  background: var(--ep-muted);
+  font-weight: 600;
+}
+
+.changelog-version-date {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+.changelog-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--ep-space-3) var(--ep-space-5);
+}
+
+/* ── What's New dashboard card ───────────────────────────────────────── */
+
+.whats-new-card {
+  border: 1px solid var(--ep-border-color);
+  border-left: 3px solid var(--ep-primary);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-4) var(--ep-space-5);
+  margin-bottom: var(--ep-space-5);
+  background: var(--ep-card);
+}
+
+.whats-new-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--ep-space-3);
+}
+
+.whats-new-header h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  margin: 0;
+  font-size: var(--ep-text-base);
+}
+
+.whats-new-content {
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.whats-new-content h3 {
+  margin-top: 0;
+}
+
+.whats-new-footer {
+  margin-top: var(--ep-space-3);
+  padding-top: var(--ep-space-3);
+  border-top: 1px solid var(--ep-border-color);
 }
 
 /* ── Wide dialog variant ──────────────────────────────────────────────── */

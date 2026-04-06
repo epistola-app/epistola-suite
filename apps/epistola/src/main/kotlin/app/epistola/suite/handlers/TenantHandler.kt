@@ -3,6 +3,7 @@ package app.epistola.suite.tenants
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.handlers.AuthContext
+import app.epistola.suite.handlers.ChangelogRenderer
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -19,7 +20,9 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.users.queries.GetChangelogAcknowledgment
 import org.slf4j.LoggerFactory
+import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -27,6 +30,8 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class TenantHandler(
     private val tenantProvisioner: TenantProvisioningPort,
+    private val changelogRenderer: ChangelogRenderer,
+    private val buildProperties: BuildProperties?,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
@@ -49,6 +54,16 @@ class TenantHandler(
         val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 
+        // Determine if there are unseen changelog entries
+        val appVersion = buildProperties?.version ?: "dev"
+        val principal = SecurityContext.current()
+        val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
+        val changelogEntries = if (appVersion != "dev" && lastAcknowledged != appVersion) {
+            changelogRenderer.entriesSince(lastAcknowledged).ifEmpty { null }
+        } else {
+            null
+        }
+
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -60,6 +75,7 @@ class TenantHandler(
                 "themeCount" to themeCount,
                 "loadTestCount" to loadTestCount,
                 "environmentCount" to environmentCount,
+                "changelogEntries" to changelogEntries,
             ),
         )
     }
