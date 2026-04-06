@@ -30,6 +30,8 @@ data class SystemParameterDescriptor(
     val scope: SystemParamScope,
     /** Mock value used by the editor for expression preview. */
     val mockValue: Any? = null,
+    /** Whether this parameter requires two-pass rendering (value only known after a full render). */
+    val twoPass: Boolean = false,
 ) {
     /** Full dotted path including the `sys.` prefix (e.g., "sys.pages.current"). */
     val fullPath: String get() = "sys.$path"
@@ -64,6 +66,7 @@ object SystemParameterRegistry {
                 type = "integer",
                 scope = SystemParamScope.GLOBAL,
                 mockValue = 1,
+                twoPass = true,
             ),
         )
         register(
@@ -82,6 +85,12 @@ object SystemParameterRegistry {
     }
 
     fun all(): List<SystemParameterDescriptor> = descriptors.toList()
+
+    /** Full paths of parameters that require two-pass rendering (for TwoPassAnalyzer). */
+    fun twoPassPatterns(): List<String> = descriptors.filter { it.twoPass }.map { it.fullPath }
+
+    /** Full paths of page-scoped parameters (for TwoPassAnalyzer). */
+    fun pageScopedPatterns(): List<String> = descriptors.filter { it.scope == SystemParamScope.PAGE_SCOPED }.map { it.fullPath }
 
     /** Build a nested map from dot-path keys and their values. */
     fun buildNestedMap(values: Map<String, Any?>): Map<String, Any?> {
@@ -107,13 +116,7 @@ object SystemParameterRegistry {
     )
 
     /** Build global system parameters that are available in all contexts (body, headers, footers). */
-    fun buildGlobalParams(totalPages: Int? = null): Map<String, Any?> {
-        val params = mutableMapOf<String, Any?>(
-            "render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-        )
-        if (totalPages != null) {
-            params["pages.total"] = totalPages
-        }
-        return buildNestedMap(params)
-    }
+    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(
+        mapOf("render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+    )
 }

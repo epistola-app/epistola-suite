@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.SystemParameterRegistry
 import app.epistola.template.model.TemplateDocument
 
 /**
@@ -18,11 +19,11 @@ import app.epistola.template.model.TemplateDocument
  */
 object TwoPassAnalyzer {
 
-    /** Expression substrings that require two-pass rendering. */
-    private val TWO_PASS_PATTERNS = listOf("sys.pages.total")
+    /** Expression substrings that require two-pass rendering — derived from registry. */
+    private val TWO_PASS_PATTERNS = SystemParameterRegistry.twoPassPatterns()
 
-    /** Expression substrings that are only valid inside page headers/footers. */
-    private val PAGE_SCOPED_PATTERNS = listOf("sys.pages.current")
+    /** Expression substrings that are only valid inside page headers/footers — derived from registry. */
+    private val PAGE_SCOPED_PATTERNS = SystemParameterRegistry.pageScopedPatterns()
 
     /** Node types whose expressions affect content flow (conditionals, loops). */
     private val FLOW_AFFECTING_TYPES = setOf("conditional", "loop", "datatable")

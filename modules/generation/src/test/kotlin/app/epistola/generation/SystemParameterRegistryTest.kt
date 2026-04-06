@@ -4,6 +4,7 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -106,7 +107,7 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams returns render time when no totalPages`() {
+    fun `buildGlobalParams returns render time`() {
         val result = SystemParameterRegistry.buildGlobalParams()
 
         @Suppress("UNCHECKED_CAST")
@@ -118,16 +119,18 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams includes pages total when provided`() {
-        val result = SystemParameterRegistry.buildGlobalParams(10)
+    fun `twoPassPatterns returns full paths of two-pass descriptors`() {
+        val patterns = SystemParameterRegistry.twoPassPatterns()
+        assertTrue(patterns.contains("sys.pages.total"))
+        assertFalse(patterns.contains("sys.pages.current"))
+        assertFalse(patterns.contains("sys.render.time"))
+    }
 
-        @Suppress("UNCHECKED_CAST")
-        val pages = result["pages"] as Map<String, Any?>
-        assertEquals(10, pages["total"])
-
-        // render.time should still be present
-        @Suppress("UNCHECKED_CAST")
-        val render = result["render"] as Map<String, Any?>
-        assertNotNull(render["time"])
+    @Test
+    fun `pageScopedPatterns returns full paths of page-scoped descriptors`() {
+        val patterns = SystemParameterRegistry.pageScopedPatterns()
+        assertTrue(patterns.contains("sys.pages.current"))
+        assertFalse(patterns.contains("sys.pages.total"))
+        assertFalse(patterns.contains("sys.render.time"))
     }
 }
