@@ -1143,10 +1143,15 @@ a.stat-card:hover {
 /* ── What's New compact teaser ────────────────────────────────────────── */
 
 .whats-new-card {
-  border: 1px solid var(--ep-blue-200);
+  border: 1px solid var(--ep-border-color);
   border-radius: var(--ep-radius-md);
   padding: var(--ep-space-3) var(--ep-space-4);
   margin-bottom: var(--ep-space-5);
+  background: var(--ep-muted);
+}
+
+.whats-new-card.whats-new-unseen {
+  border-color: var(--ep-blue-200);
   background: var(--ep-blue-50);
 }
 
@@ -1162,8 +1167,12 @@ a.stat-card:hover {
   align-items: center;
   gap: var(--ep-space-2);
   font-size: var(--ep-text-sm);
-  color: var(--ep-blue-800);
+  color: var(--ep-muted-foreground);
   min-width: 0;
+}
+
+.whats-new-unseen .whats-new-info {
+  color: var(--ep-blue-800);
 }
 
 .whats-new-info strong {
@@ -1171,14 +1180,17 @@ a.stat-card:hover {
 }
 
 .whats-new-summary {
-  color: var(--ep-blue-600);
   white-space: nowrap;
 }
 
 .whats-new-summary::before {
   content: '—';
   margin: 0 var(--ep-space-1);
-  color: var(--ep-blue-300);
+  opacity: 0.4;
+}
+
+.whats-new-unseen .whats-new-summary {
+  color: var(--ep-blue-600);
 }
 
 .whats-new-actions {

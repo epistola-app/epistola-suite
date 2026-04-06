@@ -56,16 +56,13 @@ class TenantHandler(
         val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 
-        // Determine if there are unseen changelog entries
+        // Always show latest changelog entry; highlight if unseen
         val appVersion = buildProperties?.version ?: "dev"
         val allEntries = changelogRenderer.entries()
+        val latestEntry = allEntries.firstOrNull()
         val principal = SecurityContext.current()
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
-        val unseenEntries = if (changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)) {
-            changelogService.entriesSince(allEntries, lastAcknowledged)
-        } else {
-            null
-        }
+        val hasUnseenChanges = changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)
 
         return ServerResponse.ok().render(
             "layout/shell",
@@ -78,8 +75,9 @@ class TenantHandler(
                 "themeCount" to themeCount,
                 "loadTestCount" to loadTestCount,
                 "environmentCount" to environmentCount,
-                "changelogVersion" to unseenEntries?.firstOrNull()?.version,
-                "changelogSummary" to (unseenEntries?.let { changelogService.aggregateSummary(it) }),
+                "changelogVersion" to latestEntry?.version,
+                "changelogSummary" to latestEntry?.summary,
+                "changelogIsNew" to hasUnseenChanges,
             ),
         )
     }

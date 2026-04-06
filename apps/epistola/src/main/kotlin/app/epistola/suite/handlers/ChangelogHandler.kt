@@ -43,8 +43,17 @@ class ChangelogHandler(
 
     fun acknowledge(request: ServerRequest): ServerResponse {
         val principal = SecurityContext.current()
-        val version = changelogService.effectiveVersion(appVersion, changelogRenderer.entries())
+        val entries = changelogRenderer.entries()
+        val version = changelogService.effectiveVersion(appVersion, entries)
         AcknowledgeChangelog(userId = principal.userId, version = version).execute()
-        return ServerResponse.ok().build()
+
+        val latestEntry = entries.firstOrNull()
+        return ServerResponse.ok().render(
+            "fragments/changelog :: whats-new-muted",
+            mapOf(
+                "changelogVersion" to latestEntry?.version,
+                "changelogSummary" to latestEntry?.summary,
+            ),
+        )
     }
 }

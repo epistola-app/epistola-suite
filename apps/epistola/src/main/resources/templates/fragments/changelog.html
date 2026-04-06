@@ -47,5 +47,31 @@
         </th:block>
         <p th:if="${entries == null or entries.isEmpty()}" class="changelog-empty">Version not found.</p>
     </th:block>
+
+    <!-- Muted What's New card (returned after dismiss) -->
+    <th:block th:fragment="whats-new-muted">
+        <div th:if="${changelogSummary != null}"
+             id="whats-new-banner"
+             class="whats-new-card">
+            <div class="whats-new-row">
+                <div class="whats-new-info">
+                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                    <span th:text="'Latest: v' + ${changelogVersion}">Latest: v0.12.0</span>
+                    <span class="whats-new-summary" th:text="${changelogSummary}">6 new features, 1 fix</span>
+                </div>
+                <div class="whats-new-actions">
+                    <button type="button"
+                            class="link-button"
+                            onclick="document.getElementById('changelog-dialog').showModal()"
+                            th:hx-get="@{/changelog}"
+                            hx-target="#changelog-dialog-content"
+                            hx-swap="innerHTML"
+                            hx-trigger="click once">
+                        View details
+                    </button>
+                </div>
+            </div>
+        </div>
+    </th:block>
 </body>
 </html>
