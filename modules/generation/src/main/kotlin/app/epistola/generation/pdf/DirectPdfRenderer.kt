@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.SystemParameterRegistry
 import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
@@ -98,7 +99,8 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
-        ).withGlobalParams()
+            systemParams = SystemParameterRegistry.buildGlobalParams(),
+        )
 
         // Set default font on the document so all text uses embedded Liberation Sans
         iTextDocument.setFont(fontCache.regular)

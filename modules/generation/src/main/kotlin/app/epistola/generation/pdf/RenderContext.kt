@@ -45,13 +45,6 @@ data class RenderContext(
         get() = if (systemParams.isEmpty()) data else data + mapOf("sys" to systemParams)
 
     /**
-     * Returns a copy of this context with global system parameters injected.
-     */
-    fun withGlobalParams(): RenderContext = copy(
-        systemParams = systemParams + SystemParameterRegistry.buildGlobalParams(),
-    )
-
-    /**
      * Returns a copy of this context with page-scoped system parameters injected.
      */
     fun withPageParams(pageNumber: Int): RenderContext = copy(

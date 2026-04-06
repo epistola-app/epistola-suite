@@ -8,7 +8,6 @@ import app.epistola.template.model.TemplateDocument
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 class RenderContextTest {
     private val evaluator = CompositeExpressionEvaluator()
@@ -105,59 +104,6 @@ class RenderContextTest {
         val p2 = page2.systemParams["page"] as Map<String, Any?>
         assertEquals(1, p1["number"])
         assertEquals(2, p2["number"])
-    }
-
-    @Test
-    fun `withGlobalParams injects render time`() {
-        val context = createContext()
-        val globalContext = context.withGlobalParams()
-
-        @Suppress("UNCHECKED_CAST")
-        val render = globalContext.systemParams["render"] as Map<String, Any?>
-        val time = render["time"] as String
-        java.time.OffsetDateTime.parse(time, java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-    }
-
-    @Test
-    fun `withGlobalParams makes render time available in effectiveData`() {
-        val context = createContext(data = mapOf("name" to "John"))
-        val globalContext = context.withGlobalParams()
-
-        val effective = globalContext.effectiveData
-        assertEquals("John", effective["name"])
-
-        @Suppress("UNCHECKED_CAST")
-        val sys = effective["sys"] as Map<String, Any?>
-
-        @Suppress("UNCHECKED_CAST")
-        val render = sys["render"] as Map<String, Any?>
-        val time = render["time"] as String
-        java.time.OffsetDateTime.parse(time, java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-    }
-
-    @Test
-    fun `withGlobalParams preserves existing system params`() {
-        val context = createContext(
-            systemParams = mapOf("page" to mapOf("number" to 5)),
-        )
-        val globalContext = context.withGlobalParams()
-
-        @Suppress("UNCHECKED_CAST")
-        val page = globalContext.systemParams["page"] as Map<String, Any?>
-        assertEquals(5, page["number"])
-        assertTrue(globalContext.systemParams.containsKey("render"))
-    }
-
-    @Test
-    fun `withGlobalParams creates independent context copy`() {
-        val context = createContext()
-        val global1 = context.withGlobalParams()
-        val global2 = context.withGlobalParams()
-
-        assertTrue(global1.systemParams.containsKey("render"))
-        assertTrue(global2.systemParams.containsKey("render"))
-        assertSame(context.data, global1.data)
-        assertSame(context.data, global2.data)
     }
 
     @Test
