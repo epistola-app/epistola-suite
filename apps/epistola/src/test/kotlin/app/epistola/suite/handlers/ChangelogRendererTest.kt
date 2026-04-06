@@ -102,6 +102,35 @@ class ChangelogRendererTest {
         assertThat(service.hasUnseenEntries(entries, latest, older)).isTrue()
     }
 
+    @Test
+    fun `entries have non-empty summaries`() {
+        val entries = renderer.entries()
+        entries.forEach { entry ->
+            assertThat(entry.summary).isNotBlank()
+        }
+    }
+
+    @Test
+    fun `summary contains category counts`() {
+        val entries = renderer.entries()
+        val first = entries.first()
+        // Every version should have at least one category
+        assertThat(first.summary).containsPattern("\\d+ (new feature|fix|change)")
+    }
+
+    @Test
+    fun `aggregateSummary for single entry returns its summary`() {
+        val entries = renderer.entries()
+        assertThat(service.aggregateSummary(listOf(entries.first()))).isEqualTo(entries.first().summary)
+    }
+
+    @Test
+    fun `aggregateSummary for multiple entries aggregates`() {
+        val entries = renderer.entries().take(3)
+        val summary = service.aggregateSummary(entries)
+        assertThat(summary).contains("across 3 versions")
+    }
+
     private fun compareVersions(a: String, b: String): Int {
         val aParts = a.split(".").map { it.toInt() }
         val bParts = b.split(".").map { it.toInt() }

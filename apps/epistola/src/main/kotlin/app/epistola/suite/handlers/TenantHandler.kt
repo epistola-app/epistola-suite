@@ -61,7 +61,7 @@ class TenantHandler(
         val allEntries = changelogRenderer.entries()
         val principal = SecurityContext.current()
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
-        val changelogEntries = if (changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)) {
+        val unseenEntries = if (changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)) {
             changelogService.entriesSince(allEntries, lastAcknowledged)
         } else {
             null
@@ -78,7 +78,8 @@ class TenantHandler(
                 "themeCount" to themeCount,
                 "loadTestCount" to loadTestCount,
                 "environmentCount" to environmentCount,
-                "changelogEntries" to changelogEntries,
+                "changelogVersion" to unseenEntries?.firstOrNull()?.version,
+                "changelogSummary" to (unseenEntries?.let { changelogService.aggregateSummary(it) }),
             ),
         )
     }

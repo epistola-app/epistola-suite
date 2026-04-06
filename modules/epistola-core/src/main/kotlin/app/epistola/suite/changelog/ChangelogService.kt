@@ -24,6 +24,14 @@ class ChangelogService {
 
     fun effectiveVersion(appVersion: String, allEntries: List<ChangelogEntry>): String = if (appVersion == "dev") allEntries.firstOrNull()?.version ?: "dev" else stripSuffix(appVersion)
 
+    fun aggregateSummary(entries: List<ChangelogEntry>): String = when (entries.size) {
+        0 -> ""
+        1 -> entries.first().summary
+        else -> "${entries.sumOf { countItems(it.summary) }} updates across ${entries.size} versions"
+    }
+
+    private fun countItems(summary: String): Int = Regex("""(\d+)""").findAll(summary).sumOf { it.value.toIntOrNull() ?: 0 }
+
     fun stripSuffix(version: String): String = version.substringBefore("-")
 
     private fun parseVersion(version: String): List<Int>? {

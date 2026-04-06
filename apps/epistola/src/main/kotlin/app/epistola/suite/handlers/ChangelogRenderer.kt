@@ -33,7 +33,32 @@ class ChangelogRenderer {
             val end = if (index + 1 < matches.size) matches[index + 1].range.first else markdown.length
             val sectionMarkdown = markdown.substring(start, end).trim()
             val html = renderer.render(parser.parse(sectionMarkdown))
-            ChangelogEntry(version = version, date = date, html = html)
+            val summary = buildSummary(sectionMarkdown)
+            ChangelogEntry(version = version, date = date, html = html, summary = summary)
         }
     }
+
+    private fun buildSummary(markdown: String): String {
+        val sectionPattern = Regex("""^### (Added|Fixed|Changed)""", RegexOption.MULTILINE)
+        val sections = sectionPattern.findAll(markdown).toList()
+
+        val counts = mutableMapOf<String, Int>()
+        sections.forEachIndexed { index, match ->
+            val category = match.groupValues[1]
+            val sectionStart = match.range.last + 1
+            val sectionEnd = if (index + 1 < sections.size) sections[index + 1].range.first else markdown.length
+            val sectionText = markdown.substring(sectionStart, sectionEnd)
+            val itemCount = sectionText.lines().count { it.trimStart().startsWith("- ") }
+            if (itemCount > 0) counts[category] = itemCount
+        }
+
+        val parts = mutableListOf<String>()
+        counts["Added"]?.let { parts.add(pluralize(it, "new feature", "new features")) }
+        counts["Fixed"]?.let { parts.add(pluralize(it, "fix", "fixes")) }
+        counts["Changed"]?.let { parts.add(pluralize(it, "change", "changes")) }
+
+        return parts.joinToString(", ").ifEmpty { "Updates" }
+    }
+
+    private fun pluralize(count: Int, singular: String, plural: String): String = if (count == 1) "1 $singular" else "$count $plural"
 }

@@ -1140,45 +1140,64 @@ a.stat-card:hover {
   padding: var(--ep-space-3) var(--ep-space-5);
 }
 
-/* ── What's New dashboard card ───────────────────────────────────────── */
+/* ── What's New compact teaser ────────────────────────────────────────── */
 
 .whats-new-card {
-  border: 1px solid var(--ep-border-color);
-  border-left: 3px solid var(--ep-primary);
+  border: 1px solid var(--ep-blue-200);
   border-radius: var(--ep-radius-md);
-  padding: var(--ep-space-4) var(--ep-space-5);
+  padding: var(--ep-space-3) var(--ep-space-4);
   margin-bottom: var(--ep-space-5);
-  background: var(--ep-card);
+  background: var(--ep-blue-50);
 }
 
-.whats-new-header {
+.whats-new-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--ep-space-3);
+  gap: var(--ep-space-4);
 }
 
-.whats-new-header h2 {
+.whats-new-info {
   display: flex;
   align-items: center;
   gap: var(--ep-space-2);
-  margin: 0;
-  font-size: var(--ep-text-base);
+  font-size: var(--ep-text-sm);
+  color: var(--ep-blue-800);
+  min-width: 0;
 }
 
-.whats-new-content {
-  max-height: 20rem;
-  overflow-y: auto;
+.whats-new-info strong {
+  white-space: nowrap;
 }
 
-.whats-new-content h3 {
-  margin-top: 0;
+.whats-new-summary {
+  color: var(--ep-blue-600);
+  white-space: nowrap;
 }
 
-.whats-new-footer {
-  margin-top: var(--ep-space-3);
-  padding-top: var(--ep-space-3);
-  border-top: 1px solid var(--ep-border-color);
+.whats-new-summary::before {
+  content: '—';
+  margin: 0 var(--ep-space-1);
+  color: var(--ep-blue-300);
+}
+
+.whats-new-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  flex-shrink: 0;
+}
+
+/* ── Dashboard grid ──────────────────────────────────────────────────── */
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-6);
+}
+
+.dashboard-actions h2 {
+  margin-bottom: var(--ep-space-3);
 }
 
 /* ── Wide dialog variant ──────────────────────────────────────────────── */

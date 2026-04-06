@@ -4,4 +4,5 @@ data class ChangelogEntry(
     val version: String,
     val date: String,
     val html: String,
+    val summary: String,
 )
