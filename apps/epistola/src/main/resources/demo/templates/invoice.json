@@ -1267,7 +1267,8 @@
           "n-line-items-datatable",
           "n-totals-table",
           "n-notes-conditional",
-          "n-footer"
+          "n-footer",
+          "n-page-footer"
         ]
       },
 
