@@ -133,6 +133,18 @@ class RenderContextTest {
     }
 
     @Test
+    fun `withTotalPages placeholder provides sys page total for body content`() {
+        val context = createContext().withTotalPages(DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
+
+        @Suppress("UNCHECKED_CAST")
+        val sys = context.effectiveData["sys"] as Map<String, Any?>
+
+        @Suppress("UNCHECKED_CAST")
+        val page = sys["page"] as Map<String, Any?>
+        assertEquals(DirectPdfRenderer.FIRST_PASS_PAGE_TOTAL_PLACEHOLDER, page["total"])
+    }
+
+    @Test
     fun `effectiveData with withPageParams works end-to-end`() {
         val context = createContext(data = mapOf("greeting" to "Hello"))
         val pageContext = context.withPageParams(7, 20)

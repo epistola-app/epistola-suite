@@ -112,6 +112,14 @@ class TwoPassAnalyzerTest {
     }
 
     @Test
+    fun `validate passes for table with sys page total`() {
+        val doc = minimalDocument(
+            textNodeWithExpression("t1", "sys.page.total").copy(type = "table"),
+        )
+        TwoPassAnalyzer.validate(doc) // should not throw
+    }
+
+    @Test
     fun `validate throws for conditional with sys page total in condition prop`() {
         val doc = minimalDocument(
             Node(
