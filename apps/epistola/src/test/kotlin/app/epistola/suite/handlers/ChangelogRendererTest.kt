@@ -68,8 +68,18 @@ class ChangelogRendererTest {
     }
 
     @Test
-    fun `hasUnseenEntries returns false for dev version`() {
-        assertThat(service.hasUnseenEntries(renderer.entries(), "dev", null)).isFalse()
+    fun `hasUnseenEntries in dev mode uses latest changelog version`() {
+        val entries = renderer.entries()
+        // Not acknowledged yet — should show
+        assertThat(service.hasUnseenEntries(entries, "dev", null)).isTrue()
+        // Acknowledged latest — should not show
+        val latest = entries.first().version
+        assertThat(service.hasUnseenEntries(entries, "dev", latest)).isFalse()
+    }
+
+    @Test
+    fun `hasUnseenEntries returns false for empty entries`() {
+        assertThat(service.hasUnseenEntries(emptyList(), "dev", null)).isFalse()
     }
 
     @Test

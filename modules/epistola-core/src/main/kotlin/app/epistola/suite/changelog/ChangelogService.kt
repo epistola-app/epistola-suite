@@ -15,12 +15,14 @@ class ChangelogService {
     }
 
     fun hasUnseenEntries(allEntries: List<ChangelogEntry>, appVersion: String, lastAcknowledged: String?): Boolean {
-        if (appVersion == "dev") return false
-        if (lastAcknowledged == appVersion) return false
-        val baseAppVersion = stripSuffix(appVersion)
-        if (lastAcknowledged != null && lastAcknowledged == baseAppVersion) return false
+        if (allEntries.isEmpty()) return false
+        // In dev mode, use the latest changelog entry as the effective version
+        val effectiveVersion = if (appVersion == "dev") allEntries.first().version else stripSuffix(appVersion)
+        if (lastAcknowledged == effectiveVersion) return false
         return entriesSince(allEntries, lastAcknowledged).isNotEmpty()
     }
+
+    fun effectiveVersion(appVersion: String, allEntries: List<ChangelogEntry>): String = if (appVersion == "dev") allEntries.firstOrNull()?.version ?: "dev" else stripSuffix(appVersion)
 
     fun stripSuffix(version: String): String = version.substringBefore("-")
 

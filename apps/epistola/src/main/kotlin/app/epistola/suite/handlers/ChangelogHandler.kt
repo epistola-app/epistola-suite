@@ -43,7 +43,7 @@ class ChangelogHandler(
 
     fun acknowledge(request: ServerRequest): ServerResponse {
         val principal = SecurityContext.current()
-        val version = changelogService.stripSuffix(appVersion)
+        val version = changelogService.effectiveVersion(appVersion, changelogRenderer.entries())
         AcknowledgeChangelog(userId = principal.userId, version = version).execute()
         return ServerResponse.ok().build()
     }
