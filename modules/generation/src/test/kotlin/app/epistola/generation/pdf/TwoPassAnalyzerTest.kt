@@ -112,11 +112,28 @@ class TwoPassAnalyzerTest {
     }
 
     @Test
-    fun `validate passes for table with sys page total`() {
+    fun `validate passes for static table with sys page total`() {
         val doc = minimalDocument(
             textNodeWithExpression("t1", "sys.page.total").copy(type = "table"),
         )
-        TwoPassAnalyzer.validate(doc) // should not throw
+        TwoPassAnalyzer.validate(doc) // should not throw — static tables have fixed rows
+    }
+
+    @Test
+    fun `validate throws for datatable with sys page total`() {
+        val doc = minimalDocument(
+            Node(
+                id = "dt1",
+                type = "datatable",
+                props = mapOf(
+                    "expression" to mapOf("raw" to "sys.page.total", "language" to "jsonata"),
+                ),
+            ),
+        )
+        val error = assertFailsWith<IllegalArgumentException> { TwoPassAnalyzer.validate(doc) }
+        assertTrue(error.message!!.contains("dt1"))
+        assertTrue(error.message!!.contains("datatable"))
+        assertTrue(error.message!!.contains("sys.page.total"))
     }
 
     @Test

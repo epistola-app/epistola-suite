@@ -22,7 +22,7 @@ object TwoPassAnalyzer {
     private val TWO_PASS_PATTERNS = listOf("sys.page.total")
 
     /** Node types whose expressions affect content flow (conditionals, loops). */
-    private val FLOW_AFFECTING_TYPES = setOf("conditional", "loop")
+    private val FLOW_AFFECTING_TYPES = setOf("conditional", "loop", "datatable")
 
     /** Prop keys that hold expression objects (Map with "raw" key). */
     private val EXPRESSION_PROP_KEYS = listOf("condition", "expression", "value")
