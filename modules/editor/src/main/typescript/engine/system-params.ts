@@ -19,6 +19,12 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     system: true,
     description: 'Current page number. Available in page headers/footers only.',
   },
+  {
+    path: 'sys.render.time',
+    type: 'datetime',
+    system: true,
+    description: 'Render timestamp as ISO-8601 offset datetime. Use $formatDate() to format.',
+  },
 ];
 
 /**
@@ -29,6 +35,9 @@ export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
   sys: {
     page: {
       number: 1,
+    },
+    render: {
+      time: '2026-04-03T08:30:00Z',
     },
   },
 };

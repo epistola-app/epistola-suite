@@ -220,7 +220,7 @@ export function openExpressionDialog(
       (fp) => fp.type !== 'array' && fp.type !== 'object',
     );
     const dateFieldPaths = new Set(
-      fieldPaths.filter((fp) => fp.type === 'date').map((fp) => fp.path),
+      fieldPaths.filter((fp) => fp.type === 'date' || fp.type === 'datetime').map((fp) => fp.path),
     );
 
     // --- Build field options HTML ---
@@ -452,7 +452,7 @@ export function openExpressionDialog(
       const updateBuilderFormatVisibility = () => {
         const selectedOption = fieldSelect.selectedOptions[0];
         const fieldType = selectedOption?.dataset.type ?? '';
-        const isDate = fieldType === 'date';
+        const isDate = fieldType === 'date' || fieldType === 'datetime';
         builderFormatContainer.style.display = isDate ? '' : 'none';
         if (!isDate) builderFormatSelect.value = '';
       };
@@ -466,7 +466,8 @@ export function openExpressionDialog(
         return buildExpression({
           fieldPath,
           fieldType,
-          formatType: fieldType === 'date' && formatPattern ? 'date' : 'none',
+          formatType:
+            (fieldType === 'date' || fieldType === 'datetime') && formatPattern ? 'date' : 'none',
           formatPattern,
         });
       };

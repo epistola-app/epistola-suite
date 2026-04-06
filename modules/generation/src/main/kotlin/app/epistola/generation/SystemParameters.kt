@@ -1,5 +1,9 @@
 package app.epistola.generation
 
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 /**
  * Scope at which a system parameter is available.
  */
@@ -31,6 +35,9 @@ data class SystemParameterDescriptor(
     val fullPath: String get() = "sys.$path"
 }
 
+/** Default timezone used for date-related rendering (e.g., sys.render.time, $formatDate). */
+val DEFAULT_RENDER_TIMEZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
+
 /**
  * Registry of system parameters available to templates at render time.
  *
@@ -48,6 +55,15 @@ object SystemParameterRegistry {
                 type = "integer",
                 scope = SystemParamScope.PAGE_SCOPED,
                 mockValue = 1,
+            ),
+        )
+        register(
+            SystemParameterDescriptor(
+                path = "render.time",
+                description = "Render timestamp as ISO-8601 offset datetime. Use \$formatDate() to format.",
+                type = "datetime",
+                scope = SystemParamScope.GLOBAL,
+                mockValue = "2026-04-03T08:30:00Z",
             ),
         )
     }
@@ -76,6 +92,8 @@ object SystemParameterRegistry {
     /** Build page-scoped system parameters (for headers/footers). */
     fun buildPageParams(pageNumber: Int): Map<String, Any?> = buildNestedMap(mapOf("page.number" to pageNumber))
 
-    /** Build global system parameters (currently empty, but extensible). */
-    fun buildGlobalParams(): Map<String, Any?> = emptyMap()
+    /** Build global system parameters (e.g., today's date). */
+    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(
+        mapOf("render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+    )
 }
