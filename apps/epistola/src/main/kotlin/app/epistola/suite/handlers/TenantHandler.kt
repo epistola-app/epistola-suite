@@ -1,5 +1,7 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.changelog.ChangelogService
+import app.epistola.suite.changelog.GetChangelogAcknowledgment
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.handlers.AuthContext
@@ -20,7 +22,6 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
-import app.epistola.suite.users.queries.GetChangelogAcknowledgment
 import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
@@ -31,6 +32,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class TenantHandler(
     private val tenantProvisioner: TenantProvisioningPort,
     private val changelogRenderer: ChangelogRenderer,
+    private val changelogService: ChangelogService,
     private val buildProperties: BuildProperties?,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,10 +58,11 @@ class TenantHandler(
 
         // Determine if there are unseen changelog entries
         val appVersion = buildProperties?.version ?: "dev"
+        val allEntries = changelogRenderer.entries()
         val principal = SecurityContext.current()
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
-        val changelogEntries = if (appVersion != "dev" && lastAcknowledged != appVersion) {
-            changelogRenderer.entriesSince(lastAcknowledged).ifEmpty { null }
+        val changelogEntries = if (changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)) {
+            changelogService.entriesSince(allEntries, lastAcknowledged)
         } else {
             null
         }

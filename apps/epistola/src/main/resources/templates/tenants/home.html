@@ -36,8 +36,7 @@
             <div class="whats-new-footer">
                 <button type="button"
                         class="link-button"
-                        command="show-modal"
-                        commandfor="changelog-dialog"
+                        onclick="document.getElementById('changelog-dialog').showModal()"
                         th:hx-get="@{/changelog}"
                         hx-target="#changelog-dialog-content"
                         hx-swap="innerHTML"

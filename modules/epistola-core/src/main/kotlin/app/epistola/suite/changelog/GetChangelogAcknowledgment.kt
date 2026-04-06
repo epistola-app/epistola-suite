@@ -1,4 +1,4 @@
-package app.epistola.suite.users.queries
+package app.epistola.suite.changelog
 
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query

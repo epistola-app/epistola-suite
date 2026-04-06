@@ -1,16 +1,11 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.changelog.ChangelogEntry
 import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
-
-data class ChangelogEntry(
-    val version: String,
-    val date: String,
-    val html: String,
-)
 
 @Component
 class ChangelogRenderer {
@@ -22,15 +17,6 @@ class ChangelogRenderer {
     private val entries: List<ChangelogEntry> by lazy { parseEntries() }
 
     fun entries(): List<ChangelogEntry> = entries
-
-    fun entriesSince(version: String?): List<ChangelogEntry> {
-        if (version.isNullOrBlank()) return entries
-        val parsed = parseVersion(version) ?: return entries
-        return entries.filter { entry ->
-            val entryVersion = parseVersion(entry.version)
-            entryVersion != null && entryVersion > parsed
-        }
-    }
 
     private fun parseEntries(): List<ChangelogEntry> {
         val resource = ClassPathResource("changelog/CHANGELOG.md")
@@ -49,19 +35,5 @@ class ChangelogRenderer {
             val html = renderer.render(parser.parse(sectionMarkdown))
             ChangelogEntry(version = version, date = date, html = html)
         }
-    }
-
-    private fun parseVersion(version: String): List<Int>? {
-        val parts = version.split(".")
-        if (parts.size != 3) return null
-        return parts.mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 }
-    }
-
-    private operator fun List<Int>.compareTo(other: List<Int>): Int {
-        for (i in indices) {
-            val cmp = this[i].compareTo(other[i])
-            if (cmp != 0) return cmp
-        }
-        return 0
     }
 }

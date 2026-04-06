@@ -1,9 +1,10 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.changelog.AcknowledgeChangelog
+import app.epistola.suite.changelog.ChangelogService
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.SecurityContext
-import app.epistola.suite.users.commands.AcknowledgeChangelog
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -12,6 +13,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class ChangelogHandler(
     private val changelogRenderer: ChangelogRenderer,
+    private val changelogService: ChangelogService,
     private val buildProperties: BuildProperties?,
 ) {
     private val appVersion: String get() = buildProperties?.version ?: "dev"
@@ -41,7 +43,8 @@ class ChangelogHandler(
 
     fun acknowledge(request: ServerRequest): ServerResponse {
         val principal = SecurityContext.current()
-        AcknowledgeChangelog(userId = principal.userId, version = appVersion).execute()
+        val version = changelogService.stripSuffix(appVersion)
+        AcknowledgeChangelog(userId = principal.userId, version = version).execute()
         return ServerResponse.ok().build()
     }
 }

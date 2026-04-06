@@ -1,5 +1,6 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.changelog.ChangelogService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test
 class ChangelogRendererTest {
 
     private val renderer = ChangelogRenderer()
+    private val service = ChangelogService()
 
     @Test
     fun `entries parses changelog into structured entries`() {
@@ -31,7 +33,6 @@ class ChangelogRendererTest {
         val entries = renderer.entries()
         assertThat(entries.size).isGreaterThanOrEqualTo(2)
         val versions = entries.map { it.version }
-        // First version should be numerically greater than the second
         assertThat(compareVersions(versions[0], versions[1])).isGreaterThan(0)
     }
 
@@ -41,27 +42,54 @@ class ChangelogRendererTest {
         assertThat(allEntries.size).isGreaterThanOrEqualTo(2)
 
         val olderVersion = allEntries.last().version
-        val since = renderer.entriesSince(olderVersion)
+        val since = service.entriesSince(allEntries, olderVersion)
 
-        // Should exclude the version itself and any older
         assertThat(since).hasSizeLessThan(allEntries.size)
         assertThat(since.map { it.version }).doesNotContain(olderVersion)
     }
 
     @Test
     fun `entriesSince with null returns all entries`() {
-        assertThat(renderer.entriesSince(null)).isEqualTo(renderer.entries())
+        val entries = renderer.entries()
+        assertThat(service.entriesSince(entries, null)).isEqualTo(entries)
     }
 
     @Test
     fun `entriesSince with blank returns all entries`() {
-        assertThat(renderer.entriesSince("")).isEqualTo(renderer.entries())
+        val entries = renderer.entries()
+        assertThat(service.entriesSince(entries, "")).isEqualTo(entries)
     }
 
     @Test
     fun `entriesSince with latest version returns empty`() {
-        val latest = renderer.entries().first().version
-        assertThat(renderer.entriesSince(latest)).isEmpty()
+        val entries = renderer.entries()
+        val latest = entries.first().version
+        assertThat(service.entriesSince(entries, latest)).isEmpty()
+    }
+
+    @Test
+    fun `hasUnseenEntries returns false for dev version`() {
+        assertThat(service.hasUnseenEntries(renderer.entries(), "dev", null)).isFalse()
+    }
+
+    @Test
+    fun `hasUnseenEntries returns false when already acknowledged`() {
+        assertThat(service.hasUnseenEntries(renderer.entries(), "0.12.0", "0.12.0")).isFalse()
+    }
+
+    @Test
+    fun `hasUnseenEntries handles version suffixes`() {
+        val entries = renderer.entries()
+        val latest = entries.first().version
+        assertThat(service.hasUnseenEntries(entries, "$latest-SNAPSHOT", latest)).isFalse()
+    }
+
+    @Test
+    fun `hasUnseenEntries returns true when not acknowledged`() {
+        val entries = renderer.entries()
+        val latest = entries.first().version
+        val older = entries.last().version
+        assertThat(service.hasUnseenEntries(entries, latest, older)).isTrue()
     }
 
     private fun compareVersions(a: String, b: String): Int {
