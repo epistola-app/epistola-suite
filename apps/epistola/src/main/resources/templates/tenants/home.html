@@ -9,43 +9,86 @@
             </div>
         </div>
 
-        <div class="dashboard-stats">
-            <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="stat-card">
-                <div class="stat-card-value" th:text="${templateCount}">0</div>
-                <div class="stat-card-label">Templates</div>
-            </a>
-            <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="stat-card">
-                <div class="stat-card-value" th:text="${themeCount}">0</div>
-                <div class="stat-card-label">Themes</div>
-            </a>
-            <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="stat-card">
-                <div class="stat-card-value" th:text="${environmentCount}">0</div>
-                <div class="stat-card-label">Environments</div>
-            </a>
-            <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="stat-card">
-                <div class="stat-card-value" th:text="${loadTestCount}">0</div>
-                <div class="stat-card-label">Load Tests</div>
-            </a>
+        <!-- What's New compact teaser (always shown, emphasized when unseen) -->
+        <div th:if="${changelogSummary != null}"
+             id="whats-new-banner"
+             class="whats-new-card"
+             th:classappend="${changelogIsNew} ? 'whats-new-unseen'">
+            <div class="whats-new-row">
+                <div class="whats-new-info">
+                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                    <span th:if="${changelogIsNew}">
+                        <strong>What's New in v<span th:text="${changelogVersion}">0.12.0</span></strong>
+                    </span>
+                    <span th:unless="${changelogIsNew}">
+                        <span th:text="'Latest: v' + ${changelogVersion}">Latest: v0.12.0</span>
+                    </span>
+                    <span class="whats-new-summary" th:text="${changelogSummary}">6 new features, 1 fix</span>
+                </div>
+                <div class="whats-new-actions">
+                    <button type="button"
+                            class="link-button"
+                            onclick="document.getElementById('changelog-dialog').showModal()"
+                            th:hx-get="@{/changelog}"
+                            hx-target="#changelog-dialog-content"
+                            hx-swap="innerHTML"
+                            hx-trigger="click once">
+                        View details
+                    </button>
+                    <button th:if="${changelogIsNew}"
+                            type="button"
+                            class="btn btn-ghost btn-sm btn-icon"
+                            th:hx-post="@{/changelog/acknowledge}"
+                            hx-target="#whats-new-banner"
+                            hx-swap="outerHTML"
+                            aria-label="Dismiss">
+                        <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon ep-icon-sm')}" />
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <h2>Quick Actions</h2>
-        <div class="quick-links">
-            <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="btn btn-outline">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Template
-            </a>
-            <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="btn btn-outline">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Theme
-            </a>
-            <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="btn btn-outline">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Environment
-            </a>
-            <a th:href="@{/tenants/{id}/generate(id=${tenant.id})}" class="btn btn-outline">
-                <th:block th:replace="~{fragments/icon :: icon(name='zap', class='ep-icon')}" />
-                Generate Document
-            </a>
+        <div class="dashboard-grid">
+            <div class="dashboard-stats">
+                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="stat-card">
+                    <div class="stat-card-value" th:text="${templateCount}">0</div>
+                    <div class="stat-card-label">Templates</div>
+                </a>
+                <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="stat-card">
+                    <div class="stat-card-value" th:text="${themeCount}">0</div>
+                    <div class="stat-card-label">Themes</div>
+                </a>
+                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="stat-card">
+                    <div class="stat-card-value" th:text="${environmentCount}">0</div>
+                    <div class="stat-card-label">Environments</div>
+                </a>
+                <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="stat-card">
+                    <div class="stat-card-value" th:text="${loadTestCount}">0</div>
+                    <div class="stat-card-label">Load Tests</div>
+                </a>
+            </div>
+
+            <div class="dashboard-actions">
+                <h2>Quick Actions</h2>
+                <div class="quick-links">
+                    <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="btn btn-outline">
+                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                        New Template
+                    </a>
+                    <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="btn btn-outline">
+                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                        New Theme
+                    </a>
+                    <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="btn btn-outline">
+                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                        New Environment
+                    </a>
+                    <a th:href="@{/tenants/{id}/generate(id=${tenant.id})}" class="btn btn-primary">
+                        <th:block th:replace="~{fragments/icon :: icon(name='zap', class='ep-icon')}" />
+                        Generate Document
+                    </a>
+                </div>
+            </div>
         </div>
     </th:block>
 </body>

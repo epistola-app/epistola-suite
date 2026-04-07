@@ -47,6 +47,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-session-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.commonmark:commonmark:0.22.0")
 
     // HTMX for dynamic UI
     implementation(libs.htmx.spring.boot.thymeleaf)
@@ -122,6 +123,10 @@ tasks.processResources {
     from(rootProject.file("modules/design-system")) {
         include("*.css", "icons.svg")
         into("static/design-system")
+    }
+    // Copy changelog markdown into app resources
+    from(rootProject.file("CHANGELOG.md")) {
+        into("changelog")
     }
 }
 

@@ -1030,6 +1030,188 @@ a.stat-card:hover {
   border-top: 1px solid var(--ep-border-color);
 }
 
+/* ── Changelog dialog ─────────────────────────────────────────────────── */
+
+.changelog-content {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-foreground);
+}
+
+.changelog-content h1 {
+  margin: 0 0 var(--ep-space-4);
+  font-size: var(--ep-text-lg);
+}
+
+.changelog-content h2 {
+  margin: var(--ep-space-5) 0 var(--ep-space-3);
+  font-size: var(--ep-text-base);
+}
+
+.changelog-content h3 {
+  margin: var(--ep-space-4) 0 var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+}
+
+.changelog-content p {
+  margin: 0 0 var(--ep-space-3);
+}
+
+.changelog-content ul,
+.changelog-content ol {
+  margin: 0 0 var(--ep-space-3);
+  padding-left: var(--ep-space-5);
+}
+
+.changelog-content li {
+  margin-bottom: var(--ep-space-1);
+}
+
+.changelog-content code {
+  font-family: var(--ep-font-mono);
+  font-size: var(--ep-text-xs);
+  background: var(--ep-muted);
+  padding: 0 var(--ep-space-1);
+  border-radius: var(--ep-radius-sm);
+}
+
+.changelog-content pre {
+  background: var(--ep-muted);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-3);
+  overflow-x: auto;
+}
+
+.changelog-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.changelog-loading,
+.changelog-error,
+.changelog-empty {
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Changelog two-panel layout ──────────────────────────────────────── */
+
+.changelog-layout {
+  display: flex;
+  max-height: 60vh;
+}
+
+.changelog-version-list {
+  flex: 0 0 10rem;
+  border-right: 1px solid var(--ep-border-color);
+  overflow-y: auto;
+  padding: var(--ep-space-2) 0;
+}
+
+.changelog-version-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--ep-space-2) var(--ep-space-3);
+  font-size: var(--ep-text-xs);
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--ep-foreground);
+  text-align: left;
+}
+
+.changelog-version-item:hover {
+  background: var(--ep-muted);
+}
+
+.changelog-version-item.active {
+  background: var(--ep-muted);
+  font-weight: 600;
+}
+
+.changelog-version-date {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+.changelog-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--ep-space-3) var(--ep-space-5);
+}
+
+/* ── What's New compact teaser ────────────────────────────────────────── */
+
+.whats-new-card {
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-3) var(--ep-space-4);
+  margin-bottom: var(--ep-space-5);
+  background: var(--ep-muted);
+}
+
+.whats-new-card.whats-new-unseen {
+  border-color: var(--ep-blue-200);
+  background: var(--ep-blue-50);
+}
+
+.whats-new-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ep-space-4);
+}
+
+.whats-new-info {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  min-width: 0;
+}
+
+.whats-new-unseen .whats-new-info {
+  color: var(--ep-blue-800);
+}
+
+.whats-new-info strong {
+  white-space: nowrap;
+}
+
+.whats-new-summary {
+  white-space: nowrap;
+}
+
+.whats-new-summary::before {
+  content: '—';
+  margin: 0 var(--ep-space-1);
+  opacity: 0.4;
+}
+
+.whats-new-unseen .whats-new-summary {
+  color: var(--ep-blue-600);
+}
+
+.whats-new-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  flex-shrink: 0;
+}
+
+/* ── Dashboard grid ──────────────────────────────────────────────────── */
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-6);
+}
+
+.dashboard-actions h2 {
+  margin-bottom: var(--ep-space-3);
+}
+
 /* ── Wide dialog variant ──────────────────────────────────────────────── */
 
 .ep-dialog-wide {

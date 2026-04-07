@@ -1,8 +1,11 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.changelog.ChangelogService
+import app.epistola.suite.changelog.GetChangelogAcknowledgment
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.handlers.AuthContext
+import app.epistola.suite.handlers.ChangelogRenderer
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -21,6 +24,7 @@ import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
 import org.slf4j.LoggerFactory
+import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -28,6 +32,9 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class TenantHandler(
     private val tenantProvisioner: TenantProvisioningPort,
+    private val changelogRenderer: ChangelogRenderer,
+    private val changelogService: ChangelogService,
+    private val buildProperties: BuildProperties?,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
@@ -50,6 +57,14 @@ class TenantHandler(
         val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 
+        // Always show latest changelog entry; highlight if unseen
+        val appVersion = buildProperties?.version ?: "dev"
+        val allEntries = changelogRenderer.entries()
+        val latestEntry = allEntries.firstOrNull()
+        val principal = SecurityContext.current()
+        val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
+        val hasUnseenChanges = changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)
+
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -61,6 +76,9 @@ class TenantHandler(
                 "themeCount" to themeCount,
                 "loadTestCount" to loadTestCount,
                 "environmentCount" to environmentCount,
+                "changelogVersion" to latestEntry?.version,
+                "changelogSummary" to latestEntry?.summary,
+                "changelogIsNew" to hasUnseenChanges,
             ),
         )
     }
