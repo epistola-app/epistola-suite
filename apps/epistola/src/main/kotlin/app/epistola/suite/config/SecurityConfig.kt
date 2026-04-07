@@ -193,6 +193,21 @@ class SecurityConfig(
             .csrf { csrf ->
                 csrf.spa()
             }
+            .headers { headers ->
+                headers.contentSecurityPolicy { csp ->
+                    csp.policyDirectives(
+                        "default-src 'self'; " +
+                            "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
+                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                            "font-src 'self' https://fonts.gstatic.com; " +
+                            "img-src 'self' data:; " +
+                            "connect-src 'self'; " +
+                            "frame-ancestors 'none'; " +
+                            "object-src 'none'; " +
+                            "base-uri 'self'",
+                    )
+                }
+            }
 
         return http.build()
     }

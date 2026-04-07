@@ -18,9 +18,16 @@ class CatalogClientTest {
         }
 
         @Test
-        fun `accepts http json URL`() {
-            assertDoesNotThrow {
+        fun `rejects http json URL by default`() {
+            assertThrows<IllegalArgumentException> {
                 CatalogClient.validateUrl("http://example.com/catalog.json")
+            }
+        }
+
+        @Test
+        fun `accepts http json URL when explicitly allowed`() {
+            assertDoesNotThrow {
+                CatalogClient.validateUrl("http://example.com/catalog.json", setOf("http", "https", "file", "classpath"))
             }
         }
 

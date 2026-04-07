@@ -50,6 +50,8 @@ management:
 epistola:
   auth:
     auto-provision: false # Not needed for in-memory users
+  catalog:
+    allow-http: true
   editor:
     dev-server:
       auto-start: true

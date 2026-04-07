@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
         with:
           version: "v3.14.0"
 
@@ -37,7 +37,7 @@ jobs:
         run: helm lint charts/epistola
 
       - name: Scan Helm chart for misconfigurations
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
         with:
           scan-type: "config"
           scan-ref: "charts/epistola"
@@ -55,7 +55,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -95,7 +95,7 @@ jobs:
       - name: Bump chart version and create tag
         if: steps.chart-changes.outputs.changed == 'true'
         id: chart-tag
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@a22cf08638b34d5badda920f9daf6e72c477b07b # v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_prefix: "chart-"
@@ -104,7 +104,7 @@ jobs:
 
       - name: Set up Helm
         if: steps.chart-changes.outputs.changed == 'true'
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
         with:
           version: "v3.14.0"
 
@@ -145,7 +145,7 @@ jobs:
 
       - name: Create Helm Chart Release
         if: steps.chart-changes.outputs.changed == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           tag_name: ${{ steps.chart-tag.outputs.new_tag }}
           name: Helm Chart ${{ steps.chart-tag.outputs.new_version }}
