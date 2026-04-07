@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-04-07
+
 ### Added
 
 - **In-app changelog dialog**: Added a `Changelog` action in the app footer that opens a native dialog and loads release notes from `CHANGELOG.md` via a server-rendered HTMX fragment.
