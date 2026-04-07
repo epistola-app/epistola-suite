@@ -15,6 +15,7 @@ class TenantRoutes(private val handler: TenantHandler) {
             GET("/search", handler::search)
             POST("", handler::create)
             GET("/{tenantId}", handler::home)
+            POST("/{tenantId}/delete", handler::delete)
         }
     }
 }

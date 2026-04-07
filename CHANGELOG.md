@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Delete tenant from UI**: Tenant managers can now delete tenants from the tenant list page via a confirmation dialog. Warns that all associated data (templates, themes, environments, assets, memberships) will be permanently deleted.
 - **Page total system parameter**: New system parameter `sys.pages.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.pages.current` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.pages.total` is used; `sys.pages.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
 
 ### Fixed

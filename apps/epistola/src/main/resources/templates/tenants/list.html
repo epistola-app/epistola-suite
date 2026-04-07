@@ -68,6 +68,16 @@
                                    class="btn btn-sm btn-icon btn-ghost" title="Open tenant">
                                     <th:block th:replace="~{fragments/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />
                                 </a>
+                                <button th:if="${auth.has('TENANT_MANAGER')}"
+                                        type="button"
+                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        title="Delete tenant"
+                                        data-confirm-title="Delete Tenant"
+                                        th:attr="data-confirm-message='Permanently delete tenant &quot;' + ${tenant.name} + '&quot; (' + ${tenant.id} + ')? This will delete all associated data including templates, themes, environments, assets, and memberships. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/delete(tenantId=${tenant.id})}"
+                                        data-confirm-target="#tenant-rows"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(tenants)}">
@@ -78,6 +88,8 @@
                 </tbody>
             </table>
         </section>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}" />
