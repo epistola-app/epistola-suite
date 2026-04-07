@@ -7,6 +7,7 @@
 - **In-app changelog dialog**: Added a `Changelog` action in the app footer that opens a native dialog and loads release notes from `CHANGELOG.md` via a server-rendered HTMX fragment.
 - **"What's New" dashboard card**: Compact teaser card on the tenant dashboard showing the latest version number and a summary (e.g. "6 new features, 1 fix"). Click "View details" to open the full changelog dialog. Dismiss records the current app version per user (stored in `changelog_acknowledgments` table). The card reappears when a new version is deployed.
 - **Two-panel changelog dialog**: The changelog dialog now features a version sidebar listing all releases, with HTMX-powered version switching. Selecting a version loads its content into the detail panel.
+- **Delete tenant from UI**: Tenant managers can now delete tenants from the tenant list page via a confirmation dialog. Warns that all associated data (templates, themes, environments, assets, memberships) will be permanently deleted.
 - **Page total system parameter**: New system parameter `sys.pages.total` (total pages) available in all contexts — body content, headers, and footers. Combine with `sys.pages.current` to build custom formats like `Y/X` or `X of Y`. Two-pass rendering only triggers when `sys.pages.total` is used; `sys.pages.total` is validated against use in conditionals/loops to prevent page count instability. The first (counting) pass uses a 2-digit placeholder (99) to reserve character width and minimise layout instability for documents up to 99 pages.
 
 ### Fixed

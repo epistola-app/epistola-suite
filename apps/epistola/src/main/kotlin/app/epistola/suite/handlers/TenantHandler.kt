@@ -19,6 +19,7 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.TenantProvisioningPort
 import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
@@ -85,9 +86,11 @@ class TenantHandler(
     fun search(request: ServerRequest): ServerResponse {
         val searchTerm = request.queryParam("q")
         val tenants = ListTenants(searchTerm = searchTerm).query()
+        val auth = AuthContext.platformOnly(SecurityContext.current())
         return request.htmx {
             fragment("tenants/list", "rows") {
                 "tenants" to tenants
+                "auth" to auth
             }
             onNonHtmx { redirect("/") }
         }
@@ -166,8 +169,25 @@ class TenantHandler(
         return request.htmx {
             fragment("tenants/list", "rows") {
                 "tenants" to tenants
+                "auth" to auth
             }
             trigger("tenantCreated")
+            onNonHtmx { redirect("/") }
+        }
+    }
+
+    fun delete(request: ServerRequest): ServerResponse {
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val auth = AuthContext.platformOnly(SecurityContext.current())
+
+        DeleteTenant(id = tenantId).execute()
+
+        val tenants = ListTenants().query()
+        return request.htmx {
+            fragment("tenants/list", "rows") {
+                "tenants" to tenants
+                "auth" to auth
+            }
             onNonHtmx { redirect("/") }
         }
     }
