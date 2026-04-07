@@ -9,7 +9,7 @@ services:
     ports:
       - "4001:5432"
     tmpfs:
-      - /var/lib/postgresql/data:rw
+      - /var/lib/postgresql:rw
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U epistola"]
       interval: 5s
