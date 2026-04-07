@@ -54,11 +54,12 @@ Before creating the release, show the user:
 ### 4. Push and create the release
 
 ```bash
+COMMIT_SHA=$(git rev-parse HEAD)
 git push origin main
-gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes
+gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes --target "$COMMIT_SHA"
 ```
 
-The `--generate-notes` flag auto-generates release notes from PRs and commits.
+The `--generate-notes` flag auto-generates release notes from PRs and commits. The `--target` flag pins the release to the changelog commit, preventing issues if another commit (e.g., coverage badge) lands on main between the push and release creation.
 
 ### 5. Verify
 
@@ -73,4 +74,4 @@ After creating the release, tell the user:
 - Tags must follow the `vX.Y.Z` format (e.g., `v0.7.0`)
 - Never skip the CHANGELOG update
 - Always ask for confirmation before creating the release
-- The CI workflow (`.github/workflows/build.yml`) triggers on `release: published` and handles Docker image building, signing, and SBOM attachment
+- The CI workflow (`.github/workflows/build.yml`) triggers on `release: published` to build, tag, sign, and publish the Docker image. Docker images are NOT built on push-to-main to avoid race conditions between push and release events.

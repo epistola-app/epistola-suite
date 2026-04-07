@@ -12,6 +12,7 @@
 
 ### Fixed
 
+- **Release workflow race condition**: Docker images are now only built on `release` events, not on every push to main. This eliminates the race condition where simultaneous `push` and `release` events could cause the release event to be suppressed, resulting in missing version-tagged Docker images. The release skill now also pins the tag to the exact changelog commit using `--target`.
 - **Restrict `sys.pages.current` to page headers/footers**: The current page number is only available during per-page rendering and cannot work in body content. The renderer now validates this at render time, and the editor expression dialog hides `sys.pages.current` for nodes outside page headers/footers.
 
 ### Changed

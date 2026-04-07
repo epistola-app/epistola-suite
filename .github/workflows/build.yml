@@ -217,7 +217,10 @@ jobs:
     name: Build and Push ${{ matrix.variant }} Docker Image
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' || github.event_name == 'release' || contains(github.event.pull_request.labels.*.name, 'publish')
+    if: github.event_name == 'release' || contains(github.event.pull_request.labels.*.name, 'publish')
+    concurrency:
+      group: docker-publish
+      cancel-in-progress: false
     permissions:
       contents: write
       packages: write
@@ -315,8 +318,6 @@ jobs:
           if [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
             VERSION="${VERSION#v}"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            VERSION="${{ github.sha }}"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             VERSION="${{ steps.previoustag.outputs.tag }}-pr${{ github.event.pull_request.number }}"
           fi
@@ -353,25 +354,6 @@ jobs:
         if: ${{ matrix.enabled && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish') }}
         env:
           DIGEST: ${{ steps.push_pr.outputs.digest }}
-        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
-
-      - name: Tag and push Docker image (main)
-        if: ${{ matrix.enabled && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        id: push_main
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          SUFFIX: ${{ matrix.image-suffix }}
-        run: |
-          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
-          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
-          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
-
-      - name: Sign Docker image (main)
-        if: ${{ matrix.enabled && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        env:
-          DIGEST: ${{ steps.push_main.outputs.digest }}
         run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Tag and push Docker image (release)
