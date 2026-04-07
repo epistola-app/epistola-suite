@@ -88,6 +88,26 @@ When a GitHub release is created with a `vX.Y.Z` tag:
 
 **Usage:** To test a Docker image from a PR, add the `publish` label.
 
+### CodeQL Analysis
+
+**File:** `.github/workflows/codeql.yml`
+
+**Triggers:**
+
+- Every push to `main`
+- Every pull request targeting `main`
+- Weekly schedule (Saturday at 6 AM UTC)
+
+**What it does:**
+
+1. Runs CodeQL static analysis (SAST) on two language groups in parallel:
+   - **Java/Kotlin**: Custom build (Gradle `classes` task) then analysis
+   - **JavaScript/TypeScript**: Autobuild then analysis
+2. Uses the `security-and-quality` query suite for broader coverage
+3. Uploads SARIF results to the GitHub **Security** tab → **Code scanning**
+
+**Results:** View findings in the repository's Security tab under Code scanning alerts.
+
 ### Label Sync
 
 **File:** `.github/workflows/labels.yml`
@@ -493,6 +513,7 @@ Recommended settings:
 | File                                         | Purpose                            |
 | -------------------------------------------- | ---------------------------------- |
 | `.github/workflows/build.yml`                | CI/CD: build, test, Docker publish |
+| `.github/workflows/codeql.yml`               | CodeQL static analysis (SAST)      |
 | `.github/workflows/labels.yml`               | Label synchronization              |
 | `.github/workflows/project-sync.yml`         | GitHub Project synchronization     |
 | `.github/labels.yml`                         | Label definitions                  |

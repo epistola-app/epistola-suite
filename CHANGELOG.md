@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **CodeQL static analysis**: New GitHub Actions workflow (`.github/workflows/codeql.yml`) that runs CodeQL SAST scanning on every push and PR to main, plus a weekly schedule. Scans both Java/Kotlin backend and JavaScript/TypeScript frontend with the `security-and-quality` query suite. Results appear in the GitHub Security tab under Code scanning.
+
 ## [0.13.0] - 2026-04-07
 
 ### Added
