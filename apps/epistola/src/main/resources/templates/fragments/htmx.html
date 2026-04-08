@@ -126,9 +126,16 @@
                 var banner = document.createElement('div');
                 banner.className = 'alert alert-error global-error-banner';
                 banner.style.marginBottom = 'var(--ep-space-4)';
-                banner.innerHTML = '<span>' + message + '</span>' +
-                    '<button type="button" class="btn btn-sm btn-ghost" style="margin-left: auto;" ' +
-                    'onclick="this.parentElement.remove()">&times;</button>';
+                var span = document.createElement('span');
+                span.textContent = message;
+                banner.appendChild(span);
+                var closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'btn btn-sm btn-ghost';
+                closeBtn.style.marginLeft = 'auto';
+                closeBtn.textContent = '\u00d7';
+                closeBtn.addEventListener('click', function() { banner.remove(); });
+                banner.appendChild(closeBtn);
                 banner.style.display = 'flex';
                 banner.style.alignItems = 'center';
                 main.insertBefore(banner, main.firstChild);

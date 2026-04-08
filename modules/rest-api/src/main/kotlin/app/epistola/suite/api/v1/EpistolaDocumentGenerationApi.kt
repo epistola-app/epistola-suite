@@ -40,6 +40,16 @@ import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import java.util.UUID
 
+private const val MAX_PAGE_SIZE = 1000
+
+private fun sanitizedOffset(page: Int, size: Int): Int {
+    val safePage = page.coerceIn(0, Int.MAX_VALUE / MAX_PAGE_SIZE)
+    val safeSize = size.coerceIn(1, MAX_PAGE_SIZE)
+    return safePage * safeSize
+}
+
+private fun sanitizedLimit(size: Int): Int = size.coerceIn(1, MAX_PAGE_SIZE)
+
 @RestController
 @RequestMapping("/api")
 class EpistolaDocumentGenerationApi(
@@ -100,8 +110,8 @@ class EpistolaDocumentGenerationApi(
         val jobs = ListGenerationJobs(
             tenantId = TenantKey.of(tenantId),
             status = statusEnum,
-            limit = size,
-            offset = page * size,
+            limit = sanitizedLimit(size),
+            offset = sanitizedOffset(page, size),
         ).query()
 
         // TODO: Get total count for pagination
@@ -190,8 +200,8 @@ class EpistolaDocumentGenerationApi(
             tenantId = TenantKey.of(tenantId),
             templateId = templateId?.let { TemplateKey.of(it) },
             correlationId = correlationId,
-            limit = size,
-            offset = page * size,
+            limit = sanitizedLimit(size),
+            offset = sanitizedOffset(page, size),
         ).query()
 
         // TODO: Get total count for pagination

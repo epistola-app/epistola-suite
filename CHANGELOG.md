@@ -5,6 +5,18 @@
 ### Added
 
 - **Per-tenant feature toggles**: Tenant managers can enable/disable features per tenant via Settings > Features. Global defaults are configured in `application.yaml` (`epistola.features.*`), with per-tenant overrides stored in the database. The feedback feature is the first gated capability — when disabled, the feedback nav link, FAB button, and console capture script are hidden for that tenant.
+- **CodeQL static analysis**: New GitHub Actions workflow (`.github/workflows/codeql.yml`) that runs CodeQL SAST scanning on every push and PR to main, plus a weekly schedule. Scans both Java/Kotlin backend and JavaScript/TypeScript frontend with the `security-and-quality` query suite. Results appear in the GitHub Security tab under Code scanning.
+- **Content Security Policy headers**: CSP headers are now set on all UI responses, restricting script/style/font/image sources and blocking framing and plugin-based attacks.
+
+### Fixed
+
+- **DOM XSS in HTMX error banner**: Replaced `innerHTML` with safe DOM API (`textContent` + `createElement`) in the global HTMX error handler to prevent potential cross-site scripting via error messages.
+- **Catalog HTTP restriction**: Remote catalog fetching now requires HTTPS by default. Plain HTTP is only allowed when explicitly enabled via `epistola.catalog.allow-http=true` (set in the local profile).
+- **Pagination bounds validation**: API pagination parameters (`page`, `size`) are now sanitized to prevent integer overflow and unbounded queries (max page size: 1000).
+
+### Changed
+
+- **GitHub Actions pinned to commit SHAs**: All GitHub Actions across all workflows are now pinned to immutable commit SHAs instead of mutable version tags, preventing supply chain attacks.
 
 ## [0.13.0] - 2026-04-07
 

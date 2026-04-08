@@ -13,13 +13,13 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
 
       - name: Build frontend
         run: pnpm install && pnpm build
@@ -32,7 +32,7 @@ jobs:
 
       - name: Scan backend SBOM for vulnerabilities
         id: trivy-backend
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -42,7 +42,7 @@ jobs:
 
       - name: Scan frontend SBOM for vulnerabilities
         id: trivy-frontend
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
@@ -127,7 +127,7 @@ jobs:
 
       - name: Create issue if critical vulnerabilities found
         if: steps.badge.outputs.critical > 0
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const critical = ${{ steps.badge.outputs.critical }};

@@ -23,7 +23,7 @@ jobs:
       packages: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Check contract version
         if: github.event_name == 'pull_request'
@@ -35,14 +35,14 @@ jobs:
           fi
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
 
       - name: Get pnpm store directory
         shell: bash
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -65,10 +65,10 @@ jobs:
         run: pnpm test
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('gradle/libs.versions.toml') }}
@@ -175,7 +175,7 @@ jobs:
           pnpm --filter @epistola/editor sbom
 
       - name: Scan backend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -185,7 +185,7 @@ jobs:
           output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
@@ -195,7 +195,7 @@ jobs:
           output: "frontend-vulnerability-report.txt"
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: sbom
           path: |
@@ -204,7 +204,7 @@ jobs:
           retention-days: 7
 
       - name: Upload vulnerability reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         if: always()
         with:
           name: vulnerability-reports
@@ -248,13 +248,13 @@ jobs:
 
       - name: Checkout
         if: ${{ matrix.enabled }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
       - name: Setup tools with mise
         if: ${{ matrix.enabled }}
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
 
       - name: Get pnpm store directory
         if: ${{ matrix.enabled }}
@@ -263,7 +263,7 @@ jobs:
 
       - name: Setup pnpm cache
         if: ${{ matrix.enabled }}
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -280,11 +280,11 @@ jobs:
 
       - name: Setup Gradle cache
         if: ${{ matrix.enabled }}
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
 
       - name: Log in to Container Registry
         if: ${{ matrix.enabled }}
-        uses: docker/login-action@v4
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -292,7 +292,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ matrix.enabled }}
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
       - name: Extract version from release tag
         if: ${{ matrix.enabled && github.event_name == 'release' }}

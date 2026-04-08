@@ -3,6 +3,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.protocol.ResourceDetail
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ResourceLoader
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
@@ -16,11 +17,19 @@ class CatalogClient(
     private val catalogRestClient: RestClient,
     private val objectMapper: ObjectMapper,
     private val resourceLoader: ResourceLoader,
+    @Value("\${epistola.catalog.allow-http:false}") private val allowHttp: Boolean = false,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private val allowedSchemes = buildSet {
+        add("https")
+        add("file")
+        add("classpath")
+        if (allowHttp) add("http")
+    }
+
     fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest {
-        validateUrl(url)
+        validateUrl(url, allowedSchemes)
         logger.debug("Fetching catalog manifest from {}", url)
         return readLocal(url, CatalogManifest::class.java)
             ?: fetchHttp(url, authType, credential)
@@ -28,7 +37,7 @@ class CatalogClient(
 
     fun fetchResourceDetail(detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
-        validateUrl(resolvedUrl)
+        validateUrl(resolvedUrl, allowedSchemes)
         logger.debug("Fetching resource detail from {}", resolvedUrl)
         return readLocal(resolvedUrl, ResourceDetail::class.java)
             ?: fetchHttp(resolvedUrl, authType, credential)
@@ -72,15 +81,13 @@ class CatalogClient(
     }
 
     companion object {
-        private val ALLOWED_SCHEMES = setOf("http", "https", "file", "classpath")
-
-        fun validateUrl(url: String) {
+        fun validateUrl(url: String, allowedSchemes: Set<String> = setOf("https", "file", "classpath")) {
             require(url.substringAfterLast(".").equals("json", ignoreCase = true)) {
                 "Catalog URLs must point to .json files"
             }
             val scheme = url.substringBefore(":")
-            require(scheme in ALLOWED_SCHEMES) {
-                "Unsupported URL scheme: $scheme. Allowed: $ALLOWED_SCHEMES"
+            require(scheme in allowedSchemes) {
+                "Unsupported URL scheme: $scheme. Allowed: $allowedSchemes"
             }
             if (url.startsWith("file:")) {
                 val uri = URI.create(url)
