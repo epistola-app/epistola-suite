@@ -22,23 +22,18 @@ class ChangelogHandler(
         val version = request.queryParam("version")
         val entries = changelogRenderer.entries()
 
-        return if (version != null) {
-            val entry = entries.find { it.version == version }
-            ServerResponse.ok().render(
-                "fragments/changelog :: version-content",
-                mapOf("entries" to listOfNotNull(entry)),
-            )
-        } else {
-            val latestEntry = entries.firstOrNull()
-            ServerResponse.ok().render(
-                "fragments/changelog :: content",
-                mapOf(
-                    "entries" to listOfNotNull(latestEntry),
-                    "versions" to entries,
-                    "selectedVersion" to latestEntry?.version,
-                ),
-            )
-        }
+        val selectedVersion = version ?: entries.firstOrNull()?.version
+        val selectedEntry = entries.find { it.version == selectedVersion }
+        val fragment = if (version != null) "layout" else "content"
+
+        return ServerResponse.ok().render(
+            "fragments/changelog :: $fragment",
+            mapOf(
+                "entries" to listOfNotNull(selectedEntry),
+                "versions" to entries,
+                "selectedVersion" to selectedVersion,
+            ),
+        )
     }
 
     fun acknowledge(request: ServerRequest): ServerResponse {
