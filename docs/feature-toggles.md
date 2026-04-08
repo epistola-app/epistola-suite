@@ -21,19 +21,20 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
 
 ## Key Classes
 
-| Class | Location | Purpose |
-|-------|----------|---------|
-| `KnownFeatures` | `modules/epistola-core/.../features/` | Registry of all feature keys with descriptions |
-| `FeatureDefaults` | `modules/epistola-core/.../features/` | Global defaults from `application.yaml` |
-| `FeatureToggleService` | `modules/epistola-core/.../features/` | Resolves effective state (DB override or default) |
-| `FeatureKey` | `modules/epistola-core/.../common/ids/` | Typed value class with slug validation |
-| `SaveFeatureToggle` | `modules/epistola-core/.../features/commands/` | Upserts a tenant override |
-| `DeleteFeatureToggle` | `modules/epistola-core/.../features/commands/` | Removes a tenant override (reverts to default) |
-| `GetFeatureToggles` | `modules/epistola-core/.../features/queries/` | Returns all features with resolved state |
+| Class                  | Location                                       | Purpose                                           |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------- |
+| `KnownFeatures`        | `modules/epistola-core/.../features/`          | Registry of all feature keys with descriptions    |
+| `FeatureDefaults`      | `modules/epistola-core/.../features/`          | Global defaults from `application.yaml`           |
+| `FeatureToggleService` | `modules/epistola-core/.../features/`          | Resolves effective state (DB override or default) |
+| `FeatureKey`           | `modules/epistola-core/.../common/ids/`        | Typed value class with slug validation            |
+| `SaveFeatureToggle`    | `modules/epistola-core/.../features/commands/` | Upserts a tenant override                         |
+| `DeleteFeatureToggle`  | `modules/epistola-core/.../features/commands/` | Removes a tenant override (reverts to default)    |
+| `GetFeatureToggles`    | `modules/epistola-core/.../features/queries/`  | Returns all features with resolved state          |
 
 ## How to Add a New Feature Toggle
 
 1. **Register the feature** in `KnownFeatures`:
+
    ```kotlin
    val MY_FEATURE = FeatureKey.of("my-feature")
    val all: List<FeatureKey> = listOf(FEEDBACK, MY_FEATURE)
@@ -44,6 +45,7 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
    ```
 
 2. **Add the default** in `FeatureDefaults`:
+
    ```kotlin
    data class FeatureDefaults(
        val feedback: Boolean = false,
@@ -58,6 +60,7 @@ Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
    ```
 
 3. **Set the global default** in `application.yaml`:
+
    ```yaml
    epistola:
      features:
@@ -91,14 +94,14 @@ The feature toggles management page is at `/tenants/{tenantId}/features` (Settin
 
 ## Access Control
 
-| Operation | Permission |
-|-----------|-----------|
-| View feature toggles | `TENANT_SETTINGS` |
-| Save feature toggles | `TENANT_SETTINGS` |
+| Operation             | Permission        |
+| --------------------- | ----------------- |
+| View feature toggles  | `TENANT_SETTINGS` |
+| Save feature toggles  | `TENANT_SETTINGS` |
 | Delete feature toggle | `TENANT_SETTINGS` |
 
 ## Current Features
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `feedback` | Enables the feedback system (nav link, FAB, console capture) | `true` |
+| Key        | Description                                                  | Default |
+| ---------- | ------------------------------------------------------------ | ------- |
+| `feedback` | Enables the feedback system (nav link, FAB, console capture) | `true`  |

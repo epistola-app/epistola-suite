@@ -163,7 +163,8 @@ pnpm --filter @epistola/editor watch
 ### Formatting (All Files)
 
 - **Formatter**: oxfmt via `pnpm format` (enforced in CI)
-- **Always run `pnpm format`** before committing to auto-fix formatting across all file types (JSON, TypeScript, etc.)
+- **Always run `pnpm format`** before committing to auto-fix formatting across all file types (JSON, TypeScript, Markdown, CSS, etc.)
+- **Always run `pnpm format:check`** after committing to verify — this includes Markdown files, so documentation-only changes need formatting too
 - **Run `pnpm format:check`** to verify without modifying files
 
 ### Kotlin
@@ -251,7 +252,7 @@ To add tests to a new module: `testImplementation(project(":modules:testing"))` 
 
 1. **Read existing code first** - Understand patterns before modifying
 2. **Run tests** - `./gradlew test` before and after changes
-3. **Format all files** - `pnpm format` before committing (covers JSON, TypeScript, etc.)
+3. **Format all files** - `pnpm format` before committing (covers JSON, TypeScript, Markdown, CSS, etc. — includes documentation-only changes)
 4. **Format Kotlin** - `./gradlew ktlintFormat` after making Kotlin changes
 5. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
 6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
