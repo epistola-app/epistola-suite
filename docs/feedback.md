@@ -180,6 +180,12 @@ Currently, feedback items created before sync is configured get `sync_status = N
 
 Issues created directly in the GitHub repository (not via Epistola) are currently invisible to the feedback system. The polling scheduler should detect issues in the configured repo that have no corresponding local feedback item and create them locally. This would allow developers to create issues in GitHub and have them appear in the Epistola feedback UI. Matching criteria: repo + label filter, excluding issues already tracked via `external_ref`.
 
+## Feature Toggle
+
+The feedback feature can be enabled/disabled per tenant via the feature toggles UI (Settings > Features). When disabled, the feedback nav link, FAB button, and console capture script are hidden for that tenant. The global default is configured via `epistola.features.feedback` in `application.yaml` (default: `true`).
+
+See `docs/feature-toggles.md` for the general feature toggle architecture.
+
 ## Implementation Phases
 
 1. **Phase 0**: Per-tenant roles from JWT (TenantRole enum, update EpistolaPrincipal)

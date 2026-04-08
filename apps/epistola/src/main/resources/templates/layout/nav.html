@@ -86,7 +86,8 @@
                                th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
                                 Load Tests
                             </a>
-                            <a th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
+                            <a th:if="${feedbackEnabled}"
+                               th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
                                 Feedback
@@ -97,7 +98,7 @@
                     <!-- Settings dropdown (managers only) -->
                     <div th:if="${auth.has('TENANT_SETTINGS')}"
                          class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'catalogs','admin'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'catalogs','admin','features'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Settings
@@ -113,6 +114,11 @@
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">
                                 Admin
+                            </a>
+                            <a th:href="@{/tenants/{id}/features(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'features'} ? ' active' : ''">
+                                Features
                             </a>
                         </div>
                     </div>
@@ -172,7 +178,8 @@
                     <a th:if="${auth.has('DOCUMENT_GENERATE')}"
                        th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''" role="menuitem">Load Tests</a>
-                    <a th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:if="${feedbackEnabled}"
+                       th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>
                 </div>
                 <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">
@@ -181,6 +188,8 @@
                        th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''" role="menuitem">Catalogs</a>
                     <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'admin'} ? ' active' : ''" role="menuitem">Admin</a>
+                    <a th:href="@{/tenants/{id}/features(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'features'} ? ' active' : ''" role="menuitem">Features</a>
                 </div>
                 <div class="app-nav-mobile-footer">
                     <a th:href="@{/}" class="app-nav-mobile-item" role="menuitem">

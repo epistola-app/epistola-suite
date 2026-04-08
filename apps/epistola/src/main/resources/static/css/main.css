@@ -1539,3 +1539,35 @@ a.stat-card:hover {
   justify-content: flex-end;
   padding: 0 var(--ep-space-3) var(--ep-space-2);
 }
+
+/* ── Feature toggle item ─────────────────────────────────────────────── */
+
+.feature-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-4);
+  padding: var(--ep-space-3) 0;
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.feature-toggle-item:last-of-type {
+  border-bottom: none;
+}
+
+.feature-toggle-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-toggle-name {
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+  color: var(--ep-foreground);
+}
+
+.feature-toggle-description {
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  margin-top: var(--ep-space-0-5);
+}

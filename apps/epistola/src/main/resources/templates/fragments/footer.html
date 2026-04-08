@@ -45,7 +45,7 @@
         </th:block>
 
         <!-- Feedback FAB + console capture (tenant-scoped pages only) -->
-        <th:block th:if="${tenantId != null}" sec:authorize="isAuthenticated()">
+        <th:block th:if="${tenantId != null and feedbackEnabled}" sec:authorize="isAuthenticated()">
             <script th:src="@{/feedback/feedback-capture.js}"></script>
             <script type="module" th:inline="javascript">
                 const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');

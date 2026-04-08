@@ -462,3 +462,32 @@ value class FeedbackAssetKey(@JsonValue override val value: UUID) : UuidKey<Feed
 
     override fun toString(): String = value.toString()
 }
+
+/**
+ * Typed key for Feature toggle entries.
+ */
+@JvmInline
+value class FeatureKey(@JsonValue override val value: String) : SlugKey<FeatureKey> {
+    init {
+        require(value.length in 3..50) {
+            "Feature key must be 3-50 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Feature key must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+    }
+
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+
+        fun of(value: String): FeatureKey = FeatureKey(value)
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeatureKey = FeatureKey(value)
+
+        fun validateOrNull(value: String): FeatureKey? = runCatching { FeatureKey(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
+}
