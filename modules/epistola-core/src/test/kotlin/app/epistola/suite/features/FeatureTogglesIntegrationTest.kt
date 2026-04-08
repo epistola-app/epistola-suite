@@ -71,8 +71,8 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("toggle-default")
         withMediator {
             val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.FEEDBACK)
-            // Global default for feedback is true
-            assertThat(enabled).isTrue()
+            // No override and no test config → falls back to FeatureDefaults constructor default (false)
+            assertThat(enabled).isFalse()
         }
     }
 
@@ -92,13 +92,14 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("toggle-tenant1")
         val tenant2 = createTenant("toggle-tenant2")
         withMediator {
-            SaveFeatureToggle(tenant1.id, KnownFeatures.FEEDBACK, enabled = false).execute()
+            SaveFeatureToggle(tenant1.id, KnownFeatures.FEEDBACK, enabled = true).execute()
 
             val features1 = featureToggleService.resolveAll(tenant1.id)
             val features2 = featureToggleService.resolveAll(tenant2.id)
 
-            assertThat(features1[KnownFeatures.FEEDBACK]).isFalse()
-            assertThat(features2[KnownFeatures.FEEDBACK]).isTrue()
+            // tenant1 has override → true, tenant2 has no override → falls back to default (false)
+            assertThat(features1[KnownFeatures.FEEDBACK]).isTrue()
+            assertThat(features2[KnownFeatures.FEEDBACK]).isFalse()
         }
     }
 }
