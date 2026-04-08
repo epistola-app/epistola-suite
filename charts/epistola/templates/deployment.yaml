@@ -69,25 +69,49 @@ spec:
             {{- end }}
             {{- /* Keycloak / OAuth2 — set canonical Spring property env vars */}}
             {{- if .Values.keycloak.enabled }}
-            {{- $issuerUri := required "keycloak.issuerUri is required when keycloak.enabled is true" .Values.keycloak.issuerUri }}
+            {{- if .Values.keycloak.existingSecret }}
+            {{- /* All values from existing secret */}}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
-              value: {{ .Values.keycloak.clientId | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.existingSecret }}
+                  key: {{ .Values.keycloak.secretKeys.clientId }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "keycloak.existingSecret is required when keycloak.enabled is true" .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKey }}
+                  name: {{ .Values.keycloak.existingSecret }}
+                  key: {{ .Values.keycloak.secretKeys.clientSecret }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
-              value: {{ $issuerUri | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.existingSecret }}
+                  key: {{ .Values.keycloak.secretKeys.issuerUri }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
-              value: {{ $issuerUri | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.existingSecret }}
+                  key: {{ .Values.keycloak.secretKeys.issuerUri }}
             - name: EPISTOLA_KEYCLOAK_CLIENTID
-              value: {{ .Values.keycloak.clientId | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.existingSecret }}
+                  key: {{ .Values.keycloak.secretKeys.clientId }}
             - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKey }}
+                  key: {{ .Values.keycloak.secretKeys.clientSecret }}
+            {{- else }}
+            {{- /* Plain values (dev/testing) */}}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
+              value: {{ .Values.keycloak.clientId | quote }}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
+              value: {{ required "keycloak.issuerUri is required when keycloak.enabled is true and no existingSecret is set" .Values.keycloak.issuerUri | quote }}
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+              value: {{ .Values.keycloak.issuerUri | quote }}
+            - name: EPISTOLA_KEYCLOAK_CLIENTID
+              value: {{ .Values.keycloak.clientId | quote }}
+            {{- end }}
             {{- if .Values.keycloak.ensureGroups }}
             - name: EPISTOLA_KEYCLOAK_ENSUREGROUPS
               value: "true"

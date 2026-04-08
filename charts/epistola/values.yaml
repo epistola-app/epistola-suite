@@ -148,13 +148,18 @@ observability:
 # Keycloak / OAuth2 configuration (optional, requires config.profiles to include "keycloak")
 keycloak:
   enabled: false
+  # Plain values (used when existingSecret is empty)
   clientId: epistola-suite
-  # Name of existing secret containing the client secret
-  existingSecret: ""
-  # Key in the secret containing the client secret
-  secretKey: client-secret
-  # Keycloak issuer URI (e.g., https://keycloak.example.com/realms/epistola)
   issuerUri: ""
+  # Reference a pre-existing secret containing Keycloak credentials.
+  # When set, all values are read from the secret using the key names in secretKeys.
+  # When empty, plain values above are used (suitable for dev/testing).
+  existingSecret: ""
+  # Key names within the existing secret
+  secretKeys:
+    clientId: client-id
+    clientSecret: client-secret
+    issuerUri: issuer-uri
   # Ensure base group hierarchy (/epistola/tenants, /epistola/global/*, /epistola/platform/*) exists on startup
   ensureGroups: false
   # Internal base URL for server-to-server OIDC calls (token, JWK, userinfo).
