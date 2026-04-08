@@ -17,22 +17,23 @@
             <div th:if="${versions == null or versions.isEmpty()}" class="changelog-empty">
                 <p>No changelog entries available.</p>
             </div>
-            <div th:if="${versions != null and !versions.isEmpty()}" class="changelog-layout">
+            <div th:if="${versions != null and !versions.isEmpty()}"
+                 id="changelog-layout"
+                 class="changelog-layout">
                 <nav class="changelog-version-list" aria-label="Versions">
                     <button th:each="v : ${versions}"
                             type="button"
                             class="changelog-version-item"
                             th:classappend="${v.version == selectedVersion} ? 'active'"
                             th:hx-get="@{/changelog(version=${v.version})}"
-                            hx-target="#changelog-detail"
-                            hx-swap="innerHTML"
-                            onclick="this.closest('.changelog-version-list').querySelectorAll('.changelog-version-item').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); }); this.classList.add('active'); this.setAttribute('aria-current', 'true');"
+                            hx-target="#changelog-layout"
+                            hx-swap="outerHTML"
                             th:attr="aria-current=${v.version == selectedVersion} ? 'true'">
                         <span class="changelog-version-label" th:text="'v' + ${v.version}">v0.12.0</span>
                         <span class="changelog-version-date" th:text="${v.date}">2026-04-04</span>
                     </button>
                 </nav>
-                <div id="changelog-detail" class="changelog-detail changelog-content" aria-live="polite">
+                <div class="changelog-detail changelog-content" aria-live="polite">
                     <th:block th:each="entry : ${entries}">
                         <div th:utext="${entry.html}">Changelog content</div>
                     </th:block>
@@ -41,12 +42,29 @@
         </div>
     </th:block>
 
-    <!-- Version content fragment (HTMX partial swap) -->
-    <th:block th:fragment="version-content">
-        <th:block th:each="entry : ${entries}">
-            <div th:utext="${entry.html}">Changelog content</div>
-        </th:block>
-        <p th:if="${entries == null or entries.isEmpty()}" class="changelog-empty">Version not found.</p>
+    <!-- Layout fragment (HTMX partial swap on version change) -->
+    <th:block th:fragment="layout">
+        <div id="changelog-layout" class="changelog-layout">
+            <nav class="changelog-version-list" aria-label="Versions">
+                <button th:each="v : ${versions}"
+                        type="button"
+                        class="changelog-version-item"
+                        th:classappend="${v.version == selectedVersion} ? 'active'"
+                        th:hx-get="@{/changelog(version=${v.version})}"
+                        hx-target="#changelog-layout"
+                        hx-swap="outerHTML"
+                        th:attr="aria-current=${v.version == selectedVersion} ? 'true'">
+                    <span class="changelog-version-label" th:text="'v' + ${v.version}">v0.12.0</span>
+                    <span class="changelog-version-date" th:text="${v.date}">2026-04-04</span>
+                </button>
+            </nav>
+            <div class="changelog-detail changelog-content" aria-live="polite">
+                <th:block th:each="entry : ${entries}">
+                    <div th:utext="${entry.html}">Changelog content</div>
+                </th:block>
+                <p th:if="${entries == null or entries.isEmpty()}" class="changelog-empty">Version not found.</p>
+            </div>
+        </div>
     </th:block>
 
     <!-- Muted What's New card (returned after dismiss) -->
