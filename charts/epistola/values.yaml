@@ -145,7 +145,7 @@ observability:
     datasourceName: "Prometheus"
     folder: "Epistola"
 
-# Keycloak / OAuth2 configuration (optional, requires config.profiles to include "prod")
+# Keycloak / OAuth2 configuration (optional, requires config.profiles to include "keycloak")
 keycloak:
   enabled: false
   clientId: epistola-suite
@@ -163,6 +163,8 @@ keycloak:
 # Application configuration
 config:
   # Spring profiles to activate
+  # Production:    "prod,keycloak"
+  # Staging/Test:  "keycloak,demo" or "keycloak,demo,localauth"
   profiles: ""
   # Additional environment variables
   env: {}

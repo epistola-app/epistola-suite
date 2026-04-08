@@ -1,24 +1,8 @@
-# Production configuration with OAuth2/OIDC authentication
+# Production hardening. Pair with 'keycloak' for OAuth2/OIDC authentication.
+#
+# Usage: spring.profiles.active=prod,keycloak
 
 spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          keycloak:
-            client-id: ${KEYCLOAK_CLIENT_ID:epistola-suite}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET:}
-            scope: openid,profile,email
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            authorization-grant-type: authorization_code
-        provider:
-          keycloak:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
-            user-name-attribute: preferred_username
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
-
   flyway:
     clean-disabled: true # NEVER allow clean in production
 
@@ -27,12 +11,6 @@ spring:
     timeout: 8h
 
 epistola:
-  auth:
-    auto-provision: true
-
-  demo:
-    enabled: false # Disable demo loading in production
-
   # Document generation configuration
   generation:
     polling:

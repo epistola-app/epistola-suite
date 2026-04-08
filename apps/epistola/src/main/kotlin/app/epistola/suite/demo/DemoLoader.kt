@@ -26,6 +26,7 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
@@ -64,7 +65,7 @@ import javax.imageio.ImageIO
 @ConditionalOnProperty(
     name = ["epistola.demo.enabled"],
     havingValue = "true",
-    matchIfMissing = true,
+    matchIfMissing = false,
 )
 class DemoLoader(
     private val mediator: Mediator,
@@ -75,6 +76,7 @@ class DemoLoader(
     private val apiKeyRepository: ApiKeyRepository,
     private val apiKeyService: ApiKeyService,
     private val jdbcClient: org.springframework.jdbc.core.simple.JdbcClient,
+    private val authProperties: AuthProperties,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -183,14 +185,32 @@ class DemoLoader(
      * Seeds local dev users into the database so that foreign key constraints
      * (e.g., feedback.created_by) are satisfied. These users match the in-memory
      * users defined in LocalUserDetailsService.
+     *
+     * Uses the same deterministic UUID generation as LocalUserDetailsService
+     * so that user IDs match between database records and authentication principals.
      */
     private fun seedLocalUsers(tenantKey: TenantKey) {
-        val users = listOf(
-            Triple(DEMO_ADMIN_USER_ID, "admin@local", "Local Admin"),
-            Triple(DEMO_MEMBER_USER_ID, "user@local", "Local User"),
-        )
+        val users = authProperties.localUsers.ifEmpty {
+            // Fallback defaults when no local-users are configured (demo without localauth)
+            listOf(
+                app.epistola.suite.security.LocalUserProperties(
+                    username = "admin@local",
+                    password = "unused",
+                    displayName = "Local Admin",
+                    tenant = tenantKey.value,
+                ),
+                app.epistola.suite.security.LocalUserProperties(
+                    username = "user@local",
+                    password = "unused",
+                    displayName = "Local User",
+                    tenant = tenantKey.value,
+                ),
+            )
+        }
 
-        for ((userId, email, displayName) in users) {
+        for (user in users) {
+            val userId = deterministicUserId(user.username)
+
             jdbcClient.sql(
                 """
                 INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
@@ -198,10 +218,10 @@ class DemoLoader(
                 ON CONFLICT (external_id, provider) DO NOTHING
                 """,
             )
-                .param(UserKey.of(userId).value)
-                .param(email)
-                .param(email)
-                .param(displayName)
+                .param(userId.value)
+                .param(user.username)
+                .param(user.username)
+                .param(user.displayName)
                 .update()
 
             jdbcClient.sql(
@@ -211,7 +231,7 @@ class DemoLoader(
                 ON CONFLICT DO NOTHING
                 """,
             )
-                .param(UserKey.of(userId).value)
+                .param(userId.value)
                 .param(tenantKey.value)
                 .update()
         }
@@ -509,19 +529,22 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "15.0.1" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "16.0.0" // Bump this to reset demo tenant (changed user ID scheme)
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
-        private const val DEMO_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000001"
-        private const val DEMO_MEMBER_USER_ID = "00000000-0000-0000-0000-000000000002"
         private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-100000000001"
         private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-200000000001"
         const val DEMO_API_KEY = "epk_demo_000000000000000000000000000000000000"
 
+        /**
+         * Generates a deterministic UUID from a username, matching [LocalUserDetailsService].
+         */
+        fun deterministicUserId(username: String): UserKey = UserKey.of(java.util.UUID.nameUUIDFromBytes(username.toByteArray(java.nio.charset.StandardCharsets.UTF_8)))
+
         /** Bootstrap principal used by DemoLoader — has full access to all operations. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
-            userId = UserKey.of(DEMO_ADMIN_USER_ID),
+            userId = deterministicUserId("system@epistola.app"),
             externalId = "system",
             email = "system@epistola.app",
             displayName = "System",

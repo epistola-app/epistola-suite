@@ -1,13 +1,10 @@
-# Demo profile: form-based login with in-memory users, suitable for K8s demo environments.
-# Users: admin@local / admin, user@local / user
-
-spring:
-  flyway:
-    clean-disabled: false
+# Demo profile: loads demo tenant, themes, and templates.
+# Does NOT affect authentication or database management.
+#
+# Combine with an auth profile:
+#   - keycloak,demo         -> OAuth2 + demo data
+#   - keycloak,demo,localauth -> OAuth2 + form login + demo data
 
 epistola:
-  auth:
-    auto-provision: false
-
   demo:
     enabled: true

@@ -1,18 +1,17 @@
-# Keycloak profile for OAuth2/OIDC testing
+# Keycloak profile: OAuth2/OIDC authentication via Keycloak.
 #
 # This profile is ADDITIVE - use it together with other profiles:
-#   - local,keycloak  -> Form login + OAuth2 (both options on login page)
-#   - keycloak        -> OAuth2 only
+#   - local,keycloak           -> Form login + OAuth2 (both options on login page)
+#   - keycloak,demo            -> OAuth2 + demo data (staging/test)
+#   - keycloak,demo,localauth  -> OAuth2 + form login + demo data (staging/test)
+#   - prod,keycloak            -> OAuth2 only (production)
 #
-# Start Keycloak:
+# For local development with Keycloak:
 #   docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
-#
-# Run app:
 #   ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
 #
-# Keycloak test users:
-#   - admin@test / admin
-#   - user@test / user
+# Override for production via environment variables:
+#   KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET, KEYCLOAK_ISSUER_URI
 
 spring:
   security:
@@ -20,24 +19,24 @@ spring:
       client:
         registration:
           keycloak:
-            client-id: epistola-suite
-            client-secret: epistola-dev-secret
+            client-id: ${KEYCLOAK_CLIENT_ID:epistola-suite}
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:epistola-dev-secret}
             scope: openid,profile,email
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
         provider:
           keycloak:
-            issuer-uri: http://localhost:8080/realms/epistola
+            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
             user-name-attribute: preferred_username
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/epistola
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
 
 epistola:
   auth:
     auto-provision: true
   keycloak:
     admin-url: ${epistola.auth.oidc.backchannel-base-url:http://localhost:8080}
-    realm: epistola
-    client-id: epistola-suite
+    realm: ${KEYCLOAK_REALM:epistola}
+    client-id: ${KEYCLOAK_CLIENT_ID:epistola-suite}
     client-secret: ${KEYCLOAK_CLIENT_SECRET:epistola-dev-secret}

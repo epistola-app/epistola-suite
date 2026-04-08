@@ -2,21 +2,43 @@
 
 Epistola Suite uses **bean-driven authentication** that adapts to the runtime environment based on which Spring beans are present:
 
-| Bean Present                   | Authentication Method                         | Provided By                                                                             |
-| ------------------------------ | --------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `UserDetailsService`           | Form-based login with in-memory users         | `LocalUserDetailsService` (`local` / `demo` profiles)                                   |
-| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, etc.)                  | Spring Security auto-config from `application-prod.yaml` or `application-keycloak.yaml` |
-| Neither                        | **Startup failure** — safety validator blocks | —                                                                                       |
+| Bean Present                   | Authentication Method                         | Provided By                                                  |
+| ------------------------------ | --------------------------------------------- | ------------------------------------------------------------ |
+| `UserDetailsService`           | Form-based login with configurable users      | `LocalUserDetailsService` (`local` / `localauth` profiles)   |
+| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, etc.)                  | Spring Security auto-config from `application-keycloak.yaml` |
+| Neither                        | **Startup failure** — safety validator blocks | —                                                            |
 
 ## How It Works
 
 Authentication methods are **not determined by profile name checks**. Instead:
 
-1. **`LocalUserDetailsService`** is annotated `@Profile("local | demo")` — it's the single source of truth for which profiles get form login.
+1. **`LocalUserDetailsService`** is annotated `@Profile("local | localauth")` — it's the single source of truth for which profiles get form login.
 2. **`SecurityConfig`** and **`LoginHandler`** check for `UserDetailsService` bean presence (not profile names).
 3. **`OAuth2UserProvisioningService`** uses `@ConditionalOnBean(ClientRegistrationRepository::class)` — only loaded when OAuth2 is configured.
 
 Adding a new form-login profile only requires updating `LocalUserDetailsService`'s `@Profile` annotation.
+
+## Profile Composition
+
+Profiles are orthogonal — each controls a single concern:
+
+| Profile     | Concern                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `local`     | Dev experience: devtools, filesystem serving, editor watch. Implies form login + demo data. |
+| `localauth` | Form login with configurable users (env-var overridable)                                    |
+| `keycloak`  | OAuth2/OIDC authentication via Keycloak                                                     |
+| `demo`      | Load demo data only (no auth side effects)                                                  |
+| `prod`      | Production hardening: flyway clean disabled, tuned concurrency                              |
+
+### Environment Matrix
+
+| Environment  | Profiles                  | Auth         | Demo | DB Reset |
+| ------------ | ------------------------- | ------------ | ---- | -------- |
+| Local dev    | `local`                   | Form login   | yes  | yes      |
+| Local + KC   | `local,keycloak`          | Form + OAuth | yes  | yes      |
+| Test/Staging | `keycloak,demo`           | OAuth2 only  | yes  | yes      |
+| Test/Staging | `keycloak,demo,localauth` | Both         | yes  | yes      |
+| Production   | `prod,keycloak`           | OAuth2 only  | no   | no       |
 
 ## Safety Guards
 
@@ -24,7 +46,7 @@ Adding a new form-login profile only requires updating `LocalUserDetailsService`
 
 A `SmartInitializingSingleton` that runs at startup and fails fast if:
 
-- **In-memory users in production**: `local` or `demo` profile combined with `prod` → blocks startup (known passwords in production).
+- **In-memory users in production**: `local` or `localauth` profile combined with `prod` → blocks startup.
 - **No authentication configured**: Neither `UserDetailsService` nor `ClientRegistrationRepository` exists → blocks startup (all requests would 403).
 
 Skipped in `test` profile (tests use permit-all security).
@@ -41,19 +63,44 @@ Start the application with the `local` profile:
 ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'
 ```
 
-### Test Accounts
+Default test accounts (configured in `application-local.yaml`):
 
 | Username      | Password | Description                             |
 | ------------- | -------- | --------------------------------------- |
 | `admin@local` | `admin`  | Admin user with access to all tenants   |
 | `user@local`  | `user`   | Regular user with access to demo-tenant |
 
-## Demo Environment
+## Local Auth Profile
 
-The `demo` profile provides the same in-memory users as `local`, suitable for K8s demo environments:
+The `localauth` profile provides form-based login with **configurable** users, suitable for staging/test environments where you need form login alongside Keycloak:
 
 ```bash
-SPRING_PROFILES_ACTIVE=demo
+SPRING_PROFILES_ACTIVE=keycloak,demo,localauth
+```
+
+Override credentials via environment variables:
+
+| Variable                        | Default       |
+| ------------------------------- | ------------- |
+| `LOCAL_AUTH_ADMIN_USERNAME`     | `admin@local` |
+| `LOCAL_AUTH_ADMIN_PASSWORD`     | `admin`       |
+| `LOCAL_AUTH_ADMIN_DISPLAY_NAME` | `Local Admin` |
+| `LOCAL_AUTH_ADMIN_TENANT`       | `demo`        |
+| `LOCAL_AUTH_USER_USERNAME`      | `user@local`  |
+| `LOCAL_AUTH_USER_PASSWORD`      | `user`        |
+| `LOCAL_AUTH_USER_DISPLAY_NAME`  | `Local User`  |
+| `LOCAL_AUTH_USER_TENANT`        | `demo`        |
+
+## Demo Profile
+
+The `demo` profile **only** loads demo data (tenant, themes, templates). It does not affect authentication. Combine it with an auth profile:
+
+```bash
+# OAuth2 + demo data
+SPRING_PROFILES_ACTIVE=keycloak,demo
+
+# OAuth2 + form login + demo data
+SPRING_PROFILES_ACTIVE=keycloak,demo,localauth
 ```
 
 ## Production (OAuth2/OIDC)
@@ -70,22 +117,13 @@ export KEYCLOAK_CLIENT_SECRET=<your-secret>
 export KEYCLOAK_ISSUER_URI=https://keycloak.example.com/realms/epistola
 ```
 
-Or configure in `application-prod.yaml`:
+Activate profiles:
 
-```yaml
-spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          keycloak:
-            client-id: ${KEYCLOAK_CLIENT_ID}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET}
-            scope: openid,profile,email
-        provider:
-          keycloak:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI}
+```bash
+SPRING_PROFILES_ACTIVE=prod,keycloak
 ```
+
+The `keycloak` profile provides all OAuth2 configuration with env-var overrides. The `prod` profile provides production hardening (flyway clean disabled, tuned concurrency).
 
 ### AuthProvider Derivation
 
@@ -104,12 +142,12 @@ See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configurat
 
 ### Auto-Provisioning
 
-When a user logs in via OAuth2 for the first time, they are automatically created in the database if `auto-provision` is enabled:
+When a user logs in via OAuth2 for the first time, they are automatically created in the database. This is enabled by default in the `keycloak` profile:
 
 ```yaml
 epistola:
   auth:
-    auto-provision: true # Default in prod
+    auto-provision: true # Default in keycloak profile
 ```
 
 Disable this to require manual user creation before login.
@@ -283,12 +321,12 @@ class MyHandlerTest : CoreIntegrationTestBase() {
 
 No `UserDetailsService` or `ClientRegistrationRepository` bean was found. Either:
 
-- Activate a profile with form login: `--spring.profiles.active=local` or `demo`
-- Configure OAuth2 registrations: use `prod` or `keycloak` profile
+- Activate a profile with form login: `--spring.profiles.active=local` or `localauth`
+- Configure OAuth2 registrations: use `keycloak` profile
 
-### App Fails to Start with "Cannot combine 'local' or 'demo' profile with 'prod'"
+### App Fails to Start with "Cannot combine 'local' or 'localauth' profile with 'prod'"
 
-In-memory users with known passwords must not be used in production. Remove the `local`/`demo` profile from your production configuration.
+In-memory users must not be used in production. Remove the `local`/`localauth` profile from your production configuration.
 
 ### Session Lost After Restart
 

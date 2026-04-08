@@ -27,10 +27,6 @@ spring:
       enabled: true
       poll-interval: 2000ms
       quiet-period: 1000ms
-  security:
-    oauth2:
-      client:
-        registration: {} # Disable OAuth2 for local profile
   session:
     timeout: 1m # Longer session timeout for local development
 
@@ -48,8 +44,30 @@ management:
       enabled: false
 
 epistola:
+  demo:
+    enabled: true
   auth:
     auto-provision: false # Not needed for in-memory users
+    local-users:
+      - username: admin@local
+        password: admin
+        display-name: Local Admin
+        tenant: demo
+        roles:
+          - READER
+          - EDITOR
+          - GENERATOR
+          - MANAGER
+        platform-roles:
+          - TENANT_MANAGER
+      - username: user@local
+        password: user
+        display-name: Local User
+        tenant: demo
+        roles:
+          - READER
+          - EDITOR
+          - GENERATOR
   catalog:
     allow-http: true
   editor:
