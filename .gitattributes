@@ -1,1 +1,2 @@
 *.jar binary
+CHANGELOG.md merge=union
