@@ -13,6 +13,7 @@ import org.springframework.web.servlet.function.ServerResponse
 
 @Component
 class FeatureHandler {
+    // TODO: Add explicit TENANT_SETTINGS permission check before rendering, to show a proper "not authorized" page instead of a mediator 403 error on direct URL access
     fun featureToggles(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val toggles = GetFeatureToggles(tenantId.key).query()

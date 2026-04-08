@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Per-tenant feature toggles**: Tenant managers can enable/disable features per tenant via Settings > Features. Global defaults are configured in `application.yaml` (`epistola.features.*`), with per-tenant overrides stored in the database. The feedback feature is the first gated capability — when disabled, the feedback nav link, FAB button, and console capture script are hidden for that tenant.
+
 ## [0.13.0] - 2026-04-07
 
 ### Added

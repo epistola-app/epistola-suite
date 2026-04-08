@@ -7,6 +7,7 @@ import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
 
+// TODO: Add Caffeine/Spring Cache with short TTL (~60s) — isEnabled() runs on every page load via ShellModelInterceptor
 @Component
 @EnableConfigurationProperties(FeatureDefaults::class)
 class FeatureToggleService(
