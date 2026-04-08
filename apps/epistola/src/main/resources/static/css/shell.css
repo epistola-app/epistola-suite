@@ -502,7 +502,7 @@
 }
 
 .toggle-switch-slider::before {
-  content: "";
+  content: '';
   position: absolute;
   height: 1.125rem;
   width: 1.125rem;
@@ -525,4 +525,3 @@
   outline: 2px solid var(--ep-primary);
   outline-offset: 2px;
 }
-
