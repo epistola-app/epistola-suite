@@ -60,6 +60,12 @@ spec:
             {{- if .Values.observability.otlpEndpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.observability.otlpEndpoint | quote }}
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED
+              value: "true"
+            - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
+              value: "true"
             {{- end }}
             {{- /* Keycloak / OAuth2 — set canonical Spring property env vars */}}
             {{- if .Values.keycloak.enabled }}

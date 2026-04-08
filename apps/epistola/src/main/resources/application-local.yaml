@@ -30,19 +30,6 @@ spring:
   session:
     timeout: 1m # Longer session timeout for local development
 
-management:
-  otlp:
-    metrics:
-      export:
-        enabled: false
-  logging:
-    export:
-      otlp:
-        enabled: false
-  tracing:
-    export:
-      enabled: false
-
 epistola:
   demo:
     enabled: true

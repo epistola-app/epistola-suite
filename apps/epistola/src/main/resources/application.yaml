@@ -87,3 +87,14 @@ management:
       enabled: true
     readinessState:
       enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
+    tracing:
+      export:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
