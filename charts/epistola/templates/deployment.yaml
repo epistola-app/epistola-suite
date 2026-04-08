@@ -61,17 +61,27 @@ spec:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.observability.otlpEndpoint | quote }}
             {{- end }}
-            {{- /* Keycloak / OAuth2 */}}
+            {{- /* Keycloak / OAuth2 — set canonical Spring property env vars */}}
             {{- if .Values.keycloak.enabled }}
-            - name: KEYCLOAK_CLIENT_ID
+            {{- $issuerUri := required "keycloak.issuerUri is required when keycloak.enabled is true" .Values.keycloak.issuerUri }}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
               value: {{ .Values.keycloak.clientId | quote }}
-            - name: KEYCLOAK_CLIENT_SECRET
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ required "keycloak.existingSecret is required when keycloak.enabled is true" .Values.keycloak.existingSecret }}
                   key: {{ .Values.keycloak.secretKey }}
-            - name: KEYCLOAK_ISSUER_URI
-              value: {{ required "keycloak.issuerUri is required when keycloak.enabled is true" .Values.keycloak.issuerUri | quote }}
+            - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
+              value: {{ $issuerUri | quote }}
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+              value: {{ $issuerUri | quote }}
+            - name: EPISTOLA_KEYCLOAK_CLIENTID
+              value: {{ .Values.keycloak.clientId | quote }}
+            - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.existingSecret }}
+                  key: {{ .Values.keycloak.secretKey }}
             {{- if .Values.keycloak.backchannelBaseUrl }}
             - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
               value: {{ .Values.keycloak.backchannelBaseUrl | quote }}

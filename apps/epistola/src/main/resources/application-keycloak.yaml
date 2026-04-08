@@ -10,8 +10,13 @@
 #   docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
 #   ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
 #
-# Override for production via environment variables:
-#   KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET, KEYCLOAK_ISSUER_URI
+# Override for production via Spring Boot env vars:
+#   SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
+#   SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
+#   SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
+#   SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+#
+# The Helm chart maps keycloak.* values to these env vars automatically.
 
 spring:
   security:
@@ -19,24 +24,24 @@ spring:
       client:
         registration:
           keycloak:
-            client-id: ${KEYCLOAK_CLIENT_ID:epistola-suite}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET:epistola-dev-secret}
+            client-id: epistola-suite
+            client-secret: epistola-dev-secret
             scope: openid,profile,email
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
         provider:
           keycloak:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
+            issuer-uri: http://localhost:8080/realms/epistola
             user-name-attribute: preferred_username
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
+          issuer-uri: http://localhost:8080/realms/epistola
 
 epistola:
   auth:
     auto-provision: true
   keycloak:
     admin-url: ${epistola.auth.oidc.backchannel-base-url:http://localhost:8080}
-    realm: ${KEYCLOAK_REALM:epistola}
-    client-id: ${KEYCLOAK_CLIENT_ID:epistola-suite}
-    client-secret: ${KEYCLOAK_CLIENT_SECRET:epistola-dev-secret}
+    realm: epistola
+    client-id: epistola-suite
+    client-secret: epistola-dev-secret
