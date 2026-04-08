@@ -26,6 +26,7 @@
                             th:hx-get="@{/changelog(version=${v.version})}"
                             hx-target="#changelog-detail"
                             hx-swap="innerHTML"
+                            onclick="this.closest('.changelog-version-list').querySelectorAll('.changelog-version-item').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); }); this.classList.add('active'); this.setAttribute('aria-current', 'true');"
                             th:attr="aria-current=${v.version == selectedVersion} ? 'true'">
                         <span class="changelog-version-label" th:text="'v' + ${v.version}">v0.12.0</span>
                         <span class="changelog-version-date" th:text="${v.date}">2026-04-04</span>
