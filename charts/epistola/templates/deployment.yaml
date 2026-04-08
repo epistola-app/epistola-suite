@@ -82,6 +82,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.keycloak.existingSecret }}
                   key: {{ .Values.keycloak.secretKey }}
+            {{- if .Values.keycloak.ensureGroups }}
+            - name: EPISTOLA_KEYCLOAK_ENSUREGROUPS
+              value: "true"
+            {{- end }}
             {{- if .Values.keycloak.backchannelBaseUrl }}
             - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
               value: {{ .Values.keycloak.backchannelBaseUrl | quote }}
