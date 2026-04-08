@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <h1>Feature Toggles</h1>
+
+        <div class="alert alert-success" th:if="${param.saved}">
+            Feature toggle settings saved successfully.
+        </div>
+
+        <div class="card">
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/features(tenantId=${tenantId})}" method="post">
+
+                    <div class="feature-toggle-item" th:each="feature : ${features}">
+                        <div class="feature-toggle-info">
+                            <div class="feature-toggle-name" th:text="${feature['key']}">feature-key</div>
+                            <div class="feature-toggle-description" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox"
+                                   th:name="${feature['key']}"
+                                   th:checked="${feature['enabled']}">
+                            <span class="toggle-switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                        <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -475,3 +475,54 @@
     padding: 0 var(--ep-space-4);
   }
 }
+
+/* ── Toggle switch ───────────────────────────────────────────────────── */
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 2.75rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch-slider {
+  position: absolute;
+  inset: 0;
+  background-color: var(--ep-gray-300);
+  border-radius: var(--ep-radius-full);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.toggle-switch-slider::before {
+  content: "";
+  position: absolute;
+  height: 1.125rem;
+  width: 1.125rem;
+  left: 0.1875rem;
+  bottom: 0.1875rem;
+  background-color: var(--ep-white);
+  border-radius: var(--ep-radius-full);
+  transition: transform 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-switch-slider {
+  background-color: var(--ep-primary);
+}
+
+.toggle-switch input:checked + .toggle-switch-slider::before {
+  transform: translateX(1.25rem);
+}
+
+.toggle-switch input:focus-visible + .toggle-switch-slider {
+  outline: 2px solid var(--ep-primary);
+  outline-offset: 2px;
+}
+

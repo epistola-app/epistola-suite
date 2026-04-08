@@ -2,6 +2,7 @@ package app.epistola.suite.config
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -44,6 +45,7 @@ class JdbiConfig {
             registerColumnMapper(TemplateKey::class.java, SlugIdColumnMapper(TemplateKey::of))
             registerColumnMapper(VariantKey::class.java, SlugIdColumnMapper(VariantKey::of))
             registerColumnMapper(EnvironmentKey::class.java, SlugIdColumnMapper(EnvironmentKey::of))
+            registerColumnMapper(FeatureKey::class.java, SlugIdColumnMapper(FeatureKey::of))
 
             // Register VersionId argument factory and column mapper for integer-based version IDs
             registerArgument(VersionIdArgumentFactory())

@@ -1,6 +1,8 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.features.FeatureToggleService
+import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
@@ -21,7 +23,9 @@ import org.springframework.web.servlet.ModelAndView
  * Only applies when the view is "layout/shell".
  */
 @Component
-class ShellModelInterceptor : HandlerInterceptor {
+class ShellModelInterceptor(
+    private val featureToggleService: FeatureToggleService,
+) : HandlerInterceptor {
 
     override fun postHandle(
         request: HttpServletRequest,
@@ -56,6 +60,15 @@ class ShellModelInterceptor : HandlerInterceptor {
         val auth = modelAndView.model["auth"] as AuthContext
         modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
 
+        // Feature toggles
+        if (tenantId != null) {
+            val tenantKey = TenantKey.of(tenantId)
+            modelAndView.addObject(
+                "feedbackEnabled",
+                featureToggleService.isEnabled(tenantKey, KnownFeatures.FEEDBACK),
+            )
+        }
+
         // Shell-specific attributes
         if (viewName != "layout/shell") return
         val path = request.requestURI
@@ -73,6 +86,7 @@ class ShellModelInterceptor : HandlerInterceptor {
         "/assets" in path -> "assets"
         "/settings" in path -> "settings"
         "/feedback" in path -> "feedback"
+        "/features" in path -> "features"
         "/catalogs" in path -> "catalogs"
         "/admin" in path -> "admin"
         else -> "home"
