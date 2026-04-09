@@ -34,6 +34,7 @@ const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
   { code: 'items[price > 100]', desc: 'Filter array' },
   { code: '$number(value)', desc: 'Convert to number' },
   { code: "$formatDate(date, 'dd-MM-yyyy')", desc: 'Format a date' },
+  { code: "$formatNumber(total, '#,##0.00')", desc: 'Format a number' },
 ];
 
 /** Date format presets for the format dropdown. */
@@ -46,6 +47,25 @@ const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
   { value: 'd MMMM yyyy', label: 'd MMMM yyyy (15 January 2024)' },
   { value: 'dd-MM-yyyy HH:mm', label: 'dd-MM-yyyy HH:mm (15-01-2024 14:30)' },
   { value: 'yyyy-MM-dd HH:mm', label: 'yyyy-MM-dd HH:mm (2024-01-15 14:30)' },
+];
+
+/** Number format presets for the format dropdown. */
+const NUMBER_FORMAT_PRESETS: { value: string; label: string; group?: string }[] = [
+  { value: '', label: 'No formatting' },
+  // Point notation (decimal point)
+  { value: '#,##0', label: '#,##0 (1,234)', group: 'Decimal point' },
+  { value: '#,##0.00', label: '#,##0.00 (1,234.56)', group: 'Decimal point' },
+  { value: '#,##0.##', label: '#,##0.## (1,234.5)', group: 'Decimal point' },
+  { value: '0.00', label: '0.00 (1234.56)', group: 'Decimal point' },
+  // Comma notation (decimal comma)
+  { value: '#.##0', label: '#.##0 (1.234)', group: 'Decimal comma' },
+  { value: '#.##0,00', label: '#.##0,00 (1.234,56)', group: 'Decimal comma' },
+  { value: '#.##0,##', label: '#.##0,## (1.234,5)', group: 'Decimal comma' },
+  { value: '0,00', label: '0,00 (1234,56)', group: 'Decimal comma' },
+  // Shared (notation-independent)
+  { value: '0', label: '0 (1234)' },
+  { value: '0%', label: '0% (21%)' },
+  { value: '0.0%', label: '0.0% (21.0%)' },
 ];
 
 /** Regex to parse `$formatDate(fieldPath, 'pattern')` expressions. */
@@ -65,6 +85,23 @@ export function wrapFormatDate(fieldPath: string, pattern: string): string {
   return `$formatDate(${fieldPath}, '${pattern}')`;
 }
 
+/** Regex to parse `$formatNumber(fieldPath, 'pattern')` expressions. */
+const FORMAT_NUMBER_REGEX = /^\$formatNumber\(\s*([^,]+?)\s*,\s*'([^']+)'\s*\)$/;
+
+/** Extract field path and format pattern from a `$formatNumber(...)` expression. */
+export function parseFormatNumberExpression(
+  expr: string,
+): { fieldPath: string; pattern: string } | null {
+  const match = expr.match(FORMAT_NUMBER_REGEX);
+  if (!match) return null;
+  return { fieldPath: match[1], pattern: match[2] };
+}
+
+/** Wrap a field path with `$formatNumber(...)`. */
+export function wrapFormatNumber(fieldPath: string, pattern: string): string {
+  return `$formatNumber(${fieldPath}, '${pattern}')`;
+}
+
 // ---------------------------------------------------------------------------
 // Builder mode support
 // ---------------------------------------------------------------------------
@@ -73,7 +110,7 @@ export function wrapFormatDate(fieldPath: string, pattern: string): string {
 export interface BuilderState {
   fieldPath: string;
   fieldType: string;
-  formatType: 'none' | 'date';
+  formatType: 'none' | 'date' | 'number';
   formatPattern: string;
 }
 
@@ -89,15 +126,29 @@ export function tryParseAsBuilderExpression(
   if (!trimmed) return null;
 
   // Try $formatDate(field, 'pattern')
-  const parsed = parseFormatDateExpression(trimmed);
-  if (parsed) {
-    const fp = fieldPaths.find((f) => f.path === parsed.fieldPath);
+  const parsedDate = parseFormatDateExpression(trimmed);
+  if (parsedDate) {
+    const fp = fieldPaths.find((f) => f.path === parsedDate.fieldPath);
     if (fp) {
       return {
-        fieldPath: parsed.fieldPath,
+        fieldPath: parsedDate.fieldPath,
         fieldType: fp.type,
         formatType: 'date',
-        formatPattern: parsed.pattern,
+        formatPattern: parsedDate.pattern,
+      };
+    }
+  }
+
+  // Try $formatNumber(field, 'pattern')
+  const parsedNumber = parseFormatNumberExpression(trimmed);
+  if (parsedNumber) {
+    const fp = fieldPaths.find((f) => f.path === parsedNumber.fieldPath);
+    if (fp) {
+      return {
+        fieldPath: parsedNumber.fieldPath,
+        fieldType: fp.type,
+        formatType: 'number',
+        formatPattern: parsedNumber.pattern,
       };
     }
   }
@@ -121,9 +172,15 @@ export function isStaleFieldReference(expr: string, fieldPaths: FieldPath[]): bo
   if (!trimmed) return false;
 
   // Check if it's a $formatDate with a field path that's not found
-  const parsed = parseFormatDateExpression(trimmed);
-  if (parsed) {
-    return !fieldPaths.some((f) => f.path === parsed.fieldPath);
+  const parsedDate = parseFormatDateExpression(trimmed);
+  if (parsedDate) {
+    return !fieldPaths.some((f) => f.path === parsedDate.fieldPath);
+  }
+
+  // Check if it's a $formatNumber with a field path that's not found
+  const parsedNumber = parseFormatNumberExpression(trimmed);
+  if (parsedNumber) {
+    return !fieldPaths.some((f) => f.path === parsedNumber.fieldPath);
   }
 
   // Check if it looks like a simple dot-path (no operators, no function calls except $formatDate)
@@ -139,6 +196,9 @@ export function isStaleFieldReference(expr: string, fieldPaths: FieldPath[]): bo
 export function buildExpression(state: BuilderState): string {
   if (state.formatType === 'date' && state.formatPattern) {
     return wrapFormatDate(state.fieldPath, state.formatPattern);
+  }
+  if (state.formatType === 'number' && state.formatPattern) {
+    return wrapFormatNumber(state.fieldPath, state.formatPattern);
   }
   return state.fieldPath;
 }
@@ -222,6 +282,9 @@ export function openExpressionDialog(
     const dateFieldPaths = new Set(
       fieldPaths.filter((fp) => fp.type === 'date' || fp.type === 'datetime').map((fp) => fp.path),
     );
+    const numberFieldPaths = new Set(
+      fieldPaths.filter((fp) => fp.type === 'number' || fp.type === 'integer').map((fp) => fp.path),
+    );
 
     // --- Build field options HTML ---
     const fieldOptionHtml = (fp: FieldPath) =>
@@ -252,9 +315,24 @@ export function openExpressionDialog(
         : []),
     ].join('');
 
-    const formatOptionsHtml = DATE_FORMAT_PRESETS.map(
-      (p) => `<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`,
-    ).join('');
+    const presetsToOptionsHtml = (presets: { value: string; label: string; group?: string }[]) => {
+      const lines: string[] = [];
+      let currentGroup: string | undefined;
+      for (const p of presets) {
+        if (p.group !== currentGroup) {
+          if (currentGroup) lines.push('</optgroup>');
+          if (p.group) lines.push(`<optgroup label="${escapeAttr(p.group)}">`);
+          currentGroup = p.group;
+        }
+        lines.push(`<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`);
+      }
+      if (currentGroup) lines.push('</optgroup>');
+      return lines.join('');
+    };
+    const dateFormatOptionsHtml = presetsToOptionsHtml(DATE_FORMAT_PRESETS);
+    const numberFormatOptionsHtml = presetsToOptionsHtml(NUMBER_FORMAT_PRESETS);
+    // Default to date presets for initial HTML; will be swapped dynamically
+    const formatOptionsHtml = dateFormatOptionsHtml;
 
     // --- Create dialog ---
     const dialog = document.createElement('dialog');
@@ -303,7 +381,7 @@ export function openExpressionDialog(
           ${
             !enableBuilderMode
               ? `<div class="expression-dialog-format-row" style="display:none">
-            <label class="expression-dialog-format-label" for="expression-dialog-date-format">Date format</label>
+            <label class="expression-dialog-format-label" for="expression-dialog-date-format">Format</label>
             <select class="expression-dialog-format-select" id="expression-dialog-date-format">${formatOptionsHtml}</select>
           </div>`
               : ''
@@ -378,30 +456,64 @@ export function openExpressionDialog(
       }, 250);
     };
 
-    // --- Code mode: date format dropdown (only when builder mode is off) ---
+    // --- Code mode: format dropdown (date or number, only when builder mode is off) ---
     const getBarePath = (val: string): string => {
-      const parsed = parseFormatDateExpression(val);
-      return parsed ? parsed.fieldPath : val;
+      const parsedDate = parseFormatDateExpression(val);
+      if (parsedDate) return parsedDate.fieldPath;
+      const parsedNumber = parseFormatNumberExpression(val);
+      if (parsedNumber) return parsedNumber.fieldPath;
+      return val;
     };
+
+    /** Detect what kind of formattable field the current expression targets. */
+    const getFieldFormatKind = (barePath: string): 'date' | 'number' | null => {
+      if (dateFieldPaths.has(barePath)) return 'date';
+      if (numberFieldPaths.has(barePath)) return 'number';
+      return null;
+    };
+
+    let currentCodeFormatKind: 'date' | 'number' | null = null;
 
     const updateCodeFormatVisibility = () => {
       if (!formatRow || !formatSelect) return;
       const barePath = getBarePath(input.value.trim());
-      const isDateField = dateFieldPaths.has(barePath);
-      formatRow.style.display = isDateField ? '' : 'none';
-      if (!isDateField) formatSelect.value = '';
+      const kind = getFieldFormatKind(barePath);
+      formatRow.style.display = kind ? '' : 'none';
+      if (!kind) {
+        formatSelect.value = '';
+        currentCodeFormatKind = null;
+        return;
+      }
+      // Swap presets if the field kind changed
+      if (kind !== currentCodeFormatKind) {
+        formatSelect.innerHTML = kind === 'date' ? dateFormatOptionsHtml : numberFormatOptionsHtml;
+        currentCodeFormatKind = kind;
+      }
     };
 
     if (formatSelect) {
-      const initialParsed = parseFormatDateExpression(initialValue);
-      if (initialParsed && dateFieldPaths.has(initialParsed.fieldPath)) {
-        formatSelect.value = initialParsed.pattern;
+      const initialParsedDate = parseFormatDateExpression(initialValue);
+      if (initialParsedDate && dateFieldPaths.has(initialParsedDate.fieldPath)) {
+        formatSelect.innerHTML = dateFormatOptionsHtml;
+        currentCodeFormatKind = 'date';
+        formatSelect.value = initialParsedDate.pattern;
+      }
+      const initialParsedNumber = parseFormatNumberExpression(initialValue);
+      if (initialParsedNumber && numberFieldPaths.has(initialParsedNumber.fieldPath)) {
+        formatSelect.innerHTML = numberFormatOptionsHtml;
+        currentCodeFormatKind = 'number';
+        formatSelect.value = initialParsedNumber.pattern;
       }
 
       formatSelect.addEventListener('change', () => {
         const barePath = getBarePath(input.value.trim());
         const pattern = formatSelect.value;
-        input.value = pattern ? wrapFormatDate(barePath, pattern) : barePath;
+        const kind = getFieldFormatKind(barePath);
+        if (kind === 'number') {
+          input.value = pattern ? wrapFormatNumber(barePath, pattern) : barePath;
+        } else {
+          input.value = pattern ? wrapFormatDate(barePath, pattern) : barePath;
+        }
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });
     }
@@ -441,9 +553,24 @@ export function openExpressionDialog(
       builderPanel
     ) {
       // Populate builder from initial state
+      let currentBuilderFormatKind: 'date' | 'number' | null = null;
+
+      const populateBuilderFormatSelect = (kind: 'date' | 'number') => {
+        if (kind !== currentBuilderFormatKind) {
+          builderFormatSelect.innerHTML =
+            kind === 'date' ? dateFormatOptionsHtml : numberFormatOptionsHtml;
+          currentBuilderFormatKind = kind;
+        }
+      };
+
       if (initialBuilderState) {
         fieldSelect.value = initialBuilderState.fieldPath;
-        if (initialBuilderState.formatType === 'date' && initialBuilderState.formatPattern) {
+        if (
+          (initialBuilderState.formatType === 'date' ||
+            initialBuilderState.formatType === 'number') &&
+          initialBuilderState.formatPattern
+        ) {
+          populateBuilderFormatSelect(initialBuilderState.formatType);
           builderFormatContainer.style.display = '';
           builderFormatSelect.value = initialBuilderState.formatPattern;
         }
@@ -453,8 +580,13 @@ export function openExpressionDialog(
         const selectedOption = fieldSelect.selectedOptions[0];
         const fieldType = selectedOption?.dataset.type ?? '';
         const isDate = fieldType === 'date' || fieldType === 'datetime';
-        builderFormatContainer.style.display = isDate ? '' : 'none';
-        if (!isDate) builderFormatSelect.value = '';
+        const isNumber = fieldType === 'number' || fieldType === 'integer';
+        const hasFormat = isDate || isNumber;
+        builderFormatContainer.style.display = hasFormat ? '' : 'none';
+        if (hasFormat) {
+          populateBuilderFormatSelect(isDate ? 'date' : 'number');
+        }
+        if (!hasFormat) builderFormatSelect.value = '';
       };
 
       const getBuilderExpression = (): string => {
@@ -463,11 +595,12 @@ export function openExpressionDialog(
         const selectedOption = fieldSelect.selectedOptions[0];
         const fieldType = selectedOption?.dataset.type ?? 'string';
         const formatPattern = builderFormatSelect.value;
+        const isDate = (fieldType === 'date' || fieldType === 'datetime') && formatPattern;
+        const isNumber = (fieldType === 'number' || fieldType === 'integer') && formatPattern;
         return buildExpression({
           fieldPath,
           fieldType,
-          formatType:
-            (fieldType === 'date' || fieldType === 'datetime') && formatPattern ? 'date' : 'none',
+          formatType: isDate ? 'date' : isNumber ? 'number' : 'none',
           formatPattern,
         });
       };
@@ -540,8 +673,9 @@ export function openExpressionDialog(
       });
       codeBtn?.addEventListener('click', () => switchMode('code'));
 
-      // Initial builder preview
+      // Initial builder state: show format dropdown for pre-selected formattable fields
       if (currentMode === 'builder') {
+        updateBuilderFormatVisibility();
         const expr = getBuilderExpression();
         if (expr) schedulePreview(expr);
       }

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   parseFormatDateExpression,
   wrapFormatDate,
+  parseFormatNumberExpression,
+  wrapFormatNumber,
   tryParseAsBuilderExpression,
   buildExpression,
   isStaleFieldReference,
@@ -47,6 +49,62 @@ describe('parseFormatDateExpression', () => {
 
   it('returns null for empty string', () => {
     expect(parseFormatDateExpression('')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFormatNumberExpression
+// ---------------------------------------------------------------------------
+
+describe('parseFormatNumberExpression', () => {
+  it('parses a simple field path', () => {
+    expect(parseFormatNumberExpression("$formatNumber(total, '#,##0.00')")).toEqual({
+      fieldPath: 'total',
+      pattern: '#,##0.00',
+    });
+  });
+
+  it('parses a dotted field path', () => {
+    expect(parseFormatNumberExpression("$formatNumber(item.price, '#,##0.00')")).toEqual({
+      fieldPath: 'item.price',
+      pattern: '#,##0.00',
+    });
+  });
+
+  it('parses with spaces around arguments', () => {
+    expect(parseFormatNumberExpression("$formatNumber( total , '#,##0.00' )")).toEqual({
+      fieldPath: 'total',
+      pattern: '#,##0.00',
+    });
+  });
+
+  it('parses percentage pattern', () => {
+    expect(parseFormatNumberExpression("$formatNumber(rate, '0%')")).toEqual({
+      fieldPath: 'rate',
+      pattern: '0%',
+    });
+  });
+
+  it('returns null for a bare field path', () => {
+    expect(parseFormatNumberExpression('total')).toBeNull();
+  });
+
+  it('returns null for a $formatDate call', () => {
+    expect(parseFormatNumberExpression("$formatDate(date, 'dd-MM-yyyy')")).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    expect(parseFormatNumberExpression('')).toBeNull();
+  });
+});
+
+describe('wrapFormatNumber', () => {
+  it('wraps a simple field', () => {
+    expect(wrapFormatNumber('total', '#,##0.00')).toBe("$formatNumber(total, '#,##0.00')");
+  });
+
+  it('wraps a dotted field path', () => {
+    expect(wrapFormatNumber('item.price', '0.00')).toBe("$formatNumber(item.price, '0.00')");
   });
 });
 
@@ -146,6 +204,31 @@ describe('tryParseAsBuilderExpression', () => {
       },
     );
   });
+
+  // --- $formatNumber ---
+
+  it('parses a $formatNumber expression', () => {
+    expect(tryParseAsBuilderExpression("$formatNumber(total, '#,##0.00')", testFieldPaths)).toEqual(
+      {
+        fieldPath: 'total',
+        fieldType: 'number',
+        formatType: 'number',
+        formatPattern: '#,##0.00',
+      },
+    );
+  });
+
+  it('parses $formatNumber on a scoped number field', () => {
+    const withScoped = [...testFieldPaths, { path: 'item.price', type: 'number', scope: 'item' }];
+    expect(
+      tryParseAsBuilderExpression("$formatNumber(item.price, '#,##0.00')", withScoped),
+    ).toEqual({
+      fieldPath: 'item.price',
+      fieldType: 'number',
+      formatType: 'number',
+      formatPattern: '#,##0.00',
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -185,6 +268,28 @@ describe('buildExpression', () => {
       }),
     ).toBe('invoiceDate');
   });
+
+  it('builds a number-formatted expression', () => {
+    expect(
+      buildExpression({
+        fieldPath: 'total',
+        fieldType: 'number',
+        formatType: 'number',
+        formatPattern: '#,##0.00',
+      }),
+    ).toBe("$formatNumber(total, '#,##0.00')");
+  });
+
+  it('builds bare field when formatPattern is empty even if formatType is number', () => {
+    expect(
+      buildExpression({
+        fieldPath: 'total',
+        fieldType: 'number',
+        formatType: 'number',
+        formatPattern: '',
+      }),
+    ).toBe('total');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -218,5 +323,15 @@ describe('isStaleFieldReference', () => {
     expect(isStaleFieldReference("$formatDate(invoiceDate, 'dd-MM-yyyy')", testFieldPaths)).toBe(
       false,
     );
+  });
+
+  it('returns true for a $formatNumber with unknown field', () => {
+    expect(isStaleFieldReference("$formatNumber(item.price, '#,##0.00')", testFieldPaths)).toBe(
+      true,
+    );
+  });
+
+  it('returns false for a $formatNumber with known field', () => {
+    expect(isStaleFieldReference("$formatNumber(total, '#,##0.00')", testFieldPaths)).toBe(false);
   });
 });
