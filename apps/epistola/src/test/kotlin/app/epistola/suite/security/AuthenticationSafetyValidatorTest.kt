@@ -48,10 +48,36 @@ class AuthenticationSafetyValidatorTest {
     }
 
     @Test
-    fun `demo profile with prod throws`() {
+    fun `localauth profile with prod throws`() {
         val validator = AuthenticationSafetyValidator(
-            environment = envWith("demo", "prod"),
+            environment = envWith("localauth", "prod"),
             userDetailsService = mockUserDetailsService(),
+            clientRegistrationRepository = mockClientRegistrationRepository(),
+        )
+
+        assertThrows<IllegalStateException> {
+            validator.afterSingletonsInstantiated()
+        }
+    }
+
+    @Test
+    fun `demo profile with prod and keycloak passes`() {
+        val validator = AuthenticationSafetyValidator(
+            environment = envWith("demo", "prod", "keycloak"),
+            userDetailsService = null,
+            clientRegistrationRepository = mockClientRegistrationRepository(),
+        )
+
+        assertDoesNotThrow {
+            validator.afterSingletonsInstantiated()
+        }
+    }
+
+    @Test
+    fun `no auth beans throws`() {
+        val validator = AuthenticationSafetyValidator(
+            environment = envWith("default"),
+            userDetailsService = null,
             clientRegistrationRepository = null,
         )
 
@@ -61,9 +87,9 @@ class AuthenticationSafetyValidatorTest {
     }
 
     @Test
-    fun `no auth beans throws`() {
+    fun `demo alone without auth throws`() {
         val validator = AuthenticationSafetyValidator(
-            environment = envWith("default"),
+            environment = envWith("demo"),
             userDetailsService = null,
             clientRegistrationRepository = null,
         )
@@ -87,11 +113,24 @@ class AuthenticationSafetyValidatorTest {
     }
 
     @Test
-    fun `demo profile alone with UserDetailsService passes`() {
+    fun `demo with keycloak passes`() {
         val validator = AuthenticationSafetyValidator(
-            environment = envWith("demo"),
+            environment = envWith("demo", "keycloak"),
+            userDetailsService = null,
+            clientRegistrationRepository = mockClientRegistrationRepository(),
+        )
+
+        assertDoesNotThrow {
+            validator.afterSingletonsInstantiated()
+        }
+    }
+
+    @Test
+    fun `localauth with keycloak passes`() {
+        val validator = AuthenticationSafetyValidator(
+            environment = envWith("localauth", "keycloak"),
             userDetailsService = mockUserDetailsService(),
-            clientRegistrationRepository = null,
+            clientRegistrationRepository = mockClientRegistrationRepository(),
         )
 
         assertDoesNotThrow {

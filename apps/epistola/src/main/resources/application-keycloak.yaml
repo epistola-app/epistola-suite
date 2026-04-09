@@ -1,18 +1,22 @@
-# Keycloak profile for OAuth2/OIDC testing
+# Keycloak profile: OAuth2/OIDC authentication via Keycloak.
 #
 # This profile is ADDITIVE - use it together with other profiles:
-#   - local,keycloak  -> Form login + OAuth2 (both options on login page)
-#   - keycloak        -> OAuth2 only
+#   - local,keycloak           -> Form login + OAuth2 (both options on login page)
+#   - keycloak,demo            -> OAuth2 + demo data (staging/test)
+#   - keycloak,demo,localauth  -> OAuth2 + form login + demo data (staging/test)
+#   - prod,keycloak            -> OAuth2 only (production)
 #
-# Start Keycloak:
+# For local development with Keycloak:
 #   docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
-#
-# Run app:
 #   ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
 #
-# Keycloak test users:
-#   - admin@test / admin
-#   - user@test / user
+# Override for production via Spring Boot env vars:
+#   SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
+#   SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
+#   SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
+#   SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+#
+# The Helm chart maps keycloak.* values to these env vars automatically.
 
 spring:
   security:
@@ -40,4 +44,4 @@ epistola:
     admin-url: ${epistola.auth.oidc.backchannel-base-url:http://localhost:8080}
     realm: epistola
     client-id: epistola-suite
-    client-secret: ${KEYCLOAK_CLIENT_SECRET:epistola-dev-secret}
+    client-secret: epistola-dev-secret

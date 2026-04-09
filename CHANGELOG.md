@@ -7,16 +7,31 @@
 - **Per-tenant feature toggles**: Tenant managers can enable/disable features per tenant via Settings > Features. Global defaults are configured in `application.yaml` (`epistola.features.*`), with per-tenant overrides stored in the database. The feedback feature is the first gated capability — when disabled, the feedback nav link, FAB button, and console capture script are hidden for that tenant.
 - **CodeQL static analysis**: New GitHub Actions workflow (`.github/workflows/codeql.yml`) that runs CodeQL SAST scanning on every push and PR to main, plus a weekly schedule. Scans both Java/Kotlin backend and JavaScript/TypeScript frontend with the `security-and-quality` query suite. Results appear in the GitHub Security tab under Code scanning.
 - **Content Security Policy headers**: CSP headers are now set on all UI responses, restricting script/style/font/image sources and blocking framing and plugin-based attacks.
+- **`localauth` profile**: New profile for form-based login with configurable users via environment variables. Allows staging/test environments to have form login with custom credentials alongside Keycloak.
 
 ### Fixed
 
+- **DemoLoader fails on user ID scheme change**: Fixed `ON CONFLICT DO NOTHING` in user upsert to `DO UPDATE`, so existing users with changed deterministic UUIDs are updated instead of silently skipped (which caused FK violations on `tenant_memberships`).
+- **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
 - **DOM XSS in HTMX error banner**: Replaced `innerHTML` with safe DOM API (`textContent` + `createElement`) in the global HTMX error handler to prevent potential cross-site scripting via error messages.
 - **Catalog HTTP restriction**: Remote catalog fetching now requires HTTPS by default. Plain HTTP is only allowed when explicitly enabled via `epistola.catalog.allow-http=true` (set in the local profile).
 - **Pagination bounds validation**: API pagination parameters (`page`, `size`) are now sanitized to prevent integer overflow and unbounded queries (max page size: 1000).
+- **Hardcoded credentials in login UI**: Removed hardcoded username/password hints from the login page.
 
 ### Changed
 
 - **GitHub Actions pinned to commit SHAs**: All GitHub Actions across all workflows are now pinned to immutable commit SHAs instead of mutable version tags, preventing supply chain attacks.
+- **BREAKING: Orthogonal profile restructuring**: Profiles are now single-concern and composable. Each profile controls exactly one axis (auth, data, dev, hardening). Migration:
+
+  | Before           | After                                        |
+  | ---------------- | -------------------------------------------- |
+  | `prod`           | `prod,keycloak`                              |
+  | `demo`           | `keycloak,demo` or `keycloak,demo,localauth` |
+  | `local`          | `local` (unchanged)                          |
+  | `local,keycloak` | `local,keycloak` (unchanged)                 |
+
+- **Demo data is now opt-in**: Base config defaults to `epistola.demo.enabled=false`. Activate via `demo` or `local` profile.
+- **`demo` profile no longer provides form login**: The `demo` profile only loads demo data. For form login, use `local` or `localauth` profile.
 
 ## [0.13.0] - 2026-04-07
 

@@ -25,6 +25,28 @@ data class AuthProperties(
      * OIDC settings for backchannel (server-to-server) communication.
      */
     val oidc: OidcProperties = OidcProperties(),
+
+    /**
+     * Local user accounts for form-based login (activated by `local` or `localauth` profile).
+     *
+     * Override credentials via environment variables for non-local environments.
+     */
+    val localUsers: List<LocalUserProperties> = emptyList(),
+)
+
+data class LocalUserProperties(
+    /** Login username (email). */
+    val username: String,
+    /** Login password (plain text, encoded at runtime). */
+    val password: String,
+    /** Display name shown in the UI. */
+    val displayName: String = username,
+    /** Tenant key to assign membership to. */
+    val tenant: String = "demo",
+    /** Tenant-scoped roles. */
+    val roles: Set<TenantRole> = emptySet(),
+    /** Platform-scoped roles. */
+    val platformRoles: Set<PlatformRole> = emptySet(),
 )
 
 data class OidcProperties(

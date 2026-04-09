@@ -1,0 +1,32 @@
+# Local auth profile: form-based login with configurable users.
+# Override credentials and roles via env vars for non-local environments.
+#
+# Usage:
+#   - local,keycloak,localauth  -> Form login + OAuth2 with custom credentials
+#   - keycloak,demo,localauth   -> Staging with both auth methods
+#
+# Override example:
+#   LOCAL_AUTH_ADMIN_USERNAME=admin@staging LOCAL_AUTH_ADMIN_PASSWORD=s3cret
+
+epistola:
+  auth:
+    local-users:
+      - username: ${LOCAL_AUTH_ADMIN_USERNAME:admin@local}
+        password: ${LOCAL_AUTH_ADMIN_PASSWORD:admin}
+        display-name: ${LOCAL_AUTH_ADMIN_DISPLAY_NAME:Local Admin}
+        tenant: ${LOCAL_AUTH_ADMIN_TENANT:demo}
+        roles:
+          - READER
+          - EDITOR
+          - GENERATOR
+          - MANAGER
+        platform-roles:
+          - TENANT_MANAGER
+      - username: ${LOCAL_AUTH_USER_USERNAME:user@local}
+        password: ${LOCAL_AUTH_USER_PASSWORD:user}
+        display-name: ${LOCAL_AUTH_USER_DISPLAY_NAME:Local User}
+        tenant: ${LOCAL_AUTH_USER_TENANT:demo}
+        roles:
+          - READER
+          - EDITOR
+          - GENERATOR

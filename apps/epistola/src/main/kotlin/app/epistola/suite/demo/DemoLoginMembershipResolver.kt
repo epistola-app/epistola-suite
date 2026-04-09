@@ -1,7 +1,6 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.LoginMembershipResolver
@@ -62,7 +61,7 @@ class DemoLoginMembershipResolver(
 
     companion object {
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
-            userId = UserKey.of("00000000-0000-0000-0000-000000000001"),
+            userId = DemoLoader.deterministicUserId("system@epistola.app"),
             externalId = "system",
             email = "system@epistola.app",
             displayName = "System",

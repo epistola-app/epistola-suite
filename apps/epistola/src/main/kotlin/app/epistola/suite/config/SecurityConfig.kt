@@ -202,6 +202,7 @@ class SecurityConfig(
                             "font-src 'self' https://fonts.gstatic.com; " +
                             "img-src 'self' data:; " +
                             "connect-src 'self'; " +
+                            "frame-src blob:; " +
                             "frame-ancestors 'none'; " +
                             "object-src 'none'; " +
                             "base-uri 'self'",

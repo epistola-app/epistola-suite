@@ -41,7 +41,7 @@ epistola:
   auth:
     auto-provision: false
   demo:
-    enabled: true # Set to false to disable demo loading
+    enabled: false # Opt-in: activate via 'demo' or 'local' profile
   generation:
     polling:
       enabled: true # Enable polling-based job execution
@@ -91,3 +91,14 @@ management:
       enabled: true
     readinessState:
       enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
+    tracing:
+      export:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false

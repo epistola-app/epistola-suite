@@ -37,7 +37,7 @@
                     <input th:if="${param.popup != null}" type="hidden" name="popup" value="true">
                     <div class="form-group">
                         <label for="username">Email</label>
-                        <input type="text" id="username" name="username" required autofocus placeholder="admin@local">
+                        <input type="text" id="username" name="username" required autofocus placeholder="Email">
                     </div>
                     <div class="form-group">
                         <label for="password">Password</label>
@@ -46,14 +46,6 @@
                     <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
                 </form>
 
-                <div th:unless="${param.popup != null}" class="alert alert-warning" style="margin-top: var(--ep-space-6);">
-                    <div>
-                        <strong>Local Development Mode</strong><br>
-                        Test accounts:<br>
-                        &bull; admin@local / admin<br>
-                        &bull; user@local / user
-                    </div>
-                </div>
             </div>
 
             <!-- Divider when both login methods are available -->

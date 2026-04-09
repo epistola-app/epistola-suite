@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component
  * Safety validator that fails fast on startup when the authentication configuration is invalid.
  *
  * Checks:
- * 1. **No production with in-memory users** — combining `local` or `demo` profile with `prod`
- *    would expose known passwords in a production environment.
+ * 1. **No production with in-memory users** — combining `local` or `localauth` profile with `prod`
+ *    would expose known/configurable passwords in a production environment.
  * 2. **At least one auth mechanism** — if neither [UserDetailsService] (form login) nor
  *    [ClientRegistrationRepository] (OAuth2) is present, the app would start but 403 everywhere.
  *
@@ -43,12 +43,12 @@ class AuthenticationSafetyValidator(
 
     private fun validateNoInMemoryUsersInProduction() {
         val isProd = environment.acceptsProfiles(Profiles.of("prod"))
-        val hasInMemoryUsers = environment.acceptsProfiles(Profiles.of("local", "demo"))
+        val hasInMemoryUsers = environment.acceptsProfiles(Profiles.of("local", "localauth"))
 
         if (isProd && hasInMemoryUsers) {
             throw IllegalStateException(
-                "SECURITY: Cannot combine 'local' or 'demo' profile with 'prod'. " +
-                    "In-memory users with known passwords must not run in production.",
+                "SECURITY: Cannot combine 'local' or 'localauth' profile with 'prod'. " +
+                    "In-memory users must not run in production.",
             )
         }
     }
@@ -57,8 +57,8 @@ class AuthenticationSafetyValidator(
         if (userDetailsService == null && clientRegistrationRepository == null) {
             throw IllegalStateException(
                 "No authentication mechanism configured. " +
-                    "Either activate a profile that provides a UserDetailsService (e.g., 'local', 'demo') " +
-                    "or configure OAuth2 client registrations (e.g., 'prod', 'keycloak').",
+                    "Either activate a profile that provides form login (e.g., 'local', 'localauth') " +
+                    "or configure OAuth2 client registrations (e.g., 'keycloak').",
             )
         }
     }
