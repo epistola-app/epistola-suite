@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- **DemoLoader fails on user ID scheme change**: Fixed `ON CONFLICT DO NOTHING` in user upsert to `DO UPDATE`, so existing users with changed deterministic UUIDs are updated instead of silently skipped (which caused FK violations on `tenant_memberships`).
 - **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
 - **DOM XSS in HTMX error banner**: Replaced `innerHTML` with safe DOM API (`textContent` + `createElement`) in the global HTMX error handler to prevent potential cross-site scripting via error messages.
 - **Catalog HTTP restriction**: Remote catalog fetching now requires HTTPS by default. Plain HTTP is only allowed when explicitly enabled via `epistola.catalog.allow-http=true` (set in the local profile).

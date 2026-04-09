@@ -215,7 +215,11 @@ class DemoLoader(
                 """
                 INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
                 VALUES (?, ?, ?, ?, 'LOCAL', true, NOW())
-                ON CONFLICT (external_id, provider) DO NOTHING
+                ON CONFLICT (external_id, provider) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    email = EXCLUDED.email,
+                    display_name = EXCLUDED.display_name,
+                    enabled = EXCLUDED.enabled
                 """,
             )
                 .param(userId.value)
@@ -529,7 +533,7 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "16.0.0" // Bump this to reset demo tenant (changed user ID scheme)
+        private const val DEMO_VERSION = "16.1.0" // Bump this to reset demo tenant (fix user upsert for ID changes)
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
