@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
 - **DOM XSS in HTMX error banner**: Replaced `innerHTML` with safe DOM API (`textContent` + `createElement`) in the global HTMX error handler to prevent potential cross-site scripting via error messages.
 - **Catalog HTTP restriction**: Remote catalog fetching now requires HTTPS by default. Plain HTTP is only allowed when explicitly enabled via `epistola.catalog.allow-http=true` (set in the local profile).
 - **Pagination bounds validation**: API pagination parameters (`page`, `size`) are now sanitized to prevent integer overflow and unbounded queries (max page size: 1000).
