@@ -1,15 +1,15 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.commands.ImportStatus
-import app.epistola.suite.catalog.commands.ImportTemplateInput
-import app.epistola.suite.catalog.commands.ImportTemplates
-import app.epistola.suite.catalog.commands.ImportVariantInput
+import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.protocol.AssetResource
 import app.epistola.suite.catalog.protocol.AttributeResource
+import app.epistola.suite.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.protocol.CatalogResource
+import app.epistola.suite.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.protocol.StencilResource
 import app.epistola.suite.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.protocol.ThemeResource
@@ -67,11 +67,14 @@ class InstallFromCatalogHandler(
 
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
 
-        val resourcesToInstall = if (command.resourceSlugs != null) {
+        val selected = if (command.resourceSlugs != null) {
             manifest.resources.filter { it.slug in command.resourceSlugs }
         } else {
             manifest.resources
         }
+
+        // Resolve dependencies: fetch details for selected resources, scan for refs, expand the set
+        val resourcesToInstall = resolveDependencies(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
 
         // Install in dependency order: assets → attributes → themes → stencils → templates
         val ordered = resourcesToInstall.sortedBy { INSTALL_ORDER[it.type] ?: 99 }
@@ -87,6 +90,67 @@ class InstallFromCatalogHandler(
                 InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
             }
         }
+    }
+
+    /**
+     * Expands the selected resources to include any dependencies found in the catalog manifest.
+     * Scans template and stencil content for theme, stencil, attribute, and asset references,
+     * then includes matching resources from the manifest.
+     */
+    private fun resolveDependencies(
+        selected: List<ResourceEntry>,
+        manifest: CatalogManifest,
+        sourceUrl: String,
+        authType: AuthType,
+        credential: String?,
+    ): List<ResourceEntry> {
+        val allByKey = manifest.resources.associateBy { "${it.type}:${it.slug}" }
+        val result = selected.associateByTo(mutableMapOf()) { "${it.type}:${it.slug}" }
+
+        // Fetch details for templates and stencils to scan their content
+        val deps = mutableListOf<DependencyScanner.Dependencies>()
+        for (entry in selected) {
+            if (entry.type != "template" && entry.type != "stencil") continue
+
+            val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential)
+            when (val resource = detail.resource) {
+                is TemplateResource -> {
+                    val variantAttrs = resource.variants
+                        .flatMap { (it.attributes ?: emptyMap()).keys }
+                        .toSet()
+                    deps += DependencyScanner.scan(resource.templateModel, variantAttrs)
+                    // Also scan variant-specific template models
+                    resource.variants.mapNotNull { it.templateModel }.forEach { deps += DependencyScanner.scan(it) }
+                }
+                is StencilResource -> deps += DependencyScanner.scan(resource.content)
+                else -> {}
+            }
+        }
+
+        if (deps.isEmpty()) return selected
+
+        val merged = DependencyScanner.merge(*deps.toTypedArray())
+
+        // Add missing dependencies from the manifest
+        for (themeSlug in merged.themeRefs) {
+            result.putIfAbsent("theme:$themeSlug", allByKey["theme:$themeSlug"] ?: continue)
+        }
+        for (stencilSlug in merged.stencilRefs) {
+            result.putIfAbsent("stencil:$stencilSlug", allByKey["stencil:$stencilSlug"] ?: continue)
+        }
+        for (attrKey in merged.attributeKeys) {
+            result.putIfAbsent("attribute:$attrKey", allByKey["attribute:$attrKey"] ?: continue)
+        }
+        for (assetId in merged.assetRefs) {
+            result.putIfAbsent("asset:$assetId", allByKey["asset:$assetId"] ?: continue)
+        }
+
+        if (result.size > selected.size) {
+            val added = result.keys - selected.map { "${it.type}:${it.slug}" }.toSet()
+            logger.info("Auto-including {} dependencies: {}", added.size, added)
+        }
+
+        return result.values.toList()
     }
 
     private fun installResource(
