@@ -8,7 +8,9 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.form
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -106,7 +108,6 @@ class CatalogHandler {
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
                 "resources" to result.resources
-                if (request.param("installed").isPresent) "installed" to true
             }
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)
@@ -114,11 +115,44 @@ class CatalogHandler {
         }
     }
 
+    fun installPreview(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val slugParam = request.param("slug").orElse(null)
+        val resourceSlugs = slugParam?.let { listOf(it) }
+
+        return try {
+            val preview = PreviewInstall(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+                resourceSlugs = resourceSlugs,
+            ).query()
+
+            ServerResponse.ok().render(
+                "catalogs/browse :: install-preview",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "catalog" to mapOf("id" to catalogKey.value),
+                    "selected" to preview.selected,
+                    "dependencies" to preview.dependencies,
+                    "allResources" to preview.all,
+                    "slugParam" to (slugParam ?: ""),
+                ),
+            )
+        } catch (e: Exception) {
+            logger.warn("Failed to preview install: ${e.message}", e)
+            ServerResponse.ok().render(
+                "catalogs/browse :: install-preview-error",
+                mapOf("error" to (e.message ?: "Failed to resolve dependencies.")),
+            )
+        }
+    }
+
     fun install(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
-        val slugParam = request.param("slug").orElse(null)
+        val slugParam = request.param("slug").orElse(null)?.ifBlank { null }
         val resourceSlugs = slugParam?.let { listOf(it) }
 
         return try {
@@ -129,34 +163,55 @@ class CatalogHandler {
             ).execute()
 
             val failed = results.filter { it.status == InstallStatus.FAILED }
-            if (failed.isNotEmpty()) {
-                val slugs = failed.joinToString(", ") { it.slug }
-                return browseWithError(request, catalogKey, "Failed to install: $slugs")
+            val message = if (failed.isNotEmpty()) {
+                null to "Failed to install: ${failed.joinToString(", ") { it.slug }}"
+            } else {
+                val installed = results.count { it.status == InstallStatus.INSTALLED }
+                val updated = results.count { it.status == InstallStatus.UPDATED }
+                val parts = listOfNotNull(
+                    if (installed > 0) "$installed installed" else null,
+                    if (updated > 0) "$updated updated" else null,
+                )
+                "Resources ${parts.joinToString(", ")}." to null
             }
 
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse?installed=true")
-                .build()
+            browseFragment(request, catalogKey, message.first, message.second)
         } catch (e: Exception) {
             logger.warn("Failed to install from catalog: ${e.message}", e)
-            browseWithError(request, catalogKey, "Failed to install resources from catalog.")
+            browseFragment(request, catalogKey, errorMessage = e.message ?: "Failed to install resources from catalog.")
         }
     }
 
-    private fun browseWithError(request: ServerRequest, catalogKey: CatalogKey, error: String): ServerResponse {
+    private fun browseFragment(
+        request: ServerRequest,
+        catalogKey: CatalogKey,
+        successMessage: String? = null,
+        errorMessage: String? = null,
+    ): ServerResponse {
         val tenantId = request.tenantId()
-        return try {
-            val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
-            ServerResponse.ok().page("catalogs/browse") {
-                "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
-                "tenantId" to tenantId.key
-                "activeNavSection" to "catalogs"
-                "catalog" to result.catalog
+        val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+
+        return request.htmx {
+            fragment("catalogs/browse", "resource-rows") {
                 "resources" to result.resources
-                "error" to error
+                "tenantId" to tenantId.key
+                "catalog" to result.catalog
             }
-        } catch (_: Exception) {
-            listWithError(request, error)
+            oob("catalogs/browse", "alert") {
+                if (successMessage != null) "successMessage" to successMessage
+                if (errorMessage != null) "errorMessage" to errorMessage
+            }
+            trigger("installComplete")
+            onNonHtmx {
+                page("catalogs/browse") {
+                    "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
+                    "tenantId" to tenantId.key
+                    "activeNavSection" to "catalogs"
+                    "catalog" to result.catalog
+                    "resources" to result.resources
+                    if (errorMessage != null) "error" to errorMessage
+                }
+            }
         }
     }
 

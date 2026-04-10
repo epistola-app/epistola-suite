@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "resource": {
     "type": "template",
     "slug": "hello-world",
@@ -30,13 +30,23 @@
       "modelVersion": 1,
       "root": "n-root",
       "themeRef": {
-        "type": "inherit"
+        "type": "override",
+        "themeId": "corporate"
       },
       "nodes": {
         "n-root": {
           "id": "n-root",
           "type": "root",
           "slots": ["s-root-children"]
+        },
+        "n-header": {
+          "id": "n-header",
+          "type": "stencil",
+          "slots": [],
+          "props": {
+            "stencilId": "company-header",
+            "version": 1
+          }
         },
         "n-heading": {
           "id": "n-heading",
@@ -67,7 +77,7 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-heading", "n-body"]
+          "children": ["n-header", "n-heading", "n-body"]
         }
       }
     },

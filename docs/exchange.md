@@ -213,7 +213,7 @@ For Epistola-served catalogs, this URL is generated automatically. For externall
 | `includes[].url`                             | string  | yes      | Absolute URL to another catalog manifest.                                             |
 | `includes[].description`                     | string  | no       | Human-readable description of the included catalog.                                   |
 | `resources`                                  | array   | yes      | List of available resources. May be empty if the catalog only aggregates includes.    |
-| `resources[].type`                           | string  | yes      | Resource type. v1 supports `template` only.                                           |
+| `resources[].type`                           | string  | yes      | Resource type: `template`, `theme`, `stencil`, `attribute`, or `asset`.               |
 | `resources[].slug`                           | string  | yes      | Unique identifier within the catalog (3-50 chars, URL-safe slug).                     |
 | `resources[].name`                           | string  | yes      | Human-readable display name.                                                          |
 | `resources[].description`                    | string  | no       | Short description of the resource.                                                    |
@@ -311,6 +311,131 @@ The `resource` object matches the shape of Epistola's existing `ImportTemplateIn
 | `resource.variants[].attributes`    | object  | no       | Key-value attribute pairs.                                                |
 | `resource.variants[].templateModel` | object  | no       | Variant-specific content. `null` means use the top-level `templateModel`. |
 | `resource.variants[].isDefault`     | boolean | yes      | Whether this is the default variant.                                      |
+
+### Resource Detail: Theme
+
+```json
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "theme",
+    "slug": "corporate",
+    "name": "Corporate Theme",
+    "description": "A clean corporate theme.",
+    "documentStyles": {
+      "fontFamily": "Arial, sans-serif",
+      "fontSize": "11pt",
+      "color": "#333333"
+    },
+    "pageSettings": {
+      "format": "A4",
+      "orientation": "portrait",
+      "margins": { "top": 25, "right": 20, "bottom": 25, "left": 20 }
+    },
+    "blockStylePresets": {},
+    "spacingUnit": 4
+  }
+}
+```
+
+| Field                              | Type    | Required | Description                                                            |
+| ---------------------------------- | ------- | -------- | ---------------------------------------------------------------------- |
+| `resource.type`                    | string  | yes      | `theme`                                                                |
+| `resource.slug`                    | string  | yes      | Theme ID (3-20 chars, URL-safe slug).                                  |
+| `resource.name`                    | string  | yes      | Display name.                                                          |
+| `resource.description`             | string  | no       | Description.                                                           |
+| `resource.documentStyles`          | object  | no       | Document-level CSS defaults (fontFamily, fontSize, color, etc.).       |
+| `resource.pageSettings`            | object  | no       | Page format, orientation, margins.                                     |
+| `resource.blockStylePresets`       | object  | no       | Named block style presets (like CSS classes).                          |
+| `resource.spacingUnit`             | number  | no       | Base spacing unit in points (1-16, default 4).                         |
+
+### Resource Detail: Stencil
+
+```json
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "stencil",
+    "slug": "company-header",
+    "name": "Company Header",
+    "description": "Reusable company header block.",
+    "tags": ["header", "branding"],
+    "content": { "...TemplateDocument (node/slot graph)..." }
+  }
+}
+```
+
+| Field                   | Type    | Required | Description                                                              |
+| ----------------------- | ------- | -------- | ------------------------------------------------------------------------ |
+| `resource.type`         | string  | yes      | `stencil`                                                                |
+| `resource.slug`         | string  | yes      | Stencil ID (3-50 chars, URL-safe slug).                                  |
+| `resource.name`         | string  | yes      | Display name.                                                            |
+| `resource.description`  | string  | no       | Description.                                                             |
+| `resource.tags`         | array   | no       | Tags for categorization (string array).                                  |
+| `resource.content`      | object  | yes      | TemplateDocument (node/slot graph model). Same format as template model. |
+
+### Resource Detail: Attribute
+
+```json
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "attribute",
+    "slug": "language",
+    "name": "Language",
+    "allowedValues": ["nl", "en", "de", "fr"]
+  }
+}
+```
+
+| Field                       | Type    | Required | Description                                              |
+| --------------------------- | ------- | -------- | -------------------------------------------------------- |
+| `resource.type`             | string  | yes      | `attribute`                                              |
+| `resource.slug`             | string  | yes      | Attribute key (1-50 chars).                              |
+| `resource.name`             | string  | yes      | Display name.                                            |
+| `resource.allowedValues`    | array   | no       | Allowed values (string array). Empty means any value.    |
+
+### Resource Detail: Asset
+
+```json
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "asset",
+    "slug": "01966a00-0000-7000-8000-000000000001",
+    "name": "Company Logo",
+    "mediaType": "image/png",
+    "width": 120,
+    "height": 40,
+    "contentUrl": "./binaries/company-logo.png"
+  }
+}
+```
+
+| Field                   | Type    | Required | Description                                                                    |
+| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------ |
+| `resource.type`         | string  | yes      | `asset`                                                                        |
+| `resource.slug`         | string  | yes      | Asset UUID. Must match the UUID used in template image node `assetId` refs.    |
+| `resource.name`         | string  | yes      | Display name.                                                                  |
+| `resource.mediaType`    | string  | yes      | MIME type: `image/png`, `image/jpeg`, `image/svg+xml`, or `image/webp`.        |
+| `resource.width`        | integer | no       | Image width in pixels (null for SVG).                                          |
+| `resource.height`       | integer | no       | Image height in pixels (null for SVG).                                         |
+| `resource.contentUrl`   | string  | yes      | URL to the binary content. Relative URLs resolved against the manifest URL.    |
+
+Assets are immutable — reinstalling a catalog skips assets whose UUID already exists. The `contentUrl` points to a separate binary file (not inline base64), keeping the protocol uniform while supporting files up to 5MB.
+
+### Dependency Resolution
+
+When installing resources selectively (e.g., a single template), the installer scans template and stencil content for references and auto-includes dependencies from the catalog:
+
+- **Theme references**: `themeRef.type == "override"` → includes the referenced theme
+- **Stencil references**: nodes with `type == "stencil"` → includes the referenced stencil
+- **Asset references**: nodes with `type == "image"` → includes the referenced asset
+- **Attribute references**: variant `attributes` keys → includes the referenced attribute definitions
+
+Scanning is recursive: auto-included stencils are scanned for their own dependencies (e.g., stencil → asset).
+
+If any dependency is referenced but not present in the catalog manifest, installation is rejected with a clear error listing the missing resources.
 
 ### Authentication
 
@@ -705,14 +830,6 @@ The full design described above is the target architecture. Implementation is br
 - **REST API**: Full catalog CRUD via the external API (for automation).
 
 ## Future Considerations
-
-### Theme Exchange
-
-A future version could add `theme` as a resource type, allowing catalogs to bundle themes alongside templates. Themes referenced by templates could be auto-installed.
-
-### Asset Bundling
-
-A future version could include assets in the resource payload (base64-encoded or via separate asset URLs), auto-importing them during install.
 
 ### Merge-Based Upgrades
 

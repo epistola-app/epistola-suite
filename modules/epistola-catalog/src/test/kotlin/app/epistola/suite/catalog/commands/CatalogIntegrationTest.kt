@@ -95,7 +95,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `install selective slug only installs that resource`() {
+    fun `install selective slug auto-includes dependencies`() {
         val tenant = createTenant("Selective Test")
 
         withMediator {
@@ -107,9 +107,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 resourceSlugs = listOf("hello-world"),
             ).execute()
 
-            assertThat(results).hasSize(1)
-            assertThat(results[0].slug).isEqualTo("hello-world")
-            assertThat(results[0].status).isEqualTo(InstallStatus.INSTALLED)
+            // hello-world references corporate theme and company-header stencil
+            val types = results.map { "${it.type}:${it.slug}" }.toSet()
+            assertThat(types).contains("template:hello-world", "theme:corporate", "stencil:company-header")
+            assertThat(results).allMatch { it.status != InstallStatus.FAILED }
 
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
             assertThat(templates).hasSize(1)

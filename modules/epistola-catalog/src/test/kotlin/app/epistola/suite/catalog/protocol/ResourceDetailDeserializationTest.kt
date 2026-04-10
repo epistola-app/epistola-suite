@@ -20,7 +20,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val json = resourceLoader.getResource("classpath:demo/catalog/resources/templates/hello-world.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(1)
+        assertThat(detail.schemaVersion).isEqualTo(2)
         assertThat(detail.resource).isInstanceOf(TemplateResource::class.java)
 
         val template = detail.resource as TemplateResource
