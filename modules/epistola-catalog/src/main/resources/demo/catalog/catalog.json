@@ -15,6 +15,14 @@
   },
   "resources": [
     {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000001",
+      "name": "Epistola Logo",
+      "description": "Small brand logo for use in templates.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/assets/epistola-logo.json"
+    },
+    {
       "type": "attribute",
       "slug": "language",
       "name": "Language",
