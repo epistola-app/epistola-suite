@@ -96,6 +96,8 @@ class InstallFromCatalogHandler(
      * Expands the selected resources to include any dependencies found in the catalog manifest.
      * Scans template and stencil content for theme, stencil, attribute, and asset references,
      * then recursively scans any newly-discovered stencils for their own dependencies.
+     *
+     * @throws InvalidCatalogException if any referenced dependency is missing from the manifest
      */
     private fun resolveDependencies(
         selected: List<ResourceEntry>,
@@ -106,9 +108,9 @@ class InstallFromCatalogHandler(
     ): List<ResourceEntry> {
         val allByKey = manifest.resources.associateBy { "${it.type}:${it.slug}" }
         val result = selected.associateByTo(mutableMapOf()) { "${it.type}:${it.slug}" }
-        val scanned = mutableSetOf<String>() // track which entries we've already scanned
+        val scanned = mutableSetOf<String>()
+        val missing = mutableSetOf<String>()
 
-        // Iteratively scan and expand until no new dependencies are found
         var toScan = selected.filter { it.type == "template" || it.type == "stencil" }
 
         while (toScan.isNotEmpty()) {
@@ -138,25 +140,29 @@ class InstallFromCatalogHandler(
             val merged = DependencyScanner.merge(*deps.toTypedArray())
             val newEntries = mutableListOf<ResourceEntry>()
 
-            for (themeSlug in merged.themeRefs) {
-                val e = allByKey["theme:$themeSlug"] ?: continue
-                if (result.putIfAbsent("theme:$themeSlug", e) == null) newEntries += e
-            }
-            for (stencilSlug in merged.stencilRefs) {
-                val e = allByKey["stencil:$stencilSlug"] ?: continue
-                if (result.putIfAbsent("stencil:$stencilSlug", e) == null) newEntries += e
-            }
-            for (attrKey in merged.attributeKeys) {
-                val e = allByKey["attribute:$attrKey"] ?: continue
-                if (result.putIfAbsent("attribute:$attrKey", e) == null) newEntries += e
-            }
-            for (assetId in merged.assetRefs) {
-                val e = allByKey["asset:$assetId"] ?: continue
-                if (result.putIfAbsent("asset:$assetId", e) == null) newEntries += e
+            fun resolve(type: String, slug: String) {
+                val key = "$type:$slug"
+                if (key in result) return
+                val e = allByKey[key]
+                if (e == null) {
+                    missing += key
+                } else if (result.putIfAbsent(key, e) == null) {
+                    newEntries += e
+                }
             }
 
-            // Next iteration: scan any newly-added stencils (they may reference assets)
+            merged.themeRefs.forEach { resolve("theme", it) }
+            merged.stencilRefs.forEach { resolve("stencil", it) }
+            merged.attributeKeys.forEach { resolve("attribute", it) }
+            merged.assetRefs.forEach { resolve("asset", it) }
+
             toScan = newEntries.filter { it.type == "stencil" }
+        }
+
+        if (missing.isNotEmpty()) {
+            throw InvalidCatalogException(
+                "Catalog is incomplete — the following dependencies are referenced but not included: ${missing.sorted().joinToString(", ")}",
+            )
         }
 
         if (result.size > selected.size) {
@@ -300,3 +306,8 @@ class InstallFromCatalogHandler(
         )
     }
 }
+
+/**
+ * Thrown when a catalog references dependencies that are not included in the manifest.
+ */
+class InvalidCatalogException(message: String) : RuntimeException(message)

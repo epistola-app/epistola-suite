@@ -5,9 +5,11 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 private const val DEP_TEST_CATALOG = "classpath:test-catalogs/dependency-test/catalog.json"
+private const val INVALID_DEPS_CATALOG = "classpath:test-catalogs/invalid-deps/catalog.json"
 
 /**
  * Tests that installing individual resources from a catalog automatically
@@ -175,6 +177,31 @@ class DependencyResolutionTest : IntegrationTestBase() {
             assertThat(attrIdx).isLessThan(themeIdx)
             assertThat(themeIdx).isLessThan(stencilIdx)
             assertThat(stencilIdx).isLessThan(templateIdx)
+        }
+    }
+
+    @Test
+    fun `installing catalog with missing dependencies fails with clear error`() {
+        val tenant = createTenant("Dep Test - Invalid")
+
+        withMediator {
+            val catalog = RegisterCatalog(
+                tenantKey = tenant.id,
+                sourceUrl = INVALID_DEPS_CATALOG,
+                authType = AuthType.NONE,
+            ).execute()
+
+            assertThatThrownBy {
+                InstallFromCatalog(
+                    tenantKey = tenant.id,
+                    catalogKey = catalog.id,
+                ).execute()
+            }
+                .isInstanceOf(InvalidCatalogException::class.java)
+                .hasMessageContaining("asset:00000000-0000-0000-0000-missing00001")
+                .hasMessageContaining("stencil:nonexistent-stencil")
+                .hasMessageContaining("theme:nonexistent-theme")
+                .hasMessageContaining("attribute:nonexistent-attr")
         }
     }
 }
