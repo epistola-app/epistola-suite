@@ -63,7 +63,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).query()
 
-            assertThat(result.resources).hasSize(5)
+            assertThat(result.resources).hasSize(6)
             assertThat(result.resources.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
             assertThat(result.resources).allMatch { it.status == ResourceStatus.AVAILABLE }
         }
@@ -81,16 +81,16 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
-            assertThat(results).hasSize(5)
+            assertThat(results).hasSize(6)
             val successful = results.filter { it.status != InstallStatus.FAILED }
-            assertThat(successful).hasSize(5)
+            assertThat(successful).hasSize(6)
 
             // Verify templates were created
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
             assertThat(templates.map { it.id.value }).containsExactlyInAnyOrder("hello-world", "simple-letter")
 
             // Verify resource type distribution
-            assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
+            assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "asset"))
         }
     }
 
@@ -164,13 +164,13 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            assertThat(results).hasSize(5)
+            assertThat(results).hasSize(6)
             val templateResults = results.filter { it.type == "template" }
             assertThat(templateResults).allMatch { it.status == InstallStatus.UPDATED }
 
-            // Non-template resources get updated on reinstall
+            // Non-template resources get updated or skipped (assets are immutable) on reinstall
             val nonTemplateResults = results.filter { it.type != "template" }
-            assertThat(nonTemplateResults).allMatch { it.status == InstallStatus.UPDATED || it.status == InstallStatus.INSTALLED }
+            assertThat(nonTemplateResults).allMatch { it.status == InstallStatus.UPDATED || it.status == InstallStatus.INSTALLED || it.status == InstallStatus.SKIPPED }
         }
     }
 

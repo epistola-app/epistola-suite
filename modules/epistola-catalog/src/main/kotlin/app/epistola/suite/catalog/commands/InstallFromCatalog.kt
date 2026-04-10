@@ -95,7 +95,7 @@ class InstallFromCatalogHandler(
     /**
      * Expands the selected resources to include any dependencies found in the catalog manifest.
      * Scans template and stencil content for theme, stencil, attribute, and asset references,
-     * then includes matching resources from the manifest.
+     * then recursively scans any newly-discovered stencils for their own dependencies.
      */
     private fun resolveDependencies(
         selected: List<ResourceEntry>,
@@ -106,43 +106,57 @@ class InstallFromCatalogHandler(
     ): List<ResourceEntry> {
         val allByKey = manifest.resources.associateBy { "${it.type}:${it.slug}" }
         val result = selected.associateByTo(mutableMapOf()) { "${it.type}:${it.slug}" }
+        val scanned = mutableSetOf<String>() // track which entries we've already scanned
 
-        // Fetch details for templates and stencils to scan their content
-        val deps = mutableListOf<DependencyScanner.Dependencies>()
-        for (entry in selected) {
-            if (entry.type != "template" && entry.type != "stencil") continue
+        // Iteratively scan and expand until no new dependencies are found
+        var toScan = selected.filter { it.type == "template" || it.type == "stencil" }
 
-            val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential)
-            when (val resource = detail.resource) {
-                is TemplateResource -> {
-                    val variantAttrs = resource.variants
-                        .flatMap { (it.attributes ?: emptyMap()).keys }
-                        .toSet()
-                    deps += DependencyScanner.scan(resource.templateModel, variantAttrs)
-                    // Also scan variant-specific template models
-                    resource.variants.mapNotNull { it.templateModel }.forEach { deps += DependencyScanner.scan(it) }
+        while (toScan.isNotEmpty()) {
+            val deps = mutableListOf<DependencyScanner.Dependencies>()
+
+            for (entry in toScan) {
+                val key = "${entry.type}:${entry.slug}"
+                if (key in scanned) continue
+                scanned += key
+
+                val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential)
+                when (val resource = detail.resource) {
+                    is TemplateResource -> {
+                        val variantAttrs = resource.variants
+                            .flatMap { (it.attributes ?: emptyMap()).keys }
+                            .toSet()
+                        deps += DependencyScanner.scan(resource.templateModel, variantAttrs)
+                        resource.variants.mapNotNull { it.templateModel }.forEach { deps += DependencyScanner.scan(it) }
+                    }
+                    is StencilResource -> deps += DependencyScanner.scan(resource.content)
+                    else -> {}
                 }
-                is StencilResource -> deps += DependencyScanner.scan(resource.content)
-                else -> {}
             }
-        }
 
-        if (deps.isEmpty()) return selected
+            if (deps.isEmpty()) break
 
-        val merged = DependencyScanner.merge(*deps.toTypedArray())
+            val merged = DependencyScanner.merge(*deps.toTypedArray())
+            val newEntries = mutableListOf<ResourceEntry>()
 
-        // Add missing dependencies from the manifest
-        for (themeSlug in merged.themeRefs) {
-            result.putIfAbsent("theme:$themeSlug", allByKey["theme:$themeSlug"] ?: continue)
-        }
-        for (stencilSlug in merged.stencilRefs) {
-            result.putIfAbsent("stencil:$stencilSlug", allByKey["stencil:$stencilSlug"] ?: continue)
-        }
-        for (attrKey in merged.attributeKeys) {
-            result.putIfAbsent("attribute:$attrKey", allByKey["attribute:$attrKey"] ?: continue)
-        }
-        for (assetId in merged.assetRefs) {
-            result.putIfAbsent("asset:$assetId", allByKey["asset:$assetId"] ?: continue)
+            for (themeSlug in merged.themeRefs) {
+                val e = allByKey["theme:$themeSlug"] ?: continue
+                if (result.putIfAbsent("theme:$themeSlug", e) == null) newEntries += e
+            }
+            for (stencilSlug in merged.stencilRefs) {
+                val e = allByKey["stencil:$stencilSlug"] ?: continue
+                if (result.putIfAbsent("stencil:$stencilSlug", e) == null) newEntries += e
+            }
+            for (attrKey in merged.attributeKeys) {
+                val e = allByKey["attribute:$attrKey"] ?: continue
+                if (result.putIfAbsent("attribute:$attrKey", e) == null) newEntries += e
+            }
+            for (assetId in merged.assetRefs) {
+                val e = allByKey["asset:$assetId"] ?: continue
+                if (result.putIfAbsent("asset:$assetId", e) == null) newEntries += e
+            }
+
+            // Next iteration: scan any newly-added stencils (they may reference assets)
+            toScan = newEntries.filter { it.type == "stencil" }
         }
 
         if (result.size > selected.size) {

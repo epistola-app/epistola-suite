@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "no-deps",
+    "name": "No Dependencies",
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": { "type": "inherit" },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-text": {
+          "id": "n-text",
+          "type": "paragraph",
+          "slots": [],
+          "props": {
+            "content": [{ "type": "text", "text": "Simple text" }]
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-text"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": {},
+        "isDefault": true
+      }
+    ]
+  }
+}
