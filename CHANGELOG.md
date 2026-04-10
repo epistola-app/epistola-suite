@@ -2,11 +2,12 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-04-10
+
 ### Added
 
 - **Explicit OIDC vs Keycloak admin chart config**: Split the Helm chart's single Keycloak block into separate `oidc` and `keycloakAdmin` settings, so browser login and admin/bootstrap wiring can be configured independently.
 - **Helm pinned in `.mise.toml`**: Added `helm` to project-level tool versions for consistent chart development.
-
 - **Per-tenant feature toggles**: Tenant managers can enable/disable features per tenant via Settings > Features. Global defaults are configured in `application.yaml` (`epistola.features.*`), with per-tenant overrides stored in the database. The feedback feature is the first gated capability — when disabled, the feedback nav link, FAB button, and console capture script are hidden for that tenant.
 - **CodeQL static analysis**: New GitHub Actions workflow (`.github/workflows/codeql.yml`) that runs CodeQL SAST scanning on every push and PR to main, plus a weekly schedule. Scans both Java/Kotlin backend and JavaScript/TypeScript frontend with the `security-and-quality` query suite. Results appear in the GitHub Security tab under Code scanning.
 - **Content Security Policy headers**: CSP headers are now set on all UI responses, restricting script/style/font/image sources and blocking framing and plugin-based attacks.
