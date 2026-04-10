@@ -140,7 +140,7 @@ Create the hierarchical group structure:
 5. Under `global`, create: `reader`, `editor`, `generator`, `manager`
 6. Under `platform`, create: `tenant-manager`
 
-Alternatively, enable `epistola.keycloak.ensure-groups=true` to have the app create the base structure automatically on startup (see below).
+Alternatively, configure the chart with `oidc.enabled: true` and `keycloakAdmin.ensureGroups: true` to have the app create the base structure automatically on startup (see below).
 
 ### 4. Assign Users to Groups
 
@@ -148,7 +148,7 @@ Assign users to the leaf groups (e.g., `/epistola/tenants/demo/reader`). Assigni
 
 ## Automatic Tenant Provisioning
 
-When `epistola.keycloak.client-secret` is configured, Epistola automatically creates hierarchical Keycloak groups when a new tenant is created via the UI. The four role groups are created under `/epistola/tenants/{key}/`:
+When the `keycloakAdmin` client secret is configured, Epistola automatically creates hierarchical Keycloak groups when a new tenant is created via the UI. The four role groups are created under `/epistola/tenants/{key}/`:
 
 - `/epistola/tenants/{key}/reader`
 - `/epistola/tenants/{key}/editor`
@@ -162,9 +162,19 @@ When a tenant is deleted, the entire `/epistola/tenants/{key}` group is removed 
 For environments without a realm import (e.g., production with an externally managed Keycloak), enable automatic creation of the base group hierarchy on startup:
 
 ```yaml
-epistola:
-  keycloak:
-    ensure-groups: true # disabled by default
+oidc:
+  enabled: true
+  clientId: epistola-suite
+  issuerUri: https://keycloak.example.com/realms/epistola
+  existingSecret: epistola-keycloak-client
+
+keycloakAdmin:
+  enabled: true
+  adminUrl: https://keycloak.example.com
+  realm: epistola
+  clientId: epistola-suite
+  existingSecret: epistola-keycloak-client
+  ensureGroups: true # disabled by default
 ```
 
 This creates `/epistola/tenants`, `/epistola/global/*`, and `/epistola/platform/*` if they don't exist. The operation is idempotent.
@@ -172,13 +182,19 @@ This creates `/epistola/tenants`, `/epistola/global/*`, and `/epistola/platform/
 ### Configuration
 
 ```yaml
-epistola:
-  keycloak:
-    admin-url: http://localhost:8080 # Keycloak base URL
-    realm: epistola # Realm name
-    client-id: epistola-suite # Client with service account
-    client-secret: ${KEYCLOAK_CLIENT_SECRET} # Client secret
-    ensure-groups: false # Create base group hierarchy on startup
+oidc:
+  enabled: true
+  clientId: epistola-suite
+  issuerUri: http://localhost:8080/realms/epistola
+  existingSecret: epistola-keycloak-client
+
+keycloakAdmin:
+  enabled: true
+  adminUrl: http://localhost:8080 # Keycloak admin base URL
+  realm: epistola # Realm name
+  clientId: epistola-suite # Client with service account
+  existingSecret: epistola-keycloak-client
+  ensureGroups: false # Create base group hierarchy on startup
 ```
 
 The `epistola-suite` client's service account needs `realm-management` client roles:
