@@ -139,7 +139,7 @@ class CatalogHandler {
                 .build()
         } catch (e: Exception) {
             logger.warn("Failed to install from catalog: ${e.message}", e)
-            browseWithError(request, catalogKey, "Failed to install templates from catalog.")
+            browseWithError(request, catalogKey, "Failed to install resources from catalog.")
         }
     }
 

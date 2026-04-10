@@ -1,5 +1,8 @@
-package app.epistola.suite.templates.queries
+package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.commands.ImportTemplateInput
+import app.epistola.suite.catalog.commands.ImportTemplates
+import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -9,9 +12,6 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.ImportTemplateInput
-import app.epistola.suite.templates.commands.ImportTemplates
-import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.queries.variants.ListVariants

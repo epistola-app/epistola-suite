@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.commands
+package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey

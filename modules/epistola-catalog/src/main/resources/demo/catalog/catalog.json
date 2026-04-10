@@ -1,19 +1,43 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "catalog": {
     "slug": "epistola-demo",
     "name": "Epistola Demo Catalog",
-    "description": "Sample templates for getting started with Epistola."
+    "description": "Sample templates, themes, stencils, and attributes for getting started with Epistola."
   },
   "publisher": {
     "name": "Epistola",
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "1.0",
-    "releasedAt": "2026-04-03T00:00:00Z"
+    "version": "2.0",
+    "releasedAt": "2026-04-10T00:00:00Z"
   },
   "resources": [
+    {
+      "type": "attribute",
+      "slug": "language",
+      "name": "Language",
+      "description": "Document language for multi-language template variants.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/attributes/language.json"
+    },
+    {
+      "type": "theme",
+      "slug": "corporate",
+      "name": "Corporate Theme",
+      "description": "A clean corporate theme with professional styling.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/themes/corporate.json"
+    },
+    {
+      "type": "stencil",
+      "slug": "company-header",
+      "name": "Company Header",
+      "description": "Reusable company header block with logo placeholder and company name.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/stencils/company-header.json"
+    },
     {
       "type": "template",
       "slug": "hello-world",

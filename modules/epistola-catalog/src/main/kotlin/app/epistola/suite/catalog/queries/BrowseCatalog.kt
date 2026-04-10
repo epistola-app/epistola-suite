@@ -60,11 +60,11 @@ class BrowseCatalogHandler(
                 .orElseThrow { IllegalArgumentException("Catalog not found: ${query.catalogKey}") }
         }
 
-        val installedSlugs = jdbi.withHandle<Set<String>, Exception> { handle ->
+        val installedResources = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT catalog_resource_slug
-                FROM catalog_templates
+                SELECT resource_type || ':' || resource_slug
+                FROM catalog_resources
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                 """,
             )
@@ -81,12 +81,13 @@ class BrowseCatalogHandler(
         )
 
         val resources = manifest.resources.map { entry ->
+            val key = "${entry.type}:${entry.slug}"
             BrowseResource(
                 type = entry.type,
                 slug = entry.slug,
                 name = entry.name,
                 description = entry.description,
-                status = if (entry.slug in installedSlugs) ResourceStatus.INSTALLED else ResourceStatus.AVAILABLE,
+                status = if (key in installedResources) ResourceStatus.INSTALLED else ResourceStatus.AVAILABLE,
             )
         }
 

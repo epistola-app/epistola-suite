@@ -43,6 +43,34 @@ class CatalogClient(
             ?: fetchHttp(resolvedUrl, authType, credential)
     }
 
+    fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
+        val resolvedUrl = resolveContentUrl(contentUrl, manifestUrl)
+        logger.debug("Fetching binary content from {}", resolvedUrl)
+        return readLocalBinary(resolvedUrl)
+            ?: fetchHttpBinary(resolvedUrl, authType, credential)
+    }
+
+    private fun readLocalBinary(url: String): ByteArray? = when {
+        url.startsWith("file:") -> {
+            val path = Path.of(URI.create(url))
+            if (!path.toFile().exists()) throw CatalogFetchException("File not found: $path")
+            path.toFile().readBytes()
+        }
+        url.startsWith("classpath:") -> {
+            val resource = resourceLoader.getResource(url)
+            if (!resource.exists()) throw CatalogFetchException("Classpath resource not found: $url")
+            resource.contentAsByteArray
+        }
+        else -> null
+    }
+
+    private fun fetchHttpBinary(url: String, authType: AuthType, credential: String?): ByteArray = catalogRestClient.get()
+        .uri(url)
+        .applyAuth(authType, credential)
+        .retrieve()
+        .body(ByteArray::class.java)
+        ?: throw CatalogFetchException("Empty response from: $url")
+
     private fun <T> readLocal(url: String, type: Class<T>): T? = when {
         url.startsWith("file:") -> readFile(url, type)
         url.startsWith("classpath:") -> readClasspath(url, type)
@@ -94,6 +122,23 @@ class CatalogClient(
                 val rawPath = uri.path ?: ""
                 require(!rawPath.contains("..")) { "Path traversal not allowed" }
             }
+        }
+
+        fun resolveContentUrl(contentUrl: String, manifestUrl: String): String {
+            if (contentUrl.startsWith("http://") ||
+                contentUrl.startsWith("https://") ||
+                contentUrl.startsWith("file:") ||
+                contentUrl.startsWith("classpath:")
+            ) {
+                return contentUrl
+            }
+            if (manifestUrl.startsWith("classpath:")) {
+                val basePath = manifestUrl.substringAfter("classpath:").substringBeforeLast("/")
+                val resolved = "$basePath/$contentUrl".replace("/./", "/")
+                return "classpath:$resolved"
+            }
+            val manifestUri = URI.create(manifestUrl)
+            return manifestUri.resolve(contentUrl).toString()
         }
 
         fun resolveDetailUrl(detailUrl: String, manifestUrl: String): String {

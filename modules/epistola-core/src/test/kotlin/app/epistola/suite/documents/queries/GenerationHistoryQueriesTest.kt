@@ -3,7 +3,6 @@ package app.epistola.suite.documents.queries
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DocumentTemplate
@@ -15,6 +14,7 @@ import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test

@@ -11,14 +11,14 @@
         <p class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
 
         <div class="alert alert-success" th:if="${installed}">
-            Templates installed successfully.
+            Resources installed successfully.
         </div>
 
         <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Templates</h2>
+                <h2>Resources</h2>
                 <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id})}"
                       method="post" style="margin: 0;">
                     <button type="submit" class="btn btn-sm btn-primary">Install All</button>
@@ -28,6 +28,7 @@
                 <table class="ep-table">
                     <thead>
                         <tr>
+                            <th>Type</th>
                             <th>Name</th>
                             <th>Slug</th>
                             <th>Description</th>
@@ -37,6 +38,13 @@
                     </thead>
                     <tbody>
                         <tr th:each="resource : ${resources}">
+                            <td>
+                                <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
+                                <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
+                                <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
+                                <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
+                                <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
+                            </td>
                             <td th:text="${resource.name}"></td>
                             <td><code th:text="${resource.slug}"></code></td>
                             <td>

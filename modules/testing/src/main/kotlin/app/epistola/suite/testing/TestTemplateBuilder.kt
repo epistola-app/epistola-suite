@@ -1,4 +1,4 @@
-package app.epistola.suite.documents
+package app.epistola.suite.testing
 
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot

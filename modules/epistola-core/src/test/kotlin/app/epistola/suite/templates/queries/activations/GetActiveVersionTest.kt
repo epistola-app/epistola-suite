@@ -1,21 +1,21 @@
 package app.epistola.suite.templates.queries.activations
 
+import app.epistola.suite.catalog.commands.ImportStatus
+import app.epistola.suite.catalog.commands.ImportTemplateInput
+import app.epistola.suite.catalog.commands.ImportTemplates
+import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.ImportStatus
-import app.epistola.suite.templates.commands.ImportTemplateInput
-import app.epistola.suite.templates.commands.ImportTemplates
-import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 

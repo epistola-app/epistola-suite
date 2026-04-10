@@ -1,13 +1,13 @@
-package app.epistola.suite.templates.queries
+package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.commands.ImportTemplateInput
+import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.commands.ImportTemplateInput
-import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component

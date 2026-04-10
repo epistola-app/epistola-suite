@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "stencil",
+    "slug": "company-header",
+    "name": "Company Header",
+    "description": "Reusable company header block with company name.",
+    "tags": ["header", "branding"],
+    "content": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "heading",
+          "slots": [],
+          "props": {
+            "level": 1,
+            "content": [{ "type": "text", "text": "Company Name" }]
+          }
+        },
+        "n-rule": {
+          "id": "n-rule",
+          "type": "horizontalRule",
+          "slots": [],
+          "props": {}
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-heading", "n-rule"]
+        }
+      }
+    }
+  }
+}

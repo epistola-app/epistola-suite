@@ -1,9 +1,19 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.ImportStatus
+import app.epistola.suite.catalog.commands.ImportTemplateInput
+import app.epistola.suite.catalog.commands.ImportTemplates
+import app.epistola.suite.catalog.commands.ImportVariantInput
+import app.epistola.suite.catalog.protocol.AssetResource
+import app.epistola.suite.catalog.protocol.AttributeResource
+import app.epistola.suite.catalog.protocol.CatalogResource
+import app.epistola.suite.catalog.protocol.StencilResource
+import app.epistola.suite.catalog.protocol.TemplateResource
+import app.epistola.suite.catalog.protocol.ThemeResource
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -12,11 +22,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.commands.ImportStatus
-import app.epistola.suite.templates.commands.ImportTemplateInput
-import app.epistola.suite.templates.commands.ImportTemplateResult
-import app.epistola.suite.templates.commands.ImportTemplates
-import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.model.DataExample
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -32,6 +37,7 @@ data class InstallFromCatalog(
 }
 
 data class InstallResult(
+    val type: String,
     val slug: String,
     val status: InstallStatus,
     val errorMessage: String? = null,
@@ -40,6 +46,7 @@ data class InstallResult(
 enum class InstallStatus {
     INSTALLED,
     UPDATED,
+    SKIPPED,
     FAILED,
 }
 
@@ -64,34 +71,40 @@ class InstallFromCatalogHandler(
             manifest.resources.filter { it.slug in command.resourceSlugs }
         } else {
             manifest.resources
-        }.filter { it.type == "template" }
+        }
 
-        return resourcesToInstall.map { resource ->
+        // Install in dependency order: assets → attributes → themes → stencils → templates
+        val ordered = resourcesToInstall.sortedBy { INSTALL_ORDER[it.type] ?: 99 }
+
+        return ordered.map { entry ->
             try {
-                val detail = catalogClient.fetchResourceDetail(resource.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
-                val importResult = importTemplate(command, detail.resource, manifest.release.version)
-                registerCatalogTemplate(command, resource.slug)
-
-                InstallResult(
-                    slug = resource.slug,
-                    status = if (importResult.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED,
-                )
+                val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+                val status = installResource(command, detail.resource, manifest.release.version, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+                registerCatalogResource(command, entry.type, entry.slug)
+                InstallResult(type = entry.type, slug = entry.slug, status = status)
             } catch (e: Exception) {
-                logger.error("Failed to install resource '${resource.slug}' from catalog '${command.catalogKey}': ${e.message}", e)
-                InstallResult(
-                    slug = resource.slug,
-                    status = InstallStatus.FAILED,
-                    errorMessage = e.message,
-                )
+                logger.error("Failed to install {} '{}' from catalog '{}': {}", entry.type, entry.slug, command.catalogKey, e.message, e)
+                InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
             }
         }
     }
 
-    private fun importTemplate(
+    private fun installResource(
         command: InstallFromCatalog,
-        resource: app.epistola.suite.catalog.protocol.TemplateResource,
+        resource: CatalogResource,
         releaseVersion: String,
-    ): ImportTemplateResult {
+        sourceUrl: String,
+        authType: app.epistola.suite.catalog.AuthType,
+        credential: String?,
+    ): InstallStatus = when (resource) {
+        is TemplateResource -> installTemplate(command, resource, releaseVersion)
+        is ThemeResource -> installTheme(command, resource)
+        is StencilResource -> installStencil(command, resource)
+        is AttributeResource -> installAttribute(command, resource)
+        is AssetResource -> installAsset(command, resource, sourceUrl, authType, credential)
+    }
+
+    private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
         val input = ImportTemplateInput(
             slug = resource.slug,
             name = resource.name,
@@ -122,24 +135,90 @@ class InstallFromCatalogHandler(
         if (result.status == ImportStatus.FAILED) {
             throw RuntimeException("Import failed for '${resource.slug}': ${result.errorMessage}")
         }
-        return result
+        return if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
     }
 
-    private fun registerCatalogTemplate(command: InstallFromCatalog, resourceSlug: String) {
+    private fun installTheme(command: InstallFromCatalog, resource: ThemeResource): InstallStatus {
+        val tenantId = TenantId(command.tenantKey)
+        return ImportTheme(
+            tenantId = tenantId,
+            slug = resource.slug,
+            name = resource.name,
+            description = resource.description,
+            documentStyles = resource.documentStyles,
+            pageSettings = resource.pageSettings,
+            blockStylePresets = resource.blockStylePresets,
+            spacingUnit = resource.spacingUnit,
+        ).execute()
+    }
+
+    private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus {
+        val tenantId = TenantId(command.tenantKey)
+        return ImportStencil(
+            tenantId = tenantId,
+            slug = resource.slug,
+            name = resource.name,
+            description = resource.description,
+            tags = resource.tags,
+            content = resource.content,
+        ).execute()
+    }
+
+    private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource): InstallStatus {
+        val tenantId = TenantId(command.tenantKey)
+        return ImportAttribute(
+            tenantId = tenantId,
+            slug = resource.slug,
+            displayName = resource.name,
+            allowedValues = resource.allowedValues,
+        ).execute()
+    }
+
+    private fun installAsset(
+        command: InstallFromCatalog,
+        resource: AssetResource,
+        sourceUrl: String,
+        authType: app.epistola.suite.catalog.AuthType,
+        credential: String?,
+    ): InstallStatus {
+        val tenantId = TenantId(command.tenantKey)
+        val content = catalogClient.fetchBinaryContent(resource.contentUrl, sourceUrl, authType, credential)
+
+        return ImportAsset(
+            tenantId = tenantId,
+            id = app.epistola.suite.common.ids.AssetKey.of(resource.slug),
+            name = resource.name,
+            mediaType = AssetMediaType.fromMimeType(resource.mediaType),
+            content = content,
+            width = resource.width,
+            height = resource.height,
+        ).execute()
+    }
+
+    private fun registerCatalogResource(command: InstallFromCatalog, resourceType: String, resourceSlug: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_templates (tenant_key, catalog_key, template_key, catalog_resource_slug)
-                VALUES (:tenantKey, :catalogKey, :templateKey, :resourceSlug)
-                ON CONFLICT (tenant_key, template_key) DO UPDATE
-                SET catalog_key = :catalogKey, catalog_resource_slug = :resourceSlug
+                INSERT INTO catalog_resources (tenant_key, catalog_key, resource_type, resource_slug)
+                VALUES (:tenantKey, :catalogKey, :resourceType, :resourceSlug)
+                ON CONFLICT (tenant_key, catalog_key, resource_type, resource_slug) DO NOTHING
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
                 .bind("catalogKey", command.catalogKey)
-                .bind("templateKey", TemplateKey.of(resourceSlug))
+                .bind("resourceType", resourceType)
                 .bind("resourceSlug", resourceSlug)
                 .execute()
         }
+    }
+
+    companion object {
+        private val INSTALL_ORDER = mapOf(
+            "asset" to 0,
+            "attribute" to 1,
+            "theme" to 2,
+            "stencil" to 3,
+            "template" to 4,
+        )
     }
 }

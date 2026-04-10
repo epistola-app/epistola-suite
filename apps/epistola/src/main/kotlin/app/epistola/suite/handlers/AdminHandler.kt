@@ -1,12 +1,12 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.commands.ImportTemplates
+import app.epistola.suite.catalog.queries.ExportTemplates
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
-import app.epistola.suite.templates.commands.ImportTemplates
-import app.epistola.suite.templates.queries.ExportTemplates
 import jakarta.servlet.http.Part
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -63,20 +63,20 @@ class AdminHandler(
 
         return try {
             val contentBytes = filePart.inputStream.use { it.readAllBytes() }
-            val templates: List<app.epistola.suite.templates.commands.ImportTemplateInput> = objectMapper.readValue(
+            val templates: List<app.epistola.suite.catalog.commands.ImportTemplateInput> = objectMapper.readValue(
                 contentBytes,
                 objectMapper.typeFactory.constructCollectionType(
                     List::class.java,
-                    app.epistola.suite.templates.commands.ImportTemplateInput::class.java,
+                    app.epistola.suite.catalog.commands.ImportTemplateInput::class.java,
                 ),
             )
 
             val results = ImportTemplates(tenantId = tenantId, templates = templates).execute()
 
-            val created = results.count { it.status == app.epistola.suite.templates.commands.ImportStatus.CREATED }
-            val updated = results.count { it.status == app.epistola.suite.templates.commands.ImportStatus.UPDATED }
-            val unchanged = results.count { it.status == app.epistola.suite.templates.commands.ImportStatus.UNCHANGED }
-            val failed = results.count { it.status == app.epistola.suite.templates.commands.ImportStatus.FAILED }
+            val created = results.count { it.status == app.epistola.suite.catalog.commands.ImportStatus.CREATED }
+            val updated = results.count { it.status == app.epistola.suite.catalog.commands.ImportStatus.UPDATED }
+            val unchanged = results.count { it.status == app.epistola.suite.catalog.commands.ImportStatus.UNCHANGED }
+            val failed = results.count { it.status == app.epistola.suite.catalog.commands.ImportStatus.FAILED }
 
             val summary = mapOf<String, Any>(
                 "total" to results.size,

@@ -34,7 +34,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
             assertThat(catalog.type).isEqualTo(CatalogType.IMPORTED)
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isEqualTo("1.0")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("2.0")
         }
     }
 
@@ -52,7 +52,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `browse catalog shows available resources`() {
+    fun `browse catalog shows available resources of all types`() {
         val tenant = createTenant("Browse Test")
 
         withMediator {
@@ -63,14 +63,14 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).query()
 
-            assertThat(result.resources).hasSize(2)
-            assertThat(result.resources.map { it.slug }).containsExactlyInAnyOrder("hello-world", "simple-letter")
+            assertThat(result.resources).hasSize(5)
+            assertThat(result.resources.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
             assertThat(result.resources).allMatch { it.status == ResourceStatus.AVAILABLE }
         }
     }
 
     @Test
-    fun `install from catalog creates templates`() {
+    fun `install from catalog creates all resource types`() {
         val tenant = createTenant("Install Test")
 
         withMediator {
@@ -81,16 +81,21 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
-            assertThat(results).hasSize(2)
-            assertThat(results).allMatch { it.status == InstallStatus.INSTALLED }
+            assertThat(results).hasSize(5)
+            val successful = results.filter { it.status != InstallStatus.FAILED }
+            assertThat(successful).hasSize(5)
 
+            // Verify templates were created
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
             assertThat(templates.map { it.id.value }).containsExactlyInAnyOrder("hello-world", "simple-letter")
+
+            // Verify resource type distribution
+            assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
         }
     }
 
     @Test
-    fun `install selective slug only installs that template`() {
+    fun `install selective slug only installs that resource`() {
         val tenant = createTenant("Selective Test")
 
         withMediator {
@@ -159,8 +164,38 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            assertThat(results).hasSize(2)
-            assertThat(results).allMatch { it.status == InstallStatus.UPDATED }
+            assertThat(results).hasSize(5)
+            val templateResults = results.filter { it.type == "template" }
+            assertThat(templateResults).allMatch { it.status == InstallStatus.UPDATED }
+
+            // Non-template resources get updated on reinstall
+            val nonTemplateResults = results.filter { it.type != "template" }
+            assertThat(nonTemplateResults).allMatch { it.status == InstallStatus.UPDATED || it.status == InstallStatus.INSTALLED }
+        }
+    }
+
+    @Test
+    fun `install order respects dependencies`() {
+        val tenant = createTenant("Order Test")
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
+
+            val results = InstallFromCatalog(
+                tenantKey = tenant.id,
+                catalogKey = CatalogKey.of("epistola-demo"),
+            ).execute()
+
+            // Verify install order: attribute → theme → stencil → template
+            val types = results.map { it.type }
+            val attrIdx = types.indexOf("attribute")
+            val themeIdx = types.indexOf("theme")
+            val stencilIdx = types.indexOf("stencil")
+            val templateIdx = types.indexOf("template")
+
+            assertThat(attrIdx).isLessThan(themeIdx)
+            assertThat(themeIdx).isLessThan(stencilIdx)
+            assertThat(stencilIdx).isLessThan(templateIdx)
         }
     }
 }
