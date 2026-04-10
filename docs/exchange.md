@@ -846,3 +846,124 @@ Future versions could add categories, tags, and search to the catalog manifest f
 ### Release Notes
 
 Future versions could add a `releaseNotes` field to releases, describing what changed between versions. This would be shown in the upgrade UI.
+
+## Production Lifecycle Design
+
+This section describes the target lifecycle model for catalogs in production. It builds on the foundation of multi-resource catalogs (templates, themes, stencils, attributes, assets) and dependency resolution.
+
+### Catalog Types
+
+**Authored** — Created within this Epistola instance. Resources are fully editable. Can be published as releases for other instances to subscribe to.
+
+**Subscribed** — Follows an external source URL. Resources are installed as read-only copies. Can receive upgrades when the upstream publishes new releases.
+
+### Installation Model
+
+A catalog is like an image; an **installation** is like a container.
+
+When subscribing to a catalog, the user creates an installation:
+
+- The installation has a **local alias** (e.g., `utrecht-templates`) chosen by the user
+- Resources are scoped to the alias — `utrecht-templates/invoice` doesn't conflict with `sittard/invoice`
+- The same catalog URL can be installed multiple times with different aliases
+- Each installation tracks its own installed version, upgrade state, etc.
+
+For authored catalogs, the catalog slug is the namespace. No separate alias needed.
+
+### Resource Scoping
+
+Resources are scoped by their catalog installation:
+
+- **Database key**: `(tenant_key, installation_key, resource_type, resource_slug)`
+- **Display**: Resources grouped by catalog installation in the UI
+- **Resolution**: Templates resolved by full scoped key (e.g., `utrecht-templates/permit-letter`)
+- **Standalone**: Resources not in any catalog exist in the default namespace (backward compatible)
+
+### Naming
+
+Catalog publishers use a reverse-domain namespace: `nl.sittard-geleen.official-templates`
+
+The **installation alias** is local and short: `sittard-templates`
+
+| Context | Format |
+|---|---|
+| Subscribed resource | `{installation-alias}/{resource-slug}` |
+| Authored resource | `{catalog-slug}/{resource-slug}` |
+| Standalone resource | `{resource-slug}` (no prefix) |
+
+### Resource Mutability
+
+| Source | Editable? | Upgrade tracking? |
+|---|---|---|
+| **Authored** | Yes | N/A (we are the source) |
+| **Subscribed** | No — read-only | Yes |
+| **Detached** | Yes — forked copy | No — severed from upstream |
+
+### Lifecycle Flows
+
+#### Subscribe to a catalog
+
+1. User provides a catalog URL
+2. System fetches manifest, shows available resources
+3. User chooses a **local alias** for the installation
+4. User confirms (dependency preview shows what will be installed)
+5. Resources installed as **read-only** copies, scoped to the alias
+6. Installation records: source URL, installed version, timestamp
+
+#### Upgrade a subscription
+
+1. System detects new release version at the source URL
+2. "Check for updates" → shows diff (new / changed / removed resources)
+3. User confirms → resources updated in place (read-only)
+4. Detached resources are skipped
+
+#### Detach a resource
+
+1. User clicks "Detach" on a subscribed resource
+2. Resource becomes editable (read-only flag removed)
+3. Link to upstream severed — resource becomes standalone
+4. Future upgrades skip this resource
+
+#### Detach an entire installation
+
+1. "Detach all" → all resources become editable standalone resources
+2. Subscription removed
+
+#### Uninstall a subscription
+
+User chooses one of:
+
+- **Remove all** — deletes all resources from this installation
+- **Detach all** — resources become standalone, subscription removed
+
+#### Author a catalog
+
+1. Create a new authored catalog with name and slug
+2. Assign resources (existing standalone or new)
+3. Create releases (versioned snapshots)
+4. Publish via `.well-known` or export as static files
+
+### Database Evolution
+
+The `catalogs` table:
+
+- Rename `type` values: `LOCAL` → `AUTHORED`, `IMPORTED` → `SUBSCRIBED`
+- Add `installation_alias` (user-chosen, unique per tenant)
+
+The `catalog_resources` table:
+
+- `catalog_key` becomes `installation_key`
+- Add `read_only` boolean (true for subscribed, false for authored/detached)
+- Add `detached_at` timestamp (null if still tracked)
+
+Resource tables (templates, themes, etc.):
+
+- Optional `installation_key` for scoped lookups, or scoping via `catalog_resources` join
+
+### Not Yet Covered
+
+- Conflict resolution during upgrades (upstream changed + locally detached)
+- Partial installation (install some resources, skip others)
+- Version pinning (subscribe to a specific release, not latest)
+- Catalog discovery / registry
+- Access control per catalog (who can install, detach, publish)
