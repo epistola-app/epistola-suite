@@ -847,123 +847,161 @@ Future versions could add categories, tags, and search to the catalog manifest f
 
 Future versions could add a `releaseNotes` field to releases, describing what changed between versions. This would be shown in the upgrade UI.
 
-## Production Lifecycle Design
+## Catalog-Based Resource Model
 
-This section describes the target lifecycle model for catalogs in production. It builds on the foundation of multi-resource catalogs (templates, themes, stencils, attributes, assets) and dependency resolution.
+This section describes the target architecture for catalogs in production. Every resource belongs to a catalog. Catalogs are the organizational unit, namespace, and exchange boundary.
+
+### Core Principles
+
+1. **Every resource belongs to exactly one catalog** — no standalone/orphan resources
+2. **The catalog slug IS the namespace** — resource identity: `{catalog}/{slug}`
+3. **All references are always fully qualified** — `acme-themes/corporate`, never bare `corporate`
+4. **Cross-catalog references are allowed** — a template can use themes from another catalog
+5. **Catalog slugs are universal and fixed** — publisher chooses the slug, everyone uses it
 
 ### Catalog Types
 
-**Authored** — Created within this Epistola instance. Resources are fully editable. Can be published as releases for other instances to subscribe to.
-
-**Subscribed** — Follows an external source URL. Resources are installed as read-only copies. Can receive upgrades when the upstream publishes new releases.
-
-### Installation Model
-
-A catalog is like an image; an **installation** is like a container.
-
-When subscribing to a catalog, the user creates an installation:
-
-- The installation has a **local alias** (e.g., `utrecht-templates`) chosen by the user
-- Resources are scoped to the alias — `utrecht-templates/invoice` doesn't conflict with `sittard/invoice`
-- The same catalog URL can be installed multiple times with different aliases
-- Each installation tracks its own installed version, upgrade state, etc.
-
-For authored catalogs, the catalog slug is the namespace. No separate alias needed.
-
-### Resource Scoping
-
-Resources are scoped by their catalog installation:
-
-- **Database key**: `(tenant_key, installation_key, resource_type, resource_slug)`
-- **Display**: Resources grouped by catalog installation in the UI
-- **Resolution**: Templates resolved by full scoped key (e.g., `utrecht-templates/permit-letter`)
-- **Standalone**: Resources not in any catalog exist in the default namespace (backward compatible)
-
-### Naming
-
-Catalog publishers use a reverse-domain namespace: `nl.sittard-geleen.official-templates`
-
-The **installation alias** is local and short: `sittard-templates`
-
-| Context | Format |
-|---|---|
-| Subscribed resource | `{installation-alias}/{resource-slug}` |
-| Authored resource | `{catalog-slug}/{resource-slug}` |
-| Standalone resource | `{resource-slug}` (no prefix) |
-
-### Resource Mutability
-
-| Source | Editable? | Upgrade tracking? |
+| Type | Editable? | Source |
 |---|---|---|
-| **Authored** | Yes | N/A (we are the source) |
-| **Subscribed** | No — read-only | Yes |
-| **Detached** | Yes — forked copy | No — severed from upstream |
+| **Authored** | Yes | Created locally. User manages resources. Can publish releases. |
+| **Subscribed** | No (read-only) | Installed from external URL. Can receive upgrades. |
+
+### Default Catalog
+
+- Every tenant gets a default authored catalog on creation
+- Users can create additional authored catalogs (e.g., `permit-templates`, `hr-templates`)
+- All catalogs are equal in the UI — the default is not special
+
+### Resource Identity
+
+All resources are identified by `{catalog}/{slug}`:
+
+| Example | Meaning |
+|---|---|
+| `acme-themes/corporate` | Theme `corporate` in catalog `acme-themes` |
+| `my-templates/invoice` | Template `invoice` in authored catalog `my-templates` |
+| `default/letterhead` | Stencil `letterhead` in the default catalog |
+
+**Database PK**: `(tenant_key, catalog_key, id)` for each resource type table.
+
+### References
+
+**All refs are always fully qualified everywhere** — in the database, in the manifest, in the API. No bare slugs, no implicit resolution, no install-time rewriting.
+
+Examples in template model JSON:
+```json
+{
+  "themeRef": { "type": "override", "themeId": "acme-themes/corporate" },
+  "nodes": {
+    "n-stencil": {
+      "type": "stencil",
+      "props": { "stencilId": "shared-stencils/company-header" }
+    },
+    "n-logo": {
+      "type": "image",
+      "props": { "assetId": "acme-themes/01966a00-0000-7000-8000-000000000001" }
+    }
+  }
+}
+```
+
+**Cross-catalog refs are allowed.** A template in `my-templates` can reference `acme-themes/corporate`. The referenced catalog must be installed.
+
+**If a catalog is renamed**, refs are updated via tooling (bulk rename across template models).
+
+### Catalog Slug Identity
+
+- Catalog slug is chosen by the publisher and is fixed
+- On install, if the slug conflicts with an existing catalog on this tenant, the install is rejected
+- No local aliasing (simplifies everything — refs always match the slug)
+- Slugs are short and descriptive: kebab-case, max 50 chars
+
+### Reference Resolution (Generation)
+
+When generating a document from template `my-templates/invoice`:
+
+1. Template model contains fully qualified refs: `acme-themes/corporate`, `my-templates/header-stencil`
+2. Parse `{catalog}/{slug}`, look up in `(tenant_key, catalog_key, resource_slug)`
+3. If referenced catalog is not installed → error
+4. If resource not found in catalog → error
+5. No guessing, no fallback, no ambiguity
 
 ### Lifecycle Flows
 
 #### Subscribe to a catalog
 
 1. User provides a catalog URL
-2. System fetches manifest, shows available resources
-3. User chooses a **local alias** for the installation
-4. User confirms (dependency preview shows what will be installed)
-5. Resources installed as **read-only** copies, scoped to the alias
-6. Installation records: source URL, installed version, timestamp
+2. System fetches manifest, shows catalog slug + available resources
+3. If slug conflicts with existing catalog → reject (user must uninstall the conflicting one first)
+4. User confirms installation (dependency preview)
+5. Resources installed as read-only, under the catalog's slug namespace
+6. Records: source URL, installed version, timestamp
 
 #### Upgrade a subscription
 
-1. System detects new release version at the source URL
-2. "Check for updates" → shows diff (new / changed / removed resources)
+1. System detects new release version at source URL
+2. "Check for updates" → shows diff (new / changed / removed)
 3. User confirms → resources updated in place (read-only)
-4. Detached resources are skipped
 
-#### Detach a resource
+#### Copy resources between catalogs
 
-1. User clicks "Detach" on a subscribed resource
-2. Resource becomes editable (read-only flag removed)
-3. Link to upstream severed — resource becomes standalone
-4. Future upgrades skip this resource
-
-#### Detach an entire installation
-
-1. "Detach all" → all resources become editable standalone resources
-2. Subscription removed
+- User can copy any resource to any authored catalog
+- Two modes:
+  1. **Copy with original refs** — the copy keeps cross-catalog refs (e.g., still references `acme-themes/corporate`)
+  2. **Copy with dependencies** — also copies referenced resources into the target, refs updated to target catalog
+- The original stays in its catalog (it's a copy, not a move)
+- Not needed for v1 — can be added later
 
 #### Uninstall a subscription
 
-User chooses one of:
-
-- **Remove all** — deletes all resources from this installation
-- **Detach all** — resources become standalone, subscription removed
+User chooses:
+- **Remove all** — deletes catalog and all its resources
+- **Copy to authored first** — copy resources to an authored catalog, then remove subscription
 
 #### Author a catalog
 
-1. Create a new authored catalog with name and slug
-2. Assign resources (existing standalone or new)
+1. Create authored catalog with name and slug
+2. Create resources within it (or copy from other catalogs)
 3. Create releases (versioned snapshots)
 4. Publish via `.well-known` or export as static files
 
-### Database Evolution
+### Publishing
 
-The `catalogs` table:
+- **Self-contained catalogs**: all refs point within the catalog. Simplest for consumers — install one catalog and everything works.
+- **Catalogs with dependencies**: refs to other catalogs are allowed. The manifest declares which catalogs are required. Consumer must install those too (like npm peer dependencies).
 
-- Rename `type` values: `LOCAL` → `AUTHORED`, `IMPORTED` → `SUBSCRIBED`
-- Add `installation_alias` (user-chosen, unique per tenant)
+### Database Design
 
-The `catalog_resources` table:
+**Resource tables** (templates, themes, stencils, attributes, assets):
+- Add `catalog_key VARCHAR(50) NOT NULL`
+- PK changes from `(tenant_key, id)` to `(tenant_key, catalog_key, id)`
+- All FKs cascade accordingly
 
-- `catalog_key` becomes `installation_key`
-- Add `read_only` boolean (true for subscribed, false for authored/detached)
-- Add `detached_at` timestamp (null if still tracked)
+**Catalogs table**:
+- Type: `AUTHORED` or `SUBSCRIBED`
+- For subscribed: `source_url`, `installed_release_version`, auth config
+- For authored: no source URL
 
-Resource tables (templates, themes, etc.):
+**`catalog_resources` table**:
+- Becomes redundant — resources carry `catalog_key` directly
+- Can be dropped
 
-- Optional `installation_key` for scoped lookups, or scoping via `catalog_resources` join
+### URL Design
+
+**UI**: `/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}`
+
+**API**: Separate `catalog` and resource `id` parameters:
+```
+POST /api/tenants/{tenantId}/documents/generate
+{ "catalog": "my-templates", "templateId": "invoice", "data": {...} }
+```
 
 ### Not Yet Covered
 
-- Conflict resolution during upgrades (upstream changed + locally detached)
-- Partial installation (install some resources, skip others)
-- Version pinning (subscribe to a specific release, not latest)
+- Copy workflow (later convenience feature)
+- Catalog dependency declarations in the manifest format
+- Upgrade diff and conflict resolution
+- Catalog publishing (releases, .well-known, static export)
+- Editor integration (picking resources from other catalogs)
 - Catalog discovery / registry
-- Access control per catalog (who can install, detach, publish)
+- Access control per catalog
