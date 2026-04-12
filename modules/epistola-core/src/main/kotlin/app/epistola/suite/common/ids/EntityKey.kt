@@ -464,6 +464,37 @@ value class FeedbackAssetKey(@JsonValue override val value: UUID) : UuidKey<Feed
 }
 
 /**
+ * Typed key for Catalog entities.
+ */
+@JvmInline
+value class CatalogKey(@JsonValue override val value: String) : SlugKey<CatalogKey> {
+    init {
+        require(value.length in 3..50) {
+            "Catalog ID must be 3-50 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Catalog ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+    }
+
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+
+        val DEFAULT = CatalogKey("default")
+
+        fun of(value: String): CatalogKey = CatalogKey(value)
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): CatalogKey = CatalogKey(value)
+
+        fun validateOrNull(value: String): CatalogKey? = runCatching { CatalogKey(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Typed key for Feature toggle entries.
  */
 @JvmInline
