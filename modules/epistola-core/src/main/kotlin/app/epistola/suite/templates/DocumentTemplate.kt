@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -17,6 +18,7 @@ import java.time.OffsetDateTime
 data class DocumentTemplate(
     val id: TemplateKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val themeKey: ThemeKey? = null,
     @Json val schema: ObjectNode? = null,
@@ -33,6 +35,7 @@ data class DocumentTemplate(
 data class DocumentTemplateWithVariants(
     val id: TemplateKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val themeKey: ThemeKey? = null,
     @Json val schema: ObjectNode? = null,

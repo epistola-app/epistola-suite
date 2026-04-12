@@ -1,5 +1,6 @@
 package app.epistola.suite.themes
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.templates.model.DocumentStyles
@@ -99,6 +100,7 @@ class BlockStylePresetsSerializer : ValueSerializer<BlockStylePresets>() {
 data class Theme(
     val id: ThemeKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val description: String?,
     @Json val documentStyles: DocumentStyles,

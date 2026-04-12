@@ -40,7 +40,7 @@ class UserId(key: UserKey, tenantId: TenantId) : EntityId<UserKey, UUID, TenantI
     val tenantKey = tenantId.key
 }
 
-data class TemplateId(override val key: TemplateKey, val tenantId: TenantId) : EntityId<TemplateKey, String, TenantId>(key, tenantId) {
+data class TemplateId(override val key: TemplateKey, val tenantId: TenantId, val catalogKey: CatalogKey = CatalogKey.DEFAULT) : EntityId<TemplateKey, String, TenantId>(key, tenantId) {
     override val type = "template"
     val tenantKey = tenantId.key
 }
@@ -49,6 +49,7 @@ class VariantId(key: VariantKey, templateId: TemplateId) : EntityId<VariantKey, 
     override val type = "variant"
     val tenantId = templateId.tenantId
     val tenantKey = templateId.tenantKey
+    val catalogKey = templateId.catalogKey
     val templateKey = templateId.key
 }
 
@@ -57,11 +58,12 @@ class VersionId(key: VersionKey, variantId: VariantId) : EntityId<VersionKey, In
 
     val tenantId = variantId.tenantId
     val tenantKey = variantId.tenantKey
+    val catalogKey = variantId.catalogKey
     val templateKey = variantId.templateKey
     val variantKey = variantId.key
 }
 
-data class StencilId(override val key: StencilKey, val tenantId: TenantId) : EntityId<StencilKey, String, TenantId>(key, tenantId) {
+data class StencilId(override val key: StencilKey, val tenantId: TenantId, val catalogKey: CatalogKey = CatalogKey.DEFAULT) : EntityId<StencilKey, String, TenantId>(key, tenantId) {
     override val type = "stencil"
     val tenantKey = tenantId.key
 }
@@ -70,10 +72,11 @@ class StencilVersionId(key: VersionKey, stencilId: StencilId) : EntityId<Version
     override val type = "stencil-version"
     val tenantId = stencilId.tenantId
     val tenantKey = stencilId.tenantKey
+    val catalogKey = stencilId.catalogKey
     val stencilKey = stencilId.key
 }
 
-class ThemeId(key: ThemeKey, tenantId: TenantId) : EntityId<ThemeKey, String, TenantId>(key, tenantId) {
+class ThemeId(key: ThemeKey, tenantId: TenantId, val catalogKey: CatalogKey = CatalogKey.DEFAULT) : EntityId<ThemeKey, String, TenantId>(key, tenantId) {
     override val type = "theme"
     val tenantKey = tenantId.key
 }
@@ -83,12 +86,12 @@ class EnvironmentId(key: EnvironmentKey, tenantId: TenantId) : EntityId<Environm
     val tenantKey = tenantId.key
 }
 
-class AttributeId(key: AttributeKey, tenantId: TenantId) : EntityId<AttributeKey, String, TenantId>(key, tenantId) {
+class AttributeId(key: AttributeKey, tenantId: TenantId, val catalogKey: CatalogKey = CatalogKey.DEFAULT) : EntityId<AttributeKey, String, TenantId>(key, tenantId) {
     override val type = "attribute"
     val tenantKey = tenantId.key
 }
 
-class AssetId(key: AssetKey, tenantId: TenantId) : EntityId<AssetKey, UUID, TenantId>(key, tenantId) {
+class AssetId(key: AssetKey, tenantId: TenantId, val catalogKey: CatalogKey = CatalogKey.DEFAULT) : EntityId<AssetKey, UUID, TenantId>(key, tenantId) {
     override val type = "asset"
     val tenantKey = tenantId.key
 }

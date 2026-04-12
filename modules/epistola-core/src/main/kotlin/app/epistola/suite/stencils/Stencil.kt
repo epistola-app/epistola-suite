@@ -1,5 +1,6 @@
 package app.epistola.suite.stencils
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.model.StencilVersionSummary
@@ -12,6 +13,7 @@ import java.time.OffsetDateTime
 data class Stencil(
     val id: StencilKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val description: String? = null,
     @Json val tags: List<String> = emptyList(),
@@ -26,6 +28,7 @@ data class Stencil(
 data class StencilSummaryWithVersionInfo(
     val id: StencilKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val description: String? = null,
     @Json val tags: List<String> = emptyList(),
@@ -41,6 +44,7 @@ data class StencilSummaryWithVersionInfo(
 data class StencilWithVersions(
     val id: StencilKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val description: String? = null,
     @Json val tags: List<String> = emptyList(),
