@@ -2,11 +2,16 @@
 CREATE DOMAIN TENANT_KEY AS VARCHAR(63)
     CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
 
+-- Domain type for catalog identifiers (slugs) — used by all resource tables from V5 onward
+CREATE DOMAIN CATALOG_KEY AS VARCHAR(50)
+    CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
+
 -- Tenants table for multi-tenancy support
 -- IDs are client-provided slugs (e.g., "acme-corp") for human-readable, URL-safe identifiers
 CREATE TABLE tenants (
     id TENANT_KEY PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    default_theme_catalog_key CATALOG_KEY, -- FK added in V5 after themes table exists
     default_theme_key VARCHAR(20),  -- FK added in V5 after themes table exists
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
