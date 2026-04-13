@@ -41,8 +41,8 @@ class RegisterCatalogHandler(
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, mutability, source_url, source_auth_type, source_auth_credential, installed_release_version, created_at, last_modified)
-                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', 'READ_ONLY', :sourceUrl, :authType, :authCredential, :releaseVersion, NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, created_at, last_modified)
+                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, NOW(), NOW())
                 ON CONFLICT (tenant_key, id) DO UPDATE
                 SET name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
                     source_auth_credential = :authCredential, installed_release_version = :releaseVersion, last_modified = NOW()
@@ -60,7 +60,7 @@ class RegisterCatalogHandler(
 
             handle.createQuery(
                 """
-                SELECT id, tenant_key, name, description, type, mutability, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
+                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
                 FROM catalogs
                 WHERE tenant_key = :tenantKey AND id = :id
                 """,

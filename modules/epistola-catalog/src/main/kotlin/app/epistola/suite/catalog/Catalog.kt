@@ -9,7 +9,6 @@ data class Catalog(
     val name: String,
     val description: String? = null,
     val type: CatalogType,
-    val mutability: Mutability = Mutability.EDITABLE,
     val sourceUrl: String? = null,
     val sourceAuthType: AuthType = AuthType.NONE,
     val sourceAuthCredential: String? = null,
@@ -22,11 +21,6 @@ data class Catalog(
 enum class CatalogType {
     AUTHORED,
     SUBSCRIBED,
-}
-
-enum class Mutability {
-    EDITABLE,
-    READ_ONLY,
 }
 
 enum class AuthType {
