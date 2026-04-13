@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -38,7 +39,7 @@ class DeploymentMatrixHandler {
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        return renderMatrix(request, tenantId.key, templateId.key, templateId)
+        return renderMatrix(request, tenantId.key, catalogId, templateId.key, templateId)
     }
 
     fun updateDeployment(request: ServerRequest): ServerResponse {
@@ -79,12 +80,13 @@ class DeploymentMatrixHandler {
             ).execute()
         }
 
-        return renderMatrix(request, tenantId.key, templateId.key, templateId)
+        return renderMatrix(request, tenantId.key, catalogId, templateId.key, templateId)
     }
 
     private fun renderMatrix(
         request: ServerRequest,
         tenantKey: TenantKey,
+        catalogId: CatalogKey,
         templateKey: TemplateKey,
         templateId: TemplateId,
     ): ServerResponse {
@@ -111,7 +113,7 @@ class DeploymentMatrixHandler {
                 "matrix" to matrix
                 "versionsByVariant" to versionsByVariant
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/${templateKey.value}") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/catalogs/$catalogId/templates/${templateKey.value}") }
         }
     }
 }

@@ -45,7 +45,7 @@ class VersionComparisonHandler {
                 "versions" to variantVersions
                 "dataExamples" to template.dataExamples.toList()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${templateId.key.value}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/catalogs/$catalogId/templates/${templateId.key.value}") }
         }
     }
 }

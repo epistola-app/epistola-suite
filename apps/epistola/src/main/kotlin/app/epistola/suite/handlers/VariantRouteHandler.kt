@@ -116,7 +116,7 @@ class VariantRouteHandler {
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${templateId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/catalogs/$catalogId/templates/${templateId.key}") }
         }
     }
 
@@ -173,7 +173,7 @@ class VariantRouteHandler {
                     "error" to errorMessage
                 }
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${templateId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/catalogs/$catalogId/templates/${templateId.key}") }
         }
     }
 

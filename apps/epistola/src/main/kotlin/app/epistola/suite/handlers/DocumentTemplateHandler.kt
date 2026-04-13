@@ -126,7 +126,7 @@ class DocumentTemplateHandler(
                 "catalogId" to catalogId
                 "templates" to templates
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates") }
         }
     }
 
@@ -198,7 +198,7 @@ class DocumentTemplateHandler(
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/templates/$templateKey")
+            .header("Location", "/tenants/${tenantId.key}/catalogs/$catalogId/templates/$templateKey")
             .build()
     }
 
@@ -329,7 +329,7 @@ class DocumentTemplateHandler(
                 "themes" to themes
             }
             onNonHtmx {
-                redirect("/tenants/${tenantId.key}/templates/${templateId.key}")
+                redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
             }
         }
     }
@@ -465,7 +465,7 @@ class DocumentTemplateHandler(
         DeleteDocumentTemplate(id = templateId).execute()
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/templates")
+            .header("Location", "/tenants/${tenantId.key}/catalogs/$catalogId/templates")
             .build()
     }
 }

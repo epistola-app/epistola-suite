@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -45,7 +46,7 @@ class VersionRouteHandler(
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
-        return returnVersionsFragment(request, tenantId.key, templateId.key, variantId)
+        return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
     fun createDraft(request: ServerRequest): ServerResponse {
@@ -58,7 +59,7 @@ class VersionRouteHandler(
 
         CreateVersion(variantId = variantId).execute()
 
-        return returnVersionsFragment(request, tenantId.key, templateId.key, variantId)
+        return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
     fun updateDraft(request: ServerRequest): ServerResponse {
@@ -103,15 +104,16 @@ class VersionRouteHandler(
         try {
             ArchiveVersion(versionId = versionId).execute()
         } catch (_: VersionStillActiveException) {
-            return returnVersionsFragment(request, tenantId.key, templateId.key, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
+            return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
         }
 
-        return returnVersionsFragment(request, tenantId.key, templateId.key, variantId)
+        return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
     private fun returnVersionsFragment(
         request: ServerRequest,
         tenantKey: TenantKey,
+        catalogId: CatalogKey,
         templateKey: TemplateKey,
         variantId: VariantId,
         error: String? = null,
@@ -151,7 +153,7 @@ class VersionRouteHandler(
                     "error" to error
                 }
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$templateKey") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/catalogs/$catalogId/templates/$templateKey") }
         }
     }
 }
