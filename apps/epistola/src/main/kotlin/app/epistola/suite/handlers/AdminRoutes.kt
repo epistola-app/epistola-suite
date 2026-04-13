@@ -12,8 +12,6 @@ class AdminRoutes(private val handler: AdminHandler) {
     fun adminRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/admin".nest {
             GET("/data-management", handler::dataManagement)
-            GET("/export-templates", handler::exportTemplates)
-            POST("/import-templates", handler::importTemplates)
         }
     }
 }
