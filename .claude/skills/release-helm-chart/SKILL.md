@@ -53,13 +53,31 @@ Before creating the release, show the user:
 
 ### 4. Push and create the release
 
+Build the release body from the `[X.Y.Z]` section of `charts/epistola/CHANGELOG.md` (everything between the version heading and the next `## [` heading). Append install/upgrade instructions:
+
+```markdown
+## Installation
+
+\`\`\`bash
+helm install epistola oci://ghcr.io/epistola-app/charts/epistola --version X.Y.Z
+\`\`\`
+
+## Upgrade
+
+\`\`\`bash
+helm upgrade epistola oci://ghcr.io/epistola-app/charts/epistola --version X.Y.Z
+\`\`\`
+```
+
+Then create the release:
+
 ```bash
 COMMIT_SHA=$(git rev-parse HEAD)
 git push origin main
-gh release create chart-X.Y.Z --title "Helm Chart X.Y.Z" --generate-notes --target "$COMMIT_SHA"
+gh release create chart-X.Y.Z --title "Helm Chart X.Y.Z" --notes "$RELEASE_BODY" --target "$COMMIT_SHA"
 ```
 
-The `--generate-notes` flag auto-generates release notes from PRs and commits. The `--target` flag pins the release to the changelog commit, preventing issues if another commit lands on main between the push and release creation.
+The `--target` flag pins the release to the changelog commit, preventing issues if another commit lands on main between the push and release creation.
 
 ### 5. Verify
 
