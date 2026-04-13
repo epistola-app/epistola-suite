@@ -3,13 +3,10 @@ package app.epistola.suite.demo
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.ApiKeyKey
-import app.epistola.suite.common.ids.AssetKey
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -125,30 +122,7 @@ class DemoLoader(
                     // Create local dev users in the database (matches LocalUserDetailsService)
                     seedLocalUsers(tenant.id)
 
-                    // Upload demo logo asset with well-known ID
-                    val logoBytes = generateDemoLogoPng()
                     val tenantId = TenantId(tenant.id)
-                    mediator.send(
-                        UploadAsset(
-                            tenantId = tenant.id,
-                            id = AssetKey.of(DEMO_LOGO_ASSET_ID),
-                            name = "Epistola Logo",
-                            mediaType = AssetMediaType.PNG,
-                            content = logoBytes,
-                            width = 120,
-                            height = 40,
-                        ),
-                    )
-                    log.info("Uploaded demo logo asset (id={})", DEMO_LOGO_ASSET_ID)
-
-                    // Create additional demo themes
-                    val corporateThemeId = createDemoThemes(tenantId)
-
-                    // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
-                    if (corporateThemeId != null) {
-                        mediator.send(app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
-                        log.info("Set Corporate theme as tenant default")
-                    }
 
                     // Create demo API key
                     createDemoApiKey(tenantId)
@@ -158,25 +132,27 @@ class DemoLoader(
                     val production = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
                     log.info("Created environments: staging, production")
 
-                    // Create attribute definitions
-                    mediator.send(
-                        CreateAttributeDefinition(
-                            id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
-                            displayName = "Language",
-                            allowedValues = listOf("nl", "en"),
+                    // Install demo catalog — all resources (templates, themes, stencils, attributes, assets) come from here
+                    val catalog = mediator.send(
+                        RegisterCatalog(
+                            tenantKey = tenant.id,
+                            sourceUrl = DEMO_CATALOG_URL,
                         ),
                     )
-                    log.info("Created attribute definition: language (nl, en)")
+                    log.info("Registered demo catalog: {} (version {})", catalog.name, catalog.installedReleaseVersion)
 
-                    // Load and create templates from JSON definitions
-                    val definitions = loadTemplateDefinitions()
-                    log.info("Loaded {} template definitions", definitions.size)
-
-                    definitions.forEach { definition ->
-                        createTemplateFromDefinition(tenantId, definition, EnvironmentId(staging.id, tenantId), EnvironmentId(production.id, tenantId))
+                    val installResults = mediator.send(
+                        InstallFromCatalog(
+                            tenantKey = tenant.id,
+                            catalogKey = catalog.id,
+                        ),
+                    )
+                    val installed = installResults.count { it.status == InstallStatus.INSTALLED }
+                    val failed = installResults.count { it.status == InstallStatus.FAILED }
+                    log.info("Installed {} resources from demo catalog ({} failed)", installed, failed)
+                    installResults.filter { it.status == InstallStatus.FAILED }.forEach {
+                        log.warn("Failed to install {} '{}': {}", it.type, it.slug, it.errorMessage)
                     }
-
-                    log.info("Created {} demo templates with environments and variants", definitions.size)
                 }
             }
         }
@@ -534,7 +510,8 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "16.1.0" // Bump this to reset demo tenant (fix user upsert for ID changes)
+        private const val DEMO_VERSION = "17.0.0" // Bump this to reset demo tenant (catalog-based resources)
+        private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
