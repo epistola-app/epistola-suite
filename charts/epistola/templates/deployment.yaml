@@ -66,6 +66,13 @@ spec:
               value: "true"
             - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
               value: "true"
+            {{- else }}
+            - name: MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED
+              value: "false"
+            - name: MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED
+              value: "false"
+            - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
+              value: "false"
             {{- end }}
             {{- /* OIDC / OAuth2 login */}}
             {{- if .Values.oidc.enabled }}
