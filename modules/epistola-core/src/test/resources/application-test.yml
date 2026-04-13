@@ -7,4 +7,6 @@ spring:
 epistola:
   generation:
     polling:
-      enabled: false
+      enabled: true
+      interval-ms: 100
+      max-concurrent-jobs: 2
