@@ -1,5 +1,6 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -94,7 +95,7 @@ class JobPollerIntegrationTest {
             ),
         )
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(
             CreateDocumentTemplate(
                 id = templateId,

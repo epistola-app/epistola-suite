@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -58,7 +59,7 @@ class TenantIsolationTest : IntegrationTestBase() {
         }
 
         whenever {
-            getTemplateHandler.handle(GetDocumentTemplate(id = TemplateId(templateKey!!, TenantId(tenant2.id))))
+            getTemplateHandler.handle(GetDocumentTemplate(id = TemplateId(templateKey!!, CatalogId.default(TenantId(tenant2.id)))))
         }
 
         then {
@@ -76,8 +77,8 @@ class TenantIsolationTest : IntegrationTestBase() {
             val tenantId1 = TenantId(tenant1.id)
             val tenantId2 = TenantId(tenant2.id)
 
-            val template1 = CreateDocumentTemplate(id = TemplateId(sharedSlug, tenantId1), name = "Invoice A").execute()
-            val template2 = CreateDocumentTemplate(id = TemplateId(sharedSlug, tenantId2), name = "Invoice B").execute()
+            val template1 = CreateDocumentTemplate(id = TemplateId(sharedSlug, CatalogId.default(tenantId1)), name = "Invoice A").execute()
+            val template2 = CreateDocumentTemplate(id = TemplateId(sharedSlug, CatalogId.default(tenantId2)), name = "Invoice B").execute()
 
             assertThat(template1.id).isEqualTo(sharedSlug)
             assertThat(template2.id).isEqualTo(sharedSlug)

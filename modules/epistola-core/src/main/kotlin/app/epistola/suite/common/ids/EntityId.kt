@@ -94,7 +94,6 @@ data class StencilId(
     val tenantId get() = catalogId.tenantId
     val tenantKey get() = catalogId.tenantKey
     val catalogKey get() = catalogId.key
-
 }
 
 class StencilVersionId(key: VersionKey, val stencilId: StencilId) : EntityId<VersionKey, Int, StencilId>(key, stencilId) {
@@ -114,7 +113,6 @@ class ThemeId(
     val tenantId get() = catalogId.tenantId
     val tenantKey get() = catalogId.tenantKey
     val catalogKey get() = catalogId.key
-
 }
 
 class EnvironmentId(key: EnvironmentKey, tenantId: TenantId) : EntityId<EnvironmentKey, String, TenantId>(key, tenantId) {
@@ -130,7 +128,6 @@ class AttributeId(
     val tenantId get() = catalogId.tenantId
     val tenantKey get() = catalogId.tenantKey
     val catalogKey get() = catalogId.key
-
 }
 
 class AssetId(
@@ -141,7 +138,6 @@ class AssetId(
     val tenantId get() = catalogId.tenantId
     val tenantKey get() = catalogId.tenantKey
     val catalogKey get() = catalogId.key
-
 }
 
 class DocumentId(key: DocumentKey, tenantId: TenantId) : EntityId<DocumentKey, UUID, TenantId>(key, tenantId) {

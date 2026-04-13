@@ -1,5 +1,6 @@
 package app.epistola.suite.stencils
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
@@ -52,7 +53,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         themeRef = ThemeRef.Inherit,
     )
 
-    private fun stencilId(tenantId: TenantId) = StencilId(TestIdHelpers.nextStencilId(), tenantId)
+    private fun stencilId(tenantId: TenantId) = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
 
     // ── CRUD ──
 
@@ -258,8 +259,8 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val tenantId1 = TenantId(tenant1.id)
         val tenantId2 = TenantId(tenant2.id)
 
-        CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), tenantId1), name = "T1 Stencil").execute()
-        CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), tenantId2), name = "T2 Stencil").execute()
+        CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId1)), name = "T1 Stencil").execute()
+        CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId2)), name = "T2 Stencil").execute()
 
         val t1Stencils = ListStencils(tenantId = tenantId1).query()
         val t2Stencils = ListStencils(tenantId = tenantId2).query()
@@ -281,7 +282,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
 
         // Use a non-existent template
-        val fakeTemplateId = TemplateId(TemplateKey.of("non-existent"), tenantId)
+        val fakeTemplateId = TemplateId(TemplateKey.of("non-existent"), CatalogId.default(tenantId))
         val fakeVariantId = VariantId(VariantKey.of("non-existent"), fakeTemplateId)
 
         val result = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
@@ -303,7 +304,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
 
         // Create a template WITHOUT stencil nodes
         val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, tenantId)
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(
             id = templateId,
             name = "Test Template",

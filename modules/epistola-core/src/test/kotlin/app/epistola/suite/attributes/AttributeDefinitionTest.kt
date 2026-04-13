@@ -7,6 +7,7 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -25,7 +26,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             val attr = CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "german"),
             ).execute()
@@ -46,7 +47,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             val attr = CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("custom-field"), tenantId),
+                id = AttributeId(AttributeKey.of("custom-field"), CatalogId.default(tenantId)),
                 displayName = "Custom Field",
             ).execute()
 
@@ -61,7 +62,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "",
             )
         }.isInstanceOf(ValidationException::class.java)
@@ -75,7 +76,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "dutch"),
             )
@@ -90,13 +91,13 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
             ).execute()
 
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("brand"), tenantId),
+                id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId)),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
             ).execute()
@@ -119,12 +120,12 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId1),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId1)),
                 displayName = "Language",
             ).execute()
 
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("brand"), tenantId2),
+                id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId2)),
                 displayName = "Brand",
             ).execute()
 
@@ -146,13 +147,13 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
             ).execute()
 
             val attr = GetAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
             ).query()
 
             assertThat(attr).isNotNull
@@ -168,7 +169,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             val attr = GetAttributeDefinition(
-                id = AttributeId(AttributeKey.of("non-existent"), tenantId),
+                id = AttributeId(AttributeKey.of("non-existent"), CatalogId.default(tenantId)),
             ).query()
 
             assertThat(attr).isNull()
@@ -182,13 +183,13 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
             ).execute()
 
             val updated = UpdateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language (updated)",
                 allowedValues = listOf("dutch", "english", "german"),
             ).execute()
@@ -206,7 +207,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             val updated = UpdateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("non-existent"), tenantId),
+                id = AttributeId(AttributeKey.of("non-existent"), CatalogId.default(tenantId)),
                 displayName = "Nope",
             ).execute()
 
@@ -221,18 +222,18 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
             ).execute()
 
             val deleted = DeleteAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
             ).execute()
 
             assertThat(deleted).isTrue()
 
             val attr = GetAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
             ).query()
             assertThat(attr).isNull()
         }
@@ -245,7 +246,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             val deleted = DeleteAttributeDefinition(
-                id = AttributeId(AttributeKey.of("non-existent"), tenantId),
+                id = AttributeId(AttributeKey.of("non-existent"), CatalogId.default(tenantId)),
             ).execute()
 
             assertThat(deleted).isFalse()
@@ -261,13 +262,13 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
         withMediator {
             val attr1 = CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId1),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId1)),
                 displayName = "Language for T1",
                 allowedValues = listOf("dutch"),
             ).execute()
 
             val attr2 = CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId2),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId2)),
                 displayName = "Language for T2",
                 allowedValues = listOf("english"),
             ).execute()

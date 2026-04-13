@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey

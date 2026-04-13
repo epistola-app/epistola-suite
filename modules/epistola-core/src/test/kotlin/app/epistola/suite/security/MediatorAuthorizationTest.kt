@@ -79,7 +79,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                         app.epistola.suite.themes.commands.CreateTheme(
                             id = app.epistola.suite.common.ids.ThemeId(
                                 app.epistola.suite.common.ids.ThemeKey.of("test-theme"),
-                                app.epistola.suite.common.ids.TenantId(tenant.id),
+                                app.epistola.suite.common.ids.CatalogId.default(app.epistola.suite.common.ids.TenantId(tenant.id)),
                             ),
                             name = "Unauthorized Theme",
                         ),

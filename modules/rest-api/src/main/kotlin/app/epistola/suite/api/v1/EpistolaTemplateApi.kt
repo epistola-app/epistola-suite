@@ -26,10 +26,10 @@ import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
 import app.epistola.suite.catalog.commands.ImportStatus
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.catalog.commands.ImportTemplateInput
 import app.epistola.suite.catalog.commands.ImportTemplates
 import app.epistola.suite.catalog.commands.ImportVariantInput
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId

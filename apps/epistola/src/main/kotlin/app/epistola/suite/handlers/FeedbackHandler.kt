@@ -7,7 +7,6 @@ import app.epistola.suite.common.ids.FeedbackCommentKey
 import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.FeedbackKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.feedback.FeedbackAccessDeniedException
 import app.epistola.suite.feedback.FeedbackCategory
 import app.epistola.suite.feedback.FeedbackPriority

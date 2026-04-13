@@ -1,7 +1,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.AttributesApi
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.api.EnvironmentsApi
 import app.epistola.api.TenantsApi
 import app.epistola.api.model.AttributeDto
@@ -24,6 +23,7 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId

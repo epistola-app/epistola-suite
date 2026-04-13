@@ -1,5 +1,6 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -33,7 +34,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -64,7 +65,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -110,7 +111,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -156,7 +157,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -184,7 +185,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -215,7 +216,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -244,7 +245,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")

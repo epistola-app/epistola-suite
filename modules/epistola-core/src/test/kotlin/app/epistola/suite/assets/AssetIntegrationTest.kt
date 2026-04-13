@@ -7,6 +7,7 @@ import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -210,7 +211,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             val asset = UploadAsset(tenant.id, "header.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
 
             val templateKey = TestIdHelpers.nextTemplateId()
-            val templateId = TemplateId(templateKey, tenantId)
+            val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
             val variantKey = VariantKey.of("${templateKey.value}-default")
             val variantId = VariantId(variantKey, templateId)
@@ -233,7 +234,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val asset = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, tenantId)
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Welcome Letter").execute()
         val variantKey = VariantKey.of("${templateKey.value}-default")
         val variantId = VariantId(variantKey, templateId)
@@ -265,7 +266,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val asset = UploadAsset(tenant.id, "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, tenantId)
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Receipt").execute()
         val variantKey = VariantKey.of("${templateKey.value}-default")
         val variantId = VariantId(variantKey, templateId)

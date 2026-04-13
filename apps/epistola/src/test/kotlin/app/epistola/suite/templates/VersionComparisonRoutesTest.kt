@@ -2,6 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -47,7 +48,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 variantKey = "${template.id}-default"
                 CreateVersion(
@@ -154,7 +155,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 variantKey = "${template.id}-default"
                 val varId = VariantId(VariantKey.of(variantKey), tplId)
@@ -202,7 +203,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 variantKey = "${template.id}-default"
                 val varId = VariantId(VariantKey.of(variantKey), tplId)

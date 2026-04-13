@@ -2,6 +2,7 @@ package app.epistola.suite.loadtest
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -130,7 +131,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 CreateVersion(
                     variantId = VariantId(VariantKey.of("${template.id}-default"), tplId),
@@ -176,7 +177,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 val defaultVariantId = VariantKey.of("${template.id}-default")
                 CreateVersion(
@@ -220,7 +221,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 val customVariant = variant(testTenant, template, title = "Dutch")
                 customVariantId = customVariant.id.value
@@ -271,7 +272,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val example = DataExample(id = "example-1", name = "Sample Invoice", data = exampleData)
                 exampleId = example.id
                 UpdateDocumentTemplate(
-                    id = TemplateId(template.id, TenantId(testTenant.id)),
+                    id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                     dataExamples = listOf(example),
                 ).execute()
             }

@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
@@ -44,7 +45,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
             assertThat(results).hasSize(1)
             assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
 
-            val variants = ListVariants(templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), tenantId)).query()
+            val variants = ListVariants(templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), CatalogId.default(tenantId))).query()
             assertThat(variants).hasSize(1)
             assertThat(variants[0].isDefault).isTrue()
             assertThat(variants[0].id.value).isEqualTo("default")
@@ -79,7 +80,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
 
             assertThat(results[0].status).isNotEqualTo(ImportStatus.FAILED)
 
-            val templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), tenantId)
+            val templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), CatalogId.default(tenantId))
             val variants = ListVariants(templateId = templateId).query()
             assertThat(variants).hasSize(2)
 
@@ -96,7 +97,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
 
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
-            val templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), tenantId)
+            val templateId = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(slug), CatalogId.default(tenantId))
 
             // First import: two variants
             ImportTemplates(

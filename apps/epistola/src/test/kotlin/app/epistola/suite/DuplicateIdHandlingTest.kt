@@ -3,6 +3,7 @@ package app.epistola.suite
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -101,7 +102,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             tenant = tenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
             CreateTheme(
-                id = ThemeId(ThemeKey.of("my-theme"), tenantId),
+                id = ThemeId(ThemeKey.of("my-theme"), CatalogId.default(tenantId)),
                 name = "My Theme",
             ).execute()
         }
@@ -135,7 +136,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             tenant = tenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
             CreateDocumentTemplate(
-                id = TemplateId(TemplateKey.of("my-template"), tenantId),
+                id = TemplateId(TemplateKey.of("my-template"), CatalogId.default(tenantId)),
                 name = "My Template",
             ).execute()
         }
@@ -169,7 +170,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             tenant = tenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
             ).execute()
         }

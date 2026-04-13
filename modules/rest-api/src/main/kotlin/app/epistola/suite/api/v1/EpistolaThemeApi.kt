@@ -1,7 +1,6 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.ThemesApi
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.api.model.CreateThemeRequest
 import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
@@ -10,6 +9,7 @@ import app.epistola.suite.api.v1.shared.toDomain
 import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
