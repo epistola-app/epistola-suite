@@ -10,6 +10,7 @@ import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey

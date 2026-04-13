@@ -2,6 +2,7 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
@@ -113,7 +114,7 @@ class TestFixture(private val namespace: String) {
             tenant: Tenant,
             name: String,
         ): DocumentTemplate = CreateDocumentTemplate(
-            id = TemplateId(TestIdHelpers.nextTemplateId(), TenantId(tenant.id)),
+            id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id))),
             name = name,
         ).execute()
 

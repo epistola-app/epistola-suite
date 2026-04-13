@@ -3,6 +3,7 @@ package app.epistola.suite.documents.queries
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -76,7 +77,7 @@ class PreviewDocumentHandler(
 
     override fun handle(query: PreviewDocument): ByteArray {
         val tenantId = TenantId(query.tenantId)
-        val templateId = TemplateId(query.templateId, tenantId)
+        val templateId = TemplateId(query.templateId, CatalogId.default(tenantId))
 
         // 1. Resolve variant
         val resolvedVariantKey = query.variantId

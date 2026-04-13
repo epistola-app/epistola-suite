@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -160,7 +161,7 @@ class StencilHandler(
 
         val result = form.executeOrFormError {
             CreateStencil(
-                id = StencilId(stencilKey, tenantId),
+                id = StencilId(stencilKey, CatalogId.default(tenantId)),
                 name = name,
                 description = description,
                 tags = tags,
@@ -194,7 +195,7 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, CreateStencilJsonRequest::class.java)
 
-        val stencilId = StencilId(StencilKey.of(req.id), tenantId)
+        val stencilId = StencilId(StencilKey.of(req.id), CatalogId.default(tenantId))
 
         CreateStencil(
             id = stencilId,
@@ -349,7 +350,7 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, UpgradeRequest::class.java)
 
-        val templateId = TemplateId(TemplateKey.of(req.templateId), tenantId)
+        val templateId = TemplateId(TemplateKey.of(req.templateId), CatalogId.default(tenantId))
         val variantId = VariantId(VariantKey.of(req.variantId), templateId)
 
         val count = UpdateStencilInTemplate(

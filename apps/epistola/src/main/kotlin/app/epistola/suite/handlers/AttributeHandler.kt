@@ -87,7 +87,7 @@ class AttributeHandler {
 
         val result = form.executeOrFormError {
             CreateAttributeDefinition(
-                id = AttributeId(attributeKey, tenantId),
+                id = AttributeId(attributeKey, CatalogId.default(tenantId)),
                 displayName = displayName,
                 allowedValues = allowedValues,
             ).execute()

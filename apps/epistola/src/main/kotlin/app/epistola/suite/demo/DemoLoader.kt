@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
@@ -160,7 +161,7 @@ class DemoLoader(
                     // Create attribute definitions
                     mediator.send(
                         CreateAttributeDefinition(
-                            id = AttributeId(AttributeKey.of("language"), tenantId),
+                            id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                             displayName = "Language",
                             allowedValues = listOf("nl", "en"),
                         ),
@@ -273,7 +274,7 @@ class DemoLoader(
         // Corporate Theme - professional styling
         val corporateTheme = mediator.send(
             CreateTheme(
-                id = ThemeId(ThemeKey.of("demo-corp"), tenantId),
+                id = ThemeId(ThemeKey.of("demo-corp"), CatalogId.default(tenantId)),
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
                 documentStyles = mapOf(
@@ -323,7 +324,7 @@ class DemoLoader(
         // Modern Theme - contemporary design
         mediator.send(
             CreateTheme(
-                id = ThemeId(ThemeKey.of("demo-modern"), tenantId),
+                id = ThemeId(ThemeKey.of("demo-modern"), CatalogId.default(tenantId)),
                 name = "Modern",
                 description = "Contemporary design with bold accents",
                 documentStyles = mapOf(
@@ -381,7 +382,7 @@ class DemoLoader(
         productionId: EnvironmentId,
     ) {
         // 1. Create template with basic metadata
-        val templateId = TemplateId(TemplateKey.of(definition.slug), tenantId)
+        val templateId = TemplateId(TemplateKey.of(definition.slug), CatalogId.default(tenantId))
         val template = mediator.send(
             CreateDocumentTemplate(
                 id = templateId,

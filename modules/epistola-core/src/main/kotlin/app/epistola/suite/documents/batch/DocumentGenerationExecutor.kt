@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
@@ -152,7 +153,8 @@ class DocumentGenerationExecutor(
 
         // Build composite IDs
         val tenantId = TenantId(request.tenantKey)
-        val templateId = TemplateId(request.templateKey, tenantId)
+        val catalogId = CatalogId.default(tenantId) // TODO: generation requests should carry catalogKey
+        val templateId = TemplateId(request.templateKey, catalogId)
         val variantId = VariantId(request.variantKey, templateId)
 
         // 1. Resolve template version

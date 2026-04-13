@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
@@ -87,7 +88,7 @@ class LoadTestHandler(
             }
         }
 
-        val templateId = TemplateId(templateKey, tenantId)
+        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
 
         // Template selected - prepare cascade data
         val variants = ListVariants(templateId = templateId).query()
@@ -273,7 +274,7 @@ class LoadTestHandler(
             ?: return ServerResponse.notFound().build()
 
         // Fetch template name for display
-        val templateId = TemplateId(run.templateKey, tenantId)
+        val templateId = TemplateId(run.templateKey, CatalogId.default(tenantId))
         val template = GetDocumentTemplate(id = templateId).query()
 
         return ServerResponse.ok().page("loadtest/detail") {

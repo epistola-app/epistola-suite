@@ -124,7 +124,7 @@ class ThemeHandler(
 
         val result = form.executeOrFormError {
             CreateTheme(
-                id = ThemeId(themeKey, tenantId),
+                id = ThemeId(themeKey, CatalogId.default(tenantId)),
                 name = name,
                 description = description,
             ).execute()

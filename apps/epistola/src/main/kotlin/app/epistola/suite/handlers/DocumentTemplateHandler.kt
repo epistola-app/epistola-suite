@@ -182,7 +182,7 @@ class DocumentTemplateHandler(
 
         val result = form.executeOrFormError {
             CreateDocumentTemplate(
-                id = TemplateId(templateKey, tenantId),
+                id = TemplateId(templateKey, CatalogId.default(tenantId)),
                 name = name,
             ).execute()
         }

@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
@@ -118,7 +119,7 @@ fun ServerRequest.versionId(variantId: VariantId): VersionId? {
  */
 fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
     val key = ThemeKey.validateOrNull(pathVariable("themeId")) ?: return null
-    return ThemeId(key, tenantId)
+    return ThemeId(key, CatalogId.default(tenantId))
 }
 
 /**
@@ -127,7 +128,7 @@ fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
  */
 fun ServerRequest.stencilId(tenantId: TenantId): StencilId? {
     val key = StencilKey.validateOrNull(pathVariable("stencilId")) ?: return null
-    return StencilId(key, tenantId)
+    return StencilId(key, CatalogId.default(tenantId))
 }
 
 /**
@@ -145,7 +146,7 @@ fun ServerRequest.environmentId(tenantId: TenantId): EnvironmentId? {
  */
 fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
     val key = AttributeKey.validateOrNull(pathVariable("attributeId")) ?: return null
-    return AttributeId(key, tenantId)
+    return AttributeId(key, CatalogId.default(tenantId))
 }
 
 /**
