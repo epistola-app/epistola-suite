@@ -2,6 +2,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
@@ -36,6 +37,48 @@ class CatalogHandler {
             "activeNavSection" to "catalogs"
             "catalogs" to catalogs
             if (saved) "saved" to true
+        }
+    }
+
+    fun createCatalog(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+
+        val form = request.form {
+            field("slug") {
+                required()
+                pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+                minLength(3)
+                maxLength(50)
+            }
+            field("name") {
+                required()
+            }
+        }
+
+        if (form.hasErrors()) {
+            return listWithError(request, "Catalog slug and name are required.")
+        }
+
+        return try {
+            CreateCatalog(
+                tenantKey = tenantId.key,
+                id = CatalogKey.of(form["slug"]),
+                name = form["name"],
+            ).execute()
+
+            val catalogs = ListCatalogs(tenantId.key).query()
+            request.htmx {
+                fragment("catalogs/list", "catalog-rows") {
+                    "tenantId" to tenantId.key
+                    "catalogs" to catalogs
+                }
+                onNonHtmx {
+                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                }
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to create catalog: ${e.message}", e)
+            listWithError(request, "Failed to create catalog. The slug may already be in use.")
         }
     }
 

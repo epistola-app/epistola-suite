@@ -16,10 +16,36 @@
 
         <div class="card create-form-card">
             <div class="card-header">
-                <h2>Register Catalog</h2>
+                <h2>Create Catalog</h2>
             </div>
             <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}" method="post">
+                <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
+                      hx-target="#catalog-rows"
+                      hx-swap="outerHTML">
+                    <div class="form-group">
+                        <label class="ep-label" for="catalogSlug">Catalog ID (Slug)</label>
+                        <input type="text" id="catalogSlug" name="slug" class="ep-input"
+                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                               minlength="3" maxlength="50"
+                               placeholder="my-templates">
+                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="catalogName">Name</label>
+                        <input type="text" id="catalogName" name="name" class="ep-input"
+                               required placeholder="My Templates">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Catalog</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card create-form-card">
+            <div class="card-header">
+                <h2>Subscribe to Catalog</h2>
+            </div>
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}" method="post">
                     <div class="form-group">
                         <label class="ep-label" for="sourceUrl">Catalog URL</label>
                         <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
@@ -54,9 +80,9 @@
             </div>
         </div>
 
-        <div class="card" th:if="${!catalogs.isEmpty()}">
+        <div class="card">
             <div class="card-header">
-                <h2>Registered Catalogs</h2>
+                <h2>Catalogs</h2>
             </div>
             <div class="card-content">
                 <table class="ep-table">
@@ -69,7 +95,7 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="catalog-rows" th:fragment="catalog-rows">
                         <tr th:each="catalog : ${catalogs}">
                             <td th:text="${catalog.name}"></td>
                             <td>
