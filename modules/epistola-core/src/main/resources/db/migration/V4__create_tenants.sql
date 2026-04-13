@@ -62,6 +62,7 @@ CREATE TABLE catalogs (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     type VARCHAR(20) NOT NULL CHECK (type IN ('AUTHORED', 'SUBSCRIBED')),
+    mutability VARCHAR(20) NOT NULL DEFAULT 'EDITABLE' CHECK (mutability IN ('EDITABLE', 'READ_ONLY')),
     source_url TEXT,
     source_auth_type VARCHAR(20) DEFAULT 'NONE' CHECK (source_auth_type IN ('NONE', 'API_KEY', 'BEARER')),
     source_auth_credential TEXT,

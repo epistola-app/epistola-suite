@@ -25,7 +25,7 @@ class ListCatalogsHandler(
     override fun handle(query: ListCatalogs): List<Catalog> = jdbi.withHandle<List<Catalog>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
+            SELECT id, tenant_key, name, description, type, mutability, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
             FROM catalogs
             WHERE tenant_key = :tenantKey
             ORDER BY name
