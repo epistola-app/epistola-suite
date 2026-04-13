@@ -109,10 +109,14 @@ class DocumentTemplateHandler(
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val templates = ListTemplateSummaries(tenantId = tenantId).query()
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val templates = ListTemplateSummaries(tenantId = tenantId, catalogKey = catalogFilter).query()
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
+            "selectedCatalog" to (catalogFilter?.value ?: "")
             "templates" to templates
         }
     }
@@ -120,7 +124,8 @@ class DocumentTemplateHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
-        val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
+        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
         return request.htmx {
             fragment("templates/list", "rows") {
                 "tenantId" to tenantId.key

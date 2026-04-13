@@ -29,6 +29,7 @@ data class TemplateSummary(
 data class ListTemplateSummaries(
     val tenantId: TenantId,
     val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<TemplateSummary>>,
@@ -63,6 +64,9 @@ class ListTemplateSummariesHandler(
                 WHERE dt.tenant_key = :tenantId
                 """.trimIndent(),
             )
+            if (query.catalogKey != null) {
+                append(" AND dt.catalog_key = :catalogKey")
+            }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
@@ -72,6 +76,9 @@ class ListTemplateSummariesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             jdbiQuery.bind("searchTerm", "%$escaped%")

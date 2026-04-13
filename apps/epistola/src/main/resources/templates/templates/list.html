@@ -31,6 +31,17 @@
             </a>
         </div>
 
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-2); flex-wrap: wrap;">
+            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
+               th:classappend="${selectedCatalog == ''} ? 'badge-info' : 'badge-default'"
+               class="badge" style="cursor: pointer; text-decoration: none;">All</a>
+            <a th:each="cat : ${catalogs}"
+               th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},catalog=${cat.id})}"
+               th:text="${cat.name}"
+               th:classappend="${#strings.equals(selectedCatalog, cat.id.toString())} ? 'badge-info' : 'badge-default'"
+               class="badge" style="cursor: pointer; text-decoration: none;"></a>
+        </div>
+
         <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">
             <thead>
                 <tr>
