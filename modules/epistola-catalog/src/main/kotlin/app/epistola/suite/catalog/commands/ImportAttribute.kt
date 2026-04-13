@@ -14,6 +14,7 @@ import tools.jackson.databind.ObjectMapper
 
 data class ImportAttribute(
     val tenantId: TenantId,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val slug: String,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
@@ -52,7 +53,7 @@ class ImportAttributeHandler(
             )
                 .bind("id", attributeKey)
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", command.catalogKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
                 .execute()

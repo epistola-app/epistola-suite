@@ -25,6 +25,7 @@ import tools.jackson.databind.node.ObjectNode
 
 data class ImportTemplates(
     val tenantId: TenantId,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templates: List<ImportTemplateInput>,
 ) : Command<List<ImportTemplateResult>>,
     RequiresPermission {
@@ -78,7 +79,7 @@ class ImportTemplatesHandler(
 
     override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
         try {
-            importSingleTemplate(command.tenantId, input)
+            importSingleTemplate(command.tenantId, command.catalogKey, input)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
             ImportTemplateResult(
@@ -91,7 +92,7 @@ class ImportTemplatesHandler(
         }
     }
 
-    private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+    private fun importSingleTemplate(tenantId: TenantId, catalogKey: CatalogKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
         val templateId = TemplateKey.of(input.slug)
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
         val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
@@ -111,7 +112,7 @@ class ImportTemplatesHandler(
         )
             .bind("id", templateId)
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .mapTo<Boolean>()
             .one()
 
@@ -127,7 +128,7 @@ class ImportTemplatesHandler(
             )
                 .bind("id", templateId)
                 .bind("tenantId", tenantId.key)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", catalogKey)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -143,7 +144,7 @@ class ImportTemplatesHandler(
             )
                 .bind("id", templateId)
                 .bind("tenantId", tenantId.key)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", catalogKey)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -159,7 +160,7 @@ class ImportTemplatesHandler(
                 """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .execute()
 
@@ -181,7 +182,7 @@ class ImportTemplatesHandler(
             )
                 .bind("id", variantId)
                 .bind("tenantId", tenantId.key)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .bind("title", variantInput.title)
                 .bind("attributes", attributesJson)
@@ -190,7 +191,7 @@ class ImportTemplatesHandler(
 
             // Upsert the draft with the variant-specific or top-level templateModel
             val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-            upsertDraft(handle, tenantId, templateId, variantId, variantTemplateModel)
+            upsertDraft(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel)
         }
 
         // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
@@ -202,7 +203,7 @@ class ImportTemplatesHandler(
                 """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bindList("variantIds", importedVariantIds.toList())
             .execute()
@@ -230,7 +231,7 @@ class ImportTemplatesHandler(
             }
 
             for (variantId in importedVariantIds) {
-                publishDraft(handle, tenantId, templateId, variantId, environmentId)
+                publishDraft(handle, tenantId, catalogKey, templateId, variantId, environmentId)
             }
             publishedTo.add(envSlug)
         }
@@ -249,7 +250,7 @@ class ImportTemplatesHandler(
      * Updates the existing draft if one exists, otherwise creates a new one
      * with the next available version ID.
      */
-    private fun upsertDraft(handle: Handle, tenantId: TenantId, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
+    private fun upsertDraft(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
         val updated = handle.createUpdate(
@@ -260,7 +261,7 @@ class ImportTemplatesHandler(
             """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
@@ -275,7 +276,7 @@ class ImportTemplatesHandler(
                 """,
             )
                 .bind("tenantId", tenantId.key)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .mapTo(Int::class.java)
@@ -289,7 +290,7 @@ class ImportTemplatesHandler(
             )
                 .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", tenantId.key)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
@@ -302,7 +303,7 @@ class ImportTemplatesHandler(
      * Freezes the draft (status -> published), upserts the activation,
      * and auto-creates a new draft so the variant remains editable.
      */
-    private fun publishDraft(handle: Handle, tenantId: TenantId, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
+    private fun publishDraft(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
         // Find the draft version
         val draftVersionId = handle.createQuery(
             """
@@ -312,7 +313,7 @@ class ImportTemplatesHandler(
             """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
@@ -330,7 +331,7 @@ class ImportTemplatesHandler(
             """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
@@ -346,7 +347,7 @@ class ImportTemplatesHandler(
             """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("environmentId", environmentId)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
@@ -362,7 +363,7 @@ class ImportTemplatesHandler(
             """,
         )
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
@@ -378,7 +379,7 @@ class ImportTemplatesHandler(
         )
             .bind("id", VersionKey.of(nextVersionId))
             .bind("tenantId", tenantId.key)
-            .bind("catalogKey", CatalogKey.DEFAULT)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("publishedId", versionId)

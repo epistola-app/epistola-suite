@@ -129,6 +129,7 @@ class InstallFromCatalogHandler(
 
         val results = ImportTemplates(
             tenantId = TenantId(command.tenantKey),
+            catalogKey = command.catalogKey,
             templates = listOf(input),
         ).execute()
 
@@ -143,6 +144,7 @@ class InstallFromCatalogHandler(
         val tenantId = TenantId(command.tenantKey)
         return ImportTheme(
             tenantId = tenantId,
+            catalogKey = command.catalogKey,
             slug = resource.slug,
             name = resource.name,
             description = resource.description,
@@ -157,6 +159,7 @@ class InstallFromCatalogHandler(
         val tenantId = TenantId(command.tenantKey)
         return ImportStencil(
             tenantId = tenantId,
+            catalogKey = command.catalogKey,
             slug = resource.slug,
             name = resource.name,
             description = resource.description,
@@ -169,6 +172,7 @@ class InstallFromCatalogHandler(
         val tenantId = TenantId(command.tenantKey)
         return ImportAttribute(
             tenantId = tenantId,
+            catalogKey = command.catalogKey,
             slug = resource.slug,
             displayName = resource.name,
             allowedValues = resource.allowedValues,
@@ -187,6 +191,7 @@ class InstallFromCatalogHandler(
 
         return ImportAsset(
             tenantId = tenantId,
+            catalogKey = command.catalogKey,
             id = app.epistola.suite.common.ids.AssetKey.of(resource.slug),
             name = resource.name,
             mediaType = AssetMediaType.fromMimeType(resource.mediaType),

@@ -16,6 +16,7 @@ import tools.jackson.databind.ObjectMapper
 
 data class ImportStencil(
     val tenantId: TenantId,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val slug: String,
     val name: String,
     val description: String? = null,
@@ -56,7 +57,7 @@ class ImportStencilHandler(
             )
                 .bind("id", stencilKey)
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", command.catalogKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("tags", tagsJson)
@@ -70,7 +71,7 @@ class ImportStencilHandler(
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", command.catalogKey)
                 .bind("stencilKey", stencilKey)
                 .bind("content", contentJson)
                 .execute()
@@ -80,7 +81,7 @@ class ImportStencilHandler(
                     "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
                 )
                     .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", CatalogKey.DEFAULT)
+                    .bind("catalogKey", command.catalogKey)
                     .bind("stencilKey", stencilKey)
                     .mapTo(Int::class.java)
                     .one()
@@ -93,7 +94,7 @@ class ImportStencilHandler(
                 )
                     .bind("id", VersionKey.of(nextId))
                     .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", CatalogKey.DEFAULT)
+                    .bind("catalogKey", command.catalogKey)
                     .bind("stencilKey", stencilKey)
                     .bind("content", contentJson)
                     .execute()

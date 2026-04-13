@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component
  */
 data class ImportAsset(
     val tenantId: TenantId,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val id: AssetKey,
     val name: String,
     val mediaType: AssetMediaType,
@@ -55,7 +56,7 @@ class ImportAssetHandler(
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", command.catalogKey)
                 .bind("id", command.id.value)
                 .mapTo(Boolean::class.java)
                 .one()
@@ -66,6 +67,7 @@ class ImportAssetHandler(
         // Upload with the original ID to preserve template image node references
         UploadAsset(
             tenantId = command.tenantKey,
+            catalogKey = command.catalogKey,
             name = command.name,
             mediaType = command.mediaType,
             content = command.content,

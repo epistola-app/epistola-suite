@@ -119,7 +119,6 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Requires Phase 2: import commands need to accept catalogKey parameter")
     fun `browse after install shows installed status`() {
         val tenant = createTenant("Status Test")
 

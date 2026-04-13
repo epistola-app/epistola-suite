@@ -17,6 +17,7 @@ import tools.jackson.databind.ObjectMapper
 
 data class ImportTheme(
     val tenantId: TenantId,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val slug: String,
     val name: String,
     val description: String? = null,
@@ -63,7 +64,7 @@ class ImportThemeHandler(
             )
                 .bind("id", themeKey)
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", CatalogKey.DEFAULT)
+                .bind("catalogKey", command.catalogKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("documentStyles", documentStylesJson)

@@ -5,6 +5,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -31,6 +32,7 @@ import java.time.OffsetDateTime
  */
 data class UploadAsset(
     val tenantId: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val mediaType: AssetMediaType,
     val content: ByteArray,
@@ -89,12 +91,13 @@ class UploadAssetHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, name, media_type, size_bytes, width, height, created_at)
-                VALUES (:id, :tenantId, :name, :mediaType, :sizeBytes, :width, :height, :createdAt)
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :createdAt)
                 """,
             )
                 .bind("id", id.value)
                 .bind("tenantId", command.tenantId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("name", command.name)
                 .bind("mediaType", command.mediaType.mimeType)
                 .bind("sizeBytes", sizeBytes)
