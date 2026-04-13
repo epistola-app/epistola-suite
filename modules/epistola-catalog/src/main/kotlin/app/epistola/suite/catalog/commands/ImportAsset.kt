@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -50,10 +51,11 @@ class ImportAssetHandler(
             handle.createQuery(
                 """
                 SELECT COUNT(*) > 0 FROM assets
-                WHERE tenant_key = :tenantKey AND id = :id
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("id", command.id.value)
                 .mapTo(Boolean::class.java)
                 .one()

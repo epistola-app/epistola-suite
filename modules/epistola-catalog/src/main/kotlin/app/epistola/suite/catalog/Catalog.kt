@@ -19,8 +19,8 @@ data class Catalog(
 )
 
 enum class CatalogType {
-    LOCAL,
-    IMPORTED,
+    AUTHORED,
+    SUBSCRIBED,
 }
 
 enum class AuthType {

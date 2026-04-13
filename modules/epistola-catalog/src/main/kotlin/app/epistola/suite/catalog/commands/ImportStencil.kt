@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -47,14 +48,15 @@ class ImportStencilHandler(
             // Upsert stencil
             handle.createUpdate(
                 """
-                INSERT INTO stencils (id, tenant_key, name, description, tags, created_at, last_modified)
-                VALUES (:id, :tenantKey, :name, :description, :tags::jsonb, NOW(), NOW())
-                ON CONFLICT (tenant_key, id) DO UPDATE
+                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, last_modified)
+                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW())
+                ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                 SET name = :name, description = :description, tags = :tags::jsonb, last_modified = NOW()
                 """,
             )
                 .bind("id", stencilKey)
                 .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("tags", tagsJson)
@@ -64,31 +66,34 @@ class ImportStencilHandler(
             val updated = handle.createUpdate(
                 """
                 UPDATE stencil_versions SET content = :content::jsonb
-                WHERE tenant_key = :tenantKey AND stencil_key = :stencilKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("stencilKey", stencilKey)
                 .bind("content", contentJson)
                 .execute()
 
             if (updated == 0) {
                 val nextId = handle.createQuery(
-                    "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND stencil_key = :stencilKey",
+                    "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
                 )
                     .bind("tenantKey", command.tenantKey)
+                    .bind("catalogKey", CatalogKey.DEFAULT)
                     .bind("stencilKey", stencilKey)
                     .mapTo(Int::class.java)
                     .one()
 
                 handle.createUpdate(
                     """
-                    INSERT INTO stencil_versions (id, tenant_key, stencil_key, content, status, created_at)
-                    VALUES (:id, :tenantKey, :stencilKey, :content::jsonb, 'draft', NOW())
+                    INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, created_at)
+                    VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'draft', NOW())
                     """,
                 )
                     .bind("id", VersionKey.of(nextId))
                     .bind("tenantKey", command.tenantKey)
+                    .bind("catalogKey", CatalogKey.DEFAULT)
                     .bind("stencilKey", stencilKey)
                     .bind("content", contentJson)
                     .execute()

@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -52,9 +53,9 @@ class ImportThemeHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
-                VALUES (:id, :tenantKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
-                ON CONFLICT (tenant_key, id) DO UPDATE
+                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
+                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
+                ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                 SET name = :name, description = :description, document_styles = :documentStyles::jsonb,
                     page_settings = :pageSettings::jsonb, block_style_presets = :blockStylePresets::jsonb,
                     spacing_unit = :spacingUnit, last_modified = NOW()
@@ -62,6 +63,7 @@ class ImportThemeHandler(
             )
                 .bind("id", themeKey)
                 .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("documentStyles", documentStylesJson)

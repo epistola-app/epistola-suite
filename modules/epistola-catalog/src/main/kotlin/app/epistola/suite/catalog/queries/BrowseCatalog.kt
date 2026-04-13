@@ -63,9 +63,15 @@ class BrowseCatalogHandler(
         val installedResources = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT resource_type || ':' || resource_slug
-                FROM catalog_resources
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'template:' || id FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'theme:' || id FROM themes WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'stencil:' || id FROM stencils WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'attribute:' || id FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'asset:' || id FROM assets WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                 """,
             )
                 .bind("tenantKey", query.tenantKey)

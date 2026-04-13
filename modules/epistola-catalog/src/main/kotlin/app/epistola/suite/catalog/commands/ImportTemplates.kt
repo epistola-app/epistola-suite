@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -105,11 +106,12 @@ class ImportTemplatesHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,
         )
             .bind("id", templateId)
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .mapTo<Boolean>()
             .one()
 
@@ -117,14 +119,15 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
-                    VALUES (:id, :tenantId, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
-                    ON CONFLICT (tenant_key, id) DO UPDATE
+                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
+                    VALUES (:id, :tenantId, :catalogKey, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
+                    ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     """,
             )
                 .bind("id", templateId)
                 .bind("tenantId", tenantId.key)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -135,11 +138,12 @@ class ImportTemplatesHandler(
                 """
                     UPDATE document_templates
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
-                    WHERE id = :id AND tenant_key = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
             )
                 .bind("id", templateId)
                 .bind("tenantId", tenantId.key)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -151,10 +155,11 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 UPDATE template_variants SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
                 """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .execute()
 
@@ -168,14 +173,15 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_key, template_key, title, attributes, is_default, created_at, last_modified)
-                    VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, :isDefault, NOW(), NOW())
-                    ON CONFLICT (tenant_key, template_key, id) DO UPDATE
+                    INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, attributes, is_default, created_at, last_modified)
+                    VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :attributes::jsonb, :isDefault, NOW(), NOW())
+                    ON CONFLICT (tenant_key, catalog_key, template_key, id) DO UPDATE
                     SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, last_modified = NOW()
                     """,
             )
                 .bind("id", variantId)
                 .bind("tenantId", tenantId.key)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("templateId", templateId)
                 .bind("title", variantInput.title)
                 .bind("attributes", attributesJson)
@@ -191,11 +197,12 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
                   AND id NOT IN (<variantIds>)
                 """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .bindList("variantIds", importedVariantIds.toList())
             .execute()
@@ -249,10 +256,11 @@ class ImportTemplatesHandler(
             """
             UPDATE template_versions
             SET template_model = :templateModel::jsonb
-            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
@@ -263,10 +271,11 @@ class ImportTemplatesHandler(
                 """
                 SELECT COALESCE(MAX(id), 0) + 1
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
                 """,
             )
                 .bind("tenantId", tenantId.key)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .mapTo(Int::class.java)
@@ -274,12 +283,13 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", tenantId.key)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
@@ -298,10 +308,11 @@ class ImportTemplatesHandler(
             """
             SELECT id
             FROM template_versions
-            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
@@ -315,10 +326,11 @@ class ImportTemplatesHandler(
             """
             UPDATE template_versions
             SET status = 'published', published_at = NOW()
-            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
@@ -327,13 +339,14 @@ class ImportTemplatesHandler(
         // Upsert activation
         handle.createUpdate(
             """
-            INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
-            VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
-            ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
+            INSERT INTO environment_activations (tenant_key, catalog_key, environment_key, template_key, variant_key, version_key, activated_at)
+            VALUES (:tenantId, :catalogKey, :environmentId, :templateId, :variantId, :versionId, NOW())
+            ON CONFLICT (tenant_key, catalog_key, environment_key, template_key, variant_key)
             DO UPDATE SET version_key = :versionId, activated_at = NOW()
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("environmentId", environmentId)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
@@ -345,10 +358,11 @@ class ImportTemplatesHandler(
             """
             SELECT COALESCE(MAX(id), 0) + 1
             FROM template_versions
-            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
@@ -356,14 +370,15 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-            INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-            VALUES (:id, :tenantId, :templateId, :variantId,
-                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
+            INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+            VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId,
+                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
                     'draft', NOW())
             """,
         )
             .bind("id", VersionKey.of(nextVersionId))
             .bind("tenantId", tenantId.key)
+            .bind("catalogKey", CatalogKey.DEFAULT)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("publishedId", versionId)

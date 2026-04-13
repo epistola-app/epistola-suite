@@ -18,6 +18,7 @@ CREATE TABLE load_test_runs (
     id UUID PRIMARY KEY,
     batch_id UUID UNIQUE,                       -- Links to document_generation_batches and document_generation_requests
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    catalog_key CATALOG_KEY NOT NULL DEFAULT 'default',
     template_key TEMPLATE_KEY NOT NULL,
     variant_key VARIANT_KEY NOT NULL,
     version_key INTEGER,  -- NULL = use environment
@@ -61,10 +62,10 @@ CREATE TABLE load_test_runs (
     CONSTRAINT chk_ltr_completed_count_non_negative CHECK (completed_count >= 0),
     CONSTRAINT chk_ltr_failed_count_non_negative CHECK (failed_count >= 0),
     CONSTRAINT chk_ltr_count_sum CHECK (completed_count + failed_count <= target_count),
-    FOREIGN KEY (tenant_key, template_key) REFERENCES document_templates(tenant_key, id) ON DELETE CASCADE,
-    FOREIGN KEY (tenant_key, template_key, variant_key) REFERENCES template_variants(tenant_key, template_key, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_key, catalog_key, template_key) REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_key, catalog_key, template_key, variant_key) REFERENCES template_variants(tenant_key, catalog_key, template_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, environment_key) REFERENCES environments(tenant_key, id) ON DELETE CASCADE,
-    FOREIGN KEY (tenant_key, template_key, variant_key, version_key) REFERENCES template_versions(tenant_key, template_key, variant_key, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_key, catalog_key, template_key, variant_key, version_key) REFERENCES template_versions(tenant_key, catalog_key, template_key, variant_key, id) ON DELETE CASCADE
 );
 
 -- Indexes for load test run queries

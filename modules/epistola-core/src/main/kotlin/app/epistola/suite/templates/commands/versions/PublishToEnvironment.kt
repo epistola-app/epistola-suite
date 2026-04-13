@@ -128,14 +128,15 @@ class PublishToEnvironmentHandler(
         // 5. Upsert activation
         val activation = handle.createQuery(
             """
-                INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
-                VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
-                ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
+                INSERT INTO environment_activations (tenant_key, catalog_key, environment_key, template_key, variant_key, version_key, activated_at)
+                VALUES (:tenantId, :catalogKey, :environmentId, :templateId, :variantId, :versionId, NOW())
+                ON CONFLICT (tenant_key, catalog_key, environment_key, template_key, variant_key)
                 DO UPDATE SET version_key = :versionId, activated_at = NOW()
                 RETURNING *
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)
+            .bind("catalogKey", command.versionId.catalogKey)
             .bind("environmentId", command.environmentId.key)
             .bind("templateId", command.versionId.templateKey)
             .bind("variantId", command.versionId.variantKey)

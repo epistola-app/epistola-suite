@@ -82,7 +82,6 @@ class InstallFromCatalogHandler(
             try {
                 val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
                 val status = installResource(command, detail.resource, manifest.release.version, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
-                registerCatalogResource(command, entry.type, entry.slug)
                 InstallResult(type = entry.type, slug = entry.slug, status = status)
             } catch (e: Exception) {
                 logger.error("Failed to install {} '{}' from catalog '{}': {}", entry.type, entry.slug, command.catalogKey, e.message, e)
@@ -195,23 +194,6 @@ class InstallFromCatalogHandler(
             width = resource.width,
             height = resource.height,
         ).execute()
-    }
-
-    private fun registerCatalogResource(command: InstallFromCatalog, resourceType: String, resourceSlug: String) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO catalog_resources (tenant_key, catalog_key, resource_type, resource_slug)
-                VALUES (:tenantKey, :catalogKey, :resourceType, :resourceSlug)
-                ON CONFLICT (tenant_key, catalog_key, resource_type, resource_slug) DO NOTHING
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .bind("resourceType", resourceType)
-                .bind("resourceSlug", resourceSlug)
-                .execute()
-        }
     }
 
     companion object {

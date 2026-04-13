@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -43,14 +44,15 @@ class ImportAttributeHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO variant_attribute_definitions (id, tenant_key, display_name, allowed_values, created_at, last_modified)
-                VALUES (:id, :tenantKey, :displayName, :allowedValues::jsonb, NOW(), NOW())
-                ON CONFLICT (tenant_key, id) DO UPDATE
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified)
+                VALUES (:id, :tenantKey, :catalogKey, :displayName, :allowedValues::jsonb, NOW(), NOW())
+                ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                 SET display_name = :displayName, allowed_values = :allowedValues::jsonb, last_modified = NOW()
                 """,
             )
                 .bind("id", attributeKey)
                 .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", CatalogKey.DEFAULT)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
                 .execute()
