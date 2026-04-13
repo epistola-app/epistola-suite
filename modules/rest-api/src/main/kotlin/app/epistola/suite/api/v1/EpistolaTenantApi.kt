@@ -1,6 +1,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.AttributesApi
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.api.EnvironmentsApi
 import app.epistola.api.TenantsApi
 import app.epistola.api.model.AttributeDto
@@ -26,7 +27,6 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
@@ -126,7 +126,7 @@ class EpistolaTenantApi :
         createAttributeRequest: CreateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), CatalogId.default(tenantIdComposite))
         val attribute = CreateAttributeDefinition(
             id = attributeIdComposite,
             displayName = createAttributeRequest.description ?: createAttributeRequest.key,
@@ -139,7 +139,7 @@ class EpistolaTenantApi :
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId.default(tenantIdComposite))
         val attribute = GetAttributeDefinition(id = attributeIdComposite).query()
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(attribute.toDto())
@@ -153,7 +153,7 @@ class EpistolaTenantApi :
         val description = updateAttributeRequest.description
             ?: return ResponseEntity.badRequest().build()
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId.default(tenantIdComposite))
         val attribute = UpdateAttributeDefinition(
             id = attributeIdComposite,
             displayName = description,
@@ -166,7 +166,7 @@ class EpistolaTenantApi :
         attributeKey: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId.default(tenantIdComposite))
         val deleted = DeleteAttributeDefinition(id = attributeIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()

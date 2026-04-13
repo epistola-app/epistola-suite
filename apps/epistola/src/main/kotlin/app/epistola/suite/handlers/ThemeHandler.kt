@@ -1,6 +1,7 @@
 package app.epistola.suite.themes
 
 import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form

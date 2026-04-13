@@ -2,6 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.htmx.catalogId

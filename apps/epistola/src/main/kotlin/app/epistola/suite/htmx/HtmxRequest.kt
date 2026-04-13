@@ -89,9 +89,9 @@ fun ServerRequest.catalogId(): CatalogKey = CatalogKey.of(pathVariable("catalogI
  * Returns null if the template key is invalid.
  */
 fun ServerRequest.templateId(tenantId: TenantId): TemplateId? {
-    val catalogKey = catalogId()
+    val catalog = CatalogId(catalogId(), tenantId)
     val key = TemplateKey.validateOrNull(pathVariable("id")) ?: return null
-    return TemplateId(key, tenantId, catalogKey)
+    return TemplateId(key, catalog)
 }
 
 /**

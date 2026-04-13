@@ -119,7 +119,7 @@ class VersionRouteHandler(
         variantId: VariantId,
         error: String? = null,
     ): ServerResponse {
-        val templateId = TemplateId(templateKey, TenantId(tenantKey))
+        val templateId = TemplateId(templateKey, CatalogId.default(TenantId(tenantKey)))
 
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
