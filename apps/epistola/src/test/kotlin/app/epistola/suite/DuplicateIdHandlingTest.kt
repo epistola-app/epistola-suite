@@ -149,7 +149,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             formData.add("name", "My Template Again")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
-                "/tenants/${tenant.id}/catalogs/default/templates",
+                "/tenants/${tenant.id}/templates",
                 request,
                 String::class.java,
             )

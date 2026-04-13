@@ -7,11 +7,11 @@
             <div class="page-actions">
                 <div th:replace="~{fragments/search :: search-box(
                     placeholder='Search templates...',
-                    searchUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/templates/search(tenantId=${tenantId},catalogId=${catalogId})},
+                    searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalogId=${catalogId})},
                     targetId='template-rows'
                 )}"></div>
                 <a th:if="${auth.has('TEMPLATE_EDIT')}"
-                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/new(tenantId=${tenantId},catalogId=${catalogId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalogId=${catalogId})}" class="btn btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Template
                 </a>
@@ -25,7 +25,7 @@
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
             <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/new(tenantId=${tenantId},catalogId=${catalogId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalogId=${catalogId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template
             </a>
@@ -45,14 +45,14 @@
                 <th:block th:fragment="rows">
                     <tr th:each="template : ${templates}">
                         <td>
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                th:text="${template.name}" style="font-weight: 500;"></a>
                         </td>
                         <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                                class="btn btn-sm btn-icon btn-ghost" title="View template">
                                 <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>

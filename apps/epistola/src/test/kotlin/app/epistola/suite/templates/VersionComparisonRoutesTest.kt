@@ -61,7 +61,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.set("HX-Request", "true")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/catalogs/default/templates/$templateId/variants/$variantKey/compare",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/compare",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -97,7 +97,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.set("HX-Request", "true")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/catalogs/default/templates/$templateId/variants/$variantKey/compare",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/compare",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -128,7 +128,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/catalogs/default/templates/$templateId/variants/$variantKey/compare",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/compare",
                     String::class.java,
                 )
             }
@@ -178,7 +178,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.contentType = MediaType.APPLICATION_JSON
                 val request = HttpEntity("{}", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/catalogs/default/templates/$templateId/variants/$variantKey/versions/$versionNumber/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/versions/$versionNumber/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -217,7 +217,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.contentType = MediaType.APPLICATION_JSON
                 val request = HttpEntity("{}", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/catalogs/default/templates/$templateId/variants/$variantKey/versions/$versionNumber/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/versions/$versionNumber/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -250,7 +250,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.contentType = MediaType.APPLICATION_JSON
                 val request = HttpEntity("{}", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/catalogs/default/templates/$templateId/variants/$variantKey/versions/999/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/versions/999/preview",
                     request,
                     String::class.java,
                 )

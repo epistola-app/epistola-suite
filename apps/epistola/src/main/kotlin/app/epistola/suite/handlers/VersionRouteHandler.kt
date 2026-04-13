@@ -154,7 +154,7 @@ class VersionRouteHandler(
                     "error" to error
                 }
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/catalogs/$catalogId/templates/$templateKey") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$catalogId/$templateKey") }
         }
     }
 }

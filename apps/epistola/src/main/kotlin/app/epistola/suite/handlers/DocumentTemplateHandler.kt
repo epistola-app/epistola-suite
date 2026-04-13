@@ -2,6 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -106,44 +107,38 @@ class DocumentTemplateHandler(
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val templates = ListTemplateSummaries(tenantId = tenantId).query()
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
-            "catalogId" to catalogId
             "templates" to templates
         }
     }
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val searchTerm = request.queryParam("q")
         val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("templates/list", "rows") {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId
                 "templates" to templates
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
         }
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         return ServerResponse.ok().page("templates/new") {
             "pageTitle" to "New Template - Epistola"
             "tenantId" to tenantId.key
-            "catalogId" to catalogId
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalogId = CatalogKey.DEFAULT // TODO: catalog selection in create form
 
         val form = request.form {
             field("slug") {
@@ -199,7 +194,7 @@ class DocumentTemplateHandler(
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs/$catalogId/templates/$templateKey")
+            .header("Location", "/tenants/${tenantId.key}/templates/$catalogId/$templateKey")
             .build()
     }
 
@@ -330,7 +325,7 @@ class DocumentTemplateHandler(
                 "themes" to themes
             }
             onNonHtmx {
-                redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
+                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
             }
         }
     }
@@ -466,7 +461,7 @@ class DocumentTemplateHandler(
         DeleteDocumentTemplate(id = templateId).execute()
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs/$catalogId/templates")
+            .header("Location", "/tenants/${tenantId.key}/templates")
             .build()
     }
 }

@@ -113,7 +113,7 @@ class DeploymentMatrixHandler {
                 "matrix" to matrix
                 "versionsByVariant" to versionsByVariant
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/catalogs/$catalogId/templates/${templateKey.value}") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$catalogId/${templateKey.value}") }
         }
     }
 }

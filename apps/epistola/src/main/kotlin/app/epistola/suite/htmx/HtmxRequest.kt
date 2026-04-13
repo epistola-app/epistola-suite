@@ -85,6 +85,15 @@ fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("ten
 fun ServerRequest.catalogId(): CatalogKey = CatalogKey.of(pathVariable("catalogId"))
 
 /**
+ * Extract a [CatalogKey] from the `catalogId` path variable, or null if not present.
+ */
+fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
+    CatalogKey.of(pathVariable("catalogId"))
+} catch (_: IllegalArgumentException) {
+    null
+}
+
+/**
  * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.
  * Returns null if the template key is invalid.
  */
