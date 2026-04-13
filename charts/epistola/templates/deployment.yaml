@@ -67,58 +67,49 @@ spec:
             - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
               value: "true"
             {{- end }}
-            {{- /* Keycloak / OAuth2 — set canonical Spring property env vars */}}
-            {{- if .Values.keycloak.enabled }}
-            {{- if .Values.keycloak.existingSecret }}
-            {{- /* All values from existing secret */}}
+            {{- /* OIDC / OAuth2 login */}}
+            {{- if .Values.oidc.enabled }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKeys.clientId }}
+              value: {{ .Values.oidc.clientId | quote }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET
+              {{- if .Values.oidc.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKeys.clientSecret }}
+                  name: {{ required "oidc.existingSecret is required when oidc.enabled is true and oidc.clientSecret is empty" .Values.oidc.existingSecret }}
+                  key: {{ .Values.oidc.secretKey }}
+              {{- else }}
+              value: {{ required "oidc.clientSecret is required when oidc.enabled is true and oidc.existingSecret is empty" .Values.oidc.clientSecret | quote }}
+              {{- end }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKeys.issuerUri }}
+              value: {{ required "oidc.issuerUri is required when oidc.enabled is true" .Values.oidc.issuerUri | quote }}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKeys.issuerUri }}
-            - name: EPISTOLA_KEYCLOAK_CLIENTID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKeys.clientId }}
-            - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.keycloak.existingSecret }}
-                  key: {{ .Values.keycloak.secretKeys.clientSecret }}
-            {{- else }}
-            {{- /* Plain values (dev/testing) */}}
-            - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
-              value: {{ .Values.keycloak.clientId | quote }}
-            - name: SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
-              value: {{ required "keycloak.issuerUri is required when keycloak.enabled is true and no existingSecret is set" .Values.keycloak.issuerUri | quote }}
-            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
-              value: {{ .Values.keycloak.issuerUri | quote }}
-            - name: EPISTOLA_KEYCLOAK_CLIENTID
-              value: {{ .Values.keycloak.clientId | quote }}
+              value: {{ .Values.oidc.issuerUri | quote }}
+            {{- if .Values.oidc.backchannelBaseUrl }}
+            - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
+              value: {{ .Values.oidc.backchannelBaseUrl | quote }}
             {{- end }}
-            {{- if .Values.keycloak.ensureGroups }}
+            {{- end }}
+
+            {{- /* Keycloak admin / provisioning */}}
+            {{- if .Values.keycloakAdmin.enabled }}
+            - name: EPISTOLA_KEYCLOAK_ADMINURL
+              value: {{ required "keycloakAdmin.adminUrl is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.adminUrl | quote }}
+            - name: EPISTOLA_KEYCLOAK_REALM
+              value: {{ required "keycloakAdmin.realm is required when keycloakAdmin.enabled is true" .Values.keycloakAdmin.realm | quote }}
+            - name: EPISTOLA_KEYCLOAK_CLIENTID
+              value: {{ .Values.keycloakAdmin.clientId | quote }}
+            - name: EPISTOLA_KEYCLOAK_CLIENTSECRET
+              {{- if .Values.keycloakAdmin.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "keycloakAdmin.existingSecret is required when keycloakAdmin.enabled is true and keycloakAdmin.clientSecret is empty" .Values.keycloakAdmin.existingSecret }}
+                  key: {{ .Values.keycloakAdmin.secretKey }}
+              {{- else }}
+              value: {{ required "keycloakAdmin.clientSecret is required when keycloakAdmin.enabled is true and keycloakAdmin.existingSecret is empty" .Values.keycloakAdmin.clientSecret | quote }}
+              {{- end }}
+            {{- if .Values.keycloakAdmin.ensureGroups }}
             - name: EPISTOLA_KEYCLOAK_ENSUREGROUPS
               value: "true"
-            {{- end }}
-            {{- if .Values.keycloak.backchannelBaseUrl }}
-            - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
-              value: {{ .Values.keycloak.backchannelBaseUrl | quote }}
             {{- end }}
             {{- end }}
             {{- /* Database configuration */}}

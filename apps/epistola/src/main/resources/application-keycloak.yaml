@@ -16,7 +16,7 @@
 #   SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI
 #   SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
 #
-# The Helm chart maps keycloak.* values to these env vars automatically.
+# The Helm chart maps oidc.* and keycloakAdmin.* values to these env vars automatically.
 
 spring:
   security:
