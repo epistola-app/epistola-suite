@@ -23,6 +23,10 @@ class UnregisterCatalogHandler(
 ) : CommandHandler<UnregisterCatalog, Boolean> {
 
     override fun handle(command: UnregisterCatalog): Boolean {
+        require(command.catalogKey != CatalogKey.DEFAULT) {
+            "The default catalog cannot be deleted"
+        }
+
         val deleted = jdbi.withHandle<Int, Exception> { handle ->
             handle.createUpdate(
                 """
