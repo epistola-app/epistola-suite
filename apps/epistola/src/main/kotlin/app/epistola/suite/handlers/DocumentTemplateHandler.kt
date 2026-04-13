@@ -107,6 +107,7 @@ class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) {
+    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
@@ -147,9 +148,9 @@ class DocumentTemplateHandler(
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = CatalogKey.of(request.param("catalog").orElse(CatalogKey.DEFAULT.value))
 
         val form = request.form {
+            field("catalog") {}
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -161,11 +162,14 @@ class DocumentTemplateHandler(
             }
         }
 
+        val catalogId = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: CatalogKey.DEFAULT.value)
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+
         if (form.hasErrors()) {
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -177,12 +181,11 @@ class DocumentTemplateHandler(
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to errors
             }
         }
-
         val name = form["name"]
 
         val result = form.executeOrFormError {
@@ -196,7 +199,7 @@ class DocumentTemplateHandler(
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId
+                "catalogs" to catalogs
                 "formData" to result.formData
                 "errors" to result.errors
             }

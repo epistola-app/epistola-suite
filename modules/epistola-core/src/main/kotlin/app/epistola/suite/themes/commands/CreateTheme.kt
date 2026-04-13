@@ -45,13 +45,14 @@ class CreateThemeHandler(
         jdbi.withHandle<Theme, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
-                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
+                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
                 RETURNING *
                 """,
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))

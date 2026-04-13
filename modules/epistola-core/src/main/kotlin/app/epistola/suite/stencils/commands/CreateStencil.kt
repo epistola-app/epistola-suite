@@ -56,13 +56,14 @@ class CreateStencilHandler(
             // 1. Create the stencil
             val stencil = handle.createQuery(
                 """
-                INSERT INTO stencils (id, tenant_key, name, description, tags, created_at, last_modified)
-                VALUES (:id, :tenantId, :name, :description, :tags::jsonb, NOW(), NOW())
-                RETURNING id, tenant_key, name, description, tags, created_at, last_modified
+                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW())
+                RETURNING id, tenant_key, catalog_key, name, description, tags, created_at, last_modified
                 """,
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("tags", tagsJson)

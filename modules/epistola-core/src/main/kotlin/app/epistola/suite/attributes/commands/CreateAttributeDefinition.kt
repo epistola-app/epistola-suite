@@ -41,12 +41,13 @@ class CreateAttributeDefinitionHandler(
 
             handle.createQuery(
                 """
-                INSERT INTO variant_attribute_definitions (id, tenant_key, display_name, allowed_values, created_at, last_modified)
-                VALUES (:id, :tenantId, :displayName, :allowedValues::jsonb, NOW(), NOW())
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :displayName, :allowedValues::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
             )
                 .bind("id", command.id.key)
+                .bind("catalogKey", command.id.catalogKey)
                 .bind("tenantId", command.id.tenantKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
