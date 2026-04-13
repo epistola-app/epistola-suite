@@ -3,14 +3,22 @@
 <body>
     <th:block th:fragment="content">
         <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},catalogId=${catalogId})}">Templates</a> &raquo; <span>New Template</span>
+            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo; <span>New Template</span>
         </nav>
 
         <h1>New Template</h1>
 
         <div class="card create-form-card">
             <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId},catalogId=${catalogId})}" method="post">
+                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label class="ep-label" for="catalog">Catalog</label>
+                        <select id="catalog" name="catalog" class="ep-input">
+                            <option th:each="cat : ${catalogs}"
+                                    th:value="${cat.id}"
+                                    th:text="${cat.name}"></option>
+                        </select>
+                    </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Template ID (Slug)</label>
                         <input type="text" id="slug" name="slug" class="ep-input"
@@ -30,7 +38,7 @@
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Create Template</button>
-                        <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},catalogId=${catalogId})}" class="btn btn-outline">Cancel</a>
+                        <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>

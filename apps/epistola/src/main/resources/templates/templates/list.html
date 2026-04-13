@@ -35,6 +35,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Catalog</th>
                     <th>ID</th>
                     <th>Variants</th>
                     <th>Last Modified</th>
@@ -48,6 +49,7 @@
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                th:text="${template.name}" style="font-weight: 500;"></a>
                         </td>
+                        <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
                         <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>

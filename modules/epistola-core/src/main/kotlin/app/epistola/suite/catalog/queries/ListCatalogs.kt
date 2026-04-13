@@ -14,7 +14,7 @@ data class ListCatalogs(
     override val tenantKey: TenantKey,
 ) : Query<List<Catalog>>,
     RequiresPermission {
-    override val permission get() = Permission.TENANT_SETTINGS
+    override val permission get() = Permission.TEMPLATE_VIEW
 }
 
 @Component

@@ -1,6 +1,8 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -130,15 +132,17 @@ class DocumentTemplateHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         return ServerResponse.ok().page("templates/new") {
             "pageTitle" to "New Template - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = CatalogKey.DEFAULT // TODO: catalog selection in create form
+        val catalogId = CatalogKey.of(request.param("catalog").orElse(CatalogKey.DEFAULT.value))
 
         val form = request.form {
             field("slug") {
@@ -178,7 +182,7 @@ class DocumentTemplateHandler(
 
         val result = form.executeOrFormError {
             CreateDocumentTemplate(
-                id = TemplateId(templateKey, CatalogId.default(tenantId)),
+                id = TemplateId(templateKey, CatalogId(catalogId, tenantId)),
                 name = name,
             ).execute()
         }
