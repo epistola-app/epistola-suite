@@ -31,15 +31,23 @@
             </a>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-2); flex-wrap: wrap;">
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
-               th:classappend="${selectedCatalog == ''} ? 'badge-info' : 'badge-default'"
-               class="badge" style="cursor: pointer; text-decoration: none;">All</a>
-            <a th:each="cat : ${catalogs}"
-               th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},catalog=${cat.id})}"
-               th:text="${cat.name}"
-               th:classappend="${#strings.equals(selectedCatalog, cat.id.toString())} ? 'badge-info' : 'badge-default'"
-               class="badge" style="cursor: pointer; text-decoration: none;"></a>
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id.toString())}"></option>
+            </select>
+            <script th:inline="javascript">
+                document.getElementById('catalog-filter').addEventListener('change', function() {
+                    var tenantId = /*[[${tenantId}]]*/ '';
+                    var catalog = this.value;
+                    var url = '/tenants/' + tenantId + '/templates';
+                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
+                    window.location.href = url;
+                });
+            </script>
         </div>
 
         <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">
