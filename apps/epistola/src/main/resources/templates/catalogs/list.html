@@ -63,6 +63,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
+                            <th>Type</th>
                             <th>Source URL</th>
                             <th>Version</th>
                             <th>Actions</th>
@@ -72,7 +73,12 @@
                         <tr th:each="catalog : ${catalogs}">
                             <td th:text="${catalog.name}"></td>
                             <td>
-                                <span class="text-muted text-sm" th:text="${catalog.sourceUrl}"></span>
+                                <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">authored</span>
+                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">subscribed</span>
+                            </td>
+                            <td>
+                                <span th:if="${catalog.sourceUrl}" class="text-muted text-sm" th:text="${catalog.sourceUrl}"></span>
+                                <span th:unless="${catalog.sourceUrl}" class="text-muted">-</span>
                             </td>
                             <td>
                                 <span th:if="${catalog.installedReleaseVersion}"
@@ -82,7 +88,8 @@
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                                    class="btn btn-sm">Browse</a>
-                                <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                <form th:if="${catalog.type.name() == 'SUBSCRIBED'}"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
                                       method="post" style="display: inline;">
                                     <button type="submit" class="btn btn-sm btn-danger"
                                             onclick="return confirm('Remove this catalog and ALL its resources? This cannot be undone.')">Remove</button>
