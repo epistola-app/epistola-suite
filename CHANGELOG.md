@@ -1,6 +1,17 @@
 # Epistola Suite Changelog
 
+> **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
+
 ## [Unreleased]
+
+### Added
+
+- **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
+- **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
+
+### Changed
+
+- **Helm chart workflow aligned with app release**: The Helm workflow now triggers on `release: published` (for `chart-*` tags) instead of `workflow_dispatch`, matching the app release pattern
 
 ## [0.14.0] - 2026-04-10
 

@@ -9,12 +9,8 @@ on:
     branches: [main]
     paths:
       - "charts/**"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Chart version to release (e.g. 1.1.0)"
-        required: true
-        type: string
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
@@ -23,6 +19,7 @@ jobs:
   lint:
     name: Lint Helm Chart
     runs-on: ubuntu-latest
+    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'chart-')
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -48,7 +45,7 @@ jobs:
     name: Release Helm Chart
     runs-on: ubuntu-latest
     needs: lint
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'chart-')
     permissions:
       contents: write
       packages: write
@@ -58,18 +55,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate version input
+      - name: Extract version from release tag
+        id: tag
         run: |
-          VERSION="${{ inputs.version }}"
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          VERSION="${TAG_NAME#chart-}"
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::Invalid version format '$VERSION'. Expected semver (e.g. 1.1.0)"
             exit 1
           fi
-          if git tag -l "chart-$VERSION" | grep -q .; then
-            echo "::error::Tag chart-$VERSION already exists"
-            exit 1
-          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Release version: $VERSION"
 
       - name: Set up Helm
         uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
@@ -105,31 +101,8 @@ jobs:
         run: |
           helm push .helm-packages/epistola-${VERSION}.tgz oci://ghcr.io/epistola-app/charts
 
-      - name: Create tag and GitHub release
+      - name: Upload chart to GitHub release
         run: |
-          git tag "chart-${VERSION}"
-          git push origin "chart-${VERSION}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Helm Chart Release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
-        with:
-          tag_name: chart-${{ env.VERSION }}
-          name: Helm Chart ${{ env.VERSION }}
-          body: |
-            ## Helm Chart Release ${{ env.VERSION }}
-
-            ### Installation
-            ```bash
-            helm install epistola oci://ghcr.io/epistola-app/charts/epistola --version ${{ env.VERSION }}
-            ```
-
-            ### Upgrade
-            ```bash
-            helm upgrade epistola oci://ghcr.io/epistola-app/charts/epistola --version ${{ env.VERSION }}
-            ```
-          files: |
-            .helm-packages/epistola-${{ env.VERSION }}.tgz
+          gh release upload "chart-${VERSION}" .helm-packages/epistola-${VERSION}.tgz --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
