@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-13
+
+### Fixed
+
+- Explicitly disable OTLP export when no endpoint is configured, preventing startup warnings
+
 ## [0.2.0] - 2026-04-13
 
 ### Added
