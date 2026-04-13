@@ -52,16 +52,16 @@ const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
 /** Number format presets for the format dropdown. */
 const NUMBER_FORMAT_PRESETS: { value: string; label: string; group?: string }[] = [
   { value: '', label: 'No formatting' },
-  // Point notation (decimal point)
-  { value: '#,##0', label: '#,##0 (1,234)', group: 'Decimal point' },
-  { value: '#,##0.00', label: '#,##0.00 (1,234.56)', group: 'Decimal point' },
-  { value: '#,##0.##', label: '#,##0.## (1,234.5)', group: 'Decimal point' },
-  { value: '0.00', label: '0.00 (1234.56)', group: 'Decimal point' },
   // Comma notation (decimal comma)
   { value: '#.##0', label: '#.##0 (1.234)', group: 'Decimal comma' },
   { value: '#.##0,00', label: '#.##0,00 (1.234,56)', group: 'Decimal comma' },
   { value: '#.##0,##', label: '#.##0,## (1.234,5)', group: 'Decimal comma' },
   { value: '0,00', label: '0,00 (1234,56)', group: 'Decimal comma' },
+  // Point notation (decimal point)
+  { value: '#,##0', label: '#,##0 (1,234)', group: 'Decimal point' },
+  { value: '#,##0.00', label: '#,##0.00 (1,234.56)', group: 'Decimal point' },
+  { value: '#,##0.##', label: '#,##0.## (1,234.5)', group: 'Decimal point' },
+  { value: '0.00', label: '0.00 (1234.56)', group: 'Decimal point' },
   // Shared (notation-independent)
   { value: '0', label: '0 (1234)' },
   { value: '0%', label: '0% (21%)' },
