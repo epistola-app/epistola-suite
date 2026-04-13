@@ -19,7 +19,6 @@ dependencies {
     implementation(project(":modules:epistola-core"))
 
     // Catalog module - provides import/export commands
-    implementation(project(":modules:epistola-catalog"))
 
     // Spring Web for REST controllers
     implementation("org.springframework.boot:spring-boot-starter-web")

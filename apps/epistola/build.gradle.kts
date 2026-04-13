@@ -24,7 +24,6 @@ dependencies {
     implementation(project(":modules:feedback"))
 
     // Catalog module (catalog exchange for sharing templates)
-    implementation(project(":modules:epistola-catalog"))
 
     // Load test module (load testing functionality)
     implementation(project(":modules:loadtest"))
