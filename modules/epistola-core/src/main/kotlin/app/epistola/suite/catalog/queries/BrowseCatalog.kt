@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -60,6 +61,52 @@ class BrowseCatalogHandler(
                 .orElseThrow { IllegalArgumentException("Catalog not found: ${query.catalogKey}") }
         }
 
+        return when (catalog.type) {
+            CatalogType.AUTHORED -> browseAuthored(catalog, query)
+            CatalogType.SUBSCRIBED -> browseSubscribed(catalog, query)
+        }
+    }
+
+    /**
+     * Browse an authored catalog — list resources directly from the database.
+     * All resources are local, so status is always INSTALLED.
+     */
+    private fun browseAuthored(catalog: Catalog, query: BrowseCatalog): BrowseResult {
+        val resources = jdbi.withHandle<List<BrowseResource>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT 'template' as type, id as slug, name, NULL as description FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'theme', id, name, description FROM themes WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'stencil', id, name, description FROM stencils WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'attribute', id, display_name, NULL FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'asset', id::text, name, NULL FROM assets WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                """,
+            )
+                .bind("tenantKey", query.tenantKey)
+                .bind("catalogKey", query.catalogKey)
+                .map { rs, _ ->
+                    BrowseResource(
+                        type = rs.getString("type"),
+                        slug = rs.getString("slug"),
+                        name = rs.getString("name"),
+                        description = rs.getString("description"),
+                        status = ResourceStatus.INSTALLED,
+                    )
+                }
+                .list()
+        }
+
+        return BrowseResult(catalog = catalog, resources = resources)
+    }
+
+    /**
+     * Browse a subscribed catalog — fetch the remote manifest and check which resources are installed.
+     */
+    private fun browseSubscribed(catalog: Catalog, query: BrowseCatalog): BrowseResult {
         val installedResources = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
                 """
@@ -81,7 +128,7 @@ class BrowseCatalogHandler(
         }
 
         val manifest = catalogClient.fetchManifest(
-            catalog.sourceUrl ?: throw IllegalStateException("Catalog has no source URL"),
+            catalog.sourceUrl ?: throw IllegalStateException("Subscribed catalog has no source URL"),
             catalog.sourceAuthType,
             catalog.sourceAuthCredential,
         )
