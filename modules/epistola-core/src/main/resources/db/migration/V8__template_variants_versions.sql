@@ -146,7 +146,8 @@ CREATE TABLE variant_attribute_definitions (
     allowed_values JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (tenant_key, catalog_key, id)
+    PRIMARY KEY (tenant_key, catalog_key, id),
+    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE variant_attribute_definitions IS 'Registry of allowed attribute keys for variants, with optional value constraints. Tenant and catalog scoped.';

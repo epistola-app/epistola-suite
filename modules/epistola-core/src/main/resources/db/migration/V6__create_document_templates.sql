@@ -19,6 +19,7 @@ CREATE TABLE document_templates (
     created_by UUID REFERENCES users(id),
     last_modified_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_key, catalog_key, id),
+    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, catalog_key, theme_key) REFERENCES themes(tenant_key, catalog_key, id) ON DELETE SET NULL
 );
 

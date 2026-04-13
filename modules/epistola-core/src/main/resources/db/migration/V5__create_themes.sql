@@ -22,7 +22,8 @@ CREATE TABLE themes (
     created_by UUID REFERENCES users(id),
     last_modified_by UUID REFERENCES users(id),
 
-    PRIMARY KEY (tenant_key, catalog_key, id)
+    PRIMARY KEY (tenant_key, catalog_key, id),
+    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_themes_last_modified ON themes(last_modified DESC);

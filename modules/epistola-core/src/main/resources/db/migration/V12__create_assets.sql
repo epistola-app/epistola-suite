@@ -30,6 +30,7 @@ CREATE TABLE assets (
     PRIMARY KEY (tenant_key, catalog_key, id),
 
     FOREIGN KEY (tenant_key) REFERENCES tenants(id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
 
     CONSTRAINT chk_assets_name_not_empty CHECK (LENGTH(name) > 0),
     CONSTRAINT chk_assets_media_type CHECK (media_type IN ('image/png', 'image/jpeg', 'image/svg+xml', 'image/webp')),

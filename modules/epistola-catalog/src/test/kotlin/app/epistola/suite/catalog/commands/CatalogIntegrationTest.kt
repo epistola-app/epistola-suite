@@ -46,8 +46,8 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
 
             val catalogs = ListCatalogs(tenant.id).query()
-            assertThat(catalogs).hasSize(1)
-            assertThat(catalogs[0].name).isEqualTo("Epistola Demo Catalog")
+            assertThat(catalogs).hasSize(2) // default + registered
+            assertThat(catalogs.map { it.name }).contains("Epistola Demo Catalog")
         }
     }
 
@@ -136,7 +136,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `unregister catalog removes catalog but keeps templates`() {
+    fun `unregister catalog removes catalog and its resources`() {
         val tenant = createTenant("Unregister Test")
 
         withMediator {
@@ -148,13 +148,14 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             val catalog = GetCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).query()
             assertThat(catalog).isNull()
 
+            // Resources are deleted via CASCADE when catalog is removed
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
-            assertThat(templates).hasSize(2)
+            assertThat(templates).isEmpty()
         }
     }
 
     @Test
-    fun `reinstall after unregister updates existing templates`() {
+    fun `reinstall after unregister creates fresh resources`() {
         val tenant = createTenant("Reinstall Test")
 
         withMediator {
@@ -162,16 +163,12 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
             UnregisterCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
+            // Re-register and install — resources were deleted by CASCADE, so this is a fresh install
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
             assertThat(results).hasSize(6)
-            val templateResults = results.filter { it.type == "template" }
-            assertThat(templateResults).allMatch { it.status == InstallStatus.UPDATED }
-
-            // Non-template resources get updated or skipped (assets are immutable) on reinstall
-            val nonTemplateResults = results.filter { it.type != "template" }
-            assertThat(nonTemplateResults).allMatch { it.status == InstallStatus.UPDATED || it.status == InstallStatus.INSTALLED || it.status == InstallStatus.SKIPPED }
+            assertThat(results).allMatch { it.status == InstallStatus.INSTALLED }
         }
     }
 
