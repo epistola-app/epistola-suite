@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -33,6 +34,7 @@ class DeploymentMatrixHandler {
 
     fun deploymentMatrix(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -41,6 +43,7 @@ class DeploymentMatrixHandler {
 
     fun updateDeployment(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

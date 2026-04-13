@@ -4,6 +4,7 @@ import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -104,21 +105,25 @@ class DocumentTemplateHandler(
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templates = ListTemplateSummaries(tenantId = tenantId).query()
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
+            "catalogId" to catalogId
             "templates" to templates
         }
     }
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val searchTerm = request.queryParam("q")
         val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("templates/list", "rows") {
                 "tenantId" to tenantId.key
+                "catalogId" to catalogId
                 "templates" to templates
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
@@ -127,14 +132,17 @@ class DocumentTemplateHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         return ServerResponse.ok().page("templates/new") {
             "pageTitle" to "New Template - Epistola"
             "tenantId" to tenantId.key
+            "catalogId" to catalogId
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
 
         val form = request.form {
             field("slug") {
@@ -152,6 +160,7 @@ class DocumentTemplateHandler(
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
                 "tenantId" to tenantId.key
+                "catalogId" to catalogId
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -163,6 +172,7 @@ class DocumentTemplateHandler(
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
                 "tenantId" to tenantId.key
+                "catalogId" to catalogId
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -181,6 +191,7 @@ class DocumentTemplateHandler(
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
                 "tenantId" to tenantId.key
+                "catalogId" to catalogId
                 "formData" to result.formData
                 "errors" to result.errors
             }
@@ -193,6 +204,7 @@ class DocumentTemplateHandler(
 
     fun editor(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -206,6 +218,7 @@ class DocumentTemplateHandler(
             "templates/editor",
             mapOf(
                 "tenantId" to tenantId.key,
+                "catalogId" to catalogId,
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
                 "templateName" to context.templateName,
@@ -219,6 +232,7 @@ class DocumentTemplateHandler(
 
     fun get(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -241,6 +255,7 @@ class DocumentTemplateHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -290,6 +305,7 @@ class DocumentTemplateHandler(
      */
     fun updateTheme(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -308,6 +324,7 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail", "theme-section") {
                 "tenantId" to tenantId.key
+                "catalogId" to catalogId
                 "template" to result.template
                 "themes" to themes
             }
@@ -323,6 +340,7 @@ class DocumentTemplateHandler(
      */
     fun validateSchema(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -351,6 +369,7 @@ class DocumentTemplateHandler(
      */
     fun updateDataExample(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
@@ -392,6 +411,7 @@ class DocumentTemplateHandler(
      */
     fun deleteDataExample(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
@@ -410,6 +430,7 @@ class DocumentTemplateHandler(
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -427,6 +448,7 @@ class DocumentTemplateHandler(
         return ServerResponse.ok().page("templates/detail") {
             "pageTitle" to "${template.name} - Epistola"
             "tenantId" to tenantId.key
+            "catalogId" to catalogId
             "template" to template
             "variants" to variants
             "themes" to themes
@@ -436,6 +458,7 @@ class DocumentTemplateHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

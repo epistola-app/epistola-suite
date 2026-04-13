@@ -20,7 +20,7 @@
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <div class="app-nav-dropdown-menu" role="menu">
-                            <a th:href="@{/tenants/{id}/templates(id=${tenantId})}"
+                            <a th:href="@{/tenants/{id}/catalogs/default/templates(id=${tenantId})}"
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'templates'} ? ' active' : ''">
                                 Templates
@@ -154,7 +154,7 @@
             <div class="app-nav-mobile-panel">
                 <div class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Authoring</div>
-                    <a th:href="@{/tenants/{id}/templates(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/catalogs/default/templates(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'templates'} ? ' active' : ''" role="menuitem">Templates</a>
                     <a th:href="@{/tenants/{id}/themes(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'themes'} ? ' active' : ''" role="menuitem">Themes</a>

@@ -2,6 +2,7 @@ package app.epistola.suite.htmx
 
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.FeedbackId
@@ -78,12 +79,18 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pa
 fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
 
 /**
- * Extract and validate a [TemplateId] from the `id` path variable.
+ * Extract a [CatalogKey] from the `catalogId` path variable.
+ */
+fun ServerRequest.catalogId(): CatalogKey = CatalogKey.of(pathVariable("catalogId"))
+
+/**
+ * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.
  * Returns null if the template key is invalid.
  */
 fun ServerRequest.templateId(tenantId: TenantId): TemplateId? {
+    val catalogKey = catalogId()
     val key = TemplateKey.validateOrNull(pathVariable("id")) ?: return null
-    return TemplateId(key, tenantId)
+    return TemplateId(key, tenantId, catalogKey)
 }
 
 /**

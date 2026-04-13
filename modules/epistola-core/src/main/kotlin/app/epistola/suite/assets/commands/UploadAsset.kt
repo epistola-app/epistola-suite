@@ -32,12 +32,12 @@ import java.time.OffsetDateTime
  */
 data class UploadAsset(
     val tenantId: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val mediaType: AssetMediaType,
     val content: ByteArray,
     val width: Int?,
     val height: Int?,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val id: AssetKey? = null,
 ) : Command<Asset>,
     RequiresPermission {

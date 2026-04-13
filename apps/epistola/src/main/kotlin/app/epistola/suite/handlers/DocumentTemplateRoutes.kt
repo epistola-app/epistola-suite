@@ -17,7 +17,7 @@ class DocumentTemplateRoutes(
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/templates".nest {
+        "/tenants/{tenantId}/catalogs/{catalogId}/templates".nest {
             GET("", handler::list)
             GET("/search", handler::search)
             GET("/new", handler::newForm)

@@ -60,7 +60,7 @@
 </head>
 <body class="editor-page">
     <nav class="editor-nav">
-        <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${templateId})}" class="editor-nav-back">
+        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}" class="editor-nav-back">
             <th:block th:replace="~{fragments/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
             <span th:text="${templateName}">Template Name</span>
         </a>

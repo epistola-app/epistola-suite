@@ -11,7 +11,7 @@
                         <div class="empty-state" style="padding: var(--ep-space-8);">
                             <div class="empty-state-title">No environments configured</div>
                             <div class="empty-state-description">
-                                <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Create an environment</a>
+                                <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId},catalogId=${catalogId})}">Create an environment</a>
                                 to start deploying template versions.
                             </div>
                         </div>
@@ -55,7 +55,7 @@
                                                           th:text="${variant.title}"></span>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-icon btn-ghost"
-                                                        th:data-compare-url="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/compare(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                                                        th:data-compare-url="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/compare(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                                                         onclick="openVersionComparison(this)"
                                                         title="Compare versions">
                                                     <th:block th:replace="~{fragments/icon :: icon(name='columns-2', class='ep-icon ep-icon-sm')}" />
@@ -72,7 +72,7 @@
                                                         <input type="hidden" name="variantId" th:value="${variant.id}" />
                                                         <input type="hidden" name="environmentId" th:value="${env.id}" />
                                                         <select name="versionId" class="ep-select" style="font-size: var(--ep-text-xs);"
-                                                                th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments(tenantId=${tenantId},id=${templateId})}"
+                                                                th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/deployments(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}"
                                                                 hx-target="#deployment-matrix" hx-swap="outerHTML"
                                                                 hx-trigger="change" hx-include="closest form">
                                                             <option value="">Not deployed</option>

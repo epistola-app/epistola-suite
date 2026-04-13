@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -33,6 +34,7 @@ class VariantRouteHandler {
 
     fun createVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -62,6 +64,7 @@ class VariantRouteHandler {
 
     fun editVariantForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -75,6 +78,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId
                 "templateId" to templateId.key
                 "variant" to variant
                 "attributeDefinitions" to attributeDefinitions
@@ -84,6 +88,7 @@ class VariantRouteHandler {
 
     fun updateVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -106,6 +111,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "variants-section") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
@@ -116,6 +122,7 @@ class VariantRouteHandler {
 
     fun setDefaultVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -128,6 +135,7 @@ class VariantRouteHandler {
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -148,6 +156,7 @@ class VariantRouteHandler {
         templateId: TemplateId,
         errorMessage: String? = null,
     ): ServerResponse {
+        val catalogId = request.catalogId()
         val variants = GetVariantSummaries(templateId = templateId).query()
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
@@ -156,6 +165,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "variants-section") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions

@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -22,6 +23,7 @@ class VersionComparisonHandler {
      */
     fun compareDialog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -37,6 +39,7 @@ class VersionComparisonHandler {
         return request.htmx {
             fragment("templates/version-comparison", "content") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId
                 "templateId" to templateId.key.value
                 "variantId" to variantId.key.value
                 "versions" to variantVersions

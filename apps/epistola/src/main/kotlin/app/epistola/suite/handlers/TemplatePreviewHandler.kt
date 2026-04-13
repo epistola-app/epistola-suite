@@ -3,6 +3,7 @@ package app.epistola.suite.templates
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewDraft
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -46,6 +47,7 @@ class TemplatePreviewHandler(
      */
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -114,6 +116,7 @@ class TemplatePreviewHandler(
      */
     fun previewVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
