@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Theme editor read-only mode**: The theme editor now supports an optional `readonly` flag. When enabled, all inputs are disabled, autosave is suppressed, keyboard shortcuts are ignored, and the save status bar is hidden.
 - **Read-only enforcement for subscribed catalogs**: Resources in subscribed catalogs are protected from modification at both the backend and UI levels. All 21 mutating command handlers check `IsCatalogEditable` and throw `CatalogReadOnlyException` for subscribed catalogs. The UI shows a "Read-only" badge and hides edit/delete buttons for subscribed resources.
 - **Catalog-aware UI for all resource types**: Themes, stencils, assets, and attributes now have full catalog integration in the UI — catalog filter dropdown on list pages, catalog column in tables, catalog selector in create forms, and `/{catalogId}/{resourceId}` URL patterns for detail pages. Consistent with the template catalog UI.
 - **Complete catalog resource types**: Catalogs now support themes, stencils, attributes, and assets alongside templates. A catalog is a self-contained package — importing one installs everything needed.

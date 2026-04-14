@@ -56,9 +56,12 @@
             const themeId = window.THEME_ID;
             const themeData = window.THEME_EDITOR_CONFIG;
 
+            const editable = /*[[${editable}]]*/ true;
+
             mountThemeEditor({
                 container: container,
                 theme: themeData,
+                readonly: !editable,
                 onSave: async (payload) => {
                     const response = await fetch('/tenants/' + tenantId + '/themes/' + catalogId + '/' + themeId, {
                         method: 'PATCH',

@@ -40,6 +40,7 @@ export function renderUnitInput(
   onChange: (value: string) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
   inputId?: string,
+  readOnly = false,
 ): unknown {
   const defaultUnit = units[0] ?? 'pt';
   const parsed = parseValueWithUnit(value, defaultUnit);
@@ -70,11 +71,12 @@ export function renderUnitInput(
         id=${inputId ?? nothing}
         step=${parsed.unit === 'sp' ? '0.5' : '1'}
         .value=${String(parsed.value)}
+        ?disabled=${readOnly}
         @change=${handleNumberChange}
       />
       ${units.length > 1
         ? html`
-            <select class="ep-select style-unit-select" @change=${handleUnitChange}>
+            <select class="ep-select style-unit-select" ?disabled=${readOnly} @change=${handleUnitChange}>
               ${units.map(
                 (u) => html` <option .value=${u} ?selected=${u === parsed.unit}>${u}</option> `,
               )}
@@ -93,6 +95,7 @@ export function renderColorInput(
   value: unknown,
   onChange: (value: string) => void,
   inputId?: string,
+  readOnly = false,
 ): unknown {
   const colorValue = value != null ? String(value) : '';
   // Ensure the color picker gets a valid hex value
@@ -104,6 +107,7 @@ export function renderColorInput(
         type="color"
         class="style-color-picker"
         .value=${pickerValue}
+        ?disabled=${readOnly}
         @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
       />
       <input
@@ -111,6 +115,7 @@ export function renderColorInput(
         class="ep-input style-color-text"
         id=${inputId ?? nothing}
         .value=${colorValue}
+        ?disabled=${readOnly}
         @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
         placeholder="#000000"
       />
@@ -269,6 +274,7 @@ export function renderSpacingInput(
   onChange: (value: SpacingValue) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
   inputId?: string,
+  readOnly = false,
 ): unknown {
   const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
   const parsed = parseSpacingValue(value, firstAbsUnit);
@@ -307,6 +313,7 @@ export function renderSpacingInput(
               step=${currentUnit === 'sp' ? '0.5' : '1'}
               min="0"
               .value=${String(sideNumber(parsed[side]))}
+              ?disabled=${readOnly}
               @change=${(e: Event) => {
                 const num = parseFloat((e.target as HTMLInputElement).value) || 0;
                 handleSideChange(side, formatSide(num));
@@ -321,6 +328,7 @@ export function renderSpacingInput(
               <span class="style-spacing-label">&nbsp;</span>
               <select
                 class="ep-select style-spacing-unit"
+                ?disabled=${readOnly}
                 @change=${(e: Event) => {
                   const newUnit = (e.target as HTMLSelectElement).value;
                   const result: SpacingValue = { top: '', right: '', bottom: '', left: '' };
@@ -423,6 +431,7 @@ export function renderSelectInput(
   options: { label: string; value: string }[],
   onChange: (value: string) => void,
   selectId?: string,
+  readOnly = false,
 ): unknown {
   const currentValue = value != null ? String(value) : '';
 
@@ -430,6 +439,7 @@ export function renderSelectInput(
     <select
       class="ep-select"
       id=${selectId ?? nothing}
+      ?disabled=${readOnly}
       @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
     >
       <option value="" ?selected=${!currentValue}>—</option>
