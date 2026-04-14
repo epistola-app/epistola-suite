@@ -58,7 +58,6 @@ class DocumentTemplateRoutes(
 
             // PDF preview
             POST("/{catalogId}/{id}/variants/{variantId}/preview", previewHandler::preview)
-            POST("/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/preview", previewHandler::previewVersion)
 
             // Draft creation and updates
             POST("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::createDraft)

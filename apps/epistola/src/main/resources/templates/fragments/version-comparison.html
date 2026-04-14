@@ -60,20 +60,19 @@
                     document.getElementById('comparison-label-b').textContent = 'v' + versionB;
 
                     var csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
-                    var baseUrl = '/tenants/' + config.tenantId + '/templates/' + config.catalogId + '/' + config.templateId + '/variants/' + config.variantId + '/versions';
-                    var requestBody = JSON.stringify(exampleData);
+                    var previewUrl = '/tenants/' + config.tenantId + '/templates/' + config.catalogId + '/' + config.templateId + '/variants/' + config.variantId + '/preview';
 
                     try {
                         var results = await Promise.all([
-                            fetch(baseUrl + '/' + versionA + '/preview', {
+                            fetch(previewUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
-                                body: requestBody,
+                                body: JSON.stringify({ data: exampleData, versionId: parseInt(versionA) }),
                             }),
-                            fetch(baseUrl + '/' + versionB + '/preview', {
+                            fetch(previewUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
-                                body: requestBody,
+                                body: JSON.stringify({ data: exampleData, versionId: parseInt(versionB) }),
                             }),
                         ]);
 
