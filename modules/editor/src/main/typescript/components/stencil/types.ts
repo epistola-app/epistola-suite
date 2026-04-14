@@ -9,6 +9,7 @@
 /** Summary of a stencil for browse/search results. */
 export interface StencilSummary {
   id: string;
+  catalogKey?: string;
   name: string;
   description?: string;
   tags: string[];
