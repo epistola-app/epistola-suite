@@ -99,6 +99,9 @@ export class EpistolaDataContractEditor extends LitElement {
   // Examples tab UI state
   @state() private _editingExampleId: string | null = null;
 
+  // Read-only mode (disables all editing controls)
+  @state() private _readOnly = false;
+
   // Unified save state
   @state() private _saving = false;
   @state() private _saveSuccess = false;
@@ -133,7 +136,9 @@ export class EpistolaDataContractEditor extends LitElement {
     initialSchema: JsonSchema | null,
     initialExamples: DataExample[],
     callbacks: SaveCallbacks,
+    readOnly = false,
   ): void {
+    this._readOnly = readOnly;
     this.contractState = new DataContractState(initialSchema, initialExamples, callbacks);
 
     this.contractState.addEventListener('change', () => {
@@ -222,7 +227,7 @@ export class EpistolaDataContractEditor extends LitElement {
             : nothing}
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
-            ?disabled=${this._saving || !state.isDirty}
+            ?disabled=${this._readOnly || this._saving || !state.isDirty}
             @click=${() => this._saveAll()}
           >
             ${this._saving ? 'Saving...' : 'Save'}
@@ -334,6 +339,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
         <button
           class="ep-btn-outline btn-sm dc-btn-icon"
+          ?disabled=${this._readOnly}
           @click=${() => this._openImportDialog()}
           title="Import a JSON Schema"
         >
@@ -360,6 +366,7 @@ export class EpistolaDataContractEditor extends LitElement {
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
       selectedFieldId: this._selectedFieldId,
+      readOnly: this._readOnly,
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -399,6 +406,7 @@ export class EpistolaDataContractEditor extends LitElement {
       exampleErrorCounts,
       canUndo: this._exampleCanUndo,
       canRedo: this._exampleCanRedo,
+      readOnly: this._readOnly,
     };
 
     const callbacks: ExamplesSectionCallbacks = {
@@ -824,6 +832,7 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _handleKeyDown(e: KeyboardEvent): void {
+    if (this._readOnly) return;
     const isMod = e.metaKey || e.ctrlKey;
     if (!isMod) return;
 

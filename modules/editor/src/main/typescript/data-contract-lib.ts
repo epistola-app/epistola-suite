@@ -29,6 +29,8 @@ export interface DataContractEditorOptions {
   initialExamples: DataExample[];
   /** Callbacks for saving schema, examples, etc. */
   callbacks: SaveCallbacks;
+  /** When true, all editing controls are disabled */
+  readonly?: boolean;
 }
 
 export interface DataContractEditorInstance {
@@ -42,14 +44,14 @@ export interface DataContractEditorInstance {
 export function mountDataContractEditor(
   options: DataContractEditorOptions,
 ): DataContractEditorInstance {
-  const { container, initialSchema, initialExamples, callbacks } = options;
+  const { container, initialSchema, initialExamples, callbacks, readonly = false } = options;
 
   const editorEl = document.createElement(
     'epistola-data-contract-editor',
   ) as EpistolaDataContractEditor;
   editorEl.style.display = 'block';
 
-  editorEl.init(initialSchema, initialExamples, callbacks);
+  editorEl.init(initialSchema, initialExamples, callbacks, readonly);
 
   container.innerHTML = '';
   container.appendChild(editorEl);
