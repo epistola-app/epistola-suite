@@ -1,6 +1,7 @@
 package app.epistola.suite.loadtest.model
 
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -55,6 +56,7 @@ data class LoadTestRun(
     val id: LoadTestRunKey,
     val batchId: BatchKey?,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val versionKey: VersionKey?,
