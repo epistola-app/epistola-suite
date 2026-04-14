@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "resource": {
     "type": "template",
     "slug": "simple-letter",
@@ -72,65 +72,105 @@
         },
         "n-sender": {
           "id": "n-sender",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "styles": { "marginBottom": "6sp" },
           "props": {
-            "content": [
-              { "type": "expression", "expression": "sender.name", "fallback": "Sender Name" },
-              { "type": "hardBreak" },
-              { "type": "expression", "expression": "sender.address", "fallback": "Address" },
-              { "type": "hardBreak" },
-              { "type": "expression", "expression": "sender.city", "fallback": "City" }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "sender.name", "fallback": "Sender Name" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "sender.address", "fallback": "Address" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "sender.city", "fallback": "City" } }
+                  ]
+                }
+              ]
+            }
           }
         },
         "n-recipient": {
           "id": "n-recipient",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "styles": { "marginBottom": "6sp" },
           "props": {
-            "content": [
-              { "type": "expression", "expression": "recipient.name", "fallback": "Recipient Name" },
-              { "type": "hardBreak" },
-              { "type": "expression", "expression": "recipient.address", "fallback": "Address" },
-              { "type": "hardBreak" },
-              { "type": "expression", "expression": "recipient.city", "fallback": "City" }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "recipient.name", "fallback": "Recipient Name" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "recipient.address", "fallback": "Address" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "recipient.city", "fallback": "City" } }
+                  ]
+                }
+              ]
+            }
           }
         },
         "n-date": {
           "id": "n-date",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "styles": { "marginBottom": "4sp" },
           "props": {
-            "content": [
-              { "type": "expression", "expression": "date", "fallback": "Date" }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "date", "fallback": "Date" } }
+                  ]
+                }
+              ]
+            }
           }
         },
         "n-subject": {
           "id": "n-subject",
-          "type": "heading",
+          "type": "text",
           "slots": [],
           "styles": { "marginBottom": "4sp" },
           "props": {
-            "level": 2,
-            "content": [
-              { "type": "expression", "expression": "subject", "fallback": "Subject" }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 2 },
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "subject", "fallback": "Subject" } }
+                  ]
+                }
+              ]
+            }
           }
         },
         "n-body": {
           "id": "n-body",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "props": {
-            "content": [
-              { "type": "expression", "expression": "body", "fallback": "Letter body text goes here." }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "body", "fallback": "Letter body text goes here." } }
+                  ]
+                }
+              ]
+            }
           }
         }
       },

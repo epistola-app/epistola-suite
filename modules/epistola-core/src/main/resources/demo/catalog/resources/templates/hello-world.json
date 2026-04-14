@@ -50,25 +50,41 @@
         },
         "n-heading": {
           "id": "n-heading",
-          "type": "heading",
+          "type": "text",
           "slots": [],
           "props": {
-            "level": 1,
-            "content": [
-              { "type": "text", "text": "Hello, " },
-              { "type": "expression", "expression": "name", "fallback": "World" },
-              { "type": "text", "text": "!" }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 1 },
+                  "content": [
+                    { "type": "text", "text": "Hello, " },
+                    { "type": "expression", "attrs": { "expression": "name", "fallback": "World" } },
+                    { "type": "text", "text": "!" }
+                  ]
+                }
+              ]
+            }
           }
         },
         "n-body": {
           "id": "n-body",
-          "type": "paragraph",
+          "type": "text",
           "slots": [],
           "props": {
-            "content": [
-              { "type": "expression", "expression": "message", "fallback": "This is a hello world template." }
-            ]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "message", "fallback": "Welcome to Epistola!" } }
+                  ]
+                }
+              ]
+            }
           }
         }
       },
