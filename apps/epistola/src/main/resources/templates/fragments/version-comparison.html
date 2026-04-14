@@ -60,7 +60,7 @@
                     document.getElementById('comparison-label-b').textContent = 'v' + versionB;
 
                     var csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
-                    var baseUrl = '/tenants/' + config.tenantId + '/templates/' + config.templateId + '/variants/' + config.variantId + '/versions';
+                    var baseUrl = '/tenants/' + config.tenantId + '/templates/' + config.catalogId + '/' + config.templateId + '/variants/' + config.variantId + '/versions';
                     var requestBody = JSON.stringify(exampleData);
 
                     try {
