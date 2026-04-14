@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -11,11 +12,14 @@ import org.springframework.stereotype.Component
  * Checks if a catalog allows resource modifications.
  * Returns true for AUTHORED catalogs, false for SUBSCRIBED (read-only).
  * Throws if the catalog does not exist.
+ *
+ * System-internal: called from within command handlers that already have authorization.
  */
 data class IsCatalogEditable(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Query<Boolean>
+) : Query<Boolean>,
+    SystemInternal
 
 @Component
 class IsCatalogEditableHandler(
