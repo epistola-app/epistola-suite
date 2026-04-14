@@ -4,7 +4,7 @@
     "type": "stencil",
     "slug": "company-header",
     "name": "Company Header",
-    "description": "Reusable company header block with company name.",
+    "description": "Reusable company header block with company name and separator.",
     "tags": ["header", "branding"],
     "content": {
       "modelVersion": 1,
@@ -20,18 +20,32 @@
         },
         "n-heading": {
           "id": "n-heading",
-          "type": "heading",
+          "type": "text",
           "slots": [],
+          "styles": {
+            "marginBottom": "2sp"
+          },
           "props": {
-            "level": 1,
-            "content": [{ "type": "text", "text": "Company Name" }]
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 1 },
+                  "content": [{ "type": "text", "text": "Company Name" }]
+                }
+              ]
+            }
           }
         },
         "n-rule": {
           "id": "n-rule",
-          "type": "horizontalRule",
+          "type": "container",
           "slots": [],
-          "props": {}
+          "styles": {
+            "borderBottom": "1pt solid #cbd5e1",
+            "marginBottom": "4sp"
+          }
         }
       },
       "slots": {
