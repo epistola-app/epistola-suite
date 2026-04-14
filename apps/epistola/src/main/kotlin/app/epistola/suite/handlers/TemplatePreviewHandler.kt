@@ -130,7 +130,9 @@ class TemplatePreviewHandler(
             if (body.isBlank()) {
                 objectMapper.createObjectNode()
             } else {
-                objectMapper.readTree(body) as ObjectNode
+                val parsed = objectMapper.readTree(body) as ObjectNode
+                // Unwrap { data: ... } wrapper if present (same format as draft preview)
+                (parsed.get("data") as? ObjectNode) ?: parsed
             }
         } catch (_: Exception) {
             objectMapper.createObjectNode()
