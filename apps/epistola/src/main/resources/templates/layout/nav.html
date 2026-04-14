@@ -13,7 +13,7 @@
                 <div class="app-nav-links">
                     <!-- Authoring dropdown -->
                     <div class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'templates','themes','stencils'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'templates','themes','stencils','catalogs'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Authoring
@@ -34,6 +34,11 @@
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''">
                                 Stencils
+                            </a>
+                            <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''">
+                                Catalogs
                             </a>
                         </div>
                     </div>
@@ -98,18 +103,13 @@
                     <!-- Settings dropdown (managers only) -->
                     <div th:if="${auth.has('TENANT_SETTINGS')}"
                          class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'catalogs','admin','features'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'admin','features'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Settings
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <div class="app-nav-dropdown-menu" role="menu">
-                            <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}"
-                               class="app-nav-dropdown-item" role="menuitem"
-                               th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''">
-                                Catalogs
-                            </a>
                             <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">
@@ -160,6 +160,8 @@
                        th:classappend="${activeNavSection == 'themes'} ? ' active' : ''" role="menuitem">Themes</a>
                     <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''" role="menuitem">Stencils</a>
+                    <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''" role="menuitem">Catalogs</a>
                 </div>
                 <div class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Resources</div>
@@ -184,8 +186,6 @@
                 </div>
                 <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Settings</div>
-                    <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}" class="app-nav-mobile-item"
-                       th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''" role="menuitem">Catalogs</a>
                     <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'admin'} ? ' active' : ''" role="menuitem">Admin</a>
                     <a th:href="@{/tenants/{id}/features(id=${tenantId})}" class="app-nav-mobile-item"
