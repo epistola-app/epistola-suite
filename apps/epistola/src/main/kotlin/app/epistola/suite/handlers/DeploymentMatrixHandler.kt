@@ -107,6 +107,7 @@ class DeploymentMatrixHandler {
         return request.htmx {
             fragment("templates/deployment-matrix", "deployment-matrix") {
                 "tenantId" to tenantKey.value
+                "catalogId" to catalogId.value
                 "templateId" to templateKey.value
                 "variants" to variants
                 "environments" to environments

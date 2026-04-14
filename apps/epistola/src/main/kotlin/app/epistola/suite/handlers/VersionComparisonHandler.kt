@@ -39,7 +39,7 @@ class VersionComparisonHandler {
         return request.htmx {
             fragment("templates/version-comparison", "content") {
                 "tenantId" to tenantId.key.value
-                "catalogId" to catalogId
+                "catalogId" to catalogId.value
                 "templateId" to templateId.key.value
                 "variantId" to variantId.key.value
                 "versions" to variantVersions

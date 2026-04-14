@@ -252,7 +252,7 @@ class StencilHandler(
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
             "tenantId" to tenantId.key
-            "catalogId" to catalogId
+            "catalogId" to catalogId.value
             "stencil" to stencil
             "versions" to versions
             "usage" to usage

@@ -78,7 +78,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {
                 "tenantId" to tenantId.key.value
-                "catalogId" to catalogId
+                "catalogId" to catalogId.value
                 "templateId" to templateId.key
                 "variant" to variant
                 "attributeDefinitions" to attributeDefinitions
@@ -111,7 +111,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "variants-section") {
                 "tenantId" to tenantId.key.value
-                "catalogId" to catalogId
+                "catalogId" to catalogId.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
@@ -165,7 +165,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "variants-section") {
                 "tenantId" to tenantId.key.value
-                "catalogId" to catalogId
+                "catalogId" to catalogId.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions

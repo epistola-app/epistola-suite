@@ -221,8 +221,11 @@
 
         <!-- Tab Panel: Data Contract -->
         <div id="tab-data-contract" class="tab-panel">
+            <div th:if="${!editable}" class="alert alert-info" style="margin-bottom: var(--ep-space-4);">
+                This template belongs to a subscribed catalog. The data contract is read-only.
+            </div>
             <div id="data-contract-container"
-                 th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id}"></div>
+                 th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
             <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
             <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
         </div>
@@ -247,7 +250,7 @@
             </div>
 
             <!-- Default Theme -->
-            <div class="detail-section" id="theme-section" th:fragment="theme-section">
+            <div th:if="${editable}" class="detail-section" id="theme-section" th:fragment="theme-section">
                 <div class="detail-section-header">
                     <h3>Default Theme</h3>
                 </div>
@@ -273,7 +276,7 @@
             </div>
 
             <!-- Output Settings -->
-            <div class="detail-section" id="output-settings-section">
+            <div th:if="${editable}" class="detail-section" id="output-settings-section">
                 <div class="detail-section-header">
                     <h3>Output Settings</h3>
                 </div>
@@ -476,6 +479,7 @@
                     const tenantId = container.dataset.tenantId;
                     const catalogId = container.dataset.catalogId;
                     const templateId = container.dataset.templateId;
+                    const readonly = container.dataset.readonly === 'true';
                     if (!tenantId || !catalogId || !templateId) return;
 
                     const initialSchema = parseJsonScript('data-contract-schema', null);
@@ -488,7 +492,8 @@
                         templateId: templateId,
                         initialSchema: initialSchema,
                         initialExamples: initialExamples,
-                        callbacks: {
+                        readonly: readonly,
+                        callbacks: readonly ? {} : {
                             onSaveSchema: async (schema, forceUpdate) => {
                                 try {
                                     const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {

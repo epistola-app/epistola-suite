@@ -145,6 +145,7 @@ class VersionRouteHandler(
         return request.htmx {
             fragment("templates/variant-versions", "content") {
                 "tenantId" to tenantKey.value
+                "catalogId" to catalogId.value
                 "templateId" to templateKey
                 "variant" to variantSummary
                 "versions" to versions

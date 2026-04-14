@@ -188,7 +188,7 @@ class ThemeHandler(
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
             "tenantId" to tenantId.key
-            "catalogId" to catalogId
+            "catalogId" to catalogId.value
             "theme" to theme
             "themeJson" to themeJson
             "editable" to editable

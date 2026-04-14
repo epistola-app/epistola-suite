@@ -226,7 +226,7 @@ class DocumentTemplateHandler(
             "templates/editor",
             mapOf(
                 "tenantId" to tenantId.key,
-                "catalogId" to catalogId,
+                "catalogId" to catalogId.value,
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
                 "templateName" to context.templateName,
@@ -332,7 +332,7 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail", "theme-section") {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId
+                "catalogId" to catalogId.value
                 "template" to result.template
                 "themes" to themes
             }
@@ -458,7 +458,7 @@ class DocumentTemplateHandler(
         return ServerResponse.ok().page("templates/detail") {
             "pageTitle" to "${template.name} - Epistola"
             "tenantId" to tenantId.key
-            "catalogId" to catalogId
+            "catalogId" to catalogId.value
             "template" to template
             "variants" to variants
             "themes" to themes
