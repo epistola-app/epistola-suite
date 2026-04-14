@@ -79,6 +79,7 @@ class StencilHandler(
             val items = summaries.map { s ->
                 mapOf(
                     "id" to s.id.value,
+                    "catalogKey" to s.catalogKey.value,
                     "name" to s.name,
                     "description" to s.description,
                     "tags" to s.tags,

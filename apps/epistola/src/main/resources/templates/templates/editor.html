@@ -79,6 +79,7 @@
         window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
         window.TENANT_ID = /*[[${tenantId}]]*/ '';
+        window.CATALOG_ID = /*[[${catalogId}]]*/ '';
         window.VARIANT_ID = /*[[${variantId}]]*/ '';
         window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
         window.DATA_MODEL = /*[[${dataModel}]]*/ null;
@@ -97,6 +98,7 @@
 
         const container = document.getElementById('editor-container');
         const tenantId = window.TENANT_ID;
+        const catalogId = window.CATALOG_ID;
         const templateId = window.TEMPLATE_ID;
         const variantId = window.VARIANT_ID;
 
@@ -120,7 +122,7 @@
             dataModel: window.DATA_MODEL,
             plugins: plugins,
             imageOptions: {
-                contentUrlPattern: '/tenants/' + tenantId + '/assets/{assetId}/content',
+                contentUrlPattern: '/tenants/' + tenantId + '/assets/default/{assetId}/content',
                 listAssets: async () => {
                     const resp = await fetch('/tenants/' + tenantId + '/assets/search', {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
@@ -145,7 +147,8 @@
                     const uniqueIds = [...new Set(refs.map(r => r.stencilId))];
                     const results = [];
                     for (const sid of uniqueIds) {
-                        const resp = await fetch('/tenants/' + tenantId + '/stencils/' + sid + '/versions', {
+                        const cat = (refs.find(r => r.stencilId === sid) || {}).catalogKey || 'default';
+                        const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions', {
                             headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         });
                         if (!resp.ok) continue;
@@ -174,16 +177,18 @@
                     const data = await resp.json();
                     return data.items ?? data;
                 },
-                listVersions: async (stencilId) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions', {
+                listVersions: async (stencilId, catalogKey) => {
+                    const cat = catalogKey || 'default';
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions', {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) return [];
                     const data = await resp.json();
                     return data.items ?? data;
                 },
-                getStencilVersion: async (stencilId, version) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version, {
+                getStencilVersion: async (stencilId, version, catalogKey) => {
+                    const cat = catalogKey || 'default';
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions/' + version, {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) return null;
@@ -202,8 +207,9 @@
                     }
                     return await resp.json();
                 },
-                startEditing: async (stencilId) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions', {
+                startEditing: async (stencilId, catalogKey) => {
+                    const cat = catalogKey || 'default';
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: '{}',
@@ -212,16 +218,18 @@
                     const data = await resp.json();
                     return { draftVersion: data.version };
                 },
-                publishDraft: async (stencilId, version) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/versions/' + version + '/publish', {
+                publishDraft: async (stencilId, version, catalogKey) => {
+                    const cat = catalogKey || 'default';
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions/' + version + '/publish', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) throw new Error('Failed to publish draft');
                     return await resp.json();
                 },
-                updateStencil: async (stencilId, content) => {
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + stencilId + '/draft', {
+                updateStencil: async (stencilId, content, catalogKey) => {
+                    const cat = catalogKey || 'default';
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/draft', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: JSON.stringify({ content }),
@@ -231,7 +239,7 @@
                 },
             },
             onSave: async (template) => {
-                const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
+                const response = await fetch('/tenants/' + tenantId + '/templates/' + catalogId + '/' + templateId + '/variants/' + variantId + '/draft', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -246,7 +254,7 @@
             },
             onFetchPreview: async (doc, data, signal) => {
                 const response = await fetch(
-                    '/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/preview',
+                    '/tenants/' + tenantId + '/templates/' + catalogId + '/' + templateId + '/variants/' + variantId + '/preview',
                     {
                         method: 'POST',
                         headers: {
