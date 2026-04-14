@@ -3,6 +3,7 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -62,6 +63,7 @@ class UploadAssetHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: UploadAsset): Asset {
+        requireCatalogEditable(command.tenantId, command.catalogKey)
         require(command.name.isNotBlank()) { "Asset name must not be blank" }
 
         val sizeBytes = command.content.size.toLong()

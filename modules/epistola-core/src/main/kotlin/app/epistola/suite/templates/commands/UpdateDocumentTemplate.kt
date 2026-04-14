@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
@@ -58,6 +59,8 @@ class UpdateDocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<UpdateDocumentTemplate, UpdateDocumentTemplateResult?> {
     override fun handle(command: UpdateDocumentTemplate): UpdateDocumentTemplateResult? {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+
         // Validate examples against schema and collect warnings
         val warnings = mutableMapOf<String, List<ValidationError>>()
         val schemaToValidate = command.dataModel

@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
@@ -31,7 +32,9 @@ class UpdateStencilDraftHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateStencilDraft, StencilVersion?> {
-    override fun handle(command: UpdateStencilDraft): StencilVersion? = jdbi.inTransaction<StencilVersion?, Exception> { handle ->
+    override fun handle(command: UpdateStencilDraft): StencilVersion? {
+        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
         val contentJson = objectMapper.writeValueAsString(command.content)
 
         handle.createQuery(
@@ -50,5 +53,6 @@ class UpdateStencilDraftHandler(
             .mapTo<StencilVersion>()
             .findOne()
             .orElse(null)
+        }
     }
 }

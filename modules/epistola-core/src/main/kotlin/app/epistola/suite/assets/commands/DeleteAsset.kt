@@ -2,7 +2,9 @@ package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.queries.FindAssetUsagesHandler
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -11,6 +13,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -38,6 +41,16 @@ class DeleteAssetHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteAsset): Boolean {
+        val catalogKey = jdbi.withHandle<CatalogKey, Exception> { handle ->
+            handle.createQuery("SELECT catalog_key FROM assets WHERE tenant_key = :tenantId AND id = :assetId")
+                .bind("tenantId", command.tenantId)
+                .bind("assetId", command.assetId)
+                .mapTo<CatalogKey>()
+                .findOne()
+                .orElse(null)
+        } ?: return false
+        requireCatalogEditable(command.tenantId, catalogKey)
+
         logger.info("Deleting asset {} for tenant {}", command.assetId, command.tenantId)
 
         val deleted = jdbi.inTransaction<Boolean, Exception> { handle ->

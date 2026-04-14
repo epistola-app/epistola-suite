@@ -1,6 +1,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -46,7 +47,9 @@ class UpdateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateAttributeDefinition, VariantAttributeDefinition?> {
-    override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
+    override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
         // If allowed values are being narrowed, check for existing variants using removed values
         if (command.allowedValues.isNotEmpty()) {
             val currentAllowedValues = handle.createQuery(
@@ -109,5 +112,6 @@ class UpdateAttributeDefinitionHandler(
             .mapTo<VariantAttributeDefinition>()
             .findOne()
             .orElse(null)
+        }
     }
 }

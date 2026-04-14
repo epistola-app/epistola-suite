@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -22,8 +23,11 @@ data class DeleteVariant(
 class DeleteVariantHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteVariant, Boolean> {
-    override fun handle(command: DeleteVariant): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
-        // Check if this variant is the default — block deletion if so
+    override fun handle(command: DeleteVariant): Boolean {
+        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+
+        return jdbi.inTransaction<Boolean, Exception> { handle ->
+            // Check if this variant is the default — block deletion if so
         val isDefault = handle.createQuery(
             """
                 SELECT is_default FROM template_variants
@@ -52,6 +56,7 @@ class DeleteVariantHandler(
             .bind("templateId", command.variantId.templateKey)
             .execute()
 
-        rowsAffected > 0
+            rowsAffected > 0
+        }
     }
 }

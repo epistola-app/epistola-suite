@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -50,7 +51,9 @@ class UpdateStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateStencil, Stencil?> {
-    override fun handle(command: UpdateStencil): Stencil? = jdbi.inTransaction<Stencil?, Exception> { handle ->
+    override fun handle(command: UpdateStencil): Stencil? {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return jdbi.inTransaction<Stencil?, Exception> { handle ->
         val setClauses = mutableListOf<String>()
         val bindings = mutableMapOf<String, Any?>()
 
@@ -102,5 +105,6 @@ class UpdateStencilHandler(
         query.mapTo<Stencil>()
             .findOne()
             .orElse(null)
+        }
     }
 }

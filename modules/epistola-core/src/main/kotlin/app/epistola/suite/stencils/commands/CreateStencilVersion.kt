@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
@@ -35,7 +36,9 @@ class CreateStencilVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateStencilVersion, StencilVersion?> {
-    override fun handle(command: CreateStencilVersion): StencilVersion? = jdbi.inTransaction<StencilVersion?, Exception> { handle ->
+    override fun handle(command: CreateStencilVersion): StencilVersion? {
+        requireCatalogEditable(command.stencilId.tenantKey, command.stencilId.catalogKey)
+        return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
         // Verify stencil exists
         val stencilExists = handle.createQuery(
             "SELECT COUNT(*) > 0 FROM stencils WHERE tenant_key = :tenantId AND id = :stencilId",
@@ -111,5 +114,6 @@ class CreateStencilVersionHandler(
             .bind("content", contentJson)
             .mapTo<StencilVersion>()
             .one()
+        }
     }
 }

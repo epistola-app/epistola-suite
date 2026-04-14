@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -49,44 +50,47 @@ class CreateStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateStencil, Stencil> {
-    override fun handle(command: CreateStencil): Stencil = executeOrThrowDuplicate("stencil", command.id.key.value) {
-        jdbi.inTransaction<Stencil, Exception> { handle ->
-            val tagsJson = objectMapper.writeValueAsString(command.tags)
+    override fun handle(command: CreateStencil): Stencil {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return executeOrThrowDuplicate("stencil", command.id.key.value) {
+            jdbi.inTransaction<Stencil, Exception> { handle ->
+                val tagsJson = objectMapper.writeValueAsString(command.tags)
 
-            // 1. Create the stencil
-            val stencil = handle.createQuery(
-                """
-                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW())
-                RETURNING id, tenant_key, catalog_key, name, description, tags, created_at, last_modified
-                """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
-                .bind("name", command.name)
-                .bind("description", command.description)
-                .bind("tags", tagsJson)
-                .mapTo<Stencil>()
-                .one()
-
-            // 2. If content is provided, create initial draft version
-            command.content?.let { content ->
-                val contentJson = objectMapper.writeValueAsString(content)
-                handle.createUpdate(
+                // 1. Create the stencil
+                val stencil = handle.createQuery(
                     """
-                    INSERT INTO stencil_versions (id, tenant_key, stencil_key, content, status, created_at)
-                    VALUES (:id, :tenantId, :stencilId, :content::jsonb, 'draft', NOW())
+                    INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, last_modified)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW())
+                    RETURNING id, tenant_key, catalog_key, name, description, tags, created_at, last_modified
                     """,
                 )
-                    .bind("id", VersionKey.of(1))
+                    .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("stencilId", command.id.key)
-                    .bind("content", contentJson)
-                    .execute()
-            }
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("name", command.name)
+                    .bind("description", command.description)
+                    .bind("tags", tagsJson)
+                    .mapTo<Stencil>()
+                    .one()
 
-            stencil
+                // 2. If content is provided, create initial draft version
+                command.content?.let { content ->
+                    val contentJson = objectMapper.writeValueAsString(content)
+                    handle.createUpdate(
+                        """
+                        INSERT INTO stencil_versions (id, tenant_key, stencil_key, content, status, created_at)
+                        VALUES (:id, :tenantId, :stencilId, :content::jsonb, 'draft', NOW())
+                        """,
+                    )
+                        .bind("id", VersionKey.of(1))
+                        .bind("tenantId", command.id.tenantKey)
+                        .bind("stencilId", command.id.key)
+                        .bind("content", contentJson)
+                        .execute()
+                }
+
+                stencil
+            }
         }
     }
 }

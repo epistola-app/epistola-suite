@@ -1,5 +1,6 @@
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -31,7 +32,9 @@ data class DeleteAttributeDefinition(
 class DeleteAttributeDefinitionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteAttributeDefinition, Boolean> {
-    override fun handle(command: DeleteAttributeDefinition): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    override fun handle(command: DeleteAttributeDefinition): Boolean {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return jdbi.withHandle<Boolean, Exception> { handle ->
         // Check if any variants still reference this attribute
         val variantCount = handle.createQuery(
             """
@@ -58,5 +61,6 @@ class DeleteAttributeDefinitionHandler(
             .bind("tenantId", command.id.tenantKey)
             .execute()
         rowsAffected > 0
+        }
     }
 }

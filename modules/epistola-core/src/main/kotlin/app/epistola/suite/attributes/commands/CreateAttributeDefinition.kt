@@ -1,6 +1,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -35,7 +36,9 @@ class CreateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
-    override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition = executeOrThrowDuplicate("attribute", command.id.key.value) {
+    override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return executeOrThrowDuplicate("attribute", command.id.key.value) {
         jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
             val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
@@ -53,6 +56,7 @@ class CreateAttributeDefinitionHandler(
                 .bind("allowedValues", allowedValuesJson)
                 .mapTo<VariantAttributeDefinition>()
                 .one()
+        }
         }
     }
 }

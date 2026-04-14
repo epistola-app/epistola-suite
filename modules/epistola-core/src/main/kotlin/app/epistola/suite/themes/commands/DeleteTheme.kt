@@ -1,5 +1,6 @@
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -39,7 +40,9 @@ class DeleteThemeHandler(
      * @throws ThemeInUseException if the theme is the tenant's default theme
      * @throws LastThemeException if this is the last theme for the tenant
      */
-    override fun handle(command: DeleteTheme): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    override fun handle(command: DeleteTheme): Boolean {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return jdbi.withHandle<Boolean, Exception> { handle ->
         // Check if this is the tenant's default theme
         val isDefaultTheme = handle.createQuery(
             """
@@ -80,5 +83,6 @@ class DeleteThemeHandler(
             .bind("tenantId", command.id.tenantKey)
             .execute()
         deleted > 0
+        }
     }
 }

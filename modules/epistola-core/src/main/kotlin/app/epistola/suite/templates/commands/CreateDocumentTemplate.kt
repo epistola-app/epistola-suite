@@ -16,6 +16,7 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.SchemaValidationResult
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.executeOrThrowDuplicate
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.validation.validate
 import app.epistola.template.model.ThemeRef
 import org.jdbi.v3.core.Jdbi
@@ -45,6 +46,8 @@ class CreateDocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+
         // Validate schema if provided
         command.schema?.let { schemaJson ->
             when (val result = jsonSchemaValidator.validateSchema(schemaJson)) {
