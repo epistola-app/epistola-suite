@@ -5,11 +5,15 @@
 
 async function previewPdf(button) {
   const tenantId = button.dataset.tenantId;
+  const catalogId = button.dataset.catalogId;
   const templateId = button.dataset.templateId;
   const variantId = button.dataset.variantId;
+  const versionId = button.dataset.versionId;
   const testDataJson = button.dataset.testData || '{}';
 
-  const url = `/tenants/${tenantId}/templates/${templateId}/variants/${variantId}/preview`;
+  const url = versionId
+    ? `/tenants/${tenantId}/templates/${catalogId}/${templateId}/variants/${variantId}/versions/${versionId}/preview`
+    : `/tenants/${tenantId}/templates/${catalogId}/${templateId}/variants/${variantId}/preview`;
 
   // Show loading state
   const originalContent = button.innerHTML;

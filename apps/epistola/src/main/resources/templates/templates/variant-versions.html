@@ -48,8 +48,10 @@
                                 <button type="button"
                                         class="btn btn-sm btn-icon btn-ghost"
                                         th:data-tenant-id="${tenantId}"
+                                        th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
+                                        th:data-version-id="${version.id}"
                                         th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
@@ -62,8 +64,10 @@
                                 <button type="button"
                                         class="btn btn-sm btn-icon btn-ghost"
                                         th:data-tenant-id="${tenantId}"
+                                        th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
+                                        th:data-version-id="${version.id}"
                                         th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
@@ -88,8 +92,10 @@
                                 <button type="button"
                                         class="btn btn-sm btn-icon btn-ghost"
                                         th:data-tenant-id="${tenantId}"
+                                        th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
+                                        th:data-version-id="${version.id}"
                                         th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">

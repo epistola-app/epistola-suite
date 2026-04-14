@@ -135,6 +135,16 @@
                                 <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                             </a>
                             <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                    th:data-tenant-id="${tenantId}"
+                                    th:data-catalog-id="${catalogId}"
+                                    th:data-template-id="${template.id}"
+                                    th:data-variant-id="${variant.id}"
+                                    th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                    onclick="previewPdf(this)"
+                                    title="Preview latest version">
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <button type="button" class="btn btn-sm btn-icon btn-ghost"
                                     th:data-variant-id="${variant.id}"
                                     th:data-versions-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                     onclick="openVersionHistory(this)"
