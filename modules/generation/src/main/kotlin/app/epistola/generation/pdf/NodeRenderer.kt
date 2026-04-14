@@ -58,8 +58,10 @@ class NodeRendererRegistry(
         document: TemplateDocument,
         context: RenderContext,
     ): List<IElement> {
-        val node = document.nodes[nodeId] ?: return emptyList()
-        val renderer = renderers[node.type] ?: return emptyList()
+        val node = document.nodes[nodeId]
+            ?: throw IllegalStateException("Node '$nodeId' not found in template document")
+        val renderer = renderers[node.type]
+            ?: throw IllegalStateException("Unknown node type '${node.type}' for node '$nodeId'. Supported types: ${renderers.keys.sorted()}")
         return renderer.render(node, document, context, this)
     }
 
