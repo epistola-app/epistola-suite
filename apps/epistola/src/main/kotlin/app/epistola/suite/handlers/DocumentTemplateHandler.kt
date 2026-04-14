@@ -106,6 +106,7 @@ data class ValidateSchemaResponse(
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val detailHelper: TemplateDetailHelper,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
@@ -437,34 +438,16 @@ class DocumentTemplateHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
-        val templateId = request.templateId(tenantId)
-            ?: return ServerResponse.badRequest().build()
+        val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
-        val template = GetDocumentTemplate(id = templateId).query()
-            ?: return ServerResponse.notFound().build()
+        val variants = GetVariantSummaries(templateId = ctx.templateId).query()
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
 
-        val variants = GetVariantSummaries(templateId = templateId).query()
-
-        // Load available themes for theme selection
-        val themes = ListThemes(tenantId = tenantId).query()
-
-        // Load attribute definitions for variant attribute selects
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
-
-        val editable = template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
-
-        return ServerResponse.ok().page("templates/detail") {
-            "pageTitle" to "${template.name} - Epistola"
-            "tenantId" to tenantId.key
-            "catalogId" to catalogId.value
-            "template" to template
-            "variants" to variants
-            "themes" to themes
-            "attributeDefinitions" to attributeDefinitions
-            "editable" to editable
-        }
+        return detailHelper.renderDetailPage(
+            ctx,
+            "variants",
+            mapOf("variants" to variants, "attributeDefinitions" to attributeDefinitions),
+        )
     }
 
     fun delete(request: ServerRequest): ServerResponse {

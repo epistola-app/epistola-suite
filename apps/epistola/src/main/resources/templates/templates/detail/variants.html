@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="tab-content">
+        <!-- Toggle button for create variant form -->
+        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
+            <button type="button" class="btn btn-sm btn-primary" onclick="toggleCreateVariantForm()">+ New Variant</button>
+        </div>
+
+        <!-- Inline create variant form (hidden by default) -->
+        <div id="create-variant-form" class="detail-section" style="display: none; margin-bottom: var(--ep-space-4);">
+            <div class="detail-section-header"><h3>Create Variant</h3></div>
+            <div class="detail-section-body">
+                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                      method="post"
+                      th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                      hx-target="#variants-section"
+                      hx-swap="outerHTML"
+                      hx-on::after-request="if(event.detail.successful) { this.reset(); toggleCreateVariantForm(); }">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="ep-label" for="slug">Slug (ID)</label>
+                            <input type="text" id="slug" name="slug" class="ep-input" required
+                                   pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" placeholder="english-newsletter">
+                            <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="title">Title (optional)</label>
+                            <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
+                        </div>
+                    </div>
+                    <div class="form-row" th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
+                        <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
+                            <label class="ep-label" th:for="'create-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
+                            <select th:id="'create-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
+                                <option value="">- Not set -</option>
+                                <option th:if="${!attrDef.allowedValues.isEmpty()}"
+                                        th:each="val : ${attrDef.allowedValues}" th:value="${val}" th:text="${val}"></option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="submit" class="btn btn-primary">Create Variant</button>
+                        <button type="button" class="btn btn-ghost" onclick="toggleCreateVariantForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Attribute filter bar -->
+        <div id="variant-filter-bar" class="variant-filter-bar"
+             th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
+            <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
+                <label th:for="'attr-filter-' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
+                <select class="ep-select" th:id="'attr-filter-' + ${attrDef.id}" th:data-filter-key="${attrDef.id}" onchange="filterVariants()">
+                    <option value="">All</option>
+                    <option th:each="val : ${attrDef.allowedValues}" th:value="${val}" th:text="${val}"></option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Variant card grid -->
+        <div id="variants-section" th:fragment="variants-section">
+            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                <span th:text="${error}"></span>
+            </div>
+            <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
+                <div th:each="variant : ${variants}"
+                     class="variant-card" th:classappend="${variant.isDefault} ? 'variant-card-default'"
+                     th:data-variant-id="${variant.id}">
+                    <div class="variant-card-header">
+                        <div>
+                            <span class="variant-card-title" th:text="${variant.title != null ? variant.title : variant.id}"></span>
+                            <code th:if="${variant.title != null}" class="variant-card-slug" th:text="${variant.id}"></code>
+                        </div>
+                        <span th:if="${variant.isDefault}" class="badge badge-primary">Default</span>
+                    </div>
+                    <div class="variant-card-body">
+                        <div class="tags" th:if="${!variant.attributes.isEmpty()}">
+                            <span th:each="entry : ${variant.attributes}" class="badge badge-outline"
+                                  th:data-attr-key="${entry.key}" th:data-attr-value="${entry.value}"
+                                  th:text="${entry.key + '=' + entry.value}"></span>
+                        </div>
+                        <div class="variant-card-status">
+                            <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
+                            <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-published"
+                                  th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
+                            <span th:if="${!variant.hasDraft and variant.publishedVersions.isEmpty()}"
+                                  class="text-muted" style="font-size: var(--ep-text-xs);">No versions</span>
+                        </div>
+                    </div>
+                    <div class="variant-card-footer">
+                        <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
+                           th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                           class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
+                            <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                        </a>
+                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
+                                th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
+                                th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                onclick="previewPdf(this)" title="Preview latest version">
+                            <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                th:data-variant-id="${variant.id}"
+                                th:data-versions-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                onclick="openVersionHistory(this)" title="Version history">
+                            <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="btn btn-sm btn-icon btn-ghost"
+                                th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                hx-target="#edit-variant-dialog-body" hx-swap="innerHTML"
+                                onclick="document.getElementById('edit-variant-dialog').showModal()" title="Edit variant">
+                            <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <form th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}"
+                              th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                              hx-target="#variants-section" hx-swap="outerHTML" hx-confirm="Make this the default variant?">
+                            <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                                <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </form>
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}" type="button"
+                                class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete variant"
+                                data-confirm-title="Delete Variant"
+                                th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title != null ? variant.title : variant.id} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                data-confirm-target="#variants-section" data-confirm-swap="outerHTML"
+                                onclick="openConfirmDialog(this)">
+                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and variant.isDefault}" type="button"
+                                class="btn btn-sm btn-icon btn-ghost" disabled title="Cannot delete the default variant">
+                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                    </div>
+                </div>
+                <div class="variant-no-matches" id="variant-no-matches">No variants match the selected filters.</div>
+            </div>
+            <div th:if="${#lists.isEmpty(variants)}" class="detail-section">
+                <div class="detail-section-body">
+                    <div class="empty-state" style="padding: var(--ep-space-8);">
+                        <div class="empty-state-title">No variants yet</div>
+                        <div class="empty-state-description">Create a variant to start designing your template.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+        <dialog id="edit-variant-dialog" class="ep-dialog"><div id="edit-variant-dialog-body"></div></dialog>
+        <dialog id="version-history-dialog" class="ep-dialog ep-dialog-wide"><div id="version-history-dialog-body"></div></dialog>
+
+        <script th:inline="javascript">
+            function toggleCreateVariantForm() {
+                const form = document.getElementById('create-variant-form');
+                if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            }
+            function openVersionHistory(button) {
+                htmx.ajax('GET', button.dataset.versionsUrl, { target: document.getElementById('version-history-dialog-body'), swap: 'innerHTML' });
+                document.getElementById('version-history-dialog').showModal();
+            }
+            function filterVariants() {
+                const filterBar = document.getElementById('variant-filter-bar');
+                if (!filterBar) return;
+                const filters = {};
+                filterBar.querySelectorAll('select[data-filter-key]').forEach(s => { if (s.value) filters[s.dataset.filterKey] = s.value; });
+                const cards = document.querySelectorAll('.variant-card');
+                let visible = 0;
+                cards.forEach(card => {
+                    const attrs = {};
+                    card.querySelectorAll('[data-attr-key]').forEach(b => { attrs[b.dataset.attrKey] = b.dataset.attrValue; });
+                    let match = true;
+                    for (const k in filters) { if (attrs[k] !== filters[k]) { match = false; break; } }
+                    card.style.display = match ? '' : 'none';
+                    if (match) visible++;
+                });
+                const nm = document.getElementById('variant-no-matches');
+                if (nm) nm.style.display = (visible === 0 && cards.length > 0) ? 'block' : 'none';
+            }
+            document.addEventListener('htmx:afterSwap', e => { if (e.detail.target?.id === 'variants-section') filterVariants(); });
+        </script>
+    </th:block>
+</body>
+</html>

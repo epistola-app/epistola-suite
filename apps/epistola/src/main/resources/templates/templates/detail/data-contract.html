@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="tab-content">
+        <div id="data-contract-container"
+             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
+        <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
+        <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
+
+        <script>
+            (function() {
+                function parseJsonScript(id, fallback) {
+                    const el = document.getElementById(id);
+                    if (!el) return fallback;
+                    try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
+                }
+
+                async function mount() {
+                    const container = document.getElementById('data-contract-container');
+                    if (!container || container.dataset.editorMounted === 'true') return;
+                    const tenantId = container.dataset.tenantId;
+                    const catalogId = container.dataset.catalogId;
+                    const templateId = container.dataset.templateId;
+                    const readonly = container.dataset.readonly === 'true';
+                    if (!tenantId || !catalogId || !templateId) return;
+
+                    const initialSchema = parseJsonScript('data-contract-schema', null);
+                    const initialExamples = parseJsonScript('data-contract-examples', []);
+                    const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
+
+                    mountDataContractEditor({
+                        container: container,
+                        templateId: templateId,
+                        initialSchema: initialSchema,
+                        initialExamples: initialExamples,
+                        readonly: readonly,
+                        callbacks: readonly ? {} : {
+                            onSaveSchema: async (schema, forceUpdate) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ dataModel: schema, forceUpdate })
+                                    });
+                                    if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
+                                    const result = await response.json();
+                                    return { success: true, warnings: result.warnings };
+                                } catch (e) { return { success: false, error: e.message }; }
+                            },
+                            onSaveDataExamples: async (examples) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ dataExamples: examples })
+                                    });
+                                    if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
+                                    const result = await response.json();
+                                    return { success: true, warnings: result.warnings };
+                                } catch (e) { return { success: false }; }
+                            },
+                            onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ ...updates, forceUpdate })
+                                    });
+                                    if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
+                                    const result = await response.json();
+                                    return { success: true, example: result, warnings: result.warnings };
+                                } catch (e) { return { success: false }; }
+                            },
+                            onDeleteDataExample: async (exampleId) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                        method: 'DELETE',
+                                        headers: { 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' }
+                                    });
+                                    return { success: response.ok };
+                                } catch (e) { return { success: false }; }
+                            }
+                        }
+                    });
+                    container.dataset.editorMounted = 'true';
+                }
+
+                mount();
+            })();
+        </script>
+    </th:block>
+</body>
+</html>

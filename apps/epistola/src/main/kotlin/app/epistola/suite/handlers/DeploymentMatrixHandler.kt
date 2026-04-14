@@ -29,18 +29,16 @@ import org.springframework.web.servlet.function.ServerResponse
 
 /**
  * Handles the deployment matrix view showing environment × variant activations.
+ *
+ * For non-HTMX requests (direct URL navigation), renders the full detail page
+ * with the deployments tab active. For HTMX requests, returns the matrix fragment.
  */
 @Component
-class DeploymentMatrixHandler {
+class DeploymentMatrixHandler(
+    private val detailHelper: TemplateDetailHelper,
+) {
 
-    fun deploymentMatrix(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
-        val templateId = request.templateId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-
-        return renderMatrix(request, tenantId.key, catalogId, templateId.key, templateId)
-    }
+    fun deploymentMatrix(request: ServerRequest): ServerResponse = renderFullPage(request)
 
     fun updateDeployment(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -80,41 +78,52 @@ class DeploymentMatrixHandler {
             ).execute()
         }
 
-        return renderMatrix(request, tenantId.key, catalogId, templateId.key, templateId)
+        return renderMatrixFragment(request, tenantId.key, catalogId, templateId.key, templateId)
     }
 
-    private fun renderMatrix(
+    private fun renderFullPage(request: ServerRequest): ServerResponse {
+        val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
+        val tabModel = loadDeploymentData(ctx.templateId)
+        return detailHelper.renderDetailPage(ctx, "deployments", tabModel)
+    }
+
+    private fun renderMatrixFragment(
         request: ServerRequest,
         tenantKey: TenantKey,
         catalogId: CatalogKey,
         templateKey: TemplateKey,
         templateId: TemplateId,
     ): ServerResponse {
-        val variants = GetVariantSummaries(templateId = templateId).query()
-        val tenantId = TenantId(tenantKey)
-        val environments = ListEnvironments(tenantId = tenantId).query()
-        val matrixCells = GetDeploymentMatrix(templateId = templateId).query()
-        val publishableVersions = ListPublishableVersionsByTemplate(templateId = templateId).query()
-
-        // Build lookups keyed by underlying String values, because Thymeleaf/SpringEL
-        // unwraps @JvmInline value classes to their underlying types at runtime.
-        val matrix = matrixCells.groupBy { it.variantKey.value }
-            .mapValues { (_, cells) -> cells.associateBy { it.environmentKey.value } }
-
-        // Build lookup: variantId -> list of publishable versions
-        val versionsByVariant = publishableVersions.groupBy { it.variantKey.value }
+        val tabModel = loadDeploymentData(templateId)
 
         return request.htmx {
             fragment("templates/deployment-matrix", "deployment-matrix") {
                 "tenantId" to tenantKey.value
                 "catalogId" to catalogId.value
                 "templateId" to templateKey.value
-                "variants" to variants
-                "environments" to environments
-                "matrix" to matrix
-                "versionsByVariant" to versionsByVariant
+                for ((k, v) in tabModel) { k to v }
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$catalogId/${templateKey.value}") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/${catalogId.value}/${templateKey.value}/deployments") }
         }
+    }
+
+    private fun loadDeploymentData(templateId: TemplateId): Map<String, Any> {
+        val variants = GetVariantSummaries(templateId = templateId).query()
+        val tenantId = TenantId(templateId.tenantKey)
+        val environments = ListEnvironments(tenantId = tenantId).query()
+        val matrixCells = GetDeploymentMatrix(templateId = templateId).query()
+        val publishableVersions = ListPublishableVersionsByTemplate(templateId = templateId).query()
+
+        val matrix = matrixCells.groupBy { it.variantKey.value }
+            .mapValues { (_, cells) -> cells.associateBy { it.environmentKey.value } }
+        val versionsByVariant = publishableVersions.groupBy { it.variantKey.value }
+
+        return mapOf(
+            "templateId" to templateId.key.value,
+            "variants" to variants,
+            "environments" to environments,
+            "matrix" to matrix,
+            "versionsByVariant" to versionsByVariant,
+        )
     }
 }

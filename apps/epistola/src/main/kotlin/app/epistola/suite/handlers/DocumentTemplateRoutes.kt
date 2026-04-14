@@ -13,6 +13,8 @@ class DocumentTemplateRoutes(
     private val versionHandler: VersionRouteHandler,
     private val previewHandler: TemplatePreviewHandler,
     private val deploymentMatrixHandler: DeploymentMatrixHandler,
+    private val settingsTabHandler: SettingsTabHandler,
+    private val dataContractTabHandler: DataContractTabHandler,
     private val versionComparisonHandler: VersionComparisonHandler,
 ) {
     @Bean
@@ -24,8 +26,13 @@ class DocumentTemplateRoutes(
             GET("/new", handler::newForm)
             POST("", handler::create)
 
-            // Detail and actions (catalog-scoped: /templates/{catalogId}/{id})
+            // Detail page — each tab has its own handler
             GET("/{catalogId}/{id}", handler::detail)
+            GET("/{catalogId}/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
+            GET("/{catalogId}/{id}/data-contract", dataContractTabHandler::dataContract)
+            GET("/{catalogId}/{id}/settings", settingsTabHandler::settings)
+
+            // Template actions
             POST("/{catalogId}/{id}/delete", handler::delete)
             PATCH("/{catalogId}/{id}", handler::update)
             PATCH("/{catalogId}/{id}/theme", handler::updateTheme)
@@ -36,8 +43,7 @@ class DocumentTemplateRoutes(
             PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)
             DELETE("/{catalogId}/{id}/data-examples/{exampleId}", handler::deleteDataExample)
 
-            // Deployment matrix routes
-            GET("/{catalogId}/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
+            // Deployment matrix actions (POST only — GET is handled by deploymentMatrixHandler above)
             POST("/{catalogId}/{id}/deployments", deploymentMatrixHandler::updateDeployment)
 
             // Variant routes
