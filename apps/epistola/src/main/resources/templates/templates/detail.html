@@ -326,7 +326,6 @@
             const INITIAL_EXAMPLES = [[${template.dataExamples}]];
 
             const deploymentsUrl = [[${'/tenants/' + tenantId + '/templates/' + catalogId + '/' + template.id + '/deployments'}]];
-            let deploymentsLoaded = false;
 
             function updatePdfaSetting(enabled) {
                 const url = `/tenants/${TENANT_ID}/templates/${CATALOG_ID}/${TEMPLATE_ID}`;
@@ -378,10 +377,9 @@
                 // Update URL hash for deep linking
                 history.replaceState(null, '', '#' + tabId);
 
-                // Lazy-load deployments on first switch
-                if (tabId === 'deployments' && !deploymentsLoaded) {
+                // Load deployments each time the tab is opened
+                if (tabId === 'deployments') {
                     htmx.ajax('GET', deploymentsUrl, { target: '#deployments-content', swap: 'innerHTML' });
-                    deploymentsLoaded = true;
                 }
             }
 
