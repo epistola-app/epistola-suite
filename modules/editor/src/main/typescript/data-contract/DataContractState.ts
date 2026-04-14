@@ -130,8 +130,7 @@ export class DataContractState extends EventTarget {
 
   async saveSchema(forceUpdate = false): Promise<SaveSchemaResult> {
     if (!this._callbacks.onSaveSchema) {
-      this._markSchemaCommitted();
-      return { success: true };
+      return { success: false, error: 'Failed to save schema' };
     }
 
     try {
@@ -160,9 +159,7 @@ export class DataContractState extends EventTarget {
     const examples = examplesToSave ?? this._draftExamples;
 
     if (!this._callbacks.onSaveDataExamples) {
-      this._draftExamples = examples;
-      this._markExamplesCommitted();
-      return { success: true };
+      return { success: false };
     }
 
     try {
@@ -190,13 +187,7 @@ export class DataContractState extends EventTarget {
     forceUpdate = false,
   ): Promise<UpdateDataExampleResult> {
     if (!this._callbacks.onUpdateDataExample) {
-      const updatedExamples = this._draftExamples.map((e) =>
-        e.id === exampleId ? { ...e, ...updates } : e,
-      );
-      this._draftExamples = updatedExamples;
-      this._markExamplesCommitted();
-      const updatedExample = updatedExamples.find((e) => e.id === exampleId);
-      return { success: true, example: updatedExample };
+      return { success: false };
     }
 
     try {
@@ -225,9 +216,7 @@ export class DataContractState extends EventTarget {
 
   async deleteSingleExample(exampleId: string): Promise<{ success: boolean }> {
     if (!this._callbacks.onDeleteDataExample) {
-      this._draftExamples = this._draftExamples.filter((e) => e.id !== exampleId);
-      this._markExamplesCommitted();
-      return { success: true };
+      return { success: false };
     }
 
     try {
