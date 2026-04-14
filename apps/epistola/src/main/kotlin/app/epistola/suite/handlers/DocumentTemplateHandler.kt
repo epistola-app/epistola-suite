@@ -331,11 +331,12 @@ class DocumentTemplateHandler(
         val themes = ListThemes(tenantId = tenantId).query()
 
         return request.htmx {
-            fragment("templates/detail", "theme-section") {
+            fragment("templates/detail/settings", "theme-section") {
                 "tenantId" to tenantId.key
                 "catalogId" to catalogId.value
                 "template" to result.template
                 "themes" to themes
+                "editable" to (result.template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             onNonHtmx {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")

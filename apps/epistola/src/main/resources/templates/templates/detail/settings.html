@@ -30,7 +30,8 @@
                                 th:disabled="${!editable}" onchange="updateTheme(this)">
                             <option value="">No theme (use variant defaults)</option>
                             <option th:each="theme : ${themes}"
-                                    th:value="${theme.id}" th:text="${theme.name}"
+                                    th:value="${theme.id}"
+                                    th:text="${theme.name + ' (' + theme.catalogKey + ')'}"
                                     th:selected="${template.themeKey != null and template.themeKey.equals(theme.id)}"></option>
                         </select>
                     </div>
