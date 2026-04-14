@@ -9,6 +9,9 @@
             <div>
                 <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},catalogId=${catalogId})}" class="back-link">&larr; Templates</a>
                 <h1 th:text="${template.name}">Template Name</h1>
+                <p th:if="${!editable}" class="text-muted" style="margin-top: var(--ep-space-1); font-size: var(--ep-text-sm);">
+                    <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
+                </p>
             </div>
         </div>
 
@@ -22,10 +25,6 @@
 
         <!-- Tab Panel: Variants -->
         <div id="tab-variants" class="tab-panel active">
-            <!-- Read-only indicator for subscribed catalogs -->
-            <div th:if="${!editable}" class="alert alert-info" style="margin-bottom: var(--ep-space-4);">
-                This template belongs to a subscribed catalog and is read-only.
-            </div>
             <!-- Toggle button for create variant form -->
             <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
                 <button type="button" class="btn btn-sm btn-primary" onclick="toggleCreateVariantForm()">+ New Variant</button>
@@ -221,9 +220,6 @@
 
         <!-- Tab Panel: Data Contract -->
         <div id="tab-data-contract" class="tab-panel">
-            <div th:if="${!editable}" class="alert alert-info" style="margin-bottom: var(--ep-space-4);">
-                This template belongs to a subscribed catalog. The data contract is read-only.
-            </div>
             <div id="data-contract-container"
                  th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
             <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
