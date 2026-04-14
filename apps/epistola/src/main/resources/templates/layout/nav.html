@@ -103,18 +103,13 @@
                     <!-- Settings dropdown (managers only) -->
                     <div th:if="${auth.has('TENANT_SETTINGS')}"
                          class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'admin','features'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'features'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Settings
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <div class="app-nav-dropdown-menu" role="menu">
-                            <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
-                               class="app-nav-dropdown-item" role="menuitem"
-                               th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">
-                                Admin
-                            </a>
                             <a th:href="@{/tenants/{id}/features(id=${tenantId})}"
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'features'} ? ' active' : ''">
@@ -186,8 +181,6 @@
                 </div>
                 <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Settings</div>
-                    <a th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}" class="app-nav-mobile-item"
-                       th:classappend="${activeNavSection == 'admin'} ? ' active' : ''" role="menuitem">Admin</a>
                     <a th:href="@{/tenants/{id}/features(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'features'} ? ' active' : ''" role="menuitem">Features</a>
                 </div>
