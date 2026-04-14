@@ -29,10 +29,14 @@
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" onchange="updateTheme(this)">
                             <option value="">No theme (use variant defaults)</option>
-                            <option th:each="theme : ${themes}"
-                                    th:value="${theme.id}"
-                                    th:text="${theme.name + ' (' + theme.catalogKey + ')'}"
-                                    th:selected="${template.themeKey != null and template.themeKey.equals(theme.id)}"></option>
+                            <th:block th:each="catalog : ${themeCatalogs}">
+                                <optgroup th:label="${catalog.key}">
+                                    <option th:each="theme : ${catalog.value}"
+                                            th:value="${theme.catalogKey + '/' + theme.id}"
+                                            th:text="${theme.name}"
+                                            th:selected="${template.themeKey != null and template.themeKey.equals(theme.id) and (template.themeCatalogKey == null or template.themeCatalogKey.equals(theme.catalogKey))}"></option>
+                                </optgroup>
+                            </th:block>
                         </select>
                     </div>
                 </div>
@@ -89,14 +93,21 @@
             }
 
             function updateTheme(select) {
-                const themeId = select.value || null;
-                const clearThemeId = !select.value;
+                const raw = select.value;
+                const clearThemeId = !raw;
+                let themeId = null;
+                let themeCatalogKey = null;
+                if (raw) {
+                    const slash = raw.indexOf('/');
+                    themeCatalogKey = raw.substring(0, slash);
+                    themeId = raw.substring(slash + 1);
+                }
                 const url = [[${'/tenants/' + tenantId + '/templates/' + catalogId + '/' + template.id + '/theme'}]];
                 const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
                 fetch(url, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
-                    body: JSON.stringify({ themeId: themeId, clearThemeId: clearThemeId })
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken, 'HX-Request': 'true' },
+                    body: JSON.stringify({ themeId: themeId, themeCatalogKey: themeCatalogKey, clearThemeId: clearThemeId })
                 }).then(r => r.text()).then(html => {
                     document.getElementById('theme-section').outerHTML = html;
                 });

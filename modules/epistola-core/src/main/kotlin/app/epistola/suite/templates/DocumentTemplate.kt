@@ -23,6 +23,7 @@ data class DocumentTemplate(
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val themeKey: ThemeKey? = null,
+    val themeCatalogKey: CatalogKey? = null,
     @Json val schema: ObjectNode? = null,
     @Json val dataModel: ObjectNode? = null,
     @Json val dataExamples: DataExamples = DataExamples.EMPTY,

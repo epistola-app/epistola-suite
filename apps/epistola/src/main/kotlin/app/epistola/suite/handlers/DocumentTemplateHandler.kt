@@ -53,6 +53,7 @@ import tools.jackson.databind.node.ObjectNode
 data class UpdateTemplateRequest(
     val name: String? = null,
     val themeId: String? = null,
+    val themeCatalogKey: String? = null,
     val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
@@ -324,11 +325,13 @@ class DocumentTemplateHandler(
         val result = UpdateDocumentTemplate(
             id = templateId,
             themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
+            themeCatalogKey = updateRequest.themeCatalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) },
             clearThemeId = updateRequest.clearThemeId,
         ).execute() ?: return ServerResponse.notFound().build()
 
         // Load available themes for the fragment
         val themes = ListThemes(tenantId = tenantId).query()
+        val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return request.htmx {
             fragment("templates/detail/settings", "theme-section") {
@@ -336,6 +339,7 @@ class DocumentTemplateHandler(
                 "catalogId" to catalogId.value
                 "template" to result.template
                 "themes" to themes
+                "themeCatalogs" to themeCatalogs
                 "editable" to (result.template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             onNonHtmx {

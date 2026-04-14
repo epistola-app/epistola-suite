@@ -14,13 +14,14 @@ CREATE TABLE document_templates (
     data_model JSONB,
     data_examples JSONB DEFAULT '[]'::jsonb,
     theme_key THEME_KEY,
+    theme_catalog_key CATALOG_KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     last_modified_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
-    FOREIGN KEY (tenant_key, catalog_key, theme_key) REFERENCES themes(tenant_key, catalog_key, id) ON DELETE SET NULL
+    FOREIGN KEY (tenant_key, theme_catalog_key, theme_key) REFERENCES themes(tenant_key, catalog_key, id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_document_templates_last_modified ON document_templates(last_modified DESC);
