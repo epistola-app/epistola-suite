@@ -250,7 +250,7 @@
             </div>
 
             <!-- Default Theme -->
-            <div th:if="${editable}" class="detail-section" id="theme-section" th:fragment="theme-section">
+            <div class="detail-section" id="theme-section" th:fragment="theme-section">
                 <div class="detail-section-header">
                     <h3>Default Theme</h3>
                 </div>
@@ -263,6 +263,7 @@
                             <select id="theme-select"
                                     name="themeId"
                                     class="ep-select"
+                                    th:disabled="${!editable}"
                                     onchange="updateTheme(this)">
                                 <option value="">No theme (use variant defaults)</option>
                                 <option th:each="theme : ${themes}"
@@ -276,7 +277,7 @@
             </div>
 
             <!-- Output Settings -->
-            <div th:if="${editable}" class="detail-section" id="output-settings-section">
+            <div class="detail-section" id="output-settings-section">
                 <div class="detail-section-header">
                     <h3>Output Settings</h3>
                 </div>
@@ -286,6 +287,7 @@
                                id="pdfa-toggle"
                                style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
                                th:checked="${template.pdfaEnabled}"
+                               th:disabled="${!editable}"
                                onchange="updatePdfaSetting(this.checked)">
                         <span>
                             <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
