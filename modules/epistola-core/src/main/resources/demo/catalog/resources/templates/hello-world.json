@@ -31,7 +31,8 @@
       "root": "n-root",
       "themeRef": {
         "type": "override",
-        "themeId": "corporate"
+        "themeId": "corporate",
+        "catalogKey": "epistola-demo"
       },
       "nodes": {
         "n-root": {
@@ -45,6 +46,7 @@
           "slots": [],
           "props": {
             "stencilId": "company-header",
+            "catalogKey": "epistola-demo",
             "version": 1
           }
         },
