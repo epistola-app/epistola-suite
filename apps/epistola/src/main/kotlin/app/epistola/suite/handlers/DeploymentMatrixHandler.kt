@@ -101,7 +101,9 @@ class DeploymentMatrixHandler(
                 "tenantId" to tenantKey.value
                 "catalogId" to catalogId.value
                 "templateId" to templateKey.value
-                for ((k, v) in tabModel) { k to v }
+                for ((k, v) in tabModel) {
+                    k to v
+                }
             }
             onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/${catalogId.value}/${templateKey.value}/deployments") }
         }
