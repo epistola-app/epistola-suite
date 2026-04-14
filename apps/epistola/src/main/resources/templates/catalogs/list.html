@@ -2,26 +2,90 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <span>Catalogs</span>
-        </nav>
-
-        <h1>Catalogs</h1>
+        <div class="page-header">
+            <h1>Catalogs</h1>
+            <div class="page-actions">
+                <button type="button" class="btn btn-outline"
+                        onclick="document.getElementById('subscribe-dialog').showModal()">
+                    <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
+                    Subscribe
+                </button>
+                <button type="button" class="btn btn-primary"
+                        onclick="document.getElementById('create-dialog').showModal()">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Catalog
+                </button>
+            </div>
+        </div>
 
         <div class="alert alert-success" th:if="${saved}">
             Catalog settings updated successfully.
         </div>
-
         <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
 
-        <div class="card create-form-card">
-            <div class="card-header">
-                <h2>Create Catalog</h2>
+        <div th:if="${catalogs.isEmpty()}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
             </div>
-            <div class="card-content">
-                <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
-                      hx-target="#catalog-rows"
-                      hx-swap="outerHTML">
+            <div class="empty-state-title">No catalogs yet</div>
+            <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
+        </div>
+
+        <table th:if="${!catalogs.isEmpty()}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Version</th>
+                    <th>Last Modified</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="catalog-rows" th:fragment="catalog-rows">
+                <tr th:each="catalog : ${catalogs}">
+                    <td style="font-weight: 500;">
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                           th:text="${catalog.name}"></a>
+                    </td>
+                    <td><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                    <td>
+                        <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
+                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
+                    </td>
+                    <td>
+                        <span th:if="${catalog.installedReleaseVersion}" th:text="${catalog.installedReleaseVersion}"></span>
+                        <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
+                    </td>
+                    <td th:text="${#temporals.format(catalog.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td class="actions">
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                           class="btn btn-sm btn-icon btn-ghost" title="Browse catalog">
+                            <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                        </a>
+                        <form th:if="${catalog.type.name() == 'SUBSCRIBED'}"
+                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
+                              method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Remove catalog"
+                                    onclick="return confirm('Remove this catalog and ALL its resources? This cannot be undone.')">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Create Catalog Dialog -->
+        <dialog id="create-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>New Catalog</h3>
+            </div>
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
+                  hx-target="#catalog-rows"
+                  hx-swap="outerHTML">
+                <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="catalogSlug">Catalog ID (Slug)</label>
                         <input type="text" id="catalogSlug" name="slug" class="ep-input"
@@ -35,31 +99,39 @@
                         <input type="text" id="catalogName" name="name" class="ep-input"
                                required placeholder="My Templates">
                     </div>
-                    <button type="submit" class="btn btn-primary">Create Catalog</button>
-                </form>
-            </div>
-        </div>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="btn btn-ghost"
+                            onclick="document.getElementById('create-dialog').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+            <script>
+                document.getElementById('create-dialog').querySelector('form').addEventListener('htmx:afterRequest', function(e) {
+                    if (e.detail.successful) {
+                        document.getElementById('create-dialog').close();
+                        this.reset();
+                    }
+                });
+            </script>
+        </dialog>
 
-        <div class="card create-form-card">
-            <div class="card-header">
-                <h2>Subscribe to Catalog</h2>
+        <!-- Subscribe to Catalog Dialog -->
+        <dialog id="subscribe-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Subscribe to Catalog</h3>
             </div>
-            <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}" method="post">
+            <form th:action="@{/tenants/{tenantId}/catalogs/register(tenantId=${tenantId})}" method="post">
+                <div class="ep-dialog-body">
                     <div class="form-group">
                         <label class="ep-label" for="sourceUrl">Catalog URL</label>
                         <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
-                               value="classpath:demo/catalog/catalog.json"
-                               required>
+                               required placeholder="https://example.com/catalog.json"
+                               value="classpath:demo/catalog/catalog.json">
                         <span class="form-hint">
-                            Supported URL schemes:
-                            <code>https://</code> or <code>http://</code> for remote catalogs,
-                            <code>classpath:</code> for bundled catalogs,
-                            <code>file:///</code> for local files.
-                            Must point to a <code>.json</code> file.
+                            URL to the catalog manifest (<code>.json</code>). Supports <code>https://</code>, <code>classpath:</code>, and <code>file:///</code>.
                         </span>
                     </div>
-
                     <div class="form-group">
                         <label class="ep-label" for="authType">Authentication</label>
                         <select id="authType" name="authType" class="ep-input">
@@ -68,70 +140,19 @@
                             <option value="API_KEY">API Key</option>
                         </select>
                     </div>
-
                     <div class="form-group" id="credential-group" style="display: none;">
                         <label class="ep-label" for="authCredential">Credential</label>
                         <input type="password" id="authCredential" name="authCredential" class="ep-input"
                                placeholder="Token or API key">
                     </div>
-
-                    <button type="submit" class="btn btn-primary">Register Catalog</button>
-                </form>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h2>Catalogs</h2>
-            </div>
-            <div class="card-content">
-                <table class="ep-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Source URL</th>
-                            <th>Version</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="catalog-rows" th:fragment="catalog-rows">
-                        <tr th:each="catalog : ${catalogs}">
-                            <td th:text="${catalog.name}"></td>
-                            <td>
-                                <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">authored</span>
-                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">subscribed</span>
-                            </td>
-                            <td>
-                                <span th:if="${catalog.sourceUrl}" class="text-muted text-sm" th:text="${catalog.sourceUrl}"></span>
-                                <span th:unless="${catalog.sourceUrl}" class="text-muted">-</span>
-                            </td>
-                            <td>
-                                <span th:if="${catalog.installedReleaseVersion}"
-                                      th:text="${catalog.installedReleaseVersion}"></span>
-                                <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
-                            </td>
-                            <td>
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                   class="btn btn-sm">Browse</a>
-                                <form th:if="${catalog.type.name() == 'SUBSCRIBED'}"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                      method="post" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-danger"
-                                            onclick="return confirm('Remove this catalog and ALL its resources? This cannot be undone.')">Remove</button>
-                                </form>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="card" th:if="${catalogs.isEmpty()}">
-            <div class="card-content">
-                <p class="text-muted">No catalogs registered. Add a catalog URL above to get started.</p>
-            </div>
-        </div>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="btn btn-ghost"
+                            onclick="document.getElementById('subscribe-dialog').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Subscribe</button>
+                </div>
+            </form>
+        </dialog>
 
         <script>
             document.getElementById('authType').addEventListener('change', function() {
