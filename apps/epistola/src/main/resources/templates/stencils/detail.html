@@ -52,7 +52,7 @@
                                 <th:block th:unless="${#lists.isEmpty(versions)}">
                                     <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
                                         <form th:unless="${hasDraft}"
-                                              th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions(tenantId=${tenantId},stencilId=${stencil.id})}"
+                                              th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
                                               hx-target="#version-list"
                                               hx-swap="innerHTML"
                                               style="display: inline;">
@@ -91,7 +91,7 @@
                                         <td class="actions">
                                             <!-- Publish button for drafts -->
                                             <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT'}"
-                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},stencilId=${stencil.id},versionId=${version.id})}"
+                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                                   hx-target="#version-list"
                                                   hx-swap="innerHTML"
                                                   style="display: inline;">
@@ -101,7 +101,7 @@
                                             </form>
                                             <!-- Archive button for published -->
                                             <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED'}"
-                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},stencilId=${stencil.id},versionId=${version.id})}"
+                                                  th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                                   hx-target="#version-list"
                                                   hx-swap="innerHTML"
                                                   hx-confirm="Archive version? It will no longer be available for insertion into templates."
@@ -190,6 +190,7 @@
 
                         <script th:inline="javascript">
                             const _tenantId = /*[[${tenantId}]]*/ '';
+                            const _catalogId = /*[[${catalogId}]]*/ '';
                             const _stencilId = /*[[${stencil.id}]]*/ '';
                             const _csrfToken = () => document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '';
                             let _abortController = null;
@@ -233,7 +234,7 @@
                                     const templateId = cb.dataset.templateId;
                                     const variantId = cb.dataset.variantId;
                                     try {
-                                        const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _stencilId + '/upgrade', {
+                                        const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId + '/upgrade', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
                                             body: JSON.stringify({ templateId, variantId, newVersion: version }),

@@ -1,5 +1,6 @@
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component
 data class ListThemes(
     val tenantId: TenantId,
     val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
 ) : Query<List<Theme>>,
     RequiresPermission {
     override val permission get() = Permission.THEME_VIEW
@@ -26,6 +28,9 @@ class ListThemesHandler(
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
             append("SELECT * FROM themes WHERE tenant_key = :tenantId")
+            if (query.catalogKey != null) {
+                append(" AND catalog_key = :catalogKey")
+            }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND name ILIKE :searchTerm")
             }
@@ -34,6 +39,9 @@ class ListThemesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

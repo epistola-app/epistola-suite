@@ -1,6 +1,9 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
@@ -10,6 +13,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -53,10 +57,14 @@ class StencilHandler(
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val stencils = ListStencils(tenantId = tenantId).query()
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val stencils = ListStencils(tenantId = tenantId, catalogKey = catalogFilter).query()
         return ServerResponse.ok().page("stencils/list") {
             "pageTitle" to "Stencils - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
+            "selectedCatalog" to (catalogFilter?.value ?: "")
             "stencils" to stencils
         }
     }
@@ -64,6 +72,7 @@ class StencilHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
+        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
 
         if (!request.isHtmx()) {
             val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
@@ -82,7 +91,7 @@ class StencilHandler(
                 .body(mapOf("items" to items))
         }
 
-        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
+        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key
@@ -96,9 +105,11 @@ class StencilHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         return ServerResponse.ok().page("stencils/new") {
             "pageTitle" to "New Stencil - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
         }
     }
 
@@ -121,6 +132,7 @@ class StencilHandler(
 
     private fun createForm(request: ServerRequest, tenantId: TenantId): ServerResponse {
         val form = request.form {
+            field("catalog") {}
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -134,10 +146,14 @@ class StencilHandler(
             field("description") {}
         }
 
+        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: CatalogKey.DEFAULT.value)
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+
         if (form.hasErrors()) {
             return ServerResponse.ok().page("stencils/new") {
                 "pageTitle" to "New Stencil - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -149,6 +165,7 @@ class StencilHandler(
             return ServerResponse.ok().page("stencils/new") {
                 "pageTitle" to "New Stencil - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -161,7 +178,7 @@ class StencilHandler(
 
         val result = form.executeOrFormError {
             CreateStencil(
-                id = StencilId(stencilKey, CatalogId.default(tenantId)),
+                id = StencilId(stencilKey, CatalogId(catalogKey, tenantId)),
                 name = name,
                 description = description,
                 tags = tags,
@@ -172,13 +189,14 @@ class StencilHandler(
             return ServerResponse.ok().page("stencils/new") {
                 "pageTitle" to "New Stencil - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/stencils/$stencilKey")
+            .header("Location", "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey")
             .build()
     }
 
@@ -221,6 +239,7 @@ class StencilHandler(
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -233,6 +252,7 @@ class StencilHandler(
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
             "tenantId" to tenantId.key
+            "catalogId" to catalogId
             "stencil" to stencil
             "versions" to versions
             "usage" to usage
@@ -241,6 +261,7 @@ class StencilHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -277,6 +298,7 @@ class StencilHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

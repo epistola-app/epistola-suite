@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Catalog-aware UI for all resource types**: Themes, stencils, assets, and attributes now have full catalog integration in the UI — catalog filter dropdown on list pages, catalog column in tables, catalog selector in create forms, and `/{catalogId}/{resourceId}` URL patterns for detail pages. Consistent with the template catalog UI.
 - **Complete catalog resource types**: Catalogs now support themes, stencils, attributes, and assets alongside templates. A catalog is a self-contained package — importing one installs everything needed.
   - **Import**: All 5 resource types with dependency-ordered installation (assets → attributes → themes → stencils → templates). Auto-includes dependencies when installing individual resources (e.g., installing a template pulls in its theme, stencils, and attributes). Recursive scanning resolves transitive deps (template → stencil → asset).
   - **Export**: `ExportCatalog` builds self-contained manifests. `DependencyScanner` auto-includes all referenced resources. Per-type export queries for themes, attributes, stencils, and assets.

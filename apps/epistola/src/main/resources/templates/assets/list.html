@@ -13,6 +13,25 @@
             </div>
         </div>
 
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id.toString())}"></option>
+            </select>
+            <script th:inline="javascript">
+                document.getElementById('catalog-filter').addEventListener('change', function() {
+                    var tenantId = /*[[${tenantId}]]*/ '';
+                    var catalog = this.value;
+                    var url = '/tenants/' + tenantId + '/assets';
+                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
+                    window.location.href = url;
+                });
+            </script>
+        </div>
+
         <!-- Upload area -->
         <form id="asset-upload-form"
               th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}"
@@ -47,7 +66,7 @@
                 <div th:if="${!#lists.isEmpty(assets)}" class="asset-grid">
                     <div th:each="asset : ${assets}" class="asset-card">
                         <div class="asset-card-preview">
-                            <img th:src="@{/tenants/{tenantId}/assets/{assetId}/content(tenantId=${tenantId},assetId=${asset.id})}"
+                            <img th:src="@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
                                  th:alt="${asset.name}"
                                  loading="lazy" />
                         </div>
@@ -64,7 +83,7 @@
                                     class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
                                     title="Delete asset"
                                     data-confirm-title="Delete Asset"
-                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{assetId}/delete(tenantId=${tenantId},assetId=${asset.id})}"
+                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
                                     data-confirm-target="#asset-grid-items"
                                     onclick="openConfirmDialog(this)">
                                 <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />

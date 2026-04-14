@@ -1,5 +1,6 @@
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -15,6 +16,7 @@ data class ListStencils(
     val tenantId: TenantId,
     val searchTerm: String? = null,
     val tag: String? = null,
+    val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<Stencil>>,
@@ -29,7 +31,10 @@ class ListStencilsHandler(
 ) : QueryHandler<ListStencils, List<Stencil>> {
     override fun handle(query: ListStencils): List<Stencil> = jdbi.withHandle<List<Stencil>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, tenant_key, name, description, tags, created_at, last_modified FROM stencils WHERE tenant_key = :tenantId")
+            append("SELECT id, tenant_key, catalog_key, name, description, tags, created_at, last_modified FROM stencils WHERE tenant_key = :tenantId")
+            if (query.catalogKey != null) {
+                append(" AND catalog_key = :catalogKey")
+            }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND (name ILIKE :searchTerm OR description ILIKE :searchTerm)")
             }
@@ -42,6 +47,9 @@ class ListStencilsHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

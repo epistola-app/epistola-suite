@@ -1,8 +1,12 @@
 package app.epistola.suite.themes
 
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -49,12 +53,16 @@ class ThemeHandler(
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId).query()
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter).query()
         return ServerResponse.ok().page("themes/list") {
             "pageTitle" to "Themes - Epistola"
             "tenantId" to tenantId.key
             "tenant" to tenant
+            "catalogs" to catalogs
+            "selectedCatalog" to (catalogFilter?.value ?: "")
             "themes" to themes
         }
     }
@@ -62,8 +70,9 @@ class ThemeHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
+        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm).query()
+        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId.key
@@ -76,9 +85,11 @@ class ThemeHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         return ServerResponse.ok().page("themes/new") {
             "pageTitle" to "New Theme - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
         }
     }
 
@@ -86,6 +97,7 @@ class ThemeHandler(
         val tenantId = request.tenantId()
 
         val form = request.form {
+            field("catalog") {}
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -99,10 +111,14 @@ class ThemeHandler(
             field("description") {}
         }
 
+        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: CatalogKey.DEFAULT.value)
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+
         if (form.hasErrors()) {
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -115,6 +131,7 @@ class ThemeHandler(
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -125,7 +142,7 @@ class ThemeHandler(
 
         val result = form.executeOrFormError {
             CreateTheme(
-                id = ThemeId(themeKey, CatalogId.default(tenantId)),
+                id = ThemeId(themeKey, CatalogId(catalogKey, tenantId)),
                 name = name,
                 description = description,
             ).execute()
@@ -135,18 +152,20 @@ class ThemeHandler(
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/themes/$themeKey")
+            .header("Location", "/tenants/${tenantId.key}/themes/$catalogKey/$themeKey")
             .build()
     }
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -167,6 +186,7 @@ class ThemeHandler(
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
             "tenantId" to tenantId.key
+            "catalogId" to catalogId
             "theme" to theme
             "themeJson" to themeJson
         }
@@ -174,6 +194,7 @@ class ThemeHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -213,6 +234,7 @@ class ThemeHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

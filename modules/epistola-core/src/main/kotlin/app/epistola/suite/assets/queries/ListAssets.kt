@@ -3,6 +3,7 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -18,10 +19,12 @@ import java.util.UUID
  *
  * @property tenantId Tenant that owns the assets
  * @property searchTerm Optional search filter on asset name
+ * @property catalogKey Optional catalog filter
  */
 data class ListAssets(
     val tenantId: TenantKey,
     val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
 ) : Query<List<Asset>>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -36,12 +39,15 @@ class ListAssetsHandler(
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_key, name, media_type, size_bytes, width, height, created_at
+            SELECT id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at
             FROM assets
             WHERE tenant_key = :tenantId
             """,
         )
 
+        if (query.catalogKey != null) {
+            sql.append(" AND catalog_key = :catalogKey")
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             sql.append(" AND name ILIKE :searchTerm")
         }
@@ -51,6 +57,9 @@ class ListAssetsHandler(
         val q = handle.createQuery(sql.toString())
             .bind("tenantId", query.tenantId)
 
+        if (query.catalogKey != null) {
+            q.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             q.bind("searchTerm", "%${query.searchTerm}%")
         }
@@ -59,6 +68,7 @@ class ListAssetsHandler(
             Asset(
                 id = AssetKey(rs.getObject("id", UUID::class.java)),
                 tenantKey = TenantKey(rs.getString("tenant_key")),
+                catalogKey = CatalogKey(rs.getString("catalog_key")),
                 name = rs.getString("name"),
                 mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                 sizeBytes = rs.getLong("size_bytes"),

@@ -11,6 +11,15 @@
         <div class="card create-form-card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" method="post">
+                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
+                        <label class="ep-label" for="catalog">Catalog</label>
+                        <select id="catalog" name="catalog" class="ep-input">
+                            <option th:each="cat : ${catalogs}"
+                                    th:value="${cat.id}"
+                                    th:text="${cat.name}"
+                                    th:selected="${formData?.catalog == cat.id.toString()}"></option>
+                        </select>
+                    </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Theme ID (Slug)</label>
                         <input type="text" id="slug" name="slug" class="ep-input"

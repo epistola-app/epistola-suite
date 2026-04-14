@@ -338,16 +338,16 @@ The `resource` object matches the shape of Epistola's existing `ImportTemplateIn
 }
 ```
 
-| Field                              | Type    | Required | Description                                                            |
-| ---------------------------------- | ------- | -------- | ---------------------------------------------------------------------- |
-| `resource.type`                    | string  | yes      | `theme`                                                                |
-| `resource.slug`                    | string  | yes      | Theme ID (3-20 chars, URL-safe slug).                                  |
-| `resource.name`                    | string  | yes      | Display name.                                                          |
-| `resource.description`             | string  | no       | Description.                                                           |
-| `resource.documentStyles`          | object  | no       | Document-level CSS defaults (fontFamily, fontSize, color, etc.).       |
-| `resource.pageSettings`            | object  | no       | Page format, orientation, margins.                                     |
-| `resource.blockStylePresets`       | object  | no       | Named block style presets (like CSS classes).                          |
-| `resource.spacingUnit`             | number  | no       | Base spacing unit in points (1-16, default 4).                         |
+| Field                        | Type   | Required | Description                                                      |
+| ---------------------------- | ------ | -------- | ---------------------------------------------------------------- |
+| `resource.type`              | string | yes      | `theme`                                                          |
+| `resource.slug`              | string | yes      | Theme ID (3-20 chars, URL-safe slug).                            |
+| `resource.name`              | string | yes      | Display name.                                                    |
+| `resource.description`       | string | no       | Description.                                                     |
+| `resource.documentStyles`    | object | no       | Document-level CSS defaults (fontFamily, fontSize, color, etc.). |
+| `resource.pageSettings`      | object | no       | Page format, orientation, margins.                               |
+| `resource.blockStylePresets` | object | no       | Named block style presets (like CSS classes).                    |
+| `resource.spacingUnit`       | number | no       | Base spacing unit in points (1-16, default 4).                   |
 
 ### Resource Detail: Stencil
 
@@ -365,14 +365,14 @@ The `resource` object matches the shape of Epistola's existing `ImportTemplateIn
 }
 ```
 
-| Field                   | Type    | Required | Description                                                              |
-| ----------------------- | ------- | -------- | ------------------------------------------------------------------------ |
-| `resource.type`         | string  | yes      | `stencil`                                                                |
-| `resource.slug`         | string  | yes      | Stencil ID (3-50 chars, URL-safe slug).                                  |
-| `resource.name`         | string  | yes      | Display name.                                                            |
-| `resource.description`  | string  | no       | Description.                                                             |
-| `resource.tags`         | array   | no       | Tags for categorization (string array).                                  |
-| `resource.content`      | object  | yes      | TemplateDocument (node/slot graph model). Same format as template model. |
+| Field                  | Type   | Required | Description                                                              |
+| ---------------------- | ------ | -------- | ------------------------------------------------------------------------ |
+| `resource.type`        | string | yes      | `stencil`                                                                |
+| `resource.slug`        | string | yes      | Stencil ID (3-50 chars, URL-safe slug).                                  |
+| `resource.name`        | string | yes      | Display name.                                                            |
+| `resource.description` | string | no       | Description.                                                             |
+| `resource.tags`        | array  | no       | Tags for categorization (string array).                                  |
+| `resource.content`     | object | yes      | TemplateDocument (node/slot graph model). Same format as template model. |
 
 ### Resource Detail: Attribute
 
@@ -388,12 +388,12 @@ The `resource` object matches the shape of Epistola's existing `ImportTemplateIn
 }
 ```
 
-| Field                       | Type    | Required | Description                                              |
-| --------------------------- | ------- | -------- | -------------------------------------------------------- |
-| `resource.type`             | string  | yes      | `attribute`                                              |
-| `resource.slug`             | string  | yes      | Attribute key (1-50 chars).                              |
-| `resource.name`             | string  | yes      | Display name.                                            |
-| `resource.allowedValues`    | array   | no       | Allowed values (string array). Empty means any value.    |
+| Field                    | Type   | Required | Description                                           |
+| ------------------------ | ------ | -------- | ----------------------------------------------------- |
+| `resource.type`          | string | yes      | `attribute`                                           |
+| `resource.slug`          | string | yes      | Attribute key (1-50 chars).                           |
+| `resource.name`          | string | yes      | Display name.                                         |
+| `resource.allowedValues` | array  | no       | Allowed values (string array). Empty means any value. |
 
 ### Resource Detail: Asset
 
@@ -412,15 +412,15 @@ The `resource` object matches the shape of Epistola's existing `ImportTemplateIn
 }
 ```
 
-| Field                   | Type    | Required | Description                                                                    |
-| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------ |
-| `resource.type`         | string  | yes      | `asset`                                                                        |
-| `resource.slug`         | string  | yes      | Asset UUID. Must match the UUID used in template image node `assetId` refs.    |
-| `resource.name`         | string  | yes      | Display name.                                                                  |
-| `resource.mediaType`    | string  | yes      | MIME type: `image/png`, `image/jpeg`, `image/svg+xml`, or `image/webp`.        |
-| `resource.width`        | integer | no       | Image width in pixels (null for SVG).                                          |
-| `resource.height`       | integer | no       | Image height in pixels (null for SVG).                                         |
-| `resource.contentUrl`   | string  | yes      | URL to the binary content. Relative URLs resolved against the manifest URL.    |
+| Field                 | Type    | Required | Description                                                                 |
+| --------------------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `resource.type`       | string  | yes      | `asset`                                                                     |
+| `resource.slug`       | string  | yes      | Asset UUID. Must match the UUID used in template image node `assetId` refs. |
+| `resource.name`       | string  | yes      | Display name.                                                               |
+| `resource.mediaType`  | string  | yes      | MIME type: `image/png`, `image/jpeg`, `image/svg+xml`, or `image/webp`.     |
+| `resource.width`      | integer | no       | Image width in pixels (null for SVG).                                       |
+| `resource.height`     | integer | no       | Image height in pixels (null for SVG).                                      |
+| `resource.contentUrl` | string  | yes      | URL to the binary content. Relative URLs resolved against the manifest URL. |
 
 Assets are immutable — reinstalling a catalog skips assets whose UUID already exists. The `contentUrl` points to a separate binary file (not inline base64), keeping the protocol uniform while supporting files up to 5MB.
 
@@ -861,10 +861,10 @@ This section describes the target architecture for catalogs in production. Every
 
 ### Catalog Types
 
-| Type | Editable? | Source |
-|---|---|---|
-| **Authored** | Yes | Created locally. User manages resources. Can publish releases. |
-| **Subscribed** | No (read-only) | Installed from external URL. Can receive upgrades. |
+| Type           | Editable?      | Source                                                         |
+| -------------- | -------------- | -------------------------------------------------------------- |
+| **Authored**   | Yes            | Created locally. User manages resources. Can publish releases. |
+| **Subscribed** | No (read-only) | Installed from external URL. Can receive upgrades.             |
 
 ### Default Catalog
 
@@ -876,11 +876,11 @@ This section describes the target architecture for catalogs in production. Every
 
 All resources are identified by `{catalog}/{slug}`:
 
-| Example | Meaning |
-|---|---|
-| `acme-themes/corporate` | Theme `corporate` in catalog `acme-themes` |
-| `my-templates/invoice` | Template `invoice` in authored catalog `my-templates` |
-| `default/letterhead` | Stencil `letterhead` in the default catalog |
+| Example                 | Meaning                                               |
+| ----------------------- | ----------------------------------------------------- |
+| `acme-themes/corporate` | Theme `corporate` in catalog `acme-themes`            |
+| `my-templates/invoice`  | Template `invoice` in authored catalog `my-templates` |
+| `default/letterhead`    | Stencil `letterhead` in the default catalog           |
 
 **Database PK**: `(tenant_key, catalog_key, id)` for each resource type table.
 
@@ -889,6 +889,7 @@ All resources are identified by `{catalog}/{slug}`:
 **All refs are always fully qualified everywhere** — in the database, in the manifest, in the API. No bare slugs, no implicit resolution, no install-time rewriting.
 
 Examples in template model JSON:
+
 ```json
 {
   "themeRef": { "type": "override", "themeId": "acme-themes/corporate" },
@@ -955,6 +956,7 @@ When generating a document from template `my-templates/invoice`:
 #### Uninstall a subscription
 
 User chooses:
+
 - **Remove all** — deletes catalog and all its resources
 - **Copy to authored first** — copy resources to an authored catalog, then remove subscription
 
@@ -973,16 +975,19 @@ User chooses:
 ### Database Design
 
 **Resource tables** (templates, themes, stencils, attributes, assets):
+
 - Add `catalog_key VARCHAR(50) NOT NULL`
 - PK changes from `(tenant_key, id)` to `(tenant_key, catalog_key, id)`
 - All FKs cascade accordingly
 
 **Catalogs table**:
+
 - Type: `AUTHORED` or `SUBSCRIBED`
 - For subscribed: `source_url`, `installed_release_version`, auth config
 - For authored: no source URL
 
 **`catalog_resources` table**:
+
 - Becomes redundant — resources carry `catalog_key` directly
 - Can be dropped
 
@@ -991,6 +996,7 @@ User chooses:
 **UI**: `/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}`
 
 **API**: Separate `catalog` and resource `id` parameters:
+
 ```
 POST /api/tenants/{tenantId}/documents/generate
 { "catalog": "my-templates", "templateId": "invoice", "data": {...} }
