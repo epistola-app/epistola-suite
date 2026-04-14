@@ -79,15 +79,18 @@
                             </div>
                         </div>
                         <div class="asset-card-actions">
-                            <button type="button"
-                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-                                    title="Delete asset"
-                                    data-confirm-title="Delete Asset"
-                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
-                                    data-confirm-target="#asset-grid-items"
-                                    onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
+                            <span th:if="${asset.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <th:block th:if="${asset.catalogType.name() == 'AUTHORED'}">
+                                <button type="button"
+                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        title="Delete asset"
+                                        data-confirm-title="Delete Asset"
+                                        th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
+                                        data-confirm-target="#asset-grid-items"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </th:block>
                         </div>
                     </div>
                 </div>

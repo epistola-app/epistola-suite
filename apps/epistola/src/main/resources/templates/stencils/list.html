@@ -80,18 +80,21 @@
                         <td class="actions">
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                class="btn btn-sm btn-icon btn-ghost" title="View stencil">
-                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
-                            <button th:if="${auth.has('STENCIL_EDIT')}"
-                                    type="button"
-                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-                                    title="Delete stencil"
-                                    data-confirm-title="Delete Stencil"
-                                    th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                                    data-confirm-target="#stencil-rows"
-                                    onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
+                            <span th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <th:block th:if="${stencil.catalogType.name() == 'AUTHORED'}">
+                                <button th:if="${auth.has('STENCIL_EDIT')}"
+                                        type="button"
+                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        title="Delete stencil"
+                                        data-confirm-title="Delete Stencil"
+                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                                        data-confirm-target="#stencil-rows"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </th:block>
                         </td>
                     </tr>
                 </th:block>

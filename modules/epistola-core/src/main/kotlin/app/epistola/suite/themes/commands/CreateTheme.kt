@@ -45,26 +45,26 @@ class CreateThemeHandler(
     override fun handle(command: CreateTheme): Theme {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return executeOrThrowDuplicate("theme", command.id.key.value) {
-        jdbi.withHandle<Theme, Exception> { handle ->
-            handle.createQuery(
-                """
+            jdbi.withHandle<Theme, Exception> { handle ->
+                handle.createQuery(
+                    """
                 INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
                 VALUES (:id, :tenantId, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
                 RETURNING *
                 """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
-                .bind("name", command.name)
-                .bind("description", command.description)
-                .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))
-                .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
-                .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
-                .bind("spacingUnit", command.spacingUnit)
-                .mapTo<Theme>()
-                .one()
-        }
+                )
+                    .bind("id", command.id.key)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("name", command.name)
+                    .bind("description", command.description)
+                    .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))
+                    .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
+                    .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
+                    .bind("spacingUnit", command.spacingUnit)
+                    .mapTo<Theme>()
+                    .one()
+            }
         }
     }
 }

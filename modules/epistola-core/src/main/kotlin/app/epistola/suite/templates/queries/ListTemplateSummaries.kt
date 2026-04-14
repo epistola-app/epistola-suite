@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -19,6 +20,7 @@ import java.time.OffsetDateTime
 data class TemplateSummary(
     val id: TemplateKey,
     val catalogKey: CatalogKey,
+    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val lastModified: OffsetDateTime,
     val variantCount: Int,
@@ -49,6 +51,7 @@ class ListTemplateSummariesHandler(
                 SELECT
                     dt.id,
                     dt.catalog_key,
+                    c.type AS catalog_type,
                     dt.name,
                     dt.last_modified,
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), 0)::int as variant_count,
@@ -61,6 +64,7 @@ class ListTemplateSummariesHandler(
                               JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
                               WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count
                 FROM document_templates dt
+                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
                 WHERE dt.tenant_key = :tenantId
                 """.trimIndent(),
             )

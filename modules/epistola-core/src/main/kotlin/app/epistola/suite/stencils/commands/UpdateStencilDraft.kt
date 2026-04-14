@@ -1,10 +1,10 @@
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
@@ -35,24 +35,24 @@ class UpdateStencilDraftHandler(
     override fun handle(command: UpdateStencilDraft): StencilVersion? {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
-        val contentJson = objectMapper.writeValueAsString(command.content)
+            val contentJson = objectMapper.writeValueAsString(command.content)
 
-        handle.createQuery(
-            """
+            handle.createQuery(
+                """
             UPDATE stencil_versions
             SET content = :content::jsonb
             WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND id = :versionId
               AND status = 'draft'
             RETURNING *
             """,
-        )
-            .bind("tenantId", command.versionId.tenantKey)
-            .bind("stencilId", command.versionId.stencilKey)
-            .bind("versionId", command.versionId.key)
-            .bind("content", contentJson)
-            .mapTo<StencilVersion>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("stencilId", command.versionId.stencilKey)
+                .bind("versionId", command.versionId.key)
+                .bind("content", contentJson)
+                .mapTo<StencilVersion>()
+                .findOne()
+                .orElse(null)
         }
     }
 }

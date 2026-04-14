@@ -27,14 +27,14 @@ class ListThemesHandler(
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT * FROM themes WHERE tenant_key = :tenantId")
+            append("SELECT t.*, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND catalog_key = :catalogKey")
+                append(" AND t.catalog_key = :catalogKey")
             }
             if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND name ILIKE :searchTerm")
+                append(" AND t.name ILIKE :searchTerm")
             }
-            append(" ORDER BY last_modified DESC")
+            append(" ORDER BY t.last_modified DESC")
         }
 
         val jdbiQuery = handle.createQuery(sql)

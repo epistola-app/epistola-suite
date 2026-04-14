@@ -75,31 +75,34 @@
                         </td>
                         <td th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
-                               class="btn btn-sm btn-icon btn-ghost" title="Edit theme">
-                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
-                            </a>
-                            <form th:if="${auth.has('TENANT_SETTINGS')}"
-                                  th:unless="${tenant?.defaultThemeKey == theme.id}"
-                                  th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
-                                  hx-target="#theme-rows"
-                                  hx-swap="innerHTML"
-                                  style="display: inline;">
-                                <input type="hidden" name="themeId" th:value="${theme.id}">
-                                <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                            <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <th:block th:if="${theme.catalogType.name() == 'AUTHORED'}">
+                                <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
+                                   class="btn btn-sm btn-icon btn-ghost" title="Edit theme">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                                </a>
+                                <form th:if="${auth.has('TENANT_SETTINGS')}"
+                                      th:unless="${tenant?.defaultThemeKey == theme.id}"
+                                      th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
+                                      hx-target="#theme-rows"
+                                      hx-swap="innerHTML"
+                                      style="display: inline;">
+                                    <input type="hidden" name="themeId" th:value="${theme.id}">
+                                    <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                                        <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                                    </button>
+                                </form>
+                                <button th:if="${auth.has('THEME_EDIT') and tenant?.defaultThemeKey != theme.id and #lists.size(themes) > 1}"
+                                        type="button"
+                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        title="Delete theme"
+                                        data-confirm-title="Delete Theme"
+                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
+                                        data-confirm-target="#theme-rows"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
-                            </form>
-                            <button th:if="${auth.has('THEME_EDIT') and tenant?.defaultThemeKey != theme.id and #lists.size(themes) > 1}"
-                                    type="button"
-                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-                                    title="Delete theme"
-                                    data-confirm-title="Delete Theme"
-                                    th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
-                                    data-confirm-target="#theme-rows"
-                                    onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
+                            </th:block>
                         </td>
                     </tr>
                 </th:block>

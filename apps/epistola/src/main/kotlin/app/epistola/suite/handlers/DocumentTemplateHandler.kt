@@ -453,6 +453,8 @@ class DocumentTemplateHandler(
         // Load attribute definitions for variant attribute selects
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
 
+        val editable = template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
+
         return ServerResponse.ok().page("templates/detail") {
             "pageTitle" to "${template.name} - Epistola"
             "tenantId" to tenantId.key
@@ -461,6 +463,7 @@ class DocumentTemplateHandler(
             "variants" to variants
             "themes" to themes
             "attributeDefinitions" to attributeDefinitions
+            "editable" to editable
         }
     }
 

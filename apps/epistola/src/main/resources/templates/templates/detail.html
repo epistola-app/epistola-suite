@@ -22,8 +22,12 @@
 
         <!-- Tab Panel: Variants -->
         <div id="tab-variants" class="tab-panel active">
+            <!-- Read-only indicator for subscribed catalogs -->
+            <div th:if="${!editable}" class="alert alert-info" style="margin-bottom: var(--ep-space-4);">
+                This template belongs to a subscribed catalog and is read-only.
+            </div>
             <!-- Toggle button for create variant form -->
-            <div th:if="${auth.has('TEMPLATE_EDIT')}" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
                 <button type="button" class="btn btn-sm btn-primary" onclick="toggleCreateVariantForm()">+ New Variant</button>
             </div>
 
@@ -126,7 +130,7 @@
 
                         <!-- Footer: actions -->
                         <div class="variant-card-footer">
-                            <a th:if="${auth.has('TEMPLATE_EDIT')}"
+                            <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                                th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
                                 <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
@@ -138,7 +142,7 @@
                                     title="Version history">
                                 <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
                             </button>
-                            <button th:if="${auth.has('TEMPLATE_EDIT')}"
+                            <button th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                                     type="button" class="btn btn-sm btn-icon btn-ghost"
                                     th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                     hx-target="#edit-variant-dialog-body"
@@ -147,7 +151,7 @@
                                     title="Edit variant">
                                 <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
                             </button>
-                            <form th:if="${auth.has('TEMPLATE_EDIT')}"
+                            <form th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                                   th:unless="${variant.isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                   hx-target="#variants-section" hx-swap="outerHTML"
@@ -156,7 +160,7 @@
                                     <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
-                            <button th:if="${auth.has('TEMPLATE_EDIT')}"
+                            <button th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                                     th:unless="${variant.isDefault}" type="button"
                                     class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
                                     title="Delete variant"
@@ -291,7 +295,7 @@
             </div>
 
             <!-- Danger Zone -->
-            <div th:if="${auth.has('TEMPLATE_EDIT')}" class="detail-section danger-zone">
+            <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="detail-section danger-zone">
                 <div class="detail-section-header">
                     <h3>Danger Zone</h3>
                 </div>

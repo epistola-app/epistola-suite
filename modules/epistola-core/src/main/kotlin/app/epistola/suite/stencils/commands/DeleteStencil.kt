@@ -1,10 +1,10 @@
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -30,17 +30,17 @@ class DeleteStencilHandler(
     override fun handle(command: DeleteStencil): Boolean {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.withHandle<Boolean, Exception> { handle ->
-        val rowsDeleted = handle.createUpdate(
-            """
+            val rowsDeleted = handle.createUpdate(
+                """
             DELETE FROM stencils
             WHERE tenant_key = :tenantId AND id = :id
             """,
-        )
-            .bind("tenantId", command.id.tenantKey)
-            .bind("id", command.id.key)
-            .execute()
+            )
+                .bind("tenantId", command.id.tenantKey)
+                .bind("id", command.id.key)
+                .execute()
 
-        rowsDeleted > 0
+            rowsDeleted > 0
         }
     }
 }

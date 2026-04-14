@@ -183,12 +183,15 @@ class ThemeHandler(
             "spacingUnit" to theme.spacingUnit,
         )
 
+        val editable = theme.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
+
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
             "tenantId" to tenantId.key
             "catalogId" to catalogId
             "theme" to theme
             "themeJson" to themeJson
+            "editable" to editable
         }
     }
 

@@ -28,15 +28,16 @@ class ListAttributeDefinitionsHandler(
         val sql = buildString {
             append(
                 """
-                SELECT id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified
-                FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantId
+                SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.display_name, a.allowed_values, a.created_at, a.last_modified
+                FROM variant_attribute_definitions a
+                JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
+                WHERE a.tenant_key = :tenantId
                 """,
             )
             if (query.catalogKey != null) {
-                append(" AND catalog_key = :catalogKey")
+                append(" AND a.catalog_key = :catalogKey")
             }
-            append(" ORDER BY display_name ASC")
+            append(" ORDER BY a.display_name ASC")
         }
 
         val jdbiQuery = handle.createQuery(sql)

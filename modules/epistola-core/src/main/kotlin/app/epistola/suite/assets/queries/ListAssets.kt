@@ -2,6 +2,7 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -39,20 +40,21 @@ class ListAssetsHandler(
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at
-            FROM assets
-            WHERE tenant_key = :tenantId
+            SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.name, a.media_type, a.size_bytes, a.width, a.height, a.created_at
+            FROM assets a
+            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
+            WHERE a.tenant_key = :tenantId
             """,
         )
 
         if (query.catalogKey != null) {
-            sql.append(" AND catalog_key = :catalogKey")
+            sql.append(" AND a.catalog_key = :catalogKey")
         }
         if (!query.searchTerm.isNullOrBlank()) {
-            sql.append(" AND name ILIKE :searchTerm")
+            sql.append(" AND a.name ILIKE :searchTerm")
         }
 
-        sql.append(" ORDER BY created_at DESC")
+        sql.append(" ORDER BY a.created_at DESC")
 
         val q = handle.createQuery(sql.toString())
             .bind("tenantId", query.tenantId)
@@ -69,6 +71,7 @@ class ListAssetsHandler(
                 id = AssetKey(rs.getObject("id", UUID::class.java)),
                 tenantKey = TenantKey(rs.getString("tenant_key")),
                 catalogKey = CatalogKey(rs.getString("catalog_key")),
+                catalogType = CatalogType.valueOf(rs.getString("catalog_type")),
                 name = rs.getString("name"),
                 mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                 sizeBytes = rs.getLong("size_bytes"),

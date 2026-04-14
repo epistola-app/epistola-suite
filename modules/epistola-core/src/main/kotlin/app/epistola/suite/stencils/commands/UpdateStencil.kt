@@ -1,12 +1,12 @@
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -54,57 +54,57 @@ class UpdateStencilHandler(
     override fun handle(command: UpdateStencil): Stencil? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.inTransaction<Stencil?, Exception> { handle ->
-        val setClauses = mutableListOf<String>()
-        val bindings = mutableMapOf<String, Any?>()
+            val setClauses = mutableListOf<String>()
+            val bindings = mutableMapOf<String, Any?>()
 
-        command.name?.let {
-            setClauses.add("name = :name")
-            bindings["name"] = it
-        }
-
-        if (command.clearDescription) {
-            setClauses.add("description = NULL")
-        } else {
-            command.description?.let {
-                setClauses.add("description = :description")
-                bindings["description"] = it
+            command.name?.let {
+                setClauses.add("name = :name")
+                bindings["name"] = it
             }
-        }
 
-        command.tags?.let {
-            setClauses.add("tags = :tags::jsonb")
-            bindings["tags"] = objectMapper.writeValueAsString(it)
-        }
+            if (command.clearDescription) {
+                setClauses.add("description = NULL")
+            } else {
+                command.description?.let {
+                    setClauses.add("description = :description")
+                    bindings["description"] = it
+                }
+            }
 
-        if (setClauses.isEmpty()) {
-            // Nothing to update, just return current state
-            return@inTransaction handle.createQuery(
-                "SELECT * FROM stencils WHERE tenant_key = :tenantId AND id = :id",
-            )
-                .bind("tenantId", command.id.tenantKey)
-                .bind("id", command.id.key)
-                .mapTo<Stencil>()
-                .findOne()
-                .orElse(null)
-        }
+            command.tags?.let {
+                setClauses.add("tags = :tags::jsonb")
+                bindings["tags"] = objectMapper.writeValueAsString(it)
+            }
 
-        setClauses.add("last_modified = NOW()")
+            if (setClauses.isEmpty()) {
+                // Nothing to update, just return current state
+                return@inTransaction handle.createQuery(
+                    "SELECT * FROM stencils WHERE tenant_key = :tenantId AND id = :id",
+                )
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("id", command.id.key)
+                    .mapTo<Stencil>()
+                    .findOne()
+                    .orElse(null)
+            }
 
-        val sql = """
+            setClauses.add("last_modified = NOW()")
+
+            val sql = """
             UPDATE stencils SET ${setClauses.joinToString(", ")}
             WHERE tenant_key = :tenantId AND id = :id
             RETURNING *
         """
 
-        val query = handle.createQuery(sql)
-            .bind("tenantId", command.id.tenantKey)
-            .bind("id", command.id.key)
+            val query = handle.createQuery(sql)
+                .bind("tenantId", command.id.tenantKey)
+                .bind("id", command.id.key)
 
-        bindings.forEach { (key, value) -> query.bind(key, value) }
+            bindings.forEach { (key, value) -> query.bind(key, value) }
 
-        query.mapTo<Stencil>()
-            .findOne()
-            .orElse(null)
+            query.mapTo<Stencil>()
+                .findOne()
+                .orElse(null)
         }
     }
 }

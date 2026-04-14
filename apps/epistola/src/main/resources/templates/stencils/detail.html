@@ -48,7 +48,7 @@
 
                         <div th:if="${!#lists.isEmpty(versions)}">
                             <!-- New Draft button when no draft exists -->
-                            <div th:if="${auth.has('STENCIL_EDIT')}" style="margin-bottom: var(--ep-space-3);">
+                            <div th:if="${auth.has('STENCIL_EDIT') and stencil.catalogType.name() == 'AUTHORED'}" style="margin-bottom: var(--ep-space-3);">
                                 <th:block th:unless="${#lists.isEmpty(versions)}">
                                     <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
                                         <form th:unless="${hasDraft}"
@@ -90,7 +90,7 @@
                                         </td>
                                         <td class="actions">
                                             <!-- Publish button for drafts -->
-                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT'}"
+                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"
                                                   th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                                   hx-target="#version-list"
                                                   hx-swap="innerHTML"
@@ -100,7 +100,7 @@
                                                 </button>
                                             </form>
                                             <!-- Archive button for published -->
-                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED'}"
+                                            <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
                                                   th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                                   hx-target="#version-list"
                                                   hx-swap="innerHTML"

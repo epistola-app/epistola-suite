@@ -35,32 +35,32 @@ class DeleteAttributeDefinitionHandler(
     override fun handle(command: DeleteAttributeDefinition): Boolean {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.withHandle<Boolean, Exception> { handle ->
-        // Check if any variants still reference this attribute
-        val variantCount = handle.createQuery(
-            """
+            // Check if any variants still reference this attribute
+            val variantCount = handle.createQuery(
+                """
                 SELECT COUNT(*) FROM template_variants
                 WHERE tenant_key = :tenantId AND jsonb_exists(attributes, :attributeKey)
                 """,
-        )
-            .bind("tenantId", command.id.tenantKey)
-            .bind("attributeKey", command.id.key.value)
-            .mapTo(Long::class.java)
-            .one()
+            )
+                .bind("tenantId", command.id.tenantKey)
+                .bind("attributeKey", command.id.key.value)
+                .mapTo(Long::class.java)
+                .one()
 
-        if (variantCount > 0) {
-            throw AttributeInUseException(command.id, variantCount)
-        }
+            if (variantCount > 0) {
+                throw AttributeInUseException(command.id, variantCount)
+            }
 
-        val rowsAffected = handle.createUpdate(
-            """
+            val rowsAffected = handle.createUpdate(
+                """
                 DELETE FROM variant_attribute_definitions
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
-        )
-            .bind("id", command.id.key)
-            .bind("tenantId", command.id.tenantKey)
-            .execute()
-        rowsAffected > 0
+            )
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
+                .execute()
+            rowsAffected > 0
         }
     }
 }

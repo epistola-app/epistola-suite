@@ -39,24 +39,24 @@ class CreateAttributeDefinitionHandler(
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
-        jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
-            val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
+            jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
+                val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
-            handle.createQuery(
-                """
+                handle.createQuery(
+                    """
                 INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified)
                 VALUES (:id, :tenantId, :catalogKey, :displayName, :allowedValues::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
-            )
-                .bind("id", command.id.key)
-                .bind("catalogKey", command.id.catalogKey)
-                .bind("tenantId", command.id.tenantKey)
-                .bind("displayName", command.displayName)
-                .bind("allowedValues", allowedValuesJson)
-                .mapTo<VariantAttributeDefinition>()
-                .one()
-        }
+                )
+                    .bind("id", command.id.key)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("displayName", command.displayName)
+                    .bind("allowedValues", allowedValuesJson)
+                    .mapTo<VariantAttributeDefinition>()
+                    .one()
+            }
         }
     }
 }

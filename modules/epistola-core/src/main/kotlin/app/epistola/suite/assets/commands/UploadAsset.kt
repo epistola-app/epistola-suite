@@ -3,8 +3,8 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
-import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
