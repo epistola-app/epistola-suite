@@ -155,6 +155,7 @@
                                         <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all draft rows">
                                     </th>
                                     <th>Template</th>
+                                    <th>Catalog</th>
                                     <th>Variant</th>
                                     <th>Version</th>
                                     <th>Status</th>
@@ -163,18 +164,24 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr th:each="u : ${usage}" th:classappend="${u.versionStatus == 'draft'} ? 'usage-row-selectable' : ''">
+                                <tr th:each="u : ${usage}"
+                                    th:classappend="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'} ? 'usage-row-selectable' : ''"
+                                    th:style="${u.catalogType.name() == 'SUBSCRIBED'} ? 'opacity: 0.5;' : ''">
                                     <td>
-                                        <input th:if="${u.versionStatus == 'draft'}"
+                                        <input th:if="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'}"
                                                type="checkbox"
                                                class="usage-select"
                                                th:data-template-id="${u.templateId}"
                                                th:data-variant-id="${u.variantId}">
+                                        <th:block th:if="${u.catalogType.name() == 'SUBSCRIBED'}">
+                                            <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                        </th:block>
                                     </td>
                                     <td>
-                                        <a th:href="@{/tenants/{tenantId}/templates/{templateId}(tenantId=${tenantId},templateId=${u.templateId})}"
+                                        <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
                                            th:text="${u.templateName}" style="font-weight: 500;"></a>
                                     </td>
+                                    <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>
                                     <td th:text="${u.variantId}"></td>
                                     <td th:text="'v' + ${u.versionId}"></td>
                                     <td>
