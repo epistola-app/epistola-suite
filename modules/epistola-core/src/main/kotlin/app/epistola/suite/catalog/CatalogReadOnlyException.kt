@@ -15,6 +15,7 @@ class CatalogReadOnlyException(catalogKey: CatalogKey) : RuntimeException("Canno
  * Call this at the start of any command handler that mutates catalog resources.
  */
 fun requireCatalogEditable(tenantKey: TenantKey, catalogKey: CatalogKey) {
+    if (CatalogImportContext.isImporting) return
     if (!IsCatalogEditable(tenantKey, catalogKey).query()) {
         throw CatalogReadOnlyException(catalogKey)
     }

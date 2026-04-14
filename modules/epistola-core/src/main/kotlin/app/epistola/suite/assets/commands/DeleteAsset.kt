@@ -41,6 +41,7 @@ class DeleteAssetHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteAsset): Boolean {
+        // Check catalog editability before proceeding
         val catalogKey = jdbi.withHandle<CatalogKey, Exception> { handle ->
             handle.createQuery("SELECT catalog_key FROM assets WHERE tenant_key = :tenantId AND id = :assetId")
                 .bind("tenantId", command.tenantId)

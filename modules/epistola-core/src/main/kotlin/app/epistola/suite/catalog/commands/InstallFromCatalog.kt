@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
+import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.DependencyResolver
 import app.epistola.suite.catalog.protocol.AssetResource
@@ -57,7 +58,7 @@ class InstallFromCatalogHandler(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun handle(command: InstallFromCatalog): List<InstallResult> {
+    override fun handle(command: InstallFromCatalog): List<InstallResult> = CatalogImportContext.runAsImport {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
 
@@ -78,7 +79,7 @@ class InstallFromCatalogHandler(
         // Install in dependency order: assets → attributes → themes → stencils → templates
         val ordered = resourcesToInstall.sortedBy { INSTALL_ORDER[it.type] ?: 99 }
 
-        return ordered.map { entry ->
+        ordered.map { entry ->
             try {
                 val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
                 val status = installResource(command, detail.resource, manifest.release.version, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
