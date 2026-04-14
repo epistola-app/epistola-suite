@@ -206,6 +206,7 @@ class StencilHandler(
         val name: String,
         val description: String? = null,
         val tags: List<String>? = null,
+        val catalogKey: String? = null,
         val content: app.epistola.template.model.TemplateDocument? = null,
         val publish: Boolean = false,
     )
@@ -214,7 +215,8 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, CreateStencilJsonRequest::class.java)
 
-        val stencilId = StencilId(StencilKey.of(req.id), CatalogId.default(tenantId))
+        val catalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) } ?: CatalogId.default(tenantId)
+        val stencilId = StencilId(StencilKey.of(req.id), catalog)
 
         CreateStencil(
             id = stencilId,
@@ -367,13 +369,15 @@ class StencilHandler(
         data class UpgradeRequest(
             val templateId: String,
             val variantId: String,
+            val catalogKey: String? = null,
             val newVersion: Int,
         )
 
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, UpgradeRequest::class.java)
 
-        val templateId = TemplateId(TemplateKey.of(req.templateId), CatalogId.default(tenantId))
+        val templateCatalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) } ?: CatalogId.default(tenantId)
+        val templateId = TemplateId(TemplateKey.of(req.templateId), templateCatalog)
         val variantId = VariantId(VariantKey.of(req.variantId), templateId)
 
         val count = UpdateStencilInTemplate(

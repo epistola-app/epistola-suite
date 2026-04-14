@@ -27,10 +27,11 @@ class GetStencilVersionHandler(
         handle.createQuery(
             """
             SELECT * FROM stencil_versions
-            WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
             """,
         )
             .bind("tenantId", query.versionId.tenantKey)
+            .bind("catalogKey", query.versionId.catalogKey)
             .bind("stencilId", query.versionId.stencilKey)
             .bind("versionId", query.versionId.key)
             .mapTo<StencilVersion>()

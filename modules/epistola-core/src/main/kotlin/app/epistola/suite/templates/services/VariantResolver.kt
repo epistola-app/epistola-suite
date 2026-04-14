@@ -68,8 +68,9 @@ class VariantResolver {
         tenantId: TenantKey,
         templateId: TemplateKey,
         criteria: VariantSelectionCriteria,
+        catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
     ): VariantKey {
-        val variants = ListVariants(TemplateId(templateId, CatalogId.default(TenantId(tenantId)))).query()
+        val variants = ListVariants(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
 
         // Filter variants that match ALL required attributes
         val candidates = variants.filter { variant ->

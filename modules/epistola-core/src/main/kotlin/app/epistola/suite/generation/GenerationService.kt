@@ -165,10 +165,11 @@ class GenerationService(
      */
     fun validatePreviewData(
         tenantId: TenantKey,
+        catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = GetDocumentTemplate(TemplateId(templateId, CatalogId.default(TenantId(tenantId)))).query()
+        val template = GetDocumentTemplate(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
             ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
 
         if (template.dataModel == null) {

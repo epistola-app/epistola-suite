@@ -153,7 +153,7 @@ class DocumentGenerationExecutor(
 
         // Build composite IDs
         val tenantId = TenantId(request.tenantKey)
-        val catalogId = CatalogId.default(tenantId) // TODO: generation requests should carry catalogKey
+        val catalogId = CatalogId(request.catalogKey, tenantId)
         val templateId = TemplateId(request.templateKey, catalogId)
         val variantId = VariantId(request.variantKey, templateId)
 
