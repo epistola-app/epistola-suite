@@ -165,7 +165,17 @@ export function renderExampleForm(
   return html`
     <div class="dc-tree">
       ${Object.entries(schema.properties).map(([name, propSchema]) =>
-        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange, 0, errors, readOnly),
+        renderFormField(
+          name,
+          propSchema,
+          name,
+          data,
+          requiredSet.has(name),
+          onChange,
+          0,
+          errors,
+          readOnly,
+        ),
       )}
     </div>
   `;

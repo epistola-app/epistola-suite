@@ -10,7 +10,7 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "3.2",
+    "version": "4.0",
     "releasedAt": "2026-04-14T00:00:00Z"
   },
   "resources": [
@@ -61,6 +61,14 @@
       "description": "A basic letter template with sender, recipient, subject, and body.",
       "updatedAt": "2026-04-03T00:00:00Z",
       "detailUrl": "./resources/templates/simple-letter.json"
+    },
+    {
+      "type": "template",
+      "slug": "demo-invoice",
+      "name": "Invoice Template",
+      "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, and expressions.",
+      "updatedAt": "2026-04-14T00:00:00Z",
+      "detailUrl": "./resources/templates/demo-invoice.json"
     }
   ]
 }

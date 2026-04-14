@@ -176,7 +176,11 @@ const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
   { value: 'uri', label: 'URI' },
 ];
 
-function renderDetailPanel(field: SchemaField | null, uiState: SchemaUiState, callbacks: SchemaSectionCallbacks): unknown {
+function renderDetailPanel(
+  field: SchemaField | null,
+  uiState: SchemaUiState,
+  callbacks: SchemaSectionCallbacks,
+): unknown {
   if (!field) {
     return html`
       <div class="dc-detail-panel">
