@@ -77,6 +77,7 @@ class TemplatePreviewHandler(
 
         val query = PreviewDraft(
             tenantId = tenantId.key,
+            catalogKey = catalogId,
             templateId = templateId.key,
             variantId = variantId.key,
             data = dataNode,
@@ -138,6 +139,7 @@ class TemplatePreviewHandler(
         val pdfBytes = try {
             PreviewDocument(
                 tenantId = tenantId.key,
+                catalogKey = catalogId,
                 templateId = templateId.key,
                 data = data,
                 variantId = variantId.key,

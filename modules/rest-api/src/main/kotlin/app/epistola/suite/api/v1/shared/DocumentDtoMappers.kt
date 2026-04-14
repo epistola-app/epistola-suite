@@ -169,8 +169,10 @@ internal fun GenerateBatchRequest.toCommand(
 
 internal fun PreviewDocumentRequest.toQuery(
     tenantId: String,
+    catalogKey: String = "default",
 ) = PreviewDocument(
     tenantId = TenantKey.of(tenantId),
+    catalogKey = app.epistola.suite.common.ids.CatalogKey.of(catalogKey),
     templateId = TemplateKey.of(templateId),
     variantId = variantId?.let { VariantKey.of(it) },
     variantSelectionCriteria = attributes?.toSelectionCriteria(),

@@ -33,6 +33,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class PreviewDraft(
     val tenantId: TenantKey,
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val data: ObjectNode,
@@ -57,11 +58,12 @@ class PreviewDraftHandler(
 
     override fun handle(query: PreviewDraft): ByteArray {
         val tenantId = TenantId(query.tenantId)
-        val templateId = TemplateId(query.templateId, CatalogId.default(tenantId))
+        val catalogId = CatalogId(query.catalogKey, tenantId)
+        val templateId = TemplateId(query.templateId, catalogId)
 
         // 1. Resolve template model: live override or saved draft
         val templateModel = query.templateModel
-            ?: fetchDraft(query.tenantId, query.templateId, query.variantId)
+            ?: fetchDraft(query.tenantId, query.catalogKey, query.templateId, query.variantId)
             ?: throw IllegalStateException("No draft found for variant ${query.variantId}")
 
         // 2. Fetch template and tenant for theme resolution
@@ -90,18 +92,20 @@ class PreviewDraftHandler(
         )
     }
 
-    private fun fetchDraft(tenantId: TenantKey, templateId: TemplateKey, variantKey: VariantKey): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
+    private fun fetchDraft(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey, variantKey: VariantKey): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT ver.template_model as draft_template_model
                 FROM template_versions ver
                 WHERE ver.tenant_key = :tenantId
+                  AND ver.catalog_key = :catalogKey
                   AND ver.template_key = :templateId
                   AND ver.variant_key = :variantId
                   AND ver.status = 'draft'
                 """,
         )
             .bind("tenantId", tenantId)
+            .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantKey)
             .mapTo<DraftRow>()

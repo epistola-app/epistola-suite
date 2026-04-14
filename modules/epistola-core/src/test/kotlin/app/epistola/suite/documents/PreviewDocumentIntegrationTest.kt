@@ -1,6 +1,7 @@
 package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -44,6 +45,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 query(
                     PreviewDraft(
                         tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -76,6 +78,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 query(
                     PreviewDraft(
                         tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -96,6 +99,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     mediator.query(
                         PreviewDraft(
                             tenantId = tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = app.epistola.suite.common.ids.TemplateKey.of("nonexistent"),
                             variantId = app.epistola.suite.common.ids.VariantKey.of("nonexistent"),
                             data = emptyData(),
@@ -136,6 +140,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     query(
                         PreviewDraft(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -167,6 +172,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 query(
                     PreviewDocument(
                         tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         versionId = setup.version.id,
@@ -198,6 +204,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     query(
                         PreviewDocument(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             versionId = app.epistola.suite.common.ids.VersionKey.of(199),
@@ -229,6 +236,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     query(
                         PreviewDocument(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -268,6 +276,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     query(
                         PreviewDocument(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             versionId = setup.version.id,
