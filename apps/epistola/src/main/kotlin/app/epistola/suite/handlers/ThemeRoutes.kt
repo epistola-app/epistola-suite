@@ -19,9 +19,9 @@ class ThemeRoutes(private val handler: ThemeHandler) {
                 GET("/new", handler::newForm)
                 POST("", handler::create)
 
-                GET("/{themeId}", handler::detail)
-                PATCH("/{themeId}", handler::update)
-                POST("/{themeId}/delete", handler::delete)
+                GET("/{catalogId}/{themeId}", handler::detail)
+                PATCH("/{catalogId}/{themeId}", handler::update)
+                POST("/{catalogId}/{themeId}/delete", handler::delete)
             }
         }
     }
