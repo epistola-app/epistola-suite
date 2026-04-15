@@ -67,19 +67,17 @@
                            class="btn btn-sm btn-icon btn-ghost" title="Export as ZIP" hx-boost="false">
                             <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </a>
-                        <form th:if="${catalog.id.toString() != 'default'}"
-                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                              method="post" style="display: inline;">
-                            <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-                                    th:title="${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog and all its resources' : 'Remove catalog'"
-                                    th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
-                                    data-confirm-title="Delete Catalog"
-                                    th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                    data-confirm-target="#catalog-rows"
-                                    onclick="openConfirmDialog(this); return false;">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
-                        </form>
+                        <button type="button"
+                                class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                th:disabled="${catalog.id.toString() == 'default'}"
+                                th:title="${catalog.id.toString() == 'default'} ? 'The default catalog cannot be deleted' : (${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog and all its resources' : 'Remove catalog')"
+                                th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
+                                data-confirm-title="Delete Catalog"
+                                th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                data-confirm-target="#catalog-rows"
+                                onclick="openConfirmDialog(this)">
+                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                        </button>
                     </td>
                 </tr>
             </tbody>
