@@ -59,10 +59,6 @@ class ExportCatalogZipHandler(
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
 
-        require(catalog.type == CatalogType.AUTHORED) {
-            "Only authored catalogs can be exported"
-        }
-
         // List all template slugs in this catalog
         val templateSlugs = listTemplateSlugs(command.tenantKey, command.catalogKey)
 
