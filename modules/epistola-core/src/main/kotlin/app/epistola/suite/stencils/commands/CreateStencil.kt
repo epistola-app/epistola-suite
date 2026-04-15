@@ -73,17 +73,18 @@ class CreateStencilHandler(
                     .mapTo<Stencil>()
                     .one()
 
-                // 2. If content is provided, create initial draft version
-                command.content?.let { content ->
-                    val contentJson = objectMapper.writeValueAsString(content)
+                // 2. Create initial draft version (empty if no content provided)
+                run {
+                    val contentJson = if (command.content != null) objectMapper.writeValueAsString(command.content) else "{}"
                     handle.createUpdate(
                         """
-                        INSERT INTO stencil_versions (id, tenant_key, stencil_key, content, status, created_at)
-                        VALUES (:id, :tenantId, :stencilId, :content::jsonb, 'draft', NOW())
+                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, created_at)
+                        VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, 'draft', NOW())
                         """,
                     )
                         .bind("id", VersionKey.of(1))
                         .bind("tenantId", command.id.tenantKey)
+                        .bind("catalogKey", command.id.catalogKey)
                         .bind("stencilId", command.id.key)
                         .bind("content", contentJson)
                         .execute()
