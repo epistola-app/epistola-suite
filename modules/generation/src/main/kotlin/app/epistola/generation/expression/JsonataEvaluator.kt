@@ -107,11 +107,15 @@ class JsonataEvaluator(
 
     /**
      * Format a number using a canonical [DecimalFormat] picture (`.` decimal, `,` grouping).
-     * The optional [language] code selects locale-specific decimal/grouping separators —
+     * The [language] code selects locale-specific decimal/grouping separators —
      * allowing the same canonical pattern to produce locale-specific output
      * (e.g. `1,234.56` vs `1.234,56`).
+     *
+     * When [language] is null or blank, returns a visible error string so the
+     * template author can spot a missing `sys.language` argument in the output.
      */
     private fun formatLocalNumber(value: Any, pattern: String, language: String?): String {
+        if (language.isNullOrBlank()) return UNDEFINED_LANGUAGE_ERROR
         val number = when (value) {
             is Number -> value.toDouble()
             is String -> value.toDoubleOrNull() ?: return value
@@ -119,12 +123,11 @@ class JsonataEvaluator(
         }
         return try {
             val symbols = DecimalFormatSymbols(locale).apply {
-                when (language?.lowercase()) {
+                when (language.lowercase()) {
                     "en", "en-us", "en-gb" -> {
                         decimalSeparator = '.'
                         groupingSeparator = ','
                     }
-                    null -> {} // default locale symbols
                     else -> {
                         decimalSeparator = ','
                         groupingSeparator = '.'
@@ -135,6 +138,10 @@ class JsonataEvaluator(
         } catch (_: Exception) {
             value.toString()
         }
+    }
+
+    companion object {
+        private const val UNDEFINED_LANGUAGE_ERROR = "<formatLocalNumber failed - undefined language>"
     }
 
     private fun formatDate(value: String, pattern: String): String {

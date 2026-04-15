@@ -182,33 +182,39 @@ class JsonataEvaluatorTest {
 
     // --- $formatLocalNumber (locale-aware number formatting) ---
 
+    private val nlData = mapOf("sys" to mapOf("language" to "nl"))
+    private val enData = mapOf("sys" to mapOf("language" to "en"))
+
     @Test
-    fun `formatLocalNumber with grouping`() {
-        val data = mapOf("n" to 1234)
-        assertEquals("1,234", evaluator.evaluate("\$formatLocalNumber(n, '#,##0')", data))
+    fun `formatLocalNumber with grouping (en)`() {
+        val data = enData + mapOf("n" to 1234)
+        assertEquals("1,234", evaluator.evaluate("\$formatLocalNumber(n, '#,##0', sys.language)", data))
     }
 
     @Test
-    fun `formatLocalNumber with grouping and decimals`() {
-        val data = mapOf("n" to 1234.5)
-        assertEquals("1,234.50", evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00')", data))
+    fun `formatLocalNumber with grouping and decimals (en)`() {
+        val data = enData + mapOf("n" to 1234.5)
+        assertEquals(
+            "1,234.50",
+            evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
+        )
     }
 
     @Test
     fun `formatLocalNumber integer rounds`() {
-        val data = mapOf("n" to 1234.56)
-        assertEquals("1235", evaluator.evaluate("\$formatLocalNumber(n, '0')", data))
+        val data = enData + mapOf("n" to 1234.56)
+        assertEquals("1235", evaluator.evaluate("\$formatLocalNumber(n, '0', sys.language)", data))
     }
 
     @Test
     fun `formatLocalNumber percentage`() {
-        val data = mapOf("n" to 0.21)
-        assertEquals("21%", evaluator.evaluate("\$formatLocalNumber(n, '0%')", data))
+        val data = enData + mapOf("n" to 0.21)
+        assertEquals("21%", evaluator.evaluate("\$formatLocalNumber(n, '0%', sys.language)", data))
     }
 
     @Test
     fun `formatLocalNumber with language nl uses comma notation`() {
-        val data = mapOf("n" to 1234.5, "sys" to mapOf("language" to "nl"))
+        val data = mapOf("n" to 1234.5) + nlData
         assertEquals(
             "1.234,50",
             evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
@@ -217,7 +223,7 @@ class JsonataEvaluatorTest {
 
     @Test
     fun `formatLocalNumber with language en uses point notation`() {
-        val data = mapOf("n" to 1234.5, "sys" to mapOf("language" to "en"))
+        val data = mapOf("n" to 1234.5) + enData
         assertEquals(
             "1,234.50",
             evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
@@ -235,10 +241,31 @@ class JsonataEvaluatorTest {
 
     @Test
     fun `formatLocalNumber in string concatenation`() {
-        val data = mapOf("total" to 1207.58)
+        val data = mapOf("total" to 1207.58) + enData
         assertEquals(
             "Total: 1,207.58",
-            evaluator.evaluate("\"Total: \" & \$formatLocalNumber(total, '#,##0.00')", data),
+            evaluator.evaluate(
+                "\"Total: \" & \$formatLocalNumber(total, '#,##0.00', sys.language)",
+                data,
+            ),
+        )
+    }
+
+    @Test
+    fun `formatLocalNumber without language returns error message`() {
+        val data = mapOf("n" to 1234.5)
+        assertEquals(
+            "<formatLocalNumber failed - undefined language>",
+            evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00')", data),
+        )
+    }
+
+    @Test
+    fun `formatLocalNumber with missing sys language returns error message`() {
+        val data = mapOf("n" to 1234.5, "sys" to mapOf<String, Any?>())
+        assertEquals(
+            "<formatLocalNumber failed - undefined language>",
+            evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
         )
     }
 

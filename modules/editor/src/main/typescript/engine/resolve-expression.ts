@@ -79,17 +79,20 @@ export function formatDateValue(value: string, pattern: string): string {
 }
 
 /**
+ * Error string returned by `$formatLocalNumber` when the `language` argument
+ * is missing or empty. Surfacing it in the output makes it easy for template
+ * authors to spot a missing `sys.language` argument.
+ */
+export const UNDEFINED_LANGUAGE_ERROR = '<formatLocalNumber failed - undefined language>';
+
+/**
  * Map a language code to decimal/grouping separators.
  * English uses `.` decimal + `,` grouping; everything else defaults to
- * `,` decimal + `.` grouping (Dutch/European). When language is `undefined`
- * or `null`, the English/canonical defaults are used.
+ * `,` decimal + `.` grouping (Dutch/European).
  */
-function separatorsForLanguage(language: string | null | undefined): {
-  decimal: string;
-  grouping: string;
-} {
-  const lang = language?.toLowerCase();
-  if (lang === 'en' || lang === 'en-us' || lang === 'en-gb' || lang == null) {
+function separatorsForLanguage(language: string): { decimal: string; grouping: string } {
+  const lang = language.toLowerCase();
+  if (lang === 'en' || lang === 'en-us' || lang === 'en-gb') {
     return { decimal: '.', grouping: ',' };
   }
   return { decimal: ',', grouping: '.' };
@@ -97,7 +100,10 @@ function separatorsForLanguage(language: string | null | undefined): {
 
 /**
  * Format a numeric value using a canonical DecimalFormat-style pattern.
- * The optional `language` code selects locale-specific decimal/grouping separators.
+ * The `language` code selects locale-specific decimal/grouping separators.
+ *
+ * Returns [UNDEFINED_LANGUAGE_ERROR] when [language] is null/undefined/blank
+ * so a missing `sys.language` argument is visible in the rendered output.
  *
  * This is the implementation behind the `$formatLocalNumber` custom function —
  * distinct from JSONata's built-in `$formatNumber` (which interprets the
@@ -108,6 +114,7 @@ export function formatLocalNumberValue(
   pattern: string,
   language?: string | null,
 ): string {
+  if (language == null || language.trim() === '') return UNDEFINED_LANGUAGE_ERROR;
   const { decimal: decimalSep, grouping: groupingSep } = separatorsForLanguage(language);
 
   // Handle positive/negative subpatterns
