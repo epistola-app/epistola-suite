@@ -4,7 +4,10 @@
 
 ### Added
 
-- **Export catalog as ZIP**: Authored catalogs can be exported as self-contained ZIP archives from the Catalogs page. The ZIP contains the catalog manifest, all resource detail files (templates, themes, stencils, attributes, assets), and asset binary content. The download button appears next to each authored catalog.
+- **Export catalog as ZIP**: All catalogs (authored and subscribed) can be exported as self-contained ZIP archives from the Catalogs page. The ZIP contains the catalog manifest, all resource detail files (templates, themes, stencils, attributes, assets), and asset binary content. Exports all resources in the catalog, not just template dependencies.
+- **Dedicated asset upload page**: Assets are now uploaded via a dedicated `/assets/new` page with an explicit catalog selector, replacing the inline drag-drop zone. Catalog is always explicitly chosen.
+- **Delete authored catalogs**: Authored catalogs (except the default) can now be deleted with a confirmation dialog warning about resource deletion. Subscribed catalogs retain the existing remove functionality.
+- **Global closeDialog event**: HTMX responses can trigger `closeDialog` via `HX-Trigger` header to close any open dialog. Replaces CSP-incompatible `hx-on::after-request` attributes.
 - **Theme editor read-only mode**: The theme editor now supports an optional `readonly` flag. When enabled, all inputs are disabled, autosave is suppressed, keyboard shortcuts are ignored, and the save status bar is hidden.
 - **Read-only enforcement for subscribed catalogs**: Resources in subscribed catalogs are protected from modification at both the backend and UI levels. All 21 mutating command handlers check `IsCatalogEditable` and throw `CatalogReadOnlyException` for subscribed catalogs. The UI shows a "Read-only" badge and hides edit/delete buttons for subscribed resources.
 - **Catalog-aware UI for all resource types**: Themes, stencils, assets, and attributes now have full catalog integration in the UI — catalog filter dropdown on list pages, catalog column in tables, catalog selector in create forms, and `/{catalogId}/{resourceId}` URL patterns for detail pages. Consistent with the template catalog UI.
@@ -23,7 +26,10 @@
 
 ### Fixed
 
-- **Systematic catalog_key fix across all SQL queries**: Added `catalog_key` to WHERE/JOIN/SELECT clauses in ~20 queries across template variants, activations, stencil commands, attribute commands, document queries, and catalog import. Prevents ambiguous results when the same slug exists in multiple catalogs.
+- **Systematic catalog_key fix across all SQL queries**: Added `catalog_key` to WHERE/JOIN/SELECT clauses in ~35 queries across template commands, variants, activations, versions, stencil commands, attribute commands, document queries, and catalog import. Prevents ambiguous results when the same slug exists in multiple catalogs.
+- **CSP-compliant dialog close**: Replaced `hx-on::after-request` (uses `eval()`, blocked by CSP) with `HX-Trigger: closeDialog` pattern in variant edit and attribute edit forms.
+- **Missing catalogId in variant edit URL**: Fixed Thymeleaf URL expression missing the `catalogId` parameter, causing `CatalogKey` validation failure.
+- **Export includes all catalog resources**: ZIP export now queries all resources by `catalog_key` directly instead of relying on dependency scanning. Fixed `ExportAssets` to filter by asset ID instead of name.
 - **DeleteAsset fails with JDBI mapping error**: Replaced `mapTo<CatalogKey>()` with a manual row mapper in `DeleteAssetHandler`, fixing `IllegalArgumentException: Could not match constructor parameters [catalog_key] for CatalogKey`. JDBI cannot auto-map Kotlin value classes.
 - **DemoLoader fails on user ID scheme change**: Fixed `ON CONFLICT DO NOTHING` in user upsert to `DO UPDATE`, so existing users with changed deterministic UUIDs are updated instead of silently skipped (which caused FK violations on `tenant_memberships`).
 - **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
