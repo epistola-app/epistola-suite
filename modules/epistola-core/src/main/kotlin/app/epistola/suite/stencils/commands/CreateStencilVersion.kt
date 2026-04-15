@@ -41,9 +41,10 @@ class CreateStencilVersionHandler(
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
             // Verify stencil exists
             val stencilExists = handle.createQuery(
-                "SELECT COUNT(*) > 0 FROM stencils WHERE tenant_key = :tenantId AND id = :stencilId",
+                "SELECT COUNT(*) > 0 FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :stencilId",
             )
                 .bind("tenantId", command.stencilId.tenantKey)
+                .bind("catalogKey", command.stencilId.catalogKey)
                 .bind("stencilId", command.stencilId.key)
                 .mapTo<Boolean>()
                 .one()
@@ -54,10 +55,11 @@ class CreateStencilVersionHandler(
             val existingDraft = handle.createQuery(
                 """
             SELECT * FROM stencil_versions
-            WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND status = 'draft'
             """,
             )
                 .bind("tenantId", command.stencilId.tenantKey)
+                .bind("catalogKey", command.stencilId.catalogKey)
                 .bind("stencilId", command.stencilId.key)
                 .mapTo<StencilVersion>()
                 .findOne()
@@ -70,10 +72,11 @@ class CreateStencilVersionHandler(
                 """
             SELECT COALESCE(MAX(id), 0) + 1
             FROM stencil_versions
-            WHERE tenant_key = :tenantId AND stencil_key = :stencilId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId
             """,
             )
                 .bind("tenantId", command.stencilId.tenantKey)
+                .bind("catalogKey", command.stencilId.catalogKey)
                 .bind("stencilId", command.stencilId.key)
                 .mapTo(Int::class.java)
                 .one()
@@ -89,11 +92,12 @@ class CreateStencilVersionHandler(
                 handle.createQuery(
                     """
                 SELECT content::text FROM stencil_versions
-                WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND status = 'published'
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND status = 'published'
                 ORDER BY id DESC LIMIT 1
                 """,
                 )
                     .bind("tenantId", command.stencilId.tenantKey)
+                    .bind("catalogKey", command.stencilId.catalogKey)
                     .bind("stencilId", command.stencilId.key)
                     .mapTo(String::class.java)
                     .findOne()
@@ -103,13 +107,14 @@ class CreateStencilVersionHandler(
 
             handle.createQuery(
                 """
-            INSERT INTO stencil_versions (id, tenant_key, stencil_key, content, status, created_at)
-            VALUES (:id, :tenantId, :stencilId, :content::jsonb, 'draft', NOW())
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, created_at)
+            VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, 'draft', NOW())
             RETURNING *
             """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", command.stencilId.tenantKey)
+                .bind("catalogKey", command.stencilId.catalogKey)
                 .bind("stencilId", command.stencilId.key)
                 .bind("content", contentJson)
                 .mapTo<StencilVersion>()

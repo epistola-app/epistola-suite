@@ -55,11 +55,12 @@ class UpdateAttributeDefinitionHandler(
                 val currentAllowedValues = handle.createQuery(
                     """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_key = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .mapTo(String::class.java)
                     .findOne()
                     .orElse(null) ?: return@withHandle null
@@ -77,10 +78,12 @@ class UpdateAttributeDefinitionHandler(
                             """
                             SELECT COUNT(*) FROM template_variants
                             WHERE tenant_key = :tenantId
+                              AND catalog_key = :catalogKey
                               AND attributes ->> :attributeKey = :value
                             """,
                         )
                             .bind("tenantId", command.id.tenantKey)
+                            .bind("catalogKey", command.id.catalogKey)
                             .bind("attributeKey", command.id.key.value)
                             .bind("value", value)
                             .mapTo(Long::class.java)
@@ -101,12 +104,13 @@ class UpdateAttributeDefinitionHandler(
                 SET display_name = :displayName,
                     allowed_values = :allowedValues::jsonb,
                     last_modified = NOW()
-                WHERE id = :id AND tenant_key = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 RETURNING *
                 """,
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
                 .mapTo<VariantAttributeDefinition>()

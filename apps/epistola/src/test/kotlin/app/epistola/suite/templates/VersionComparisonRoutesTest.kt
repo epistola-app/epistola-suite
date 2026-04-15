@@ -176,9 +176,9 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
             whenever {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
-                val request = HttpEntity("{}", headers)
+                val request = HttpEntity("""{"versionId": $versionNumber}""", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/versions/$versionNumber/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -217,7 +217,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.contentType = MediaType.APPLICATION_JSON
                 val request = HttpEntity("{}", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/versions/$versionNumber/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -248,9 +248,9 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
             whenever {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
-                val request = HttpEntity("{}", headers)
+                val request = HttpEntity("""{"versionId": 999}""", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/versions/999/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/preview",
                     request,
                     String::class.java,
                 )

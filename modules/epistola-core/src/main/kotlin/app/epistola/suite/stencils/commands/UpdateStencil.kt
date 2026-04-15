@@ -79,9 +79,10 @@ class UpdateStencilHandler(
             if (setClauses.isEmpty()) {
                 // Nothing to update, just return current state
                 return@inTransaction handle.createQuery(
-                    "SELECT * FROM stencils WHERE tenant_key = :tenantId AND id = :id",
+                    "SELECT * FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id",
                 )
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .bind("id", command.id.key)
                     .mapTo<Stencil>()
                     .findOne()
@@ -92,12 +93,13 @@ class UpdateStencilHandler(
 
             val sql = """
             UPDATE stencils SET ${setClauses.joinToString(", ")}
-            WHERE tenant_key = :tenantId AND id = :id
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id
             RETURNING *
         """
 
             val query = handle.createQuery(sql)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .bind("id", command.id.key)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }

@@ -35,9 +35,10 @@ class ImportAttributeHandler(
         val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) > 0 FROM variant_attribute_definitions WHERE id = :id AND tenant_key = :tenantKey")
+            handle.createQuery("SELECT COUNT(*) > 0 FROM variant_attribute_definitions WHERE id = :id AND tenant_key = :tenantKey AND catalog_key = :catalogKey")
                 .bind("id", attributeKey)
                 .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", command.catalogKey)
                 .mapTo(Boolean::class.java)
                 .one()
         }

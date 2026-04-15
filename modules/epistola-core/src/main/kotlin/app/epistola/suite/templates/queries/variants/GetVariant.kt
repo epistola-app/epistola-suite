@@ -33,11 +33,13 @@ class GetVariantHandler(
                 WHERE tv.id = :variantId
                   AND tv.template_key = :templateId
                   AND tv.tenant_key = :tenantId
+                  AND tv.catalog_key = :catalogKey
                 """,
         )
             .bind("variantId", query.variantId.key)
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
+            .bind("catalogKey", query.variantId.catalogKey)
             .mapTo<TemplateVariant>()
             .findOne()
             .orElse(null)
@@ -64,21 +66,23 @@ class GetVariantSummariesHandler(
                     tv.title,
                     tv.attributes,
                     tv.is_default,
-                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
+                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.catalog_key = tv.catalog_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
                     COALESCE(
                         (SELECT jsonb_agg(ver.id ORDER BY ver.id)
                          FROM template_versions ver
-                         WHERE ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'published'),
+                         WHERE ver.tenant_key = tv.tenant_key AND ver.catalog_key = tv.catalog_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'published'),
                         '[]'::jsonb
                     ) as published_versions
                 FROM template_variants tv
                 WHERE tv.template_key = :templateId
                   AND tv.tenant_key = :tenantId
+                  AND tv.catalog_key = :catalogKey
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
+            .bind("catalogKey", query.templateId.catalogKey)
             .mapTo<VariantSummary>()
             .list()
     }

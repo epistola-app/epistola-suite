@@ -13,7 +13,6 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -46,7 +45,7 @@ class DeleteAssetHandler(
             handle.createQuery("SELECT catalog_key FROM assets WHERE tenant_key = :tenantId AND id = :assetId")
                 .bind("tenantId", command.tenantId)
                 .bind("assetId", command.assetId)
-                .mapTo<CatalogKey>()
+                .map { rs, _ -> CatalogKey(rs.getString("catalog_key")) }
                 .findOne()
                 .orElse(null)
         } ?: return false

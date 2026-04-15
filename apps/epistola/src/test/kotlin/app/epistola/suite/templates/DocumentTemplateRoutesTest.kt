@@ -161,6 +161,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "new-template")
             formData.add("name", "New Template")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -191,6 +192,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "htmx-template")
             formData.add("name", "HTMX Template")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -223,6 +225,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
             formData.add("name", "")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -253,6 +256,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
             formData.add("name", "   ")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -282,6 +286,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
             formData.add("name", "a".repeat(256))
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -310,6 +315,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("name", "a".repeat(256))
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }

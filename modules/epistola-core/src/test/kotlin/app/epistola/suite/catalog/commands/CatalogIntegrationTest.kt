@@ -34,7 +34,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
             assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isEqualTo("2.0")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("4.2")
         }
     }
 
@@ -63,7 +63,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).query()
 
-            assertThat(result.resources).hasSize(6)
+            assertThat(result.resources).hasSize(7)
             assertThat(result.resources.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
             assertThat(result.resources).allMatch { it.status == ResourceStatus.AVAILABLE }
         }
@@ -81,13 +81,13 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
-            assertThat(results).hasSize(6)
+            assertThat(results).hasSize(7)
             val successful = results.filter { it.status != InstallStatus.FAILED }
-            assertThat(successful).hasSize(6)
+            assertThat(successful).hasSize(7)
 
             // Verify templates were created
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
-            assertThat(templates.map { it.id.value }).containsExactlyInAnyOrder("hello-world", "simple-letter")
+            assertThat(templates.map { it.id.value }).containsExactlyInAnyOrder("hello-world", "simple-letter", "demo-invoice")
 
             // Verify resource type distribution
             assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "asset"))
@@ -167,7 +167,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            assertThat(results).hasSize(6)
+            assertThat(results).hasSize(7)
             assertThat(results).allMatch { it.status == InstallStatus.INSTALLED }
         }
     }

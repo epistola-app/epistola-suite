@@ -46,11 +46,12 @@ class UpdateStencilInTemplateHandler(
             """
             SELECT id, template_model
             FROM template_versions
-            WHERE tenant_key = :tenantId AND template_key = :templateId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
               AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .mapToMap()
@@ -77,10 +78,11 @@ class UpdateStencilInTemplateHandler(
         val newStencilVersion = handle.createQuery(
             """
             SELECT content FROM stencil_versions
-            WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
             """,
         )
             .bind("tenantId", command.stencilId.tenantKey)
+            .bind("catalogKey", command.stencilId.catalogKey)
             .bind("stencilId", command.stencilId.key)
             .bind("versionId", command.newVersion)
             .mapTo(String::class.java)
@@ -106,11 +108,12 @@ class UpdateStencilInTemplateHandler(
         handle.createUpdate(
             """
             UPDATE template_versions SET template_model = :templateModel::jsonb
-            WHERE tenant_key = :tenantId AND template_key = :templateId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
               AND variant_key = :variantId AND id = :versionId AND status = 'draft'
             """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .bind("versionId", draftVersionId)

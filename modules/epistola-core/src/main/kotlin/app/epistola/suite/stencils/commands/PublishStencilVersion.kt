@@ -36,11 +36,12 @@ class PublishStencilVersionHandler(
         val version = handle.createQuery(
             """
             SELECT * FROM stencil_versions
-            WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
               AND status = 'draft'
             """,
         )
             .bind("tenantId", command.versionId.tenantKey)
+            .bind("catalogKey", command.versionId.catalogKey)
             .bind("stencilId", command.versionId.stencilKey)
             .bind("versionId", command.versionId.key)
             .mapTo<StencilVersion>()
@@ -55,11 +56,12 @@ class PublishStencilVersionHandler(
             """
             UPDATE stencil_versions
             SET status = 'published', published_at = NOW()
-            WHERE tenant_key = :tenantId AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
             RETURNING *
             """,
         )
             .bind("tenantId", command.versionId.tenantKey)
+            .bind("catalogKey", command.versionId.catalogKey)
             .bind("stencilId", command.versionId.stencilKey)
             .bind("versionId", command.versionId.key)
             .mapTo<StencilVersion>()

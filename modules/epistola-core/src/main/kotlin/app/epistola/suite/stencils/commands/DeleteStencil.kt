@@ -33,10 +33,11 @@ class DeleteStencilHandler(
             val rowsDeleted = handle.createUpdate(
                 """
             DELETE FROM stencils
-            WHERE tenant_key = :tenantId AND id = :id
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id
             """,
             )
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .bind("id", command.id.key)
                 .execute()
 

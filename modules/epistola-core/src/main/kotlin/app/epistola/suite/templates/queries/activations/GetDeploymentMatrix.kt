@@ -46,14 +46,16 @@ class GetDeploymentMatrixHandler(
                     ea.version_key,
                     ea.activated_at
                 FROM environment_activations ea
-                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.template_key = ea.template_key AND tv.id = ea.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.catalog_key = ea.catalog_key AND tv.template_key = ea.template_key AND tv.id = ea.variant_key
                 WHERE ea.template_key = :templateId
                   AND ea.tenant_key = :tenantId
+                  AND ea.catalog_key = :catalogKey
                 ORDER BY tv.created_at ASC, ea.environment_key ASC
                 """,
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
+            .bind("catalogKey", query.templateId.catalogKey)
             .mapTo<DeploymentMatrixCell>()
             .list()
     }

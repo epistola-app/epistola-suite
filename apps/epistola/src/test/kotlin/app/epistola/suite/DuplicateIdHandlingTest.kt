@@ -113,6 +113,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "my-theme")
             formData.add("name", "My Theme Again")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
                 "/tenants/${tenant.id}/themes",
@@ -147,6 +148,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "my-template")
             formData.add("name", "My Template Again")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
                 "/tenants/${tenant.id}/templates",
@@ -181,6 +183,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "language")
             formData.add("displayName", "Language Again")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
                 "/tenants/${tenant.id}/attributes",

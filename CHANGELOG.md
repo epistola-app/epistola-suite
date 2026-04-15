@@ -22,6 +22,8 @@
 
 ### Fixed
 
+- **Systematic catalog_key fix across all SQL queries**: Added `catalog_key` to WHERE/JOIN/SELECT clauses in ~20 queries across template variants, activations, stencil commands, attribute commands, document queries, and catalog import. Prevents ambiguous results when the same slug exists in multiple catalogs.
+- **DeleteAsset fails with JDBI mapping error**: Replaced `mapTo<CatalogKey>()` with a manual row mapper in `DeleteAssetHandler`, fixing `IllegalArgumentException: Could not match constructor parameters [catalog_key] for CatalogKey`. JDBI cannot auto-map Kotlin value classes.
 - **DemoLoader fails on user ID scheme change**: Fixed `ON CONFLICT DO NOTHING` in user upsert to `DO UPDATE`, so existing users with changed deterministic UUIDs are updated instead of silently skipped (which caused FK violations on `tenant_memberships`).
 - **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
 - **DOM XSS in HTMX error banner**: Replaced `innerHTML` with safe DOM API (`textContent` + `createElement`) in the global HTMX error handler to prevent potential cross-site scripting via error messages.
