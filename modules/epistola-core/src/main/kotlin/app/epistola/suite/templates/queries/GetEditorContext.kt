@@ -51,15 +51,17 @@ class GetEditorContextHandler(
                 tv.attributes as variant_attributes,
                 ver.template_model as draft_template_model
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
-            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft'
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.catalog_key = tv.catalog_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft'
             WHERE tv.template_key = :templateId
               AND tv.tenant_key = :tenantId
+              AND tv.catalog_key = :catalogKey
               AND tv.id = :variantId
             """,
         )
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
+            .bind("catalogKey", query.variantId.catalogKey)
             .bind("variantId", query.variantId.key)
             .mapToMap()
             .findOne()
