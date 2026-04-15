@@ -39,12 +39,16 @@ export interface StencilVersionSummary {
 export type SearchStencilsFn = (query: string) => Promise<StencilSummary[]>;
 
 /** List all versions for a stencil (for the version picker). */
-export type ListStencilVersionsFn = (stencilId: string) => Promise<StencilVersionSummary[]>;
+export type ListStencilVersionsFn = (
+  stencilId: string,
+  catalogKey?: string,
+) => Promise<StencilVersionSummary[]>;
 
 /** Fetch a specific published stencil version's content. */
 export type GetStencilVersionFn = (
   stencilId: string,
   version: number,
+  catalogKey?: string,
 ) => Promise<StencilVersionInfo | null>;
 
 /** Check which stencil instances in the document have newer versions available. */
@@ -62,13 +66,21 @@ export type CreateStencilFn = (
 export type UpdateStencilFn = (
   stencilId: string,
   content: import('../../types/index.js').TemplateDocument,
+  catalogKey?: string,
 ) => Promise<{ version: number }>;
 
 /** Ensure a draft exists for a stencil (creates one if needed). */
-export type StartEditingFn = (stencilId: string) => Promise<{ draftVersion: number }>;
+export type StartEditingFn = (
+  stencilId: string,
+  catalogKey?: string,
+) => Promise<{ draftVersion: number }>;
 
 /** Publish a specific version. */
-export type PublishDraftFn = (stencilId: string, version: number) => Promise<{ version: number }>;
+export type PublishDraftFn = (
+  stencilId: string,
+  version: number,
+  catalogKey?: string,
+) => Promise<{ version: number }>;
 
 /** All stencil-related callbacks provided by the hosting app. */
 export interface StencilCallbacks {

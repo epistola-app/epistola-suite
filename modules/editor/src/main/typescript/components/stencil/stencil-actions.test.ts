@@ -684,3 +684,32 @@ describe('Inspector action flows with callbacks', () => {
     expect(engine.doc.nodes[nodeId].props?.version).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// catalogKey propagation
+// ---------------------------------------------------------------------------
+
+describe('catalogKey propagation', () => {
+  it('stencil node preserves catalogKey in props', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
+      catalogKey: 'my-catalog',
+    });
+
+    expect(engine.doc.nodes[nodeId].props?.catalogKey).toBe('my-catalog');
+  });
+
+  it('stencil node without catalogKey defaults to undefined', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const nodeId = insertStencil(engine, registry, rootSlotId, {
+      stencilId: 'header',
+      version: 1,
+      isDraft: false,
+    });
+
+    expect(engine.doc.nodes[nodeId].props?.catalogKey).toBeUndefined();
+  });
+});

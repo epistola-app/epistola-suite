@@ -540,7 +540,9 @@ class StencilHandler(
         // Ensure a draft exists (idempotent). Pass content so it works even
         // for brand-new stencils with no published versions to copy from.
         val draft = CreateStencilVersion(stencilId = stencilId, content = req.content).execute()
-            ?: return ServerResponse.notFound().build()
+            ?: return ServerResponse.status(404)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Stencil '${stencilId.key}' not found. Create it first using the stencil picker."))
 
         // Always update — CreateStencilVersion returns existing draft without updating content
         UpdateStencilDraft(
