@@ -116,6 +116,7 @@ class VariantRouteHandler {
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
             }
+            trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
         }
     }

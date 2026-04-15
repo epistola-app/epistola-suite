@@ -203,6 +203,7 @@ class AttributeHandler {
                 "tenantId" to tenantId.key
                 "attributes" to attributes
             }
+            trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
     }

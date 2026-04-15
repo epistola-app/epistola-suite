@@ -116,7 +116,7 @@
         <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${attribute.catalogKey},attributeId=${attribute.id})}"
               hx-target="#attribute-rows"
               hx-swap="innerHTML"
-              hx-on::after-request="if(event.detail.successful) document.getElementById('edit-attribute-dialog').close()">
+>
             <div class="ep-dialog-body">
                 <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
                     <span th:text="${error}"></span>
