@@ -6,6 +6,12 @@
  * delegation pattern used for SaveFn, FetchPreviewFn, and AssetPickerCallbacks.
  */
 
+/** Uniquely identifies a stencil within a tenant. */
+export interface StencilRef {
+  stencilId: string;
+  catalogKey: string;
+}
+
 /** Summary of a stencil for browse/search results. */
 export interface StencilSummary {
   id: string;
@@ -20,9 +26,8 @@ export interface StencilSummary {
 
 /** A specific stencil version with its content. */
 export interface StencilVersionInfo {
-  stencilId: string;
+  ref: StencilRef;
   stencilName: string;
-  catalogKey?: string;
   version: number;
   /** The template document fragment (nodes + slots) to embed. */
   content: import('../../types/index.js').TemplateDocument;
@@ -40,48 +45,36 @@ export interface StencilVersionSummary {
 export type SearchStencilsFn = (query: string) => Promise<StencilSummary[]>;
 
 /** List all versions for a stencil (for the version picker). */
-export type ListStencilVersionsFn = (
-  stencilId: string,
-  catalogKey?: string,
-) => Promise<StencilVersionSummary[]>;
+export type ListStencilVersionsFn = (ref: StencilRef) => Promise<StencilVersionSummary[]>;
 
 /** Fetch a specific published stencil version's content. */
 export type GetStencilVersionFn = (
-  stencilId: string,
+  ref: StencilRef,
   version: number,
-  catalogKey?: string,
 ) => Promise<StencilVersionInfo | null>;
 
 /** Check which stencil instances in the document have newer versions available. */
 export type CheckStencilUpgradesFn = (
-  refs: Array<{ stencilId: string; version: number }>,
+  refs: Array<{ stencilId: string; version: number; catalogKey?: string }>,
 ) => Promise<Array<{ stencilId: string; currentVersion: number; latestVersion: number }>>;
 
-/** Create a new stencil entity with an empty draft. Returns the stencilId and draft version. */
+/** Create a new stencil entity with an empty draft. */
 export type CreateStencilFn = (
   slug: string,
   name: string,
-) => Promise<{ stencilId: string; version: number; catalogKey?: string }>;
+) => Promise<{ ref: StencilRef; version: number }>;
 
 /** Push updated content back to a stencil as a new draft version. */
 export type UpdateStencilFn = (
-  stencilId: string,
+  ref: StencilRef,
   content: import('../../types/index.js').TemplateDocument,
-  catalogKey?: string,
 ) => Promise<{ version: number }>;
 
 /** Ensure a draft exists for a stencil (creates one if needed). */
-export type StartEditingFn = (
-  stencilId: string,
-  catalogKey?: string,
-) => Promise<{ draftVersion: number }>;
+export type StartEditingFn = (ref: StencilRef) => Promise<{ draftVersion: number }>;
 
 /** Publish a specific version. */
-export type PublishDraftFn = (
-  stencilId: string,
-  version: number,
-  catalogKey?: string,
-) => Promise<{ version: number }>;
+export type PublishDraftFn = (ref: StencilRef, version: number) => Promise<{ version: number }>;
 
 /** All stencil-related callbacks provided by the hosting app. */
 export interface StencilCallbacks {

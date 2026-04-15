@@ -177,23 +177,21 @@
                     const data = await resp.json();
                     return data.items ?? data;
                 },
-                listVersions: async (stencilId, catalogKey) => {
-                    const cat = catalogKey || 'default';
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions', {
+                listVersions: async (ref) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/versions', {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) return [];
                     const data = await resp.json();
                     return data.items ?? data;
                 },
-                getStencilVersion: async (stencilId, version, catalogKey) => {
-                    const cat = catalogKey || 'default';
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions/' + version, {
+                getStencilVersion: async (ref, version) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/versions/' + version, {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) return null;
                     const v = await resp.json();
-                    return { stencilId: v.stencilId ?? stencilId, stencilName: stencilId, catalogKey: cat, version: v.id ?? version, content: v.content };
+                    return { ref, stencilName: ref.stencilId, version: v.id ?? version, content: v.content };
                 },
                 createStencil: async (slug, name) => {
                     const resp = await fetch('/tenants/' + tenantId + '/stencils', {
@@ -205,11 +203,11 @@
                         const err = await resp.json().catch(() => ({}));
                         throw new Error(err.message || err.error || 'Stencil ID already exists or invalid');
                     }
-                    return await resp.json();
+                    const data = await resp.json();
+                    return { ref: { stencilId: data.stencilId, catalogKey: data.catalogKey }, version: data.version };
                 },
-                startEditing: async (stencilId, catalogKey) => {
-                    const cat = catalogKey || 'default';
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions', {
+                startEditing: async (ref) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/versions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: '{}',
@@ -218,18 +216,16 @@
                     const data = await resp.json();
                     return { draftVersion: data.version };
                 },
-                publishDraft: async (stencilId, version, catalogKey) => {
-                    const cat = catalogKey || 'default';
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/versions/' + version + '/publish', {
+                publishDraft: async (ref, version) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/versions/' + version + '/publish', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) throw new Error('Failed to publish draft');
                     return await resp.json();
                 },
-                updateStencil: async (stencilId, content, catalogKey) => {
-                    const cat = catalogKey || 'default';
-                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + stencilId + '/draft', {
+                updateStencil: async (ref, content) => {
+                    const resp = await fetch('/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/draft', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: JSON.stringify({ content }),

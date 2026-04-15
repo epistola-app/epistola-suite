@@ -10,13 +10,14 @@
 
 import type {
   StencilCallbacks,
+  StencilRef,
   StencilSummary,
   StencilVersionSummary,
   StencilVersionInfo,
 } from './types.js';
 
 export type StencilPickerResult =
-  | { action: 'create-new'; stencilId: string; version: number; catalogKey?: string }
+  | { action: 'create-new'; ref: StencilRef; version: number }
   | { action: 'use-existing'; versionInfo: StencilVersionInfo }
   | null;
 
@@ -168,7 +169,10 @@ export async function openStencilPickerDialog(
       selectedVersion = null;
 
       try {
-        const versions = await callbacks.listVersions(stencil.id);
+        const versions = await callbacks.listVersions({
+          stencilId: stencil.id,
+          catalogKey: stencil.catalogKey ?? 'default',
+        });
         renderVersionList(versions);
       } catch {
         versionList.innerHTML = '<div class="stencil-picker-empty">Failed to load versions.</div>';
@@ -299,9 +303,8 @@ export async function openStencilPickerDialog(
         const result = await callbacks.createStencil(slug, name);
         close({
           action: 'create-new',
-          stencilId: result.stencilId,
+          ref: result.ref,
           version: result.version,
-          catalogKey: result.catalogKey,
         });
       } catch (e) {
         createError.textContent = (e as Error).message || 'Failed to create stencil';
@@ -320,11 +323,11 @@ export async function openStencilPickerDialog(
       insertBtn.disabled = true;
       insertBtn.textContent = 'Loading...';
 
-      const versionInfo = await callbacks.getStencilVersion(
-        selectedStencil.id,
-        selectedVersion.version,
-        selectedStencil.catalogKey,
-      );
+      const ref: StencilRef = {
+        stencilId: selectedStencil.id,
+        catalogKey: selectedStencil.catalogKey ?? 'default',
+      };
+      const versionInfo = await callbacks.getStencilVersion(ref, selectedVersion.version);
       if (!versionInfo) {
         insertBtn.textContent = 'Insert';
         insertBtn.disabled = false;
@@ -367,7 +370,7 @@ export async function openStencilPickerDialog(
         if (createConfirmBtn) createConfirmBtn.style.display = '';
       } else {
         // No create callback — insert empty (legacy fallback)
-        close({ action: 'create-new', stencilId: '', version: 0 });
+        close({ action: 'create-new', ref: { stencilId: '', catalogKey: '' }, version: 0 });
       }
     });
     const createConfirmBtn = dialog.querySelector<HTMLButtonElement>('.create-confirm');
