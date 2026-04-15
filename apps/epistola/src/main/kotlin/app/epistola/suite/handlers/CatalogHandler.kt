@@ -3,6 +3,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
@@ -255,6 +256,28 @@ class CatalogHandler {
                     if (errorMessage != null) "error" to errorMessage
                 }
             }
+        }
+    }
+
+    fun export(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+
+        return try {
+            val result = ExportCatalogZip(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+            ).execute()
+
+            ServerResponse.ok()
+                .header("Content-Type", "application/zip")
+                .header("Content-Disposition", "attachment; filename=\"${result.filename}\"")
+                .body(result.zipBytes)
+        } catch (e: Exception) {
+            logger.warn("Failed to export catalog: ${e.message}", e)
+            ServerResponse.badRequest()
+                .header("Content-Type", "application/json")
+                .body(mapOf("error" to (e.message ?: "Failed to export catalog")))
         }
     }
 
