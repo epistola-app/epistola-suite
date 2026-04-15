@@ -65,7 +65,7 @@
                         </a>
                         <a th:if="${catalog.type.name() == 'AUTHORED'}"
                            th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           class="btn btn-sm btn-icon btn-ghost" title="Export as ZIP">
+                           class="btn btn-sm btn-icon btn-ghost" title="Export as ZIP" hx-boost="false">
                             <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <form th:if="${catalog.type.name() == 'SUBSCRIBED'}"
