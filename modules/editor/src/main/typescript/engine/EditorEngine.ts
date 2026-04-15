@@ -57,6 +57,9 @@ export class EditorEngine {
   private _currentExampleIndex: number = 0;
   private _fieldPathsCache: FieldPath[] | undefined;
 
+  /** Language attribute of the variant being edited (e.g. "nl", "en"). */
+  private _variantLanguage: string | undefined;
+
   /** Generic component state store (e.g. table cell selection). */
   private _componentState = new Map<string, unknown>();
 
@@ -75,6 +78,7 @@ export class EditorEngine {
       undoDepth?: number;
       dataModel?: object;
       dataExamples?: object[];
+      variantLanguage?: string;
     },
   ) {
     this.registry = registry;
@@ -86,6 +90,7 @@ export class EditorEngine {
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
+    this._variantLanguage = options?.variantLanguage;
     this._recomputeStyles();
 
     // Build the ChangeContext that Change implementations use
@@ -177,8 +182,9 @@ export class EditorEngine {
    * format `{ id, name, data: {...} }` if present.
    *
    * Always includes system parameter mock data (e.g., `sys.pages.current`)
-   * for expression preview in the editor. When no example data is set,
-   * returns just the system mock data.
+   * for expression preview in the editor. When the variant being edited has
+   * a known language, `sys.language` is overridden with the actual variant
+   * language so previews match what the rendered PDF will produce.
    */
   getExampleData(): Record<string, unknown> {
     const example = this.currentExample as Record<string, unknown> | undefined;
@@ -187,7 +193,16 @@ export class EditorEngine {
         ? (example.data as Record<string, unknown>)
         : example
       : {};
-    return { ...data, ...SYSTEM_PARAM_MOCK_DATA };
+    const sysParams = this._variantLanguage
+      ? {
+          ...SYSTEM_PARAM_MOCK_DATA,
+          sys: {
+            ...(SYSTEM_PARAM_MOCK_DATA.sys as Record<string, unknown>),
+            language: this._variantLanguage,
+          },
+        }
+      : SYSTEM_PARAM_MOCK_DATA;
+    return { ...data, ...sysParams };
   }
 
   /**

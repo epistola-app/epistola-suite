@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`$formatLocalNumber` expression function**: New JSONata function for locale-aware number formatting in templates. Use the canonical picture string (e.g. `#,##0.00`) and pass `sys.language` as the third argument; the formatter selects the correct decimal/grouping separators for the variant's language. Example: `$formatLocalNumber(total, '#,##0.00', sys.language)` renders as `1.234,56` for `nl` variants and `1,234.56` for `en` variants. Distinct from JSONata's built-in `$formatNumber`, which requires the picture to match the locale symbols.
+- **`sys.language` system parameter**: Templates can now read the current variant's language attribute via `sys.language` (e.g. `"nl"`, `"en"`). Useful for locale-aware formatting (`$formatLocalNumber`) and text conditionals (`sys.language = 'nl' ? 'Factuur' : 'Invoice'`). Sourced from the variant's `language` attribute and threaded through the rendering pipeline (`DocumentGenerationExecutor`, `PreviewDocument`, `PreviewDraft`).
+- **Number format presets in expression dialog**: When editing an expression for a number/integer field, the dialog now shows a "Format" dropdown with common presets (`#,##0`, `#,##0.00`, `#,##0.##`, `0%`, `0.0%`, etc.) and wraps the field with `$formatLocalNumber(..., sys.language)` automatically.
+- **Editor preview uses real variant language**: The expression preview in the template editor now reflects the actual `language` attribute of the variant being edited (instead of a hardcoded mock), so previews match what the rendered PDF will produce.
+
 ## [0.14.0] - 2026-04-10
 
 ### Added

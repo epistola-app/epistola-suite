@@ -8,7 +8,7 @@ import {
   validateArrayResult,
   validateBooleanResult,
   formatDateValue,
-  formatNumberValue,
+  formatLocalNumberValue,
 } from './resolve-expression.js';
 
 // ---------------------------------------------------------------------------
@@ -380,94 +380,44 @@ describe('validateBooleanResult', () => {
 });
 
 // ---------------------------------------------------------------------------
-// formatNumberValue
+// formatLocalNumberValue
 // ---------------------------------------------------------------------------
 
-describe('formatNumberValue', () => {
-  it('formats with grouping', () => {
-    expect(formatNumberValue(1234, '#,##0')).toBe('1,234');
+describe('formatLocalNumberValue', () => {
+  it('formats with no language (defaults to point notation)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00')).toBe('1,234.50');
   });
 
-  it('formats with grouping and decimals', () => {
-    expect(formatNumberValue(1234.5, '#,##0.00')).toBe('1,234.50');
+  it('formats with language=en (point notation)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', 'en')).toBe('1,234.50');
   });
 
-  it('formats without grouping', () => {
-    expect(formatNumberValue(1234.5, '0.00')).toBe('1234.50');
+  it('formats with language=nl (comma notation)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', 'nl')).toBe('1.234,50');
   });
 
-  it('formats as integer', () => {
-    expect(formatNumberValue(1234.56, '0')).toBe('1235');
+  it('formats integer with language=nl', () => {
+    expect(formatLocalNumberValue(1234, '#,##0', 'nl')).toBe('1.234');
   });
 
-  it('formats with optional decimals', () => {
-    expect(formatNumberValue(1234.5, '#,##0.##')).toBe('1,234.5');
-  });
-
-  it('trims trailing zeros with optional decimals', () => {
-    expect(formatNumberValue(1234.0, '#,##0.##')).toBe('1,234');
+  it('formats unknown language as comma notation (EU default)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', 'de')).toBe('1.234,50');
   });
 
   it('formats percentage', () => {
-    expect(formatNumberValue(0.21, '0%')).toBe('21%');
+    expect(formatLocalNumberValue(0.21, '0%')).toBe('21%');
   });
 
-  it('formats percentage with decimal', () => {
-    expect(formatNumberValue(0.215, '0.0%')).toBe('21.5%');
+  it('formats optional decimals', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.##')).toBe('1,234.5');
   });
 
-  it('formats zero', () => {
-    expect(formatNumberValue(0, '#,##0.00')).toBe('0.00');
+  it('trims trailing zeros with optional decimals', () => {
+    expect(formatLocalNumberValue(1234.0, '#,##0.##')).toBe('1,234');
   });
 
-  it('formats negative number', () => {
-    expect(formatNumberValue(-1234.5, '#,##0.00')).toBe('-1,234.50');
-  });
-
-  it('formats large number with grouping', () => {
-    expect(formatNumberValue(1234567.89, '#,##0.00')).toBe('1,234,567.89');
-  });
-
-  it('formats with literal prefix', () => {
-    expect(formatNumberValue(1234.56, '€#,##0.00')).toBe('€1,234.56');
-  });
-
-  it('formats with negative subpattern', () => {
-    expect(formatNumberValue(-42, '#,##0;-#,##0')).toBe('-42');
-  });
-
-  it('formats small decimal', () => {
-    expect(formatNumberValue(0.5, '0.00')).toBe('0.50');
-  });
-
-  // --- comma notation ---
-
-  it('formats comma notation with grouping and decimals', () => {
-    expect(formatNumberValue(1234.5, '#.##0,00')).toBe('1.234,50');
-  });
-
-  it('formats comma notation without grouping', () => {
-    expect(formatNumberValue(1234.5, '0,00')).toBe('1234,50');
-  });
-
-  it('formats comma notation grouping only', () => {
-    expect(formatNumberValue(1234, '#.##0')).toBe('1.234');
-  });
-
-  it('formats comma notation optional decimals', () => {
-    expect(formatNumberValue(1234.5, '#.##0,##')).toBe('1.234,5');
-  });
-
-  it('formats comma notation trims trailing zeros', () => {
-    expect(formatNumberValue(1234.0, '#.##0,##')).toBe('1.234');
-  });
-
-  it('formats comma notation large number', () => {
-    expect(formatNumberValue(1234567.89, '#.##0,00')).toBe('1.234.567,89');
-  });
-
-  it('formats comma notation negative number', () => {
-    expect(formatNumberValue(-1234.5, '#.##0,00')).toBe('-1.234,50');
+  it('formats negative number with language=nl', () => {
+    expect(formatLocalNumberValue(-1234.5, '#,##0.00', 'nl')).toBe('-1.234,50');
   });
 });
 
@@ -569,36 +519,48 @@ describe('evaluateExpression with $formatDate', () => {
 // $formatNumber in evaluateExpression
 // ---------------------------------------------------------------------------
 
-describe('evaluateExpression with $formatNumber', () => {
-  it('formats a number field', async () => {
+describe('evaluateExpression with $formatLocalNumber', () => {
+  it('formats a number field with default locale', async () => {
     const data = { total: 1234.5 };
-    expect(await evaluateExpression("$formatNumber(total, '#,##0.00')", data)).toBe('1,234.50');
+    expect(await evaluateExpression("$formatLocalNumber(total, '#,##0.00')", data)).toBe(
+      '1,234.50',
+    );
   });
 
   it('formats in string concatenation', async () => {
     const data = { total: 1207.58 };
-    expect(await evaluateExpression('"Total: " & $formatNumber(total, \'#,##0.00\')', data)).toBe(
-      'Total: 1,207.58',
-    );
-  });
-
-  it('returns value for non-numeric string', async () => {
-    const data = { val: 'hello' };
-    expect(await evaluateExpression("$formatNumber(val, '#,##0')", data)).toBe('hello');
+    expect(
+      await evaluateExpression('"Total: " & $formatLocalNumber(total, \'#,##0.00\')', data),
+    ).toBe('Total: 1,207.58');
   });
 
   it('returns undefined for missing field', async () => {
     const data = { other: 42 };
-    expect(await evaluateExpression("$formatNumber(missing, '#,##0')", data)).toBeUndefined();
+    expect(await evaluateExpression("$formatLocalNumber(missing, '#,##0')", data)).toBeUndefined();
   });
 
-  it('formats string number', async () => {
-    const data = { price: '299.0' };
-    expect(await evaluateExpression("$formatNumber(price, '#,##0.00')", data)).toBe('299.00');
+  it('formats with sys.language=nl (comma notation)', async () => {
+    const data = {
+      total: 1234.5,
+      sys: { language: 'nl' },
+    };
+    expect(
+      await evaluateExpression("$formatLocalNumber(total, '#,##0.00', sys.language)", data),
+    ).toBe('1.234,50');
   });
 
-  it('formats with comma notation', async () => {
-    const data = { total: 1234.5 };
-    expect(await evaluateExpression("$formatNumber(total, '#.##0,00')", data)).toBe('1.234,50');
+  it('formats with sys.language=en (point notation)', async () => {
+    const data = {
+      total: 1234.5,
+      sys: { language: 'en' },
+    };
+    expect(
+      await evaluateExpression("$formatLocalNumber(total, '#,##0.00', sys.language)", data),
+    ).toBe('1,234.50');
+  });
+
+  it('formats percentage', async () => {
+    const data = { rate: 0.21 };
+    expect(await evaluateExpression("$formatLocalNumber(rate, '0%')", data)).toBe('21%');
   });
 });

@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.mediator.Mediator
@@ -12,6 +13,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.template.model.TemplateDocument
@@ -78,7 +80,11 @@ class PreviewDraftHandler(
             }
         }
 
-        // 4. Render — always live theme cascade for drafts (no snapshot)
+        // 4. Fetch variant for language attribute (locale-aware formatting)
+        val variant = mediator.query(GetVariant(VariantId(query.variantId, templateId)))
+        val language = variant?.attributes?.get("language")
+
+        // 5. Render — always live theme cascade for drafts (no snapshot)
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = templateModel,
@@ -86,6 +92,7 @@ class PreviewDraftHandler(
             template = template,
             tenant = tenant,
             data = query.data,
+            language = language,
         )
     }
 

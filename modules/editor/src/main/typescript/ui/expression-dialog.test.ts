@@ -57,29 +57,42 @@ describe('parseFormatDateExpression', () => {
 // ---------------------------------------------------------------------------
 
 describe('parseFormatNumberExpression', () => {
-  it('parses a simple field path', () => {
-    expect(parseFormatNumberExpression("$formatNumber(total, '#,##0.00')")).toEqual({
+  it('parses the 3-arg form with sys.language', () => {
+    expect(
+      parseFormatNumberExpression("$formatLocalNumber(total, '#,##0.00', sys.language)"),
+    ).toEqual({
+      fieldPath: 'total',
+      pattern: '#,##0.00',
+    });
+  });
+
+  it('parses the 2-arg form (no options)', () => {
+    expect(parseFormatNumberExpression("$formatLocalNumber(total, '#,##0.00')")).toEqual({
       fieldPath: 'total',
       pattern: '#,##0.00',
     });
   });
 
   it('parses a dotted field path', () => {
-    expect(parseFormatNumberExpression("$formatNumber(item.price, '#,##0.00')")).toEqual({
+    expect(
+      parseFormatNumberExpression("$formatLocalNumber(item.price, '#,##0.00', sys.language)"),
+    ).toEqual({
       fieldPath: 'item.price',
       pattern: '#,##0.00',
     });
   });
 
   it('parses with spaces around arguments', () => {
-    expect(parseFormatNumberExpression("$formatNumber( total , '#,##0.00' )")).toEqual({
+    expect(
+      parseFormatNumberExpression("$formatLocalNumber( total , '#,##0.00' , sys.language )"),
+    ).toEqual({
       fieldPath: 'total',
       pattern: '#,##0.00',
     });
   });
 
   it('parses percentage pattern', () => {
-    expect(parseFormatNumberExpression("$formatNumber(rate, '0%')")).toEqual({
+    expect(parseFormatNumberExpression("$formatLocalNumber(rate, '0%', sys.language)")).toEqual({
       fieldPath: 'rate',
       pattern: '0%',
     });
@@ -99,12 +112,16 @@ describe('parseFormatNumberExpression', () => {
 });
 
 describe('wrapFormatNumber', () => {
-  it('wraps a simple field', () => {
-    expect(wrapFormatNumber('total', '#,##0.00')).toBe("$formatNumber(total, '#,##0.00')");
+  it('wraps a simple field with sys.language', () => {
+    expect(wrapFormatNumber('total', '#,##0.00')).toBe(
+      "$formatLocalNumber(total, '#,##0.00', sys.language)",
+    );
   });
 
   it('wraps a dotted field path', () => {
-    expect(wrapFormatNumber('item.price', '0.00')).toBe("$formatNumber(item.price, '0.00')");
+    expect(wrapFormatNumber('item.price', '0.00')).toBe(
+      "$formatLocalNumber(item.price, '0.00', sys.language)",
+    );
   });
 });
 
@@ -205,23 +222,40 @@ describe('tryParseAsBuilderExpression', () => {
     );
   });
 
-  // --- $formatNumber ---
+  // --- $formatLocalNumber ---
 
-  it('parses a $formatNumber expression', () => {
-    expect(tryParseAsBuilderExpression("$formatNumber(total, '#,##0.00')", testFieldPaths)).toEqual(
-      {
-        fieldPath: 'total',
-        fieldType: 'number',
-        formatType: 'number',
-        formatPattern: '#,##0.00',
-      },
-    );
+  it('parses a $formatLocalNumber expression with sys.language', () => {
+    expect(
+      tryParseAsBuilderExpression(
+        "$formatLocalNumber(total, '#,##0.00', sys.language)",
+        testFieldPaths,
+      ),
+    ).toEqual({
+      fieldPath: 'total',
+      fieldType: 'number',
+      formatType: 'number',
+      formatPattern: '#,##0.00',
+    });
   });
 
-  it('parses $formatNumber on a scoped number field', () => {
+  it('parses a $formatLocalNumber expression without options (backward compat)', () => {
+    expect(
+      tryParseAsBuilderExpression("$formatLocalNumber(total, '#,##0.00')", testFieldPaths),
+    ).toEqual({
+      fieldPath: 'total',
+      fieldType: 'number',
+      formatType: 'number',
+      formatPattern: '#,##0.00',
+    });
+  });
+
+  it('parses $formatLocalNumber on a scoped number field', () => {
     const withScoped = [...testFieldPaths, { path: 'item.price', type: 'number', scope: 'item' }];
     expect(
-      tryParseAsBuilderExpression("$formatNumber(item.price, '#,##0.00')", withScoped),
+      tryParseAsBuilderExpression(
+        "$formatLocalNumber(item.price, '#,##0.00', sys.language)",
+        withScoped,
+      ),
     ).toEqual({
       fieldPath: 'item.price',
       fieldType: 'number',
@@ -269,7 +303,7 @@ describe('buildExpression', () => {
     ).toBe('invoiceDate');
   });
 
-  it('builds a number-formatted expression', () => {
+  it('builds a number-formatted expression with sys.language', () => {
     expect(
       buildExpression({
         fieldPath: 'total',
@@ -277,7 +311,7 @@ describe('buildExpression', () => {
         formatType: 'number',
         formatPattern: '#,##0.00',
       }),
-    ).toBe("$formatNumber(total, '#,##0.00')");
+    ).toBe("$formatLocalNumber(total, '#,##0.00', sys.language)");
   });
 
   it('builds bare field when formatPattern is empty even if formatType is number', () => {
@@ -325,13 +359,15 @@ describe('isStaleFieldReference', () => {
     );
   });
 
-  it('returns true for a $formatNumber with unknown field', () => {
-    expect(isStaleFieldReference("$formatNumber(item.price, '#,##0.00')", testFieldPaths)).toBe(
-      true,
-    );
+  it('returns true for a $formatLocalNumber with unknown field', () => {
+    expect(
+      isStaleFieldReference("$formatLocalNumber(item.price, '#,##0.00')", testFieldPaths),
+    ).toBe(true);
   });
 
-  it('returns false for a $formatNumber with known field', () => {
-    expect(isStaleFieldReference("$formatNumber(total, '#,##0.00')", testFieldPaths)).toBe(false);
+  it('returns false for a $formatLocalNumber with known field', () => {
+    expect(isStaleFieldReference("$formatLocalNumber(total, '#,##0.00')", testFieldPaths)).toBe(
+      false,
+    );
   });
 });

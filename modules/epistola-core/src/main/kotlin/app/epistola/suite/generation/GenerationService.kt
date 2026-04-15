@@ -70,6 +70,7 @@ class GenerationService(
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+        language: String? = null,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -90,6 +91,7 @@ class GenerationService(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = resolvedStyles.spacingUnit,
+            language = language,
         )
     }
 
@@ -112,6 +114,7 @@ class GenerationService(
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
+        language: String? = null,
     ) {
         pdfRenderer.render(
             document = templateModel,
@@ -124,6 +127,7 @@ class GenerationService(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = themeSnapshot.spacingUnit,
+            language = language,
         )
     }
 
@@ -140,8 +144,15 @@ class GenerationService(
         data: Map<String, Any?>,
         outputStream: OutputStream,
         metadata: PdfMetadata = PdfMetadata(),
+        language: String? = null,
     ) {
-        pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream, metadata = metadata)
+        pdfRenderer.render(
+            document = templateModel,
+            data = data,
+            outputStream = outputStream,
+            metadata = metadata,
+            language = language,
+        )
     }
 
     /**

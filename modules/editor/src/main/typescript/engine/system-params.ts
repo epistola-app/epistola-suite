@@ -32,6 +32,14 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     system: true,
     description: 'Render timestamp as ISO-8601 offset datetime. Use $formatDate() to format.',
   },
+  {
+    path: 'sys.language',
+    type: 'string',
+    system: true,
+    description:
+      'Language code of the current template variant (e.g. "nl", "en"). ' +
+      'Use as 3rd argument to $formatLocalNumber() or for text conditionals.',
+  },
 ];
 
 /**
@@ -47,5 +55,6 @@ export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
     render: {
       time: '2026-04-03T08:30:00Z',
     },
+    language: 'nl',
   },
 };

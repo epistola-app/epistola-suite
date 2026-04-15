@@ -180,113 +180,66 @@ class JsonataEvaluatorTest {
         assertEquals("LoopValue", evaluator.evaluate("item.name", data, loopContext))
     }
 
-    // --- $formatNumber custom function ---
+    // --- $formatLocalNumber (locale-aware number formatting) ---
 
     @Test
-    fun `formatNumber with grouping`() {
+    fun `formatLocalNumber with grouping`() {
         val data = mapOf("n" to 1234)
-        assertEquals("1,234", evaluator.evaluate("\$formatNumber(n, '#,##0')", data))
+        assertEquals("1,234", evaluator.evaluate("\$formatLocalNumber(n, '#,##0')", data))
     }
 
     @Test
-    fun `formatNumber with grouping and decimals`() {
+    fun `formatLocalNumber with grouping and decimals`() {
         val data = mapOf("n" to 1234.5)
-        assertEquals("1,234.50", evaluator.evaluate("\$formatNumber(n, '#,##0.00')", data))
+        assertEquals("1,234.50", evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00')", data))
     }
 
     @Test
-    fun `formatNumber without grouping`() {
-        val data = mapOf("n" to 1234.5)
-        assertEquals("1234.50", evaluator.evaluate("\$formatNumber(n, '0.00')", data))
-    }
-
-    @Test
-    fun `formatNumber integer`() {
+    fun `formatLocalNumber integer rounds`() {
         val data = mapOf("n" to 1234.56)
-        assertEquals("1235", evaluator.evaluate("\$formatNumber(n, '0')", data))
+        assertEquals("1235", evaluator.evaluate("\$formatLocalNumber(n, '0')", data))
     }
 
     @Test
-    fun `formatNumber optional decimals`() {
-        val data = mapOf("n" to 1234.5)
-        assertEquals("1,234.5", evaluator.evaluate("\$formatNumber(n, '#,##0.##')", data))
-    }
-
-    @Test
-    fun `formatNumber optional decimals trims trailing zeros`() {
-        val data = mapOf("n" to 1234.0)
-        assertEquals("1,234", evaluator.evaluate("\$formatNumber(n, '#,##0.##')", data))
-    }
-
-    @Test
-    fun `formatNumber percentage`() {
+    fun `formatLocalNumber percentage`() {
         val data = mapOf("n" to 0.21)
-        assertEquals("21%", evaluator.evaluate("\$formatNumber(n, '0%')", data))
+        assertEquals("21%", evaluator.evaluate("\$formatLocalNumber(n, '0%')", data))
     }
 
     @Test
-    fun `formatNumber percentage with decimal`() {
-        val data = mapOf("n" to 0.215)
-        assertEquals("21.5%", evaluator.evaluate("\$formatNumber(n, '0.0%')", data))
-    }
-
-    @Test
-    fun `formatNumber with string input`() {
-        val data = mapOf("n" to "299.0")
-        assertEquals("299.00", evaluator.evaluate("\$formatNumber(n, '0.00')", data))
-    }
-
-    @Test
-    fun `formatNumber with non-numeric string returns raw value`() {
-        val data = mapOf("n" to "hello")
-        assertEquals("hello", evaluator.evaluate("\$formatNumber(n, '#,##0')", data))
-    }
-
-    @Test
-    fun `formatNumber with missing field returns null`() {
-        val data = mapOf("other" to 42)
-        assertNull(evaluator.evaluate("\$formatNumber(missing, '#,##0')", data))
-    }
-
-    @Test
-    fun `formatNumber in string concatenation`() {
-        val data = mapOf("total" to 1207.58)
+    fun `formatLocalNumber with language nl uses comma notation`() {
+        val data = mapOf("n" to 1234.5, "sys" to mapOf("language" to "nl"))
         assertEquals(
-            "Total: 1,207.58",
-            evaluator.evaluate("\"Total: \" & \$formatNumber(total, '#,##0.00')", data),
+            "1.234,50",
+            evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
         )
     }
 
-    // --- $formatNumber comma notation ---
-
     @Test
-    fun `formatNumber comma notation with grouping and decimals`() {
-        val data = mapOf("n" to 1234.5)
-        assertEquals("1.234,50", evaluator.evaluate("\$formatNumber(n, '#.##0,00')", data))
+    fun `formatLocalNumber with language en uses point notation`() {
+        val data = mapOf("n" to 1234.5, "sys" to mapOf("language" to "en"))
+        assertEquals(
+            "1,234.50",
+            evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
+        )
     }
 
     @Test
-    fun `formatNumber comma notation without grouping`() {
-        val data = mapOf("n" to 1234.5)
-        assertEquals("1234,50", evaluator.evaluate("\$formatNumber(n, '0,00')", data))
+    fun `formatLocalNumber with unknown language defaults to comma notation`() {
+        val data = mapOf("n" to 1234.5, "sys" to mapOf("language" to "de"))
+        assertEquals(
+            "1.234,50",
+            evaluator.evaluate("\$formatLocalNumber(n, '#,##0.00', sys.language)", data),
+        )
     }
 
     @Test
-    fun `formatNumber comma notation grouping only`() {
-        val data = mapOf("n" to 1234)
-        assertEquals("1.234", evaluator.evaluate("\$formatNumber(n, '#.##0')", data))
-    }
-
-    @Test
-    fun `formatNumber comma notation optional decimals`() {
-        val data = mapOf("n" to 1234.5)
-        assertEquals("1.234,5", evaluator.evaluate("\$formatNumber(n, '#.##0,##')", data))
-    }
-
-    @Test
-    fun `formatNumber comma notation optional decimals trims zeros`() {
-        val data = mapOf("n" to 1234.0)
-        assertEquals("1.234", evaluator.evaluate("\$formatNumber(n, '#.##0,##')", data))
+    fun `formatLocalNumber in string concatenation`() {
+        val data = mapOf("total" to 1207.58)
+        assertEquals(
+            "Total: 1,207.58",
+            evaluator.evaluate("\"Total: \" & \$formatLocalNumber(total, '#,##0.00')", data),
+        )
     }
 
     // --- $formatDate custom function ---

@@ -1,7 +1,9 @@
 package app.epistola.generation.expression
 
 import app.epistola.generation.DEFAULT_RENDER_TIMEZONE
+import com.dashjoin.jsonata.Jsonata
 import com.dashjoin.jsonata.Jsonata.Fn2
+import com.dashjoin.jsonata.Jsonata.Fn3
 import com.dashjoin.jsonata.Jsonata.jsonata
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -31,10 +33,14 @@ import java.util.Locale
  *   (`2024-01-15T14:30:00+02:00`), and UTC (`2024-01-15T14:30:00Z`).
  *   Datetimes are converted to the configured [timeZone] before formatting.
  *   Returns the original value on parse failure.
- * - `$formatNumber(value, pattern)`: Format a numeric value using a [DecimalFormat]
- *   pattern (e.g., "#,##0.00", "0%"). Accepts numbers and numeric strings.
- *   Uses the configured [locale] for grouping/decimal separators.
- *   Returns the original value on parse failure.
+ * - `$formatLocalNumber(value, picture [, language])`: Format a numeric value using
+ *   a canonical [DecimalFormat] picture (e.g., "#,##0.00", "0%"). The optional
+ *   `language` string (typically `sys.language`, e.g. "nl" or "en") selects the
+ *   decimal/grouping separators. The picture is always written in canonical
+ *   notation (`.` decimal, `,` grouping); the language transforms the output
+ *   characters so the same template pattern works for every variant. Distinct
+ *   from JSONata's built-in `$formatNumber`, which requires the picture to match
+ *   the locale symbols.
  *
  * @see <a href="https://jsonata.org">JSONata Documentation</a>
  */
@@ -84,69 +90,50 @@ class JsonataEvaluator(
                 formatDate(value.toString(), pattern?.toString() ?: "")
             },
         )
-        frame.bind(
-            "formatNumber",
-            Fn2 { value: Any?, pattern: Any? ->
-                if (value == null) return@Fn2 null
-                formatNumber(value, pattern?.toString() ?: "")
+        // Use JFunction with explicit signature so arity matching works for
+        // both 2-arg and 3-arg calls. Signature: number, string, string? -> string.
+        // Named `formatLocalNumber` so templates and users know it's distinct from
+        // JSONata's built-in `$formatNumber` (which has different semantics).
+        val formatLocalNumberFn = Jsonata.function(
+            "formatLocalNumber",
+            Fn3 { value: Any?, pattern: Any?, language: Any? ->
+                if (value == null) return@Fn3 null
+                formatLocalNumber(value, pattern?.toString() ?: "", language?.toString())
             },
+            "<n-ss?:s>",
         )
+        frame.bind("formatLocalNumber", formatLocalNumberFn)
     }
 
-    private fun formatNumber(value: Any, pattern: String): String {
+    /**
+     * Format a number using a canonical [DecimalFormat] picture (`.` decimal, `,` grouping).
+     * The optional [language] code selects locale-specific decimal/grouping separators —
+     * allowing the same canonical pattern to produce locale-specific output
+     * (e.g. `1,234.56` vs `1.234,56`).
+     */
+    private fun formatLocalNumber(value: Any, pattern: String, language: String?): String {
         val number = when (value) {
             is Number -> value.toDouble()
             is String -> value.toDoubleOrNull() ?: return value
             else -> return value.toString()
         }
         return try {
-            val commaNotation = isCommaNotation(pattern)
-            val canonicalPattern = if (commaNotation) swapSeparators(pattern) else pattern
-            val symbols = DecimalFormatSymbols(locale)
-            if (commaNotation) {
-                symbols.decimalSeparator = ','
-                symbols.groupingSeparator = '.'
+            val symbols = DecimalFormatSymbols(locale).apply {
+                when (language?.lowercase()) {
+                    "en", "en-us", "en-gb" -> {
+                        decimalSeparator = '.'
+                        groupingSeparator = ','
+                    }
+                    null -> {} // default locale symbols
+                    else -> {
+                        decimalSeparator = ','
+                        groupingSeparator = '.'
+                    }
+                }
             }
-            DecimalFormat(canonicalPattern, symbols).format(number)
+            DecimalFormat(pattern, symbols).format(number)
         } catch (_: Exception) {
             value.toString()
-        }
-    }
-
-    /**
-     * Detect comma notation: the pattern uses `,` as decimal separator and `.` as grouping.
-     * The last separator character in the pattern determines the decimal separator.
-     * When only one type of separator is present, a heuristic based on the number of
-     * trailing digit tokens distinguishes grouping (exactly 3) from decimal.
-     */
-    private fun isCommaNotation(pattern: String): Boolean {
-        val lastComma = pattern.lastIndexOf(',')
-        val lastDot = pattern.lastIndexOf('.')
-        if (lastComma < 0 && lastDot < 0) return false
-        if (lastComma < 0) {
-            // Only dots — grouping has exactly 3 digit chars after last dot
-            val afterDot = pattern.substring(lastDot + 1).count { it == '0' || it == '#' }
-            return afterDot == 3
-        }
-        if (lastDot < 0) {
-            // Only commas — grouping has exactly 3 digit chars after last comma
-            val afterComma = pattern.substring(lastComma + 1).count { it == '0' || it == '#' }
-            return afterComma != 3
-        }
-        // Both present — the one that comes last is the decimal separator
-        return lastComma > lastDot
-    }
-
-    /** Swap `,` and `.` in a pattern to convert between comma and point notation. */
-    private fun swapSeparators(pattern: String): String = buildString(pattern.length) {
-        for (c in pattern) {
-            append(
-                when (c) {
-                    ',' -> '.'
-                    '.' -> ','
-                    else -> c
-                },
-            )
         }
     }
 

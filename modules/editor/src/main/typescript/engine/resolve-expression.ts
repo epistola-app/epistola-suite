@@ -79,78 +79,54 @@ export function formatDateValue(value: string, pattern: string): string {
 }
 
 /**
- * Detect comma notation: `,` is the decimal separator, `.` is grouping.
- * Determined by which separator (`,` or `.`) appears last in the numeric
- * portion of the pattern. The last separator is the decimal separator;
- * any earlier separator is the grouping separator.
- *
- * Examples: `#.##0,00` → true, `0,00` → true, `#.##0` → true,
- *           `#,##0.00` → false, `0.00` → false, `#,##0` → false.
+ * Map a language code to decimal/grouping separators.
+ * English uses `.` decimal + `,` grouping; everything else defaults to
+ * `,` decimal + `.` grouping (Dutch/European). When language is `undefined`
+ * or `null`, the English/canonical defaults are used.
  */
-function isCommaNotation(pattern: string): boolean {
-  // Find the last ',' and last '.' in the pattern
-  const lastComma = pattern.lastIndexOf(',');
-  const lastDot = pattern.lastIndexOf('.');
-  if (lastComma < 0 && lastDot < 0) return false; // no separators
-  if (lastComma < 0) {
-    // Only dots — check if dot is used as grouping (digits follow with no decimal part)
-    // e.g., `#.##0` is comma notation (. is grouping), `0.00` is point notation (. is decimal)
-    // Heuristic: if there are exactly 3 digit chars after the last dot, it's grouping
-    const afterDot = pattern.slice(lastDot + 1).replace(/[^0#]/g, '');
-    return afterDot.length === 3;
+function separatorsForLanguage(language: string | null | undefined): {
+  decimal: string;
+  grouping: string;
+} {
+  const lang = language?.toLowerCase();
+  if (lang === 'en' || lang === 'en-us' || lang === 'en-gb' || lang == null) {
+    return { decimal: '.', grouping: ',' };
   }
-  if (lastDot < 0) {
-    // Only commas — check if comma is used as decimal
-    // e.g., `0,00` is comma notation (decimal), `#,##0` is point notation (grouping)
-    const afterComma = pattern.slice(lastComma + 1).replace(/[^0#]/g, '');
-    return afterComma.length !== 3;
-  }
-  // Both present — the one that comes last is the decimal separator
-  return lastComma > lastDot;
+  return { decimal: ',', grouping: '.' };
 }
 
 /**
- * Format a numeric value using a DecimalFormat-style pattern.
+ * Format a numeric value using a canonical DecimalFormat-style pattern.
+ * The optional `language` code selects locale-specific decimal/grouping separators.
  *
- * Supports two notation styles, detected automatically from the pattern:
- * - **Point notation** (`.` decimal, `,` grouping): `#,##0.00` → `1,234.56`
- * - **Comma notation** (`,` decimal, `.` grouping): `#.##0,00` → `1.234,56`
- *
- * Supported pattern tokens:
- * - `0` — required digit (padded with zero)
- * - `#` — optional digit (omitted if zero)
- * - `,` / `.` — grouping or decimal separator (role determined by notation)
- * - `%` — multiply by 100 and append `%`
- * - `;` — separates positive and negative subpatterns
- * - Literal prefix/suffix (e.g., `€`, `$`) outside the numeric section
+ * This is the implementation behind the `$formatLocalNumber` custom function —
+ * distinct from JSONata's built-in `$formatNumber` (which interprets the
+ * picture against the locale symbols rather than transforming output chars).
  */
-export function formatNumberValue(value: number, pattern: string): string {
+export function formatLocalNumberValue(
+  value: number,
+  pattern: string,
+  language?: string | null,
+): string {
+  const { decimal: decimalSep, grouping: groupingSep } = separatorsForLanguage(language);
+
   // Handle positive/negative subpatterns
   const semiIdx = pattern.indexOf(';');
   if (semiIdx !== -1) {
     const subPattern = value < 0 ? pattern.slice(semiIdx + 1) : pattern.slice(0, semiIdx);
-    return formatNumberValue(value < 0 ? -value : value, subPattern);
+    return formatLocalNumberValue(value < 0 ? -value : value, subPattern, language);
   }
-
-  // Detect notation before normalizing
-  const commaNotation = isCommaNotation(pattern);
-
-  // Normalize comma notation to point notation for internal parsing
-  // (swap , and . so the parser always uses . as decimal, , as grouping)
-  const normalized = commaNotation
-    ? pattern.replace(/[,.]/g, (c) => (c === ',' ? '.' : ','))
-    : pattern;
 
   // Extract prefix and suffix (literal characters outside #0.,%)
   const numChars = new Set(['#', '0', ',', '.', '%']);
   let numStart = 0;
-  while (numStart < normalized.length && !numChars.has(normalized[numStart])) numStart++;
-  let numEnd = normalized.length;
-  while (numEnd > numStart && !numChars.has(normalized[numEnd - 1])) numEnd--;
+  while (numStart < pattern.length && !numChars.has(pattern[numStart])) numStart++;
+  let numEnd = pattern.length;
+  while (numEnd > numStart && !numChars.has(pattern[numEnd - 1])) numEnd--;
 
-  const prefix = normalized.slice(0, numStart);
-  const suffix = normalized.slice(numEnd);
-  const numPattern = normalized.slice(numStart, numEnd);
+  const prefix = pattern.slice(0, numStart);
+  const suffix = pattern.slice(numEnd);
+  const numPattern = pattern.slice(numStart, numEnd);
 
   // Handle percentage
   let num = value;
@@ -160,36 +136,25 @@ export function formatNumberValue(value: number, pattern: string): string {
   const isNegative = num < 0;
   num = Math.abs(num);
 
-  // Split pattern into integer and decimal parts (using normalized . as decimal)
+  // Canonical pattern: `,` = grouping, `.` = decimal
   const cleanPattern = numPattern.replace(/%/g, '');
   const dotIdx = cleanPattern.indexOf('.');
   const intPattern = dotIdx !== -1 ? cleanPattern.slice(0, dotIdx) : cleanPattern;
   const decPattern = dotIdx !== -1 ? cleanPattern.slice(dotIdx + 1) : '';
 
-  // Determine grouping
   const useGrouping = intPattern.includes(',');
   const groupSize = 3;
 
-  // Determine decimal digits
   const minDecimals = (decPattern.match(/0/g) || []).length;
   const maxDecimals = minDecimals + (decPattern.match(/#/g) || []).length;
 
-  // Round to max decimals
   const rounded = maxDecimals > 0 ? parseFloat(num.toFixed(maxDecimals)) : Math.round(num);
-
-  // Split into integer and decimal parts
   const fixed = rounded.toFixed(maxDecimals);
   const [intStr, decStr = ''] = fixed.split('.');
 
-  // Determine minimum integer digits
   const minIntDigits = (intPattern.match(/0/g) || []).length || 1;
   let intPart = intStr.length < minIntDigits ? intStr.padStart(minIntDigits, '0') : intStr;
 
-  // Output separators based on notation
-  const groupingSep = commaNotation ? '.' : ',';
-  const decimalSep = commaNotation ? ',' : '.';
-
-  // Apply grouping
   if (useGrouping && intPart.length > groupSize) {
     const grouped: string[] = [];
     for (let i = intPart.length; i > 0; i -= groupSize) {
@@ -198,7 +163,6 @@ export function formatNumberValue(value: number, pattern: string): string {
     intPart = grouped.join(groupingSep);
   }
 
-  // Trim trailing zeros from optional decimal digits
   let decPart = decStr;
   if (maxDecimals > minDecimals) {
     while (decPart.length > minDecimals && decPart.endsWith('0')) {
@@ -206,7 +170,6 @@ export function formatNumberValue(value: number, pattern: string): string {
     }
   }
 
-  // Build result
   let result = intPart;
   if (decPart.length > 0) result += decimalSep + decPart;
   if (isPercent) result += '%';
@@ -224,13 +187,17 @@ function registerCustomFunctions(expr: jsonata.Expression): void {
     if (typeof value !== 'string' || typeof pattern !== 'string') return value;
     return formatDateValue(value, pattern);
   });
-  expr.registerFunction('formatNumber', (value: unknown, pattern: unknown) => {
-    if (typeof pattern !== 'string') return value;
-    const num =
-      typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : NaN;
-    if (isNaN(num)) return value;
-    return formatNumberValue(num, pattern);
-  });
+  expr.registerFunction(
+    'formatLocalNumber',
+    (value: unknown, pattern: unknown, language: unknown) => {
+      if (typeof pattern !== 'string') return value;
+      const num =
+        typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : NaN;
+      if (isNaN(num)) return value;
+      const lang = typeof language === 'string' ? language : undefined;
+      return formatLocalNumberValue(num, pattern, lang);
+    },
+  );
 }
 
 /**

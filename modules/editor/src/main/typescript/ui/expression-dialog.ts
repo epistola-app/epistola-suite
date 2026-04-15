@@ -34,7 +34,10 @@ const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
   { code: 'items[price > 100]', desc: 'Filter array' },
   { code: '$number(value)', desc: 'Convert to number' },
   { code: "$formatDate(date, 'dd-MM-yyyy')", desc: 'Format a date' },
-  { code: "$formatNumber(total, '#,##0.00')", desc: 'Format a number' },
+  {
+    code: "$formatLocalNumber(total, '#,##0.00', sys.language)",
+    desc: 'Format a number (locale-aware)',
+  },
 ];
 
 /** Date format presets for the format dropdown. */
@@ -49,23 +52,21 @@ const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
   { value: 'yyyy-MM-dd HH:mm', label: 'yyyy-MM-dd HH:mm (2024-01-15 14:30)' },
 ];
 
-/** Number format presets for the format dropdown. */
-const NUMBER_FORMAT_PRESETS: { value: string; label: string; group?: string }[] = [
+/**
+ * Number format presets for the format dropdown.
+ * Uses XPath F&O / DecimalFormat picture strings. The actual decimal/grouping
+ * characters are determined at render time by `sys.numberFormat` (derived from
+ * the template variant's language).
+ */
+const NUMBER_FORMAT_PRESETS: { value: string; label: string }[] = [
   { value: '', label: 'No formatting' },
-  // Comma notation (decimal comma)
-  { value: '#.##0', label: '#.##0 (1.234)', group: 'Decimal comma' },
-  { value: '#.##0,00', label: '#.##0,00 (1.234,56)', group: 'Decimal comma' },
-  { value: '#.##0,##', label: '#.##0,## (1.234,5)', group: 'Decimal comma' },
-  { value: '0,00', label: '0,00 (1234,56)', group: 'Decimal comma' },
-  // Point notation (decimal point)
-  { value: '#,##0', label: '#,##0 (1,234)', group: 'Decimal point' },
-  { value: '#,##0.00', label: '#,##0.00 (1,234.56)', group: 'Decimal point' },
-  { value: '#,##0.##', label: '#,##0.## (1,234.5)', group: 'Decimal point' },
-  { value: '0.00', label: '0.00 (1234.56)', group: 'Decimal point' },
-  // Shared (notation-independent)
-  { value: '0', label: '0 (1234)' },
-  { value: '0%', label: '0% (21%)' },
-  { value: '0.0%', label: '0.0% (21.0%)' },
+  { value: '#,##0', label: '#,##0 (thousands)' },
+  { value: '#,##0.00', label: '#,##0.00 (2 decimals)' },
+  { value: '#,##0.##', label: '#,##0.## (optional decimals)' },
+  { value: '0.00', label: '0.00 (no thousands)' },
+  { value: '0', label: '0 (integer)' },
+  { value: '0%', label: '0% (percentage)' },
+  { value: '0.0%', label: '0.0% (percentage with decimal)' },
 ];
 
 /** Regex to parse `$formatDate(fieldPath, 'pattern')` expressions. */
@@ -85,10 +86,14 @@ export function wrapFormatDate(fieldPath: string, pattern: string): string {
   return `$formatDate(${fieldPath}, '${pattern}')`;
 }
 
-/** Regex to parse `$formatNumber(fieldPath, 'pattern')` expressions. */
-const FORMAT_NUMBER_REGEX = /^\$formatNumber\(\s*([^,]+?)\s*,\s*'([^']+)'\s*\)$/;
+/**
+ * Regex to parse `$formatLocalNumber(fieldPath, 'pattern', sys.language)` expressions.
+ * The `sys.language` argument is optional (for backward compat).
+ */
+const FORMAT_NUMBER_REGEX =
+  /^\$formatLocalNumber\(\s*([^,]+?)\s*,\s*'([^']+)'\s*(?:,\s*sys\.language\s*)?\)$/;
 
-/** Extract field path and format pattern from a `$formatNumber(...)` expression. */
+/** Extract field path and format pattern from a `$formatLocalNumber(...)` expression. */
 export function parseFormatNumberExpression(
   expr: string,
 ): { fieldPath: string; pattern: string } | null {
@@ -97,9 +102,13 @@ export function parseFormatNumberExpression(
   return { fieldPath: match[1], pattern: match[2] };
 }
 
-/** Wrap a field path with `$formatNumber(...)`. */
+/**
+ * Wrap a field path with `$formatLocalNumber(...)`, passing `sys.language` so
+ * the formatter can choose the right decimal/grouping separators for the
+ * template variant's language.
+ */
 export function wrapFormatNumber(fieldPath: string, pattern: string): string {
-  return `$formatNumber(${fieldPath}, '${pattern}')`;
+  return `$formatLocalNumber(${fieldPath}, '${pattern}', sys.language)`;
 }
 
 // ---------------------------------------------------------------------------
@@ -315,20 +324,10 @@ export function openExpressionDialog(
         : []),
     ].join('');
 
-    const presetsToOptionsHtml = (presets: { value: string; label: string; group?: string }[]) => {
-      const lines: string[] = [];
-      let currentGroup: string | undefined;
-      for (const p of presets) {
-        if (p.group !== currentGroup) {
-          if (currentGroup) lines.push('</optgroup>');
-          if (p.group) lines.push(`<optgroup label="${escapeAttr(p.group)}">`);
-          currentGroup = p.group;
-        }
-        lines.push(`<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`);
-      }
-      if (currentGroup) lines.push('</optgroup>');
-      return lines.join('');
-    };
+    const presetsToOptionsHtml = (presets: { value: string; label: string }[]) =>
+      presets
+        .map((p) => `<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`)
+        .join('');
     const dateFormatOptionsHtml = presetsToOptionsHtml(DATE_FORMAT_PRESETS);
     const numberFormatOptionsHtml = presetsToOptionsHtml(NUMBER_FORMAT_PRESETS);
     // Default to date presets for initial HTML; will be swapped dynamically
