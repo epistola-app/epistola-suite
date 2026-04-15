@@ -1,5 +1,7 @@
 # Epistola Suite Changelog
 
+> **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
+
 ## [Unreleased]
 
 ### Added
@@ -8,6 +10,12 @@
 - **`sys.language` system parameter**: Templates can now read the current variant's language attribute via `sys.language` (e.g. `"nl"`, `"en"`). Useful for locale-aware formatting (`$formatLocalNumber`) and text conditionals (`sys.language = 'nl' ? 'Factuur' : 'Invoice'`). Sourced from the variant's `language` attribute and threaded through the rendering pipeline (`DocumentGenerationExecutor`, `PreviewDocument`, `PreviewDraft`).
 - **Number format presets in expression dialog**: When editing an expression for a number/integer field, the dialog now shows a "Format" dropdown with common presets (`#,##0`, `#,##0.00`, `#,##0.##`, `0%`, `0.0%`, etc.) and wraps the field with `$formatLocalNumber(..., sys.language)` automatically.
 - **Editor preview uses real variant language**: The expression preview in the template editor now reflects the actual `language` attribute of the variant being edited (instead of a hardcoded mock), so previews match what the rendered PDF will produce.
+- **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
+- **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
+
+### Changed
+
+- **Helm chart workflow aligned with app release**: The Helm workflow now triggers on `release: published` (for `chart-*` tags) instead of `workflow_dispatch`, matching the app release pattern
 
 ## [0.14.0] - 2026-04-10
 
