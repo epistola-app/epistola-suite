@@ -73,7 +73,7 @@ class AttributeHandler {
             field("allowedValues") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: CatalogKey.DEFAULT.value)
+        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
         if (form.hasErrors()) {

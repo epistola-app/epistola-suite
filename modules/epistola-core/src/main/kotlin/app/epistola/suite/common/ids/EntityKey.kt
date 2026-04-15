@@ -480,6 +480,8 @@ value class CatalogKey(@JsonValue override val value: String) : SlugKey<CatalogK
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
+        /** The default catalog created for every tenant. Avoid using as a fallback — always propagate the actual catalog. */
+        @Deprecated("Pass the actual catalog key instead of defaulting. Will be removed when REST API supports catalogId.")
         val DEFAULT = CatalogKey("default")
 
         fun of(value: String): CatalogKey = CatalogKey(value)

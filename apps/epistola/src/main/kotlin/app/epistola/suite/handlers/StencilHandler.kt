@@ -147,7 +147,7 @@ class StencilHandler(
             field("description") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: CatalogKey.DEFAULT.value)
+        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
         if (form.hasErrors()) {
@@ -215,7 +215,8 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, CreateStencilJsonRequest::class.java)
 
-        val catalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) } ?: CatalogId.default(tenantId)
+        val catalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) }
+            ?: return ServerResponse.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
         val stencilId = StencilId(StencilKey.of(req.id), catalog)
 
         CreateStencil(
@@ -376,7 +377,8 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, UpgradeRequest::class.java)
 
-        val templateCatalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) } ?: CatalogId.default(tenantId)
+        val templateCatalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) }
+            ?: return ServerResponse.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
         val templateId = TemplateId(TemplateKey.of(req.templateId), templateCatalog)
         val variantId = VariantId(VariantKey.of(req.variantId), templateId)
 
