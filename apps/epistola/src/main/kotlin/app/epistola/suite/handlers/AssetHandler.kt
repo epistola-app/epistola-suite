@@ -4,12 +4,14 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -86,6 +88,16 @@ class AssetHandler {
             .body(assetInfoList)
     }
 
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogs = ListCatalogs(tenantId).query().filter { it.type == CatalogType.AUTHORED }
+        return ServerResponse.ok().page("assets/new") {
+            "pageTitle" to "Upload Asset - Epistola"
+            "tenantId" to tenantId.value
+            "catalogs" to catalogs
+        }
+    }
+
     fun upload(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
@@ -125,6 +137,11 @@ class AssetHandler {
             null
         }
 
+        val catalogKeyStr = multipartData["catalog"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        }?.ifBlank { null }
+        val catalogKey = if (catalogKeyStr != null) CatalogKey.of(catalogKeyStr) else null
+
         val asset = try {
             UploadAsset(
                 tenantId = tenantId,
@@ -133,6 +150,7 @@ class AssetHandler {
                 content = contentBytes,
                 width = dimensions?.first,
                 height = dimensions?.second,
+                catalogKey = catalogKey ?: CatalogKey.DEFAULT,
             ).execute()
         } catch (e: AssetTooLargeException) {
             return ServerResponse.badRequest()
@@ -140,21 +158,14 @@ class AssetHandler {
                 .body(mapOf("error" to e.message))
         }
 
-        // HTMX: return updated asset grid
+        // HTMX form submission — redirect to asset list
         if (request.isHtmx) {
-            val tenant = GetTenant(id = tenantId).query()
-            val assets = ListAssets(tenantId = tenantId).query()
-            return request.htmx {
-                fragment("assets/list", "asset-grid-items") {
-                    "tenantId" to tenantId.value
-                    "tenant" to tenant
-                    "assets" to assets
-                }
-                onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
-            }
+            return ServerResponse.ok()
+                .header("HX-Redirect", "/tenants/${tenantId.value}/assets")
+                .build()
         }
 
-        // Editor calls — return JSON
+        // Editor API calls (Accept: application/json) — return JSON
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(

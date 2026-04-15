@@ -10,6 +10,10 @@
                     searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
                     targetId='asset-grid-items'
                 )}"></div>
+                <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+                    Upload Asset
+                </a>
             </div>
         </div>
 
@@ -32,26 +36,7 @@
             </script>
         </div>
 
-        <!-- Upload area -->
-        <form id="asset-upload-form"
-              th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}"
-              hx-target="#asset-grid-items"
-              hx-swap="innerHTML"
-              hx-encoding="multipart/form-data"
-              class="asset-upload-zone"
-              ondragover="event.preventDefault(); this.classList.add('dragover')"
-              ondragleave="this.classList.remove('dragover')"
-              ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event, this)">
-            <div class="asset-upload-content">
-                <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
-                <p>Drag and drop images here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
-                <p class="text-muted text-sm">PNG, JPEG, WebP, SVG — max 5MB</p>
-            </div>
-            <input type="file" id="asset-file-input" name="file"
-                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                   style="display: none;"
-                   onchange="this.closest('form').requestSubmit()" />
-        </form>
+        <!-- Upload area is on a dedicated page -->
 
         <div id="asset-grid-items">
             <th:block th:fragment="asset-grid-items">
@@ -99,18 +84,6 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
-        <script th:inline="javascript">
-            function handleFileDrop(event, form) {
-                const file = event.dataTransfer.files[0];
-                if (file) {
-                    const input = form.querySelector('input[type="file"]');
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    input.files = dt.files;
-                    form.requestSubmit();
-                }
-            }
-        </script>
     </th:block>
 </body>
 </html>

@@ -12,6 +12,7 @@ class AssetRoutes(private val handler: AssetHandler) {
     fun assetRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/assets".nest {
             GET("", handler::list)
+            GET("/new", handler::newForm)
             POST("", handler::upload)
             GET("/search", handler::search)
 
