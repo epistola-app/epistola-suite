@@ -88,7 +88,7 @@ class ExportCatalogHandler(
         }
 
         val assets = if (allDeps.assetRefs.isNotEmpty()) {
-            ExportAssets(command.tenantKey, allDeps.assetRefs.toList()).query()
+            ExportAssets(command.tenantKey, assetIds = allDeps.assetRefs.toList()).query()
         } else {
             emptyList()
         }

@@ -1,7 +1,18 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.protocol.AssetResource
+import app.epistola.suite.catalog.protocol.CatalogInfo
+import app.epistola.suite.catalog.protocol.CatalogManifest
+import app.epistola.suite.catalog.protocol.CatalogResource
+import app.epistola.suite.catalog.protocol.PublisherInfo
+import app.epistola.suite.catalog.protocol.ReleaseInfo
+import app.epistola.suite.catalog.protocol.ResourceDetail
+import app.epistola.suite.catalog.protocol.ResourceEntry
+import app.epistola.suite.catalog.queries.ExportAssets
+import app.epistola.suite.catalog.queries.ExportAttributes
+import app.epistola.suite.catalog.queries.ExportStencils
+import app.epistola.suite.catalog.queries.ExportThemes
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -22,19 +33,10 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * Exports all resources in an authored catalog as a self-contained ZIP archive.
+ * Exports all resources in a catalog as a self-contained ZIP archive.
  *
- * The ZIP structure matches the catalog protocol layout:
- * ```
- * catalog.json
- * resources/
- *   template/slug.json
- *   theme/slug.json
- *   stencil/slug.json
- *   attribute/slug.json
- *   asset/slug.json        (metadata)
- *   assets/uuid             (binary content)
- * ```
+ * Unlike [ExportCatalog] which only exports template dependencies,
+ * this exports ALL resources in the catalog by `catalog_key`.
  */
 data class ExportCatalogZip(
     override val tenantKey: TenantKey,
@@ -59,40 +61,80 @@ class ExportCatalogZipHandler(
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
 
-        // List all template slugs in this catalog
-        val templateSlugs = listTemplateSlugs(command.tenantKey, command.catalogKey)
-
         val version = LocalDate.now().toString()
 
-        // Use ExportCatalog to build the manifest and resource details
-        val exportResult = ExportCatalog(
-            tenantKey = command.tenantKey,
-            catalogSlug = command.catalogKey.value,
-            catalogName = catalog.name,
-            publisherName = "Epistola",
-            version = version,
-            templateSlugs = templateSlugs,
-        ).execute()
+        // Query ALL resources in this catalog (not just template dependencies)
+        val templateSlugs = listTemplateSlugs(command.tenantKey, command.catalogKey)
+        val templates = if (templateSlugs.isNotEmpty()) {
+            // Reuse ExportCatalog for templates since it has the complex variant/version loading
+            ExportCatalog(
+                tenantKey = command.tenantKey,
+                catalogSlug = command.catalogKey.value,
+                catalogName = catalog.name,
+                publisherName = "Epistola",
+                version = version,
+                templateSlugs = templateSlugs,
+            ).execute()
+        } else {
+            null
+        }
+
+        val themes = ExportThemes(command.tenantKey, catalogKey = command.catalogKey).query()
+        val stencils = ExportStencils(command.tenantKey, catalogKey = command.catalogKey).query()
+        val attributes = ExportAttributes(command.tenantKey, catalogKey = command.catalogKey).query()
+        val assets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
+
+        // Build resource entries and details
+        val resourceEntries = mutableListOf<ResourceEntry>()
+        val resourceDetails = mutableMapOf<String, ResourceDetail>()
+
+        fun addResource(type: String, slug: String, name: String, description: String?, resource: CatalogResource) {
+            resourceEntries.add(ResourceEntry(type = type, slug = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"))
+            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = 2, resource = resource)
+        }
+
+        // Add non-template resources from direct catalog queries
+        for (attr in attributes) addResource("attribute", attr.slug, attr.name, null, attr)
+        for (theme in themes) addResource("theme", theme.slug, theme.name, theme.description, theme)
+        for (stencil in stencils) addResource("stencil", stencil.slug, stencil.name, stencil.description, stencil)
+        for (asset in assets) addResource("asset", asset.slug, asset.name, null, asset)
+
+        // Add templates from ExportCatalog result (which has the full variant/version structure)
+        if (templates != null) {
+            for ((key, detail) in templates.resourceDetails) {
+                if (key.startsWith("template/")) {
+                    val resource = detail.resource
+                    resourceEntries.add(ResourceEntry(type = "template", slug = resource.slug, name = resource.name, description = null, detailUrl = "./resources/$key.json"))
+                    resourceDetails[key] = detail
+                }
+            }
+        }
+
+        val manifest = CatalogManifest(
+            schemaVersion = 2,
+            catalog = CatalogInfo(slug = command.catalogKey.value, name = catalog.name, description = catalog.description),
+            publisher = PublisherInfo(name = "Epistola"),
+            release = ReleaseInfo(version = version),
+            resources = resourceEntries,
+        )
 
         // Build the ZIP
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zip ->
-            // catalog.json
             zip.putNextEntry(ZipEntry("catalog.json"))
-            zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(exportResult.manifest))
+            zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest))
             zip.closeEntry()
 
-            // Resource detail files
-            for ((key, detail) in exportResult.resourceDetails) {
+            for ((key, detail) in resourceDetails) {
                 zip.putNextEntry(ZipEntry("resources/$key.json"))
                 zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(detail))
                 zip.closeEntry()
             }
 
             // Asset binary content
-            for ((key, detail) in exportResult.resourceDetails) {
+            for ((_, detail) in resourceDetails) {
                 val resource = detail.resource
-                if (resource is app.epistola.suite.catalog.protocol.AssetResource) {
+                if (resource is AssetResource) {
                     val assetId = try {
                         AssetKey.of(UUID.fromString(resource.contentUrl.removePrefix("./resources/assets/")))
                     } catch (_: Exception) {

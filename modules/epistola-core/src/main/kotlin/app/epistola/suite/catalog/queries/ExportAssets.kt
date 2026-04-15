@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.protocol.AssetResource
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -11,7 +12,8 @@ import org.springframework.stereotype.Component
 
 data class ExportAssets(
     override val tenantKey: TenantKey,
-    val names: List<String>? = null,
+    val assetIds: List<String>? = null,
+    val catalogKey: CatalogKey? = null,
 ) : Query<List<AssetResource>>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -34,10 +36,12 @@ class ExportAssetsHandler(
         val rows = jdbi.withHandle<List<AssetRow>, Exception> { handle ->
             val sql = buildString {
                 append("SELECT id::text, name, media_type, width, height FROM assets WHERE tenant_key = :tenantKey")
-                if (query.names != null) append(" AND name IN (<names>)")
+                if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
+                if (query.assetIds != null) append(" AND id::text IN (<assetIds>)")
             }
             val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
-            if (query.names != null) q.bindList("names", query.names)
+            if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
+            if (query.assetIds != null) q.bindList("assetIds", query.assetIds)
             q.map { rs, _ ->
                 AssetRow(
                     id = rs.getString("id"),
@@ -51,7 +55,7 @@ class ExportAssetsHandler(
 
         return rows.map { row ->
             AssetResource(
-                slug = row.name,
+                slug = row.id,
                 name = row.name,
                 mediaType = row.mediaType,
                 width = row.width,
