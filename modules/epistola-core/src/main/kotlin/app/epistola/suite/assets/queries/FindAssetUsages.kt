@@ -7,7 +7,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -29,14 +28,7 @@ class FindAssetUsagesHandler(
 ) : QueryHandler<FindAssetUsages, List<AssetUsage>> {
 
     override fun handle(query: FindAssetUsages): List<AssetUsage> = jdbi.withHandle<List<AssetUsage>, Exception> { handle ->
-        findAssetUsages(handle, query.tenantId, query.assetId)
-    }
-
-    companion object {
-        /**
-         * Reusable function for checking asset usages inside an existing transaction/handle.
-         */
-        fun findAssetUsages(handle: Handle, tenantId: TenantKey, assetId: AssetKey): List<AssetUsage> = handle.createQuery(
+        handle.createQuery(
             """
                 SELECT DISTINCT dt.name AS template_name, tv.title AS variant_title
                 FROM template_versions ver
@@ -49,8 +41,8 @@ class FindAssetUsagesHandler(
                 ORDER BY template_name, variant_title
                 """,
         )
-            .bind("tenantId", tenantId)
-            .bind("assetId", assetId.value.toString())
+            .bind("tenantId", query.tenantId)
+            .bind("assetId", query.assetId.value.toString())
             .map { rs, _ ->
                 AssetUsage(
                     templateName = rs.getString("template_name"),

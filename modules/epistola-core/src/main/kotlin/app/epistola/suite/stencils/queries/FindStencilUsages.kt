@@ -6,7 +6,6 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -28,14 +27,7 @@ class FindStencilUsagesHandler(
 ) : QueryHandler<FindStencilUsages, List<String>> {
 
     override fun handle(query: FindStencilUsages): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        findStencilUsages(handle, query.stencilId)
-    }
-
-    companion object {
-        /**
-         * Reusable function for checking stencil usages inside an existing transaction/handle.
-         */
-        fun findStencilUsages(handle: Handle, stencilId: StencilId): List<String> = handle.createQuery(
+        handle.createQuery(
             """
             SELECT DISTINCT dt.name
             FROM template_versions tv
@@ -48,8 +40,8 @@ class FindStencilUsagesHandler(
             ORDER BY dt.name
             """,
         )
-            .bind("tenantId", stencilId.tenantKey)
-            .bind("stencilId", stencilId.key.value)
+            .bind("tenantId", query.stencilId.tenantKey)
+            .bind("stencilId", query.stencilId.key.value)
             .mapTo(String::class.java)
             .list()
     }

@@ -1,13 +1,14 @@
 package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetInUseException
-import app.epistola.suite.assets.queries.FindAssetUsagesHandler
+import app.epistola.suite.assets.queries.FindAssetUsages
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
@@ -21,10 +22,12 @@ import org.springframework.stereotype.Component
  *
  * @property tenantId Tenant that owns the asset
  * @property assetId The asset ID to delete
+ * @property force If true, skip usage check and delete even if in use
  */
 data class DeleteAsset(
     val tenantId: TenantKey,
     val assetId: AssetKey,
+    val force: Boolean = false,
 ) : Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -51,14 +54,16 @@ class DeleteAssetHandler(
         } ?: return false
         requireCatalogEditable(command.tenantId, catalogKey)
 
-        logger.info("Deleting asset {} for tenant {}", command.assetId, command.tenantId)
-
-        val deleted = jdbi.inTransaction<Boolean, Exception> { handle ->
-            val usages = FindAssetUsagesHandler.findAssetUsages(handle, command.tenantId, command.assetId)
+        if (!command.force) {
+            val usages = FindAssetUsages(command.tenantId, command.assetId).query()
             if (usages.isNotEmpty()) {
                 throw AssetInUseException(command.assetId, usages)
             }
+        }
 
+        logger.info("Deleting asset {} for tenant {}", command.assetId, command.tenantId)
+
+        val deleted = jdbi.withHandle<Boolean, Exception> { handle ->
             val rowsDeleted = handle.createUpdate(
                 """
                 DELETE FROM assets

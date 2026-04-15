@@ -200,8 +200,10 @@ class AssetHandler {
         val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
+        val force = request.param("force").orElse("false").toBoolean()
+
         try {
-            DeleteAsset(tenantId = tenantId, assetId = assetId).execute()
+            DeleteAsset(tenantId = tenantId, assetId = assetId, force = force).execute()
         } catch (e: AssetInUseException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)

@@ -131,7 +131,8 @@ class CatalogHandler {
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
         return try {
-            UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).execute()
+            val force = request.param("force").orElse("false").toBoolean()
+            UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey, force = force).execute()
 
             return request.htmx {
                 val catalogs = ListCatalogs(tenantId.key).query()
