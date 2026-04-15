@@ -8,14 +8,17 @@
         </nav>
 
         <h1 th:text="${catalog.name}"></h1>
-        <p class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
+        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
+        <p th:if="${catalog.description}" class="text-muted text-sm" th:text="${catalog.description}"></p>
 
         <div id="catalog-alert"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Resources</h2>
-                <button type="button" class="btn btn-sm btn-primary"
+                <!-- Install All only for subscribed catalogs -->
+                <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"
+                        type="button" class="btn btn-sm btn-primary"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id})}"
                         hx-target="#install-preview-body"
                         hx-swap="innerHTML"
@@ -29,8 +32,8 @@
                             <th>Name</th>
                             <th>Slug</th>
                             <th>Description</th>
-                            <th>Status</th>
-                            <th>Actions</th>
+                            <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Status</th>
+                            <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="resource-table" th:fragment="resource-rows">
@@ -42,17 +45,34 @@
                                 <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
                                 <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
                             </td>
-                            <td th:text="${resource.name}"></td>
+                            <td>
+                                <!-- Authored: link to detail page for templates/themes/stencils -->
+                                <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
+                                    <a th:if="${resource.type == 'template'}"
+                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
+                                       th:text="${resource.name}"></a>
+                                    <a th:if="${resource.type == 'theme'}"
+                                       th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
+                                       th:text="${resource.name}"></a>
+                                    <a th:if="${resource.type == 'stencil'}"
+                                       th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
+                                       th:text="${resource.name}"></a>
+                                    <span th:if="${resource.type == 'attribute' or resource.type == 'asset'}" th:text="${resource.name}"></span>
+                                </th:block>
+                                <!-- Subscribed: plain text -->
+                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
+                            </td>
                             <td><code th:text="${resource.slug}"></code></td>
                             <td>
                                 <span th:if="${resource.description}" th:text="${resource.description}"></span>
                                 <span th:unless="${resource.description}" class="text-muted">-</span>
                             </td>
-                            <td>
+                            <!-- Status + Actions only for subscribed catalogs -->
+                            <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
                                 <span th:if="${resource.status.name() == 'INSTALLED'}" class="badge badge-success">Installed</span>
                                 <span th:if="${resource.status.name() == 'AVAILABLE'}" class="badge">Available</span>
                             </td>
-                            <td>
+                            <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
                                 <button th:if="${resource.status.name() == 'AVAILABLE'}"
                                         type="button" class="btn btn-sm btn-primary"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
@@ -73,10 +93,9 @@
             </div>
         </div>
 
-        <!-- Install preview dialog -->
-        <dialog id="install-preview-dialog" class="ep-dialog">
+        <!-- Install preview dialog (subscribed catalogs only) -->
+        <dialog th:if="${catalog.type.name() == 'SUBSCRIBED'}" id="install-preview-dialog" class="ep-dialog">
             <div id="install-preview-body">
-                <!-- Content loaded via HTMX -->
                 <div class="ep-dialog-body">
                     <p class="text-muted">Loading...</p>
                 </div>

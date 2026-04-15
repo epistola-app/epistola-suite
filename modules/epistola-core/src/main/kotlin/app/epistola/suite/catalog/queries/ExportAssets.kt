@@ -10,6 +10,14 @@ import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
+private fun mimeTypeToExtension(mimeType: String): String = when (mimeType) {
+    "image/png" -> ".png"
+    "image/jpeg" -> ".jpg"
+    "image/webp" -> ".webp"
+    "image/svg+xml" -> ".svg"
+    else -> ""
+}
+
 data class ExportAssets(
     override val tenantKey: TenantKey,
     val assetIds: List<String>? = null,
@@ -54,13 +62,14 @@ class ExportAssetsHandler(
         }
 
         return rows.map { row ->
+            val ext = mimeTypeToExtension(row.mediaType)
             AssetResource(
                 slug = row.id,
                 name = row.name,
                 mediaType = row.mediaType,
                 width = row.width,
                 height = row.height,
-                contentUrl = "./resources/assets/${row.id}",
+                contentUrl = "./resources/assets/${row.id}$ext",
             )
         }
     }

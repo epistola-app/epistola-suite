@@ -73,8 +73,10 @@ export class EpistolaThemeEditor extends LitElement {
       ${this._readOnly ? '' : this._renderStatusBar()}
       <div class="theme-editor-layout">
         <div class="theme-editor-panel">
-          ${renderBasicInfoSection(this.themeState, this._readOnly)} ${renderDocumentStylesSection(this.themeState, this._readOnly)}
-          ${renderPageSettingsSection(this.themeState, this._readOnly)} ${renderPresetsSection(this.themeState, this._readOnly)}
+          ${renderBasicInfoSection(this.themeState, this._readOnly)}
+          ${renderDocumentStylesSection(this.themeState, this._readOnly)}
+          ${renderPageSettingsSection(this.themeState, this._readOnly)}
+          ${renderPresetsSection(this.themeState, this._readOnly)}
         </div>
         <div class="theme-editor-preview">
           <div class="theme-editor-preview-placeholder">Preview panel coming soon</div>

@@ -2,8 +2,10 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
@@ -13,6 +15,7 @@ import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -265,6 +268,60 @@ class CatalogHandler {
                     if (errorMessage != null) "error" to errorMessage
                 }
             }
+        }
+    }
+
+    fun importZip(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+
+        val multipartData = request.multipartData()
+        val filePart = multipartData["file"]?.firstOrNull()
+            ?: return listWithError(request, "No file provided")
+
+        val zipBytes = filePart.inputStream.use { it.readAllBytes() }
+
+        val catalogTypeStr = multipartData["catalogType"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        } ?: "AUTHORED"
+        val catalogType = try {
+            CatalogType.valueOf(catalogTypeStr)
+        } catch (_: Exception) {
+            return listWithError(request, "Invalid catalog type: $catalogTypeStr")
+        }
+
+        return try {
+            val result = ImportCatalogZip(
+                tenantKey = tenantId.key,
+                zipBytes = zipBytes,
+                catalogType = catalogType,
+            ).execute()
+
+            val failed = result.results.count { it.status == InstallStatus.FAILED }
+            val installed = result.results.count { it.status == InstallStatus.INSTALLED }
+            val updated = result.results.count { it.status == InstallStatus.UPDATED }
+
+            val message = if (failed > 0) {
+                "Imported catalog '${result.catalogName}' with $failed failures."
+            } else {
+                val parts = listOfNotNull(
+                    if (installed > 0) "$installed installed" else null,
+                    if (updated > 0) "$updated updated" else null,
+                )
+                "Imported catalog '${result.catalogName}': ${parts.joinToString(", ")}."
+            }
+
+            if (request.isHtmx) {
+                ServerResponse.ok()
+                    .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
+                    .build()
+            } else {
+                ServerResponse.status(303)
+                    .header("Location", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
+                    .build()
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to import catalog from ZIP: ${e.message}", e)
+            listWithError(request, e.message ?: "Failed to import catalog")
         }
     }
 

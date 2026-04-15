@@ -4,7 +4,8 @@
 
 ### Added
 
-- **Export catalog as ZIP**: All catalogs (authored and subscribed) can be exported as self-contained ZIP archives from the Catalogs page. The ZIP contains the catalog manifest, all resource detail files (templates, themes, stencils, attributes, assets), and asset binary content. Exports all resources in the catalog, not just template dependencies.
+- **Export catalog as ZIP**: All catalogs (authored and subscribed) can be exported as self-contained ZIP archives from the Catalogs page. The ZIP contains the catalog manifest, all resource detail files (templates, themes, stencils, attributes, assets), and asset binary content with proper file extensions. Exports all resources in the catalog, not just template dependencies.
+- **Import catalog from ZIP**: Upload a ZIP archive to create or update a catalog. User chooses whether the imported catalog should be authored (editable) or subscribed (read-only). If a catalog with the same slug already exists and is authored, resources are updated in place. Subscribed catalogs cannot be overwritten.
 - **Dedicated asset upload page**: Assets are now uploaded via a dedicated `/assets/new` page with an explicit catalog selector, replacing the inline drag-drop zone. Catalog is always explicitly chosen.
 - **Delete authored catalogs**: Authored catalogs (except the default) can now be deleted with a confirmation dialog warning about resource deletion. Subscribed catalogs retain the existing remove functionality.
 - **Global closeDialog event**: HTMX responses can trigger `closeDialog` via `HX-Trigger` header to close any open dialog. Replaces CSP-incompatible `hx-on::after-request` attributes.

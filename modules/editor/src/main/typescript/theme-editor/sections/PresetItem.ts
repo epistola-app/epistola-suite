@@ -196,9 +196,22 @@ function renderPresetStyleInput(
 ): unknown {
   switch (prop.type) {
     case 'select':
-      return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined), inputId, readOnly);
+      return renderSelectInput(
+        value,
+        prop.options ?? [],
+        (v) => onChange(v || undefined),
+        inputId,
+        readOnly,
+      );
     case 'unit':
-      return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v), undefined, inputId, readOnly);
+      return renderUnitInput(
+        value,
+        prop.units ?? ['px'],
+        (v) => onChange(v),
+        undefined,
+        inputId,
+        readOnly,
+      );
     case 'color':
       return renderColorInput(value, (v) => onChange(v || undefined), inputId, readOnly);
     case 'spacing':

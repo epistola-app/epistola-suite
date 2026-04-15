@@ -76,7 +76,11 @@ export function renderUnitInput(
       />
       ${units.length > 1
         ? html`
-            <select class="ep-select style-unit-select" ?disabled=${readOnly} @change=${handleUnitChange}>
+            <select
+              class="ep-select style-unit-select"
+              ?disabled=${readOnly}
+              @change=${handleUnitChange}
+            >
               ${units.map(
                 (u) => html` <option .value=${u} ?selected=${u === parsed.unit}>${u}</option> `,
               )}

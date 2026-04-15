@@ -32,9 +32,12 @@ export function renderDocumentStylesSection(state: ThemeEditorState, readOnly = 
           <div class="inspector-style-group">
             <div class="inspector-style-group-label">${group.label}</div>
             ${inheritableProps.map((prop) =>
-              renderStyleProperty(prop, docStyles[prop.key], (value) =>
-                state.updateDocumentStyle(prop.key, value),
-              readOnly),
+              renderStyleProperty(
+                prop,
+                docStyles[prop.key],
+                (value) => state.updateDocumentStyle(prop.key, value),
+                readOnly,
+              ),
             )}
           </div>
         `;
@@ -67,9 +70,22 @@ function renderStyleInput(
 ): unknown {
   switch (prop.type) {
     case 'select':
-      return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined), inputId, readOnly);
+      return renderSelectInput(
+        value,
+        prop.options ?? [],
+        (v) => onChange(v || undefined),
+        inputId,
+        readOnly,
+      );
     case 'unit':
-      return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v), undefined, inputId, readOnly);
+      return renderUnitInput(
+        value,
+        prop.units ?? ['px'],
+        (v) => onChange(v),
+        undefined,
+        inputId,
+        readOnly,
+      );
     case 'color':
       return renderColorInput(value, (v) => onChange(v || undefined), inputId, readOnly);
     case 'spacing':

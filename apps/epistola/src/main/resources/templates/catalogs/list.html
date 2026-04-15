@@ -6,6 +6,11 @@
             <h1>Catalogs</h1>
             <div class="page-actions">
                 <button type="button" class="btn btn-outline"
+                        onclick="document.getElementById('import-dialog').showModal()">
+                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon')}" />
+                    Import ZIP
+                </button>
+                <button type="button" class="btn btn-outline"
                         onclick="document.getElementById('subscribe-dialog').showModal()">
                     <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
                     Subscribe
@@ -156,6 +161,42 @@
                     <button type="button" class="btn btn-ghost"
                             onclick="document.getElementById('subscribe-dialog').close()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Subscribe</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Import ZIP Dialog -->
+        <dialog id="import-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Import Catalog from ZIP</h3>
+            </div>
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
+                  hx-encoding="multipart/form-data">
+                <div class="ep-dialog-body">
+                    <div class="form-group">
+                        <label class="ep-label" for="import-file">ZIP file</label>
+                        <input type="file" id="import-file" name="file" class="ep-input"
+                               accept=".zip,application/zip" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label">Catalog type</label>
+                        <div style="display: flex; gap: var(--ep-space-4); margin-top: var(--ep-space-2);">
+                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                <input type="radio" name="catalogType" value="AUTHORED" checked />
+                                Authored
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                <input type="radio" name="catalogType" value="SUBSCRIBED" />
+                                Subscribed (read-only)
+                            </label>
+                        </div>
+                        <span class="form-hint">Authored catalogs can be edited. Subscribed catalogs are read-only.</span>
+                    </div>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="btn btn-ghost"
+                            onclick="document.getElementById('import-dialog').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Import</button>
                 </div>
             </form>
         </dialog>
