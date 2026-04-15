@@ -57,7 +57,12 @@
                                     <a th:if="${resource.type == 'stencil'}"
                                        th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
-                                    <span th:if="${resource.type == 'attribute' or resource.type == 'asset'}" th:text="${resource.name}"></span>
+                                    <a th:if="${resource.type == 'attribute'}"
+                                       th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalog.id})}"
+                                       th:text="${resource.name}"></a>
+                                    <a th:if="${resource.type == 'asset'}"
+                                       th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId},catalog=${catalog.id})}"
+                                       th:text="${resource.name}"></a>
                                 </th:block>
                                 <!-- Subscribed: plain text -->
                                 <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>

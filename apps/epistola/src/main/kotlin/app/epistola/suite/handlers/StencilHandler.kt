@@ -306,7 +306,13 @@ class StencilHandler(
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        DeleteStencil(id = stencilId).execute()
+        try {
+            DeleteStencil(id = stencilId).execute()
+        } catch (e: app.epistola.suite.stencils.StencilInUseException) {
+            return ServerResponse.badRequest()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
 
         val stencils = ListStencils(tenantId = tenantId).query()
         return request.htmx {
