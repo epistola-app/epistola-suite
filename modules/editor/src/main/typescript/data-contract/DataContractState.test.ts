@@ -220,15 +220,15 @@ describe('DataContractState', () => {
       expect(result.error).toBe('Network error');
     });
 
-    it('commits locally when no callback', async () => {
+    it('returns failure when no callback (read-only)', async () => {
       const state = createState(testSchema);
       state.setDraftSchema(null);
       expect(state.isSchemaDirty).toBe(true);
 
       const result = await state.saveSchema();
 
-      expect(result.success).toBe(true);
-      expect(state.isSchemaDirty).toBe(false);
+      expect(result.success).toBe(false);
+      expect(state.isSchemaDirty).toBe(true);
     });
   });
 
