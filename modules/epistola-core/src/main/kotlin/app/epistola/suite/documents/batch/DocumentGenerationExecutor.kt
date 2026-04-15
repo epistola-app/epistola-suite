@@ -258,6 +258,7 @@ class DocumentGenerationExecutor(
         val document = Document(
             id = DocumentKey.generate(),
             tenantKey = request.tenantKey,
+            catalogKey = request.catalogKey,
             templateKey = request.templateKey,
             variantKey = request.variantKey,
             versionKey = version.id,
@@ -303,12 +304,12 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, template_key, variant_key, version_key,
+                    id, tenant_key, catalog_key, template_key, variant_key, version_key,
                     filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
                 VALUES (
-                    :id, :tenantId, :templateId, :variantId, :versionId,
+                    :id, :tenantId, :catalogKey, :templateId, :variantId, :versionId,
                     :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
@@ -316,6 +317,7 @@ class DocumentGenerationExecutor(
             )
                 .bind("id", document.id)
                 .bind("tenantId", document.tenantKey)
+                .bind("catalogKey", document.catalogKey)
                 .bind("templateId", document.templateKey)
                 .bind("variantId", document.variantKey)
                 .bind("versionId", document.versionKey)

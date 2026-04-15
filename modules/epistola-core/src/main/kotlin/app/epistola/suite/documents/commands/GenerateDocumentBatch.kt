@@ -1,6 +1,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -31,6 +32,7 @@ import tools.jackson.databind.node.ObjectNode
  * via [variantSelectionCriteria]. Exactly one of the two must be set.
  */
 data class BatchGenerationItem(
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
@@ -119,7 +121,7 @@ class GenerateDocumentBatchHandler(
         val resolvedVariantIds = command.items.map { item ->
             item.variantId
                 ?: item.variantSelectionCriteria?.let { variantResolver.resolve(command.tenantId, item.templateId, it) }
-                ?: resolveDefaultVariant(command.tenantId, item.templateId)
+                ?: resolveDefaultVariant(command.tenantId, item.catalogKey, item.templateId)
         }
 
         val batchId = jdbi.inTransaction<BatchKey, Exception> { handle ->
@@ -132,11 +134,12 @@ class GenerateDocumentBatchHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_variants
-                        WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                     )
                     """,
                 )
                     .bind("templateId", item.templateId)
+                    .bind("catalogKey", item.catalogKey)
                     .bind("variantId", resolvedVariantId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
@@ -152,11 +155,12 @@ class GenerateDocumentBatchHandler(
                         SELECT EXISTS (
                             SELECT 1
                             FROM template_versions
-                            WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId AND id = :versionId
                         )
                         """,
                     )
                         .bind("versionId", item.versionId)
+                        .bind("catalogKey", item.catalogKey)
                         .bind("variantId", resolvedVariantId)
                         .bind("tenantId", command.tenantId)
                         .mapTo<Boolean>()
@@ -206,10 +210,10 @@ class GenerateDocumentBatchHandler(
             val batch = handle.prepareBatch(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                    id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                     data, filename, correlation_key, document_key, status
                 )
-                VALUES (:id, :batchId, :tenantId, :templateId, :variantId, :versionId, :environmentId,
+                VALUES (:id, :batchId, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
                         :data::jsonb, :filename, :correlationId, NULL, :status)
                 """,
             )
@@ -219,6 +223,7 @@ class GenerateDocumentBatchHandler(
                 batch.bind("id", requestId)
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
+                    .bind("catalogKey", item.catalogKey)
                     .bind("templateId", item.templateId)
                     .bind("variantId", resolvedVariantIds[index])
                     .bind("versionId", item.versionId)
@@ -240,15 +245,16 @@ class GenerateDocumentBatchHandler(
         return batchId
     }
 
-    private fun resolveDefaultVariant(tenantId: TenantKey, templateId: TemplateKey): VariantKey {
+    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: CatalogKey, templateId: TemplateKey): VariantKey {
         val variantId = jdbi.withHandle<String?, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .mapTo<String>()
                 .findOne()

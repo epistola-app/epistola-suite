@@ -38,6 +38,7 @@ class GetLoadTestRunHandler(
                 r.id,
                 r.batch_id,
                 r.tenant_key,
+                r.catalog_key,
                 r.template_key,
                 r.variant_key,
                 r.version_key,

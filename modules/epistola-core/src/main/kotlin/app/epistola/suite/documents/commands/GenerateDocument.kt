@@ -42,6 +42,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class GenerateDocument(
     val tenantId: TenantKey,
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
@@ -77,7 +78,7 @@ class GenerateDocumentHandler(
         // Resolve variant: explicit ID > attribute selection > default variant
         val resolvedVariantId = command.variantId
             ?: command.variantSelectionCriteria?.let { variantResolver.resolve(command.tenantId, command.templateId, it) }
-            ?: resolveDefaultVariant(command.tenantId, command.templateId)
+            ?: resolveDefaultVariant(command.tenantId, command.catalogKey, command.templateId)
 
         logger.info("Generating single document for tenant {} template {} variant {}", command.tenantId, command.templateId, resolvedVariantId)
 
@@ -88,11 +89,12 @@ class GenerateDocumentHandler(
                 SELECT EXISTS (
                     SELECT 1
                     FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 )
                 """,
             )
                 .bind("templateId", command.templateId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("variantId", resolvedVariantId)
                 .bind("tenantId", command.tenantId)
                 .mapTo<Boolean>()
@@ -109,11 +111,12 @@ class GenerateDocumentHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_versions
-                        WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId AND id = :versionId
                     )
                     """,
                 )
                     .bind("versionId", command.versionId)
+                    .bind("catalogKey", command.catalogKey)
                     .bind("variantId", resolvedVariantId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
@@ -148,18 +151,19 @@ class GenerateDocumentHandler(
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                    id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                     data, filename, correlation_key, document_key, status
                 )
-                VALUES (:id, NULL, :tenantId, :templateId, :variantId, :versionId, :environmentId,
+                VALUES (:id, NULL, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
                         :data::jsonb, :filename, :correlationId, NULL, :status)
-                RETURNING id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                           data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
                           error_message, created_at, started_at, completed_at, expires_at
                 """,
             )
                 .bind("id", requestId)
                 .bind("tenantId", command.tenantId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("templateId", command.templateId)
                 .bind("variantId", resolvedVariantId)
                 .bind("versionId", command.versionId)
@@ -180,15 +184,16 @@ class GenerateDocumentHandler(
         return request
     }
 
-    private fun resolveDefaultVariant(tenantId: TenantKey, templateId: TemplateKey): VariantKey {
+    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey): VariantKey {
         val variantId = jdbi.withHandle<String?, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .mapTo<String>()
                 .findOne()

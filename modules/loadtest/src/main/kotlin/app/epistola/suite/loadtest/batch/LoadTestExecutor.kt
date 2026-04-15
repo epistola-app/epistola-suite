@@ -68,6 +68,7 @@ class LoadTestExecutor(
         // Build batch items
         val batchItems = (1..run.targetCount).map { sequenceNumber ->
             BatchGenerationItem(
+                catalogKey = run.catalogKey,
                 templateId = run.templateKey,
                 variantId = run.variantKey,
                 versionId = run.versionKey,
