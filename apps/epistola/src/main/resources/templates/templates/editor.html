@@ -199,7 +199,7 @@
                     const resp = await fetch('/tenants/' + tenantId + '/stencils', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-                        body: JSON.stringify({ id: slug, name }),
+                        body: JSON.stringify({ id: slug, name, catalogKey: catalogId }),
                     });
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
