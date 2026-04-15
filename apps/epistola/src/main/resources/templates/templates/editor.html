@@ -144,10 +144,10 @@
             },
             stencilOptions: {
                 checkUpgrades: async (refs) => {
-                    const uniqueIds = [...new Set(refs.map(r => r.stencilId))];
+                    const uniqueKeys = [...new Set(refs.map(r => r.catalogKey + '/' + r.stencilId))];
                     const results = [];
-                    for (const sid of uniqueIds) {
-                        const cat = (refs.find(r => r.stencilId === sid) || {}).catalogKey || 'default';
+                    for (const key of uniqueKeys) {
+                        const [cat, sid] = key.split('/');
                         const resp = await fetch('/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions', {
                             headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         });
@@ -157,7 +157,7 @@
                         const latestPublished = versions.filter(v => v.status === 'published')
                             .sort((a, b) => b.version - a.version)[0];
                         if (latestPublished) {
-                            const currentVersions = refs.filter(r => r.stencilId === sid);
+                            const currentVersions = refs.filter(r => r.stencilId === sid && r.catalogKey === cat);
                             for (const ref of currentVersions) {
                                 if (latestPublished.version > ref.version) {
                                     results.push({ stencilId: sid, currentVersion: ref.version, latestVersion: latestPublished.version });
