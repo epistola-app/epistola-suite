@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.protocol.AssetResource
 import app.epistola.suite.catalog.protocol.AttributeResource
 import app.epistola.suite.catalog.protocol.CatalogManifest
@@ -97,7 +98,7 @@ class ImportCatalogZipHandler(
         }
 
         // Install resources in dependency order
-        val ordered = manifest.resources.sortedBy { INSTALL_ORDER[it.type] ?: 99 }
+        val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
         val tenantId = TenantId(command.tenantKey)
 
         val results = ordered.map { entry ->
@@ -221,11 +222,3 @@ class ImportCatalogZipHandler(
         }
     }
 }
-
-private val INSTALL_ORDER = mapOf(
-    "asset" to 0,
-    "attribute" to 1,
-    "theme" to 2,
-    "stencil" to 3,
-    "template" to 4,
-)

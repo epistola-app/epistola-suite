@@ -6,6 +6,7 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.DependencyResolver
+import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.protocol.AssetResource
 import app.epistola.suite.catalog.protocol.AttributeResource
 import app.epistola.suite.catalog.protocol.CatalogResource
@@ -77,7 +78,7 @@ class InstallFromCatalogHandler(
         val resourcesToInstall = dependencyResolver.resolve(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
 
         // Install in dependency order: assets → attributes → themes → stencils → templates
-        val ordered = resourcesToInstall.sortedBy { INSTALL_ORDER[it.type] ?: 99 }
+        val ordered = resourcesToInstall.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
         ordered.map { entry ->
             try {
@@ -200,16 +201,6 @@ class InstallFromCatalogHandler(
             width = resource.width,
             height = resource.height,
         ).execute()
-    }
-
-    companion object {
-        private val INSTALL_ORDER = mapOf(
-            "asset" to 0,
-            "attribute" to 1,
-            "theme" to 2,
-            "stencil" to 3,
-            "template" to 4,
-        )
     }
 }
 

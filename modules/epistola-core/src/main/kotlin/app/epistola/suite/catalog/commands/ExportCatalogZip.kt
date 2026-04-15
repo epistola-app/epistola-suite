@@ -69,6 +69,7 @@ class ExportCatalogZipHandler(
             // Reuse ExportCatalog for templates since it has the complex variant/version loading
             ExportCatalog(
                 tenantKey = command.tenantKey,
+                catalogKey = command.catalogKey,
                 catalogSlug = command.catalogKey.value,
                 catalogName = catalog.name,
                 publisherName = "Epistola",

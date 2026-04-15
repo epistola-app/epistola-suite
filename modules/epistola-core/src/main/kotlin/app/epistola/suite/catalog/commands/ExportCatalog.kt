@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
 import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.ExportThemes
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -30,6 +31,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class ExportCatalog(
     override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
     val catalogSlug: String,
     val catalogName: String,
     val publisherName: String,
@@ -53,7 +55,7 @@ class ExportCatalogHandler(
 
     override fun handle(command: ExportCatalog): ExportCatalogResult {
         // 1. Load requested templates with their variants and draft content
-        val templates = loadTemplates(command.tenantKey, command.templateSlugs)
+        val templates = loadTemplates(command.tenantKey, command.catalogKey, command.templateSlugs)
 
         // 2. Scan dependencies across all template documents
         val allDeps = templates.map { template ->
@@ -70,25 +72,25 @@ class ExportCatalogHandler(
 
         // 3. Export dependent resources
         val themes = if (allDeps.themeRefs.isNotEmpty()) {
-            ExportThemes(command.tenantKey, allDeps.themeRefs.toList()).query()
+            ExportThemes(command.tenantKey, slugs = allDeps.themeRefs.toList(), catalogKey = command.catalogKey).query()
         } else {
             emptyList()
         }
 
         val attributes = if (allDeps.attributeKeys.isNotEmpty()) {
-            ExportAttributes(command.tenantKey, allDeps.attributeKeys.toList()).query()
+            ExportAttributes(command.tenantKey, slugs = allDeps.attributeKeys.toList(), catalogKey = command.catalogKey).query()
         } else {
             emptyList()
         }
 
         val stencils = if (allDeps.stencilRefs.isNotEmpty()) {
-            ExportStencils(command.tenantKey, allDeps.stencilRefs.toList()).query()
+            ExportStencils(command.tenantKey, slugs = allDeps.stencilRefs.toList(), catalogKey = command.catalogKey).query()
         } else {
             emptyList()
         }
 
         val assets = if (allDeps.assetRefs.isNotEmpty()) {
-            ExportAssets(command.tenantKey, assetIds = allDeps.assetRefs.toList()).query()
+            ExportAssets(command.tenantKey, assetIds = allDeps.assetRefs.toList(), catalogKey = command.catalogKey).query()
         } else {
             emptyList()
         }
@@ -119,7 +121,7 @@ class ExportCatalogHandler(
         return ExportCatalogResult(manifest = manifest, resourceDetails = resourceDetails)
     }
 
-    private fun loadTemplates(tenantKey: TenantKey, slugs: List<String>): List<TemplateResource> {
+    private fun loadTemplates(tenantKey: TenantKey, catalogKey: CatalogKey, slugs: List<String>): List<TemplateResource> {
         data class TemplateRow(
             val id: String,
             val name: String,
@@ -141,10 +143,11 @@ class ExportCatalogHandler(
                 """
                 SELECT id, name, data_model::text, data_examples::text
                 FROM document_templates
-                WHERE tenant_key = :tenantKey AND id IN (<slugs>)
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id IN (<slugs>)
                 """,
             )
                 .bind("tenantKey", tenantKey)
+                .bind("catalogKey", catalogKey)
                 .bindList("slugs", slugs)
                 .map { rs, _ ->
                     TemplateRow(
@@ -167,14 +170,15 @@ class ExportCatalogHandler(
                     FROM template_variants v
                     LEFT JOIN LATERAL (
                         SELECT template_model FROM template_versions
-                        WHERE tenant_key = :tenantKey AND template_key = :templateKey AND variant_key = v.id
+                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey AND variant_key = v.id
                         ORDER BY CASE WHEN status = 'published' THEN 0 ELSE 1 END, id DESC
                         LIMIT 1
                     ) vv ON TRUE
-                    WHERE v.tenant_key = :tenantKey AND v.template_key = :templateKey
+                    WHERE v.tenant_key = :tenantKey AND v.catalog_key = :catalogKey AND v.template_key = :templateKey
                     """,
                 )
                     .bind("tenantKey", tenantKey)
+                    .bind("catalogKey", catalogKey)
                     .bind("templateKey", template.id)
                     .map { rs, _ ->
                         VariantRow(

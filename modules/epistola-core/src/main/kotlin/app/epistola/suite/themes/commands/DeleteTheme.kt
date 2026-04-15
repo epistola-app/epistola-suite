@@ -62,10 +62,11 @@ class DeleteThemeHandler(
             // Check if this is the last theme for the tenant
             val themeCount = handle.createQuery(
                 """
-            SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId
+            SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
             """,
             )
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .mapTo<Long>()
                 .one()
 
@@ -76,11 +77,12 @@ class DeleteThemeHandler(
             // Delete the theme
             val deleted = handle.createUpdate(
                 """
-            DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId
+            DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
             """,
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .execute()
             deleted > 0
         }
