@@ -16,7 +16,7 @@ import type {
 } from './types.js';
 
 export type StencilPickerResult =
-  | { action: 'create-new'; stencilId: string; version: number }
+  | { action: 'create-new'; stencilId: string; version: number; catalogKey?: string }
   | { action: 'use-existing'; versionInfo: StencilVersionInfo }
   | null;
 
@@ -297,7 +297,12 @@ export async function openStencilPickerDialog(
 
       try {
         const result = await callbacks.createStencil(slug, name);
-        close({ action: 'create-new', stencilId: result.stencilId, version: result.version });
+        close({
+          action: 'create-new',
+          stencilId: result.stencilId,
+          version: result.version,
+          catalogKey: result.catalogKey,
+        });
       } catch (e) {
         createError.textContent = (e as Error).message || 'Failed to create stencil';
         createError.style.display = '';
@@ -318,6 +323,7 @@ export async function openStencilPickerDialog(
       const versionInfo = await callbacks.getStencilVersion(
         selectedStencil.id,
         selectedVersion.version,
+        selectedStencil.catalogKey,
       );
       if (!versionInfo) {
         insertBtn.textContent = 'Insert';

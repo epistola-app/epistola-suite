@@ -22,6 +22,7 @@ export interface StencilSummary {
 export interface StencilVersionInfo {
   stencilId: string;
   stencilName: string;
+  catalogKey?: string;
   version: number;
   /** The template document fragment (nodes + slots) to embed. */
   content: import('../../types/index.js').TemplateDocument;
@@ -60,7 +61,7 @@ export type CheckStencilUpgradesFn = (
 export type CreateStencilFn = (
   slug: string,
   name: string,
-) => Promise<{ stencilId: string; version: number }>;
+) => Promise<{ stencilId: string; version: number; catalogKey?: string }>;
 
 /** Push updated content back to a stencil as a new draft version. */
 export type UpdateStencilFn = (

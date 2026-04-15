@@ -55,6 +55,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     inspector: [],
     defaultProps: {
       stencilId: null,
+      catalogKey: null,
       version: null,
       isDraft: false,
     },
@@ -97,6 +98,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         // Stencil entity created on backend — insert with stencilId in draft mode
         return {
           stencilId: result.stencilId,
+          catalogKey: result.catalogKey,
           version: result.version,
           isDraft: true,
         };
@@ -105,6 +107,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       // Use existing stencil — store content temporarily for createSubtree
       return {
         stencilId: result.versionInfo.stencilId,
+        catalogKey: result.versionInfo.catalogKey,
         version: result.versionInfo.version,
         _content: result.versionInfo.content,
       };

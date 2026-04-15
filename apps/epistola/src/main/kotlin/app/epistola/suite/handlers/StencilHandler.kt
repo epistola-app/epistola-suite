@@ -236,7 +236,7 @@ class StencilHandler(
 
         return ServerResponse.status(201)
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("stencilId" to req.id, "version" to (publishedVersion ?: 1)))
+            .body(mapOf("stencilId" to req.id, "version" to (publishedVersion ?: 1), "catalogKey" to req.catalogKey))
     }
 
     // ── Detail & Update & Delete ───────────────────────────────────────────

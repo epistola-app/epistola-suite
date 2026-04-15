@@ -702,7 +702,7 @@ describe('catalogKey propagation', () => {
     expect(engine.doc.nodes[nodeId].props?.catalogKey).toBe('my-catalog');
   });
 
-  it('stencil node without catalogKey defaults to undefined', () => {
+  it('stencil node without catalogKey defaults to null', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const nodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
@@ -710,6 +710,6 @@ describe('catalogKey propagation', () => {
       isDraft: false,
     });
 
-    expect(engine.doc.nodes[nodeId].props?.catalogKey).toBeUndefined();
+    expect(engine.doc.nodes[nodeId].props?.catalogKey).toBeNull();
   });
 });
