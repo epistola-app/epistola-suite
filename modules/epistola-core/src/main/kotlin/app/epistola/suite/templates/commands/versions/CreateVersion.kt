@@ -43,14 +43,15 @@ class CreateVersionHandler(
             """
                 SELECT dt.name as template_name
                 FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
-                WHERE tv.tenant_key = :tenantId AND tv.id = :variantId
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+                WHERE tv.tenant_key = :tenantId AND tv.catalog_key = :catalogKey AND tv.id = :variantId
                   AND tv.template_key = :templateId
                 """,
         )
             .bind("variantId", command.variantId.key)
             .bind("templateId", command.variantId.templateKey)
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .mapToMap()
             .findOne()
             .orElse(null) ?: return@inTransaction null
@@ -62,12 +63,14 @@ class CreateVersionHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND variant_key = :variantId
-                  AND status = 'draft'
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
+                  AND template_key = :templateId AND status = 'draft'
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)
@@ -82,11 +85,14 @@ class CreateVersionHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
+                  AND template_key = :templateId
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
             .mapTo(Int::class.java)
             .one()
 
@@ -103,13 +109,14 @@ class CreateVersionHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
             .bind("id", versionId)
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)

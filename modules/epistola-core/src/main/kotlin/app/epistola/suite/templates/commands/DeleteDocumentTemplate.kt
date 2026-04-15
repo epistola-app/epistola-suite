@@ -29,11 +29,12 @@ class DeleteDocumentTemplateHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
                 .execute()
             rowsAffected > 0
         }

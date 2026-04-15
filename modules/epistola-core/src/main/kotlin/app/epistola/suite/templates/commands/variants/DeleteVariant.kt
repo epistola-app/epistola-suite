@@ -31,10 +31,11 @@ class DeleteVariantHandler(
             val isDefault = handle.createQuery(
                 """
                 SELECT is_default FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .mapTo<Boolean>()
@@ -48,10 +49,11 @@ class DeleteVariantHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .execute()

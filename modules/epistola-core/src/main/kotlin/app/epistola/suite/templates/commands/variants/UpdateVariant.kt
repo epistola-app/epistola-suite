@@ -38,11 +38,12 @@ class UpdateVariantHandler(
                 """
                 UPDATE template_variants
                 SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
-                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 RETURNING *
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("title", command.title)

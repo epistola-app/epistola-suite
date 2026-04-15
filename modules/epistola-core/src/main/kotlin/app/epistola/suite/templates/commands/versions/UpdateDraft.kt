@@ -38,12 +38,13 @@ class UpdateDraftHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 """,
         )
             .bind("variantId", command.variantId.key)
             .bind("templateId", command.variantId.templateKey)
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .mapTo<Boolean>()
             .one()
 
@@ -58,12 +59,13 @@ class UpdateDraftHandler(
             """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
-                WHERE tenant_key = :tenantId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                   AND status = 'draft'
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
@@ -75,12 +77,13 @@ class UpdateDraftHandler(
                 """
                     SELECT *
                     FROM template_versions
-                    WHERE tenant_key = :tenantId AND variant_key = :variantId
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                       AND template_key = :templateId
                       AND status = 'draft'
                     """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
                 .mapTo<TemplateVersion>()
@@ -93,11 +96,12 @@ class UpdateDraftHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .mapTo(Int::class.java)
@@ -112,13 +116,14 @@ class UpdateDraftHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
             .bind("id", versionId)
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)

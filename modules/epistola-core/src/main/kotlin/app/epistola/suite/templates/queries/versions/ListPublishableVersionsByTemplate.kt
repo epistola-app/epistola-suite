@@ -43,15 +43,17 @@ class ListPublishableVersionsByTemplateHandler(
                     ver.id as version_key,
                     ver.status
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.template_key = :templateId
                   AND ver.tenant_key = :tenantId
+                  AND ver.catalog_key = :catalogKey
                   AND ver.status IN ('draft', 'published')
                 ORDER BY ver.variant_key, ver.id DESC
                 """,
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
+            .bind("catalogKey", query.templateId.catalogKey)
             .mapTo<PublishableVersion>()
             .list()
     }

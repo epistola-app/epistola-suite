@@ -45,11 +45,12 @@ class CreateVariantHandler(
                     """
                 SELECT name
                 FROM document_templates
-                WHERE id = :templateId AND tenant_key = :tenantId
+                WHERE id = :templateId AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,
                 )
                     .bind("templateId", command.id.templateKey)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .mapTo<String>()
                     .findOne()
                     .orElse(null) ?: return@inTransaction null
@@ -60,24 +61,26 @@ class CreateVariantHandler(
                 val existingCount = handle.createQuery(
                     """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND template_key = :templateId AND catalog_key = :catalogKey
                 """,
                 )
                     .bind("tenantId", command.id.tenantKey)
                     .bind("templateId", command.id.templateKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .mapTo<Long>()
                     .one()
                 val isDefault = existingCount == 0L
 
                 val variant = handle.createQuery(
                     """
-                INSERT INTO template_variants (id, tenant_key, template_key, title, description, attributes, is_default, created_at, last_modified)
-                VALUES (:id, :tenantId, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, description, attributes, is_default, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW())
                 RETURNING *
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", command.id.templateKey)
                     .bind("title", command.title)
                     .bind("description", command.description)
@@ -93,12 +96,13 @@ class CreateVariantHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
                 )
                     .bind("id", versionId)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", command.id.templateKey)
                     .bind("variantId", command.id.key)
                     .bind("templateModel", templateModelJson)
