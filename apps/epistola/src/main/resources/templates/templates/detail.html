@@ -39,7 +39,7 @@
         <div class="ep-dialog-header">
             <h3>Edit Variant: <code th:text="${variant.id}"></code></h3>
         </div>
-        <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
+        <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
               hx-target="#variants-section"
               hx-swap="outerHTML"
               hx-on::after-request="if(event.detail.successful) document.getElementById('edit-variant-dialog').close()">
