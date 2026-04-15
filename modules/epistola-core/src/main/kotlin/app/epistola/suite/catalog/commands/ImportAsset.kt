@@ -11,8 +11,11 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import java.io.ByteArrayInputStream
 
 /**
  * Imports an asset with a specific ID, preserving TemplateDocument image node references.
@@ -44,10 +47,10 @@ data class ImportAsset(
 @Component
 class ImportAssetHandler(
     private val jdbi: Jdbi,
+    private val contentStore: ContentStore,
 ) : CommandHandler<ImportAsset, InstallStatus> {
 
     override fun handle(command: ImportAsset): InstallStatus {
-        // Check if asset with this ID already exists — assets are immutable
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery(
                 """
@@ -62,7 +65,32 @@ class ImportAssetHandler(
                 .one()
         }
 
-        if (exists) return InstallStatus.SKIPPED
+        if (exists) {
+            // Update existing asset metadata and replace content
+            jdbi.useHandle<Exception> { handle ->
+                handle.createUpdate(
+                    """
+                    UPDATE assets
+                    SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
+                    """,
+                )
+                    .bind("tenantKey", command.tenantKey)
+                    .bind("catalogKey", command.catalogKey)
+                    .bind("id", command.id.value)
+                    .bind("name", command.name)
+                    .bind("mediaType", command.mediaType.mimeType)
+                    .bind("width", command.width)
+                    .bind("height", command.height)
+                    .bind("sizeBytes", command.content.size.toLong())
+                    .execute()
+            }
+
+            val key = ContentKey.asset(command.tenantKey, command.id)
+            contentStore.put(key, ByteArrayInputStream(command.content), command.mediaType.mimeType, command.content.size.toLong())
+
+            return InstallStatus.UPDATED
+        }
 
         // Upload with the original ID to preserve template image node references
         UploadAsset(

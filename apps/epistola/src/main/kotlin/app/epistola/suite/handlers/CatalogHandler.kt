@@ -145,6 +145,8 @@ class CatalogHandler {
                         .build()
                 }
             }
+        } catch (e: app.epistola.suite.catalog.CatalogInUseException) {
+            listWithError(request, e.message ?: "Catalog is in use by other catalogs")
         } catch (e: Exception) {
             logger.warn("Failed to unregister catalog: ${e.message}", e)
             listWithError(request, e.message ?: "Failed to remove catalog.")

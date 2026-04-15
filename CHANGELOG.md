@@ -8,6 +8,7 @@
 - **Import catalog from ZIP**: Upload a ZIP archive to create or update a catalog. User chooses whether the imported catalog should be authored (editable) or subscribed (read-only). If a catalog with the same slug already exists and is authored, resources are updated in place. Subscribed catalogs cannot be overwritten.
 - **Dedicated asset upload page**: Assets are now uploaded via a dedicated `/assets/new` page with an explicit catalog selector, replacing the inline drag-drop zone. Catalog is always explicitly chosen.
 - **Delete authored catalogs**: Authored catalogs (except the default) can now be deleted with a confirmation dialog warning about resource deletion. Subscribed catalogs retain the existing remove functionality.
+- **Cross-catalog deletion protection**: Deleting a catalog now checks for cross-catalog references (themes, stencils, assets used by templates in other catalogs) and prevents deletion with a descriptive error listing the affected templates.
 - **Global closeDialog event**: HTMX responses can trigger `closeDialog` via `HX-Trigger` header to close any open dialog. Replaces CSP-incompatible `hx-on::after-request` attributes.
 - **Theme editor read-only mode**: The theme editor now supports an optional `readonly` flag. When enabled, all inputs are disabled, autosave is suppressed, keyboard shortcuts are ignored, and the save status bar is hidden.
 - **Read-only enforcement for subscribed catalogs**: Resources in subscribed catalogs are protected from modification at both the backend and UI levels. All 21 mutating command handlers check `IsCatalogEditable` and throw `CatalogReadOnlyException` for subscribed catalogs. The UI shows a "Read-only" badge and hides edit/delete buttons for subscribed resources.
@@ -31,6 +32,7 @@
 - **CSP-compliant dialog close**: Replaced `hx-on::after-request` (uses `eval()`, blocked by CSP) with `HX-Trigger: closeDialog` pattern in variant edit and attribute edit forms.
 - **Missing catalogId in variant edit URL**: Fixed Thymeleaf URL expression missing the `catalogId` parameter, causing `CatalogKey` validation failure.
 - **Export includes all catalog resources**: ZIP export now queries all resources by `catalog_key` directly instead of relying on dependency scanning. Fixed `ExportAssets` to filter by asset ID instead of name.
+- **ImportAsset updates existing assets**: Re-importing a catalog with modified assets now updates the asset metadata and binary content instead of silently skipping.
 - **DeleteAsset fails with JDBI mapping error**: Replaced `mapTo<CatalogKey>()` with a manual row mapper in `DeleteAssetHandler`, fixing `IllegalArgumentException: Could not match constructor parameters [catalog_key] for CatalogKey`. JDBI cannot auto-map Kotlin value classes.
 - **DemoLoader fails on user ID scheme change**: Fixed `ON CONFLICT DO NOTHING` in user upsert to `DO UPDATE`, so existing users with changed deterministic UUIDs are updated instead of silently skipped (which caused FK violations on `tenant_memberships`).
 - **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
