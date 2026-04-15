@@ -130,12 +130,21 @@ class CatalogHandler {
         return try {
             UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).execute()
 
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?saved=true")
-                .build()
+            return request.htmx {
+                val catalogs = ListCatalogs(tenantId.key).query()
+                fragment("catalogs/list", "catalog-rows") {
+                    "tenantId" to tenantId.key
+                    "catalogs" to catalogs
+                }
+                onNonHtmx {
+                    ServerResponse.status(303)
+                        .header("Location", "/tenants/${tenantId.key}/catalogs")
+                        .build()
+                }
+            }
         } catch (e: Exception) {
             logger.warn("Failed to unregister catalog: ${e.message}", e)
-            listWithError(request, "Failed to remove catalog.")
+            listWithError(request, e.message ?: "Failed to remove catalog.")
         }
     }
 
