@@ -1,17 +1,18 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.protocol.AssetResource
+import app.epistola.catalog.protocol.AttributeResource
+import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.catalog.protocol.ResourceDetail
+import app.epistola.catalog.protocol.StencilResource
+import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
-import app.epistola.suite.catalog.protocol.AssetResource
-import app.epistola.suite.catalog.protocol.AttributeResource
-import app.epistola.suite.catalog.protocol.CatalogManifest
-import app.epistola.suite.catalog.protocol.CatalogResource
-import app.epistola.suite.catalog.protocol.ResourceDetail
-import app.epistola.suite.catalog.protocol.StencilResource
-import app.epistola.suite.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.protocol.ThemeResource
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -55,6 +56,7 @@ data class ImportCatalogZipResult(
 @Component
 class ImportCatalogZipHandler(
     private val objectMapper: ObjectMapper,
+    private val protocolMapper: ProtocolMapper,
     private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
     private val jdbi: org.jdbi.v3.core.Jdbi,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
@@ -105,14 +107,15 @@ class ImportCatalogZipHandler(
         }
 
         // Validate cross-catalog dependencies exist (batch check)
-        if (!manifest.dependencies.isNullOrEmpty()) {
-            val missing = findMissingDependencies(command.tenantKey, manifest.dependencies)
+        val dependencies = manifest.dependencies.orEmpty()
+        if (dependencies.isNotEmpty()) {
+            val missing = findMissingDependencies(command.tenantKey, dependencies)
             if (missing.isNotEmpty()) {
                 val details = missing.joinToString(", ") { dep ->
                     when (dep) {
-                        is app.epistola.suite.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.suite.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.suite.catalog.protocol.DependencyRef.Asset -> "asset '${dep.slug}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset '${dep.slug}'"
                     }
                 }
                 throw IllegalArgumentException(
@@ -178,9 +181,9 @@ class ImportCatalogZipHandler(
                 slug = resource.slug,
                 name = resource.name,
                 version = version,
-                dataModel = resource.dataModel,
+                dataModel = protocolMapper.toObjectNode(resource.dataModel),
                 dataExamples = resource.dataExamples?.map {
-                    DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = it.data)
+                    DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)
                 } ?: emptyList(),
                 templateModel = resource.templateModel,
                 variants = resource.variants.map { variant ->
@@ -212,9 +215,9 @@ class ImportCatalogZipHandler(
             slug = resource.slug,
             name = resource.name,
             description = resource.description,
-            documentStyles = resource.documentStyles,
+            documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
             pageSettings = resource.pageSettings,
-            blockStylePresets = resource.blockStylePresets,
+            blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
             spacingUnit = resource.spacingUnit,
         ).execute()
 
@@ -263,15 +266,15 @@ class ImportCatalogZipHandler(
      */
     private fun findMissingDependencies(
         tenantKey: TenantKey,
-        deps: List<app.epistola.suite.catalog.protocol.DependencyRef>,
-    ): List<app.epistola.suite.catalog.protocol.DependencyRef> {
+        deps: List<app.epistola.catalog.protocol.DependencyRef>,
+    ): List<app.epistola.catalog.protocol.DependencyRef> {
         if (deps.isEmpty()) return emptyList()
 
         val found = mutableSetOf<String>() // unique key per dependency
 
         jdbi.withHandle<Unit, Exception> { handle ->
             // Catalog-scoped: themes
-            val themeDeps = deps.filterIsInstance<app.epistola.suite.catalog.protocol.DependencyRef.Theme>()
+            val themeDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Theme>()
             if (themeDeps.isNotEmpty()) {
                 handle.createQuery("SELECT catalog_key, id FROM themes WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
@@ -282,7 +285,7 @@ class ImportCatalogZipHandler(
             }
 
             // Catalog-scoped: stencils
-            val stencilDeps = deps.filterIsInstance<app.epistola.suite.catalog.protocol.DependencyRef.Stencil>()
+            val stencilDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Stencil>()
             if (stencilDeps.isNotEmpty()) {
                 handle.createQuery("SELECT catalog_key, id FROM stencils WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
@@ -293,7 +296,7 @@ class ImportCatalogZipHandler(
             }
 
             // Tenant-global: assets
-            val assetDeps = deps.filterIsInstance<app.epistola.suite.catalog.protocol.DependencyRef.Asset>()
+            val assetDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Asset>()
             if (assetDeps.isNotEmpty()) {
                 handle.createQuery("SELECT id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
@@ -306,9 +309,9 @@ class ImportCatalogZipHandler(
 
         return deps.filter { dep ->
             when (dep) {
-                is app.epistola.suite.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.suite.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.suite.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
             }
         }
     }

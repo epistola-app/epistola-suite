@@ -1,18 +1,19 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.protocol.AssetResource
+import app.epistola.catalog.protocol.AttributeResource
+import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.catalog.protocol.StencilResource
+import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.DependencyResolver
+import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
-import app.epistola.suite.catalog.protocol.AssetResource
-import app.epistola.suite.catalog.protocol.AttributeResource
-import app.epistola.suite.catalog.protocol.CatalogResource
-import app.epistola.suite.catalog.protocol.StencilResource
-import app.epistola.suite.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.protocol.ThemeResource
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -55,6 +56,7 @@ class InstallFromCatalogHandler(
     private val jdbi: Jdbi,
     private val catalogClient: CatalogClient,
     private val dependencyResolver: DependencyResolver,
+    private val protocolMapper: ProtocolMapper,
 ) : CommandHandler<InstallFromCatalog, List<InstallResult>> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -112,9 +114,9 @@ class InstallFromCatalogHandler(
             slug = resource.slug,
             name = resource.name,
             version = releaseVersion,
-            dataModel = resource.dataModel,
+            dataModel = protocolMapper.toObjectNode(resource.dataModel),
             dataExamples = resource.dataExamples?.map {
-                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = it.data)
+                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)
             } ?: emptyList(),
             templateModel = resource.templateModel,
             variants = resource.variants.map { variant ->
@@ -150,9 +152,9 @@ class InstallFromCatalogHandler(
             slug = resource.slug,
             name = resource.name,
             description = resource.description,
-            documentStyles = resource.documentStyles,
+            documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
             pageSettings = resource.pageSettings,
-            blockStylePresets = resource.blockStylePresets,
+            blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
             spacingUnit = resource.spacingUnit,
         ).execute()
     }

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **ProtocolMapper centralizes type conversions**: Extracted all inline conversions between protocol `Map<String, Any?>` types and suite internal types (ObjectNode, DocumentStyles, BlockStylePresets) into a new `ProtocolMapper` component. Cleaned up scattered conversion logic in `ImportCatalogZip`, `InstallFromCatalog`.
+
 ### Added
 
 - **Export catalog as ZIP**: All catalogs (authored and subscribed) can be exported as self-contained ZIP archives from the Catalogs page. The ZIP contains the catalog manifest, all resource detail files (templates, themes, stencils, attributes, assets), and asset binary content with proper file extensions. Exports all resources in the catalog, not just template dependencies.
