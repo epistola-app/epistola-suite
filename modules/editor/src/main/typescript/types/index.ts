@@ -1,5 +1,5 @@
 /**
- * Re-export all model types from the shared @epistola.app/editor-model package.
+ * Re-export all model types from the shared @epistola.app/epistola-model package.
  * This is the single import point for all type references within the editor.
  */
 export type {
@@ -18,4 +18,4 @@ export type {
   DocumentStyles,
   ExpressionLanguage,
   Expression,
-} from '@epistola.app/editor-model';
+} from '@epistola.app/epistola-model';

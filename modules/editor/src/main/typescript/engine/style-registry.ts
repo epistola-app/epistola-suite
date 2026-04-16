@@ -5,7 +5,7 @@
  * how they should be edited, and which ones cascade from document styles.
  */
 
-import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
+import type { StyleRegistry } from '@epistola.app/epistola-model/generated/style-registry';
 
 export const defaultStyleRegistry: StyleRegistry = {
   groups: [

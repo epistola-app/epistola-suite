@@ -7,7 +7,7 @@
  */
 
 import { html, nothing } from 'lit';
-import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
+import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
 import { defaultStyleRegistry } from '../../engine/style-registry.js';
 import {
   renderUnitInput,

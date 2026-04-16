@@ -7,8 +7,8 @@
  */
 
 import { html } from 'lit';
-import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
-import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme';
+import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
+import type { BlockStylePreset } from '@epistola.app/epistola-model/generated/theme';
 import { defaultStyleRegistry } from '../../engine/style-registry.js';
 import {
   renderUnitInput,
