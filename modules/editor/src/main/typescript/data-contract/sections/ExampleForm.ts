@@ -25,6 +25,18 @@ import type { SchemaValidationError } from '../utils/schemaValidation.js';
 // ---------------------------------------------------------------------------
 
 /**
+ * Normalize a path to dot-separated format.
+ * Converts `/customer/city` to `customer.city`.
+ * Handles mixed formats like `/customer.address.0` or `customer/address/city`.
+ */
+export function normalizePath(path: string): string {
+  return path
+    .replace(/^\//, '') // strip leading slash
+    .replace(/\/$/, '') // strip trailing slash
+    .replace(/\//g, '.'); // slashes to dots
+}
+
+/**
  * Read a nested value from an object using a dot-separated path.
  * Supports array indices as numeric segments (e.g., "items.0.name").
  */
@@ -87,6 +99,73 @@ export function setNestedValue(obj: JsonObject, path: string, value: JsonValue):
   return result;
 }
 
+/**
+ * Immutably remove a nested value from an object using a dot-separated path.
+ * Missing paths are ignored and return the original clone unchanged.
+ */
+export function deleteNestedValue(obj: JsonObject, path: string): JsonObject {
+  if (!path) return structuredClone(obj);
+
+  const segments = path.split('.');
+  const result = structuredClone(obj) as Record<string, unknown>;
+  let current: unknown = result;
+
+  for (let i = 0; i < segments.length - 1; i++) {
+    const segment = segments[i];
+
+    if (Array.isArray(current)) {
+      const index = Number.parseInt(segment, 10);
+      if (Number.isNaN(index) || index < 0 || index >= current.length) {
+        return result as JsonObject;
+      }
+
+      const next = current[index];
+      if (next === null || next === undefined || typeof next !== 'object') {
+        return result as JsonObject;
+      }
+
+      current[index] = Array.isArray(next) ? [...next] : { ...(next as Record<string, unknown>) };
+      current = current[index];
+      continue;
+    }
+
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return result as JsonObject;
+    }
+
+    const record = current as Record<string, unknown>;
+    if (!(segment in record)) {
+      return result as JsonObject;
+    }
+
+    const next = record[segment];
+    if (next === null || next === undefined || typeof next !== 'object') {
+      return result as JsonObject;
+    }
+
+    record[segment] = Array.isArray(next) ? [...next] : { ...next };
+    current = record[segment];
+  }
+
+  const lastSegment = segments[segments.length - 1];
+
+  if (Array.isArray(current)) {
+    const index = Number.parseInt(lastSegment, 10);
+    if (Number.isNaN(index) || index < 0 || index >= current.length) {
+      return result as JsonObject;
+    }
+    current.splice(index, 1);
+    return result as JsonObject;
+  }
+
+  if (current !== null && current !== undefined && typeof current === 'object') {
+    const record = current as Record<string, unknown>;
+    delete record[lastSegment];
+  }
+
+  return result as JsonObject;
+}
+
 // ---------------------------------------------------------------------------
 // Validation path utilities
 // ---------------------------------------------------------------------------
@@ -135,6 +214,51 @@ export function hasChildErrors(parentPath: string, errors: Map<string, string>):
 
 const NO_ERRORS: Map<string, string> = new Map();
 
+function hasFieldValue(value: JsonValue | undefined): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return true;
+  return true;
+}
+
+function renderOptionalClearButton(
+  path: string,
+  isRequired: boolean,
+  currentValue: JsonValue | undefined,
+  onClear: (path: string) => void,
+  label: string,
+  compact = false,
+): unknown {
+  if (isRequired) return nothing;
+
+  const canClear = hasFieldValue(currentValue);
+
+  return html`
+    <button
+      type="button"
+      class="dc-field-clear-btn ${compact ? 'dc-field-clear-btn-compact' : ''}"
+      title="Clear ${label}"
+      aria-label="Clear ${label}"
+      ?disabled=${!canClear}
+      @click=${(e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (canClear) {
+          onClear(path);
+        }
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M4 4l8 8M12 4l-8 8"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+      </svg>
+    </button>
+  `;
+}
+
 function pathToErrorId(path: string): string {
   return `error-${path.replace(/\./g, '-')}`;
 }
@@ -153,6 +277,7 @@ export function renderExampleForm(
   schema: JsonSchema | null,
   data: JsonObject,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   errors: Map<string, string> = NO_ERRORS,
 ): unknown {
   if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
@@ -164,7 +289,17 @@ export function renderExampleForm(
   return html`
     <div class="dc-tree">
       ${Object.entries(schema.properties).map(([name, propSchema]) =>
-        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange, 0, errors),
+        renderFormField(
+          name,
+          propSchema,
+          name,
+          data,
+          requiredSet.has(name),
+          onChange,
+          onClear,
+          0,
+          errors,
+        ),
       )}
     </div>
   `;
@@ -174,13 +309,14 @@ export function renderExampleForm(
  * Render a single form field based on its JSON Schema property type.
  * Uses compact inline rows: label and input side-by-side.
  */
-function renderFormField(
+export function renderFormField(
   name: string,
   propSchema: JsonSchemaProperty,
   path: string,
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
 ): unknown {
@@ -206,15 +342,18 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="text"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${String(value ?? '')}
-              placeholder="${name}"
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="text"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${String(value ?? '')}
+                placeholder="${name}"
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -227,19 +366,26 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="number"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              step="any"
-              id=${fieldId}
-              .value=${value != null ? String(value) : ''}
-              placeholder="${name}"
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value;
-                onChange(path, raw === '' ? null : parseFloat(raw));
-              }}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="number"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                step="any"
+                id=${fieldId}
+                .value=${value != null ? String(value) : ''}
+                placeholder="${name}"
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => {
+                  const raw = (e.target as HTMLInputElement).value;
+                  if (raw === '') {
+                    onClear(path);
+                  } else {
+                    onChange(path, parseFloat(raw));
+                  }
+                }}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -252,19 +398,26 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="number"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              step="1"
-              id=${fieldId}
-              .value=${value != null ? String(value) : ''}
-              placeholder="${name}"
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value;
-                onChange(path, raw === '' ? null : parseInt(raw, 10));
-              }}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="number"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                step="1"
+                id=${fieldId}
+                .value=${value != null ? String(value) : ''}
+                placeholder="${name}"
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => {
+                  const raw = (e.target as HTMLInputElement).value;
+                  if (raw === '') {
+                    onClear(path);
+                  } else {
+                    onChange(path, parseInt(raw, 10));
+                  }
+                }}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -277,17 +430,20 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <label class="dc-tree-checkbox">
-              <input
-                type="checkbox"
-                class="ep-checkbox"
-                id=${fieldId}
-                .checked=${value === true}
-                aria-label="${name}"
-                aria-describedby=${fieldError ? errorId : nothing}
-                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
-              />
-            </label>
+            <div class="dc-tree-input-inline">
+              <label class="dc-tree-checkbox">
+                <input
+                  type="checkbox"
+                  class="ep-checkbox"
+                  id=${fieldId}
+                  .checked=${value === true}
+                  aria-label="${name}"
+                  aria-describedby=${fieldError ? errorId : nothing}
+                  @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
+                />
+              </label>
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -300,14 +456,17 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="date"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${String(value ?? '')}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="date"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${String(value ?? '')}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -323,6 +482,7 @@ function renderFormField(
         rootData,
         isRequired,
         onChange,
+        onClear,
         depth,
         errors,
       );
@@ -335,6 +495,7 @@ function renderFormField(
         rootData,
         isRequired,
         onChange,
+        onClear,
         depth,
         errors,
       );
@@ -344,15 +505,18 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="text"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${String(value ?? '')}
-              placeholder="${name}"
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="text"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${String(value ?? '')}
+                placeholder="${name}"
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -373,9 +537,12 @@ function renderObjectField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
 ): unknown {
+  const currentValue = getNestedValue(rootData, path);
+
   if (!propSchema.properties || Object.keys(propSchema.properties).length === 0) {
     return html`
       <div class="dc-tree-row">
@@ -384,7 +551,10 @@ function renderObjectField(
             ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
             : nothing}
         </span>
-        <span class="dc-tree-hint">No properties defined</span>
+        <div class="dc-tree-inline-controls">
+          <span class="dc-tree-hint">No properties defined</span>
+          ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name)}
+        </div>
       </div>
     `;
   }
@@ -408,6 +578,7 @@ function renderObjectField(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
+        ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name, true)}
         <span class="dc-tree-type-badge" data-type="object" aria-hidden="true">object</span>
       </summary>
       <div class="dc-tree-group-body">
@@ -419,6 +590,7 @@ function renderObjectField(
             rootData,
             nestedRequired.has(nestedName),
             onChange,
+            onClear,
             depth + 1,
             errors,
           ),
@@ -438,6 +610,7 @@ function renderArrayField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
 ): unknown {
@@ -471,6 +644,7 @@ function renderArrayField(
       rootData,
       isRequired,
       onChange,
+      onClear,
       addItem,
       removeItem,
       depth,
@@ -496,6 +670,7 @@ function renderArrayField(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
+        ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name, true)}
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">${itemType}[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
@@ -567,6 +742,7 @@ function renderArrayOfObjects(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   addItem: () => void,
   removeItem: (index: number) => void,
   depth: number,
@@ -590,6 +766,14 @@ function renderArrayOfObjects(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
+        ${renderOptionalClearButton(
+          path,
+          isRequired,
+          getNestedValue(rootData, path),
+          onClear,
+          name,
+          true,
+        )}
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
@@ -641,6 +825,7 @@ function renderArrayOfObjects(
                         rootData,
                         nestedRequired.has(nestedName),
                         onChange,
+                        onClear,
                         depth + 1,
                         errors,
                       ),

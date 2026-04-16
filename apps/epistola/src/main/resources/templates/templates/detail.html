@@ -463,6 +463,41 @@
                     }
                 }
 
+                function formatValidationError(payload, fallbackMessage) {
+                    if (!payload || typeof payload !== 'object') {
+                        return fallbackMessage;
+                    }
+
+                    const errors = payload.errors;
+                    if (errors && typeof errors === 'object') {
+                        const errorEntries = Object.entries(errors).filter(([, value]) => Array.isArray(value) && value.length > 0);
+                        if (errorEntries.length > 0) {
+                            const issueCount = errorEntries.reduce((sum, [, value]) => sum + value.length, 0);
+                            const [firstExampleName, firstExampleErrors] = errorEntries[0];
+                            const firstError = firstExampleErrors[0] ?? {};
+                            const firstPath = typeof firstError.path === 'string' && firstError.path.length > 0
+                                ? ` ${firstError.path}`
+                                : '';
+                            const firstMessage = typeof firstError.message === 'string' && firstError.message.length > 0
+                                ? firstError.message
+                                : 'Validation failed';
+                            const issueWord = issueCount === 1 ? 'issue' : 'issues';
+                            const exampleWord = errorEntries.length === 1 ? 'example' : 'examples';
+                            return `Validation failed (${issueCount} ${issueWord} in ${errorEntries.length} ${exampleWord}): ${firstExampleName}${firstPath} ${firstMessage}`.trim();
+                        }
+                    }
+
+                    if (typeof payload.error === 'string' && payload.error.length > 0) {
+                        return payload.error;
+                    }
+
+                    if (typeof payload.message === 'string' && payload.message.length > 0) {
+                        return payload.message;
+                    }
+
+                    return fallbackMessage;
+                }
+
                 async function mountDataContractEditorForCurrentPage() {
                     const container = document.getElementById('data-contract-container');
                     if (!container) return;
@@ -483,27 +518,87 @@
                         initialSchema: initialSchema,
                         initialExamples: initialExamples,
                         callbacks: {
-                            onSaveSchema: async (schema, forceUpdate) => {
+                            onValidateSchemaCompatibility: async (schema, examples) => {
+                                if (!schema) {
+                                    return {
+                                        compatible: true,
+                                        errors: [],
+                                        migrations: [],
+                                        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] }
+                                    };
+                                }
+
                                 try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${templateId}/validate-schema`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
+                                        },
+                                        body: JSON.stringify({ schema, examples })
+                                    });
+
+                                    if (!response.ok) {
+                                        return {
+                                            compatible: true,
+                                            errors: [],
+                                            migrations: [],
+                                            recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+                                            error: `Failed to validate schema compatibility (${response.status})`
+                                        };
+                                    }
+
+                                    const result = await response.json();
+                                    return {
+                                        compatible: result.compatible ?? true,
+                                        errors: result.errors ?? [],
+                                        migrations: result.migrations ?? [],
+                                        recentUsage: result.recentUsage ?? { checkedCount: 0, incompatibleCount: 0, issues: [] }
+                                    };
+                                } catch (error) {
+                                    console.error('Failed to validate schema compatibility:', error);
+                                    return {
+                                        compatible: true,
+                                        errors: [],
+                                        migrations: [],
+                                        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+                                        error: error instanceof Error ? error.message : 'Failed to validate schema compatibility'
+                                    };
+                                }
+                            },
+
+                            onSaveSchema: async (schema, forceUpdate, examples) => {
+                                try {
+                                    const body = { dataModel: schema, forceUpdate };
+                                    if (examples) {
+                                        body.dataExamples = examples;
+                                    }
                                     const response = await fetch(`/tenants/${tenantId}/templates/${templateId}`, {
                                         method: 'PATCH',
                                         headers: {
                                             'Content-Type': 'application/json',
                                             'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
                                         },
-                                        body: JSON.stringify({ dataModel: schema, forceUpdate })
+                                        body: JSON.stringify(body)
                                     });
 
                                     if (!response.ok) {
-                                        const error = await response.json();
-                                        return { success: false, error: error.message, warnings: error.warnings };
+                                        const errorBody = await response.json();
+                                        return {
+                                            success: false,
+                                            error: formatValidationError(errorBody, 'Failed to save schema'),
+                                            warnings: errorBody.warnings
+                                        };
                                     }
 
                                     const result = await response.json();
                                     return { success: true, warnings: result.warnings };
                                 } catch (error) {
                                     console.error('Failed to save schema:', error);
-                                    return { success: false, error: error.message };
+                                    return {
+                                        success: false,
+                                        error: error instanceof Error ? error.message : 'Failed to save schema'
+                                    };
                                 }
                             },
 
@@ -519,15 +614,22 @@
                                     });
 
                                     if (!response.ok) {
-                                        const error = await response.json();
-                                        return { success: false, warnings: error.warnings };
+                                        const errorBody = await response.json();
+                                        return {
+                                            success: false,
+                                            error: formatValidationError(errorBody, 'Failed to save examples'),
+                                            warnings: errorBody.warnings
+                                        };
                                     }
 
                                     const result = await response.json();
                                     return { success: true, warnings: result.warnings };
                                 } catch (error) {
                                     console.error('Failed to save examples:', error);
-                                    return { success: false };
+                                    return {
+                                        success: false,
+                                        error: error instanceof Error ? error.message : 'Failed to save examples'
+                                    };
                                 }
                             },
 
