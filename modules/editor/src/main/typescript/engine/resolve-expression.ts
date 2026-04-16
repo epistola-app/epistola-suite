@@ -79,6 +79,113 @@ export function formatDateValue(value: string, pattern: string): string {
 }
 
 /**
+ * Error string returned by `$formatLocalNumber` when the `language` argument
+ * is missing or empty. Surfacing it in the output makes it easy for template
+ * authors to spot a missing `sys.language` argument.
+ */
+export const UNDEFINED_LANGUAGE_ERROR = '<formatLocalNumber failed - undefined language>';
+
+/**
+ * Map a language code to decimal/grouping separators.
+ * English uses `.` decimal + `,` grouping; everything else defaults to
+ * `,` decimal + `.` grouping (Dutch/European).
+ */
+function separatorsForLanguage(language: string): { decimal: string; grouping: string } {
+  const lang = language.toLowerCase();
+  if (lang === 'en' || lang === 'en-us' || lang === 'en-gb') {
+    return { decimal: '.', grouping: ',' };
+  }
+  return { decimal: ',', grouping: '.' };
+}
+
+/**
+ * Format a numeric value using a canonical DecimalFormat-style pattern.
+ * The `language` code selects locale-specific decimal/grouping separators.
+ *
+ * Returns [UNDEFINED_LANGUAGE_ERROR] when [language] is null/undefined/blank
+ * so a missing `sys.language` argument is visible in the rendered output.
+ *
+ * This is the implementation behind the `$formatLocalNumber` custom function —
+ * distinct from JSONata's built-in `$formatNumber` (which interprets the
+ * picture against the locale symbols rather than transforming output chars).
+ */
+export function formatLocalNumberValue(
+  value: number,
+  pattern: string,
+  language?: string | null,
+): string {
+  if (language == null || language.trim() === '') return UNDEFINED_LANGUAGE_ERROR;
+  const { decimal: decimalSep, grouping: groupingSep } = separatorsForLanguage(language);
+
+  // Handle positive/negative subpatterns
+  const semiIdx = pattern.indexOf(';');
+  if (semiIdx !== -1) {
+    const subPattern = value < 0 ? pattern.slice(semiIdx + 1) : pattern.slice(0, semiIdx);
+    return formatLocalNumberValue(value < 0 ? -value : value, subPattern, language);
+  }
+
+  // Extract prefix and suffix (literal characters outside #0.,%)
+  const numChars = new Set(['#', '0', ',', '.', '%']);
+  let numStart = 0;
+  while (numStart < pattern.length && !numChars.has(pattern[numStart])) numStart++;
+  let numEnd = pattern.length;
+  while (numEnd > numStart && !numChars.has(pattern[numEnd - 1])) numEnd--;
+
+  const prefix = pattern.slice(0, numStart);
+  const suffix = pattern.slice(numEnd);
+  const numPattern = pattern.slice(numStart, numEnd);
+
+  // Handle percentage
+  let num = value;
+  const isPercent = numPattern.includes('%');
+  if (isPercent) num *= 100;
+
+  const isNegative = num < 0;
+  num = Math.abs(num);
+
+  // Canonical pattern: `,` = grouping, `.` = decimal
+  const cleanPattern = numPattern.replace(/%/g, '');
+  const dotIdx = cleanPattern.indexOf('.');
+  const intPattern = dotIdx !== -1 ? cleanPattern.slice(0, dotIdx) : cleanPattern;
+  const decPattern = dotIdx !== -1 ? cleanPattern.slice(dotIdx + 1) : '';
+
+  const useGrouping = intPattern.includes(',');
+  const groupSize = 3;
+
+  const minDecimals = (decPattern.match(/0/g) || []).length;
+  const maxDecimals = minDecimals + (decPattern.match(/#/g) || []).length;
+
+  const rounded = maxDecimals > 0 ? parseFloat(num.toFixed(maxDecimals)) : Math.round(num);
+  const fixed = rounded.toFixed(maxDecimals);
+  const [intStr, decStr = ''] = fixed.split('.');
+
+  const minIntDigits = (intPattern.match(/0/g) || []).length || 1;
+  let intPart = intStr.length < minIntDigits ? intStr.padStart(minIntDigits, '0') : intStr;
+
+  if (useGrouping && intPart.length > groupSize) {
+    const grouped: string[] = [];
+    for (let i = intPart.length; i > 0; i -= groupSize) {
+      grouped.unshift(intPart.slice(Math.max(0, i - groupSize), i));
+    }
+    intPart = grouped.join(groupingSep);
+  }
+
+  let decPart = decStr;
+  if (maxDecimals > minDecimals) {
+    while (decPart.length > minDecimals && decPart.endsWith('0')) {
+      decPart = decPart.slice(0, -1);
+    }
+  }
+
+  let result = intPart;
+  if (decPart.length > 0) result += decimalSep + decPart;
+  if (isPercent) result += '%';
+  if (isNegative) result = '-' + result;
+
+  return prefix + result + suffix;
+}
+
+/**
  * Register custom functions on a JSONata expression instance.
  * Must be called before `expr.evaluate()`.
  */
@@ -87,6 +194,17 @@ function registerCustomFunctions(expr: jsonata.Expression): void {
     if (typeof value !== 'string' || typeof pattern !== 'string') return value;
     return formatDateValue(value, pattern);
   });
+  expr.registerFunction(
+    'formatLocalNumber',
+    (value: unknown, pattern: unknown, language: unknown) => {
+      if (typeof pattern !== 'string') return value;
+      const num =
+        typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : NaN;
+      if (isNaN(num)) return value;
+      const lang = typeof language === 'string' ? language : undefined;
+      return formatLocalNumberValue(num, pattern, lang);
+    },
+  );
 }
 
 /**

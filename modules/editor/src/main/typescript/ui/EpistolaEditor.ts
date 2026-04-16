@@ -147,7 +147,7 @@ export class EpistolaEditor extends LitElement {
   initEngine(
     doc: TemplateDocument,
     registry?: ComponentRegistry,
-    options?: { dataModel?: object; dataExamples?: object[] },
+    options?: { dataModel?: object; dataExamples?: object[]; variantLanguage?: string },
   ): void {
     // Clean up previous engine and save service
     this._unsubEngine?.();
@@ -159,6 +159,7 @@ export class EpistolaEditor extends LitElement {
     this._engine = new EditorEngine(doc, reg, {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
+      variantLanguage: options?.variantLanguage,
     });
     this._doc = this._engine.doc;
 

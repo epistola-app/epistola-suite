@@ -1,8 +1,12 @@
 package app.epistola.generation.expression
 
 import app.epistola.generation.DEFAULT_RENDER_TIMEZONE
+import com.dashjoin.jsonata.Jsonata
 import com.dashjoin.jsonata.Jsonata.Fn2
+import com.dashjoin.jsonata.Jsonata.Fn3
 import com.dashjoin.jsonata.Jsonata.jsonata
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -29,6 +33,14 @@ import java.util.Locale
  *   (`2024-01-15T14:30:00+02:00`), and UTC (`2024-01-15T14:30:00Z`).
  *   Datetimes are converted to the configured [timeZone] before formatting.
  *   Returns the original value on parse failure.
+ * - `$formatLocalNumber(value, picture [, language])`: Format a numeric value using
+ *   a canonical [DecimalFormat] picture (e.g., "#,##0.00", "0%"). The optional
+ *   `language` string (typically `sys.language`, e.g. "nl" or "en") selects the
+ *   decimal/grouping separators. The picture is always written in canonical
+ *   notation (`.` decimal, `,` grouping); the language transforms the output
+ *   characters so the same template pattern works for every variant. Distinct
+ *   from JSONata's built-in `$formatNumber`, which requires the picture to match
+ *   the locale symbols.
  *
  * @see <a href="https://jsonata.org">JSONata Documentation</a>
  */
@@ -78,6 +90,58 @@ class JsonataEvaluator(
                 formatDate(value.toString(), pattern?.toString() ?: "")
             },
         )
+        // Use JFunction with explicit signature so arity matching works for
+        // both 2-arg and 3-arg calls. Signature: number, string, string? -> string.
+        // Named `formatLocalNumber` so templates and users know it's distinct from
+        // JSONata's built-in `$formatNumber` (which has different semantics).
+        val formatLocalNumberFn = Jsonata.function(
+            "formatLocalNumber",
+            Fn3 { value: Any?, pattern: Any?, language: Any? ->
+                if (value == null) return@Fn3 null
+                formatLocalNumber(value, pattern?.toString() ?: "", language?.toString())
+            },
+            "<n-ss?:s>",
+        )
+        frame.bind("formatLocalNumber", formatLocalNumberFn)
+    }
+
+    /**
+     * Format a number using a canonical [DecimalFormat] picture (`.` decimal, `,` grouping).
+     * The [language] code selects locale-specific decimal/grouping separators —
+     * allowing the same canonical pattern to produce locale-specific output
+     * (e.g. `1,234.56` vs `1.234,56`).
+     *
+     * When [language] is null or blank, returns a visible error string so the
+     * template author can spot a missing `sys.language` argument in the output.
+     */
+    private fun formatLocalNumber(value: Any, pattern: String, language: String?): String {
+        if (language.isNullOrBlank()) return UNDEFINED_LANGUAGE_ERROR
+        val number = when (value) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull() ?: return value
+            else -> return value.toString()
+        }
+        return try {
+            val symbols = DecimalFormatSymbols(locale).apply {
+                when (language.lowercase()) {
+                    "en", "en-us", "en-gb" -> {
+                        decimalSeparator = '.'
+                        groupingSeparator = ','
+                    }
+                    else -> {
+                        decimalSeparator = ','
+                        groupingSeparator = '.'
+                    }
+                }
+            }
+            DecimalFormat(pattern, symbols).format(number)
+        } catch (_: Exception) {
+            value.toString()
+        }
+    }
+
+    companion object {
+        private const val UNDEFINED_LANGUAGE_ERROR = "<formatLocalNumber failed - undefined language>"
     }
 
     private fun formatDate(value: String, pattern: String): String {

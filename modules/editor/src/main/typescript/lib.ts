@@ -70,6 +70,12 @@ export interface EditorOptions {
   dataModel?: object;
   /** Example data objects for previewing expressions */
   dataExamples?: object[];
+  /**
+   * Language code of the variant being edited (e.g. "nl", "en"). Used as
+   * `sys.language` in expression previews so locale-aware functions like
+   * `$formatLocalNumber` produce the same output as the rendered PDF.
+   */
+  variantLanguage?: string;
   /** Callback to fetch a PDF preview. Host page owns the HTTP call; editor owns debounce/abort. */
   onFetchPreview?: FetchPreviewFn;
   /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
@@ -126,7 +132,16 @@ export function createEmptyDocument(): TemplateDocument {
  * Mount the editor into a DOM element.
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataModel, dataExamples, onFetchPreview, onSave, plugins } = options;
+  const {
+    container,
+    template,
+    dataModel,
+    dataExamples,
+    variantLanguage,
+    onFetchPreview,
+    onSave,
+    plugins,
+  } = options;
   const doc = template ?? createEmptyDocument();
 
   // Create the custom element
@@ -169,7 +184,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   );
 
   // Initialize the engine with data model context
-  editorEl.initEngine(doc, registry, { dataModel, dataExamples });
+  editorEl.initEngine(doc, registry, { dataModel, dataExamples, variantLanguage });
 
   // Mount into the container
   container.innerHTML = '';

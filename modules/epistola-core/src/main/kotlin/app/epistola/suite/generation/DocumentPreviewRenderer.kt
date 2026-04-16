@@ -48,6 +48,7 @@ class DocumentPreviewRenderer(
         template: DocumentTemplate,
         tenant: Tenant,
         data: ObjectNode,
+        language: String? = null,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
 
@@ -77,6 +78,7 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                language = language,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -92,6 +94,7 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                language = language,
             )
         }
 

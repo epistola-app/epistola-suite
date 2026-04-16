@@ -18,6 +18,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
@@ -122,7 +123,11 @@ class PreviewDocumentHandler(
             }
         }
 
-        // 5. Render
+        // 5. Fetch variant for language attribute (locale-aware formatting)
+        val variant = mediator.query(GetVariant(variantId))
+        val language = variant?.attributes?.get("language")
+
+        // 6. Render
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = version.templateModel,
@@ -130,6 +135,7 @@ class PreviewDocumentHandler(
             template = template,
             tenant = tenant,
             data = query.data,
+            language = language,
         )
     }
 

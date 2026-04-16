@@ -80,6 +80,7 @@
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
         window.TENANT_ID = /*[[${tenantId}]]*/ '';
         window.VARIANT_ID = /*[[${variantId}]]*/ '';
+        window.VARIANT_ATTRIBUTES = /*[[${variantAttributes}]]*/ {};
         window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
         window.DATA_MODEL = /*[[${dataModel}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
@@ -118,6 +119,7 @@
             template: window.TEMPLATE_MODEL,
             dataExamples: window.DATA_EXAMPLES,
             dataModel: window.DATA_MODEL,
+            variantLanguage: window.VARIANT_ATTRIBUTES?.language,
             plugins: plugins,
             imageOptions: {
                 contentUrlPattern: '/tenants/' + tenantId + '/assets/{assetId}/content',

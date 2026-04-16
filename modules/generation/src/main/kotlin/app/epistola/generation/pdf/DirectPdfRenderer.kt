@@ -62,6 +62,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+        language: String? = null,
     ) {
         TwoPassAnalyzer.validate(document)
 
@@ -81,6 +82,7 @@ class DirectPdfRenderer(
                 spacingUnit = spacingUnit,
                 headerNode = headerNode,
                 footerNode = footerNode,
+                language = language,
             )
         } else {
             renderSinglePass(
@@ -94,6 +96,7 @@ class DirectPdfRenderer(
                 assetResolver = assetResolver,
                 renderingDefaults = renderingDefaults,
                 spacingUnit = spacingUnit,
+                language = language,
             )
         }
     }
@@ -107,6 +110,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
         spacingUnit: Float,
+        language: String? = null,
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant)
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
@@ -123,7 +127,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
-            systemParams = SystemParameterRegistry.buildGlobalParams(),
+            systemParams = SystemParameterRegistry.buildGlobalParams(language),
         )
     }
 
@@ -138,6 +142,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
         spacingUnit: Float,
+        language: String? = null,
     ) {
         val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
         val margins = pageSettings.margins
@@ -153,6 +158,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            language = language,
         )
 
         val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
@@ -199,6 +205,7 @@ class DirectPdfRenderer(
         spacingUnit: Float,
         headerNode: Node?,
         footerNode: Node?,
+        language: String? = null,
     ) {
         val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
         val margins = pageSettings.margins
@@ -215,6 +222,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            language = language,
         )
 
         val headerHeight = headerNode?.let {
@@ -242,6 +250,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            language = language,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
@@ -271,6 +280,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            language = language,
         ).withTotalPages(totalPages)
 
         performRenderWithContext(

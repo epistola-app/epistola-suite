@@ -78,6 +78,16 @@ object SystemParameterRegistry {
                 mockValue = "2026-04-03T08:30:00Z",
             ),
         )
+        register(
+            SystemParameterDescriptor(
+                path = "language",
+                description = "Language code of the current template variant (e.g. \"nl\", \"en\"). " +
+                    "Use as 3rd argument to \$formatLocalNumber() or for text conditionals.",
+                type = "string",
+                scope = SystemParamScope.GLOBAL,
+                mockValue = "nl",
+            ),
+        )
     }
 
     fun register(descriptor: SystemParameterDescriptor) {
@@ -116,7 +126,10 @@ object SystemParameterRegistry {
     )
 
     /** Build global system parameters that are available in all contexts (body, headers, footers). */
-    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(
-        mapOf("render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+    fun buildGlobalParams(language: String? = null): Map<String, Any?> = buildNestedMap(
+        mapOf(
+            "render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+            "language" to (language ?: "nl"),
+        ),
     )
 }

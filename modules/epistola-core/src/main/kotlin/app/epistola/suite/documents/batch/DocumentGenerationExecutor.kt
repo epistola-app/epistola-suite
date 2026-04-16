@@ -23,6 +23,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
@@ -179,6 +180,10 @@ class DocumentGenerationExecutor(
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
             ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
+        // 4b. Fetch variant to get language attribute (for locale-aware formatting)
+        val variant = mediator.query(GetVariant(variantId))
+        val language = variant?.attributes?.get("language")
+
         // 5. Validate data against template schema (if defined)
         if (template.dataModel != null) {
             val errors = schemaValidator.validate(template.dataModel, request.data)
@@ -220,6 +225,7 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                language = language,
             )
         } else {
             renderPath = "legacy"
@@ -237,6 +243,7 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                language = language,
             )
         }
 

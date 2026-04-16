@@ -8,6 +8,7 @@ import {
   validateArrayResult,
   validateBooleanResult,
   formatDateValue,
+  formatLocalNumberValue,
 } from './resolve-expression.js';
 
 // ---------------------------------------------------------------------------
@@ -379,6 +380,62 @@ describe('validateBooleanResult', () => {
 });
 
 // ---------------------------------------------------------------------------
+// formatLocalNumberValue
+// ---------------------------------------------------------------------------
+
+describe('formatLocalNumberValue', () => {
+  it('returns error string when language is undefined', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00')).toBe(
+      '<formatLocalNumber failed - undefined language>',
+    );
+  });
+
+  it('returns error string when language is null', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', null)).toBe(
+      '<formatLocalNumber failed - undefined language>',
+    );
+  });
+
+  it('returns error string when language is empty string', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', '')).toBe(
+      '<formatLocalNumber failed - undefined language>',
+    );
+  });
+
+  it('formats with language=en (point notation)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', 'en')).toBe('1,234.50');
+  });
+
+  it('formats with language=nl (comma notation)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', 'nl')).toBe('1.234,50');
+  });
+
+  it('formats integer with language=nl', () => {
+    expect(formatLocalNumberValue(1234, '#,##0', 'nl')).toBe('1.234');
+  });
+
+  it('formats unknown language as comma notation (EU default)', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.00', 'de')).toBe('1.234,50');
+  });
+
+  it('formats percentage with language=en', () => {
+    expect(formatLocalNumberValue(0.21, '0%', 'en')).toBe('21%');
+  });
+
+  it('formats optional decimals with language=en', () => {
+    expect(formatLocalNumberValue(1234.5, '#,##0.##', 'en')).toBe('1,234.5');
+  });
+
+  it('trims trailing zeros with optional decimals', () => {
+    expect(formatLocalNumberValue(1234.0, '#,##0.##', 'en')).toBe('1,234');
+  });
+
+  it('formats negative number with language=nl', () => {
+    expect(formatLocalNumberValue(-1234.5, '#,##0.00', 'nl')).toBe('-1.234,50');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // formatDateValue
 // ---------------------------------------------------------------------------
 
@@ -469,5 +526,56 @@ describe('evaluateExpression with $formatDate', () => {
   it('returns undefined for missing field', async () => {
     const data = { other: '2024-01-15' };
     expect(await evaluateExpression("$formatDate(missing, 'dd-MM-yyyy')", data)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// $formatNumber in evaluateExpression
+// ---------------------------------------------------------------------------
+
+describe('evaluateExpression with $formatLocalNumber', () => {
+  it('returns error string when called without language', async () => {
+    const data = { total: 1234.5 };
+    expect(await evaluateExpression("$formatLocalNumber(total, '#,##0.00')", data)).toBe(
+      '<formatLocalNumber failed - undefined language>',
+    );
+  });
+
+  it('formats in string concatenation with sys.language', async () => {
+    const data = { total: 1207.58, sys: { language: 'en' } };
+    expect(
+      await evaluateExpression(
+        '"Total: " & $formatLocalNumber(total, \'#,##0.00\', sys.language)',
+        data,
+      ),
+    ).toBe('Total: 1,207.58');
+  });
+
+  it('returns undefined for missing field (no value short-circuits)', async () => {
+    const data = { other: 42, sys: { language: 'en' } };
+    expect(
+      await evaluateExpression("$formatLocalNumber(missing, '#,##0', sys.language)", data),
+    ).toBeUndefined();
+  });
+
+  it('formats with sys.language=nl (comma notation)', async () => {
+    const data = { total: 1234.5, sys: { language: 'nl' } };
+    expect(
+      await evaluateExpression("$formatLocalNumber(total, '#,##0.00', sys.language)", data),
+    ).toBe('1.234,50');
+  });
+
+  it('formats with sys.language=en (point notation)', async () => {
+    const data = { total: 1234.5, sys: { language: 'en' } };
+    expect(
+      await evaluateExpression("$formatLocalNumber(total, '#,##0.00', sys.language)", data),
+    ).toBe('1,234.50');
+  });
+
+  it('formats percentage with sys.language', async () => {
+    const data = { rate: 0.21, sys: { language: 'en' } };
+    expect(await evaluateExpression("$formatLocalNumber(rate, '0%', sys.language)", data)).toBe(
+      '21%',
+    );
   });
 });
