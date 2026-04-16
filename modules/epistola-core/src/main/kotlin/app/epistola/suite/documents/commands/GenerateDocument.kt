@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.DocumentGenerationRequest
@@ -167,7 +168,7 @@ class GenerateDocumentHandler(
                     .findOne()
                     .orElse(null)
                     ?.let { VersionKey.of(it) }
-                    ?: throw VersionNotFoundException(command.tenantId, command.templateId, resolvedVariantId, VersionKey.of(0))
+                    ?: throw NoPublishedVersionException(command.tenantId, command.templateId, resolvedVariantId)
             } else {
                 null
             }

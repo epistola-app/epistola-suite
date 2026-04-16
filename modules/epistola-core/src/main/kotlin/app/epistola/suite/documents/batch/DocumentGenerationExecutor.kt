@@ -170,9 +170,9 @@ class DocumentGenerationExecutor(
             mediator.query(GetActiveVersion(variantId, environmentId))
                 ?: throw IllegalStateException("No active version for environment ${request.environmentKey}")
         } else {
-            // Fallback: latest published version
+            // Fallback: latest published version (safety net — handler should have resolved this)
             mediator.query(GetLatestPublishedVersion(variantId))
-                ?: throw IllegalStateException("No published version found for variant ${request.variantKey}")
+                ?: throw IllegalStateException("No published version found for template ${request.templateKey} variant ${request.variantKey}. Import a catalog or publish a version first.")
         }
 
         // 2. Get template model

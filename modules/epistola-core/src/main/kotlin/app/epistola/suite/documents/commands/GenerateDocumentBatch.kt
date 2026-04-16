@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
@@ -232,7 +233,7 @@ class GenerateDocumentBatchHandler(
                 // Verify all tuples were resolved
                 for (tuple in needsResolution) {
                     if (tuple !in resolvedVersions) {
-                        throw VersionNotFoundException(command.tenantId, tuple.templateId, tuple.variantId, VersionKey.of(0))
+                        throw NoPublishedVersionException(command.tenantId, tuple.templateId, tuple.variantId)
                     }
                 }
             }

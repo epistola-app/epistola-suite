@@ -248,8 +248,22 @@ class ImportTemplatesHandler(
     /**
      * Creates a published version for the given variant.
      * Always creates a new version with the next available version ID and status 'published'.
+     * Deletes any existing draft first — re-importing a catalog supersedes local edits.
      */
     private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
+        // Delete existing draft — import supersedes local edits
+        handle.createUpdate(
+            """
+                DELETE FROM template_versions
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
+                """,
+        )
+            .bind("tenantId", tenantId.key)
+            .bind("catalogKey", catalogKey)
+            .bind("templateId", templateId)
+            .bind("variantId", variantId)
+            .execute()
+
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
         val nextVersionId = handle.createQuery(
