@@ -223,7 +223,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
     }
 
     private fun openEditorPage(tenant: Tenant, template: DocumentTemplate, variantId: String) {
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/${template.id}/variants/$variantId/editor")
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}/variants/$variantId/editor")
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
         page.waitForSelector("epistola-toolbar")

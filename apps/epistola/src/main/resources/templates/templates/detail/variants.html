@@ -2,34 +2,32 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="tab-content">
-        <!-- Toggle button for create variant form -->
+        <!-- Button to open create variant dialog -->
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
-            <button type="button" class="btn btn-sm btn-primary" onclick="toggleCreateVariantForm()">+ New Variant</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('create-variant-dialog').showModal()">+ New Variant</button>
         </div>
 
-        <!-- Inline create variant form (hidden by default) -->
-        <div id="create-variant-form" class="detail-section" style="display: none; margin-bottom: var(--ep-space-4);">
-            <div class="detail-section-header"><h3>Create Variant</h3></div>
-            <div class="detail-section-body">
-                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                      method="post"
-                      th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                      hx-target="#variants-section"
-                      hx-swap="outerHTML"
-                      hx-on::after-request="if(event.detail.successful) { this.reset(); toggleCreateVariantForm(); }">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="ep-label" for="slug">Slug (ID)</label>
-                            <input type="text" id="slug" name="slug" class="ep-input" required
-                                   pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" placeholder="english-newsletter">
-                            <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
-                        </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="title">Title (optional)</label>
-                            <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
-                        </div>
+        <!-- Create variant dialog -->
+        <dialog th:if="${auth.has('TEMPLATE_EDIT') and editable}" id="create-variant-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Create Variant</h3>
+            </div>
+            <form th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                  hx-target="#variants-section"
+                  hx-swap="outerHTML"
+                  id="create-variant-form">
+                <div class="ep-dialog-body">
+                    <div class="form-group">
+                        <label class="ep-label" for="slug">Slug (ID)</label>
+                        <input type="text" id="slug" name="slug" class="ep-input" required
+                               pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" placeholder="english-newsletter">
+                        <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
                     </div>
-                    <div class="form-row" th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
+                    <div class="form-group">
+                        <label class="ep-label" for="title">Title (optional)</label>
+                        <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
+                    </div>
+                    <div th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
                         <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
                             <label class="ep-label" th:for="'create-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
                             <select th:id="'create-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
@@ -39,13 +37,13 @@
                             </select>
                         </div>
                     </div>
-                    <div class="actions">
-                        <button type="submit" class="btn btn-primary">Create Variant</button>
-                        <button type="button" class="btn btn-ghost" onclick="toggleCreateVariantForm()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('create-variant-dialog').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Variant</button>
+                </div>
+            </form>
+        </dialog>
 
         <!-- Attribute filter bar -->
         <div id="variant-filter-bar" class="variant-filter-bar"
@@ -103,9 +101,9 @@
                             <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button" class="btn btn-sm btn-icon btn-ghost"
-                                th:data-variant-id="${variant.id}"
-                                th:data-versions-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                                onclick="openVersionHistory(this)" title="Version history">
+                                th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                hx-target="#version-history-dialog-body" hx-swap="innerHTML"
+                                onclick="document.getElementById('version-history-dialog').showModal()" title="Version history">
                             <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="btn btn-sm btn-icon btn-ghost"
@@ -152,14 +150,6 @@
         <dialog id="version-history-dialog" class="ep-dialog ep-dialog-wide"><div id="version-history-dialog-body"></div></dialog>
 
         <script th:inline="javascript">
-            function toggleCreateVariantForm() {
-                const form = document.getElementById('create-variant-form');
-                if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
-            }
-            function openVersionHistory(button) {
-                htmx.ajax('GET', button.dataset.versionsUrl, { target: document.getElementById('version-history-dialog-body'), swap: 'innerHTML' });
-                document.getElementById('version-history-dialog').showModal();
-            }
             function filterVariants() {
                 const filterBar = document.getElementById('variant-filter-bar');
                 if (!filterBar) return;

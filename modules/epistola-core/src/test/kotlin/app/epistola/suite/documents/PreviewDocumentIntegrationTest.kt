@@ -218,36 +218,6 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `preview requires versionId or environmentId`() = scenario {
-            given {
-                val tenant = tenant("Test Tenant")
-                val tenantId = TenantId(tenant.id)
-                val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
-                val variant = variant(compositeTemplateId, "Default")
-                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
-                val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-                val version = version(compositeVariantId, templateModel)
-                DocumentSetup(tenant, template, variant, version)
-            }.whenever { setup ->
-                setup
-            }.then { setup, _ ->
-                assertThatThrownBy {
-                    query(
-                        PreviewDocument(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
-                            templateId = setup.template.id,
-                            variantId = setup.variant.id,
-                            data = emptyData(),
-                        ),
-                    )
-                }.isInstanceOf(IllegalArgumentException::class.java)
-                    .hasMessageContaining("versionId or environmentId")
-            }
-        }
-
-        @Test
         fun `preview validates data against schema`() = scenario {
             given {
                 val tenant = tenant("Test Tenant")

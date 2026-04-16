@@ -147,6 +147,6 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 filename = "test.pdf",
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Exactly one")
+            .hasMessageContaining("Cannot specify both")
     }
 }

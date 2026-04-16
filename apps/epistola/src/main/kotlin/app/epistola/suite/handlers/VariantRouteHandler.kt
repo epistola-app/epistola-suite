@@ -5,13 +5,16 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.variants.DeleteVariant
@@ -107,14 +110,18 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
+        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
 
         return request.htmx {
-            fragment("templates/detail", "variants-section") {
+            fragment("templates/detail/variants", "variants-section") {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                "editable" to editable
+                "auth" to auth
             }
             trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
@@ -151,6 +158,8 @@ class VariantRouteHandler {
         return renderVariantsSection(request, tenantId, templateId)
     }
 
+    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+
     private fun renderVariantsSection(
         request: ServerRequest,
         tenantId: TenantId,
@@ -162,18 +171,24 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
+        logger.info("renderVariantsSection: variants={}, editable={}, catalogId={}, isHtmx={}", variants.size, editable, catalogId, request.isHtmx)
+        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
 
         return request.htmx {
-            fragment("templates/detail", "variants-section") {
+            fragment("templates/detail/variants", "variants-section") {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                "editable" to editable
+                "auth" to auth
                 if (errorMessage != null) {
                     "error" to errorMessage
                 }
             }
+            trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
         }
     }

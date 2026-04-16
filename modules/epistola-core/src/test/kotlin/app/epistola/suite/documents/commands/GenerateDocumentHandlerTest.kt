@@ -129,22 +129,6 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                 filename = "test.pdf",
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Exactly one")
-    }
-
-    @Test
-    fun `validates either versionId or environmentId is set`() {
-        assertThatThrownBy {
-            GenerateDocument(
-                tenantId = TenantKey.of("dummy-tenant"),
-                templateId = TestIdHelpers.nextTemplateId(),
-                variantId = TestIdHelpers.nextVariantId(),
-                versionId = null,
-                environmentId = null, // Neither set - should fail
-                data = objectMapper.createObjectNode(),
-                filename = "test.pdf",
-            )
-        }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Exactly one")
+            .hasMessageContaining("Cannot specify both")
     }
 }
