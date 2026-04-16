@@ -140,22 +140,51 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
       "name": "Company Logo",
       "detailUrl": "./resources/asset/01966a00-0000-7000-8000-000000000001.json"
     }
+  ],
+  "dependencies": [
+    { "type": "theme", "catalogKey": "shared-styles", "slug": "base-theme" },
+    { "type": "stencil", "catalogKey": "shared-components", "slug": "company-header" },
+    { "type": "asset", "slug": "01966a00-0000-7000-8000-000000000002" }
   ]
 }
 ```
 
-| Field                   | Type    | Required | Description                                                    |
-| ----------------------- | ------- | -------- | -------------------------------------------------------------- |
-| `schemaVersion`         | integer | yes      | Protocol version. Currently `2`.                               |
-| `catalog.slug`          | string  | yes      | Catalog identifier (URL-safe slug).                            |
-| `catalog.name`          | string  | yes      | Display name.                                                  |
-| `publisher.name`        | string  | yes      | Publisher name.                                                |
-| `release.version`       | string  | yes      | Release version label.                                         |
-| `resources`             | array   | yes      | List of available resources.                                   |
-| `resources[].type`      | string  | yes      | `template`, `theme`, `stencil`, `attribute`, or `asset`.       |
-| `resources[].slug`      | string  | yes      | Unique identifier within the catalog.                          |
-| `resources[].name`      | string  | yes      | Display name.                                                  |
-| `resources[].detailUrl` | string  | yes      | URL to the resource detail JSON. Relative to the manifest URL. |
+| Field                       | Type    | Required    | Description                                                                               |
+| --------------------------- | ------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `schemaVersion`             | integer | yes         | Protocol version. Currently `2`.                                                          |
+| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                       |
+| `catalog.name`              | string  | yes         | Display name.                                                                             |
+| `publisher.name`            | string  | yes         | Publisher name.                                                                           |
+| `release.version`           | string  | yes         | Release version label.                                                                    |
+| `resources`                 | array   | yes         | List of available resources.                                                              |
+| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                  |
+| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                     |
+| `resources[].name`          | string  | yes         | Display name.                                                                             |
+| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                            |
+| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                       |
+| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                           |
+| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global). |
+| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                |
+
+### Cross-Catalog Dependencies
+
+Templates may reference resources from other catalogs:
+
+- **Themes**: via `themeRef.catalogKey` in the template model
+- **Stencils**: via `node.props.catalogKey` in stencil nodes
+- **Assets**: via `node.props.assetId` in image nodes (tenant-global, no catalog needed)
+
+During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
+
+During import, Epistola validates that all declared dependencies exist in the target tenant before installing. If any are missing, the import is rejected with a clear error listing what's needed.
+
+Dependencies use a sealed type hierarchy:
+
+| Type      | Fields               | Scope                                                |
+| --------- | -------------------- | ---------------------------------------------------- |
+| `theme`   | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `stencil` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `asset`   | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
 
 ### Resource Detail Files
 
@@ -233,6 +262,8 @@ Remote catalogs support three authentication types:
 6. For each resource, fetch the detail JSON and call the type-specific importer
 7. Asset binaries are fetched separately via `CatalogClient.fetchBinaryContent()`
 
+Before installing, the import validates that all declared cross-catalog dependencies exist in the target tenant. If any are missing, the import is rejected with a descriptive error.
+
 The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
 
 ### Dependency Resolution
@@ -267,9 +298,27 @@ The ZIP structure matches the protocol layout, so it can be served as a static c
 
 Both authored and subscribed catalogs can be exported. For authored catalogs, all resources in the catalog are included. For subscribed catalogs, all installed resources are included.
 
-### Dependency-Based Export
+Cross-catalog dependencies are automatically detected during export by scanning template models against the catalog's own resource list. Any external reference is added to the `dependencies` field in `catalog.json`.
 
-`ExportCatalog` exports resources based on template dependencies rather than catalog membership. Given a list of template slugs, it scans their dependencies and includes only referenced resources. This is used internally (not exposed via UI).
+Configurable size limits protect against oversized exports:
+
+- `epistola.catalog.max-zip-size`: Maximum compressed ZIP size (default 10MB)
+- `epistola.catalog.max-decompressed-size`: Maximum decompressed size (default 20MB)
+
+### ZIP Import
+
+`ImportCatalogZip` imports a catalog from a ZIP archive:
+
+- If the catalog slug already exists and is AUTHORED: resources are updated in place
+- If the catalog slug already exists and is SUBSCRIBED: the import is rejected
+- If the catalog slug is new: a new catalog is created with the specified type
+
+Available via:
+
+- UI: `POST /tenants/{tenantId}/catalogs/import` (multipart form)
+- REST API: `POST /api/tenants/{tenantId}/catalogs/import` (multipart, API key auth)
+
+The REST API endpoint is used by the Valtimo plugin for catalog sync on startup.
 
 ## UI
 
