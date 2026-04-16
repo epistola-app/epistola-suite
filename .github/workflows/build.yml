@@ -175,7 +175,7 @@ jobs:
           pnpm --filter @epistola/editor sbom
 
       - name: Scan backend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
+        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -185,7 +185,7 @@ jobs:
           output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
+        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
