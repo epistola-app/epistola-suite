@@ -6,7 +6,6 @@ import app.epistola.api.VersionsApi
 import app.epistola.api.model.ActivationListResponse
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
-import app.epistola.api.model.ImportTemplateResultDto
 import app.epistola.api.model.ImportTemplatesRequest
 import app.epistola.api.model.ImportTemplatesResponse
 import app.epistola.api.model.PublishVersionRequest
@@ -25,10 +24,6 @@ import app.epistola.api.model.VersionListResponse
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
-import app.epistola.suite.catalog.commands.ImportStatus
-import app.epistola.suite.catalog.commands.ImportTemplateInput
-import app.epistola.suite.catalog.commands.ImportTemplates
-import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -121,60 +116,9 @@ class EpistolaTemplateApi(
         tenantId: String,
         catalogId: String,
         importTemplatesRequest: ImportTemplatesRequest,
-    ): ResponseEntity<ImportTemplatesResponse> {
-        val results = ImportTemplates(
-            tenantId = TenantId(TenantKey.of(tenantId)),
-            templates = importTemplatesRequest.templates.map { dto ->
-                ImportTemplateInput(
-                    slug = dto.slug,
-                    name = dto.name,
-                    version = dto.version,
-                    dataModel = dto.dataModel,
-                    dataExamples = dto.dataExamples?.map { ex ->
-                        DataExample(id = ex.id, name = ex.name, data = ex.data as ObjectNode)
-                    } ?: emptyList(),
-                    templateModel = objectMapper.treeToValue(
-                        objectMapper.valueToTree(dto.templateModel),
-                        app.epistola.suite.templates.model.TemplateDocument::class.java,
-                    ),
-                    variants = dto.variants.map { v ->
-                        ImportVariantInput(
-                            id = v.id,
-                            title = v.title,
-                            attributes = v.attributes ?: emptyMap(),
-                            templateModel = v.templateModel?.let { tm ->
-                                objectMapper.treeToValue(
-                                    objectMapper.valueToTree(tm),
-                                    app.epistola.suite.templates.model.TemplateDocument::class.java,
-                                )
-                            },
-                            isDefault = v.isDefault ?: false,
-                        )
-                    },
-                    publishTo = dto.publishTo ?: emptyList(),
-                )
-            },
-        ).execute()
-
-        return ResponseEntity.ok(
-            ImportTemplatesResponse(
-                results = results.map { r ->
-                    ImportTemplateResultDto(
-                        slug = r.slug,
-                        status = when (r.status) {
-                            ImportStatus.CREATED -> ImportTemplateResultDto.Status.CREATED
-                            ImportStatus.UPDATED -> ImportTemplateResultDto.Status.UPDATED
-                            ImportStatus.UNCHANGED -> ImportTemplateResultDto.Status.UNCHANGED
-                            ImportStatus.FAILED -> ImportTemplateResultDto.Status.FAILED
-                        },
-                        version = r.version,
-                        publishedTo = r.publishedTo,
-                        errorMessage = r.errorMessage,
-                    )
-                },
-            ),
-        )
-    }
+    ): ResponseEntity<ImportTemplatesResponse> = throw UnsupportedOperationException(
+        "importTemplates is deprecated — use the catalog import endpoint instead",
+    )
 
     override fun getTemplate(
         tenantId: String,

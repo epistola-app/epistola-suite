@@ -189,9 +189,9 @@ class ImportTemplatesHandler(
                 .bind("isDefault", variantInput.isDefault)
                 .execute()
 
-            // Upsert the draft with the variant-specific or top-level templateModel
+            // Upsert a published version with the variant-specific or top-level templateModel
             val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-            upsertDraft(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel)
+            upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel)
         }
 
         // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
@@ -231,7 +231,7 @@ class ImportTemplatesHandler(
             }
 
             for (variantId in importedVariantIds) {
-                publishDraft(handle, tenantId, catalogKey, templateId, variantId, environmentId)
+                activateLatestVersion(handle, tenantId, catalogKey, templateId, variantId, environmentId)
             }
             publishedTo.add(envSlug)
         }
@@ -246,70 +246,55 @@ class ImportTemplatesHandler(
     }
 
     /**
-     * Upserts a draft version for the given variant.
-     * Updates the existing draft if one exists, otherwise creates a new one
-     * with the next available version ID.
+     * Creates a published version for the given variant.
+     * Always creates a new version with the next available version ID and status 'published'.
      */
-    private fun upsertDraft(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
+    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
-        val updated = handle.createUpdate(
+        val nextVersionId = handle.createQuery(
             """
-            UPDATE template_versions
-            SET template_model = :templateModel::jsonb
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
-            """,
+                SELECT COALESCE(MAX(id), 0) + 1
+                FROM template_versions
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
+                """,
         )
+            .bind("tenantId", tenantId.key)
+            .bind("catalogKey", catalogKey)
+            .bind("templateId", templateId)
+            .bind("variantId", variantId)
+            .mapTo(Int::class.java)
+            .one()
+
+        handle.createUpdate(
+            """
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, published_at, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', NOW(), NOW())
+                """,
+        )
+            .bind("id", VersionKey.of(nextVersionId))
             .bind("tenantId", tenantId.key)
             .bind("catalogKey", catalogKey)
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
             .execute()
-
-        if (updated == 0) {
-            val nextVersionId = handle.createQuery(
-                """
-                SELECT COALESCE(MAX(id), 0) + 1
-                FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
-                """,
-            )
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .bind("variantId", variantId)
-                .mapTo(Int::class.java)
-                .one()
-
-            handle.createUpdate(
-                """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
-                """,
-            )
-                .bind("id", VersionKey.of(nextVersionId))
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .bind("variantId", variantId)
-                .bind("templateModel", templateModelJson)
-                .execute()
-        }
     }
 
     /**
-     * Publishes the current draft of a variant to an environment.
-     * Freezes the draft (status -> published), upserts the activation,
-     * and auto-creates a new draft so the variant remains editable.
+     * Activates the latest published version of a variant in an environment.
+     * Since import always creates published versions, this simply finds the
+     * latest one and upserts the activation record.
      */
-    private fun publishDraft(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
-        // Find the draft version
-        val draftVersionId = handle.createQuery(
+    private fun activateLatestVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
+        // Find the latest published version
+        val latestVersionId = handle.createQuery(
             """
             SELECT id
             FROM template_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'published'
+            ORDER BY id DESC
+            LIMIT 1
             """,
         )
             .bind("tenantId", tenantId.key)
@@ -320,22 +305,7 @@ class ImportTemplatesHandler(
             .findOne()
             .orElse(null) ?: return
 
-        val versionId = VersionKey.of(draftVersionId)
-
-        // Freeze the draft
-        handle.createUpdate(
-            """
-            UPDATE template_versions
-            SET status = 'published', published_at = NOW()
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
-            """,
-        )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .bind("versionId", versionId)
-            .execute()
+        val versionId = VersionKey.of(latestVersionId)
 
         // Upsert activation
         handle.createUpdate(
@@ -352,37 +322,6 @@ class ImportTemplatesHandler(
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
-            .execute()
-
-        // Auto-create a new draft so the variant remains editable
-        val nextVersionId = handle.createQuery(
-            """
-            SELECT COALESCE(MAX(id), 0) + 1
-            FROM template_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
-            """,
-        )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .mapTo(Int::class.java)
-            .one()
-
-        handle.createUpdate(
-            """
-            INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-            VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId,
-                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
-                    'draft', NOW())
-            """,
-        )
-            .bind("id", VersionKey.of(nextVersionId))
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .bind("publishedId", versionId)
             .execute()
     }
 }
