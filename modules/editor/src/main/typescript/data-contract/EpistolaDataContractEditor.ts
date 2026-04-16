@@ -1,45 +1,21 @@
 /**
  * EpistolaDataContractEditor — Root Lit element for the data contract editor.
  *
- * Two tabs: "Schema" and "Test Data".
- * Owns a DataContractState instance, manages all UI state, delegates
- * rendering to section render functions.
+ * Thin shell: delegates to DataContractStore for state, SaveOrchestrator for
+ * save logic, and section render functions for UI.
  * Light DOM (no Shadow DOM) for design system CSS integration.
- *
- * Schema mutations happen through SchemaCommands, with VisualSchema as the
- * primary editing state. JSON Schema conversion only happens on load and save.
- * A snapshot-based undo/redo stack tracks history.
- *
- * Example edits also have per-example undo/redo via SnapshotHistory<JsonObject>.
- * All examples are validated against the schema, with inline field errors and
- * chip-level badges.
  */
 
 import { LitElement, html, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
 import { icon } from '../ui/icons.js';
-import { DataContractState } from './DataContractState.js';
-import type {
-  DataExample,
-  JsonObject,
-  JsonSchema,
-  JsonValue,
-  SaveCallbacks,
-  SchemaField,
-  VisualSchema,
-} from './types.js';
+import { DataContractStore } from './DataContractStore.js';
+import { orchestrateSave, executeSave, flattenCompatibilityWarnings } from './SaveOrchestrator.js';
+import type { DataExample, JsonSchema, SaveCallbacks } from './types.js';
+import { checkSchemaCompatibility } from './utils/schemaCompatibility.js';
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
-import type { SchemaCommand } from './utils/schemaCommands.js';
-import { SchemaCommandHistory } from './utils/schemaCommandHistory.js';
-import { SnapshotHistory } from './utils/snapshotHistory.js';
-import {
-  detectMigrations,
-  applyAllMigrations,
-  type MigrationSuggestion,
-} from './utils/schemaMigration.js';
-import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
-import { checkSchemaCompatibility, type CompatibilityIssue } from './utils/schemaCompatibility.js';
+import { buildFieldErrorMap } from './sections/ExampleForm.js';
 import {
   renderSchemaSection,
   type SchemaUiState,
@@ -50,10 +26,9 @@ import {
   type ExamplesUiState,
   type ExamplesSectionCallbacks,
 } from './sections/ExamplesSection.js';
-import { renderMigrationDialog, migrationKey } from './sections/MigrationAssistant.js';
+import { renderSchemaFixScreen } from './sections/SchemaFixScreen.js';
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
-import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
 
 type TabId = 'schema' | 'examples';
 
@@ -63,114 +38,35 @@ export class EpistolaDataContractEditor extends LitElement {
     return this;
   }
 
-  // ---------------------------------------------------------------------------
-  // External state (injected via init())
-  // ---------------------------------------------------------------------------
+  store = new DataContractStore();
 
-  contractState?: DataContractState;
-
-  // ---------------------------------------------------------------------------
-  // Schema editing state (VisualSchema is the primary editing state)
-  // ---------------------------------------------------------------------------
-
-  @state() private _visualSchema: VisualSchema = { fields: [] };
-  private _commandHistory = new SchemaCommandHistory();
-
-  // ---------------------------------------------------------------------------
-  // UI state (reactive via @state())
-  // ---------------------------------------------------------------------------
-
-  @state() private _activeTab: TabId = 'schema';
-
-  // Schema tab UI state
-  @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
-  @state() private _expandedFields = new Set<string>();
-  @state() private _selectedFieldId: string | null = null;
-  @state() private _schemaViewMode: 'visual' | 'json' = 'visual';
-  @state() private _compatibilityIssues: CompatibilityIssue[] = [];
-
-  // Import dialog state
-  @state() private _showImportDialog = false;
-  @state() private _importParseError: string | null = null;
-
-  // Copy feedback
-  @state() private _copySuccess = false;
-
-  // Examples tab UI state
-  @state() private _editingExampleId: string | null = null;
-
-  // Unified save state
-  @state() private _saving = false;
-  @state() private _saveSuccess = false;
-  @state() private _saveError: string | null = null;
-  @state() private _canForceSave = false;
-
-  // Per-example undo/redo stacks
-  private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
-  @state() private _exampleCanUndo = false;
-  @state() private _exampleCanRedo = false;
-
-  // Validation errors for all examples (keyed by example ID)
-  @state() private _exampleValidationErrors = new Map<string, SchemaValidationError[]>();
-
-  // Migration dialog state
-  @state() private _showMigrationDialog = false;
-  @state() private _pendingMigrations: MigrationSuggestion[] = [];
-  @state() private _selectedMigrations = new Set<string>();
-
-  // Timers
+  // Local UI state (not worth moving to store)
+  private _showImportDialog = false;
+  private _importParseError: string | null = null;
+  private _copySuccess = false;
+  private _compatibilityIssues: import('./utils/schemaCompatibility.js').CompatibilityIssue[] = [];
   private _successTimer?: ReturnType<typeof setTimeout>;
-
-  // Event listener refs
   private _boundBeforeUnload = this._handleBeforeUnload.bind(this);
   private _boundKeyDown = this._handleKeyDown.bind(this);
 
-  // ---------------------------------------------------------------------------
-  // Initialization
-  // ---------------------------------------------------------------------------
+  // Keep contractState for backward compat (ExamplesSection reads it)
+  get contractState(): DataContractStore {
+    return this.store;
+  }
 
   init(
     initialSchema: JsonSchema | null,
     initialExamples: DataExample[],
     callbacks: SaveCallbacks,
   ): void {
-    this.contractState = new DataContractState(initialSchema, initialExamples, callbacks);
+    this.store.setHost(this);
+    this.store.init(initialSchema, initialExamples, callbacks);
 
-    this.contractState.addEventListener('change', () => {
-      this.requestUpdate();
-    });
-
-    // Check compatibility and set editing mode
     if (initialSchema) {
       const compat = checkSchemaCompatibility(initialSchema);
       this._compatibilityIssues = compat.issues;
-      if (!compat.compatible) {
-        this.contractState.setRawJsonSchema(initialSchema, 'json-only', true);
-        this._schemaViewMode = 'json';
-      }
     }
-
-    // Convert initial JSON Schema to VisualSchema once — this is now the primary editing state
-    this._visualSchema = jsonSchemaToVisualSchema(initialSchema);
-    this._commandHistory.clear();
-
-    // Pre-select first field if available
-    if (this._visualSchema.fields.length > 0) {
-      this._selectedFieldId = this._visualSchema.fields[0].id;
-    }
-
-    // Pre-select first example if available
-    if (initialExamples.length > 0) {
-      this._editingExampleId = initialExamples[0].id;
-    }
-
-    // Validate all examples on init
-    this._validateAllExamples();
   }
-
-  // ---------------------------------------------------------------------------
-  // Lifecycle
-  // ---------------------------------------------------------------------------
 
   override connectedCallback() {
     super.connectedCallback();
@@ -190,11 +86,8 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   override render() {
-    if (!this.contractState) {
-      return html`<div class="dc-empty-state">No data contract loaded.</div>`;
-    }
-
-    const state = this.contractState!;
+    const s = this.store.state;
+    const saveStatus = s.saveStatus;
 
     return html`
       <div class="dc-editor-layout">
@@ -205,50 +98,59 @@ export class EpistolaDataContractEditor extends LitElement {
           <div class="dc-tabs-spacer"></div>
 
           <!-- Unified save -->
-          ${this._saveSuccess
+          ${saveStatus.type === 'success'
             ? html`<span class="dc-status-success">Saved successfully</span>`
             : nothing}
-          ${this._saveError
-            ? html`<span class="dc-status-error">${this._saveError}</span>`
+          ${saveStatus.type === 'error'
+            ? html`<span class="dc-status-error">${saveStatus.message}</span>`
             : nothing}
-          ${this._canForceSave
+          ${saveStatus.type === 'error' && saveStatus.canForceSave
             ? html`<button
                 class="ep-btn-outline btn-sm dc-force-save-btn"
-                ?disabled=${this._saving}
-                @click=${() => this._executeForceSave()}
+                @click=${() => this._saveAll(true)}
               >
                 Save Anyway
               </button>`
             : nothing}
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
-            ?disabled=${this._saving || !state.isDirty}
-            @click=${() => this._saveAll()}
+            ?disabled=${saveStatus.type === 'saving' || !this.store.isDirty}
+            @click=${() => this._saveAll(false)}
           >
-            ${this._saving ? 'Saving...' : 'Save'}
+            ${saveStatus.type === 'saving' ? 'Saving...' : 'Save'}
           </button>
         </div>
 
         <!-- Tab content -->
         <div class="dc-tab-content">
-          ${this._activeTab === 'schema' ? this._renderSchemaTab() : this._renderExamplesTab()}
+          ${s.activeTab === 'schema' ? this._renderSchemaTab() : this._renderExamplesTab()}
         </div>
       </div>
 
-      <!-- Migration dialog -->
-      ${this._showMigrationDialog
-        ? html`
-            <dialog class="dc-dialog" open @close=${() => this._closeMigrationDialog()}>
-              ${renderMigrationDialog(this._pendingMigrations, this._selectedMigrations, {
-                onApply: (selected) => this._applyMigrations(selected),
-                onForceSave: () => this._forceSave(),
-                onCancel: () => this._closeMigrationDialog(),
-                onToggleMigration: (m) => this._toggleMigration(m),
-                onSelectAll: () => this._selectAllMigrations(),
-                onSelectNone: () => this._selectNoneMigrations(),
-              })}
-            </dialog>
-          `
+      <!-- Schema fix screen overlay -->
+      ${s.fixScreen
+        ? renderSchemaFixScreen(
+            s.fixScreen.migrations,
+            s.examples,
+            s.fixScreen.newSchema,
+            s.fixScreen.fields,
+            s.fixScreen.errors,
+            s.fixScreen.editedData,
+            s.schemaWarnings,
+            s.saveStatus.type === 'error' ? s.saveStatus.message : null,
+            s.saveStatus.type === 'error' ? s.saveStatus.canForceSave : false,
+            {
+              onFieldChange: (exampleId, path, value) =>
+                this.store.dispatch({ type: 'fix-field-change', exampleId, path, value }),
+              onRemoveField: (exampleId, path) =>
+                this.store.dispatch({ type: 'fix-remove-field', exampleId, path }),
+              onRemoveAllUnknown: () => this.store.dispatch({ type: 'fix-remove-all-unknown' }),
+              onRevert: () => this._handleFixRevert(),
+              onContinue: () => this._handleFixContinue(),
+              onForceSave: () => this._handleFixForceSave(),
+              onCancel: () => this.store.dispatch({ type: 'close-fix-screen' }),
+            },
+          )
         : nothing}
 
       <!-- Import schema dialog -->
@@ -267,15 +169,13 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _renderTab(tabId: TabId, label: string): unknown {
-    const isActive = this._activeTab === tabId;
+    const isActive = this.store.state.activeTab === tabId;
     return html`
       <button
         class="dc-tab ${isActive ? 'dc-tab-active' : ''}"
         role="tab"
         aria-selected="${isActive}"
-        @click=${() => {
-          this._activeTab = tabId;
-        }}
+        @click=${() => this.store.dispatch({ type: 'select-tab', tab: tabId })}
       >
         ${label}
       </button>
@@ -287,46 +187,40 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderSchemaTab(): unknown {
-    const state = this.contractState!;
-    const isJsonOnly = state.schemaEditMode === 'json-only';
+    const s = this.store.state;
+    const isJsonOnly = s.schemaEditMode === 'json-only';
 
     const jsonSchemaViewCallbacks = {
       onCopyToClipboard: () => this._copyJsonSchemaToClipboard(),
       onImportSchema: () => this._openImportDialog(),
     };
 
-    // JSON-only mode: no visual editor, just JSON view
     if (isJsonOnly) {
       return renderJsonSchemaView(
-        state.rawJsonSchema,
+        s.rawJsonSchema,
         this._compatibilityIssues,
         this._copySuccess,
         jsonSchemaViewCallbacks,
       );
     }
 
-    // Visual mode: show Visual/JSON sub-tab toggle
     return html`
       <!-- View toggle -->
       <div class="dc-toolbar">
         <div class="dc-schema-view-toggle">
           <button
-            class="dc-schema-view-toggle-btn ${this._schemaViewMode === 'visual'
+            class="dc-schema-view-toggle-btn ${s.schemaViewMode === 'visual'
               ? 'dc-schema-view-toggle-btn-active'
               : ''}"
-            @click=${() => {
-              this._schemaViewMode = 'visual';
-            }}
+            @click=${() => this.store.dispatch({ type: 'set-schema-view-mode', mode: 'visual' })}
           >
             Visual
           </button>
           <button
-            class="dc-schema-view-toggle-btn ${this._schemaViewMode === 'json'
+            class="dc-schema-view-toggle-btn ${s.schemaViewMode === 'json'
               ? 'dc-schema-view-toggle-btn-active'
               : ''}"
-            @click=${() => {
-              this._schemaViewMode = 'json';
-            }}
+            @click=${() => this.store.dispatch({ type: 'set-schema-view-mode', mode: 'json' })}
           >
             JSON
           </button>
@@ -341,11 +235,9 @@ export class EpistolaDataContractEditor extends LitElement {
         </button>
       </div>
 
-      ${this._schemaViewMode === 'json'
+      ${s.schemaViewMode === 'json'
         ? renderJsonSchemaView(
-            this._visualSchema.fields.length > 0
-              ? visualSchemaToJsonSchema(this._visualSchema)
-              : null,
+            s.visualSchema.fields.length > 0 ? visualSchemaToJsonSchema(s.visualSchema) : null,
             [],
             this._copySuccess,
             jsonSchemaViewCallbacks,
@@ -355,22 +247,26 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _renderVisualSchemaSection(): unknown {
+    const s = this.store.state;
+
     const uiState: SchemaUiState = {
-      warnings: this._schemaWarnings,
-      canUndo: this._commandHistory.canUndo,
-      canRedo: this._commandHistory.canRedo,
-      selectedFieldId: this._selectedFieldId,
+      warnings: s.schemaWarnings,
+      canUndo: s.schemaCommandHistory.canUndo,
+      canRedo: s.schemaCommandHistory.canRedo,
+      selectedFieldId: s.selectedFieldId,
     };
 
     const callbacks: SchemaSectionCallbacks = {
-      onCommand: (command) => this._executeCommand(command),
-      onToggleFieldExpand: (fieldId) => this._toggleFieldExpand(fieldId),
-      onSelectField: (fieldId) => this._selectField(fieldId),
-      onUndo: () => this._undo(),
-      onRedo: () => this._redo(),
+      onCommand: (command) => this.store.dispatch({ type: 'execute-schema-command', command }),
+      onToggleFieldExpand: (fieldId) =>
+        this.store.dispatch({ type: 'toggle-field-expand', fieldId }),
+      onSelectField: (fieldId) => this.store.dispatch({ type: 'select-field', fieldId }),
+      onUndo: () => this.store.dispatch({ type: 'undo-schema' }),
+      onRedo: () => this.store.dispatch({ type: 'redo-schema' }),
+      onReviewWarnings: () => this._openWarningsModal(),
     };
 
-    return renderSchemaSection(this._visualSchema, uiState, callbacks, this._expandedFields);
+    return renderSchemaSection(s.visualSchema, uiState, callbacks, s.expandedFields);
   }
 
   // ---------------------------------------------------------------------------
@@ -378,472 +274,171 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderExamplesTab(): unknown {
-    const state = this.contractState!;
+    const s = this.store.state;
 
     // Derive errors for selected example
-    const errorsForSelected = this._editingExampleId
-      ? (this._exampleValidationErrors.get(this._editingExampleId) ?? [])
+    const errorsForSelected = s.selectedExampleId
+      ? (s.validationErrors.get(s.selectedExampleId) ?? [])
       : [];
     const fieldErrorMap = buildFieldErrorMap(errorsForSelected);
 
     // Derive error counts per example for chip badges
     const exampleErrorCounts: Record<string, number> = {};
-    for (const ex of state.dataExamples) {
-      exampleErrorCounts[ex.id] = (this._exampleValidationErrors.get(ex.id) ?? []).length;
+    for (const ex of s.examples) {
+      exampleErrorCounts[ex.id] = (s.validationErrors.get(ex.id) ?? []).length;
     }
 
     const uiState: ExamplesUiState = {
-      editingId: this._editingExampleId,
+      editingId: s.selectedExampleId,
       fieldErrorMap,
       validationErrorCount: errorsForSelected.length,
       exampleErrorCounts,
-      canUndo: this._exampleCanUndo,
-      canRedo: this._exampleCanRedo,
+      canUndo: this.store.exampleCanUndo,
+      canRedo: this.store.exampleCanRedo,
     };
 
     const callbacks: ExamplesSectionCallbacks = {
-      onSelectExample: (id) => this._selectExample(id),
+      onSelectExample: (id) => this.store.dispatch({ type: 'select-example', exampleId: id }),
       onAddExample: () => this._addExample(),
-      onDeleteExample: (id) => this._deleteExample(id),
-      onUpdateExampleName: (id, name) => this._updateExampleName(id, name),
-      onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
-      onUndo: () => this._undoExampleData(),
-      onRedo: () => this._redoExampleData(),
+      onDeleteExample: (id) => this.store.dispatch({ type: 'delete-example', exampleId: id }),
+      onUpdateExampleName: (id, name) =>
+        this.store.dispatch({ type: 'update-example-name', exampleId: id, name }),
+      onUpdateExampleData: (id, path, value) =>
+        this.store.dispatch({ type: 'update-example-data', exampleId: id, path, value }),
+      onClearExampleData: (id, path) =>
+        this.store.dispatch({ type: 'clear-example-field', exampleId: id, path }),
+      onUndo: () => this.store.dispatch({ type: 'undo-example' }),
+      onRedo: () => this.store.dispatch({ type: 'redo-example' }),
     };
 
-    return renderExamplesSection(state, uiState, callbacks);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Schema operations (command-based)
-  // ---------------------------------------------------------------------------
-
-  private _executeCommand(command: SchemaCommand): void {
-    const prevSchema = this._visualSchema;
-    this._visualSchema = this._commandHistory.execute(command, this._visualSchema);
-    this._syncVisualSchemaToState();
-    this._clearSaveStatus();
-
-    // Auto-select newly added fields
-    if (command.type === 'addField') {
-      const newFieldId = this._findNewFieldId(prevSchema.fields, this._visualSchema.fields);
-      if (newFieldId) this._selectedFieldId = newFieldId;
-    }
-
-    // Clear selection if deleted field was selected
-    if (command.type === 'deleteField' && this._selectedFieldId === command.fieldId) {
-      this._selectedFieldId =
-        this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
-    }
-
-    // Re-validate examples against the updated schema
-    this._validateAllExamples();
-  }
-
-  private _selectField(fieldId: string): void {
-    this._selectedFieldId = fieldId;
-  }
-
-  /** Find a field ID that exists in newFields but not in oldFields (top-level or nested). */
-  private _findNewFieldId(
-    oldFields: readonly SchemaField[],
-    newFields: readonly SchemaField[],
-  ): string | null {
-    const oldIds = new Set<string>();
-    const collectIds = (fields: readonly SchemaField[]) => {
-      for (const f of fields) {
-        oldIds.add(f.id);
-        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
-          collectIds(f.nestedFields);
-        }
-      }
+    // Create a state-like object for ExamplesSection (it reads .dataExamples and .schema)
+    const stateForSection = {
+      dataExamples: s.examples,
+      schema: s.schema,
     };
-    collectIds(oldFields);
 
-    const findNew = (fields: readonly SchemaField[]): string | null => {
-      for (const f of fields) {
-        if (!oldIds.has(f.id)) return f.id;
-        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
-          const found = findNew(f.nestedFields);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    return findNew(newFields);
-  }
-
-  private _undo(): void {
-    const prev = this._commandHistory.undo(this._visualSchema);
-    if (prev) {
-      this._visualSchema = prev;
-      this._syncVisualSchemaToState();
-      this._clearSaveStatus();
-      this._validateAllExamples();
-    }
-  }
-
-  private _redo(): void {
-    const next = this._commandHistory.redo(this._visualSchema);
-    if (next) {
-      this._visualSchema = next;
-      this._syncVisualSchemaToState();
-      this._clearSaveStatus();
-      this._validateAllExamples();
-    }
-  }
-
-  /**
-   * Sync the current VisualSchema to DataContractState for dirty tracking and persistence.
-   * Skipped when in json-only mode (raw schema is managed separately).
-   */
-  private _syncVisualSchemaToState(): void {
-    const state = this.contractState!;
-    if (state.schemaEditMode === 'json-only') return;
-
-    if (this._visualSchema.fields.length > 0) {
-      state.setDraftSchema(visualSchemaToJsonSchema(this._visualSchema));
-    } else {
-      state.setDraftSchema(null);
-    }
-  }
-
-  private _toggleFieldExpand(fieldId: string): void {
-    const newSet = new Set(this._expandedFields);
-    if (newSet.has(fieldId)) {
-      newSet.delete(fieldId);
-    } else {
-      newSet.add(fieldId);
-    }
-    this._expandedFields = newSet;
-  }
-
-  private async _saveAll(): Promise<void> {
-    const state = this.contractState!;
-    if (this._saving) return;
-
-    // Check for pending migrations before saving
-    if (state.isSchemaDirty) {
-      const schemaForMigration =
-        state.schemaEditMode === 'json-only'
-          ? (state.rawJsonSchema as unknown as JsonSchema | null)
-          : state.schema;
-      const migrations = detectMigrations(schemaForMigration, state.dataExamples);
-      if (!migrations.compatible) {
-        this._pendingMigrations = migrations.migrations;
-        this._selectedMigrations = new Set(
-          migrations.migrations.filter((m) => m.autoMigratable).map((m) => migrationKey(m)),
-        );
-        this._showMigrationDialog = true;
-        return;
-      }
-    }
-
-    await this._executeSave(false);
-  }
-
-  private async _forceSave(): Promise<void> {
-    this._closeMigrationDialog();
-    await this._executeSave(true);
-  }
-
-  private async _executeForceSave(): Promise<void> {
-    this._canForceSave = false;
-    await this._executeSave(true);
-  }
-
-  private async _executeSave(forceUpdate: boolean): Promise<void> {
-    const state = this.contractState!;
-    this._saving = true;
-    this._saveSuccess = false;
-    this._saveError = null;
-    this._canForceSave = false;
-
-    try {
-      // Save schema if dirty
-      if (state.isSchemaDirty) {
-        const schemaResult = await state.saveSchema(forceUpdate);
-        if (!schemaResult.success) {
-          this._saveError = schemaResult.error ?? 'Failed to save schema';
-          if (schemaResult.warnings) {
-            this._schemaWarnings = Object.values(schemaResult.warnings).flat();
-            // Offer force save when backend rejects with warnings
-            this._canForceSave = true;
-          }
-          return;
-        }
-        this._commandHistory.clear();
-        this._validateAllExamples();
-        if (schemaResult.warnings) {
-          this._schemaWarnings = Object.values(schemaResult.warnings).flat();
-        } else {
-          this._schemaWarnings = [];
-        }
-      }
-
-      // Save all examples if dirty
-      if (state.isExamplesDirty) {
-        const examplesResult = await state.saveExamples();
-        if (!examplesResult.success) {
-          this._saveError = examplesResult.error ?? 'Failed to save examples';
-          return;
-        }
-        // Clear all example undo/redo histories on successful save
-        this._exampleHistories.clear();
-        this._syncExampleUndoRedoState();
-      }
-
-      this._saveSuccess = true;
-      this._scheduleSuccessClear(() => {
-        this._saveSuccess = false;
-      });
-    } catch (err) {
-      this._saveError = err instanceof Error ? err.message : 'Failed to save';
-    } finally {
-      this._saving = false;
-      this.requestUpdate();
-    }
-  }
-
-  private _clearSaveStatus(): void {
-    this._saveSuccess = false;
-    this._saveError = null;
-    this._canForceSave = false;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Migration dialog operations
-  // ---------------------------------------------------------------------------
-
-  private _toggleMigration(migration: MigrationSuggestion): void {
-    const key = migrationKey(migration);
-    const newSet = new Set(this._selectedMigrations);
-    if (newSet.has(key)) {
-      newSet.delete(key);
-    } else {
-      newSet.add(key);
-    }
-    this._selectedMigrations = newSet;
-  }
-
-  private _selectAllMigrations(): void {
-    this._selectedMigrations = new Set(
-      this._pendingMigrations.filter((m) => m.autoMigratable).map((m) => migrationKey(m)),
+    return renderExamplesSection(
+      stateForSection as Parameters<typeof renderExamplesSection>[0],
+      uiState,
+      callbacks,
     );
   }
 
-  private _selectNoneMigrations(): void {
-    this._selectedMigrations = new Set();
-  }
+  // ---------------------------------------------------------------------------
+  // Save
+  // ---------------------------------------------------------------------------
 
-  private async _applyMigrations(selected: MigrationSuggestion[]): Promise<void> {
-    const state = this.contractState!;
+  private async _saveAll(forceSave: boolean): Promise<void> {
+    const intent = forceSave ? { type: 'force-save' as const } : { type: 'save' as const };
 
-    // Group migrations by example
-    const byExample = new Map<string, MigrationSuggestion[]>();
-    for (const m of selected) {
-      const existing = byExample.get(m.exampleId) ?? [];
-      existing.push(m);
-      byExample.set(m.exampleId, existing);
+    // Compatibility check (only for non-force saves with dirty schema)
+    let compatibilityResult;
+    if (!forceSave && this.store.isSchemaDirty) {
+      compatibilityResult = await this.store.validateSchemaCompatibility();
     }
 
-    // Apply migrations to each example
-    for (const [exampleId, migrations] of byExample) {
-      const example = state.dataExamples.find((e) => e.id === exampleId);
-      if (example) {
-        const updatedData = applyAllMigrations(example.data, migrations);
-        state.updateDraftExample(exampleId, { data: updatedData });
-      }
+    const outcome = orchestrateSave(this.store, intent, compatibilityResult);
+
+    if (outcome.action === 'open-fix-screen') {
+      // Orchestrator decided to show fix screen. Store will handle state.
+      await executeSave(this.store, outcome);
+      return;
     }
 
-    this._closeMigrationDialog();
+    if (outcome.action === 'error') {
+      this.store.state.schemaWarnings = compatibilityResult
+        ? flattenCompatibilityWarnings(compatibilityResult)
+        : [];
+      await executeSave(this.store, outcome);
+      this._openWarningsModal();
+      return;
+    }
 
-    // Now save schema + examples (migrations have been applied to examples)
-    await this._executeSave(false);
-  }
+    // Clear warnings on successful compatibility check
+    if (compatibilityResult?.compatible) {
+      this.store.state.schemaWarnings = [];
+    }
 
-  private _closeMigrationDialog(): void {
-    this._showMigrationDialog = false;
-    this._pendingMigrations = [];
-    this._selectedMigrations = new Set();
+    await executeSave(this.store, outcome);
+
+    // Auto-clear success after 3 seconds
+    if (this.store.state.saveStatus.type === 'success') {
+      this._scheduleSuccessClear(() => {
+        this.store.dispatch({ type: 'clear-save-status' });
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // Example operations
+  // Fix screen
   // ---------------------------------------------------------------------------
 
-  private _selectExample(id: string): void {
-    this._editingExampleId = id;
-    this._clearSaveStatus();
-    this._clearExampleHistory();
-    this._syncExampleUndoRedoState();
+  private async _handleFixContinue(): Promise<void> {
+    const valid = this.store.validateFixScreenFields();
+    if (!valid) return;
+
+    const outcome = orchestrateSave(this.store, { type: 'fix-and-save' });
+    const result = await executeSave(this.store, outcome);
+
+    if (result.success) {
+      this.store.dispatch({ type: 'close-fix-screen' });
+      this._scheduleSuccessClear(() => {
+        this.store.dispatch({ type: 'clear-save-status' });
+      });
+    }
+    // On failure: fix screen stays open, error is shown in the save status
   }
+
+  private async _handleFixForceSave(): Promise<void> {
+    const fixedExamples = this.store.buildFixedExamples();
+    const outcome =
+      fixedExamples && fixedExamples.length > 0
+        ? { action: 'save-schema' as const, force: true, examples: fixedExamples }
+        : orchestrateSave(this.store, { type: 'force-save' });
+    const result = await executeSave(this.store, outcome);
+
+    if (result.success) {
+      this.store.dispatch({ type: 'close-fix-screen' });
+      this._scheduleSuccessClear(() => {
+        this.store.dispatch({ type: 'clear-save-status' });
+      });
+    }
+  }
+
+  private _handleFixRevert(): void {
+    this.store.dispatch({ type: 'revert-to-committed' });
+  }
+
+  private _openWarningsModal(): void {
+    const s = this.store.state;
+    if (s.schemaWarnings.length === 0) return;
+    if (s.fixScreen) return;
+
+    const currentSchema =
+      s.schemaEditMode === 'json-only'
+        ? (s.rawJsonSchema as unknown as JsonSchema | null)
+        : s.schema;
+    if (!currentSchema) return;
+
+    this.store.dispatch({
+      type: 'open-fix-screen',
+      migrations: [],
+      newSchema: currentSchema,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Example operations (need extra logic beyond simple dispatch)
+  // ---------------------------------------------------------------------------
 
   private _addExample(): void {
-    const state = this.contractState!;
+    const s = this.store.state;
     const newExample: DataExample = {
       id: nanoid(),
-      name: `Example ${state.dataExamples.length + 1}`,
+      name: `Example ${s.examples.length + 1}`,
       data: {},
     };
-    state.addDraftExample(newExample);
-    this._editingExampleId = newExample.id;
-    this._clearSaveStatus();
-    this._clearExampleHistory();
-    this._validateAllExamples();
-    this._syncExampleUndoRedoState();
-  }
-
-  private async _deleteExample(id: string): Promise<void> {
-    const state = this.contractState!;
-
-    const result = await state.deleteSingleExample(id);
-    if (result.success) {
-      // Clean up history for deleted example
-      this._exampleHistories.delete(id);
-
-      if (this._editingExampleId === id) {
-        const remaining = state.dataExamples;
-        this._editingExampleId = remaining.length > 0 ? remaining[0].id : null;
-        this._clearExampleHistory();
-      }
-
-      this._validateAllExamples();
-    }
-    this._clearSaveStatus();
-    this._syncExampleUndoRedoState();
-  }
-
-  private _updateExampleName(id: string, name: string): void {
-    const state = this.contractState!;
-    state.updateDraftExample(id, { name });
-    this._clearSaveStatus();
-  }
-
-  private _updateExampleData(id: string, path: string, value: JsonValue): void {
-    const state = this.contractState!;
-    const example = state.dataExamples.find((e) => e.id === id);
-    if (!example) return;
-
-    // Push current data to undo history before mutation
-    this._getExampleHistory(id).push(example.data);
-
-    const updatedData = setNestedValue(example.data, path, value);
-    state.updateDraftExample(id, { data: updatedData });
-    this._clearSaveStatus();
-    this._validateAllExamples();
-    this._syncExampleUndoRedoState();
-  }
-
-  private _undoExampleData(): void {
-    if (!this._editingExampleId) return;
-    const state = this.contractState!;
-    const example = state.dataExamples.find((e) => e.id === this._editingExampleId);
-    if (!example) return;
-
-    const history = this._getExampleHistory(this._editingExampleId);
-    const prev = history.undo(example.data);
-    if (prev) {
-      state.updateDraftExample(this._editingExampleId, { data: prev });
-      this._validateAllExamples();
-      this._syncExampleUndoRedoState();
-    }
-  }
-
-  private _redoExampleData(): void {
-    if (!this._editingExampleId) return;
-    const state = this.contractState!;
-    const example = state.dataExamples.find((e) => e.id === this._editingExampleId);
-    if (!example) return;
-
-    const history = this._getExampleHistory(this._editingExampleId);
-    const next = history.redo(example.data);
-    if (next) {
-      state.updateDraftExample(this._editingExampleId, { data: next });
-      this._validateAllExamples();
-      this._syncExampleUndoRedoState();
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Example undo/redo helpers
-  // ---------------------------------------------------------------------------
-
-  private _getExampleHistory(exampleId: string): SnapshotHistory<JsonObject> {
-    let history = this._exampleHistories.get(exampleId);
-    if (!history) {
-      history = new SnapshotHistory<JsonObject>();
-      this._exampleHistories.set(exampleId, history);
-    }
-    return history;
-  }
-
-  private _clearExampleHistory(): void {
-    if (this._editingExampleId) {
-      this._getExampleHistory(this._editingExampleId).clear();
-    }
-  }
-
-  private _syncExampleUndoRedoState(): void {
-    if (this._editingExampleId) {
-      const history = this._getExampleHistory(this._editingExampleId);
-      this._exampleCanUndo = history.canUndo;
-      this._exampleCanRedo = history.canRedo;
-    } else {
-      this._exampleCanUndo = false;
-      this._exampleCanRedo = false;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Validation (all examples)
-  // ---------------------------------------------------------------------------
-
-  private _validateAllExamples(): void {
-    const state = this.contractState!;
-    const newErrors = new Map<string, SchemaValidationError[]>();
-
-    if (state.schema) {
-      for (const example of state.dataExamples) {
-        const result = validateDataAgainstSchema(example.data, state.schema);
-        newErrors.set(example.id, result.errors);
-      }
-    }
-
-    this._exampleValidationErrors = newErrors;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Event handlers
-  // ---------------------------------------------------------------------------
-
-  private _handleBeforeUnload(e: BeforeUnloadEvent): void {
-    if (this.contractState?.isDirty) {
-      e.preventDefault();
-    }
-  }
-
-  private _handleKeyDown(e: KeyboardEvent): void {
-    const isMod = e.metaKey || e.ctrlKey;
-    if (!isMod) return;
-
-    if (this._activeTab === 'schema' && this.contractState?.schemaEditMode !== 'json-only') {
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        this._undo();
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault();
-        this._redo();
-      }
-    } else if (this._activeTab === 'examples') {
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        this._undoExampleData();
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault();
-        this._redoExampleData();
-      }
-    }
+    this.store.dispatch({ type: 'add-example', example: newExample });
   }
 
   // ---------------------------------------------------------------------------
@@ -890,28 +485,30 @@ export class EpistolaDataContractEditor extends LitElement {
     const result = checkSchemaCompatibility(schema);
     this._compatibilityIssues = result.issues;
 
-    const state = this.contractState!;
-
     // Snapshot current state for undo before applying import
-    this._commandHistory.snapshotForImport(this._visualSchema);
+    this.store.state.schemaCommandHistory.snapshotForImport(this.store.state.visualSchema);
 
     if (result.compatible) {
-      // Convert to VisualSchema and load into visual editor
       const visualSchema = jsonSchemaToVisualSchema(schema as unknown as JsonSchema);
-      this._visualSchema = visualSchema;
-      state.setRawJsonSchema(null, 'visual');
-      this._syncVisualSchemaToState();
-      this._schemaViewMode = 'visual';
-      this._selectedFieldId = visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
+      this.store.state.visualSchema = visualSchema;
+      this.store.dispatch({ type: 'set-raw-json-schema', schema: null, mode: 'visual' });
+      this.store.syncVisualSchemaToState();
+      this.store.state.schemaViewMode = 'visual';
+      this.store.state.selectedFieldId =
+        visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
     } else {
-      // Store raw schema, disable visual editor
-      state.setRawJsonSchema(schema, 'json-only');
-      this._schemaViewMode = 'json';
+      this.store.dispatch({
+        type: 'set-raw-json-schema',
+        schema,
+        mode: 'json-only',
+        asCommitted: false,
+      });
+      this.store.state.schemaViewMode = 'json';
     }
 
     this._closeImportDialog();
-    this._clearSaveStatus();
-    this._validateAllExamples();
+    this.store.dispatch({ type: 'clear-save-status' });
+    this.store.validateAllExamples();
   }
 
   // ---------------------------------------------------------------------------
@@ -919,12 +516,12 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private async _copyJsonSchemaToClipboard(): Promise<void> {
-    const state = this.contractState!;
+    const s = this.store.state;
     const schema =
-      state.schemaEditMode === 'json-only'
-        ? state.rawJsonSchema
-        : this._visualSchema.fields.length > 0
-          ? visualSchemaToJsonSchema(this._visualSchema)
+      s.schemaEditMode === 'json-only'
+        ? s.rawJsonSchema
+        : s.visualSchema.fields.length > 0
+          ? visualSchemaToJsonSchema(s.visualSchema)
           : null;
 
     if (schema) {
@@ -933,6 +530,41 @@ export class EpistolaDataContractEditor extends LitElement {
       this._scheduleSuccessClear(() => {
         this._copySuccess = false;
       });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Event handlers
+  // ---------------------------------------------------------------------------
+
+  private _handleBeforeUnload(e: BeforeUnloadEvent): void {
+    if (this.store.isDirty) {
+      e.preventDefault();
+    }
+  }
+
+  private _handleKeyDown(e: KeyboardEvent): void {
+    const isMod = e.metaKey || e.ctrlKey;
+    if (!isMod) return;
+
+    const s = this.store.state;
+
+    if (s.activeTab === 'schema' && s.schemaEditMode !== 'json-only') {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        this.store.dispatch({ type: 'undo-schema' });
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        this.store.dispatch({ type: 'redo-schema' });
+      }
+    } else if (s.activeTab === 'examples') {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        this.store.dispatch({ type: 'undo-example' });
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        this.store.dispatch({ type: 'redo-example' });
+      }
     }
   }
 

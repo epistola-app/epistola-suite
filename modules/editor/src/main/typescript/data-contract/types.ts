@@ -177,11 +177,51 @@ export interface SaveExamplesResult {
   error?: string;
 }
 
+export type MigrationIssueType = 'TYPE_MISMATCH' | 'MISSING_REQUIRED' | 'UNKNOWN_FIELD';
+
+export interface CompatibilityMigrationSuggestion {
+  exampleId: string;
+  exampleName: string;
+  path: string;
+  issue: MigrationIssueType;
+  currentValue: JsonValue | null;
+  expectedType: string;
+  suggestedValue: JsonValue | null;
+  autoMigratable: boolean;
+}
+
+export interface RecentUsageCompatibilityIssue {
+  requestId: string;
+  createdAt: string;
+  correlationKey: string | null;
+  status: string;
+  errors: ValidationError[];
+}
+
+export interface RecentUsageCompatibilitySummary {
+  checkedCount: number;
+  incompatibleCount: number;
+  issues: RecentUsageCompatibilityIssue[];
+}
+
+export interface SchemaCompatibilityPreviewResult {
+  compatible: boolean;
+  errors: ValidationError[];
+  migrations: CompatibilityMigrationSuggestion[];
+  recentUsage: RecentUsageCompatibilitySummary;
+  error?: string;
+}
+
 export interface SaveCallbacks {
   onSaveSchema?: (
     schema: JsonSchema | null,
     forceUpdate?: boolean,
+    examples?: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
+  onValidateSchemaCompatibility?: (
+    schema: JsonSchema | null,
+    examples: DataExample[],
+  ) => Promise<SchemaCompatibilityPreviewResult>;
   onSaveDataExamples?: (
     examples: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
