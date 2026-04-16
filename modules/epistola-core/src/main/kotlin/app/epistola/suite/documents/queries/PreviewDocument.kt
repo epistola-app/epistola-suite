@@ -19,6 +19,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
@@ -107,7 +108,9 @@ class PreviewDocumentHandler(
             mediator.query(GetActiveVersion(variantId, envId))
                 ?: throw IllegalStateException("No active version for environment ${query.environmentId}")
         } else {
-            throw IllegalArgumentException("Either versionId or environmentId must be specified")
+            // Fallback: latest published version
+            mediator.query(GetLatestPublishedVersion(variantId))
+                ?: throw IllegalStateException("No published version found for variant $resolvedVariantKey")
         }
 
         // 3. Fetch template and tenant for theme resolution

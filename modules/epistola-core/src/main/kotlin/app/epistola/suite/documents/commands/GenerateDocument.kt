@@ -35,7 +35,8 @@ import tools.jackson.databind.node.ObjectNode
  * @property variantId Explicit variant ID (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant (mutually exclusive with variantId)
  * @property versionId Explicit version ID (mutually exclusive with environmentId)
- * @property environmentId Environment to determine version from (mutually exclusive with versionId)
+ * @property environmentId Environment to determine version from (mutually exclusive with versionId).
+ *   If neither versionId nor environmentId is provided, the latest published version is used.
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
@@ -46,8 +47,8 @@ data class GenerateDocument(
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey?,
-    val environmentId: EnvironmentKey?,
+    val versionId: VersionKey? = null,
+    val environmentId: EnvironmentKey? = null,
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
@@ -60,8 +61,8 @@ data class GenerateDocument(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
+        require(!(versionId != null && environmentId != null)) {
+            "Cannot specify both versionId and environmentId"
         }
     }
 }
@@ -104,7 +105,7 @@ class GenerateDocumentHandler(
                 throw TemplateVariantNotFoundException(command.tenantId, command.templateId, resolvedVariantId)
             }
 
-            // 2. Verify version or environment exists
+            // 2. Verify version or environment exists (when specified)
             if (command.versionId != null) {
                 val versionExists = handle.createQuery(
                     """
@@ -125,7 +126,7 @@ class GenerateDocumentHandler(
                 if (!versionExists) {
                     throw VersionNotFoundException(command.tenantId, command.templateId, resolvedVariantId, command.versionId!!)
                 }
-            } else {
+            } else if (command.environmentId != null) {
                 val environmentExists = handle.createQuery(
                     """
                     SELECT EXISTS (
@@ -145,6 +146,7 @@ class GenerateDocumentHandler(
                     throw EnvironmentNotFoundException(command.tenantId, command.environmentId!!)
                 }
             }
+            // else: neither specified — executor will resolve latest published version
 
             // 3. Create generation request with all data (stays in PENDING status for poller to pick up)
             val requestId = GenerationRequestKey.generate()

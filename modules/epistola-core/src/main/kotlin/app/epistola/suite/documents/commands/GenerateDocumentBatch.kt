@@ -36,8 +36,8 @@ data class BatchGenerationItem(
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey?,
-    val environmentId: EnvironmentKey?,
+    val versionId: VersionKey? = null,
+    val environmentId: EnvironmentKey? = null,
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
@@ -46,8 +46,8 @@ data class BatchGenerationItem(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
+        require(!(versionId != null && environmentId != null)) {
+            "Cannot specify both versionId and environmentId"
         }
     }
 }

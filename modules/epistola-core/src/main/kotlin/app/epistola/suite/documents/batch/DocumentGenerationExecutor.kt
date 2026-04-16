@@ -24,6 +24,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
@@ -163,11 +164,15 @@ class DocumentGenerationExecutor(
             val versionId = VersionId(request.versionKey, variantId)
             mediator.query(GetVersion(versionId))
                 ?: throw IllegalStateException("Version ${request.versionKey} not found")
-        } else {
+        } else if (request.environmentKey != null) {
             // Use environment to determine active version
-            val environmentId = EnvironmentId(request.environmentKey!!, tenantId)
+            val environmentId = EnvironmentId(request.environmentKey, tenantId)
             mediator.query(GetActiveVersion(variantId, environmentId))
                 ?: throw IllegalStateException("No active version for environment ${request.environmentKey}")
+        } else {
+            // Fallback: latest published version
+            mediator.query(GetLatestPublishedVersion(variantId))
+                ?: throw IllegalStateException("No published version found for variant ${request.variantKey}")
         }
 
         // 2. Get template model
