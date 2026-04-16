@@ -6,6 +6,7 @@
 
 - **Document generation passes catalogId**: The REST API mappers (`DocumentDtoMappers`) now correctly pass `catalogId` from API requests to the `GenerateDocument`, `BatchGenerationItem`, and `PreviewDocument` commands. Previously these defaulted to `CatalogKey.DEFAULT`, causing `DEFAULT_VARIANT_NOT_FOUND` errors when generating documents for templates in non-default catalogs.
 - **Version fallback when no environment specified**: Document generation and preview no longer require an explicit `versionId` or `environmentId`. When neither is provided, the latest published version is used automatically. This fixes failures for catalog-imported templates that have published versions but no environment activations.
+- **Editor loads published versions when no draft exists**: The template editor now falls back to the latest published version when no draft exists for a variant. When the user saves, a new draft is created automatically. This supports catalog-imported templates that only have published versions.
 
 ### Changed
 
