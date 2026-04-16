@@ -146,7 +146,31 @@ class GenerateDocumentHandler(
                     throw EnvironmentNotFoundException(command.tenantId, command.environmentId!!)
                 }
             }
-            // else: neither specified — executor will resolve latest published version
+
+            // 2b. Resolve version upfront when neither versionId nor environmentId is specified
+            val resolvedVersionId = command.versionId ?: if (command.environmentId == null) {
+                // Resolve latest published version
+                handle.createQuery(
+                    """
+                    SELECT id FROM template_versions
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
+                      AND template_key = :templateId AND variant_key = :variantId
+                      AND status = 'published'
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                )
+                    .bind("tenantId", command.tenantId)
+                    .bind("catalogKey", command.catalogKey)
+                    .bind("templateId", command.templateId)
+                    .bind("variantId", resolvedVariantId)
+                    .mapTo<Int>()
+                    .findOne()
+                    .orElse(null)
+                    ?.let { VersionKey.of(it) }
+                    ?: throw VersionNotFoundException(command.tenantId, command.templateId, resolvedVariantId, VersionKey.of(0))
+            } else {
+                null
+            }
 
             // 3. Create generation request with all data (stays in PENDING status for poller to pick up)
             val requestId = GenerationRequestKey.generate()
@@ -168,7 +192,7 @@ class GenerateDocumentHandler(
                 .bind("catalogKey", command.catalogKey)
                 .bind("templateId", command.templateId)
                 .bind("variantId", resolvedVariantId)
-                .bind("versionId", command.versionId)
+                .bind("versionId", resolvedVersionId)
                 .bind("environmentId", command.environmentId)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)

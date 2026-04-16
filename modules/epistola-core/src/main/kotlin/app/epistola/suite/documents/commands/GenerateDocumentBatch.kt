@@ -169,7 +169,7 @@ class GenerateDocumentBatchHandler(
                     if (!versionExists) {
                         throw VersionNotFoundException(command.tenantId, item.templateId, resolvedVariantId, item.versionId!!)
                     }
-                } else {
+                } else if (item.environmentId != null) {
                     val environmentExists = handle.createQuery(
                         """
                         SELECT EXISTS (
@@ -187,6 +187,52 @@ class GenerateDocumentBatchHandler(
 
                     if (!environmentExists) {
                         throw EnvironmentNotFoundException(command.tenantId, item.environmentId!!)
+                    }
+                }
+            }
+
+            // 1b. Batch-resolve latest published versions for items without versionId or environmentId
+            data class VariantTuple(val catalogKey: CatalogKey, val templateId: TemplateKey, val variantId: VariantKey)
+
+            val needsResolution = command.items.withIndex()
+                .filter { (_, item) -> item.versionId == null && item.environmentId == null }
+                .map { (index, item) -> VariantTuple(item.catalogKey, item.templateId, resolvedVariantIds[index]) }
+                .distinct()
+
+            val resolvedVersions = mutableMapOf<VariantTuple, VersionKey>()
+            if (needsResolution.isNotEmpty()) {
+                val placeholders = needsResolution.indices.joinToString(", ") { i -> "(:c$i, :t$i, :v$i)" }
+                val query = handle.createQuery(
+                    """
+                    SELECT DISTINCT ON (catalog_key, template_key, variant_key)
+                        catalog_key, template_key, variant_key, id as version_id
+                    FROM template_versions
+                    WHERE tenant_key = :tenantId
+                      AND (catalog_key, template_key, variant_key) IN ($placeholders)
+                      AND status = 'published'
+                    ORDER BY catalog_key, template_key, variant_key, id DESC
+                    """,
+                ).bind("tenantId", command.tenantId)
+
+                for ((i, tuple) in needsResolution.withIndex()) {
+                    query.bind("c$i", tuple.catalogKey)
+                        .bind("t$i", tuple.templateId)
+                        .bind("v$i", tuple.variantId)
+                }
+
+                query.mapToMap().list().forEach { row ->
+                    val tuple = VariantTuple(
+                        CatalogKey.of(row["catalog_key"] as String),
+                        TemplateKey.of(row["template_key"] as String),
+                        VariantKey.of(row["variant_key"] as String),
+                    )
+                    resolvedVersions[tuple] = VersionKey.of(row["version_id"] as Int)
+                }
+
+                // Verify all tuples were resolved
+                for (tuple in needsResolution) {
+                    if (tuple !in resolvedVersions) {
+                        throw VersionNotFoundException(command.tenantId, tuple.templateId, tuple.variantId, VersionKey.of(0))
                     }
                 }
             }
@@ -219,14 +265,21 @@ class GenerateDocumentBatchHandler(
             )
 
             for ((index, item) in command.items.withIndex()) {
+                val resolvedVariantId = resolvedVariantIds[index]
+                val resolvedVersionId = item.versionId ?: if (item.environmentId == null) {
+                    val tuple = VariantTuple(item.catalogKey, item.templateId, resolvedVariantId)
+                    resolvedVersions[tuple]
+                } else {
+                    null
+                }
                 val requestId = GenerationRequestKey.generate()
                 batch.bind("id", requestId)
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
                     .bind("catalogKey", item.catalogKey)
                     .bind("templateId", item.templateId)
-                    .bind("variantId", resolvedVariantIds[index])
-                    .bind("versionId", item.versionId)
+                    .bind("variantId", resolvedVariantId)
+                    .bind("versionId", resolvedVersionId)
                     .bind("environmentId", item.environmentId)
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
