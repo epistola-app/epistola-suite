@@ -23,15 +23,16 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Preview a draft or live template model from the editor.
+ * Preview the current version of a variant (draft → latest published).
+ * Optionally overrides the template model with a live editor version.
  *
  * @property tenantId Tenant that owns the template
  * @property templateId Template to preview
- * @property variantId Variant whose draft to preview
+ * @property variantId Variant to preview
  * @property data JSON data to populate the template
- * @property templateModel Optional live template model override; null fetches the saved draft
+ * @property templateModel Optional live template model override; null fetches saved draft or latest published
  */
-data class PreviewDraft(
+data class PreviewVariant(
     val tenantId: TenantKey,
     val catalogKey: app.epistola.suite.common.ids.CatalogKey,
     val templateId: TemplateKey,
@@ -49,22 +50,22 @@ private data class DraftRow(
 )
 
 @Component
-class PreviewDraftHandler(
+class PreviewVariantHandler(
     private val jdbi: Jdbi,
     private val mediator: Mediator,
     private val schemaValidator: JsonSchemaValidator,
     private val renderer: DocumentPreviewRenderer,
-) : QueryHandler<PreviewDraft, ByteArray> {
+) : QueryHandler<PreviewVariant, ByteArray> {
 
-    override fun handle(query: PreviewDraft): ByteArray {
+    override fun handle(query: PreviewVariant): ByteArray {
         val tenantId = TenantId(query.tenantId)
         val catalogId = CatalogId(query.catalogKey, tenantId)
         val templateId = TemplateId(query.templateId, catalogId)
 
-        // 1. Resolve template model: live override or saved draft
+        // 1. Resolve template model: live override → saved draft → latest published
         val templateModel = query.templateModel
-            ?: fetchDraft(query.tenantId, query.catalogKey, query.templateId, query.variantId)
-            ?: throw IllegalStateException("No draft found for variant ${query.variantId}")
+            ?: fetchDraftOrLatestPublished(query.tenantId, query.catalogKey, query.templateId, query.variantId)
+            ?: throw IllegalStateException("No draft or published version found for variant ${query.variantId}")
 
         // 2. Fetch template and tenant for theme resolution
         val template = mediator.query(GetDocumentTemplate(templateId))
@@ -92,16 +93,18 @@ class PreviewDraftHandler(
         )
     }
 
-    private fun fetchDraft(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey, variantKey: VariantKey): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
+    private fun fetchDraftOrLatestPublished(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey, variantKey: VariantKey): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT ver.template_model as draft_template_model
-                FROM template_versions ver
-                WHERE ver.tenant_key = :tenantId
-                  AND ver.catalog_key = :catalogKey
-                  AND ver.template_key = :templateId
-                  AND ver.variant_key = :variantId
-                  AND ver.status = 'draft'
+                SELECT template_model as draft_template_model
+                FROM template_versions
+                WHERE tenant_key = :tenantId
+                  AND catalog_key = :catalogKey
+                  AND template_key = :templateId
+                  AND variant_key = :variantId
+                  AND status IN ('draft', 'published')
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
                 """,
         )
             .bind("tenantId", tenantId)

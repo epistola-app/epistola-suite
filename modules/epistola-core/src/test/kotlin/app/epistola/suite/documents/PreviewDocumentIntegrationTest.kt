@@ -6,7 +6,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewDocument
-import app.epistola.suite.documents.queries.PreviewDraft
+import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
@@ -27,7 +27,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
 
     @Nested
-    inner class PreviewDraftTests {
+    inner class PreviewVariantTests {
 
         @Test
         fun `preview draft returns PDF bytes`() = scenario {
@@ -43,7 +43,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 query(
-                    PreviewDraft(
+                    PreviewVariant(
                         tenantId = setup.tenant.id,
                         catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
@@ -76,7 +76,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.whenever { setup ->
                 val liveModel = TestTemplateBuilder.buildMinimal(name = "Live Preview Model")
                 query(
-                    PreviewDraft(
+                    PreviewVariant(
                         tenantId = setup.tenant.id,
                         catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
@@ -97,7 +97,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             withAuthentication {
                 assertThatThrownBy {
                     mediator.query(
-                        PreviewDraft(
+                        PreviewVariant(
                             tenantId = tenant.id,
                             catalogKey = CatalogKey.DEFAULT,
                             templateId = app.epistola.suite.common.ids.TemplateKey.of("nonexistent"),
@@ -138,7 +138,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 // Empty data should fail validation (missing required 'name')
                 assertThatThrownBy {
                     query(
-                        PreviewDraft(
+                        PreviewVariant(
                             tenantId = setup.tenant.id,
                             catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,

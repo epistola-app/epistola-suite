@@ -21,7 +21,7 @@ import java.io.ByteArrayOutputStream
  * Renders a preview PDF from resolved inputs.
  *
  * Both [PreviewDocument][app.epistola.suite.documents.queries.PreviewDocument] (API)
- * and [PreviewDraft][app.epistola.suite.documents.queries.PreviewDraft] (editor)
+ * and [PreviewVariant][app.epistola.suite.documents.queries.PreviewVariant] (editor)
  * delegate here after resolving their own template model source.
  */
 @Service

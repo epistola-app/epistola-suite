@@ -2,7 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.queries.PreviewDocument
-import app.epistola.suite.documents.queries.PreviewDraft
+import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.templateId
@@ -77,7 +77,7 @@ class TemplatePreviewHandler(
                 val liveTemplateModel = previewRequest.templateModel?.let {
                     generationService.convertTemplateModel(it)
                 }
-                PreviewDraft(
+                PreviewVariant(
                     tenantId = tenantId.key,
                     catalogKey = catalogId,
                     templateId = templateId.key,
