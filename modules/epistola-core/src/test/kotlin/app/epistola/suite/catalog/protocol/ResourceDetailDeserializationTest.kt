@@ -1,4 +1,4 @@
-package app.epistola.suite.catalog.protocol
+package app.epistola.catalog.protocol
 
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat

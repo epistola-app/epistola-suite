@@ -1,9 +1,9 @@
 package app.epistola.suite.catalog.queries
 
+import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.DependencyResolver
-import app.epistola.suite.catalog.protocol.ResourceEntry
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler

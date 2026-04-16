@@ -1,7 +1,7 @@
 package app.epistola.suite.catalog
 
-import app.epistola.suite.catalog.protocol.CatalogManifest
-import app.epistola.suite.catalog.protocol.ResourceDetail
+import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.ResourceDetail
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ResourceLoader

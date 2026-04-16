@@ -1,10 +1,10 @@
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.ResourceEntry
+import app.epistola.catalog.protocol.StencilResource
+import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.commands.InvalidCatalogException
-import app.epistola.suite.catalog.protocol.CatalogManifest
-import app.epistola.suite.catalog.protocol.ResourceEntry
-import app.epistola.suite.catalog.protocol.StencilResource
-import app.epistola.suite.catalog.protocol.TemplateResource
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 

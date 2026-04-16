@@ -1,6 +1,6 @@
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.protocol.AssetResource
+import app.epistola.catalog.protocol.AssetResource
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query

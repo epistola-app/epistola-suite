@@ -37,5 +37,5 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // Template model (transitively from epistola-core, but explicit for generated code)
-    implementation(libs.epistola.editor.model)
+    implementation(libs.epistola.model)
 }

@@ -1,19 +1,19 @@
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.protocol.AssetResource
+import app.epistola.catalog.protocol.CatalogInfo
+import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.catalog.protocol.DataExampleEntry
+import app.epistola.catalog.protocol.DependencyRef
+import app.epistola.catalog.protocol.PublisherInfo
+import app.epistola.catalog.protocol.ReleaseInfo
+import app.epistola.catalog.protocol.ResourceDetail
+import app.epistola.catalog.protocol.ResourceEntry
+import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.protocol.AssetResource
-import app.epistola.suite.catalog.protocol.CatalogInfo
-import app.epistola.suite.catalog.protocol.CatalogManifest
-import app.epistola.suite.catalog.protocol.CatalogResource
-import app.epistola.suite.catalog.protocol.DataExampleEntry
-import app.epistola.suite.catalog.protocol.DependencyRef
-import app.epistola.suite.catalog.protocol.PublisherInfo
-import app.epistola.suite.catalog.protocol.ReleaseInfo
-import app.epistola.suite.catalog.protocol.ResourceDetail
-import app.epistola.suite.catalog.protocol.ResourceEntry
-import app.epistola.suite.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.protocol.VariantEntry
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
 import app.epistola.suite.catalog.queries.ExportStencils
@@ -31,7 +31,6 @@ import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import java.util.UUID
@@ -203,7 +202,12 @@ class ExportCatalogZipHandler(
             TemplateResource(
                 slug = template.id,
                 name = template.name,
-                dataModel = template.dataModel?.let { objectMapper.readValue(it, ObjectNode::class.java) },
+                dataModel = template.dataModel?.let {
+                    objectMapper.readValue<Map<String, Any?>>(
+                        it,
+                        objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java),
+                    )
+                },
                 dataExamples = template.dataExamples?.let {
                     objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, DataExampleEntry::class.java))
                 },

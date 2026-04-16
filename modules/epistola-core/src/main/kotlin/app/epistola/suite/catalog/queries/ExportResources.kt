@@ -1,8 +1,8 @@
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.protocol.AttributeResource
-import app.epistola.suite.catalog.protocol.StencilResource
-import app.epistola.suite.catalog.protocol.ThemeResource
+import app.epistola.catalog.protocol.AttributeResource
+import app.epistola.catalog.protocol.StencilResource
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query

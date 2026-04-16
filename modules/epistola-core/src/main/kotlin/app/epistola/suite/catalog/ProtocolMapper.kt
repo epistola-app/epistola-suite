@@ -19,22 +19,27 @@ import tools.jackson.databind.node.ObjectNode
 @Component
 class ProtocolMapper(private val objectMapper: ObjectMapper) {
 
-    /** Suite ObjectNode to Protocol Map. */
-    fun toMap(node: ObjectNode?): Map<String, Any?>? = node?.let { objectMapper.treeToValue(it, Map::class.java) }
+    /** Suite ObjectNode → Protocol Map. */
+    @Suppress("UNCHECKED_CAST")
+    fun toMap(node: ObjectNode?): Map<String, Any?>? = node?.let {
+        objectMapper.treeToValue(it, Map::class.java) as Map<String, Any?>
+    }
 
-    /** Protocol Map to Suite ObjectNode. */
+    /** Protocol Map → Suite ObjectNode. */
     fun toObjectNode(map: Map<String, Any?>?): ObjectNode? = map?.let { objectMapper.valueToTree(it) }
 
-    /** Suite DocumentStyles to Protocol Map. */
-    fun documentStylesToMap(styles: DocumentStyles?): Map<String, Any?>? = styles?.mapValues { (_, v) -> v }
+    /** Suite DocumentStyles → Protocol Map. */
+    fun documentStylesToMap(styles: DocumentStyles?): Map<String, Any?>? = styles?.mapValues { (_, v) -> v as Any? }
 
-    /** Protocol Map to Suite DocumentStyles. */
+    /** Protocol Map → Suite DocumentStyles. */
+    fun mapToDocumentStyles(map: Map<String, Any?>?): DocumentStyles = map?.filterValues { it != null }?.mapValues { (_, v) -> v!! } ?: emptyMap()
+
+    /** Suite BlockStylePresets → Protocol Map. */
     @Suppress("UNCHECKED_CAST")
-    fun mapToDocumentStyles(map: Map<String, Any?>?): DocumentStyles = map?.filterValues { it != null }?.mapValues { (_, v) -> v as Any } ?: emptyMap()
+    fun blockStylePresetsToMap(presets: BlockStylePresets?): Map<String, Any?>? = presets?.let {
+        objectMapper.convertValue(it, Map::class.java) as Map<String, Any?>
+    }
 
-    /** Suite BlockStylePresets to Protocol Map. */
-    fun blockStylePresetsToMap(presets: BlockStylePresets?): Map<String, Any?>? = presets?.let { objectMapper.convertValue(it, Map::class.java) }
-
-    /** Protocol Map to Suite BlockStylePresets. */
+    /** Protocol Map → Suite BlockStylePresets. */
     fun mapToBlockStylePresets(map: Map<String, Any?>?): BlockStylePresets? = map?.let { objectMapper.convertValue(it, BlockStylePresets::class.java) }
 }
