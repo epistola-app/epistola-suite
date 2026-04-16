@@ -180,7 +180,7 @@ jobs:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
           format: "table"
-          exit-code: "1"
+          exit-code: "0"
           severity: "CRITICAL"
           output: "backend-vulnerability-report.txt"
 
@@ -190,9 +190,31 @@ jobs:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
           format: "table"
-          exit-code: "1"
+          exit-code: "0"
           severity: "CRITICAL"
           output: "frontend-vulnerability-report.txt"
+
+      - name: Check vulnerability scan results
+        run: |
+          failed=false
+          for report in backend-vulnerability-report.txt frontend-vulnerability-report.txt; do
+            if [ -f "$report" ]; then
+              name="${report%-vulnerability-report.txt}"
+              # Check if any vulnerabilities were found (Total: N where N > 0)
+              if grep -qP 'Total: [1-9]' "$report"; then
+                echo "::error::Critical vulnerabilities found in $name dependencies:"
+                echo ""
+                cat "$report"
+                echo ""
+                failed=true
+              fi
+            fi
+          done
+          if [ "$failed" = true ]; then
+            echo "::error::Vulnerability scan failed. Update the affected dependencies to fixed versions."
+            exit 1
+          fi
+          echo "No critical vulnerabilities found."
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

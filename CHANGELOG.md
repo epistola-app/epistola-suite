@@ -9,9 +9,14 @@
 - **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
 - **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
 
+### Fixed
+
+- **Thymeleaf CVE-2026-40477 and CVE-2026-40478**: Override Thymeleaf to 3.1.4.RELEASE to fix critical expression injection vulnerabilities (pending Spring Boot 4.0.6)
+
 ### Changed
 
 - **Helm chart workflow aligned with app release**: The Helm workflow now triggers on `release: published` (for `chart-*` tags) instead of `workflow_dispatch`, matching the app release pattern
+- **Vulnerability scan output in CI**: Trivy scan results are now printed to the workflow log when vulnerabilities are found, instead of silently failing with just an exit code
 
 ## [0.14.0] - 2026-04-10
 
