@@ -1,5 +1,6 @@
 package app.epistola.suite.loadtest.commands
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -34,6 +35,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class StartLoadTest(
     val tenantId: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val versionId: VersionKey?,
@@ -140,12 +142,12 @@ class StartLoadTestHandler(
             val run = handle.createQuery(
                 """
                 INSERT INTO load_test_runs (
-                    id, tenant_key, template_key, variant_key, version_key, environment_key,
+                    id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                     target_count, concurrency_level, test_data, status
                 )
-                VALUES (:id, :tenantId, :templateId, :variantId, :versionId, :environmentId,
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
-                RETURNING id, tenant_key, template_key, variant_key, version_key, environment_key,
+                RETURNING id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                           target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                           completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                           min_response_time_ms, max_response_time_ms, p50_response_time_ms,
@@ -155,6 +157,7 @@ class StartLoadTestHandler(
             )
                 .bind("id", runId)
                 .bind("tenantId", command.tenantId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("templateId", command.templateId)
                 .bind("variantId", command.variantId)
                 .bind("versionId", command.versionId)

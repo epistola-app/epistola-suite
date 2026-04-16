@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "full-deps",
+    "name": "Full Dependencies",
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": { "type": "override", "themeId": "test-theme" },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-stencil": {
+          "id": "n-stencil",
+          "type": "stencil",
+          "slots": [],
+          "props": { "stencilId": "header-with-logo", "version": 1 }
+        },
+        "n-body": {
+          "id": "n-body",
+          "type": "paragraph",
+          "slots": [],
+          "props": {
+            "content": [{ "type": "text", "text": "Body text" }]
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-stencil", "n-body"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "dutch",
+        "title": "Nederlands",
+        "attributes": { "language": "nl" },
+        "isDefault": true
+      },
+      {
+        "id": "english",
+        "title": "English",
+        "attributes": { "language": "en" },
+        "isDefault": false
+      }
+    ]
+  }
+}

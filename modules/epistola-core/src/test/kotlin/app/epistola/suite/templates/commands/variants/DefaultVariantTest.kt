@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -21,7 +22,7 @@ class DefaultVariantTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
@@ -39,7 +40,7 @@ class DefaultVariantTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
@@ -61,7 +62,7 @@ class DefaultVariantTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
@@ -94,7 +95,7 @@ class DefaultVariantTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
@@ -117,7 +118,7 @@ class DefaultVariantTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",
@@ -143,7 +144,7 @@ class DefaultVariantTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
 
         withMediator {
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             val template = CreateDocumentTemplate(
                 id = templateId,
                 name = "Invoice",

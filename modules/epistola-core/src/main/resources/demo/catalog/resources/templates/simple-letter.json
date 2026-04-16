@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "simple-letter",
+    "name": "Simple Letter",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "sender": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" }
+          }
+        },
+        "recipient": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" }
+          }
+        },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "date": { "type": "string", "format": "date" }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Sample Letter",
+        "data": {
+          "sender": {
+            "name": "Jane Smith",
+            "address": "123 Main Street",
+            "city": "Amsterdam"
+          },
+          "recipient": {
+            "name": "John Doe",
+            "address": "456 Oak Avenue",
+            "city": "Rotterdam"
+          },
+          "subject": "Project Update",
+          "body": "I am writing to inform you about the progress of our project. Everything is on track and we expect to deliver by the end of the quarter.",
+          "date": "2026-04-03"
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "pageSettingsOverride": {
+        "format": "A4",
+        "orientation": "portrait",
+        "margins": {
+          "top": 50,
+          "right": 40,
+          "bottom": 40,
+          "left": 40
+        }
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-sender": {
+          "id": "n-sender",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "6sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "sender.name", "fallback": "Sender Name" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "sender.address", "fallback": "Address" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "sender.city", "fallback": "City" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-recipient": {
+          "id": "n-recipient",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "6sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "recipient.name", "fallback": "Recipient Name" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "recipient.address", "fallback": "Address" } },
+                    { "type": "hardBreak" },
+                    { "type": "expression", "attrs": { "expression": "recipient.city", "fallback": "City" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-date": {
+          "id": "n-date",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "date", "fallback": "Date" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-subject": {
+          "id": "n-subject",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 2 },
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "subject", "fallback": "Subject" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-body": {
+          "id": "n-body",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "body", "fallback": "Letter body text goes here." } }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-sender", "n-recipient", "n-date", "n-subject", "n-body"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}

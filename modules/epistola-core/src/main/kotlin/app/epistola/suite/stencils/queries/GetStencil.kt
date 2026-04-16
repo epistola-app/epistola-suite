@@ -26,9 +26,10 @@ class GetStencilHandler(
     override fun handle(query: GetStencil): Stencil? = jdbi.withHandle<Stencil?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, name, description, tags, created_at, last_modified
-            FROM stencils
-            WHERE id = :id AND tenant_key = :tenantId
+            SELECT s.id, s.tenant_key, s.catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, s.created_at, s.last_modified
+            FROM stencils s
+            JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key
+            WHERE s.id = :id AND s.tenant_key = :tenantId
             """,
         )
             .bind("id", query.id.key)

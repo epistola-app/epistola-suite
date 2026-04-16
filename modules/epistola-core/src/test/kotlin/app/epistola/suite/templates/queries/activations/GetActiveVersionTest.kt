@@ -1,21 +1,22 @@
 package app.epistola.suite.templates.queries.activations
 
+import app.epistola.suite.catalog.commands.ImportStatus
+import app.epistola.suite.catalog.commands.ImportTemplateInput
+import app.epistola.suite.catalog.commands.ImportTemplates
+import app.epistola.suite.catalog.commands.ImportVariantInput
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.ImportStatus
-import app.epistola.suite.templates.commands.ImportTemplateInput
-import app.epistola.suite.templates.commands.ImportTemplates
-import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -69,7 +70,7 @@ class GetActiveVersionTest : IntegrationTestBase() {
             assertThat(results).allSatisfy { assertThat(it.status).isNotEqualTo(ImportStatus.FAILED) }
 
             // GetActiveVersion for template 1 should return exactly one result, not cross-match template 2
-            val templateId1 = TemplateId(TemplateKey.of(slug1), tenantId)
+            val templateId1 = TemplateId(TemplateKey.of(slug1), CatalogId.default(tenantId))
             val variantId1 = VariantId(VariantKey.of("default"), templateId1)
             val environmentId = EnvironmentId(envKey, tenantId)
 
@@ -77,7 +78,7 @@ class GetActiveVersionTest : IntegrationTestBase() {
             assertThat(activeVersion1).isNotNull
 
             // GetActiveVersion for template 2 should also return exactly one result
-            val templateId2 = TemplateId(TemplateKey.of(slug2), tenantId)
+            val templateId2 = TemplateId(TemplateKey.of(slug2), CatalogId.default(tenantId))
             val variantId2 = VariantId(VariantKey.of("default"), templateId2)
 
             val activeVersion2 = GetActiveVersion(variantId = variantId2, environmentId = environmentId).query()

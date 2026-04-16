@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation(libs.epistola.editor.model)
+    implementation(libs.epistola.model)
 
     // iText 9 for PDF generation
     implementation("com.itextpdf:itext-core:9.5.0")

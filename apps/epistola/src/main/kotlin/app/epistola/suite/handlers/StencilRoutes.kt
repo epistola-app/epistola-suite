@@ -16,7 +16,7 @@ class StencilRoutes(private val handler: StencilHandler) {
             GET("/new", handler::newForm)
             POST("", handler::create)
 
-            "/{stencilId}".nest {
+            "/{catalogId}/{stencilId}".nest {
                 GET("", handler::detail)
                 PATCH("", handler::update)
                 POST("/delete", handler::delete)

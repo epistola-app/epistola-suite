@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.model
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -24,6 +25,7 @@ enum class VersionStatus {
 data class TemplateVersion(
     val id: VersionKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val variantKey: VariantKey,
     @Json val templateModel: TemplateDocument,
     val status: VersionStatus,
@@ -43,6 +45,7 @@ data class TemplateVersion(
 data class VersionSummary(
     val id: VersionKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val variantKey: VariantKey,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,

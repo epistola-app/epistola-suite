@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -27,7 +28,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `publish draft to environment marks it published and creates activation`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
@@ -69,7 +70,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `publish already-published version to another environment creates second activation`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
@@ -113,7 +114,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `publish to same environment is idempotent`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
@@ -152,7 +153,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `publish to non-existent environment returns null`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
@@ -174,7 +175,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `cannot publish archived version`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
@@ -213,7 +214,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `archive blocked when version is active`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()
@@ -245,7 +246,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     fun `unpublish then archive succeeds`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val variant = variants.first()

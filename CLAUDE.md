@@ -71,6 +71,29 @@ The frontend uses a **server-side rendering** approach:
 - **HTMX**: For dynamic interactions without full page reloads
 - **Client components**: Embedded modules (like the editor) for features requiring rich client-side interactivity
 
+### Content Security Policy
+
+A strict CSP is enforced on all UI responses (`SecurityConfig.kt`). Key restrictions:
+
+- **`script-src 'self' 'unsafe-inline'`** — inline `<script>` tags are allowed, but `eval()` is NOT (`unsafe-eval` is absent)
+- **Do NOT use `hx-on::*` or `hx-on-*` attributes** — these HTMX event handler attributes use `eval()` internally, which the CSP blocks. Use inline `<script>` tags with `addEventListener` instead:
+
+  ```html
+  <!-- BAD: blocked by CSP -->
+  <form hx-on::after-request="doSomething()">
+    <!-- GOOD: use addEventListener -->
+    <form id="my-form">
+      <script>
+        document.getElementById("my-form").addEventListener("htmx:afterRequest", function (e) {
+          if (e.detail.successful) doSomething();
+        });
+      </script>
+    </form>
+  </form>
+  ```
+
+- **Thymeleaf also mangles `hx-on::*`** — the `::` is interpreted as a fragment expression separator and stripped during template processing. This is a second reason to avoid these attributes.
+
 ## Backend Architecture: UI Handlers vs REST API
 
 The backend has **two distinct endpoint layers** that must NEVER be mixed:

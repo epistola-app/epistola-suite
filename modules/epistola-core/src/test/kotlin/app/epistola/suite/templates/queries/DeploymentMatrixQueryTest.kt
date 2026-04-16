@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -28,7 +29,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
     fun `deployment matrix returns empty list when no activations exist`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
 
         val cells = GetDeploymentMatrix(templateId = templateId).query()
@@ -39,7 +40,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
     fun `deployment matrix returns activated cells across variants and environments`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val defaultVariant = variants.first()
@@ -91,7 +92,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
     fun `publishable versions returns draft and published versions grouped by variant`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val defaultVariant = variants.first()
@@ -129,7 +130,7 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
     fun `publishable versions excludes archived versions`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
         val variants = ListVariants(templateId = templateId).query()
         val defaultVariant = variants.first()

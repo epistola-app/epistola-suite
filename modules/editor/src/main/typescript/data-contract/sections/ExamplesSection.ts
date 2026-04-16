@@ -18,6 +18,7 @@ export interface ExamplesUiState {
   exampleErrorCounts: Record<string, number>;
   canUndo: boolean;
   canRedo: boolean;
+  readOnly: boolean;
 }
 
 export interface ExamplesSectionCallbacks {
@@ -80,6 +81,7 @@ export function renderExamplesSection(
         })}
         <button
           class="dc-example-chip dc-example-chip-add"
+          ?disabled=${uiState.readOnly}
           @click=${() => callbacks.onAddExample()}
         >
           + New
@@ -101,6 +103,7 @@ export function renderExamplesSection(
                     id="example-name-input"
                     class="ep-input dc-example-name-input"
                     .value=${selectedExample.name}
+                    ?disabled=${uiState.readOnly}
                     placeholder="Enter example name"
                     @change=${(e: Event) => {
                       const name = (e.target as HTMLInputElement).value.trim();
@@ -112,6 +115,7 @@ export function renderExamplesSection(
                 </div>
                 <button
                   class="dc-example-delete-btn"
+                  ?disabled=${uiState.readOnly}
                   @click=${() => callbacks.onDeleteExample(selectedExample.id)}
                   title="Delete this example"
                   aria-label="Delete example"
@@ -140,7 +144,7 @@ export function renderExamplesSection(
                 <div class="dc-example-toolbar-actions">
                   <button
                     class="dc-example-toolbar-btn"
-                    ?disabled=${!uiState.canUndo}
+                    ?disabled=${!uiState.canUndo || uiState.readOnly}
                     @click=${() => callbacks.onUndo()}
                     title="Undo (Ctrl+Z)"
                     aria-label="Undo"
@@ -158,7 +162,7 @@ export function renderExamplesSection(
                   </button>
                   <button
                     class="dc-example-toolbar-btn"
-                    ?disabled=${!uiState.canRedo}
+                    ?disabled=${!uiState.canRedo || uiState.readOnly}
                     @click=${() => callbacks.onRedo()}
                     title="Redo (Ctrl+Shift+Z)"
                     aria-label="Redo"
@@ -228,6 +232,7 @@ export function renderExamplesSection(
                   selectedExample.data,
                   (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
                   uiState.fieldErrorMap,
+                  uiState.readOnly,
                 )}
               </div>
             </div>

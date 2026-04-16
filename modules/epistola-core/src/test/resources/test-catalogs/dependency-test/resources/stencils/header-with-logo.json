@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "stencil",
+    "slug": "header-with-logo",
+    "name": "Header With Logo",
+    "tags": ["header"],
+    "content": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": { "type": "inherit" },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-logo": {
+          "id": "n-logo",
+          "type": "image",
+          "slots": [],
+          "props": { "assetId": "01966a00-0000-7000-8000-000000000099" }
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "heading",
+          "slots": [],
+          "props": {
+            "level": 1,
+            "content": [{ "type": "text", "text": "Company Name" }]
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-logo", "n-heading"]
+        }
+      }
+    }
+  }
+}

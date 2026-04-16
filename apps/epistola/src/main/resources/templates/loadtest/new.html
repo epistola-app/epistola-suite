@@ -33,8 +33,8 @@
                                     hx-swap="innerHTML">
                                 <option value="">Select a template...</option>
                                 <option th:each="template : ${templates}"
-                                        th:value="${template.id}"
-                                        th:text="${template.name} + ' (' + ${template.id} + ')'">
+                                        th:value="${template.catalogKey + '/' + template.id}"
+                                        th:text="${template.name} + ' (' + ${template.catalogKey} + '/' + ${template.id} + ')'">
                                 </option>
                             </select>
                             <span class="form-hint">Select the template to test</span>

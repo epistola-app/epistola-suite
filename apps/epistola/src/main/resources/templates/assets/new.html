@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}">Assets</a> &raquo; <span>Upload Asset</span>
+        </nav>
+
+        <h1>Upload Asset</h1>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <form th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
+                        <label class="ep-label" for="catalog">Catalog</label>
+                        <select id="catalog" name="catalog" class="ep-input" required>
+                            <option th:each="cat : ${catalogs}"
+                                    th:value="${cat.id}"
+                                    th:text="${cat.name}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label">Image file</label>
+                        <div id="asset-upload-zone" class="asset-upload-zone"
+                             ondragover="event.preventDefault(); this.classList.add('dragover')"
+                             ondragleave="this.classList.remove('dragover')"
+                             ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event)">
+                            <div class="asset-upload-content">
+                                <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
+                                <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
+                                <p class="text-muted text-sm">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
+                            </div>
+                            <input type="file" id="asset-file-input" name="file"
+                                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                   style="display: none;"
+                                   required />
+                        </div>
+                        <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
+                            <span id="file-name" class="text-sm"></span>
+                        </div>
+                        <span class="form-error" th:if="${error != null}" th:text="${error}"></span>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                        <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById('asset-file-input').addEventListener('change', function() {
+                var preview = document.getElementById('file-preview');
+                var fileName = document.getElementById('file-name');
+                if (this.files.length > 0) {
+                    fileName.textContent = this.files[0].name;
+                    preview.style.display = 'block';
+                } else {
+                    preview.style.display = 'none';
+                }
+            });
+
+            function handleFileDrop(event) {
+                var file = event.dataTransfer.files[0];
+                if (file) {
+                    var input = document.getElementById('asset-file-input');
+                    var dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                    input.dispatchEvent(new Event('change'));
+                }
+            }
+        </script>
+    </th:block>
+</body>
+</html>

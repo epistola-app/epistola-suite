@@ -1,6 +1,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -46,68 +47,75 @@ class UpdateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateAttributeDefinition, VariantAttributeDefinition?> {
-    override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
-        // If allowed values are being narrowed, check for existing variants using removed values
-        if (command.allowedValues.isNotEmpty()) {
-            val currentAllowedValues = handle.createQuery(
-                """
+    override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
+            // If allowed values are being narrowed, check for existing variants using removed values
+            if (command.allowedValues.isNotEmpty()) {
+                val currentAllowedValues = handle.createQuery(
+                    """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_key = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .mapTo(String::class.java)
-                .findOne()
-                .orElse(null) ?: return@withHandle null
+                )
+                    .bind("id", command.id.key)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .mapTo(String::class.java)
+                    .findOne()
+                    .orElse(null) ?: return@withHandle null
 
-            val currentValues: List<String> = objectMapper.readValue(
-                currentAllowedValues,
-                object : TypeReference<List<String>>() {},
-            )
+                val currentValues: List<String> = objectMapper.readValue(
+                    currentAllowedValues,
+                    object : TypeReference<List<String>>() {},
+                )
 
-            val removedValues = currentValues.toSet() - command.allowedValues.toSet()
-            if (removedValues.isNotEmpty()) {
-                // Check if any variants use the values being removed
-                val valuesInUse = removedValues.filter { value ->
-                    handle.createQuery(
-                        """
+                val removedValues = currentValues.toSet() - command.allowedValues.toSet()
+                if (removedValues.isNotEmpty()) {
+                    // Check if any variants use the values being removed
+                    val valuesInUse = removedValues.filter { value ->
+                        handle.createQuery(
+                            """
                             SELECT COUNT(*) FROM template_variants
                             WHERE tenant_key = :tenantId
+                              AND catalog_key = :catalogKey
                               AND attributes ->> :attributeKey = :value
                             """,
-                    )
-                        .bind("tenantId", command.id.tenantKey)
-                        .bind("attributeKey", command.id.key.value)
-                        .bind("value", value)
-                        .mapTo(Long::class.java)
-                        .one() > 0
-                }.toSet()
+                        )
+                            .bind("tenantId", command.id.tenantKey)
+                            .bind("catalogKey", command.id.catalogKey)
+                            .bind("attributeKey", command.id.key.value)
+                            .bind("value", value)
+                            .mapTo(Long::class.java)
+                            .one() > 0
+                    }.toSet()
 
-                if (valuesInUse.isNotEmpty()) {
-                    throw AllowedValuesInUseException(command.id, valuesInUse)
+                    if (valuesInUse.isNotEmpty()) {
+                        throw AllowedValuesInUseException(command.id, valuesInUse)
+                    }
                 }
             }
-        }
 
-        val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
+            val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
-        handle.createQuery(
-            """
+            handle.createQuery(
+                """
                 UPDATE variant_attribute_definitions
                 SET display_name = :displayName,
                     allowed_values = :allowedValues::jsonb,
                     last_modified = NOW()
-                WHERE id = :id AND tenant_key = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 RETURNING *
                 """,
-        )
-            .bind("id", command.id.key)
-            .bind("tenantId", command.id.tenantKey)
-            .bind("displayName", command.displayName)
-            .bind("allowedValues", allowedValuesJson)
-            .mapTo<VariantAttributeDefinition>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
+                .bind("displayName", command.displayName)
+                .bind("allowedValues", allowedValuesJson)
+                .mapTo<VariantAttributeDefinition>()
+                .findOne()
+                .orElse(null)
+        }
     }
 }

@@ -2,6 +2,8 @@ package app.epistola.suite.htmx
 
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.FeedbackId
@@ -78,12 +80,27 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pa
 fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
 
 /**
- * Extract and validate a [TemplateId] from the `id` path variable.
+ * Extract a [CatalogKey] from the `catalogId` path variable.
+ */
+fun ServerRequest.catalogId(): CatalogKey = CatalogKey.of(pathVariable("catalogId"))
+
+/**
+ * Extract a [CatalogKey] from the `catalogId` path variable, or null if not present.
+ */
+fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
+    CatalogKey.of(pathVariable("catalogId"))
+} catch (_: IllegalArgumentException) {
+    null
+}
+
+/**
+ * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.
  * Returns null if the template key is invalid.
  */
 fun ServerRequest.templateId(tenantId: TenantId): TemplateId? {
+    val catalog = CatalogId(catalogId(), tenantId)
     val key = TemplateKey.validateOrNull(pathVariable("id")) ?: return null
-    return TemplateId(key, tenantId)
+    return TemplateId(key, catalog)
 }
 
 /**
@@ -106,21 +123,23 @@ fun ServerRequest.versionId(variantId: VariantId): VersionId? {
 }
 
 /**
- * Extract and validate a [ThemeId] from the `themeId` path variable.
+ * Extract and validate a [ThemeId] from the `themeId` and `catalogId` path variables.
  * Returns null if the theme key is invalid.
  */
 fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
+    val catalog = CatalogId(catalogId(), tenantId)
     val key = ThemeKey.validateOrNull(pathVariable("themeId")) ?: return null
-    return ThemeId(key, tenantId)
+    return ThemeId(key, catalog)
 }
 
 /**
- * Extract and validate a [StencilId] from the `stencilId` path variable.
+ * Extract and validate a [StencilId] from the `stencilId` and `catalogId` path variables.
  * Returns null if the stencil key is invalid.
  */
 fun ServerRequest.stencilId(tenantId: TenantId): StencilId? {
+    val catalog = CatalogId(catalogId(), tenantId)
     val key = StencilKey.validateOrNull(pathVariable("stencilId")) ?: return null
-    return StencilId(key, tenantId)
+    return StencilId(key, catalog)
 }
 
 /**
@@ -133,12 +152,13 @@ fun ServerRequest.environmentId(tenantId: TenantId): EnvironmentId? {
 }
 
 /**
- * Extract and validate an [AttributeId] from the `attributeId` path variable.
+ * Extract and validate an [AttributeId] from the `attributeId` and `catalogId` path variables.
  * Returns null if the attribute key is invalid.
  */
 fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
+    val catalog = CatalogId(catalogId(), tenantId)
     val key = AttributeKey.validateOrNull(pathVariable("attributeId")) ?: return null
-    return AttributeId(key, tenantId)
+    return AttributeId(key, catalog)
 }
 
 /**

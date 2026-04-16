@@ -18,6 +18,25 @@
             </div>
         </div>
 
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id.toString())}"></option>
+            </select>
+            <script th:inline="javascript">
+                document.getElementById('catalog-filter').addEventListener('change', function() {
+                    var tenantId = /*[[${tenantId}]]*/ '';
+                    var catalog = this.value;
+                    var url = '/tenants/' + tenantId + '/templates';
+                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
+                    window.location.href = url;
+                });
+            </script>
+        </div>
+
         <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
@@ -35,6 +54,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Catalog</th>
                     <th>ID</th>
                     <th>Variants</th>
                     <th>Last Modified</th>
@@ -45,14 +65,16 @@
                 <th:block th:fragment="rows">
                     <tr th:each="template : ${templates}">
                         <td>
-                            <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}"
+                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                th:text="${template.name}" style="font-weight: 500;"></a>
                         </td>
+                        <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
                         <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}"
+                            <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                class="btn btn-sm btn-icon btn-ghost" title="View template">
                                 <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>

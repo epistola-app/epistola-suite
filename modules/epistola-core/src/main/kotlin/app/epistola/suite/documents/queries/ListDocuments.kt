@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -44,7 +45,7 @@ class ListDocumentsHandler(
     override fun handle(query: ListDocuments): List<DocumentMetadata> = jdbi.withHandle<List<DocumentMetadata>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_key, template_key, variant_key, version_key,
+            SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -80,6 +81,7 @@ class ListDocumentsHandler(
             DocumentMetadata(
                 id = DocumentKey(rs.getObject("id", UUID::class.java)),
                 tenantId = TenantKey(rs.getString("tenant_key")),
+                catalogKey = CatalogKey(rs.getString("catalog_key")),
                 templateId = TemplateKey(rs.getString("template_key")),
                 variantId = VariantKey(rs.getString("variant_key")),
                 versionId = VersionKey(rs.getInt("version_key")),

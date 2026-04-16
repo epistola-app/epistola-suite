@@ -54,7 +54,17 @@ class CreateTenantHandler(
                 .bind("name", command.name)
                 .execute()
 
-            // 2. Create default "Tenant Default" theme with sensible defaults
+            // 2. Create default catalog for this tenant
+            handle.createUpdate(
+                """
+                INSERT INTO catalogs (id, tenant_key, name, type, created_at, last_modified)
+                VALUES ('default', :tenantKey, 'Default', 'AUTHORED', NOW(), NOW())
+                """,
+            )
+                .bind("tenantKey", command.id)
+                .execute()
+
+            // 3. Create default "Tenant Default" theme with sensible defaults
             // Theme IDs are globally unique, so scope to tenant using tenant ID as base
             // Use "-d" suffix instead of "-default" to maximize space for tenant ID uniqueness
             // Max length: 20 chars, "-d" = 2 chars, so max tenant ID = 18 chars

@@ -28,11 +28,11 @@ class ListDocumentTemplatesHandler(
 ) : QueryHandler<ListDocumentTemplates, List<DocumentTemplate>> {
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified FROM document_templates WHERE tenant_key = :tenantId")
+            append("SELECT dt.id, dt.tenant_key, dt.catalog_key, c.type AS catalog_type, dt.name, dt.theme_key, dt.theme_catalog_key, dt.schema, dt.data_model, dt.data_examples, dt.pdfa_enabled, dt.created_at, dt.last_modified FROM document_templates dt JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key WHERE dt.tenant_key = :tenantId")
             if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND name ILIKE :searchTerm")
+                append(" AND dt.name ILIKE :searchTerm")
             }
-            append(" ORDER BY last_modified DESC")
+            append(" ORDER BY dt.last_modified DESC")
             append(" LIMIT :limit OFFSET :offset")
         }
 

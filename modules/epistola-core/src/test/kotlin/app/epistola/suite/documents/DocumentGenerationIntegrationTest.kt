@@ -1,5 +1,6 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -25,6 +26,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
@@ -52,7 +54,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val tenant = tenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
             val template = template(tenant.id, "Invoice Template")
-            val compositeTemplateId = TemplateId(template.id, tenantId)
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(compositeTemplateId, "Default")
             val compositeVariantId = VariantId(variant.id, compositeTemplateId)
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
@@ -119,7 +121,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Report Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -197,7 +199,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -295,7 +297,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -355,7 +357,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `list generation jobs filtered by status`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -409,7 +411,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val tenant = tenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
             val template = template(tenant.id, "Test Template")
-            val compositeTemplateId = TemplateId(template.id, tenantId)
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(compositeTemplateId, "Default")
             val compositeVariantId = VariantId(variant.id, compositeTemplateId)
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -464,7 +466,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val tenant2 = createTenant("Tenant 2")
 
         val tenantId1 = TenantId(tenant1.id)
-        val templateId1 = TemplateId(TestIdHelpers.nextTemplateId(), tenantId1)
+        val templateId1 = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId1))
         val template1 = mediator.send(CreateDocumentTemplate(id = templateId1, name = "Template 1"))
         val variantId1 = VariantId(TestIdHelpers.nextVariantId(), templateId1)
         val variant1 = mediator.send(CreateVariant(id = variantId1, title = "Default", description = null, attributes = emptyMap()))!!
@@ -517,7 +519,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `batch with correlation IDs stores and returns them`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -598,7 +600,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `batch with duplicate correlationIds fails validation`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -644,7 +646,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `batch with duplicate filenames fails validation`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -690,7 +692,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `batch with multiple null correlationIds is allowed`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -732,7 +734,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `batch with multiple null filenames is allowed`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -799,7 +801,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     fun `list documents filtered by correlationId`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -885,7 +887,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val tenant = tenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
             val template = template(tenant.id, "Test Template")
-            val compositeTemplateId = TemplateId(template.id, tenantId)
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(compositeTemplateId, "Default")
             val compositeVariantId = VariantId(variant.id, compositeTemplateId)
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")

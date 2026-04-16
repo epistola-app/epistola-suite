@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "attribute",
+    "slug": "language",
+    "name": "Language",
+    "allowedValues": ["nl", "en"]
+  }
+}

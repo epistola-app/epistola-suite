@@ -1,6 +1,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -35,23 +36,27 @@ class CreateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
-    override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition = executeOrThrowDuplicate("attribute", command.id.key.value) {
-        jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
-            val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
+    override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        return executeOrThrowDuplicate("attribute", command.id.key.value) {
+            jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
+                val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
-            handle.createQuery(
-                """
-                INSERT INTO variant_attribute_definitions (id, tenant_key, display_name, allowed_values, created_at, last_modified)
-                VALUES (:id, :tenantId, :displayName, :allowedValues::jsonb, NOW(), NOW())
+                handle.createQuery(
+                    """
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :displayName, :allowedValues::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bind("displayName", command.displayName)
-                .bind("allowedValues", allowedValuesJson)
-                .mapTo<VariantAttributeDefinition>()
-                .one()
+                )
+                    .bind("id", command.id.key)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("displayName", command.displayName)
+                    .bind("allowedValues", allowedValuesJson)
+                    .mapTo<VariantAttributeDefinition>()
+                    .one()
+            }
         }
     }
 }

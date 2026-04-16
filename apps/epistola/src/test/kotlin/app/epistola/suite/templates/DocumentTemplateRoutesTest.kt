@@ -2,6 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
@@ -160,6 +161,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "new-template")
             formData.add("name", "New Template")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -190,6 +192,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "htmx-template")
             formData.add("name", "HTMX Template")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -222,6 +225,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
             formData.add("name", "")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -252,6 +256,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
             formData.add("name", "   ")
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -281,6 +286,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "valid-slug")
             formData.add("name", "a".repeat(256))
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -309,6 +315,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("name", "a".repeat(256))
+            formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
         }
@@ -340,7 +347,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -376,7 +383,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataModel = objectMapper.valueToTree(dataModel),
                         dataExamples = dataExamples.map {
                             app.epistola.suite.templates.model.DataExample(
@@ -395,7 +402,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -426,7 +433,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -439,7 +446,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"count": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -469,7 +476,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/validate-schema",
+                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -499,7 +506,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -515,7 +522,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -557,7 +564,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -569,7 +576,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated Example", "data": {"name": "Updated John"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -584,7 +591,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Updated John")
 
                 // Verify the other example is unchanged
-                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, TenantId(testTenant.id))))
+                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
                 assertThat(updated).isNotNull
                 assertThat(updated!!.dataExamples).hasSize(2)
                 assertThat(updated.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
@@ -608,7 +615,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -621,7 +628,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "New Name"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -652,7 +659,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/non-existent",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/non-existent",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -680,7 +687,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -714,7 +721,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataModel = objectMapper.valueToTree(dataModel),
                         dataExamples = dataExamples,
                     ),
@@ -728,7 +735,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -762,7 +769,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataModel = objectMapper.valueToTree(dataModel),
                         dataExamples = dataExamples,
                     ),
@@ -775,7 +782,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}, "forceUpdate": true}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -812,7 +819,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -820,7 +827,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -832,7 +839,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
                 // Verify example-1 is gone, example-2 remains
-                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, TenantId(testTenant.id))))
+                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
                 assertThat(updated).isNotNull
                 assertThat(updated!!.dataExamples).hasSize(1)
                 assertThat(updated.dataExamples[0].id).isEqualTo("example-2")
@@ -856,7 +863,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -864,7 +871,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}/data-examples/non-existent",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/non-existent",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -888,7 +895,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -919,7 +926,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -968,7 +975,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )
@@ -981,7 +988,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1013,7 +1020,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )
@@ -1026,7 +1033,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1057,7 +1064,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$nonExistentVariantId/preview",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1085,7 +1092,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
+                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1114,7 +1121,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        id = TemplateId(template.id, TenantId(testTenant.id)),
+                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )
@@ -1141,7 +1148,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -1188,7 +1195,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
                     request,
                     ByteArray::class.java,
                 )

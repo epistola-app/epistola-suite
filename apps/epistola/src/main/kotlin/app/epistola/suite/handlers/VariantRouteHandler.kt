@@ -5,12 +5,16 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.handlers.AuthContext
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.variants.DeleteVariant
@@ -33,6 +37,7 @@ class VariantRouteHandler {
 
     fun createVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -62,6 +67,7 @@ class VariantRouteHandler {
 
     fun editVariantForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -75,6 +81,7 @@ class VariantRouteHandler {
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId.value
                 "templateId" to templateId.key
                 "variant" to variant
                 "attributeDefinitions" to attributeDefinitions
@@ -84,6 +91,7 @@ class VariantRouteHandler {
 
     fun updateVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -102,20 +110,27 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
+        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
 
         return request.htmx {
-            fragment("templates/detail", "variants-section") {
+            fragment("templates/detail/variants", "variants-section") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                "editable" to editable
+                "auth" to auth
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${templateId.key}") }
+            trigger("closeDialog")
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
         }
     }
 
     fun setDefaultVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -128,6 +143,7 @@ class VariantRouteHandler {
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -142,28 +158,38 @@ class VariantRouteHandler {
         return renderVariantsSection(request, tenantId, templateId)
     }
 
+    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
+
     private fun renderVariantsSection(
         request: ServerRequest,
         tenantId: TenantId,
         templateId: TemplateId,
         errorMessage: String? = null,
     ): ServerResponse {
+        val catalogId = request.catalogId()
         val variants = GetVariantSummaries(templateId = templateId).query()
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
+        logger.info("renderVariantsSection: variants={}, editable={}, catalogId={}, isHtmx={}", variants.size, editable, catalogId, request.isHtmx)
+        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
 
         return request.htmx {
-            fragment("templates/detail", "variants-section") {
+            fragment("templates/detail/variants", "variants-section") {
                 "tenantId" to tenantId.key.value
+                "catalogId" to catalogId.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                "editable" to editable
+                "auth" to auth
                 if (errorMessage != null) {
                     "error" to errorMessage
                 }
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${templateId.key}") }
+            trigger("closeDialog")
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
         }
     }
 

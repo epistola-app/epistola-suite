@@ -14,9 +14,9 @@ class AttributeRoutes(private val handler: AttributeHandler) {
             GET("", handler::list)
             GET("/new", handler::newForm)
             POST("", handler::create)
-            GET("/{attributeId}/edit", handler::editForm)
-            PATCH("/{attributeId}", handler::update)
-            POST("/{attributeId}/delete", handler::delete)
+            GET("/{catalogId}/{attributeId}/edit", handler::editForm)
+            PATCH("/{catalogId}/{attributeId}", handler::update)
+            POST("/{catalogId}/{attributeId}/delete", handler::delete)
         }
     }
 }

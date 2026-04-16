@@ -321,13 +321,40 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     ): ServerResponse {
         val allFragments = primaryFragments + oobFragments
 
-        var response = ServerResponse.ok()
-        headers.forEach { (key, value) -> response = response.header(key, value) }
+        var builder = ServerResponse.ok()
+        headers.forEach { (key, value) -> builder = builder.header(key, value) }
 
-        return response.render(
-            HtmxFragmentsView.VIEW_NAME,
-            mapOf(HtmxFragmentsView.FRAGMENTS_KEY to allFragments),
-        )
+        // Render all fragments into a single response body using the template engine directly.
+        // This avoids depending on a custom ViewResolver which doesn't work reliably
+        // with Spring's functional router ServerResponse.render().
+        return builder.build { request, response ->
+            response.contentType = "text/html;charset=UTF-8"
+            val application = org.thymeleaf.web.servlet.JakartaServletWebApplication.buildApplication(request.servletContext)
+            val engine = org.springframework.web.context.support.WebApplicationContextUtils
+                .getRequiredWebApplicationContext(request.servletContext)
+                .getBean(org.thymeleaf.spring6.SpringTemplateEngine::class.java)
+
+            for (fragment in allFragments) {
+                val context = org.thymeleaf.context.WebContext(
+                    application.buildExchange(request, response),
+                    java.util.Locale.getDefault(),
+                    fragment.model,
+                )
+                val spec = if (fragment.fragmentName != null) {
+                    org.thymeleaf.TemplateSpec(
+                        fragment.template,
+                        setOf(fragment.fragmentName),
+                        null as org.thymeleaf.templatemode.TemplateMode?,
+                        null as Map<String, Any>?,
+                    )
+                } else {
+                    org.thymeleaf.TemplateSpec(fragment.template, null as org.thymeleaf.templatemode.TemplateMode?)
+                }
+                response.writer.write(engine.process(spec, context))
+            }
+
+            null
+        }
     }
 
     private fun mergedModel(): Map<String, Any> = fragments.flatMap { it.model.entries }.associate { it.key to it.value }

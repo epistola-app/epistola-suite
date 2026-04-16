@@ -91,6 +91,11 @@
                 }
             };
 
+            // ── Close any open dialog on HX-Trigger: closeDialog ───────────
+            document.addEventListener('closeDialog', function() {
+                document.querySelectorAll('dialog[open]').forEach(function(d) { d.close(); });
+            });
+
             // ── Global safety net for unhandled errors ──────────────────────
 
             document.addEventListener('htmx:responseError', function(event) {

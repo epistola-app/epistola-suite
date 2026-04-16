@@ -41,15 +41,17 @@
                         <td class="actions">
                             <!-- Draft actions -->
                             <th:block th:if="${version.status.name() == 'DRAFT'}">
-                                <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                                    class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Edit draft">
                                     <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <button type="button"
                                         class="btn btn-sm btn-icon btn-ghost"
                                         th:data-tenant-id="${tenantId}"
+                                        th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
+                                        th:data-version-id="${version.id}"
                                         th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
@@ -62,16 +64,18 @@
                                 <button type="button"
                                         class="btn btn-sm btn-icon btn-ghost"
                                         th:data-tenant-id="${tenantId}"
+                                        th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
+                                        th:data-version-id="${version.id}"
                                         th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
                                     <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>
-                                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
+                                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                       method="post"
-                                      th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
+                                      th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                       hx-target="#version-history-dialog-body"
                                       hx-swap="innerHTML"
                                       hx-confirm="Are you sure you want to archive this version?">
@@ -88,8 +92,10 @@
                                 <button type="button"
                                         class="btn btn-sm btn-icon btn-ghost"
                                         th:data-tenant-id="${tenantId}"
+                                        th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
                                         th:data-variant-id="${variant.id}"
+                                        th:data-version-id="${version.id}"
                                         th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
@@ -108,9 +114,9 @@
 
             <!-- Create Draft button if no draft exists -->
             <div th:unless="${variant.hasDraft}" style="margin-top: var(--ep-space-4);">
-                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                       method="post"
-                      th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                      th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                       hx-target="#version-history-dialog-body"
                       hx-swap="innerHTML">
                     <button type="submit" class="btn btn-sm btn-primary">+ Create New Draft</button>

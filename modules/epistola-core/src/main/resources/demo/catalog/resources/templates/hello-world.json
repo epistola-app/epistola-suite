@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "hello-world",
+    "name": "Hello World",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the person to greet"
+        },
+        "message": {
+          "type": "string",
+          "description": "A personal message"
+        }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Default",
+        "data": {
+          "name": "World",
+          "message": "Welcome to Epistola! This template was installed from a catalog."
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "override",
+        "themeId": "corporate",
+        "catalogKey": "epistola-demo"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-header": {
+          "id": "n-header",
+          "type": "stencil",
+          "slots": [],
+          "props": {
+            "stencilId": "company-header",
+            "catalogKey": "epistola-demo",
+            "version": 1
+          }
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 1 },
+                  "content": [
+                    { "type": "text", "text": "Hello, " },
+                    { "type": "expression", "attrs": { "expression": "name", "fallback": "World" } },
+                    { "type": "text", "text": "!" }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-body": {
+          "id": "n-body",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "message", "fallback": "Welcome to Epistola!" } }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-header", "n-heading", "n-body"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}

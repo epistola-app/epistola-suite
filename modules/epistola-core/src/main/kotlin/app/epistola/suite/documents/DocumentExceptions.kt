@@ -40,3 +40,12 @@ class DefaultVariantNotFoundException(
     val tenantId: TenantKey,
     val templateId: TemplateKey,
 ) : RuntimeException("No default variant found for template $templateId in tenant $tenantId")
+
+/**
+ * Thrown when no published version exists for a variant.
+ */
+class NoPublishedVersionException(
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+) : RuntimeException("No published version found for template $templateId variant $variantId in tenant $tenantId. Import a catalog or publish a version first.")

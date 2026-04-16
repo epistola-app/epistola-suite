@@ -1,10 +1,13 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -38,16 +41,18 @@ class VersionRouteHandler(
 
     fun listVersions(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
-        return returnVersionsFragment(request, tenantId.key, templateId.key, variantId)
+        return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
     fun createDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -55,11 +60,12 @@ class VersionRouteHandler(
 
         CreateVersion(variantId = variantId).execute()
 
-        return returnVersionsFragment(request, tenantId.key, templateId.key, variantId)
+        return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
     fun updateDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -88,6 +94,7 @@ class VersionRouteHandler(
 
     fun archiveVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -98,20 +105,21 @@ class VersionRouteHandler(
         try {
             ArchiveVersion(versionId = versionId).execute()
         } catch (_: VersionStillActiveException) {
-            return returnVersionsFragment(request, tenantId.key, templateId.key, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
+            return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
         }
 
-        return returnVersionsFragment(request, tenantId.key, templateId.key, variantId)
+        return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
     private fun returnVersionsFragment(
         request: ServerRequest,
         tenantKey: TenantKey,
+        catalogId: CatalogKey,
         templateKey: TemplateKey,
         variantId: VariantId,
         error: String? = null,
     ): ServerResponse {
-        val templateId = TemplateId(templateKey, TenantId(tenantKey))
+        val templateId = TemplateId(templateKey, CatalogId(catalogId, TenantId(tenantKey)))
 
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
@@ -137,6 +145,7 @@ class VersionRouteHandler(
         return request.htmx {
             fragment("templates/variant-versions", "content") {
                 "tenantId" to tenantKey.value
+                "catalogId" to catalogId.value
                 "templateId" to templateKey
                 "variant" to variantSummary
                 "versions" to versions
@@ -146,7 +155,7 @@ class VersionRouteHandler(
                     "error" to error
                 }
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$templateKey") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$catalogId/$templateKey") }
         }
     }
 }

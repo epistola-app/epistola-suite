@@ -18,6 +18,8 @@ dependencies {
     // Business logic - provides commands, queries, and domain services
     implementation(project(":modules:epistola-core"))
 
+    // Catalog module - provides import/export commands
+
     // Spring Web for REST controllers
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -35,5 +37,5 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // Template model (transitively from epistola-core, but explicit for generated code)
-    implementation(libs.epistola.editor.model)
+    implementation(libs.epistola.model)
 }

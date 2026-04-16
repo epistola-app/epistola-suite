@@ -1,19 +1,21 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -29,6 +31,7 @@ data class UpdateDocumentTemplate(
     val id: TemplateId,
     val name: String? = null,
     val themeId: ThemeKey? = null,
+    val themeCatalogKey: app.epistola.suite.common.ids.CatalogKey? = null,
     val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
@@ -58,6 +61,8 @@ class UpdateDocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<UpdateDocumentTemplate, UpdateDocumentTemplateResult?> {
     override fun handle(command: UpdateDocumentTemplate): UpdateDocumentTemplateResult? {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+
         // Validate examples against schema and collect warnings
         val warnings = mutableMapOf<String, List<ValidationError>>()
         val schemaToValidate = command.dataModel
@@ -115,9 +120,12 @@ class UpdateDocumentTemplateHandler(
         }
         if (command.clearThemeId) {
             updates.add("theme_key = NULL")
+            updates.add("theme_catalog_key = NULL")
         } else if (command.themeId != null) {
             updates.add("theme_key = :themeId")
+            updates.add("theme_catalog_key = :themeCatalogKey")
             bindings["themeId"] = command.themeId
+            bindings["themeCatalogKey"] = command.themeCatalogKey
         }
         if (command.dataModel != null) {
             updates.add("data_model = :dataModel::jsonb")
@@ -142,37 +150,27 @@ class UpdateDocumentTemplateHandler(
         val sql = """
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_key = :tenantId
-            RETURNING id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
         """
 
-        val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
-            val query = handle.createQuery(sql)
+        val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
+            val update = handle.createUpdate(sql)
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
 
-            bindings.forEach { (key, value) -> query.bind(key, value) }
+            bindings.forEach { (key, value) -> update.bind(key, value) }
 
-            query.mapTo<DocumentTemplate>()
-                .findOne()
-                .orElse(null)
-        } ?: return null
+            update.execute()
+        }
+
+        if (rowsUpdated == 0) return null
+
+        // Refetch with full context (catalog_type via JOIN)
+        val updated = GetDocumentTemplate(id = command.id).query() ?: return null
 
         return UpdateDocumentTemplateResult(template = updated, warnings = warnings)
     }
 
-    private fun getExisting(id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
-            FROM document_templates
-            WHERE id = :id AND tenant_key = :tenantId
-            """,
-        )
-            .bind("id", id.key)
-            .bind("tenantId", id.tenantKey)
-            .mapTo<DocumentTemplate>()
-            .findOne()
-            .orElse(null)
-    }
+    private fun getExisting(id: TemplateId): DocumentTemplate? = GetDocumentTemplate(id = id).query()
 }

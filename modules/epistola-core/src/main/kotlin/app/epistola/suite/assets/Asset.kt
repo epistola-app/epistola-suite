@@ -1,6 +1,8 @@
 package app.epistola.suite.assets
 
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import java.time.OffsetDateTime
 
@@ -28,6 +30,8 @@ enum class AssetMediaType(val mimeType: String) {
 data class Asset(
     val id: AssetKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val mediaType: AssetMediaType,
     val sizeBytes: Long,
@@ -42,6 +46,7 @@ data class Asset(
 data class AssetContent(
     val id: AssetKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val mediaType: AssetMediaType,
     val content: ByteArray,
 ) {

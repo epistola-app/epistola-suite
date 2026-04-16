@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "catalog": {
+    "slug": "epistola-demo",
+    "name": "Epistola Demo Catalog",
+    "description": "Sample templates, themes, stencils, and attributes for getting started with Epistola."
+  },
+  "publisher": {
+    "name": "Epistola",
+    "url": "https://github.com/epistola-app"
+  },
+  "release": {
+    "version": "4.2",
+    "releasedAt": "2026-04-14T00:00:00Z"
+  },
+  "resources": [
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000001",
+      "name": "Epistola Logo",
+      "description": "Small brand logo for use in templates.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/assets/epistola-logo.json"
+    },
+    {
+      "type": "attribute",
+      "slug": "language",
+      "name": "Language",
+      "description": "Document language for multi-language template variants.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/attributes/language.json"
+    },
+    {
+      "type": "theme",
+      "slug": "corporate",
+      "name": "Corporate Theme",
+      "description": "A clean corporate theme with professional styling.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/themes/corporate.json"
+    },
+    {
+      "type": "stencil",
+      "slug": "company-header",
+      "name": "Company Header",
+      "description": "Reusable company header block with logo placeholder and company name.",
+      "updatedAt": "2026-04-10T00:00:00Z",
+      "detailUrl": "./resources/stencils/company-header.json"
+    },
+    {
+      "type": "template",
+      "slug": "hello-world",
+      "name": "Hello World",
+      "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
+      "updatedAt": "2026-04-03T00:00:00Z",
+      "detailUrl": "./resources/templates/hello-world.json"
+    },
+    {
+      "type": "template",
+      "slug": "simple-letter",
+      "name": "Simple Letter",
+      "description": "A basic letter template with sender, recipient, subject, and body.",
+      "updatedAt": "2026-04-03T00:00:00Z",
+      "detailUrl": "./resources/templates/simple-letter.json"
+    },
+    {
+      "type": "template",
+      "slug": "demo-invoice",
+      "name": "Invoice Template",
+      "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, and expressions.",
+      "updatedAt": "2026-04-14T00:00:00Z",
+      "detailUrl": "./resources/templates/demo-invoice.json"
+    }
+  ]
+}

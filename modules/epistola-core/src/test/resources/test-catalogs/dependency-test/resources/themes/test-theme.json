@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "theme",
+    "slug": "test-theme",
+    "name": "Test Theme",
+    "documentStyles": {
+      "fontFamily": "Arial, sans-serif",
+      "fontSize": "11pt"
+    }
+  }
+}

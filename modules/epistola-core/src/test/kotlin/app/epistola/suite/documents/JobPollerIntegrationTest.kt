@@ -1,5 +1,6 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -22,6 +23,7 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -93,7 +95,7 @@ class JobPollerIntegrationTest {
             ),
         )
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(
             CreateDocumentTemplate(
                 id = templateId,

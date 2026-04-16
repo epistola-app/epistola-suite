@@ -2,6 +2,7 @@ package app.epistola.suite.htmx
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.core.Ordered
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.View
 import org.springframework.web.servlet.ViewResolver
@@ -66,14 +67,15 @@ class HtmxFragmentsView(
 @Component
 class HtmxFragmentsViewResolver(
     private val templateEngine: SpringTemplateEngine,
-) : ViewResolver {
+) : ViewResolver,
+    Ordered {
+
+    override fun getOrder(): Int = 0 // Run before ThymeleafViewResolver
 
     override fun resolveViewName(viewName: String, locale: Locale): View? {
         if (viewName != HtmxFragmentsView.VIEW_NAME) {
             return null
         }
-        // The actual fragments will be passed in the model
-        // We return a placeholder view that will be populated during rendering
         return HtmxFragmentsPlaceholderView(templateEngine)
     }
 }

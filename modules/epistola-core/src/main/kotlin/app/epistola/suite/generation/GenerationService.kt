@@ -4,6 +4,7 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -164,10 +165,11 @@ class GenerationService(
      */
     fun validatePreviewData(
         tenantId: TenantKey,
+        catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = GetDocumentTemplate(TemplateId(templateId, TenantId(tenantId))).query()
+        val template = GetDocumentTemplate(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
             ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
 
         if (template.dataModel == null) {

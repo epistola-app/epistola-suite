@@ -3,7 +3,6 @@ package app.epistola.suite.templates.commands.versions
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
@@ -82,10 +81,12 @@ class PublishToEnvironmentHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)
+            .bind("catalogKey", command.versionId.catalogKey)
+            .bind("templateId", command.versionId.templateKey)
             .bind("variantId", command.versionId.variantKey)
             .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
@@ -113,10 +114,12 @@ class PublishToEnvironmentHandler(
                         published_at = NOW(),
                         rendering_defaults_version = :renderingDefaultsVersion,
                         resolved_theme = CAST(:resolvedTheme AS JSONB)
-                    WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
                     """,
             )
                 .bind("tenantId", command.versionId.tenantKey)
+                .bind("catalogKey", command.versionId.catalogKey)
+                .bind("templateId", command.versionId.templateKey)
                 .bind("variantId", command.versionId.variantKey)
                 .bind("versionId", command.versionId.key)
                 .bind("renderingDefaultsVersion", RenderingDefaults.CURRENT.version)
@@ -128,14 +131,15 @@ class PublishToEnvironmentHandler(
         // 5. Upsert activation
         val activation = handle.createQuery(
             """
-                INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
-                VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
-                ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
+                INSERT INTO environment_activations (tenant_key, catalog_key, environment_key, template_key, variant_key, version_key, activated_at)
+                VALUES (:tenantId, :catalogKey, :environmentId, :templateId, :variantId, :versionId, NOW())
+                ON CONFLICT (tenant_key, catalog_key, environment_key, template_key, variant_key)
                 DO UPDATE SET version_key = :versionId, activated_at = NOW()
                 RETURNING *
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)
+            .bind("catalogKey", command.versionId.catalogKey)
             .bind("environmentId", command.environmentId.key)
             .bind("templateId", command.versionId.templateKey)
             .bind("variantId", command.versionId.variantKey)
@@ -148,10 +152,12 @@ class PublishToEnvironmentHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)
+            .bind("catalogKey", command.versionId.catalogKey)
+            .bind("templateId", command.versionId.templateKey)
             .bind("variantId", command.versionId.variantKey)
             .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
@@ -163,25 +169,28 @@ class PublishToEnvironmentHandler(
                 """
                     SELECT COALESCE(MAX(id), 0) + 1
                     FROM template_versions
-                    WHERE tenant_key = :tenantId AND variant_key = :variantId
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
                     """,
             )
                 .bind("tenantId", command.versionId.tenantKey)
+                .bind("catalogKey", command.versionId.catalogKey)
+                .bind("templateId", command.versionId.templateKey)
                 .bind("variantId", command.versionId.variantKey)
                 .mapTo(Int::class.java)
                 .one()
 
             handle.createQuery(
                 """
-                    INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-                    VALUES (:id, :tenantId, :templateId, :variantId,
-                            (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
+                    INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                    VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId,
+                            (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
                             'draft', NOW())
                     RETURNING *
                     """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", command.versionId.tenantKey)
+                .bind("catalogKey", command.versionId.catalogKey)
                 .bind("templateId", command.versionId.templateKey)
                 .bind("variantId", command.versionId.variantKey)
                 .bind("publishedId", command.versionId.key)
@@ -202,8 +211,7 @@ class PublishToEnvironmentHandler(
      * Resolves the full theme cascade and creates a snapshot for the given version.
      */
     private fun resolveThemeSnapshot(command: PublishToEnvironment, version: TemplateVersion): ResolvedThemeSnapshot? {
-        val tenantId = TenantId(command.versionId.tenantKey)
-        val templateId = TemplateId(command.versionId.templateKey, tenantId)
+        val templateId = TemplateId(command.versionId.templateKey, command.versionId.catalogId)
 
         // Get template-level default theme
         val template = mediator.query(GetDocumentTemplate(templateId))

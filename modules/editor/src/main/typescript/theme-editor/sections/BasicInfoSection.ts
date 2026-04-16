@@ -5,7 +5,7 @@
 import { html } from 'lit';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 
-export function renderBasicInfoSection(state: ThemeEditorState): unknown {
+export function renderBasicInfoSection(state: ThemeEditorState, readOnly = false): unknown {
   const theme = state.theme;
 
   return html`
@@ -18,6 +18,7 @@ export function renderBasicInfoSection(state: ThemeEditorState): unknown {
           id="theme-name"
           class="ep-input"
           .value=${theme.name}
+          ?disabled=${readOnly}
           @change=${(e: Event) => state.updateName((e.target as HTMLInputElement).value)}
         />
       </div>
@@ -28,6 +29,7 @@ export function renderBasicInfoSection(state: ThemeEditorState): unknown {
           id="theme-description"
           rows="2"
           .value=${theme.description ?? ''}
+          ?disabled=${readOnly}
           @change=${(e: Event) => {
             const val = (e.target as HTMLTextAreaElement).value;
             state.updateDescription(val || undefined);

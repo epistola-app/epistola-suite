@@ -18,6 +18,25 @@
             </div>
         </div>
 
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id.toString())}"></option>
+            </select>
+            <script th:inline="javascript">
+                document.getElementById('catalog-filter').addEventListener('change', function() {
+                    var tenantId = /*[[${tenantId}]]*/ '';
+                    var catalog = this.value;
+                    var url = '/tenants/' + tenantId + '/stencils';
+                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
+                    window.location.href = url;
+                });
+            </script>
+        </div>
+
         <div th:if="${#lists.isEmpty(stencils)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='puzzle', class='ep-icon ep-icon-xl')}" />
@@ -35,6 +54,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Catalog</th>
                     <th>Description</th>
                     <th>Tags</th>
                     <th>Last Modified</th>
@@ -45,9 +65,10 @@
                 <th:block th:fragment="rows">
                     <tr th:each="stencil : ${stencils}">
                         <td>
-                            <a th:href="@{/tenants/{tenantId}/stencils/{stencilId}(tenantId=${tenantId},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" style="font-weight: 500;"></a>
                         </td>
+                        <td><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
                         <td>
                             <span th:if="${stencil.description != null}" th:text="${stencil.description}" class="text-truncate"></span>
                             <span th:unless="${stencil.description != null}" class="text-muted">-</span>
@@ -57,20 +78,23 @@
                         </td>
                         <td th:text="${#temporals.format(stencil.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/stencils/{stencilId}(tenantId=${tenantId},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                class="btn btn-sm btn-icon btn-ghost" title="View stencil">
-                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
-                            <button th:if="${auth.has('STENCIL_EDIT')}"
-                                    type="button"
-                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-                                    title="Delete stencil"
-                                    data-confirm-title="Delete Stencil"
-                                    th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{stencilId}/delete(tenantId=${tenantId},stencilId=${stencil.id})}"
-                                    data-confirm-target="#stencil-rows"
-                                    onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
+                            <span th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <th:block th:if="${stencil.catalogType.name() == 'AUTHORED'}">
+                                <button th:if="${auth.has('STENCIL_EDIT')}"
+                                        type="button"
+                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        title="Delete stencil"
+                                        data-confirm-title="Delete Stencil"
+                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                                        data-confirm-target="#stencil-rows"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </th:block>
                         </td>
                     </tr>
                 </th:block>

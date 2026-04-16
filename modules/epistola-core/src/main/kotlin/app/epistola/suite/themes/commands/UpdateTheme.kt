@@ -1,5 +1,6 @@
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -50,6 +51,8 @@ class UpdateThemeHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateTheme, Theme?> {
     override fun handle(command: UpdateTheme): Theme? {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+
         val updates = mutableListOf<String>()
         val bindings = mutableMapOf<String, Any?>()
 

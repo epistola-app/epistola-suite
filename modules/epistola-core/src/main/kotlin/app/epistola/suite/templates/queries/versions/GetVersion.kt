@@ -30,10 +30,11 @@ class GetVersionHandler(
                        ver.created_at, ver.published_at, ver.archived_at,
                        ver.rendering_defaults_version, ver.resolved_theme
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.id = :versionId
                   AND ver.variant_key = :variantId
                   AND ver.tenant_key = :tenantId
+                  AND ver.catalog_key = :catalogKey
                   AND tv.template_key = :templateId
                 """,
         )
@@ -41,6 +42,7 @@ class GetVersionHandler(
             .bind("variantId", query.versionId.variantKey)
             .bind("templateId", query.versionId.templateKey)
             .bind("tenantId", query.versionId.tenantKey)
+            .bind("catalogKey", query.versionId.catalogKey)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)

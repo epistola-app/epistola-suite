@@ -1,10 +1,10 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -12,6 +12,7 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
@@ -37,7 +38,7 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
         val tenant2 = createTenant("Tenant 2")
 
         val tenantId1 = TenantId(tenant1.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId1)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId1))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
@@ -73,7 +74,7 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
     fun `cannot cancel completed job`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!

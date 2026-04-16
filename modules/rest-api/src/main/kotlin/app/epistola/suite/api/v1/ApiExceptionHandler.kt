@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
@@ -328,6 +329,27 @@ class ApiExceptionHandler {
                 details = mapOf(
                     "tenantId" to ex.tenantId.value,
                     "environmentId" to ex.environmentId.value,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles missing published version during document generation.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(NoPublishedVersionException::class)
+    fun handleNoPublishedVersionException(ex: NoPublishedVersionException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("No published version: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "NO_PUBLISHED_VERSION",
+                message = ex.message ?: "No published version found",
+                details = mapOf(
+                    "tenantId" to ex.tenantId.value,
+                    "templateId" to ex.templateId.value,
+                    "variantId" to ex.variantId.value,
                 ),
             ),
         )

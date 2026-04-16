@@ -27,7 +27,7 @@ class ListStencilVersionsHandler(
 ) : QueryHandler<ListStencilVersions, List<StencilVersionSummary>> {
     override fun handle(query: ListStencilVersions): List<StencilVersionSummary> = jdbi.withHandle<List<StencilVersionSummary>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, status, created_at, published_at, archived_at FROM stencil_versions WHERE tenant_key = :tenantId AND stencil_key = :stencilId")
+            append("SELECT id, status, created_at, published_at, archived_at FROM stencil_versions WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId")
             if (query.status != null) {
                 append(" AND status = :status")
             }
@@ -36,6 +36,7 @@ class ListStencilVersionsHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.stencilId.tenantKey)
+            .bind("catalogKey", query.stencilId.catalogKey)
             .bind("stencilId", query.stencilId.key)
         if (query.status != null) {
             jdbiQuery.bind("status", query.status.name.lowercase())

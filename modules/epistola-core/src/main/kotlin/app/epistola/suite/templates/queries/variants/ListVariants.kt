@@ -30,11 +30,13 @@ class ListVariantsHandler(
                 FROM template_variants tv
                 WHERE tv.template_key = :templateId
                   AND tv.tenant_key = :tenantId
+                  AND tv.catalog_key = :catalogKey
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
+            .bind("catalogKey", query.templateId.catalogKey)
             .mapTo<TemplateVariant>()
             .list()
     }

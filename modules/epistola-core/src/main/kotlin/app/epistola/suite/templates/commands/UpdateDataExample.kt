@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -54,6 +55,8 @@ class UpdateDataExampleHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<UpdateDataExample, UpdateDataExampleResult?> {
     override fun handle(command: UpdateDataExample): UpdateDataExampleResult? {
+        requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
+
         val existing = getExisting(command.templateId) ?: return null
 
         // Find the example to update
@@ -101,13 +104,14 @@ class UpdateDataExampleHandler(
     private fun getExisting(templateId: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_key, name, data_model, data_examples, created_at, last_modified
+                SELECT id, tenant_key, catalog_key, name, data_model, data_examples, created_at, last_modified
                 FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,
         )
             .bind("id", templateId.key)
             .bind("tenantId", templateId.tenantKey)
+            .bind("catalogKey", templateId.catalogKey)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)
@@ -121,12 +125,13 @@ class UpdateDataExampleHandler(
             """
             UPDATE document_templates
             SET data_examples = :dataExamples::jsonb, last_modified = NOW()
-            WHERE id = :id AND tenant_key = :tenantId
-            RETURNING id, tenant_key, name, data_model, data_examples, created_at, last_modified
+            WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+            RETURNING id, tenant_key, catalog_key, name, data_model, data_examples, created_at, last_modified
             """,
         )
             .bind("id", templateId.key)
             .bind("tenantId", templateId.tenantKey)
+            .bind("catalogKey", templateId.catalogKey)
             .bind("dataExamples", objectMapper.writeValueAsString(dataExamples))
             .mapTo<DocumentTemplate>()
             .findOne()

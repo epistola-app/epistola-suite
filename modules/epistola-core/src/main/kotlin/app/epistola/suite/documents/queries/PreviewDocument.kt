@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -18,6 +19,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
@@ -42,6 +44,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class PreviewDocument(
     val tenantId: TenantKey,
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
     val templateId: TemplateKey,
     val data: ObjectNode,
     val variantId: VariantKey? = null,
@@ -76,12 +79,13 @@ class PreviewDocumentHandler(
 
     override fun handle(query: PreviewDocument): ByteArray {
         val tenantId = TenantId(query.tenantId)
-        val templateId = TemplateId(query.templateId, tenantId)
+        val catalogId = CatalogId(query.catalogKey, tenantId)
+        val templateId = TemplateId(query.templateId, catalogId)
 
         // 1. Resolve variant
         val resolvedVariantKey = query.variantId
             ?: query.variantSelectionCriteria?.let { variantResolver.resolve(query.tenantId, query.templateId, it) }
-            ?: resolveDefaultVariant(query.tenantId, query.templateId)
+            ?: resolveDefaultVariant(query.tenantId, query.catalogKey, query.templateId)
 
         val variantId = VariantId(resolvedVariantKey, templateId)
 
@@ -104,7 +108,9 @@ class PreviewDocumentHandler(
             mediator.query(GetActiveVersion(variantId, envId))
                 ?: throw IllegalStateException("No active version for environment ${query.environmentId}")
         } else {
-            throw IllegalArgumentException("Either versionId or environmentId must be specified")
+            // Fallback: latest published version
+            mediator.query(GetLatestPublishedVersion(variantId))
+                ?: throw IllegalStateException("No published version found for variant $resolvedVariantKey")
         }
 
         // 3. Fetch template and tenant for theme resolution
@@ -133,15 +139,16 @@ class PreviewDocumentHandler(
         )
     }
 
-    private fun resolveDefaultVariant(tenantId: TenantKey, templateId: TemplateKey): VariantKey {
+    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey): VariantKey {
         val variantId = jdbi.withHandle<String?, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .mapTo<String>()
                 .findOne()
