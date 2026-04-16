@@ -5,7 +5,7 @@
  * No DOM, no side effects. Testable with state-in, action-out.
  */
 
-import type { JsonSchema, SchemaCompatibilityPreviewResult } from './types.js';
+import type { DataExample, JsonSchema, SchemaCompatibilityPreviewResult } from './types.js';
 import type { DataContractStore } from './DataContractStore.js';
 import type { SaveIntent, SaveOutcome } from './store-types.js';
 
@@ -110,7 +110,10 @@ export async function executeSave(
 
       // Strict mode: always persist schema-aligned examples when saving schema.
       // This removes unknown keys that are no longer present in schema.
-      const examplesToSave = outcome.examples ?? store.pruneExamplesForSchema(schemaForPruning);
+      const prunedExamples = store.pruneExamplesForSchema(schemaForPruning);
+      const examplesToSave = outcome.examples
+        ? mergeFixedExamples(prunedExamples, outcome.examples)
+        : prunedExamples;
 
       const schemaResult = await store.saveSchema(outcome.force, examplesToSave);
       if (!schemaResult.success) {
@@ -179,6 +182,12 @@ export async function executeSave(
     default:
       return { success: true };
   }
+}
+
+function mergeFixedExamples(allExamples: DataExample[], fixedExamples: DataExample[]): DataExample[] {
+  const fixedById = new Map(fixedExamples.map((example) => [example.id, example]));
+
+  return allExamples.map((example) => fixedById.get(example.id) ?? example);
 }
 
 /**
