@@ -55,18 +55,34 @@ data class ImportCatalogZipResult(
 @Component
 class ImportCatalogZipHandler(
     private val objectMapper: ObjectMapper,
+    private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
-        // Extract ZIP contents into memory
+        // Size checks: compressed ZIP and decompressed total
+        val maxZipSize = sizeLimits.maxZipSize.toBytes()
+        val maxDecompressedSize = sizeLimits.maxDecompressedSize.toBytes()
+
+        require(command.zipBytes.size <= maxZipSize) {
+            "Catalog ZIP exceeds maximum size of ${sizeLimits.maxZipSize} " +
+                "(actual: ${command.zipBytes.size / 1024 / 1024} MB)"
+        }
+
+        // Extract ZIP contents into memory with decompression limit
         val entries = mutableMapOf<String, ByteArray>()
+        var totalDecompressed = 0L
         ZipInputStream(ByteArrayInputStream(command.zipBytes)).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
                 if (!entry.isDirectory) {
-                    entries[entry.name] = zip.readAllBytes()
+                    val bytes = zip.readAllBytes()
+                    totalDecompressed += bytes.size
+                    require(totalDecompressed <= maxDecompressedSize) {
+                        "Catalog ZIP decompressed content exceeds maximum size of ${sizeLimits.maxDecompressedSize}"
+                    }
+                    entries[entry.name] = bytes
                 }
                 entry = zip.nextEntry
             }

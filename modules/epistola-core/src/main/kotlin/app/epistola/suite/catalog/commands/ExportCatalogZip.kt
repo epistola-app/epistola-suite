@@ -55,6 +55,7 @@ data class ExportCatalogZipResult(
 class ExportCatalogZipHandler(
     private val objectMapper: ObjectMapper,
     private val jdbi: Jdbi,
+    private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
@@ -156,8 +157,14 @@ class ExportCatalogZipHandler(
             }
         }
 
+        val zipBytes = baos.toByteArray()
+        require(zipBytes.size <= sizeLimits.maxDecompressedSize.toBytes()) {
+            "Catalog export exceeds maximum size of ${sizeLimits.maxDecompressedSize} " +
+                "(actual: ${zipBytes.size / 1024 / 1024} MB)"
+        }
+
         val filename = "${command.catalogKey.value}-$version.zip"
-        return ExportCatalogZipResult(zipBytes = baos.toByteArray(), filename = filename)
+        return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)
     }
 
     private fun listTemplateSlugs(tenantKey: TenantKey, catalogKey: CatalogKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
