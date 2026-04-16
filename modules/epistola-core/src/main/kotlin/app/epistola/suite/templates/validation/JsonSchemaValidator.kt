@@ -17,6 +17,8 @@ import tools.jackson.databind.node.ObjectNode
 class JsonSchemaValidator(
     private val objectMapper: ObjectMapper,
 ) {
+    private val requiredPropertyRegex = Regex("required property '([^']+)'")
+
     private val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
 
     /**
@@ -56,7 +58,34 @@ class JsonSchemaValidator(
         val jsonSchema = schemaRegistry.getSchema(schemaJson)
         val errors = jsonSchema.validate(dataJson, InputFormat.JSON)
 
-        return errors.map { error -> ValidationError(error.message, error.instanceLocation.toString()) }
+        return errors.map { error ->
+            val basePath = error.instanceLocation.toString()
+            ValidationError(
+                message = error.message,
+                path = normalizeValidationPath(error.message, basePath),
+            )
+        }
+    }
+
+    private fun normalizeValidationPath(message: String, basePath: String): String {
+        val requiredProperty = requiredPropertyRegex.find(message)?.groupValues?.getOrNull(1)
+            ?: return basePath
+
+        if (requiredProperty.isBlank()) {
+            return basePath
+        }
+
+        val sanitizedBase = when {
+            basePath.isBlank() || basePath == "$" -> ""
+            basePath.endsWith("/") -> basePath.dropLast(1)
+            else -> basePath
+        }
+
+        return if (sanitizedBase.isEmpty()) {
+            "/$requiredProperty"
+        } else {
+            "$sanitizedBase/$requiredProperty"
+        }
     }
 
     /**

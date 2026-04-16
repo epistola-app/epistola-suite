@@ -11,6 +11,8 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.RecentUsageCompatibilityResult
+import app.epistola.suite.templates.validation.TemplateRecentUsageCompatibilityService
 import app.epistola.suite.templates.validation.ValidationError
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -56,52 +58,62 @@ class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val recentUsageCompatibilityService: TemplateRecentUsageCompatibilityService,
 ) : CommandHandler<UpdateDocumentTemplate, UpdateDocumentTemplateResult?> {
     override fun handle(command: UpdateDocumentTemplate): UpdateDocumentTemplateResult? {
-        // Validate examples against schema and collect warnings
+        // Validate examples and recent usage against schema before persistence
         val warnings = mutableMapOf<String, List<ValidationError>>()
+        val blockingErrors = mutableMapOf<String, MutableList<ValidationError>>()
         val schemaToValidate = command.dataModel
         val examplesToValidate = command.dataExamples
+        var existingTemplate: DocumentTemplate? = null
+
+        fun getExistingTemplate(): DocumentTemplate? {
+            if (existingTemplate == null) {
+                existingTemplate = getExisting(command.id)
+            }
+            return existingTemplate
+        }
 
         if (schemaToValidate != null && examplesToValidate != null && examplesToValidate.isNotEmpty()) {
             val errors = jsonSchemaValidator.validateExamples(schemaToValidate, examplesToValidate)
-            if (errors.isNotEmpty()) {
-                if (command.forceUpdate) {
-                    warnings.putAll(errors)
-                } else {
-                    throw DataModelValidationException(errors)
-                }
-            }
+            mergeValidationErrors(blockingErrors, errors)
         }
 
         // If only schema is being updated, validate existing examples against new schema
         if (schemaToValidate != null && examplesToValidate == null) {
-            val existing = getExisting(command.id) ?: return null
+            val existing = getExistingTemplate() ?: return null
             if (existing.dataExamples.isNotEmpty()) {
                 val errors = jsonSchemaValidator.validateExamples(schemaToValidate, existing.dataExamples)
-                if (errors.isNotEmpty()) {
-                    if (command.forceUpdate) {
-                        warnings.putAll(errors)
-                    } else {
-                        throw DataModelValidationException(errors)
-                    }
-                }
+                mergeValidationErrors(blockingErrors, errors)
             }
         }
 
         // If only examples are being updated, validate against existing schema
         if (schemaToValidate == null && examplesToValidate != null && examplesToValidate.isNotEmpty()) {
-            val existing = getExisting(command.id) ?: return null
+            val existing = getExistingTemplate() ?: return null
             val existingSchema = existing.dataModel
             if (existingSchema != null) {
                 val errors = jsonSchemaValidator.validateExamples(existingSchema, examplesToValidate)
-                if (errors.isNotEmpty()) {
-                    if (command.forceUpdate) {
-                        warnings.putAll(errors)
-                    } else {
-                        throw DataModelValidationException(errors)
-                    }
-                }
+                mergeValidationErrors(blockingErrors, errors)
+            }
+        }
+
+        if (schemaToValidate != null) {
+            val recentUsageResult = recentUsageCompatibilityService.analyze(
+                tenantKey = command.id.tenantKey,
+                templateKey = command.id.key,
+                schema = schemaToValidate,
+            )
+            mergeValidationErrors(blockingErrors, mapRecentUsageErrors(recentUsageResult))
+        }
+
+        if (blockingErrors.isNotEmpty()) {
+            val immutableErrors = blockingErrors.mapValues { (_, value) -> value.toList() }
+            if (command.forceUpdate) {
+                warnings.putAll(immutableErrors)
+            } else {
+                throw DataModelValidationException(immutableErrors)
             }
         }
 
@@ -159,6 +171,27 @@ class UpdateDocumentTemplateHandler(
         } ?: return null
 
         return UpdateDocumentTemplateResult(template = updated, warnings = warnings)
+    }
+
+    private fun mergeValidationErrors(
+        target: MutableMap<String, MutableList<ValidationError>>,
+        source: Map<String, List<ValidationError>>,
+    ) {
+        source
+            .filterValues { it.isNotEmpty() }
+            .forEach { (key, errors) ->
+                target.getOrPut(key) { mutableListOf() }.addAll(errors)
+            }
+    }
+
+    private fun mapRecentUsageErrors(result: RecentUsageCompatibilityResult): Map<String, List<ValidationError>> = result.issues.associate { issue ->
+        "recent-request:${issue.requestId}" to issue.errors.map { error ->
+            val correlationInfo = issue.correlationKey?.let { " correlation=$it" } ?: ""
+            ValidationError(
+                message = "${error.message} [status=${issue.status.name}$correlationInfo]",
+                path = "request:${issue.requestId} ${error.path}".trim(),
+            )
+        }
     }
 
     private fun getExisting(id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->

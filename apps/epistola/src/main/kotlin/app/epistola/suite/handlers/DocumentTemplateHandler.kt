@@ -27,7 +27,10 @@ import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
+import app.epistola.suite.templates.validation.RecentUsageCompatibilityResult
+import app.epistola.suite.templates.validation.RecentUsageValidationIssue
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
+import app.epistola.suite.templates.validation.TemplateRecentUsageCompatibilityService
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.http.MediaType
@@ -36,6 +39,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.time.OffsetDateTime
 
 /**
  * Request body for updating a document template's metadata.
@@ -81,12 +85,49 @@ data class ValidateSchemaResponse(
     val compatible: Boolean,
     val errors: List<ValidationError>,
     val migrations: List<MigrationSuggestion>,
+    val recentUsage: RecentUsageValidationResponse,
 ) {
     companion object {
-        fun from(result: SchemaCompatibilityResult) = ValidateSchemaResponse(
-            compatible = result.compatible,
-            errors = result.errors,
-            migrations = result.migrations,
+        fun from(
+            schemaResult: SchemaCompatibilityResult,
+            recentUsageResult: RecentUsageCompatibilityResult,
+        ) = ValidateSchemaResponse(
+            compatible = schemaResult.compatible && recentUsageResult.compatible,
+            errors = schemaResult.errors,
+            migrations = schemaResult.migrations,
+            recentUsage = RecentUsageValidationResponse.from(recentUsageResult),
+        )
+    }
+}
+
+data class RecentUsageValidationResponse(
+    val checkedCount: Int,
+    val incompatibleCount: Int,
+    val issues: List<RecentUsageIssueResponse>,
+) {
+    companion object {
+        fun from(result: RecentUsageCompatibilityResult) = RecentUsageValidationResponse(
+            checkedCount = result.checkedCount,
+            incompatibleCount = result.incompatibleCount,
+            issues = result.issues.map(RecentUsageIssueResponse::from),
+        )
+    }
+}
+
+data class RecentUsageIssueResponse(
+    val requestId: String,
+    val createdAt: OffsetDateTime,
+    val correlationKey: String?,
+    val status: String,
+    val errors: List<ValidationError>,
+) {
+    companion object {
+        fun from(issue: RecentUsageValidationIssue) = RecentUsageIssueResponse(
+            requestId = issue.requestId,
+            createdAt = issue.createdAt,
+            correlationKey = issue.correlationKey,
+            status = issue.status.name,
+            errors = issue.errors,
         )
     }
 }
@@ -101,6 +142,7 @@ data class ValidateSchemaResponse(
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val recentUsageCompatibilityService: TemplateRecentUsageCompatibilityService,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -335,14 +377,20 @@ class DocumentTemplateHandler(
 
         val examplesToValidate = validateRequest.examples ?: template.dataExamples
 
-        val result = jsonSchemaValidator.analyzeCompatibility(
+        val schemaResult = jsonSchemaValidator.analyzeCompatibility(
             schema = validateRequest.schema,
             examples = examplesToValidate,
         )
 
+        val recentUsageResult = recentUsageCompatibilityService.analyze(
+            tenantKey = tenantId.key,
+            templateKey = templateId.key,
+            schema = validateRequest.schema,
+        )
+
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(ValidateSchemaResponse.from(result))
+            .body(ValidateSchemaResponse.from(schemaResult, recentUsageResult))
     }
 
     /**
