@@ -1,5 +1,7 @@
 # Epistola Suite Changelog
 
+> **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
+
 ## [Unreleased]
 
 ### Fixed
@@ -33,6 +35,24 @@
   - **DB**: Generic `catalog_resources` table replaces `catalog_templates`.
   - **UI**: Browse page shows resource types with badges. Install confirmation dialog previews what will be installed (including auto-resolved dependencies). HTMX inline updates with OOB success/error alerts.
 - **BREAKING: Import/export moved to catalog module**: `ImportTemplates` and `ExportTemplates` moved from `epistola-core` to `epistola-catalog`. The catalog module is now the exchange boundary for all import/export operations. `TestTemplateBuilder` moved to the shared testing module.
+- **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
+- **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
+
+### Fixed
+
+- **Thymeleaf CVE-2026-40477 and CVE-2026-40478**: Override Thymeleaf to 3.1.4.RELEASE to fix critical expression injection vulnerabilities (pending Spring Boot 4.0.6)
+
+### Changed
+
+- **Helm chart workflow aligned with app release**: The Helm workflow now triggers on `release: published` (for `chart-*` tags) instead of `workflow_dispatch`, matching the app release pattern
+- **Vulnerability scan output in CI**: Trivy scan results are now printed to the workflow log when vulnerabilities are found, instead of silently failing with just an exit code
+
+## [0.14.0] - 2026-04-10
+
+### Added
+
+- **Explicit OIDC vs Keycloak admin chart config**: Split the Helm chart's single Keycloak block into separate `oidc` and `keycloakAdmin` settings, so browser login and admin/bootstrap wiring can be configured independently.
+- **Helm pinned in `.mise.toml`**: Added `helm` to project-level tool versions for consistent chart development.
 - **Per-tenant feature toggles**: Tenant managers can enable/disable features per tenant via Settings > Features. Global defaults are configured in `application.yaml` (`epistola.features.*`), with per-tenant overrides stored in the database. The feedback feature is the first gated capability — when disabled, the feedback nav link, FAB button, and console capture script are hidden for that tenant.
 - **CodeQL static analysis**: New GitHub Actions workflow (`.github/workflows/codeql.yml`) that runs CodeQL SAST scanning on every push and PR to main, plus a weekly schedule. Scans both Java/Kotlin backend and JavaScript/TypeScript frontend with the `security-and-quality` query suite. Results appear in the GitHub Security tab under Code scanning.
 - **Content Security Policy headers**: CSP headers are now set on all UI responses, restricting script/style/font/image sources and blocking framing and plugin-based attacks.

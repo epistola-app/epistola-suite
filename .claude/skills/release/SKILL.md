@@ -53,13 +53,15 @@ Before creating the release, show the user:
 
 ### 4. Push and create the release
 
+Build the release body from the `[X.Y.Z]` section of `CHANGELOG.md` (everything between the version heading and the next `## [` heading). Then create the release:
+
 ```bash
 COMMIT_SHA=$(git rev-parse HEAD)
 git push origin main
-gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes --target "$COMMIT_SHA"
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "$RELEASE_BODY" --target "$COMMIT_SHA"
 ```
 
-The `--generate-notes` flag auto-generates release notes from PRs and commits. The `--target` flag pins the release to the changelog commit, preventing issues if another commit (e.g., coverage badge) lands on main between the push and release creation.
+The `--target` flag pins the release to the changelog commit, preventing issues if another commit (e.g., coverage badge) lands on main between the push and release creation.
 
 ### 5. Verify
 

@@ -42,7 +42,7 @@ jobs:
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -68,7 +68,7 @@ jobs:
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
 
       - name: Cache Playwright browsers
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('gradle/libs.versions.toml') }}
@@ -175,27 +175,49 @@ jobs:
           pnpm --filter @epistola/editor sbom
 
       - name: Scan backend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
+        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
           format: "table"
-          exit-code: "1"
+          exit-code: "0"
           severity: "CRITICAL"
           output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # master
+        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
           format: "table"
-          exit-code: "1"
+          exit-code: "0"
           severity: "CRITICAL"
           output: "frontend-vulnerability-report.txt"
 
+      - name: Check vulnerability scan results
+        run: |
+          failed=false
+          for report in backend-vulnerability-report.txt frontend-vulnerability-report.txt; do
+            if [ -f "$report" ]; then
+              name="${report%-vulnerability-report.txt}"
+              # Check if any vulnerabilities were found (Total: N where N > 0)
+              if grep -qP 'Total: [1-9]' "$report"; then
+                echo "::error::Critical vulnerabilities found in $name dependencies:"
+                echo ""
+                cat "$report"
+                echo ""
+                failed=true
+              fi
+            fi
+          done
+          if [ "$failed" = true ]; then
+            echo "::error::Vulnerability scan failed. Update the affected dependencies to fixed versions."
+            exit 1
+          fi
+          echo "No critical vulnerabilities found."
+
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sbom
           path: |
@@ -204,7 +226,7 @@ jobs:
           retention-days: 7
 
       - name: Upload vulnerability reports
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
           name: vulnerability-reports
@@ -263,7 +285,7 @@ jobs:
 
       - name: Setup pnpm cache
         if: ${{ matrix.enabled }}
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}

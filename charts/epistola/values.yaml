@@ -145,27 +145,41 @@ observability:
     datasourceName: "Prometheus"
     folder: "Epistola"
 
-# Keycloak / OAuth2 configuration (optional, requires config.profiles to include "keycloak")
-keycloak:
+# OIDC login configuration (optional, requires config.profiles to include "keycloak")
+oidc:
   enabled: false
-  # Plain values (used when existingSecret is empty)
+  # Client ID used for browser login and resource-server validation.
   clientId: epistola-suite
-  issuerUri: ""
-  # Reference a pre-existing secret containing Keycloak credentials.
-  # When set, all values are read from the secret using the key names in secretKeys.
-  # When empty, plain values above are used (suitable for dev/testing).
+  # Client secret used for the OIDC client.
+  clientSecret: ""
+  # Reference a pre-existing secret containing the OIDC client secret.
   existingSecret: ""
-  # Key names within the existing secret
-  secretKeys:
-    clientId: client-id
-    clientSecret: client-secret
-    issuerUri: issuer-uri
-  # Ensure base group hierarchy (/epistola/tenants, /epistola/global/*, /epistola/platform/*) exists on startup
-  ensureGroups: false
+  # Key within the existing secret that holds the client secret.
+  secretKey: client-secret
+  # Issuer URI for browser-facing OAuth2 / JWT validation.
+  issuerUri: ""
   # Internal base URL for server-to-server OIDC calls (token, JWK, userinfo).
   # Use when Keycloak is reachable at a different URL from within the cluster
   # than from the browser (e.g., http://keycloak-svc/auth vs https://auth.example.com/auth).
   backchannelBaseUrl: ""
+
+# Keycloak admin/provisioning configuration (optional, for group bootstrap)
+keycloakAdmin:
+  enabled: false
+  # Explicit admin URL for the Keycloak Admin REST API.
+  adminUrl: ""
+  # Realm to manage.
+  realm: epistola
+  # Client ID used for client-credentials authentication.
+  clientId: epistola-suite
+  # Client secret used for client-credentials authentication.
+  clientSecret: ""
+  # Reference a pre-existing secret containing the admin client secret.
+  existingSecret: ""
+  # Key within the existing secret that holds the client secret.
+  secretKey: client-secret
+  # Ensure base group hierarchy (/epistola/tenants, /epistola/global/*, /epistola/platform/*) exists on startup.
+  ensureGroups: false
 
 # Application configuration
 config:

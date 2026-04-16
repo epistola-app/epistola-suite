@@ -278,7 +278,7 @@ To add tests to a new module: `testImplementation(project(":modules:testing"))` 
 3. **Format all files** - `pnpm format` before committing (covers JSON, TypeScript, Markdown, CSS, etc. — includes documentation-only changes)
 4. **Format Kotlin** - `./gradlew ktlintFormat` after making Kotlin changes
 5. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
-6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
+6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`. Helm chart changes go in `charts/epistola/CHANGELOG.md`; all other changes go in the root `CHANGELOG.md`.
 7. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
 8. **Small commits** - Commit logical units of work separately
 
