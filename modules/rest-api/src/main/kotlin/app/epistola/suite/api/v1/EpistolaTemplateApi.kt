@@ -6,8 +6,6 @@ import app.epistola.api.VersionsApi
 import app.epistola.api.model.ActivationListResponse
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
-import app.epistola.api.model.ImportTemplatesRequest
-import app.epistola.api.model.ImportTemplatesResponse
 import app.epistola.api.model.PublishVersionRequest
 import app.epistola.api.model.TemplateDataValidationError
 import app.epistola.api.model.TemplateDataValidationResult
@@ -111,14 +109,6 @@ class EpistolaTemplateApi(
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
     }
-
-    override fun importTemplates(
-        tenantId: String,
-        catalogId: String,
-        importTemplatesRequest: ImportTemplatesRequest,
-    ): ResponseEntity<ImportTemplatesResponse> = throw UnsupportedOperationException(
-        "importTemplates is deprecated — use the catalog import endpoint instead",
-    )
 
     override fun getTemplate(
         tenantId: String,

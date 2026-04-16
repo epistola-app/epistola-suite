@@ -10,6 +10,7 @@ import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -112,6 +113,7 @@ internal fun GenerateDocumentRequest.toCommand(
     }
     return app.epistola.suite.documents.commands.GenerateDocument(
         tenantId = TenantKey.of(tenantId),
+        catalogKey = CatalogKey.of(catalogId),
         templateId = TemplateKey.of(templateId),
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
@@ -130,6 +132,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
         "Cannot specify both variantId and attributes"
     }
     return app.epistola.suite.documents.commands.BatchGenerationItem(
+        catalogKey = CatalogKey.of(catalogId),
         templateId = TemplateKey.of(templateId),
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
@@ -169,10 +172,9 @@ internal fun GenerateBatchRequest.toCommand(
 
 internal fun PreviewDocumentRequest.toQuery(
     tenantId: String,
-    catalogKey: String = "default",
 ) = PreviewDocument(
     tenantId = TenantKey.of(tenantId),
-    catalogKey = app.epistola.suite.common.ids.CatalogKey.of(catalogKey),
+    catalogKey = CatalogKey.of(catalogId),
     templateId = TemplateKey.of(templateId),
     variantId = variantId?.let { VariantKey.of(it) },
     variantSelectionCriteria = attributes?.toSelectionCriteria(),

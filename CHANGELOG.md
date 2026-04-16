@@ -2,8 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Document generation passes catalogId**: The REST API mappers (`DocumentDtoMappers`) now correctly pass `catalogId` from API requests to the `GenerateDocument`, `BatchGenerationItem`, and `PreviewDocument` commands. Previously these defaulted to `CatalogKey.DEFAULT`, causing `DEFAULT_VARIANT_NOT_FOUND` errors when generating documents for templates in non-default catalogs.
+
 ### Changed
 
+- **Catalog import creates published versions**: Imported templates now get published versions instead of drafts, making catalogs ready to use immediately without manual publishing.
+- **Removed template import endpoint**: The `POST /templates/import` endpoint (superseded by catalog import) has been removed. The `importTemplates` override was already a throwing stub.
 - **ProtocolMapper centralizes type conversions**: Extracted all inline conversions between protocol `Map<String, Any?>` types and suite internal types (ObjectNode, DocumentStyles, BlockStylePresets) into a new `ProtocolMapper` component. Cleaned up scattered conversion logic in `ImportCatalogZip`, `InstallFromCatalog`.
 
 ### Added
