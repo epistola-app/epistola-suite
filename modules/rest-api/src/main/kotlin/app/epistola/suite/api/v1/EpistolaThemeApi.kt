@@ -10,6 +10,7 @@ import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -35,12 +36,14 @@ class EpistolaThemeApi(
 
     override fun listThemes(
         tenantId: String,
+        catalogId: String,
         q: String?,
     ): ResponseEntity<ThemeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val themes = ListThemes(
             tenantId = tenantIdComposite,
             searchTerm = q,
+            catalogKey = CatalogKey.of(catalogId),
         ).query()
 
         return ResponseEntity.ok(
@@ -52,10 +55,11 @@ class EpistolaThemeApi(
 
     override fun createTheme(
         tenantId: String,
+        catalogId: String,
         createThemeRequest: CreateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(createThemeRequest.id), CatalogId.default(tenantIdComposite))
+        val themeIdComposite = ThemeId(ThemeKey.of(createThemeRequest.id), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val theme = CreateTheme(
             id = themeIdComposite,
             name = createThemeRequest.name,
@@ -73,10 +77,11 @@ class EpistolaThemeApi(
 
     override fun getTheme(
         tenantId: String,
+        catalogId: String,
         themeId: String,
     ): ResponseEntity<ThemeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId.default(tenantIdComposite))
+        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val theme = GetTheme(
             id = themeIdComposite,
         ).query() ?: return ResponseEntity.notFound().build()
@@ -86,11 +91,12 @@ class EpistolaThemeApi(
 
     override fun updateTheme(
         tenantId: String,
+        catalogId: String,
         themeId: String,
         updateThemeRequest: UpdateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId.default(tenantIdComposite))
+        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val theme = UpdateTheme(
             id = themeIdComposite,
             name = updateThemeRequest.name,
@@ -106,10 +112,11 @@ class EpistolaThemeApi(
 
     override fun deleteTheme(
         tenantId: String,
+        catalogId: String,
         themeId: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId.default(tenantIdComposite))
+        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val deleted = DeleteTheme(
             id = themeIdComposite,
         ).execute()

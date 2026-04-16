@@ -15,6 +15,7 @@ import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toStencilVersionStatus
 import app.epistola.suite.api.v1.shared.toSummaryDto
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
@@ -51,6 +52,7 @@ class EpistolaStencilApi(
 
     override fun listStencils(
         tenantId: String,
+        catalogId: String,
         q: String?,
         tag: String?,
     ): ResponseEntity<StencilListResponse> {
@@ -70,10 +72,11 @@ class EpistolaStencilApi(
 
     override fun createStencil(
         tenantId: String,
+        catalogId: String,
         createStencilRequest: CreateStencilRequest,
     ): ResponseEntity<StencilDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilId = StencilId(StencilKey.of(createStencilRequest.id), CatalogId.default(tenantIdComposite))
+        val stencilId = StencilId(StencilKey.of(createStencilRequest.id), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val content = createStencilRequest.content?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.template.model.TemplateDocument::class.java)
         }
@@ -94,10 +97,11 @@ class EpistolaStencilApi(
 
     override fun getStencil(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
     ): ResponseEntity<StencilDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
 
         val stencil = GetStencil(id = stencilIdComposite).query()
             ?: return ResponseEntity.notFound().build()
@@ -108,11 +112,12 @@ class EpistolaStencilApi(
 
     override fun updateStencil(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         updateStencilRequest: UpdateStencilRequest,
     ): ResponseEntity<StencilDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
 
         val stencil = UpdateStencil(
             id = stencilIdComposite,
@@ -127,10 +132,11 @@ class EpistolaStencilApi(
 
     override fun deleteStencil(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val deleted = DeleteStencil(id = stencilIdComposite).execute()
 
         return if (deleted) {
@@ -144,11 +150,12 @@ class EpistolaStencilApi(
 
     override fun listStencilVersions(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         status: String?,
     ): ResponseEntity<StencilVersionListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
 
         val versions = ListStencilVersions(
             stencilId = stencilIdComposite,
@@ -164,11 +171,12 @@ class EpistolaStencilApi(
 
     override fun createStencilVersion(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         createStencilVersionRequest: CreateStencilVersionRequest?,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val content = createStencilVersionRequest?.content?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.template.model.TemplateDocument::class.java)
         }
@@ -185,11 +193,12 @@ class EpistolaStencilApi(
 
     override fun getStencilVersion(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         versionId: Int,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val version = GetStencilVersion(versionId = versionIdComposite).query()
@@ -200,12 +209,13 @@ class EpistolaStencilApi(
 
     override fun updateStencilDraft(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         versionId: Int,
         updateStencilDraftRequest: UpdateStencilDraftRequest,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
         val content = updateStencilDraftRequest.content?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.template.model.TemplateDocument::class.java)
@@ -223,11 +233,12 @@ class EpistolaStencilApi(
 
     override fun publishStencilVersion(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         versionId: Int,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val version = PublishStencilVersion(versionId = versionIdComposite).execute()
@@ -238,11 +249,12 @@ class EpistolaStencilApi(
 
     override fun archiveStencilVersion(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         versionId: Int,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val version = ArchiveStencilVersion(versionId = versionIdComposite).execute()
@@ -255,11 +267,12 @@ class EpistolaStencilApi(
 
     override fun getStencilVersionUsage(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         versionId: Int,
     ): ResponseEntity<StencilUsageListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId.default(tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val usages = GetStencilUsage(versionId = versionIdComposite).query()
@@ -273,6 +286,7 @@ class EpistolaStencilApi(
 
     override fun previewStencilUpgrade(
         tenantId: String,
+        catalogId: String,
         stencilId: String,
         versionId: Int,
     ): ResponseEntity<UpgradePreviewListResponse> {
