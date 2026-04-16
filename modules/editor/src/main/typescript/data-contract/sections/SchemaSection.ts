@@ -20,7 +20,7 @@ import type {
 import type { SchemaCommand } from '../utils/schemaCommands.js';
 import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
-import { renderValidationMessages } from './ValidationMessages.js';
+import { renderValidationSummary } from './ValidationMessages.js';
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>;
@@ -35,6 +35,7 @@ export interface SchemaSectionCallbacks {
   onSelectField: (fieldId: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onReviewWarnings: () => void;
 }
 
 // =============================================================================
@@ -52,6 +53,8 @@ export function renderSchemaSection(
   const selectedField = uiState.selectedFieldId
     ? findFieldById(fields, uiState.selectedFieldId)
     : null;
+  const isLastRootFieldSelected =
+    !!selectedField && fields.length === 1 && fields[0].id === selectedField.id;
 
   return html`
     <section class="dc-section">
@@ -87,14 +90,19 @@ export function renderSchemaSection(
       </div>
 
       <!-- Validation warnings -->
-      ${renderValidationMessages(uiState.warnings)}
+      ${renderValidationSummary(uiState.warnings, callbacks.onReviewWarnings)}
+
+      <div class="dc-schema-save-note" role="note">
+        Removing schema fields can leave template expressions unresolved if generation input data no
+        longer provides those values.
+      </div>
 
       <!-- Two-panel layout -->
       ${hasFields
         ? html`
             <div class="dc-schema-layout">
               ${renderFieldList(fields, uiState, callbacks, expandedFields)}
-              ${renderDetailPanel(selectedField, callbacks)}
+              ${renderDetailPanel(selectedField, callbacks, !isLastRootFieldSelected)}
             </div>
           `
         : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
@@ -174,7 +182,11 @@ const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
   { value: 'uri', label: 'URI' },
 ];
 
-function renderDetailPanel(field: SchemaField | null, callbacks: SchemaSectionCallbacks): unknown {
+function renderDetailPanel(
+  field: SchemaField | null,
+  callbacks: SchemaSectionCallbacks,
+  canDeleteField: boolean,
+): unknown {
   if (!field) {
     return html`
       <div class="dc-detail-panel">
@@ -312,6 +324,8 @@ function renderDetailPanel(field: SchemaField | null, callbacks: SchemaSectionCa
 
           <button
             class="dc-detail-delete-btn"
+            ?disabled=${!canDeleteField}
+            title=${canDeleteField ? 'Delete field' : 'A schema must contain at least one field'}
             @click=${() => callbacks.onCommand({ type: 'deleteField', fieldId: field.id })}
           >
             Delete Field
