@@ -7,6 +7,7 @@ import app.epistola.suite.catalog.protocol.CatalogInfo
 import app.epistola.suite.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.protocol.DataExampleEntry
+import app.epistola.suite.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.protocol.PublisherInfo
 import app.epistola.suite.catalog.protocol.ReleaseInfo
 import app.epistola.suite.catalog.protocol.ResourceDetail
@@ -89,12 +90,14 @@ class ExportCatalogZipHandler(
         for (asset in assets) addResource("asset", asset.slug, asset.name, null, asset)
         for (template in templates) addResource("template", template.slug, template.name, null, template)
 
+        // Build manifest first (without dependencies)
         val manifest = CatalogManifest(
             schemaVersion = 2,
             catalog = CatalogInfo(slug = command.catalogKey.value, name = catalog.name, description = catalog.description),
             publisher = PublisherInfo(name = "Epistola"),
             release = ReleaseInfo(version = version),
             resources = resourceEntries,
+            dependencies = findCrossCatalogDependencies(templates, resourceEntries, command.catalogKey.value),
         )
 
         // Build the ZIP
@@ -217,5 +220,60 @@ class ExportCatalogZipHandler(
                 },
             )
         }
+    }
+
+    /**
+     * Scan template models for references to resources NOT in this catalog's manifest.
+     * Collect them as cross-catalog dependencies. No DB queries — purely in-memory.
+     */
+    private fun findCrossCatalogDependencies(
+        templates: List<TemplateResource>,
+        manifestResources: List<ResourceEntry>,
+        catalogKey: String,
+    ): List<DependencyRef>? {
+        // Build a set of all resources included in this catalog
+        val ownResources = manifestResources.map { "${it.type}:${it.slug}" }.toSet()
+
+        val dependencies = mutableSetOf<DependencyRef>()
+
+        for (template in templates) {
+            val docs = mutableListOf(template.templateModel)
+            template.variants.mapNotNull { it.templateModel }.forEach { docs.add(it) }
+
+            for (doc in docs) {
+                // Theme references
+                val themeRef = doc.themeRef
+                if (themeRef is app.epistola.template.model.ThemeRefOverride) {
+                    val refCatalog = themeRef.catalogKey
+                    if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeId}" !in ownResources) {
+                        dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, slug = themeRef.themeId))
+                    }
+                }
+
+                // Node references
+                for (node in doc.nodes.values) {
+                    when (node.type) {
+                        "stencil" -> {
+                            val refCatalog = node.props?.get("catalogKey") as? String
+                            val stencilId = node.props?.get("stencilId") as? String
+                            if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
+                                dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
+                            }
+                        }
+                        "image" -> {
+                            val assetId = node.props?.get("assetId") as? String
+                            if (assetId != null && "asset:$assetId" !in ownResources) {
+                                // Asset is external — we don't know which catalog it's in from the template model alone,
+                                // but we know it's not in this catalog. Use the current catalog as placeholder.
+                                // The importing system will resolve it by tenant-global asset lookup.
+                                dependencies.add(DependencyRef.Asset(slug = assetId))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return dependencies.toList().ifEmpty { null }
     }
 }

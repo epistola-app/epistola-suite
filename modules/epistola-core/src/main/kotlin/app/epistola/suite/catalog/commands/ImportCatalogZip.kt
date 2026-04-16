@@ -56,6 +56,7 @@ data class ImportCatalogZipResult(
 class ImportCatalogZipHandler(
     private val objectMapper: ObjectMapper,
     private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -101,6 +102,24 @@ class ImportCatalogZipHandler(
                 "Catalog '${catalogKey.value}' is subscribed and cannot be updated from a ZIP. " +
                     "Only authored catalogs can be updated.",
             )
+        }
+
+        // Validate cross-catalog dependencies exist (batch check)
+        if (!manifest.dependencies.isNullOrEmpty()) {
+            val missing = findMissingDependencies(command.tenantKey, manifest.dependencies)
+            if (missing.isNotEmpty()) {
+                val details = missing.joinToString(", ") { dep ->
+                    when (dep) {
+                        is app.epistola.suite.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.suite.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.suite.catalog.protocol.DependencyRef.Asset -> "asset '${dep.slug}'"
+                    }
+                }
+                throw IllegalArgumentException(
+                    "Catalog '${catalogKey.value}' has unmet dependencies: $details. " +
+                        "Import or create these resources first.",
+                )
+            }
         }
 
         // Create catalog if it doesn't exist
@@ -235,6 +254,62 @@ class ImportCatalogZipHandler(
                 width = resource.width,
                 height = resource.height,
             ).execute()
+        }
+    }
+
+    /**
+     * Checks all dependencies in a single query per resource type.
+     * Returns the list of dependencies that do NOT exist in the target system.
+     */
+    private fun findMissingDependencies(
+        tenantKey: TenantKey,
+        deps: List<app.epistola.suite.catalog.protocol.DependencyRef>,
+    ): List<app.epistola.suite.catalog.protocol.DependencyRef> {
+        if (deps.isEmpty()) return emptyList()
+
+        val found = mutableSetOf<String>() // unique key per dependency
+
+        jdbi.withHandle<Unit, Exception> { handle ->
+            // Catalog-scoped: themes
+            val themeDeps = deps.filterIsInstance<app.epistola.suite.catalog.protocol.DependencyRef.Theme>()
+            if (themeDeps.isNotEmpty()) {
+                handle.createQuery("SELECT catalog_key, id FROM themes WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
+                    .bind("tenantKey", tenantKey)
+                    .bindList("slugs", themeDeps.map { it.slug })
+                    .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }
+                    .list()
+                    .let { found.addAll(it) }
+            }
+
+            // Catalog-scoped: stencils
+            val stencilDeps = deps.filterIsInstance<app.epistola.suite.catalog.protocol.DependencyRef.Stencil>()
+            if (stencilDeps.isNotEmpty()) {
+                handle.createQuery("SELECT catalog_key, id FROM stencils WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
+                    .bind("tenantKey", tenantKey)
+                    .bindList("slugs", stencilDeps.map { it.slug })
+                    .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }
+                    .list()
+                    .let { found.addAll(it) }
+            }
+
+            // Tenant-global: assets
+            val assetDeps = deps.filterIsInstance<app.epistola.suite.catalog.protocol.DependencyRef.Asset>()
+            if (assetDeps.isNotEmpty()) {
+                handle.createQuery("SELECT id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)")
+                    .bind("tenantKey", tenantKey)
+                    .bindList("slugs", assetDeps.map { it.slug })
+                    .mapTo(String::class.java)
+                    .list()
+                    .forEach { found.add("asset:$it") }
+            }
+        }
+
+        return deps.filter { dep ->
+            when (dep) {
+                is app.epistola.suite.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
+                is app.epistola.suite.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
+                is app.epistola.suite.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
+            }
         }
     }
 }
