@@ -95,7 +95,6 @@ data class RenderingDefaults(
                 "separator" to mapOf(
                     "marginTop" to "1.5sp",
                     "marginBottom" to "1.5sp",
-                    "borderBottom" to "1pt solid #d1d5db",
                 ),
             ),
             headingSizes = mapOf(

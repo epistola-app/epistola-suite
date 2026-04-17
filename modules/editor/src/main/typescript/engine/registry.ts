@@ -441,12 +441,37 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'content',
     slots: [],
     allowedChildren: { mode: 'none' },
-    applicableStyles: ['margin', 'border', 'borderRadius'],
-    inspector: [],
+    applicableStyles: ['margin'],
+    inspector: [
+      { key: 'thickness', label: 'Thickness', type: 'unit', units: ['pt'], defaultValue: '1pt' },
+      {
+        key: 'width',
+        label: 'Width',
+        type: 'unit',
+        units: ['%'],
+        defaultValue: '100%',
+      },
+      { key: 'color', label: 'Color', type: 'color' },
+      {
+        key: 'style',
+        label: 'Style',
+        type: 'select',
+        options: [
+          { label: 'Solid', value: 'solid' },
+          { label: 'Dashed', value: 'dashed' },
+          { label: 'Dotted', value: 'dotted' },
+        ],
+      },
+    ],
     defaultStyles: {
-      borderBottom: '1pt solid #d1d5db',
       marginTop: '1.5sp',
       marginBottom: '1.5sp',
+    },
+    defaultProps: {
+      thickness: '1pt',
+      width: '100%',
+      color: '#d1d5db',
+      style: 'solid',
     },
   });
 
