@@ -18,7 +18,15 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { findMergeAt, isCellCovered, type CellMerge, type CellSelection } from './table-utils.js';
 
 /** Layout style properties available on table nodes. */
-const LAYOUT_STYLES = ['padding', 'margin', 'backgroundColor', 'border', 'borderRadius'];
+const LAYOUT_STYLES = [
+  'padding',
+  'margin',
+  'backgroundColor',
+  'border',
+  'borderRadius',
+  'keepTogether',
+  'keepWithNext',
+];
 
 export const TABLE_DEFAULT_PROPS = {
   rows: 2,

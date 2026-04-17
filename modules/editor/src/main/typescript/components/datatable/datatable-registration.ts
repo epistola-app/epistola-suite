@@ -20,7 +20,15 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { icon } from '../../ui/icons.js';
 
 /** Layout style properties available on datatable nodes. */
-const LAYOUT_STYLES = ['padding', 'margin', 'backgroundColor', 'border', 'borderRadius'];
+const LAYOUT_STYLES = [
+  'padding',
+  'margin',
+  'backgroundColor',
+  'border',
+  'borderRadius',
+  'keepTogether',
+  'keepWithNext',
+];
 
 export function createDatatableDefinition(): ComponentDefinition {
   return {

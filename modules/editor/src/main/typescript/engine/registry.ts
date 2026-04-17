@@ -348,7 +348,15 @@ export class ComponentRegistry {
 // ---------------------------------------------------------------------------
 
 /** Layout-oriented style properties (spacing + background + borders, no typography). */
-const LAYOUT_STYLES = ['padding', 'margin', 'backgroundColor', 'border', 'borderRadius'];
+const LAYOUT_STYLES = [
+  'padding',
+  'margin',
+  'backgroundColor',
+  'border',
+  'borderRadius',
+  'keepTogether',
+  'keepWithNext',
+];
 
 export function createDefaultRegistry(): ComponentRegistry {
   const registry = new ComponentRegistry();
