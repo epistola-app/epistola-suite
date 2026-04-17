@@ -50,8 +50,9 @@ export const defaultStyleRegistry: StyleRegistry = {
         {
           key: 'lineHeight',
           label: 'Line Height',
-          type: 'number',
+          type: 'unit',
           inheritable: true,
+          units: ['pt', 'sp'],
         },
         {
           key: 'letterSpacing',

@@ -325,9 +325,13 @@ class TipTapConverter(
      * Apply resolved text styles (lineHeight, etc.) to a paragraph.
      * This is the single place to add new style properties that affect TipTap paragraphs/headings.
      */
+    /**
+     * Apply pre-resolved text styles to a paragraph.
+     * Values in the map should already be in points (resolved by the caller).
+     */
     private fun applyTextStyles(paragraph: Paragraph, resolvedStyles: Map<String, Any>) {
-        (resolvedStyles["lineHeight"])?.toString()?.toFloatOrNull()?.let {
-            paragraph.setMultipliedLeading(it)
+        (resolvedStyles["lineHeight"] as? Float)?.let {
+            paragraph.setFixedLeading(it)
         }
     }
 

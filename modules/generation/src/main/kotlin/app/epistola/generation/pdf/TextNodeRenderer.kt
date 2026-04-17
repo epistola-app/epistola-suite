@@ -33,14 +33,18 @@ class TextNodeRenderer : NodeRenderer {
             context.spacingUnit,
         )
 
-        // Resolve the full style cascade for the text node — passed to TipTapConverter
-        // so it can apply properties like lineHeight, textIndent, etc. to paragraphs.
-        val resolvedStyles = buildMap<String, Any> {
-            // Inheritable document styles (lowest priority)
+        // Resolve the full style cascade, then parse size values to points.
+        // TipTapConverter receives pre-resolved values — it doesn't parse units.
+        val rawStyles = buildMap<String, Any> {
             context.documentStyles?.filterKeys { it in StyleApplicator.INHERITABLE_KEYS }?.let { putAll(it) }
-            // Preset + inline styles (higher priority)
             StyleApplicator.resolveBlockStyles(context.blockStylePresets, node.stylePreset, node.styles?.filterNonNullValues())
                 ?.let { putAll(it) }
+        }
+        val resolvedStyles = buildMap<String, Any> {
+            rawStyles["lineHeight"]?.toString()?.let { v ->
+                StyleApplicator.parseSize(v, context.renderingDefaults.baseFontSizePt, context.spacingUnit)
+                    ?.let { put("lineHeight", it) }
+            }
         }
 
         // Convert TipTap content to iText elements
