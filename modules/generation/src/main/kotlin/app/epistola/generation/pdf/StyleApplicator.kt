@@ -212,7 +212,15 @@ object StyleApplicator {
             parseSize(radius, baseFontSizePt, spacingUnit)?.let { element.setBorderRadius(BorderRadius(it)) }
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Line height: applied as multiplied leading on Paragraph elements.
+        // For Div containers, this is a no-op — line height is applied by TipTapConverter
+        // on individual paragraphs where it actually takes effect.
+        (styles["lineHeight"] as? Any)?.let { v ->
+            val value = v.toString().toFloatOrNull()
+            if (value != null && element is com.itextpdf.layout.element.Paragraph) {
+                element.setMultipliedLeading(value)
+            }
+        }
     }
 
     private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border = when (style) {
