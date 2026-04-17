@@ -443,7 +443,7 @@ export interface BorderValue {
   left: BorderSideValue;
 }
 
-const EMPTY_SIDE: BorderSideValue = { width: '', style: 'none', color: '' };
+const EMPTY_SIDE: BorderSideValue = { width: '', style: 'solid', color: '' };
 
 const BORDER_STYLES = [
   { label: 'None', value: 'none' },
@@ -667,6 +667,7 @@ export function renderBorderInput(
     <div class="style-border-input" data-linked=${sidesEqual ? 'true' : 'false'}>
       <div class="style-border-header">
         <button
+          type="button"
           class="style-border-link-toggle ${sidesEqual ? 'linked' : ''}"
           title=${sidesEqual ? 'Edit sides independently' : 'Apply to all sides'}
           ?disabled=${readOnly}
