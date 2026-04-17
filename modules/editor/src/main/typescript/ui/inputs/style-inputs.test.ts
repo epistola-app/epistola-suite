@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { expandSpacingToStyles, readSpacingFromStyles, type SpacingValue } from './style-inputs.js';
+import {
+  expandSpacingToStyles,
+  readSpacingFromStyles,
+  expandBorderToStyles,
+  readBorderFromStyles,
+  parseBorderShorthand,
+  type SpacingValue,
+  type BorderValue,
+} from './style-inputs.js';
 
 // ---------------------------------------------------------------------------
 // expandSpacingToStyles
@@ -125,5 +133,203 @@ describe('readSpacingFromStyles', () => {
     const result = readSpacingFromStyles('margin', styles);
 
     expect(result).toEqual({ top: '10px', right: '5px', bottom: '10px', left: '5px' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseBorderShorthand
+// ---------------------------------------------------------------------------
+
+describe('parseBorderShorthand', () => {
+  it('parses a full shorthand string', () => {
+    expect(parseBorderShorthand('2pt solid #ff0000')).toEqual({
+      width: '2pt',
+      style: 'solid',
+      color: '#ff0000',
+    });
+  });
+
+  it('parses width-only shorthand with defaults', () => {
+    expect(parseBorderShorthand('1pt')).toEqual({
+      width: '1pt',
+      style: 'solid',
+      color: '',
+    });
+  });
+
+  it('returns empty side for null/empty input', () => {
+    expect(parseBorderShorthand(null)).toEqual({ width: '', style: 'none', color: '' });
+    expect(parseBorderShorthand('')).toEqual({ width: '', style: 'none', color: '' });
+  });
+
+  it('parses dashed border', () => {
+    expect(parseBorderShorthand('1.5pt dashed #333')).toEqual({
+      width: '1.5pt',
+      style: 'dashed',
+      color: '#333',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// expandBorderToStyles
+// ---------------------------------------------------------------------------
+
+describe('expandBorderToStyles', () => {
+  it('writes per-side shorthand keys from a BorderValue', () => {
+    const styles: Record<string, unknown> = {};
+    const border: BorderValue = {
+      top: { width: '2pt', style: 'solid', color: '#000' },
+      right: { width: '1pt', style: 'dashed', color: '#ccc' },
+      bottom: { width: '2pt', style: 'solid', color: '#000' },
+      left: { width: '', style: 'none', color: '' },
+    };
+
+    expandBorderToStyles(border, styles);
+
+    expect(styles).toEqual({
+      borderTop: '2pt solid #000',
+      borderRight: '1pt dashed #ccc',
+      borderBottom: '2pt solid #000',
+    });
+    expect(styles.borderLeft).toBeUndefined();
+  });
+
+  it('removes legacy unified keys', () => {
+    const styles: Record<string, unknown> = {
+      borderWidth: '1pt',
+      borderStyle: 'solid',
+      borderColor: '#000',
+    };
+    const border: BorderValue = {
+      top: { width: '2pt', style: 'solid', color: '#000' },
+      right: { width: '', style: 'none', color: '' },
+      bottom: { width: '', style: 'none', color: '' },
+      left: { width: '', style: 'none', color: '' },
+    };
+
+    expandBorderToStyles(border, styles);
+
+    expect(styles.borderWidth).toBeUndefined();
+    expect(styles.borderStyle).toBeUndefined();
+    expect(styles.borderColor).toBeUndefined();
+    expect(styles.borderTop).toBe('2pt solid #000');
+  });
+
+  it('omits sides with no width', () => {
+    const styles: Record<string, unknown> = {};
+    const border: BorderValue = {
+      top: { width: '', style: 'solid', color: '#000' },
+      right: { width: '', style: 'none', color: '' },
+      bottom: { width: '', style: 'none', color: '' },
+      left: { width: '', style: 'none', color: '' },
+    };
+
+    expandBorderToStyles(border, styles);
+
+    expect(Object.keys(styles)).toHaveLength(0);
+  });
+
+  it('omits sides with style none', () => {
+    const styles: Record<string, unknown> = {};
+    const border: BorderValue = {
+      top: { width: '2pt', style: 'none', color: '#000' },
+      right: { width: '', style: 'none', color: '' },
+      bottom: { width: '1pt', style: 'solid', color: '#333' },
+      left: { width: '', style: 'none', color: '' },
+    };
+
+    expandBorderToStyles(border, styles);
+
+    expect(styles.borderTop).toBeUndefined();
+    expect(styles.borderBottom).toBe('1pt solid #333');
+  });
+
+  it('defaults missing color to #000000', () => {
+    const styles: Record<string, unknown> = {};
+    const border: BorderValue = {
+      top: { width: '1pt', style: 'solid', color: '' },
+      right: { width: '', style: 'none', color: '' },
+      bottom: { width: '', style: 'none', color: '' },
+      left: { width: '', style: 'none', color: '' },
+    };
+
+    expandBorderToStyles(border, styles);
+
+    expect(styles.borderTop).toBe('1pt solid #000000');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readBorderFromStyles
+// ---------------------------------------------------------------------------
+
+describe('readBorderFromStyles', () => {
+  it('reads per-side shorthand keys into a BorderValue', () => {
+    const styles = {
+      borderTop: '2pt solid #000',
+      borderBottom: '1pt dashed #ccc',
+    };
+
+    const result = readBorderFromStyles(styles);
+
+    expect(result).toEqual({
+      top: { width: '2pt', style: 'solid', color: '#000' },
+      right: { width: '', style: 'none', color: '' },
+      bottom: { width: '1pt', style: 'dashed', color: '#ccc' },
+      left: { width: '', style: 'none', color: '' },
+    });
+  });
+
+  it('returns undefined when no border keys are set', () => {
+    const styles = { fontSize: '14px', color: '#333' };
+
+    expect(readBorderFromStyles(styles)).toBeUndefined();
+  });
+
+  it('converts legacy unified properties to per-side', () => {
+    const styles = {
+      borderWidth: '1pt',
+      borderStyle: 'solid',
+      borderColor: '#000',
+    };
+
+    const result = readBorderFromStyles(styles);
+
+    expect(result).toEqual({
+      top: { width: '1pt', style: 'solid', color: '#000' },
+      right: { width: '1pt', style: 'solid', color: '#000' },
+      bottom: { width: '1pt', style: 'solid', color: '#000' },
+      left: { width: '1pt', style: 'solid', color: '#000' },
+    });
+  });
+
+  it('prefers per-side keys over legacy unified', () => {
+    const styles = {
+      borderWidth: '1pt',
+      borderStyle: 'solid',
+      borderColor: '#000',
+      borderTop: '3pt dashed #f00',
+    };
+
+    const result = readBorderFromStyles(styles);
+
+    // Per-side takes precedence
+    expect(result!.top).toEqual({ width: '3pt', style: 'dashed', color: '#f00' });
+  });
+
+  it('round-trips correctly through expand and read', () => {
+    const original: BorderValue = {
+      top: { width: '2pt', style: 'solid', color: '#000000' },
+      right: { width: '1pt', style: 'dashed', color: '#cccccc' },
+      bottom: { width: '2pt', style: 'solid', color: '#000000' },
+      left: { width: '', style: 'none', color: '' },
+    };
+
+    const styles: Record<string, unknown> = {};
+    expandBorderToStyles(original, styles);
+    const result = readBorderFromStyles(styles);
+
+    expect(result).toEqual(original);
   });
 });

@@ -85,6 +85,19 @@ describe('ThemeEditorState', () => {
       expect('color' in state.theme.documentStyles).toBe(false);
     });
 
+    it('updateDocumentStyle expands border to per-side keys', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      state.updateDocumentStyle('border', {
+        top: { width: '1pt', style: 'solid', color: '#000' },
+        right: { width: '', style: 'none', color: '' },
+        bottom: { width: '1pt', style: 'solid', color: '#000' },
+        left: { width: '', style: 'none', color: '' },
+      });
+      expect(state.theme.documentStyles.borderTop).toBe('1pt solid #000');
+      expect(state.theme.documentStyles.borderBottom).toBe('1pt solid #000');
+      expect(state.theme.documentStyles.borderRight).toBeUndefined();
+    });
+
     it('updateDocumentStyle expands spacing to individual keys', () => {
       const state = new ThemeEditorState(createTestTheme());
       state.updateDocumentStyle('margin', {
@@ -211,6 +224,41 @@ describe('ThemeEditorState', () => {
       expect(styles.paddingBottom).toBe('8px');
       expect(styles.paddingLeft).toBe('12px');
       expect(styles.padding).toBeUndefined();
+    });
+
+    it('updatePresetStyle expands border to per-side shorthand keys', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      state.updatePresetStyle('heading', 'border', {
+        top: { width: '2pt', style: 'solid', color: '#000' },
+        right: { width: '', style: 'none', color: '' },
+        bottom: { width: '1pt', style: 'dashed', color: '#ccc' },
+        left: { width: '', style: 'none', color: '' },
+      });
+      const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
+      expect(styles.borderTop).toBe('2pt solid #000');
+      expect(styles.borderBottom).toBe('1pt dashed #ccc');
+      expect(styles.borderRight).toBeUndefined();
+      expect(styles.borderLeft).toBeUndefined();
+    });
+
+    it('updatePresetStyle border removes legacy unified keys', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      // Set legacy keys first
+      state.updatePresetStyle('heading', 'borderWidth', '1pt');
+      state.updatePresetStyle('heading', 'borderStyle', 'solid');
+      state.updatePresetStyle('heading', 'borderColor', '#000');
+      // Now set per-side border
+      state.updatePresetStyle('heading', 'border', {
+        top: { width: '2pt', style: 'solid', color: '#f00' },
+        right: { width: '', style: 'none', color: '' },
+        bottom: { width: '', style: 'none', color: '' },
+        left: { width: '', style: 'none', color: '' },
+      });
+      const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
+      expect(styles.borderWidth).toBeUndefined();
+      expect(styles.borderStyle).toBeUndefined();
+      expect(styles.borderColor).toBeUndefined();
+      expect(styles.borderTop).toBe('2pt solid #f00');
     });
 
     it('updatePresetApplicableTo sets node types', () => {
