@@ -123,9 +123,10 @@ export async function executeSave(
           message: schemaResult.error ?? 'Failed to save schema',
           canForceSave: !!schemaResult.warnings,
         });
-        state.schemaWarnings = schemaResult.warnings
-          ? Object.values(schemaResult.warnings).flat()
-          : [];
+        store.dispatch({
+          type: 'set-schema-warnings',
+          warnings: schemaResult.warnings ? Object.values(schemaResult.warnings).flat() : [],
+        });
         return { success: false, error: schemaResult.error };
       }
 
@@ -135,9 +136,10 @@ export async function executeSave(
       store.dispatch({ type: 'set-examples', examples: examplesToSave });
 
       store.validateAllExamples();
-      state.schemaWarnings = schemaResult.warnings
-        ? Object.values(schemaResult.warnings).flat()
-        : [];
+      store.dispatch({
+        type: 'set-schema-warnings',
+        warnings: schemaResult.warnings ? Object.values(schemaResult.warnings).flat() : [],
+      });
 
       // Mark examples as committed (dirty flag reset)
       store.dispatch({ type: 'commit-examples' });

@@ -432,6 +432,9 @@ export class DataContractStore {
       case 'set-saving':
         s.saveStatus = { type: 'saving' };
         break;
+      case 'set-schema-warnings':
+        s.schemaWarnings = command.warnings;
+        break;
       case 'save-success':
         s.saveStatus = { type: 'success', expiresAt: Date.now() + 3000 };
         break;
