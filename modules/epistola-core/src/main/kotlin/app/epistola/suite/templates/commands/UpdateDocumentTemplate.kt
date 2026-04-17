@@ -184,13 +184,27 @@ class UpdateDocumentTemplateHandler(
             }
     }
 
-    private fun mapRecentUsageErrors(result: RecentUsageCompatibilityResult): Map<String, List<ValidationError>> = result.issues.associate { issue ->
-        "recent-request:${issue.requestId}" to issue.errors.map { error ->
-            val correlationInfo = issue.correlationKey?.let { " correlation=$it" } ?: ""
-            ValidationError(
-                message = "${error.message} [status=${issue.status.name}$correlationInfo]",
-                path = "request:${issue.requestId} ${error.path}".trim(),
+    private fun mapRecentUsageErrors(result: RecentUsageCompatibilityResult): Map<String, List<ValidationError>> {
+        if (!result.available) {
+            return mapOf(
+                "recent-usage-check" to listOf(
+                    ValidationError(
+                        message = result.unavailableReason
+                            ?: "Recent usage compatibility check is temporarily unavailable.",
+                        path = "recentUsage",
+                    ),
+                ),
             )
+        }
+
+        return result.issues.associate { issue ->
+            "recent-request:${issue.requestId}" to issue.errors.map { error ->
+                val correlationInfo = issue.correlationKey?.let { " correlation=$it" } ?: ""
+                ValidationError(
+                    message = "${error.message} [status=${issue.status.name}$correlationInfo]",
+                    path = "request:${issue.requestId} ${error.path}".trim(),
+                )
+            }
         }
     }
 

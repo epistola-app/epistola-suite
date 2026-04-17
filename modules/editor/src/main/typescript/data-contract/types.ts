@@ -199,9 +199,11 @@ export interface RecentUsageCompatibilityIssue {
 }
 
 export interface RecentUsageCompatibilitySummary {
+  available: boolean;
   checkedCount: number;
   incompatibleCount: number;
   issues: RecentUsageCompatibilityIssue[];
+  unavailableReason?: string | null;
 }
 
 export interface SchemaCompatibilityPreviewResult {

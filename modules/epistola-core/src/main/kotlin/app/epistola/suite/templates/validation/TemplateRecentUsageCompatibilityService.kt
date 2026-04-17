@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.RequestStatus
 import org.jdbi.v3.core.Jdbi
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -20,16 +21,39 @@ data class RecentUsageValidationIssue(
 
 data class RecentUsageCompatibilityResult(
     val compatible: Boolean,
+    val available: Boolean,
     val checkedCount: Int,
     val incompatibleCount: Int,
     val issues: List<RecentUsageValidationIssue>,
+    val unavailableReason: String? = null,
 ) {
     companion object {
         fun compatible(checkedCount: Int) = RecentUsageCompatibilityResult(
             compatible = true,
+            available = true,
             checkedCount = checkedCount,
             incompatibleCount = 0,
             issues = emptyList(),
+        )
+
+        fun incompatible(
+            checkedCount: Int,
+            issues: List<RecentUsageValidationIssue>,
+        ) = RecentUsageCompatibilityResult(
+            compatible = false,
+            available = true,
+            checkedCount = checkedCount,
+            incompatibleCount = issues.size,
+            issues = issues,
+        )
+
+        fun unavailable(reason: String? = null) = RecentUsageCompatibilityResult(
+            compatible = false,
+            available = false,
+            checkedCount = 0,
+            incompatibleCount = 0,
+            issues = emptyList(),
+            unavailableReason = reason,
         )
     }
 }
@@ -42,7 +66,27 @@ class TemplateRecentUsageCompatibilityService(
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val properties: TemplateSchemaCompatibilityProperties,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     fun analyze(
+        tenantKey: TenantKey,
+        templateKey: TemplateKey,
+        schema: ObjectNode,
+    ): RecentUsageCompatibilityResult = try {
+        analyzeInternal(tenantKey, templateKey, schema)
+    } catch (e: Exception) {
+        logger.warn(
+            "Recent usage compatibility check unavailable for tenant={} template={}",
+            tenantKey,
+            templateKey,
+            e,
+        )
+        RecentUsageCompatibilityResult.unavailable(
+            reason = "Recent usage compatibility check is temporarily unavailable.",
+        )
+    }
+
+    private fun analyzeInternal(
         tenantKey: TenantKey,
         templateKey: TemplateKey,
         schema: ObjectNode,
@@ -71,10 +115,8 @@ class TemplateRecentUsageCompatibilityService(
             return RecentUsageCompatibilityResult.compatible(checkedCount = samples.size)
         }
 
-        return RecentUsageCompatibilityResult(
-            compatible = false,
+        return RecentUsageCompatibilityResult.incompatible(
             checkedCount = samples.size,
-            incompatibleCount = issues.size,
             issues = issues,
         )
     }

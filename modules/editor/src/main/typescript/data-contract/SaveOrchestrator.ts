@@ -65,9 +65,10 @@ export function orchestrateSave(
     }
 
     const hasRecentUsageIssues = compatibilityResult.recentUsage.incompatibleCount > 0;
+    const hasRecentUsageUnavailable = compatibilityResult.recentUsage.available === false;
     const hasBlockingExampleErrors = compatibilityResult.errors.length > 0;
 
-    if (hasRecentUsageIssues || hasBlockingExampleErrors) {
+    if (hasRecentUsageUnavailable || hasRecentUsageIssues || hasBlockingExampleErrors) {
       const message = buildCompatibilityErrorMessage(compatibilityResult);
       return { action: 'error', message, canForceSave: true };
     }
@@ -184,7 +185,10 @@ export async function executeSave(
   }
 }
 
-function mergeFixedExamples(allExamples: DataExample[], fixedExamples: DataExample[]): DataExample[] {
+function mergeFixedExamples(
+  allExamples: DataExample[],
+  fixedExamples: DataExample[],
+): DataExample[] {
   const fixedById = new Map(fixedExamples.map((example) => [example.id, example]));
 
   return allExamples.map((example) => fixedById.get(example.id) ?? example);
@@ -194,6 +198,13 @@ function mergeFixedExamples(allExamples: DataExample[], fixedExamples: DataExamp
  * Build a user-facing error message from a compatibility result.
  */
 function buildCompatibilityErrorMessage(result: SchemaCompatibilityPreviewResult): string {
+  if (!result.recentUsage.available) {
+    return (
+      result.recentUsage.unavailableReason ??
+      'Recent usage compatibility check is temporarily unavailable.'
+    );
+  }
+
   if (result.recentUsage.incompatibleCount > 0) {
     return `Schema incompatible with ${result.recentUsage.incompatibleCount} of ${result.recentUsage.checkedCount} recent generation requests.`;
   }
@@ -232,6 +243,15 @@ export function flattenCompatibilityWarnings(
         message: `${error.message} [status=${issue.status}${correlation}]`,
       });
     }
+  }
+
+  if (!result.recentUsage.available) {
+    warnings.push({
+      path: 'recentUsage',
+      message:
+        result.recentUsage.unavailableReason ??
+        'Recent usage compatibility check is temporarily unavailable.',
+    });
   }
 
   return warnings;

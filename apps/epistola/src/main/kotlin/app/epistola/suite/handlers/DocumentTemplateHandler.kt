@@ -101,15 +101,19 @@ data class ValidateSchemaResponse(
 }
 
 data class RecentUsageValidationResponse(
+    val available: Boolean,
     val checkedCount: Int,
     val incompatibleCount: Int,
     val issues: List<RecentUsageIssueResponse>,
+    val unavailableReason: String? = null,
 ) {
     companion object {
         fun from(result: RecentUsageCompatibilityResult) = RecentUsageValidationResponse(
+            available = result.available,
             checkedCount = result.checkedCount,
             incompatibleCount = result.incompatibleCount,
             issues = result.issues.map(RecentUsageIssueResponse::from),
+            unavailableReason = result.unavailableReason,
         )
     }
 }

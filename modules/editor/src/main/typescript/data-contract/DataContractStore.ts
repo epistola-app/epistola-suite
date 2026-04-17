@@ -530,7 +530,7 @@ export class DataContractStore {
         compatible: true,
         errors: [],
         migrations: [],
-        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+        recentUsage: { available: true, checkedCount: 0, incompatibleCount: 0, issues: [] },
       };
     }
 
@@ -539,7 +539,7 @@ export class DataContractStore {
         compatible: true,
         errors: [],
         migrations: [],
-        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+        recentUsage: { available: true, checkedCount: 0, incompatibleCount: 0, issues: [] },
       };
     }
 
@@ -547,10 +547,17 @@ export class DataContractStore {
       return await this._callbacks.onValidateSchemaCompatibility(schema, s.examples);
     } catch (error) {
       return {
-        compatible: true,
+        compatible: false,
         errors: [],
         migrations: [],
-        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+        recentUsage: {
+          available: false,
+          checkedCount: 0,
+          incompatibleCount: 0,
+          issues: [],
+          unavailableReason:
+            error instanceof Error ? error.message : 'Failed to validate schema compatibility',
+        },
         error: error instanceof Error ? error.message : 'Failed to validate schema compatibility',
       };
     }

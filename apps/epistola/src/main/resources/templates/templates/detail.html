@@ -524,7 +524,7 @@
                                         compatible: true,
                                         errors: [],
                                         migrations: [],
-                                        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] }
+                                        recentUsage: { available: true, checkedCount: 0, incompatibleCount: 0, issues: [] }
                                     };
                                 }
 
@@ -540,10 +540,16 @@
 
                                     if (!response.ok) {
                                         return {
-                                            compatible: true,
+                                            compatible: false,
                                             errors: [],
                                             migrations: [],
-                                            recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+                                            recentUsage: {
+                                                available: false,
+                                                checkedCount: 0,
+                                                incompatibleCount: 0,
+                                                issues: [],
+                                                unavailableReason: `Failed to validate schema compatibility (${response.status})`
+                                            },
                                             error: `Failed to validate schema compatibility (${response.status})`
                                         };
                                     }
@@ -553,15 +559,26 @@
                                         compatible: result.compatible ?? true,
                                         errors: result.errors ?? [],
                                         migrations: result.migrations ?? [],
-                                        recentUsage: result.recentUsage ?? { checkedCount: 0, incompatibleCount: 0, issues: [] }
+                                        recentUsage: result.recentUsage ?? {
+                                            available: true,
+                                            checkedCount: 0,
+                                            incompatibleCount: 0,
+                                            issues: []
+                                        }
                                     };
                                 } catch (error) {
                                     console.error('Failed to validate schema compatibility:', error);
                                     return {
-                                        compatible: true,
+                                        compatible: false,
                                         errors: [],
                                         migrations: [],
-                                        recentUsage: { checkedCount: 0, incompatibleCount: 0, issues: [] },
+                                        recentUsage: {
+                                            available: false,
+                                            checkedCount: 0,
+                                            incompatibleCount: 0,
+                                            issues: [],
+                                            unavailableReason: error instanceof Error ? error.message : 'Failed to validate schema compatibility'
+                                        },
                                         error: error instanceof Error ? error.message : 'Failed to validate schema compatibility'
                                     };
                                 }
