@@ -435,9 +435,25 @@ export function createDefaultRegistry(): ComponentRegistry {
   });
 
   registry.register({
+    type: 'separator',
+    label: 'Separator',
+    icon: 'minus',
+    category: 'content',
+    slots: [],
+    allowedChildren: { mode: 'none' },
+    applicableStyles: ['margin', 'border', 'borderRadius'],
+    inspector: [],
+    defaultStyles: {
+      borderBottom: '1pt solid #d1d5db',
+      marginTop: '1.5sp',
+      marginBottom: '1.5sp',
+    },
+  });
+
+  registry.register({
     type: 'pagebreak',
     label: 'Page Break',
-    icon: 'minus',
+    icon: 'file-break',
     category: 'page',
     slots: [],
     allowedChildren: { mode: 'none' },

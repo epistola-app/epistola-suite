@@ -420,6 +420,7 @@ class DirectPdfRenderer(
                 "datatable-column" to DatatableColumnNodeRenderer(),
                 "image" to ImageNodeRenderer(),
                 "qrcode" to QrCodeNodeRenderer(),
+                "separator" to SeparatorNodeRenderer(),
                 "pagebreak" to PageBreakNodeRenderer(),
                 "pageheader" to PageHeaderNodeRenderer(),
                 "pagefooter" to PageFooterNodeRenderer(),

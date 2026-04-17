@@ -498,6 +498,13 @@ export class EpistolaCanvas extends LitElement {
           ></epistola-text-editor>
         `;
       }
+      case 'separator': {
+        const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
+        const def = this.engine!.registry.get(node.type);
+        const filteredStyles = filterByApplicableStyles(resolvedStyles, def?.applicableStyles);
+        const separatorStyle = toStyleMap(filteredStyles);
+        return html`<div class="canvas-separator" style=${styleMap(separatorStyle)}></div>`;
+      }
       case 'pagebreak':
         return html`<div class="canvas-pagebreak">
           <div class="canvas-pagebreak-line"></div>
