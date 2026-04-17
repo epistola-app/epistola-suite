@@ -280,6 +280,14 @@ class TipTapConverter(
                 "italic" -> isItalic = true
                 "underline" -> text.setUnderline()
                 "strike" -> text.setLineThrough()
+                "subscript" -> {
+                    text.setTextRise(-3f)
+                    text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
+                }
+                "superscript" -> {
+                    text.setTextRise(5f)
+                    text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
+                }
                 "link" -> { /* handled separately via Link element */ }
                 "textStyle" -> {
                     @Suppress("UNCHECKED_CAST")

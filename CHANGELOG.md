@@ -12,6 +12,7 @@
 - **Per-side border controls**: The editor now supports setting border width, style, and color independently per side (top, right, bottom, left). Replaces the previous all-or-nothing border controls. Backwards compatible with existing unified border styles.
 - **Separator component**: New horizontal rule block type for visually separating sections in templates. Renders as a styled line with configurable border and margin.
 - **Line height in PDF**: The `lineHeight` style property now renders correctly in generated PDFs. Resolved styles are passed to `TipTapConverter` via a single map, enabling future style properties without parameter changes.
+- **Subscript and superscript**: New text formatting marks for m², footnote markers, and legal references. Available in the bubble menu toolbar and rendered in PDF output.
 
 ### Fixed
 
