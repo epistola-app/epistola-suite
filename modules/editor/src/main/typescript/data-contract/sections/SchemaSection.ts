@@ -201,7 +201,7 @@ function renderDetailPanel(
 
   const canHaveNested =
     field.type === 'object' || (field.type === 'array' && field.arrayItemType === 'object');
-  const deleteHintId = `dc-delete-hint-${field.id}`;
+  const deleteA11y = getDeleteFieldA11y(field.id, canDeleteField);
 
   return html`
     <div class="dc-detail-panel">
@@ -326,24 +326,55 @@ function renderDetailPanel(
           <button
             class="dc-detail-delete-btn"
             ?disabled=${!canDeleteField}
-            title=${canDeleteField ? 'Delete field' : 'A schema must contain at least one field'}
-            aria-describedby=${!canDeleteField ? deleteHintId : nothing}
+            title=${deleteA11y.title}
+            aria-describedby=${deleteA11y.ariaDescribedBy ?? nothing}
             @click=${() => callbacks.onCommand({ type: 'deleteField', fieldId: field.id })}
           >
             Delete Field
           </button>
-          ${!canDeleteField
+          ${deleteA11y.showHint
             ? html`<span
-                id=${deleteHintId}
+                id=${deleteA11y.hintId}
                 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border:0;"
               >
-                Delete is disabled. A schema must contain at least one field.
+                ${deleteA11y.hintText}
               </span>`
             : nothing}
         </div>
       </div>
     </div>
   `;
+}
+
+interface DeleteFieldA11yState {
+  title: string;
+  ariaDescribedBy: string | null;
+  showHint: boolean;
+  hintId: string;
+  hintText: string;
+}
+
+export function getDeleteFieldA11y(fieldId: string, canDeleteField: boolean): DeleteFieldA11yState {
+  const hintId = `dc-delete-hint-${fieldId}`;
+  const hintText = 'Delete is disabled. A schema must contain at least one field.';
+
+  if (canDeleteField) {
+    return {
+      title: 'Delete field',
+      ariaDescribedBy: null,
+      showHint: false,
+      hintId,
+      hintText,
+    };
+  }
+
+  return {
+    title: 'A schema must contain at least one field',
+    ariaDescribedBy: hintId,
+    showHint: true,
+    hintId,
+    hintText,
+  };
 }
 
 // =============================================================================

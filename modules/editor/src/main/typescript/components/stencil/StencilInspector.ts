@@ -9,11 +9,11 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Node, NodeId, Slot, TemplateDocument } from '../../types/index.js';
+import type { Node, TemplateDocument } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks } from './types.js';
 import { extractSubtree } from './extract-subtree.js';
-import { reKeyContent } from './rekey-content.js';
+import { replaceStencilSlotContent } from './replace-content.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -376,64 +376,6 @@ export class StencilInspector extends LitElement {
    * Removes existing children, re-keys the new content, and inserts.
    */
   private _replaceContent(content: TemplateDocument) {
-    const slotId = this.node.slots[0];
-    if (!slotId) return;
-
-    // Remove existing children (re-read doc after each removal since it's immutable)
-    while (true) {
-      const currentSlot = this.engine.doc.slots[slotId];
-      if (!currentSlot || currentSlot.children.length === 0) break;
-      this.engine.dispatch({ type: 'RemoveNode', nodeId: currentSlot.children[0] });
-    }
-
-    // Re-key the new content and insert each top-level node
-    const reKeyed = reKeyContent(content);
-
-    // Build a set of node IDs that are descendants of each top-level node
-    const nodeById = new Map(reKeyed.nodes.map((n) => [n.id as string, n]));
-    const slotById = new Map(reKeyed.slots.map((s) => [s.id as string, s]));
-
-    for (const childId of reKeyed.childNodeIds) {
-      const childNode = nodeById.get(childId as string);
-      if (!childNode) continue;
-
-      // Collect this node's descendant nodes and slots
-      const descNodes: Node[] = [];
-      const descSlots: Slot[] = [];
-
-      function collectDescendants(nodeId: NodeId) {
-        const node = nodeById.get(nodeId as string);
-        if (!node) return;
-        for (const sid of node.slots) {
-          const slot = slotById.get(sid as string);
-          if (slot) {
-            descSlots.push(slot);
-            for (const cid of slot.children) {
-              const child = nodeById.get(cid as string);
-              if (child) {
-                descNodes.push(child);
-                collectDescendants(cid);
-              }
-            }
-          }
-        }
-      }
-
-      collectDescendants(childId);
-
-      // Get this node's own slots
-      const ownSlots = childNode.slots
-        .map((sid) => slotById.get(sid as string))
-        .filter(Boolean) as Slot[];
-
-      this.engine.dispatch({
-        type: 'InsertNode',
-        node: childNode,
-        slots: [...ownSlots, ...descSlots],
-        targetSlotId: slotId,
-        index: -1,
-        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
-      });
-    }
+    replaceStencilSlotContent(this.engine, this.node, content);
   }
 }

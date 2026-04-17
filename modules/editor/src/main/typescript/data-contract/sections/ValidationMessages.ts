@@ -23,7 +23,7 @@ interface ParsedWarning {
 
 export function renderValidationMessages(warnings: ValidationWarning[]): unknown {
   if (warnings.length === 0) return nothing;
-  const parsed = warnings.map(parseWarning);
+  const parsed = warnings.map(parseValidationWarning);
 
   return html`
     <div class="dc-validation-messages" role="alert">
@@ -92,7 +92,7 @@ export function renderValidationSummary(
   `;
 }
 
-function parseWarning(w: ValidationWarning): ParsedWarning {
+export function parseValidationWarning(w: ValidationWarning): ParsedWarning {
   const requestMatch = /^request:([^\s]+)(?:\s+(.+))?$/.exec(w.path);
   const metadataMatch = /\s*\[status=([^\]\s]+)(?:\s+correlation=([^\]]+))?\]\s*$/.exec(w.message);
   const cleanMessage = metadataMatch ? w.message.replace(metadataMatch[0], '').trim() : w.message;
@@ -117,7 +117,7 @@ function parseWarning(w: ValidationWarning): ParsedWarning {
   };
 }
 
-function shortId(id: string): string {
+export function shortId(id: string): string {
   if (id.length <= 12) return id;
   return `${id.slice(0, 8)}…${id.slice(-4)}`;
 }

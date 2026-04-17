@@ -214,8 +214,15 @@ export function hasChildErrors(parentPath: string, errors: Map<string, string>):
 
 const NO_ERRORS: Map<string, string> = new Map();
 
-function hasFieldValue(value: JsonValue | undefined): boolean {
+export function hasFieldValue(value: JsonValue | undefined): boolean {
   return value !== undefined && value !== null;
+}
+
+export function canClearOptionalField(
+  isRequired: boolean,
+  currentValue: JsonValue | undefined,
+): boolean {
+  return !isRequired && hasFieldValue(currentValue);
 }
 
 function renderOptionalClearButton(
@@ -228,7 +235,7 @@ function renderOptionalClearButton(
 ): unknown {
   if (isRequired) return nothing;
 
-  const canClear = hasFieldValue(currentValue);
+  const canClear = canClearOptionalField(isRequired, currentValue);
 
   return html`
     <button
