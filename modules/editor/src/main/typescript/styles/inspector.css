@@ -221,10 +221,6 @@
     min-width: 0;
   }
 
-  .style-border-color-row {
-    padding-left: 0;
-  }
-
   .style-border-color-picker {
     width: 24px;
     height: 24px;
@@ -233,11 +229,6 @@
     border-radius: 2px;
     cursor: pointer;
     flex-shrink: 0;
-  }
-
-  .style-border-color-text {
-    flex: 1;
-    min-width: 0;
   }
 
   .style-border-link-toggle {

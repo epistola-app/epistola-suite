@@ -176,6 +176,9 @@ export class BorderInput extends LitElement {
                 </select>
               `
             : nothing}
+        </div>
+        <div class="style-border-row">
+          <span class="style-border-label"></span>
           <select
             class="ep-select style-border-style-select"
             ?disabled=${this.readOnly}
@@ -189,24 +192,12 @@ export class BorderInput extends LitElement {
                 </option>`,
             )}
           </select>
-        </div>
-        <div class="style-border-row style-border-color-row">
-          <span class="style-border-label"></span>
           <input
             type="color"
             class="style-border-color-picker"
             .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
             ?disabled=${this.readOnly}
             @input=${(e: Event) =>
-              this._handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
-          />
-          <input
-            type="text"
-            class="ep-input style-border-color-text"
-            .value=${s.color || ''}
-            placeholder="#000000"
-            ?disabled=${this.readOnly}
-            @change=${(e: Event) =>
               this._handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
           />
         </div>
