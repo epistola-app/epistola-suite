@@ -15,7 +15,9 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
+  renderBorderInput,
   readSpacingFromStyles,
+  readBorderFromStyles,
 } from '../../ui/inputs/style-inputs.js';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 
@@ -153,10 +155,14 @@ function renderPresetBody(
           <div class="inspector-style-group">
             <div class="inspector-style-group-label">${group.label}</div>
             ${group.properties.map((prop) => {
-              const value =
-                prop.type === 'spacing'
-                  ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
-                  : styles[prop.key];
+              let value: unknown;
+              if (prop.type === 'spacing') {
+                value = readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px');
+              } else if (prop.type === 'border') {
+                value = readBorderFromStyles(styles);
+              } else {
+                value = styles[prop.key];
+              }
               return renderPresetStyleProperty(
                 prop,
                 value,
@@ -223,6 +229,8 @@ function renderPresetStyleInput(
         inputId,
         readOnly,
       );
+    case 'border':
+      return renderBorderInput(value, prop.units ?? ['pt'], (v) => onChange(v), inputId, readOnly);
     default:
       return html`
         <input

@@ -172,6 +172,49 @@
     flex-shrink: 0;
   }
 
+  /* Per-side border input */
+  .style-border-input {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+  }
+
+  .style-border-side {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+  }
+
+  .style-border-label {
+    font-size: 9px;
+    color: var(--ep-gray-400);
+    font-weight: 500;
+    width: 12px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .style-border-width {
+    width: 48px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .style-border-style-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .style-border-color-picker {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--ep-gray-200);
+    border-radius: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
   /* Margins grid (page settings) */
   .inspector-margins-grid {
     display: grid;

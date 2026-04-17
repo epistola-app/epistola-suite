@@ -6,7 +6,12 @@
  */
 
 import type { BlockStylePreset, PageSettings } from '@epistola.app/epistola-model/generated/theme';
-import { expandSpacingToStyles, type SpacingValue } from '../ui/inputs/style-inputs.js';
+import {
+  expandSpacingToStyles,
+  expandBorderToStyles,
+  type SpacingValue,
+  type BorderValue,
+} from '../ui/inputs/style-inputs.js';
 
 export interface ThemeData {
   id: string;
@@ -55,9 +60,11 @@ export class ThemeEditorState extends EventTarget {
   // -----------------------------------------------------------------------
 
   updateDocumentStyle(key: string, value: unknown): void {
-    // Spacing properties: expand compound value to individual keys
+    // Compound properties: expand to individual keys
     if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, this._current.documentStyles);
+    } else if (key === 'border' && value != null && typeof value === 'object') {
+      expandBorderToStyles(value as BorderValue, this._current.documentStyles);
     } else if (value === undefined || value === '' || value === null) {
       delete this._current.documentStyles[key];
     } else {
@@ -146,9 +153,11 @@ export class ThemeEditorState extends EventTarget {
     if (!preset) return;
     const styles = preset.styles as Record<string, unknown>;
 
-    // Spacing properties: expand compound value to individual keys
+    // Compound properties: expand to individual keys
     if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, styles);
+    } else if (key === 'border' && value != null && typeof value === 'object') {
+      expandBorderToStyles(value as BorderValue, styles);
     } else if (value === undefined || value === '' || value === null) {
       delete styles[key];
     } else {

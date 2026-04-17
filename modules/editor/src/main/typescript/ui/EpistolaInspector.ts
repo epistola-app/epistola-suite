@@ -17,9 +17,13 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
+  renderBorderInput,
   expandSpacingToStyles,
   readSpacingFromStyles,
+  expandBorderToStyles,
+  readBorderFromStyles,
   type SpacingValue,
+  type BorderValue,
 } from './inputs/style-inputs.js';
 
 @customElement('epistola-inspector')
@@ -296,11 +300,15 @@ export class EpistolaInspector extends LitElement {
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
               ${filteredProps.map((prop) => {
-                // For spacing properties, reconstruct compound value from individual keys
-                const value =
-                  prop.type === 'spacing'
-                    ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
-                    : inlineStyles[prop.key];
+                // For compound properties, reconstruct from individual keys
+                let value: unknown;
+                if (prop.type === 'spacing') {
+                  value = readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px');
+                } else if (prop.type === 'border') {
+                  value = readBorderFromStyles(inlineStyles);
+                } else {
+                  value = inlineStyles[prop.key];
+                }
                 return this._renderStyleProperty(prop, value, (v) =>
                   this._handleNodeStyleChange(prop.key, v),
                 );
@@ -361,6 +369,8 @@ export class EpistolaInspector extends LitElement {
           undefined,
           inputId,
         );
+      case 'border':
+        return renderBorderInput(value, prop.units ?? ['pt'], (v) => onChange(v), inputId);
       case 'number':
         return html`
           <input
@@ -608,9 +618,11 @@ export class EpistolaInspector extends LitElement {
 
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>;
 
-    // Spacing properties: expand compound value to individual keys
+    // Compound properties: expand to individual keys
     if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, newStyles);
+    } else if (key === 'border' && value != null && typeof value === 'object') {
+      expandBorderToStyles(value as BorderValue, newStyles);
     } else if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
@@ -632,9 +644,11 @@ export class EpistolaInspector extends LitElement {
       unknown
     >;
 
-    // Spacing properties: expand compound value to individual keys
+    // Compound properties: expand to individual keys
     if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, newStyles);
+    } else if (key === 'border' && value != null && typeof value === 'object') {
+      expandBorderToStyles(value as BorderValue, newStyles);
     } else if (value === undefined || value === '') {
       delete newStyles[key];
     } else {

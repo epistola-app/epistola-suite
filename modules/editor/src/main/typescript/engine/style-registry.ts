@@ -91,19 +91,7 @@ export const defaultStyleRegistry: StyleRegistry = {
       name: 'borders',
       label: 'Borders',
       properties: [
-        { key: 'borderWidth', label: 'Width', type: 'unit', units: ['pt', 'sp'] },
-        {
-          key: 'borderStyle',
-          label: 'Style',
-          type: 'select',
-          options: [
-            { label: 'None', value: 'none' },
-            { label: 'Solid', value: 'solid' },
-            { label: 'Dashed', value: 'dashed' },
-            { label: 'Dotted', value: 'dotted' },
-          ],
-        },
-        { key: 'borderColor', label: 'Color', type: 'color' },
+        { key: 'border', label: 'Border', type: 'border', units: ['pt', 'sp'] },
         { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt', 'sp'] },
       ],
     },

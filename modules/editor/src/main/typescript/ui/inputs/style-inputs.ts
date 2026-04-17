@@ -427,6 +427,196 @@ export function readSpacingFromStyles(
 }
 
 // ---------------------------------------------------------------------------
+// Border input: per-side border editing (width + style + color per side)
+// ---------------------------------------------------------------------------
+
+export interface BorderSideValue {
+  width: string;
+  style: string;
+  color: string;
+}
+
+export interface BorderValue {
+  top: BorderSideValue;
+  right: BorderSideValue;
+  bottom: BorderSideValue;
+  left: BorderSideValue;
+}
+
+const EMPTY_SIDE: BorderSideValue = { width: '', style: 'none', color: '' };
+
+const BORDER_STYLES = [
+  { label: 'None', value: 'none' },
+  { label: 'Solid', value: 'solid' },
+  { label: 'Dashed', value: 'dashed' },
+  { label: 'Dotted', value: 'dotted' },
+];
+
+/** Parse a border shorthand like "2pt solid #000" into parts. */
+export function parseBorderShorthand(raw: unknown): BorderSideValue {
+  if (raw == null || raw === '') return { ...EMPTY_SIDE };
+  const str = String(raw).trim();
+  const parts = str.split(/\s+/);
+  return {
+    width: parts[0] ?? '',
+    style: parts[1] ?? 'solid',
+    color: parts[2] ?? '',
+  };
+}
+
+/** Format border side parts back to a shorthand string. */
+function formatBorderShorthand(side: BorderSideValue): string {
+  if (!side.width || side.style === 'none') return '';
+  return `${side.width} ${side.style} ${side.color || '#000000'}`.trim();
+}
+
+/**
+ * Read per-side border values from individual style keys.
+ * Keys: borderTop, borderRight, borderBottom, borderLeft (shorthand strings)
+ * Also reads legacy unified keys: borderWidth, borderStyle, borderColor
+ */
+export function readBorderFromStyles(styles: Record<string, unknown>): BorderValue | undefined {
+  const top = styles['borderTop'];
+  const right = styles['borderRight'];
+  const bottom = styles['borderBottom'];
+  const left = styles['borderLeft'];
+
+  // Check for legacy unified border properties
+  const legacyWidth = styles['borderWidth'];
+  const legacyStyle = styles['borderStyle'];
+  const legacyColor = styles['borderColor'];
+
+  const hasPerSide = top != null || right != null || bottom != null || left != null;
+  const hasLegacy = legacyWidth != null || legacyStyle != null || legacyColor != null;
+
+  if (!hasPerSide && !hasLegacy) return undefined;
+
+  if (hasPerSide) {
+    return {
+      top: parseBorderShorthand(top),
+      right: parseBorderShorthand(right),
+      bottom: parseBorderShorthand(bottom),
+      left: parseBorderShorthand(left),
+    };
+  }
+
+  // Convert legacy unified to per-side
+  const unified: BorderSideValue = {
+    width: legacyWidth != null ? String(legacyWidth) : '',
+    style: legacyStyle != null ? String(legacyStyle) : 'none',
+    color: legacyColor != null ? String(legacyColor) : '',
+  };
+  return {
+    top: { ...unified },
+    right: { ...unified },
+    bottom: { ...unified },
+    left: { ...unified },
+  };
+}
+
+/**
+ * Expand a BorderValue into individual style keys.
+ * Writes: borderTop, borderRight, borderBottom, borderLeft as shorthand strings.
+ * Removes legacy unified keys.
+ */
+export function expandBorderToStyles(value: BorderValue, styles: Record<string, unknown>): void {
+  const sides = { Top: value.top, Right: value.right, Bottom: value.bottom, Left: value.left };
+  for (const [suffix, side] of Object.entries(sides)) {
+    const shorthand = formatBorderShorthand(side);
+    const key = `border${suffix}`;
+    if (shorthand) {
+      styles[key] = shorthand;
+    } else {
+      delete styles[key];
+    }
+  }
+  // Remove legacy unified keys
+  delete styles['borderWidth'];
+  delete styles['borderStyle'];
+  delete styles['borderColor'];
+}
+
+/**
+ * Renders a per-side border editor with width, style, and color controls for each side.
+ */
+export function renderBorderInput(
+  value: unknown,
+  units: string[],
+  onChange: (value: BorderValue) => void,
+  inputId?: string,
+  readOnly = false,
+): unknown {
+  const parsed: BorderValue = (value as BorderValue) ?? {
+    top: { ...EMPTY_SIDE },
+    right: { ...EMPTY_SIDE },
+    bottom: { ...EMPTY_SIDE },
+    left: { ...EMPTY_SIDE },
+  };
+
+  const sides = ['top', 'right', 'bottom', 'left'] as const;
+
+  const handleSideChange = (side: keyof BorderValue, field: keyof BorderSideValue, val: string) => {
+    const newValue = { ...parsed };
+    newValue[side] = { ...newValue[side], [field]: val };
+    onChange(newValue);
+  };
+
+  return html`
+    <div class="style-border-input">
+      ${sides.map((side) => {
+        const s = parsed[side];
+        const sideInputId = side === 'top' && inputId ? inputId : undefined;
+        const widthParsed = parseValueWithUnit(s.width, units[0] ?? 'pt');
+        return html`
+          <div class="style-border-side">
+            <span class="style-border-label">${side[0].toUpperCase()}</span>
+            <input
+              type="number"
+              class="ep-input style-border-width"
+              id=${sideInputId ?? nothing}
+              min="0"
+              step=${widthParsed.unit === 'sp' ? '0.5' : '0.5'}
+              .value=${String(widthParsed.value || '')}
+              ?disabled=${readOnly}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0;
+                handleSideChange(
+                  side,
+                  'width',
+                  num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
+                );
+              }}
+            />
+            <select
+              class="ep-select style-border-style-select"
+              ?disabled=${readOnly}
+              @change=${(e: Event) =>
+                handleSideChange(side, 'style', (e.target as HTMLSelectElement).value)}
+            >
+              ${BORDER_STYLES.map(
+                (opt) => html`
+                  <option .value=${opt.value} ?selected=${s.style === opt.value}>
+                    ${opt.label}
+                  </option>
+                `,
+              )}
+            </select>
+            <input
+              type="color"
+              class="style-border-color-picker"
+              .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
+              ?disabled=${readOnly}
+              @input=${(e: Event) =>
+                handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
+            />
+          </div>
+        `;
+      })}
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // Select input (for style properties)
 // ---------------------------------------------------------------------------
 
