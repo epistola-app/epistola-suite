@@ -252,7 +252,7 @@ object StyleApplicator {
         }
     }
 
-    private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
+    internal fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
         // Try spacing token first (e.g., "2sp" → 8pt with default base unit)
         SpacingScale.parseSp(size, spacingUnit)?.let { return it }
 
@@ -263,7 +263,7 @@ object StyleApplicator {
         }
     }
 
-    private fun parseColor(color: String): DeviceRgb? = try {
+    internal fun parseColor(color: String): DeviceRgb? = try {
         when {
             color.startsWith("#") -> {
                 val hex = color.removePrefix("#")
