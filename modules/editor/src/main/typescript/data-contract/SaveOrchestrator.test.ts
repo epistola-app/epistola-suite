@@ -288,6 +288,77 @@ describe('executeSave', () => {
     expect(sentExamples).toHaveLength(2);
   });
 
+  it('uses entered missing-required values in schema save payload from fix screen', async () => {
+    const nextSchema: JsonSchema = {
+      type: 'object',
+      required: ['name', 'email'],
+      properties: {
+        name: { type: 'string' },
+        email: { type: 'string' },
+      },
+    };
+
+    const onSaveSchema = vi.fn().mockResolvedValue({ success: true });
+    const store = new DataContractStore();
+    store.init(
+      {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string' },
+        },
+      },
+      [
+        { id: 'example-1', name: 'Example 1', data: { name: 'One' } },
+        { id: 'example-2', name: 'Example 2', data: { name: 'Two', email: 'two@epistola.dev' } },
+      ],
+      { onSaveSchema },
+    );
+
+    store.dispatch({ type: 'set-schema', schema: nextSchema });
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: nextSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/email',
+          issue: 'MISSING_REQUIRED',
+          currentValue: null,
+          expectedType: 'string',
+          suggestedValue: '',
+          autoMigratable: false,
+        },
+      ],
+    });
+    store.dispatch({
+      type: 'fix-field-change',
+      exampleId: 'example-1',
+      path: '/email',
+      value: 'one@epistola.dev',
+    });
+
+    const outcome = orchestrateSave(store, { type: 'fix-and-save' });
+    await executeSave(store, outcome);
+
+    expect(onSaveSchema).toHaveBeenCalledTimes(1);
+    expect(onSaveSchema).toHaveBeenCalledWith(
+      nextSchema,
+      false,
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'example-1',
+          data: { name: 'One', email: 'one@epistola.dev' },
+        }),
+        expect.objectContaining({
+          id: 'example-2',
+          data: { name: 'Two', email: 'two@epistola.dev' },
+        }),
+      ]),
+    );
+  });
+
   it('sets save-error with canForceSave=false when saving examples fails', async () => {
     const store = createStore({
       onSaveDataExamples: vi.fn().mockResolvedValue({
@@ -386,6 +457,59 @@ describe('executeSave', () => {
     expect(store.state.saveStatus).toEqual({
       type: 'error',
       message: 'force action required',
+      canForceSave: true,
+    });
+  });
+
+  it('keeps force-save available after fix-and-save is blocked by recent usage compatibility', async () => {
+    const store = createStore({
+      onSaveSchema: vi.fn().mockResolvedValue({
+        success: false,
+        error: 'Schema incompatible with 2 of 10 recent generation requests.',
+      }),
+    });
+
+    const result = await executeSave(store, {
+      action: 'save-schema',
+      force: false,
+      examples: store.state.examples,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Schema incompatible with 2 of 10 recent generation requests.',
+    });
+    expect(store.state.saveStatus).toEqual({
+      type: 'error',
+      message: 'Schema incompatible with 2 of 10 recent generation requests.',
+      canForceSave: true,
+    });
+  });
+
+  it('keeps force-save available for recent-request validation errors from fix-and-save', async () => {
+    const store = createStore({
+      onSaveSchema: vi.fn().mockResolvedValue({
+        success: false,
+        error:
+          "Validation failed (12 issues in 12 examples): recent-request:019d9692-b201-7048-be32-069870c63090 request:019d9692-b201-7048-be32-069870c63090 /field11 required property 'field11' not found [status=COMPLETED correlation=order-0003]",
+      }),
+    });
+
+    const result = await executeSave(store, {
+      action: 'save-schema',
+      force: false,
+      examples: store.state.examples,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "Validation failed (12 issues in 12 examples): recent-request:019d9692-b201-7048-be32-069870c63090 request:019d9692-b201-7048-be32-069870c63090 /field11 required property 'field11' not found [status=COMPLETED correlation=order-0003]",
+    });
+    expect(store.state.saveStatus).toEqual({
+      type: 'error',
+      message:
+        "Validation failed (12 issues in 12 examples): recent-request:019d9692-b201-7048-be32-069870c63090 request:019d9692-b201-7048-be32-069870c63090 /field11 required property 'field11' not found [status=COMPLETED correlation=order-0003]",
       canForceSave: true,
     });
   });
