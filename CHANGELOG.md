@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Custom error pages**: Added styled error pages for 404, 500, and a generic fallback, replacing the Spring Boot whitelabel error page. Stacktraces are no longer exposed.
+
 ### Fixed
 
 - **Document generation passes catalogId**: The REST API mappers (`DocumentDtoMappers`) now correctly pass `catalogId` from API requests to the `GenerateDocument`, `BatchGenerationItem`, and `PreviewDocument` commands. Previously these defaulted to `CatalogKey.DEFAULT`, causing `DEFAULT_VARIANT_NOT_FOUND` errors when generating documents for templates in non-default catalogs.
