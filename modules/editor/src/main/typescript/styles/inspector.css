@@ -231,6 +231,11 @@
     flex-shrink: 0;
   }
 
+  .style-border-color-text {
+    width: 68px;
+    flex-shrink: 0;
+  }
+
   .style-border-link-toggle {
     width: 20px;
     height: 20px;
