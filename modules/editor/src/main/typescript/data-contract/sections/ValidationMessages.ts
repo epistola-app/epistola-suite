@@ -93,7 +93,7 @@ export function renderValidationSummary(
 }
 
 function parseWarning(w: ValidationWarning): ParsedWarning {
-  const requestMatch = /^request:([^\s]+)\s+(.+)$/.exec(w.path);
+  const requestMatch = /^request:([^\s]+)(?:\s+(.+))?$/.exec(w.path);
   const metadataMatch = /\s*\[status=([^\]\s]+)(?:\s+correlation=([^\]]+))?\]\s*$/.exec(w.message);
   const cleanMessage = metadataMatch ? w.message.replace(metadataMatch[0], '').trim() : w.message;
 
@@ -101,7 +101,7 @@ function parseWarning(w: ValidationWarning): ParsedWarning {
     return {
       sourceLabel: 'Recent Request',
       requestId: requestMatch[1],
-      path: requestMatch[2],
+      path: requestMatch[2] ?? '',
       message: cleanMessage,
       status: metadataMatch?.[1],
       correlation: metadataMatch?.[2],

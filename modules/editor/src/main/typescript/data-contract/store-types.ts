@@ -150,7 +150,7 @@ export type StoreCommand =
   | { type: 'set-saving' }
   | { type: 'set-schema-warnings'; warnings: Array<{ path: string; message: string }> }
   | { type: 'save-success' }
-  | { type: 'save-error'; message: string; canForceSave?: boolean }
+  | { type: 'save-error'; message: string; canForceSave: boolean }
   | { type: 'clear-save-status' }
   | { type: 'revert-to-committed' };
 

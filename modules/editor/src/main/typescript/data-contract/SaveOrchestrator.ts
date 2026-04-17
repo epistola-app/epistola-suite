@@ -50,10 +50,7 @@ export function orchestrateSave(
   // Schema is dirty — check compatibility
   if (compatibilityResult && !compatibilityResult.compatible) {
     if (compatibilityResult.migrations.length > 0) {
-      const schemaForMigration =
-        state.schemaEditMode === 'json-only'
-          ? (state.rawJsonSchema as unknown as JsonSchema | null)
-          : state.schema;
+      const schemaForMigration = getActiveSchema(state);
 
       if (schemaForMigration) {
         return {
@@ -104,10 +101,7 @@ export async function executeSave(
     case 'save-schema': {
       store.dispatch({ type: 'set-saving' });
 
-      const schemaForPruning =
-        state.schemaEditMode === 'json-only'
-          ? (state.rawJsonSchema as unknown as JsonSchema | null)
-          : state.schema;
+      const schemaForPruning = getActiveSchema(state);
 
       // Strict mode: always persist schema-aligned examples when saving schema.
       // This removes unknown keys that are no longer present in schema.
@@ -157,6 +151,7 @@ export async function executeSave(
         store.dispatch({
           type: 'save-error',
           message: examplesResult.error ?? 'Failed to save examples',
+          canForceSave: false,
         });
         return { success: false, error: examplesResult.error };
       }
@@ -182,9 +177,34 @@ export async function executeSave(
       });
       return { success: true };
 
-    default:
-      return { success: true };
+    case 'force-save':
+      store.dispatch({
+        type: 'save-error',
+        message: outcome.message,
+        canForceSave: true,
+      });
+      return { success: false, error: outcome.message };
   }
+
+  const _exhaustive: never = outcome;
+  return _exhaustive;
+}
+
+function getActiveSchema(state: DataContractStore['state']): JsonSchema | null {
+  if (state.schemaEditMode === 'json-only') {
+    return isRootJsonSchema(state.rawJsonSchema) ? state.rawJsonSchema : null;
+  }
+
+  return state.schema;
+}
+
+function isRootJsonSchema(value: unknown): value is JsonSchema {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Reflect.get(value, 'type') === 'object'
+  );
 }
 
 function mergeFixedExamples(

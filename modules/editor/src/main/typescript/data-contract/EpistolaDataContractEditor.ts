@@ -7,13 +7,13 @@
  */
 
 import { LitElement, html, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
 import { icon } from '../ui/icons.js';
 import { DataContractStore } from './DataContractStore.js';
 import { orchestrateSave, executeSave, flattenCompatibilityWarnings } from './SaveOrchestrator.js';
 import type { DataExample, JsonSchema, SaveCallbacks } from './types.js';
-import { checkSchemaCompatibility } from './utils/schemaCompatibility.js';
+import { checkSchemaCompatibility, type CompatibilityIssue } from './utils/schemaCompatibility.js';
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
 import { buildFieldErrorMap } from './sections/ExampleForm.js';
 import {
@@ -41,10 +41,10 @@ export class EpistolaDataContractEditor extends LitElement {
   store = new DataContractStore();
 
   // Local UI state (not worth moving to store)
-  private _showImportDialog = false;
-  private _importParseError: string | null = null;
-  private _copySuccess = false;
-  private _compatibilityIssues: import('./utils/schemaCompatibility.js').CompatibilityIssue[] = [];
+  @state() private _showImportDialog = false;
+  @state() private _importParseError: string | null = null;
+  @state() private _copySuccess = false;
+  @state() private _compatibilityIssues: CompatibilityIssue[] = [];
   private _successTimer?: ReturnType<typeof setTimeout>;
   private _boundBeforeUnload = this._handleBeforeUnload.bind(this);
   private _boundKeyDown = this._handleKeyDown.bind(this);

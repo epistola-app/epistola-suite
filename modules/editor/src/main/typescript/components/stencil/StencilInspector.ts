@@ -9,7 +9,7 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Node } from '../../types/index.js';
+import type { Node, NodeId, Slot, TemplateDocument } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks } from './types.js';
 import { extractSubtree } from './extract-subtree.js';
@@ -375,7 +375,7 @@ export class StencilInspector extends LitElement {
    * Replace the stencil's slot children with new content from a TemplateDocument.
    * Removes existing children, re-keys the new content, and inserts.
    */
-  private _replaceContent(content: import('../../types/index.js').TemplateDocument) {
+  private _replaceContent(content: TemplateDocument) {
     const slotId = this.node.slots[0];
     if (!slotId) return;
 
@@ -398,10 +398,10 @@ export class StencilInspector extends LitElement {
       if (!childNode) continue;
 
       // Collect this node's descendant nodes and slots
-      const descNodes: import('../../types/index.js').Node[] = [];
-      const descSlots: import('../../types/index.js').Slot[] = [];
+      const descNodes: Node[] = [];
+      const descSlots: Slot[] = [];
 
-      function collectDescendants(nodeId: import('../../types/index.js').NodeId) {
+      function collectDescendants(nodeId: NodeId) {
         const node = nodeById.get(nodeId as string);
         if (!node) return;
         for (const sid of node.slots) {
@@ -424,7 +424,7 @@ export class StencilInspector extends LitElement {
       // Get this node's own slots
       const ownSlots = childNode.slots
         .map((sid) => slotById.get(sid as string))
-        .filter(Boolean) as import('../../types/index.js').Slot[];
+        .filter(Boolean) as Slot[];
 
       this.engine.dispatch({
         type: 'InsertNode',

@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "epistola.templates.schema-compatibility")
 data class TemplateSchemaCompatibilityProperties(
-    val recentUsageWindowDays: Long = 7,
+    val recentUsageWindowDays: Int = 7,
     val recentUsageSampleLimit: Int = 100,
     val statuses: Set<RequestStatus> = setOf(
         RequestStatus.PENDING,

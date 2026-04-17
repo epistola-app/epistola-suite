@@ -63,6 +63,8 @@ epistola:
       max-size-mb: 50 # Max document size
 
   templates:
+    # Schema compatibility checks against recent generation requests.
+    # Statuses control which request lifecycle states are sampled.
     schema-compatibility:
       recent-usage-window-days: 7
       recent-usage-sample-limit: 100

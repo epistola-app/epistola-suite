@@ -131,7 +131,7 @@ class TemplateRecentUsageCompatibilityService(
             FROM document_generation_requests
             WHERE tenant_key = :tenantKey
               AND template_key = :templateKey
-              AND created_at >= now() - :window::interval
+              AND created_at >= now() - make_interval(days => :windowDays)
               AND status IN (<statuses>)
             ORDER BY created_at DESC
             LIMIT :limit
@@ -139,17 +139,25 @@ class TemplateRecentUsageCompatibilityService(
         )
             .bind("tenantKey", tenantKey)
             .bind("templateKey", templateKey)
-            .bind("window", "${properties.recentUsageWindowDays} days")
+            .bind("windowDays", properties.recentUsageWindowDays)
             .bind("limit", properties.recentUsageSampleLimit)
             .bindList("statuses", properties.statuses.map { it.name })
             .map { rs, _ ->
-                RecentUsageSample(
-                    requestId = rs.getObject("id").toString(),
-                    data = objectMapper.readValue(rs.getString("data"), ObjectNode::class.java),
-                    createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                    correlationKey = rs.getString("correlation_key"),
-                    status = RequestStatus.valueOf(rs.getString("status")),
-                )
+                val requestId = rs.getObject("id").toString()
+                try {
+                    RecentUsageSample(
+                        requestId = requestId,
+                        data = objectMapper.readValue(rs.getString("data"), ObjectNode::class.java),
+                        createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                        correlationKey = rs.getString("correlation_key"),
+                        status = RequestStatus.valueOf(rs.getString("status")),
+                    )
+                } catch (e: Exception) {
+                    throw IllegalStateException(
+                        "Failed to parse recent usage sample requestId=$requestId",
+                        e,
+                    )
+                }
             }
             .list()
     }

@@ -201,6 +201,7 @@ function renderDetailPanel(
 
   const canHaveNested =
     field.type === 'object' || (field.type === 'array' && field.arrayItemType === 'object');
+  const deleteHintId = `dc-delete-hint-${field.id}`;
 
   return html`
     <div class="dc-detail-panel">
@@ -326,10 +327,19 @@ function renderDetailPanel(
             class="dc-detail-delete-btn"
             ?disabled=${!canDeleteField}
             title=${canDeleteField ? 'Delete field' : 'A schema must contain at least one field'}
+            aria-describedby=${!canDeleteField ? deleteHintId : nothing}
             @click=${() => callbacks.onCommand({ type: 'deleteField', fieldId: field.id })}
           >
             Delete Field
           </button>
+          ${!canDeleteField
+            ? html`<span
+                id=${deleteHintId}
+                style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border:0;"
+              >
+                Delete is disabled. A schema must contain at least one field.
+              </span>`
+            : nothing}
         </div>
       </div>
     </div>

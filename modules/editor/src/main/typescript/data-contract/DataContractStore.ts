@@ -7,13 +7,16 @@
  */
 
 import type {
+  CompatibilityMigrationSuggestion,
   DataExample,
   JsonObject,
   JsonSchema,
   JsonSchemaProperty,
   JsonValue,
   SaveCallbacks,
+  SchemaField,
   SchemaCompatibilityPreviewResult,
+  ValidationError,
 } from './types.js';
 import { SchemaCommandHistory } from './utils/schemaCommandHistory.js';
 import { SnapshotHistory } from './utils/snapshotHistory.js';
@@ -462,7 +465,7 @@ export class DataContractStore {
         s.saveStatus = {
           type: 'error',
           message: command.message,
-          canForceSave: command.canForceSave ?? false,
+          canForceSave: command.canForceSave,
         };
         break;
       case 'clear-save-status':
@@ -506,6 +509,9 @@ export class DataContractStore {
   // ---------------------------------------------------------------------------
 
   get isSchemaDirty(): boolean {
+    // NOTE: This uses structural JSON comparison for correctness and simplicity.
+    // For very large schemas, this may be expensive; if profiling shows hotspots,
+    // prefer memoized dirty checks tied to reducer revision counters.
     const s = this._state;
     if (s.schemaEditMode === 'json-only') {
       return JSON.stringify(s.rawJsonSchema) !== JSON.stringify(s.committedRawJsonSchema);
@@ -552,11 +558,7 @@ export class DataContractStore {
     schemaToValidate?: JsonSchema | null,
   ): Promise<SchemaCompatibilityPreviewResult> {
     const s = this._state;
-    const schema =
-      schemaToValidate ??
-      (s.schemaEditMode === 'json-only'
-        ? (s.rawJsonSchema as unknown as JsonSchema | null)
-        : s.schema);
+    const schema = schemaToValidate ?? getActiveSchema(s);
 
     if (!schema) {
       return {
@@ -679,11 +681,11 @@ export class DataContractStore {
   }
 
   private _findNewFieldId(
-    oldFields: readonly import('./types.js').SchemaField[],
-    newFields: readonly import('./types.js').SchemaField[],
+    oldFields: readonly SchemaField[],
+    newFields: readonly SchemaField[],
   ): string | null {
     const oldIds = new Set<string>();
-    const collectIds = (fields: readonly import('./types.js').SchemaField[]) => {
+    const collectIds = (fields: readonly SchemaField[]) => {
       for (const f of fields) {
         oldIds.add(f.id);
         if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
@@ -693,7 +695,7 @@ export class DataContractStore {
     };
     collectIds(oldFields);
 
-    const findNew = (fields: readonly import('./types.js').SchemaField[]): string | null => {
+    const findNew = (fields: readonly SchemaField[]): string | null => {
       for (const f of fields) {
         if (!oldIds.has(f.id)) return f.id;
         if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
@@ -752,7 +754,7 @@ export class DataContractStore {
     examples?: DataExample[],
   ): Promise<{
     success: boolean;
-    warnings?: Record<string, import('./types.js').ValidationError[]>;
+    warnings?: Record<string, ValidationError[]>;
     error?: string;
   }> {
     const s = this._state;
@@ -765,10 +767,7 @@ export class DataContractStore {
     }
 
     try {
-      const schemaToSave =
-        s.schemaEditMode === 'json-only'
-          ? (s.rawJsonSchema as unknown as JsonSchema | null)
-          : s.schema;
+      const schemaToSave = getActiveSchema(s);
       const result = await this._callbacks.onSaveSchema(schemaToSave, forceUpdate, examples);
       if (result.success) {
         s.committedSchema = structuredClone(s.schema);
@@ -787,7 +786,7 @@ export class DataContractStore {
 
   async saveExamples(): Promise<{
     success: boolean;
-    warnings?: Record<string, import('./types.js').ValidationError[]>;
+    warnings?: Record<string, ValidationError[]>;
     error?: string;
   }> {
     const s = this._state;
@@ -875,7 +874,7 @@ export class DataContractStore {
 // ---------------------------------------------------------------------------
 
 function getExpectedTypeForPath(
-  migrations: import('./types.js').CompatibilityMigrationSuggestion[],
+  migrations: CompatibilityMigrationSuggestion[],
   exampleId: string,
   path: string,
 ): string | null {
@@ -903,10 +902,7 @@ function coerceValue(value: JsonValue | null, expectedType: string | null): Json
   }
 }
 
-function pruneValueToSchema(
-  value: JsonValue,
-  schema: import('./types.js').JsonSchema | import('./types.js').JsonSchemaProperty,
-): JsonValue {
+function pruneValueToSchema(value: JsonValue, schema: JsonSchema | JsonSchemaProperty): JsonValue {
   if (value === null || value === undefined) return value;
 
   const schemaType = Array.isArray(schema.type) ? schema.type[0] : schema.type;
@@ -936,6 +932,14 @@ function pruneValueToSchema(
 
 function toJsonSchemaOrNull(schema: object | null): JsonSchema | null {
   return isRootJsonSchema(schema) ? schema : null;
+}
+
+function getActiveSchema(state: EditorState): JsonSchema | null {
+  if (state.schemaEditMode === 'json-only') {
+    return toJsonSchemaOrNull(state.rawJsonSchema);
+  }
+
+  return state.schema;
 }
 
 function isRootJsonSchema(value: unknown): value is JsonSchema {

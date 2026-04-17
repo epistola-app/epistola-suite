@@ -539,6 +539,8 @@
                                     });
 
                                     if (!response.ok) {
+                                        // Fail closed: treat unavailable validation as incompatible so
+                                        // users see an explicit error instead of silently bypassing checks.
                                         return {
                                             compatible: false,
                                             errors: [],
@@ -600,10 +602,15 @@
                                     });
 
                                     if (!response.ok) {
-                                        const errorBody = await response.json();
+                                        let errorBody = {};
+                                        try {
+                                            errorBody = await response.json();
+                                        } catch {
+                                            // Non-JSON error payload (proxy/app server HTML, etc.)
+                                        }
                                         return {
                                             success: false,
-                                            error: formatValidationError(errorBody, 'Failed to save schema'),
+                                            error: formatValidationError(errorBody, `Failed to save schema (${response.status})`),
                                             warnings: errorBody.warnings
                                         };
                                     }
@@ -631,10 +638,15 @@
                                     });
 
                                     if (!response.ok) {
-                                        const errorBody = await response.json();
+                                        let errorBody = {};
+                                        try {
+                                            errorBody = await response.json();
+                                        } catch {
+                                            // Non-JSON error payload (proxy/app server HTML, etc.)
+                                        }
                                         return {
                                             success: false,
-                                            error: formatValidationError(errorBody, 'Failed to save examples'),
+                                            error: formatValidationError(errorBody, `Failed to save examples (${response.status})`),
                                             warnings: errorBody.warnings
                                         };
                                     }

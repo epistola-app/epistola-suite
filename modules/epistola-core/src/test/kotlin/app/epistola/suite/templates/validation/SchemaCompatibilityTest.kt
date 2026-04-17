@@ -66,7 +66,7 @@ class SchemaCompatibilityTest {
             assertThat(result.migrations[0].exampleId).isEqualTo("1")
             assertThat(result.migrations[0].exampleName).isEqualTo("Example 1")
             assertThat(result.migrations[0].issue).isEqualTo(ValidationIssueType.TYPE_MISMATCH)
-            assertThat(result.migrations[0].expectedType).isEqualTo("string")
+            assertThat(result.migrations[0].expectedType).isEqualTo(ExpectedType.STRING)
             assertThat(result.migrations[0].autoMigratable).isTrue()
             assertThat(result.migrations[0].suggestedValue?.asText()).isEqualTo("42")
         }

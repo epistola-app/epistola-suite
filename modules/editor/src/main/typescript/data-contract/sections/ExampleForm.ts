@@ -215,9 +215,7 @@ export function hasChildErrors(parentPath: string, errors: Map<string, string>):
 const NO_ERRORS: Map<string, string> = new Map();
 
 function hasFieldValue(value: JsonValue | undefined): boolean {
-  if (value === undefined || value === null) return false;
-  if (typeof value === 'string') return true;
-  return true;
+  return value !== undefined && value !== null;
 }
 
 function renderOptionalClearButton(
@@ -641,6 +639,7 @@ function renderArrayField(
       itemSchema,
       path,
       items,
+      currentValue,
       rootData,
       isRequired,
       onChange,
@@ -739,6 +738,7 @@ function renderArrayOfObjects(
   itemSchema: JsonSchemaProperty,
   path: string,
   items: JsonValue[],
+  currentValue: JsonValue | undefined,
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
@@ -766,14 +766,7 @@ function renderArrayOfObjects(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        ${renderOptionalClearButton(
-          path,
-          isRequired,
-          getNestedValue(rootData, path),
-          onClear,
-          name,
-          true,
-        )}
+        ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name, true)}
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>

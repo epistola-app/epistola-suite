@@ -197,6 +197,10 @@ class UpdateDocumentTemplateHandler(
             )
         }
 
+        // Invariant: result.issues contains at most one entry per requestId.
+        // TemplateRecentUsageCompatibilityService builds issues from sampled
+        // document_generation_requests rows (one issue per request row), so
+        // using associate here is intentional.
         return result.issues.associate { issue ->
             "recent-request:${issue.requestId}" to issue.errors.map { error ->
                 val correlationInfo = issue.correlationKey?.let { " correlation=$it" } ?: ""

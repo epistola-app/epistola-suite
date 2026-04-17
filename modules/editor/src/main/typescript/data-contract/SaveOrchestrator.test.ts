@@ -53,6 +53,9 @@ describe('executeSave', () => {
     await executeSave(store, outcome);
 
     expect(onSaveSchema).toHaveBeenCalledTimes(1);
+    // Use partial matching instead of toEqual to keep this focused on the
+    // schema/fix-screen contract and avoid brittle failures on unrelated
+    // shape/order changes in example payloads.
     expect(onSaveSchema).toHaveBeenCalledWith(
       schema,
       false,
