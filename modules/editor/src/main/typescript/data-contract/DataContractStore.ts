@@ -10,6 +10,7 @@ import type {
   DataExample,
   JsonObject,
   JsonSchema,
+  JsonSchemaProperty,
   JsonValue,
   SaveCallbacks,
   SchemaCompatibilityPreviewResult,
@@ -913,57 +914,100 @@ function pruneValueToSchema(
 /**
  * Look up a property's JSON Schema by dot-separated path.
  */
-function getPropertySchema(
-  schema: JsonSchema,
-  dotPath: string,
-): import('./types.js').JsonSchemaProperty | null {
+function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaProperty | null {
   const segments = dotPath.split('.');
-  let current: Record<string, unknown> = schema as unknown as Record<string, unknown>;
+  let current: unknown = schema;
 
   for (let i = 0; i < segments.length; i++) {
+    if (!isRecord(current)) {
+      return null;
+    }
+
     const segment = segments[i];
-    const props = current.properties as Record<string, unknown> | undefined;
+    const props = getProperties(current);
 
     if (i === segments.length - 1) {
-      const props = current.properties as Record<string, unknown> | undefined;
-      if (props?.[segment]) {
-        return (props[segment] as import('./types.js').JsonSchemaProperty) ?? null;
+      const candidate = props?.[segment];
+      if (isJsonSchemaProperty(candidate)) {
+        return candidate;
       }
+
       // Numeric segment: return the array items schema
-      if (/^\d+$/.test(segment) && current.items) {
-        return current.items as import('./types.js').JsonSchemaProperty;
+      if (/^\d+$/.test(segment)) {
+        const items = getItems(current);
+        if (isJsonSchemaProperty(items)) {
+          return items;
+        }
       }
+
       return null;
     }
 
     // Numeric segment: skip through array items schema
-    if (/^\d+$/.test(segment) && current.items) {
-      current = current.items as Record<string, unknown>;
+    if (/^\d+$/.test(segment)) {
+      const items = getItems(current);
+      if (!items) {
+        return null;
+      }
+
+      current = items;
       continue;
     }
 
-    if (props?.[segment]) {
-      current = props[segment] as Record<string, unknown>;
-    } else if (current.items) {
-      current = current.items as Record<string, unknown>;
-      const nestedProps = current.properties as Record<string, unknown> | undefined;
-      if (nestedProps?.[segment]) {
-        current = nestedProps[segment] as Record<string, unknown>;
-      } else {
-        return null;
-      }
+    const childFromProperties = props?.[segment];
+    if (isRecord(childFromProperties)) {
+      current = childFromProperties;
+      continue;
+    }
+
+    const items = getItems(current);
+    if (!items) {
+      return null;
+    }
+
+    const nestedProps = getProperties(items);
+    const childFromItems = nestedProps?.[segment];
+    if (isRecord(childFromItems)) {
+      current = childFromItems;
     } else {
       return null;
     }
   }
 
-  return current as unknown as import('./types.js').JsonSchemaProperty;
+  return isJsonSchemaProperty(current) ? current : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getProperties(node: Record<string, unknown>): Record<string, unknown> | null {
+  const properties = node.properties;
+  return isRecord(properties) ? properties : null;
+}
+
+function getItems(node: Record<string, unknown>): Record<string, unknown> | null {
+  const items = node.items;
+  return isRecord(items) ? items : null;
+}
+
+function isJsonSchemaProperty(value: unknown): value is JsonSchemaProperty {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const typeValue = value.type;
+  if (typeof typeValue === 'string') {
+    return true;
+  }
+
+  return Array.isArray(typeValue) && typeValue.every((item) => typeof item === 'string');
 }
 
 /**
  * Build a default value from a JSON Schema property definition.
  */
-function buildDefaultValue(propSchema: import('./types.js').JsonSchemaProperty): JsonValue {
+function buildDefaultValue(propSchema: JsonSchemaProperty): JsonValue {
   const rawType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type;
   const type = rawType === 'string' && propSchema.format === 'date' ? 'date' : rawType;
 
