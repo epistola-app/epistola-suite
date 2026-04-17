@@ -28,7 +28,8 @@ class SeparatorNodeRenderer : NodeRenderer {
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
         )
-        div.setHeight(0f)
+        // Minimal height so iText renders the border
+        div.setHeight(0.5f)
         return listOf(div)
     }
 }
