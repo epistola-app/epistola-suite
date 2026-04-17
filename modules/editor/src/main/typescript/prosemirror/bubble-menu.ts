@@ -100,6 +100,28 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     });
   }
 
+  // Subscript
+  if (schema.marks.subscript) {
+    defs.push({
+      label: 'X₂',
+      title: 'Subscript',
+      className: 'pm-bubble-btn subscript',
+      isActive: (view) => markActive(view, schema.marks.subscript),
+      command: (view) => toggleMark(schema.marks.subscript)(view.state, view.dispatch, view),
+    });
+  }
+
+  // Superscript
+  if (schema.marks.superscript) {
+    defs.push({
+      label: 'X²',
+      title: 'Superscript',
+      className: 'pm-bubble-btn superscript',
+      isActive: (view) => markActive(view, schema.marks.superscript),
+      command: (view) => toggleMark(schema.marks.superscript)(view.state, view.dispatch, view),
+    });
+  }
+
   // Separator
   defs.push({
     label: '',

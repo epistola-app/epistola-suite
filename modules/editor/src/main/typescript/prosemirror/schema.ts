@@ -70,6 +70,30 @@ const strikethroughMark: MarkSpec = {
 };
 
 // ---------------------------------------------------------------------------
+// Subscript mark
+// ---------------------------------------------------------------------------
+
+const subscriptMark: MarkSpec = {
+  excludes: 'superscript',
+  toDOM() {
+    return ['sub', 0];
+  },
+  parseDOM: [{ tag: 'sub' }, { style: 'vertical-align=sub' }],
+};
+
+// ---------------------------------------------------------------------------
+// Superscript mark
+// ---------------------------------------------------------------------------
+
+const superscriptMark: MarkSpec = {
+  excludes: 'subscript',
+  toDOM() {
+    return ['sup', 0];
+  },
+  parseDOM: [{ tag: 'sup' }, { style: 'vertical-align=super' }],
+};
+
+// ---------------------------------------------------------------------------
 // Schema assembly
 // ---------------------------------------------------------------------------
 
@@ -108,6 +132,8 @@ const allMarks: Record<string, MarkSpec> = {
   ...basicMarks,
   underline: underlineMark,
   strikethrough: strikethroughMark,
+  subscript: subscriptMark,
+  superscript: superscriptMark,
 };
 
 /**
@@ -118,4 +144,4 @@ export const epistolaSchema = new Schema({
   marks: allMarks,
 });
 
-export { expressionNode, underlineMark, strikethroughMark };
+export { expressionNode, underlineMark, strikethroughMark, subscriptMark, superscriptMark };
