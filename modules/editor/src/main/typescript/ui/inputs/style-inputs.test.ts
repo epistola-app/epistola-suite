@@ -195,27 +195,6 @@ describe('expandBorderToStyles', () => {
     expect(styles.borderLeft).toBeUndefined();
   });
 
-  it('removes legacy unified keys', () => {
-    const styles: Record<string, unknown> = {
-      borderWidth: '1pt',
-      borderStyle: 'solid',
-      borderColor: '#000',
-    };
-    const border: BorderValue = {
-      top: { width: '2pt', style: 'solid', color: '#000' },
-      right: { width: '', style: 'none', color: '' },
-      bottom: { width: '', style: 'none', color: '' },
-      left: { width: '', style: 'none', color: '' },
-    };
-
-    expandBorderToStyles(border, styles);
-
-    expect(styles.borderWidth).toBeUndefined();
-    expect(styles.borderStyle).toBeUndefined();
-    expect(styles.borderColor).toBeUndefined();
-    expect(styles.borderTop).toBe('2pt solid #000');
-  });
-
   it('omits sides with no width', () => {
     const styles: Record<string, unknown> = {};
     const border: BorderValue = {
@@ -285,37 +264,6 @@ describe('readBorderFromStyles', () => {
     const styles = { fontSize: '14px', color: '#333' };
 
     expect(readBorderFromStyles(styles)).toBeUndefined();
-  });
-
-  it('converts legacy unified properties to per-side', () => {
-    const styles = {
-      borderWidth: '1pt',
-      borderStyle: 'solid',
-      borderColor: '#000',
-    };
-
-    const result = readBorderFromStyles(styles);
-
-    expect(result).toEqual({
-      top: { width: '1pt', style: 'solid', color: '#000' },
-      right: { width: '1pt', style: 'solid', color: '#000' },
-      bottom: { width: '1pt', style: 'solid', color: '#000' },
-      left: { width: '1pt', style: 'solid', color: '#000' },
-    });
-  });
-
-  it('prefers per-side keys over legacy unified', () => {
-    const styles = {
-      borderWidth: '1pt',
-      borderStyle: 'solid',
-      borderColor: '#000',
-      borderTop: '3pt dashed #f00',
-    };
-
-    const result = readBorderFromStyles(styles);
-
-    // Per-side takes precedence
-    expect(result!.top).toEqual({ width: '3pt', style: 'dashed', color: '#f00' });
   });
 
   it('round-trips correctly through expand and read', () => {

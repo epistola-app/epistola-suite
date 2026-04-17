@@ -472,8 +472,7 @@ function formatBorderShorthand(side: BorderSideValue): string {
 
 /**
  * Read per-side border values from individual style keys.
- * Keys: borderTop, borderRight, borderBottom, borderLeft (shorthand strings)
- * Also reads legacy unified keys: borderWidth, borderStyle, borderColor
+ * Keys: borderTop, borderRight, borderBottom, borderLeft (shorthand strings like "2pt solid #000")
  */
 export function readBorderFromStyles(styles: Record<string, unknown>): BorderValue | undefined {
   const top = styles['borderTop'];
@@ -481,43 +480,19 @@ export function readBorderFromStyles(styles: Record<string, unknown>): BorderVal
   const bottom = styles['borderBottom'];
   const left = styles['borderLeft'];
 
-  // Check for legacy unified border properties
-  const legacyWidth = styles['borderWidth'];
-  const legacyStyle = styles['borderStyle'];
-  const legacyColor = styles['borderColor'];
+  if (top == null && right == null && bottom == null && left == null) return undefined;
 
-  const hasPerSide = top != null || right != null || bottom != null || left != null;
-  const hasLegacy = legacyWidth != null || legacyStyle != null || legacyColor != null;
-
-  if (!hasPerSide && !hasLegacy) return undefined;
-
-  if (hasPerSide) {
-    return {
-      top: parseBorderShorthand(top),
-      right: parseBorderShorthand(right),
-      bottom: parseBorderShorthand(bottom),
-      left: parseBorderShorthand(left),
-    };
-  }
-
-  // Convert legacy unified to per-side
-  const unified: BorderSideValue = {
-    width: legacyWidth != null ? String(legacyWidth) : '',
-    style: legacyStyle != null ? String(legacyStyle) : 'none',
-    color: legacyColor != null ? String(legacyColor) : '',
-  };
   return {
-    top: { ...unified },
-    right: { ...unified },
-    bottom: { ...unified },
-    left: { ...unified },
+    top: parseBorderShorthand(top),
+    right: parseBorderShorthand(right),
+    bottom: parseBorderShorthand(bottom),
+    left: parseBorderShorthand(left),
   };
 }
 
 /**
  * Expand a BorderValue into individual style keys.
- * Writes: borderTop, borderRight, borderBottom, borderLeft as shorthand strings.
- * Removes legacy unified keys.
+ * Writes: borderTop, borderRight, borderBottom, borderLeft as shorthand strings like "2pt solid #000".
  */
 export function expandBorderToStyles(value: BorderValue, styles: Record<string, unknown>): void {
   const sides = { Top: value.top, Right: value.right, Bottom: value.bottom, Left: value.left };
@@ -530,10 +505,6 @@ export function expandBorderToStyles(value: BorderValue, styles: Record<string, 
       delete styles[key];
     }
   }
-  // Remove legacy unified keys
-  delete styles['borderWidth'];
-  delete styles['borderStyle'];
-  delete styles['borderColor'];
 }
 
 /**

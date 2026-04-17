@@ -198,17 +198,7 @@ object StyleApplicator {
             element.setFont(font)
         }
 
-        // Borders: individual properties (borderWidth + borderStyle + borderColor)
-        val borderWidth = (styles["borderWidth"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
-        val borderStyle = styles["borderStyle"] as? String ?: "solid"
-        val borderColor = (styles["borderColor"] as? String)?.let { parseColor(it) }
-        if (borderWidth != null && borderWidth > 0f && borderStyle != "none") {
-            val color = borderColor ?: DeviceRgb(0, 0, 0)
-            val border = createBorder(borderStyle, borderWidth, color)
-            element.setBorder(border)
-        }
-
-        // Borders: compound shorthand per side (e.g., "2pt solid #2563eb")
+        // Borders: per-side shorthand (e.g., "2pt solid #2563eb")
         for ((side, setter) in BORDER_SIDE_SETTERS) {
             (styles[side] as? String)?.let { shorthand ->
                 parseBorderShorthand(shorthand, baseFontSizePt, spacingUnit)?.let { border ->

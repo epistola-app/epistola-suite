@@ -241,26 +241,6 @@ describe('ThemeEditorState', () => {
       expect(styles.borderLeft).toBeUndefined();
     });
 
-    it('updatePresetStyle border removes legacy unified keys', () => {
-      const state = new ThemeEditorState(createTestTheme());
-      // Set legacy keys first
-      state.updatePresetStyle('heading', 'borderWidth', '1pt');
-      state.updatePresetStyle('heading', 'borderStyle', 'solid');
-      state.updatePresetStyle('heading', 'borderColor', '#000');
-      // Now set per-side border
-      state.updatePresetStyle('heading', 'border', {
-        top: { width: '2pt', style: 'solid', color: '#f00' },
-        right: { width: '', style: 'none', color: '' },
-        bottom: { width: '', style: 'none', color: '' },
-        left: { width: '', style: 'none', color: '' },
-      });
-      const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
-      expect(styles.borderWidth).toBeUndefined();
-      expect(styles.borderStyle).toBeUndefined();
-      expect(styles.borderColor).toBeUndefined();
-      expect(styles.borderTop).toBe('2pt solid #f00');
-    });
-
     it('updatePresetApplicableTo sets node types', () => {
       const state = new ThemeEditorState(createTestTheme());
       state.updatePresetApplicableTo('heading', ['text', 'container']);
