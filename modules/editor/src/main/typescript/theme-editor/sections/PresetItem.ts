@@ -232,6 +232,19 @@ function renderPresetStyleInput(
           @change=${(e: CustomEvent) => onChange(e.detail)}
         ></epistola-border-input>
       `;
+    case 'boolean':
+      return html`
+        <label class="style-boolean-input">
+          <input
+            type="checkbox"
+            id=${inputId}
+            .checked=${value === true || value === 'true'}
+            ?disabled=${readOnly}
+            @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked || undefined)}
+          />
+          ${prop.label}
+        </label>
+      `;
     default:
       return html`
         <input

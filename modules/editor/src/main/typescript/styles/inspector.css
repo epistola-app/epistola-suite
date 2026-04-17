@@ -196,6 +196,15 @@
     gap: var(--ep-space-1);
   }
 
+  /* Boolean checkbox input */
+  .style-boolean-input {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
   .style-border-label {
     font-size: 9px;
     color: var(--ep-gray-400);

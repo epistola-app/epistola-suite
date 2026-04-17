@@ -328,7 +328,9 @@ export class EpistolaInspector extends LitElement {
     const inputId = `inspector-style-${prop.key}`;
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label" for=${inputId}>${prop.label}</label>
+        ${prop.type !== 'boolean'
+          ? html`<label class="inspector-field-label" for=${inputId}>${prop.label}</label>`
+          : nothing}
         ${this._renderStyleInput(prop, value, onChange, inputId)}
       </div>
     `;
@@ -377,6 +379,21 @@ export class EpistolaInspector extends LitElement {
             .value=${String(value ?? '')}
             @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
           />
+        `;
+      case 'boolean':
+        return html`
+          <label class="style-boolean-input">
+            <input
+              type="checkbox"
+              id=${inputId}
+              .checked=${value === true || value === 'true'}
+              @change=${(e: Event) => {
+                const checked = (e.target as HTMLInputElement).checked;
+                onChange(checked || undefined);
+              }}
+            />
+            ${prop.label}
+          </label>
         `;
       case 'text':
       default:

@@ -221,6 +221,14 @@ object StyleApplicator {
                 element.setFixedLeading(pts)
             }
         }
+
+        // Page flow: prevent page breaks from splitting or separating blocks
+        if (styles["keepTogether"] == true || styles["keepTogether"] == "true") {
+            element.setKeepTogether(true)
+        }
+        if (styles["keepWithNext"] == true || styles["keepWithNext"] == "true") {
+            element.setKeepWithNext(true)
+        }
     }
 
     private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border = when (style) {
