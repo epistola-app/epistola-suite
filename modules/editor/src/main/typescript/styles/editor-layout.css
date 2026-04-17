@@ -248,6 +248,133 @@
     font-family: var(--ep-font-mono);
   }
 
+  .paste-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.2);
+    z-index: 35;
+    animation: ep-insert-backdrop-in 140ms ease-out;
+  }
+
+  .paste-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(30rem, 92vw);
+    border-radius: var(--ep-radius-md);
+    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-white);
+    box-shadow: var(--ep-shadow-lg);
+    padding: var(--ep-space-3);
+    z-index: 36;
+    animation: ep-insert-dialog-in 180ms ease-out;
+  }
+
+  .paste-dialog-title {
+    font-size: var(--ep-text-sm);
+    font-weight: 700;
+    color: var(--ep-gray-900);
+  }
+
+  .paste-dialog-hint {
+    margin-top: var(--ep-space-1);
+    font-size: 11px;
+    font-family: var(--ep-font-mono);
+    color: var(--ep-gray-500);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-100);
+    border-radius: var(--ep-radius-sm);
+    padding: 4px 6px;
+  }
+
+  .paste-dialog-context {
+    margin-top: var(--ep-space-1-5);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-600);
+  }
+
+  .paste-dialog-error {
+    margin-top: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-700, #b91c1c);
+  }
+
+  .paste-dialog-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--ep-space-2);
+    margin-top: var(--ep-space-3);
+  }
+
+  .paste-dialog-action,
+  .paste-dialog-slot-option {
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+    padding: 10px;
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-gray-50);
+    color: var(--ep-gray-900);
+    text-align: left;
+    transition:
+      background-color var(--ep-transition-fast),
+      border-color var(--ep-transition-fast),
+      transform var(--ep-transition-fast);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-blue-50, #eff6ff);
+      border-color: var(--ep-blue-300, #93c5fd);
+      transform: translateY(-1px);
+      cursor: pointer;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ep-blue-300, #93c5fd);
+      outline-offset: 1px;
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+
+  .paste-dialog-action-index,
+  .paste-dialog-slot-index {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 1.75rem;
+    font-size: 11px;
+    font-family: var(--ep-font-mono);
+    color: var(--ep-gray-800);
+    background: var(--ep-white);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    padding: 2px 6px;
+  }
+
+  .paste-dialog-action-label,
+  .paste-dialog-slot-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-900);
+  }
+
+  .paste-dialog-action-detail {
+    font-size: 11px;
+    color: var(--ep-gray-500);
+  }
+
+  .paste-dialog-slot-list {
+    display: grid;
+    gap: var(--ep-space-1-5);
+    margin-top: var(--ep-space-3);
+  }
+
   @keyframes ep-insert-backdrop-in {
     from {
       opacity: 0;
@@ -282,12 +409,22 @@
   @media (prefers-reduced-motion: reduce) {
     .insert-dialog-backdrop,
     .insert-dialog,
-    .insert-dialog-stage {
+    .insert-dialog-stage,
+    .paste-dialog-backdrop,
+    .paste-dialog {
       animation: none;
     }
 
-    .insert-dialog-row {
+    .insert-dialog-row,
+    .paste-dialog-action,
+    .paste-dialog-slot-option {
       transition: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .paste-dialog-actions {
+      grid-template-columns: 1fr;
     }
   }
 

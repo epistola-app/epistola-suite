@@ -37,6 +37,7 @@
 - **BREAKING: Import/export moved to catalog module**: `ImportTemplates` and `ExportTemplates` moved from `epistola-core` to `epistola-catalog`. The catalog module is now the exchange boundary for all import/export operations. `TestTemplateBuilder` moved to the shared testing module.
 - **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
 - **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
+- **Editor block clipboard copy/paste**: The template editor can now copy the selected block subtree to a dedicated clipboard payload and paste it before, after, or inside another target block using a placement dialog with slot selection for multi-slot containers.
 
 ### Fixed
 
