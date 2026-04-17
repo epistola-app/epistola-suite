@@ -525,6 +525,8 @@ export function expandBorderToStyles(value: BorderValue, styles: Record<string, 
 
 /**
  * Renders a per-side border editor with width, style, and color controls for each side.
+ * A link toggle switches between editing all sides at once or independently.
+ * Linked state is stored on the DOM container via a data attribute to survive re-renders.
  */
 export function renderBorderInput(
   value: unknown,
@@ -540,15 +542,20 @@ export function renderBorderInput(
     left: { ...EMPTY_SIDE },
   };
 
+  const defaultUnit = units[0] ?? 'pt';
   const sides = ['top', 'right', 'bottom', 'left'] as const;
 
-  // Detect if all sides are equal — auto-enable linked mode
+  // Determine linked state: default to linked if all sides are equal
   const sidesEqual = areBorderSidesEqual(parsed);
 
-  const handleSideChange = (side: keyof BorderValue, field: keyof BorderSideValue, val: string) => {
+  const handleSideChange = (
+    linked: boolean,
+    side: keyof BorderValue,
+    field: keyof BorderSideValue,
+    val: string,
+  ) => {
     const updated = { ...parsed[side], [field]: val };
-    if (sidesEqual) {
-      // Linked: apply change to all sides
+    if (linked) {
       onChange({
         top: { ...updated },
         right: { ...updated },
@@ -560,142 +567,119 @@ export function renderBorderInput(
     }
   };
 
-  const handleToggleLinked = () => {
-    if (sidesEqual) {
-      // Already linked — unlink (keep current values, they just become independent)
-      // Set right/bottom/left to empty to make them distinct
-      onChange({
-        top: { ...parsed.top },
-        right: { ...EMPTY_SIDE },
-        bottom: { ...EMPTY_SIDE },
-        left: { ...EMPTY_SIDE },
-      });
-    } else {
-      // Link — copy top to all sides
+  const handleToggleLinked = (e: Event) => {
+    const container = (e.target as HTMLElement).closest('.style-border-input')!;
+    const wasLinked = container.getAttribute('data-linked') !== 'false';
+    container.setAttribute('data-linked', wasLinked ? 'false' : 'true');
+    if (!wasLinked) {
+      // Re-linking: copy top to all sides
       const top = parsed.top;
       onChange({ top: { ...top }, right: { ...top }, bottom: { ...top }, left: { ...top } });
     }
   };
 
-  // When linked, only show one row (top) with the link toggle
-  if (sidesEqual) {
-    const s = parsed.top;
-    const widthParsed = parseValueWithUnit(s.width, units[0] ?? 'pt');
+  const renderSideRow = (
+    linked: boolean,
+    side: (typeof sides)[number],
+    label: string,
+    sideInputId?: string,
+  ) => {
+    const s = parsed[side];
+    const widthParsed = parseValueWithUnit(s.width, defaultUnit);
     return html`
-      <div class="style-border-input">
-        <div class="style-border-side">
-          <button
-            class="style-border-link-toggle linked"
-            title="Unlink sides"
-            ?disabled=${readOnly}
-            @click=${handleToggleLinked}
-          >
-            ⊞
-          </button>
-          <input
-            type="number"
-            class="ep-input style-border-width"
-            id=${inputId ?? nothing}
-            min="0"
-            step="0.5"
-            .value=${String(widthParsed.value || '')}
-            ?disabled=${readOnly}
-            @change=${(e: Event) => {
-              const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-              handleSideChange(
-                'top',
-                'width',
-                num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
-              );
-            }}
-          />
-          <select
-            class="ep-select style-border-style-select"
-            ?disabled=${readOnly}
-            @change=${(e: Event) =>
-              handleSideChange('top', 'style', (e.target as HTMLSelectElement).value)}
-          >
-            ${BORDER_STYLES.map(
-              (opt) => html`
-                <option .value=${opt.value} ?selected=${s.style === opt.value}>${opt.label}</option>
-              `,
-            )}
-          </select>
-          <input
-            type="color"
-            class="style-border-color-picker"
-            .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
-            ?disabled=${readOnly}
-            @input=${(e: Event) =>
-              handleSideChange('top', 'color', (e.target as HTMLInputElement).value)}
-          />
-        </div>
+      <div class="style-border-side">
+        <span class="style-border-label">${label}</span>
+        <input
+          type="number"
+          class="ep-input style-border-width"
+          id=${sideInputId ?? nothing}
+          min="0"
+          step="0.5"
+          .value=${String(widthParsed.value || '')}
+          ?disabled=${readOnly}
+          @change=${(e: Event) => {
+            const num = parseFloat((e.target as HTMLInputElement).value) || 0;
+            handleSideChange(
+              linked,
+              side,
+              'width',
+              num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
+            );
+          }}
+        />
+        ${units.length > 1
+          ? html`
+              <select
+                class="ep-select style-border-unit-select"
+                ?disabled=${readOnly}
+                @change=${(e: Event) => {
+                  const newUnit = (e.target as HTMLSelectElement).value;
+                  const oldUnit = widthParsed.unit;
+                  let newValue = widthParsed.value;
+                  if (oldUnit === 'pt' && newUnit === 'sp') {
+                    newValue = parseFloat(
+                      nearestSpacingStep(widthParsed.value, DEFAULT_SPACING_UNIT),
+                    );
+                  } else if (oldUnit === 'sp' && newUnit === 'pt') {
+                    newValue = widthParsed.value * DEFAULT_SPACING_UNIT;
+                  }
+                  handleSideChange(
+                    linked,
+                    side,
+                    'width',
+                    newValue > 0 ? formatValueWithUnit(newValue, newUnit) : '',
+                  );
+                }}
+              >
+                ${units.map(
+                  (u) =>
+                    html`<option .value=${u} ?selected=${u === widthParsed.unit}>${u}</option>`,
+                )}
+              </select>
+            `
+          : nothing}
+        <select
+          class="ep-select style-border-style-select"
+          ?disabled=${readOnly}
+          @change=${(e: Event) =>
+            handleSideChange(linked, side, 'style', (e.target as HTMLSelectElement).value)}
+        >
+          ${BORDER_STYLES.map(
+            (opt) => html`
+              <option .value=${opt.value} ?selected=${s.style === opt.value}>${opt.label}</option>
+            `,
+          )}
+        </select>
+        <input
+          type="color"
+          class="style-border-color-picker"
+          .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
+          ?disabled=${readOnly}
+          @input=${(e: Event) =>
+            handleSideChange(linked, side, 'color', (e.target as HTMLInputElement).value)}
+        />
       </div>
     `;
-  }
+  };
 
-  // Unlinked: show all four sides with a link toggle
+  // data-linked defaults to "true" when sides are equal, preserves user choice across re-renders
   return html`
-    <div class="style-border-input">
-      <div class="style-border-side">
+    <div class="style-border-input" data-linked=${sidesEqual ? 'true' : 'false'}>
+      <div class="style-border-header">
         <button
-          class="style-border-link-toggle"
-          title="Link all sides"
+          class="style-border-link-toggle ${sidesEqual ? 'linked' : ''}"
+          title=${sidesEqual ? 'Edit sides independently' : 'Apply to all sides'}
           ?disabled=${readOnly}
           @click=${handleToggleLinked}
         >
           ⊞
         </button>
       </div>
-      ${sides.map((side) => {
-        const s = parsed[side];
-        const sideInputId = side === 'top' && inputId ? inputId : undefined;
-        const widthParsed = parseValueWithUnit(s.width, units[0] ?? 'pt');
-        return html`
-          <div class="style-border-side">
-            <span class="style-border-label">${side[0].toUpperCase()}</span>
-            <input
-              type="number"
-              class="ep-input style-border-width"
-              id=${sideInputId ?? nothing}
-              min="0"
-              step="0.5"
-              .value=${String(widthParsed.value || '')}
-              ?disabled=${readOnly}
-              @change=${(e: Event) => {
-                const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-                handleSideChange(
-                  side,
-                  'width',
-                  num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
-                );
-              }}
-            />
-            <select
-              class="ep-select style-border-style-select"
-              ?disabled=${readOnly}
-              @change=${(e: Event) =>
-                handleSideChange(side, 'style', (e.target as HTMLSelectElement).value)}
-            >
-              ${BORDER_STYLES.map(
-                (opt) => html`
-                  <option .value=${opt.value} ?selected=${s.style === opt.value}>
-                    ${opt.label}
-                  </option>
-                `,
-              )}
-            </select>
-            <input
-              type="color"
-              class="style-border-color-picker"
-              .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
-              ?disabled=${readOnly}
-              @input=${(e: Event) =>
-                handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
-            />
-          </div>
-        `;
-      })}
+      ${sidesEqual
+        ? renderSideRow(true, 'top', 'All', inputId)
+        : sides.map((side) =>
+            renderSideRow(false, side, side[0].toUpperCase(), side === 'top' ? inputId : undefined),
+          )}
     </div>
   `;
 }
