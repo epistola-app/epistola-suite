@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
@@ -31,26 +32,29 @@ class UpdateVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateVersion, TemplateVersion?> {
-    override fun handle(command: UpdateVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
+    override fun handle(command: UpdateVersion): TemplateVersion? {
+        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
+            val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 
-        // Update the draft (WHERE clause ensures ownership and draft status)
-        handle.createQuery(
-            """
+            // Update the draft (WHERE clause ensures ownership and draft status)
+            handle.createQuery(
+                """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId AND id = :versionId
                   AND status = 'draft'
                 RETURNING *
                 """,
-        )
-            .bind("tenantId", command.versionId.tenantKey)
-            .bind("catalogKey", command.versionId.catalogKey)
-            .bind("variantId", command.versionId.variantKey)
-            .bind("versionId", command.versionId.key)
-            .bind("templateModel", templateModelJson)
-            .mapTo<TemplateVersion>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("catalogKey", command.versionId.catalogKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("versionId", command.versionId.key)
+                .bind("templateModel", templateModelJson)
+                .mapTo<TemplateVersion>()
+                .findOne()
+                .orElse(null)
+        }
     }
 }

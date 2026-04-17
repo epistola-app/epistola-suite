@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
@@ -34,45 +35,48 @@ data class ArchiveVersion(
 class ArchiveVersionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<ArchiveVersion, TemplateVersion?> {
-    override fun handle(command: ArchiveVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Check if the version is still active in any environment
-        val activeEnvironments = handle.createQuery(
-            """
+    override fun handle(command: ArchiveVersion): TemplateVersion? {
+        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
+            // Check if the version is still active in any environment
+            val activeEnvironments = handle.createQuery(
+                """
                 SELECT environment_key
                 FROM environment_activations
                 WHERE tenant_key = :tenantId AND variant_key = :variantId AND version_key = :versionId
                 """,
-        )
-            .bind("tenantId", command.versionId.tenantKey)
-            .bind("variantId", command.versionId.variantKey)
-            .bind("versionId", command.versionId.key)
-            .mapTo<String>()
-            .list()
-            .map { EnvironmentKey.of(it) }
-
-        if (activeEnvironments.isNotEmpty()) {
-            throw VersionStillActiveException(
-                versionId = command.versionId.key,
-                variantId = command.versionId.variantKey,
-                activeEnvironments = activeEnvironments,
             )
-        }
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("versionId", command.versionId.key)
+                .mapTo<String>()
+                .list()
+                .map { EnvironmentKey.of(it) }
 
-        // Archive the version (only if it's published and belongs to tenant)
-        handle.createQuery(
-            """
+            if (activeEnvironments.isNotEmpty()) {
+                throw VersionStillActiveException(
+                    versionId = command.versionId.key,
+                    variantId = command.versionId.variantKey,
+                    activeEnvironments = activeEnvironments,
+                )
+            }
+
+            // Archive the version (only if it's published and belongs to tenant)
+            handle.createQuery(
+                """
                 UPDATE template_versions
                 SET status = 'archived', archived_at = NOW()
                 WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                   AND status = 'published'
                 RETURNING *
                 """,
-        )
-            .bind("tenantId", command.versionId.tenantKey)
-            .bind("variantId", command.versionId.variantKey)
-            .bind("versionId", command.versionId.key)
-            .mapTo<TemplateVersion>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("versionId", command.versionId.key)
+                .mapTo<TemplateVersion>()
+                .findOne()
+                .orElse(null)
+        }
     }
 }

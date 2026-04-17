@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
@@ -32,102 +33,105 @@ class UpdateDraftHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
-    override fun handle(command: UpdateDraft): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Verify the variant belongs to a template owned by the tenant
-        val variantExists = handle.createQuery(
-            """
+    override fun handle(command: UpdateDraft): TemplateVersion? {
+        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
+            // Verify the variant belongs to a template owned by the tenant
+            val variantExists = handle.createQuery(
+                """
                 SELECT COUNT(*) > 0
                 FROM template_variants
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 """,
-        )
-            .bind("variantId", command.variantId.key)
-            .bind("templateId", command.variantId.templateKey)
-            .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
-            .mapTo<Boolean>()
-            .one()
+            )
+                .bind("variantId", command.variantId.key)
+                .bind("templateId", command.variantId.templateKey)
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
+                .mapTo<Boolean>()
+                .one()
 
-        if (!variantExists) {
-            return@inTransaction null
-        }
+            if (!variantExists) {
+                return@inTransaction null
+            }
 
-        val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
+            val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 
-        // Try to update existing draft first
-        val updated = handle.createUpdate(
-            """
+            // Try to update existing draft first
+            val updated = handle.createUpdate(
+                """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                   AND status = 'draft'
                 """,
-        )
-            .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
-            .bind("templateId", command.variantId.templateKey)
-            .bind("variantId", command.variantId.key)
-            .bind("templateModel", templateModelJson)
-            .execute()
+            )
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
+                .bind("templateId", command.variantId.templateKey)
+                .bind("variantId", command.variantId.key)
+                .bind("templateModel", templateModelJson)
+                .execute()
 
-        if (updated > 0) {
-            // Draft existed and was updated - return it
-            return@inTransaction handle.createQuery(
-                """
+            if (updated > 0) {
+                // Draft existed and was updated - return it
+                return@inTransaction handle.createQuery(
+                    """
                     SELECT *
                     FROM template_versions
                     WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                       AND template_key = :templateId
                       AND status = 'draft'
                     """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
-                .bind("templateId", command.variantId.templateKey)
-                .bind("variantId", command.variantId.key)
-                .mapTo<TemplateVersion>()
-                .one()
-        }
+                )
+                    .bind("tenantId", command.variantId.tenantKey)
+                    .bind("catalogKey", command.variantId.catalogKey)
+                    .bind("templateId", command.variantId.templateKey)
+                    .bind("variantId", command.variantId.key)
+                    .mapTo<TemplateVersion>()
+                    .one()
+            }
 
-        // No draft exists - create new one
-        // Calculate next version ID for this variant
-        val nextVersionId = handle.createQuery(
-            """
+            // No draft exists - create new one
+            // Calculate next version ID for this variant
+            val nextVersionId = handle.createQuery(
+                """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                 """,
-        )
-            .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
-            .bind("templateId", command.variantId.templateKey)
-            .bind("variantId", command.variantId.key)
-            .mapTo(Int::class.java)
-            .one()
+            )
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
+                .bind("templateId", command.variantId.templateKey)
+                .bind("variantId", command.variantId.key)
+                .mapTo(Int::class.java)
+                .one()
 
-        // Enforce max version limit
-        require(nextVersionId <= VersionKey.MAX_VERSION) {
-            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
-        }
+            // Enforce max version limit
+            require(nextVersionId <= VersionKey.MAX_VERSION) {
+                "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
+            }
 
-        val versionId = VersionKey.of(nextVersionId)
+            val versionId = VersionKey.of(nextVersionId)
 
-        handle.createQuery(
-            """
+            handle.createQuery(
+                """
                 INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
                 VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
-        )
-            .bind("id", versionId)
-            .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
-            .bind("templateId", command.variantId.templateKey)
-            .bind("variantId", command.variantId.key)
-            .bind("templateModel", templateModelJson)
-            .mapTo<TemplateVersion>()
-            .one()
+            )
+                .bind("id", versionId)
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
+                .bind("templateId", command.variantId.templateKey)
+                .bind("variantId", command.variantId.key)
+                .bind("templateModel", templateModelJson)
+                .mapTo<TemplateVersion>()
+                .one()
+        }
     }
 }
