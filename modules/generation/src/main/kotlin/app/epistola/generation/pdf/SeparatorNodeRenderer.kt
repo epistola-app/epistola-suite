@@ -15,12 +15,17 @@ import com.itextpdf.layout.properties.UnitValue
  * Renders a "separator" node as a centered horizontal line.
  *
  * Props:
- * - `thickness`: line thickness (e.g. "1pt", default 1pt)
+ * - `thickness`: line thickness (e.g. "1pt", "0.5sp", default 1pt)
  * - `width`: line width as percentage (e.g. "100%", default 100%)
- * - `color`: line color (e.g. "#d1d5db", default gray)
+ * - `color`: line color (e.g. "#d1d5db", "#fff", "rgb(100,100,100)", default gray)
  * - `style`: line style ("solid", "dashed", "dotted", default solid)
  */
 class SeparatorNodeRenderer : NodeRenderer {
+
+    companion object {
+        private val DEFAULT_COLOR = DeviceRgb(209, 213, 219) // #d1d5db
+    }
+
     override fun render(
         node: Node,
         document: TemplateDocument,
@@ -28,12 +33,18 @@ class SeparatorNodeRenderer : NodeRenderer {
         registry: NodeRendererRegistry,
     ): List<IElement> {
         val props = node.props ?: emptyMap()
-        val thickness = parseThickness(props["thickness"] as? String)
-        val widthPercent = parseWidthPercent(props["width"] as? String)
-        val color = parseColor(props["color"] as? String)
-        val lineStyle = props["style"] as? String ?: "solid"
 
-        val border = when (lineStyle) {
+        val thickness = (props["thickness"] as? String)?.let {
+            StyleApplicator.parseSize(it, context.renderingDefaults.baseFontSizePt, context.spacingUnit)
+        } ?: 1f
+
+        val widthPercent = parseWidthPercent(props["width"] as? String)
+
+        val color = (props["color"] as? String)?.let {
+            StyleApplicator.parseColor(it)
+        } ?: DEFAULT_COLOR
+
+        val border = when (props["style"] as? String) {
             "dashed" -> DashedBorder(color, thickness)
             "dotted" -> DottedBorder(color, thickness)
             else -> SolidBorder(color, thickness)
@@ -42,7 +53,7 @@ class SeparatorNodeRenderer : NodeRenderer {
         // Inner div is the actual line
         val line = Div()
         line.setWidth(UnitValue.createPercentValue(widthPercent))
-        line.setHeight(0f)
+        line.setHeight(0.5f)
         line.setBorderTop(border)
         line.setHorizontalAlignment(HorizontalAlignment.CENTER)
 
@@ -65,28 +76,8 @@ class SeparatorNodeRenderer : NodeRenderer {
         return listOf(wrapper)
     }
 
-    private fun parseThickness(value: String?): Float {
-        if (value == null) return 1f
-        val match = Regex("""([\d.]+)""").find(value)
-        return match?.groupValues?.get(1)?.toFloatOrNull() ?: 1f
-    }
-
     private fun parseWidthPercent(value: String?): Float {
-        if (value == null) return 100f
-        val match = Regex("""([\d.]+)%?""").find(value)
-        return match?.groupValues?.get(1)?.toFloatOrNull() ?: 100f
-    }
-
-    private fun parseColor(value: String?): DeviceRgb {
-        if (value == null || !value.startsWith("#")) return DeviceRgb(209, 213, 219) // #d1d5db
-        return try {
-            val hex = value.removePrefix("#")
-            val r = hex.substring(0, 2).toInt(16)
-            val g = hex.substring(2, 4).toInt(16)
-            val b = hex.substring(4, 6).toInt(16)
-            DeviceRgb(r, g, b)
-        } catch (_: Exception) {
-            DeviceRgb(209, 213, 219)
-        }
+        if (value == null || !value.endsWith("%")) return 100f
+        return value.removeSuffix("%").toFloatOrNull() ?: 100f
     }
 }
