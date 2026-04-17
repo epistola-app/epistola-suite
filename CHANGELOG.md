@@ -8,6 +8,7 @@
 
 - **Custom error pages**: Added styled error pages for 404, 500, and a generic fallback, replacing the Spring Boot whitelabel error page. Stacktraces are no longer exposed.
 - **Clean stacktraces in logs**: Added a custom Logback converter that collapses framework frames (Spring, Tomcat, reflection, etc.) in stacktraces, keeping only application-relevant frames for readability.
+- **UI exception filter**: Replaced `AuthorizationExceptionFilter` with a generic `UiExceptionFilter` that catches all UI request exceptions, maps known domain exceptions to appropriate HTTP status codes, and returns a generic 500 for unknown errors — preventing Tomcat from rendering raw stacktraces.
 
 ### Fixed
 
