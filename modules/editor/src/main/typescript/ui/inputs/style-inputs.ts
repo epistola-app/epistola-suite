@@ -524,9 +524,14 @@ export function expandBorderToStyles(value: BorderValue, styles: Record<string, 
 }
 
 /**
+ * Tracks which border inputs are in "unlinked" mode.
+ * Keyed by inputId. Entries are added when unlinking, removed when re-linking.
+ */
+const unlinkedBorderInputs = new Set<string>();
+
+/**
  * Renders a per-side border editor with width, style, and color controls for each side.
  * A link toggle switches between editing all sides at once or independently.
- * Linked state is stored on the DOM container via a data attribute to survive re-renders.
  */
 export function renderBorderInput(
   value: unknown,
@@ -544,16 +549,15 @@ export function renderBorderInput(
 
   const defaultUnit = units[0] ?? 'pt';
   const sides = ['top', 'right', 'bottom', 'left'] as const;
+  const id = inputId ?? '_border';
 
-  // Determine linked state: default to linked if all sides are equal
+  // Linked when sides are equal AND user hasn't explicitly unlinked
   const sidesEqual = areBorderSidesEqual(parsed);
+  const linked = sidesEqual && !unlinkedBorderInputs.has(id);
+  // If sides differ, clear any stale unlinked tracking
+  if (!sidesEqual) unlinkedBorderInputs.delete(id);
 
-  const handleSideChange = (
-    linked: boolean,
-    side: keyof BorderValue,
-    field: keyof BorderSideValue,
-    val: string,
-  ) => {
+  const handleSideChange = (side: keyof BorderValue, field: keyof BorderSideValue, val: string) => {
     const updated = { ...parsed[side], [field]: val };
     if (linked) {
       onChange({
@@ -567,23 +571,21 @@ export function renderBorderInput(
     }
   };
 
-  const handleToggleLinked = (e: Event) => {
-    const container = (e.target as HTMLElement).closest('.style-border-input')!;
-    const wasLinked = container.getAttribute('data-linked') !== 'false';
-    container.setAttribute('data-linked', wasLinked ? 'false' : 'true');
-    if (!wasLinked) {
-      // Re-linking: copy top to all sides
+  const handleToggleLinked = () => {
+    if (linked) {
+      // Unlink: keep values as-is, just switch to per-side editing
+      unlinkedBorderInputs.add(id);
+      // Re-render with same values to show per-side rows
+      onChange({ ...parsed });
+    } else {
+      // Re-link: copy top to all sides
+      unlinkedBorderInputs.delete(id);
       const top = parsed.top;
       onChange({ top: { ...top }, right: { ...top }, bottom: { ...top }, left: { ...top } });
     }
   };
 
-  const renderSideRow = (
-    linked: boolean,
-    side: (typeof sides)[number],
-    label: string,
-    sideInputId?: string,
-  ) => {
+  const renderSideRow = (side: (typeof sides)[number], label: string, sideInputId?: string) => {
     const s = parsed[side];
     const widthParsed = parseValueWithUnit(s.width, defaultUnit);
     return html`
@@ -600,7 +602,6 @@ export function renderBorderInput(
           @change=${(e: Event) => {
             const num = parseFloat((e.target as HTMLInputElement).value) || 0;
             handleSideChange(
-              linked,
               side,
               'width',
               num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
@@ -624,7 +625,6 @@ export function renderBorderInput(
                     newValue = widthParsed.value * DEFAULT_SPACING_UNIT;
                   }
                   handleSideChange(
-                    linked,
                     side,
                     'width',
                     newValue > 0 ? formatValueWithUnit(newValue, newUnit) : '',
@@ -642,7 +642,7 @@ export function renderBorderInput(
           class="ep-select style-border-style-select"
           ?disabled=${readOnly}
           @change=${(e: Event) =>
-            handleSideChange(linked, side, 'style', (e.target as HTMLSelectElement).value)}
+            handleSideChange(side, 'style', (e.target as HTMLSelectElement).value)}
         >
           ${BORDER_STYLES.map(
             (opt) => html`
@@ -656,30 +656,29 @@ export function renderBorderInput(
           .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
           ?disabled=${readOnly}
           @input=${(e: Event) =>
-            handleSideChange(linked, side, 'color', (e.target as HTMLInputElement).value)}
+            handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
         />
       </div>
     `;
   };
 
-  // data-linked defaults to "true" when sides are equal, preserves user choice across re-renders
   return html`
-    <div class="style-border-input" data-linked=${sidesEqual ? 'true' : 'false'}>
+    <div class="style-border-input">
       <div class="style-border-header">
         <button
           type="button"
-          class="style-border-link-toggle ${sidesEqual ? 'linked' : ''}"
-          title=${sidesEqual ? 'Edit sides independently' : 'Apply to all sides'}
+          class="style-border-link-toggle ${linked ? 'linked' : ''}"
+          title=${linked ? 'Edit sides independently' : 'Apply to all sides'}
           ?disabled=${readOnly}
           @click=${handleToggleLinked}
         >
           ⊞
         </button>
       </div>
-      ${sidesEqual
-        ? renderSideRow(true, 'top', 'All', inputId)
+      ${linked
+        ? renderSideRow('top', 'All', inputId)
         : sides.map((side) =>
-            renderSideRow(false, side, side[0].toUpperCase(), side === 'top' ? inputId : undefined),
+            renderSideRow(side, side[0].toUpperCase(), side === 'top' ? inputId : undefined),
           )}
     </div>
   `;
