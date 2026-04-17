@@ -176,7 +176,7 @@
   .style-border-input {
     display: flex;
     flex-direction: column;
-    gap: var(--ep-space-1);
+    gap: var(--ep-space-2);
   }
 
   .style-border-header {
@@ -184,7 +184,13 @@
     justify-content: flex-end;
   }
 
-  .style-border-side {
+  .style-border-side-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .style-border-row {
     display: flex;
     align-items: center;
     gap: var(--ep-space-1);
@@ -200,7 +206,7 @@
   }
 
   .style-border-width {
-    width: 42px;
+    width: 52px;
     text-align: center;
     flex-shrink: 0;
   }
@@ -215,6 +221,10 @@
     min-width: 0;
   }
 
+  .style-border-color-row {
+    padding-left: 0;
+  }
+
   .style-border-color-picker {
     width: 24px;
     height: 24px;
@@ -223,6 +233,11 @@
     border-radius: 2px;
     cursor: pointer;
     flex-shrink: 0;
+  }
+
+  .style-border-color-text {
+    flex: 1;
+    min-width: 0;
   }
 
   .style-border-link-toggle {
