@@ -5,6 +5,7 @@ import {
   expandBorderToStyles,
   readBorderFromStyles,
   parseBorderShorthand,
+  areBorderSidesEqual,
   type SpacingValue,
   type BorderValue,
 } from './style-inputs.js';
@@ -133,6 +134,52 @@ describe('readSpacingFromStyles', () => {
     const result = readSpacingFromStyles('margin', styles);
 
     expect(result).toEqual({ top: '10px', right: '5px', bottom: '10px', left: '5px' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// areBorderSidesEqual
+// ---------------------------------------------------------------------------
+
+describe('areBorderSidesEqual', () => {
+  it('returns true when all sides are identical', () => {
+    const border: BorderValue = {
+      top: { width: '2pt', style: 'solid', color: '#000' },
+      right: { width: '2pt', style: 'solid', color: '#000' },
+      bottom: { width: '2pt', style: 'solid', color: '#000' },
+      left: { width: '2pt', style: 'solid', color: '#000' },
+    };
+    expect(areBorderSidesEqual(border)).toBe(true);
+  });
+
+  it('returns true when all sides are empty', () => {
+    const border: BorderValue = {
+      top: { width: '', style: 'none', color: '' },
+      right: { width: '', style: 'none', color: '' },
+      bottom: { width: '', style: 'none', color: '' },
+      left: { width: '', style: 'none', color: '' },
+    };
+    expect(areBorderSidesEqual(border)).toBe(true);
+  });
+
+  it('returns false when sides differ', () => {
+    const border: BorderValue = {
+      top: { width: '2pt', style: 'solid', color: '#000' },
+      right: { width: '1pt', style: 'solid', color: '#000' },
+      bottom: { width: '2pt', style: 'solid', color: '#000' },
+      left: { width: '2pt', style: 'solid', color: '#000' },
+    };
+    expect(areBorderSidesEqual(border)).toBe(false);
+  });
+
+  it('returns false when styles differ', () => {
+    const border: BorderValue = {
+      top: { width: '1pt', style: 'solid', color: '#000' },
+      right: { width: '1pt', style: 'dashed', color: '#000' },
+      bottom: { width: '1pt', style: 'solid', color: '#000' },
+      left: { width: '1pt', style: 'solid', color: '#000' },
+    };
+    expect(areBorderSidesEqual(border)).toBe(false);
   });
 });
 

@@ -452,6 +452,22 @@ const BORDER_STYLES = [
   { label: 'Dotted', value: 'dotted' },
 ];
 
+/** Check if all four border sides have equal values. */
+export function areBorderSidesEqual(border: BorderValue): boolean {
+  const { top, right, bottom, left } = border;
+  return (
+    top.width === right.width &&
+    top.width === bottom.width &&
+    top.width === left.width &&
+    top.style === right.style &&
+    top.style === bottom.style &&
+    top.style === left.style &&
+    top.color === right.color &&
+    top.color === bottom.color &&
+    top.color === left.color
+  );
+}
+
 /** Parse a border shorthand like "2pt solid #000" into parts. */
 export function parseBorderShorthand(raw: unknown): BorderSideValue {
   if (raw == null || raw === '') return { ...EMPTY_SIDE };
@@ -526,14 +542,111 @@ export function renderBorderInput(
 
   const sides = ['top', 'right', 'bottom', 'left'] as const;
 
+  // Detect if all sides are equal — auto-enable linked mode
+  const sidesEqual = areBorderSidesEqual(parsed);
+
   const handleSideChange = (side: keyof BorderValue, field: keyof BorderSideValue, val: string) => {
-    const newValue = { ...parsed };
-    newValue[side] = { ...newValue[side], [field]: val };
-    onChange(newValue);
+    const updated = { ...parsed[side], [field]: val };
+    if (sidesEqual) {
+      // Linked: apply change to all sides
+      onChange({
+        top: { ...updated },
+        right: { ...updated },
+        bottom: { ...updated },
+        left: { ...updated },
+      });
+    } else {
+      onChange({ ...parsed, [side]: updated });
+    }
   };
 
+  const handleToggleLinked = () => {
+    if (sidesEqual) {
+      // Already linked — unlink (keep current values, they just become independent)
+      // Set right/bottom/left to empty to make them distinct
+      onChange({
+        top: { ...parsed.top },
+        right: { ...EMPTY_SIDE },
+        bottom: { ...EMPTY_SIDE },
+        left: { ...EMPTY_SIDE },
+      });
+    } else {
+      // Link — copy top to all sides
+      const top = parsed.top;
+      onChange({ top: { ...top }, right: { ...top }, bottom: { ...top }, left: { ...top } });
+    }
+  };
+
+  // When linked, only show one row (top) with the link toggle
+  if (sidesEqual) {
+    const s = parsed.top;
+    const widthParsed = parseValueWithUnit(s.width, units[0] ?? 'pt');
+    return html`
+      <div class="style-border-input">
+        <div class="style-border-side">
+          <button
+            class="style-border-link-toggle linked"
+            title="Unlink sides"
+            ?disabled=${readOnly}
+            @click=${handleToggleLinked}
+          >
+            ⊞
+          </button>
+          <input
+            type="number"
+            class="ep-input style-border-width"
+            id=${inputId ?? nothing}
+            min="0"
+            step="0.5"
+            .value=${String(widthParsed.value || '')}
+            ?disabled=${readOnly}
+            @change=${(e: Event) => {
+              const num = parseFloat((e.target as HTMLInputElement).value) || 0;
+              handleSideChange(
+                'top',
+                'width',
+                num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
+              );
+            }}
+          />
+          <select
+            class="ep-select style-border-style-select"
+            ?disabled=${readOnly}
+            @change=${(e: Event) =>
+              handleSideChange('top', 'style', (e.target as HTMLSelectElement).value)}
+          >
+            ${BORDER_STYLES.map(
+              (opt) => html`
+                <option .value=${opt.value} ?selected=${s.style === opt.value}>${opt.label}</option>
+              `,
+            )}
+          </select>
+          <input
+            type="color"
+            class="style-border-color-picker"
+            .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
+            ?disabled=${readOnly}
+            @input=${(e: Event) =>
+              handleSideChange('top', 'color', (e.target as HTMLInputElement).value)}
+          />
+        </div>
+      </div>
+    `;
+  }
+
+  // Unlinked: show all four sides with a link toggle
   return html`
     <div class="style-border-input">
+      <div class="style-border-side">
+        <button
+          class="style-border-link-toggle"
+          title="Link all sides"
+          ?disabled=${readOnly}
+          @click=${handleToggleLinked}
+        >
+          ⊞
+        </button>
+      </div>
       ${sides.map((side) => {
         const s = parsed[side];
         const sideInputId = side === 'top' && inputId ? inputId : undefined;
@@ -546,7 +659,7 @@ export function renderBorderInput(
               class="ep-input style-border-width"
               id=${sideInputId ?? nothing}
               min="0"
-              step=${widthParsed.unit === 'sp' ? '0.5' : '0.5'}
+              step="0.5"
               .value=${String(widthParsed.value || '')}
               ?disabled=${readOnly}
               @change=${(e: Event) => {
