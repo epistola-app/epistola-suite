@@ -346,9 +346,10 @@ export class EpistolaDataContractEditor extends LitElement {
     }
 
     if (outcome.action === 'error') {
-      this.store.state.schemaWarnings = compatibilityResult
-        ? flattenCompatibilityWarnings(compatibilityResult)
-        : [];
+      this.store.dispatch({
+        type: 'set-schema-warnings',
+        warnings: compatibilityResult ? flattenCompatibilityWarnings(compatibilityResult) : [],
+      });
       await executeSave(this.store, outcome);
       this._openWarningsModal();
       return;
@@ -356,7 +357,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     // Clear warnings on successful compatibility check
     if (compatibilityResult?.compatible) {
-      this.store.state.schemaWarnings = [];
+      this.store.dispatch({ type: 'set-schema-warnings', warnings: [] });
     }
 
     await executeSave(this.store, outcome);
@@ -414,10 +415,7 @@ export class EpistolaDataContractEditor extends LitElement {
     if (s.schemaWarnings.length === 0) return;
     if (s.fixScreen) return;
 
-    const currentSchema =
-      s.schemaEditMode === 'json-only'
-        ? (s.rawJsonSchema as unknown as JsonSchema | null)
-        : s.schema;
+    const currentSchema = this._currentSchemaForFixScreen();
     if (!currentSchema) return;
 
     this.store.dispatch({
@@ -485,30 +483,27 @@ export class EpistolaDataContractEditor extends LitElement {
     const result = checkSchemaCompatibility(schema);
     this._compatibilityIssues = result.issues;
 
-    // Snapshot current state for undo before applying import
-    this.store.state.schemaCommandHistory.snapshotForImport(this.store.state.visualSchema);
-
     if (result.compatible) {
-      const visualSchema = jsonSchemaToVisualSchema(schema as unknown as JsonSchema);
-      this.store.state.visualSchema = visualSchema;
-      this.store.dispatch({ type: 'set-raw-json-schema', schema: null, mode: 'visual' });
-      this.store.syncVisualSchemaToState();
-      this.store.state.schemaViewMode = 'visual';
-      this.store.state.selectedFieldId =
-        visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
+      if (!isRootJsonSchema(schema)) {
+        this._importParseError = 'Schema root must have type "object"';
+        return;
+      }
+
+      const visualSchema = jsonSchemaToVisualSchema(schema);
+      this.store.dispatch({
+        type: 'import-visual-schema',
+        schema,
+        visualSchema,
+        selectedFieldId: visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null,
+      });
     } else {
       this.store.dispatch({
-        type: 'set-raw-json-schema',
+        type: 'import-json-only-schema',
         schema,
-        mode: 'json-only',
-        asCommitted: false,
       });
-      this.store.state.schemaViewMode = 'json';
     }
 
     this._closeImportDialog();
-    this.store.dispatch({ type: 'clear-save-status' });
-    this.store.validateAllExamples();
   }
 
   // ---------------------------------------------------------------------------
@@ -572,6 +567,16 @@ export class EpistolaDataContractEditor extends LitElement {
   // Helpers
   // ---------------------------------------------------------------------------
 
+  private _currentSchemaForFixScreen(): JsonSchema | null {
+    const s = this.store.state;
+
+    if (s.schemaEditMode === 'json-only') {
+      return isRootJsonSchema(s.rawJsonSchema) ? s.rawJsonSchema : null;
+    }
+
+    return s.schema;
+  }
+
   private _scheduleSuccessClear(fn: () => void): void {
     if (this._successTimer) clearTimeout(this._successTimer);
     this._successTimer = setTimeout(() => {
@@ -579,6 +584,15 @@ export class EpistolaDataContractEditor extends LitElement {
       this.requestUpdate();
     }, 3000);
   }
+}
+
+function isRootJsonSchema(value: unknown): value is JsonSchema {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Reflect.get(value, 'type') === 'object'
+  );
 }
 
 declare global {

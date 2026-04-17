@@ -110,6 +110,16 @@ export type StoreCommand =
       mode: SchemaEditMode;
       asCommitted?: boolean;
     }
+  | {
+      type: 'import-visual-schema';
+      schema: JsonSchema;
+      visualSchema: VisualSchema;
+      selectedFieldId: string | null;
+    }
+  | {
+      type: 'import-json-only-schema';
+      schema: object;
+    }
   | { type: 'execute-schema-command'; command: SchemaCommand }
   | { type: 'undo-schema' }
   | { type: 'redo-schema' }

@@ -186,11 +186,31 @@ export class DataContractStore {
       case 'set-raw-json-schema':
         s.rawJsonSchema = command.schema ? structuredClone(command.schema) : null;
         s.schemaEditMode = command.mode;
-        s.schema = command.schema as unknown as JsonSchema | null;
+        s.schema = toJsonSchemaOrNull(command.schema);
         if (command.asCommitted) {
           s.committedRawJsonSchema = command.schema ? structuredClone(command.schema) : null;
           s.committedSchema = structuredClone(s.schema);
         }
+        break;
+      case 'import-visual-schema':
+        s.schemaCommandHistory.snapshotForImport(s.visualSchema);
+        s.visualSchema = command.visualSchema;
+        s.rawJsonSchema = null;
+        s.schemaEditMode = 'visual';
+        s.schema = command.schema;
+        s.schemaViewMode = 'visual';
+        s.selectedFieldId = command.selectedFieldId;
+        this._clearSaveStatus();
+        this._validateAllExamples();
+        break;
+      case 'import-json-only-schema':
+        s.schemaCommandHistory.snapshotForImport(s.visualSchema);
+        s.rawJsonSchema = structuredClone(command.schema);
+        s.schemaEditMode = 'json-only';
+        s.schema = toJsonSchemaOrNull(command.schema);
+        s.schemaViewMode = 'json';
+        this._clearSaveStatus();
+        this._validateAllExamples();
         break;
       case 'execute-schema-command': {
         const prevFields = s.visualSchema.fields;
@@ -912,6 +932,14 @@ function pruneValueToSchema(
   }
 
   return value;
+}
+
+function toJsonSchemaOrNull(schema: object | null): JsonSchema | null {
+  return isRootJsonSchema(schema) ? schema : null;
+}
+
+function isRootJsonSchema(value: unknown): value is JsonSchema {
+  return isRecord(value) && value.type === 'object';
 }
 
 /**
