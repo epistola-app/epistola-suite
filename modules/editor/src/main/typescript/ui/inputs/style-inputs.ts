@@ -445,13 +445,6 @@ export interface BorderValue {
 
 const EMPTY_SIDE: BorderSideValue = { width: '', style: 'solid', color: '' };
 
-const BORDER_STYLES = [
-  { label: 'None', value: 'none' },
-  { label: 'Solid', value: 'solid' },
-  { label: 'Dashed', value: 'dashed' },
-  { label: 'Dotted', value: 'dotted' },
-];
-
 /** Check if all four border sides have equal values. */
 export function areBorderSidesEqual(border: BorderValue): boolean {
   const { top, right, bottom, left } = border;
@@ -523,166 +516,31 @@ export function expandBorderToStyles(value: BorderValue, styles: Record<string, 
   }
 }
 
-/**
- * Tracks which border inputs are in "unlinked" mode.
- * Keyed by inputId. Entries are added when unlinking, removed when re-linking.
- */
-const unlinkedBorderInputs = new Set<string>();
+// ---------------------------------------------------------------------------
+// Compound style types: generic read/write for compound properties
+// ---------------------------------------------------------------------------
 
 /**
- * Renders a per-side border editor with width, style, and color controls for each side.
- * A link toggle switches between editing all sides at once or independently.
+ * Registry of compound style types that expand to/from individual style keys.
+ * Used by the inspector and theme editor to generically handle compound properties
+ * without hardcoding type-specific logic.
  */
-export function renderBorderInput(
-  value: unknown,
-  units: string[],
-  onChange: (value: BorderValue) => void,
-  inputId?: string,
-  readOnly = false,
-): unknown {
-  const parsed: BorderValue = (value as BorderValue) ?? {
-    top: { ...EMPTY_SIDE },
-    right: { ...EMPTY_SIDE },
-    bottom: { ...EMPTY_SIDE },
-    left: { ...EMPTY_SIDE },
-  };
-
-  const defaultUnit = units[0] ?? 'pt';
-  const sides = ['top', 'right', 'bottom', 'left'] as const;
-  const id = inputId ?? '_border';
-
-  // Linked when sides are equal AND user hasn't explicitly unlinked
-  const sidesEqual = areBorderSidesEqual(parsed);
-  const linked = sidesEqual && !unlinkedBorderInputs.has(id);
-  // If sides differ, clear any stale unlinked tracking
-  if (!sidesEqual) unlinkedBorderInputs.delete(id);
-
-  const handleSideChange = (side: keyof BorderValue, field: keyof BorderSideValue, val: string) => {
-    const updated = { ...parsed[side], [field]: val };
-    if (linked) {
-      onChange({
-        top: { ...updated },
-        right: { ...updated },
-        bottom: { ...updated },
-        left: { ...updated },
-      });
-    } else {
-      onChange({ ...parsed, [side]: updated });
-    }
-  };
-
-  const handleToggleLinked = () => {
-    if (linked) {
-      // Unlink: keep values as-is, just switch to per-side editing
-      unlinkedBorderInputs.add(id);
-      // Re-render with same values to show per-side rows
-      onChange({ ...parsed });
-    } else {
-      // Re-link: copy top to all sides
-      unlinkedBorderInputs.delete(id);
-      const top = parsed.top;
-      onChange({ top: { ...top }, right: { ...top }, bottom: { ...top }, left: { ...top } });
-    }
-  };
-
-  const renderSideRow = (side: (typeof sides)[number], label: string, sideInputId?: string) => {
-    const s = parsed[side];
-    const widthParsed = parseValueWithUnit(s.width, defaultUnit);
-    return html`
-      <div class="style-border-side">
-        <span class="style-border-label">${label}</span>
-        <input
-          type="number"
-          class="ep-input style-border-width"
-          id=${sideInputId ?? nothing}
-          min="0"
-          step="0.5"
-          .value=${String(widthParsed.value || '')}
-          ?disabled=${readOnly}
-          @change=${(e: Event) => {
-            const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-            handleSideChange(
-              side,
-              'width',
-              num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
-            );
-          }}
-        />
-        ${units.length > 1
-          ? html`
-              <select
-                class="ep-select style-border-unit-select"
-                ?disabled=${readOnly}
-                @change=${(e: Event) => {
-                  const newUnit = (e.target as HTMLSelectElement).value;
-                  const oldUnit = widthParsed.unit;
-                  let newValue = widthParsed.value;
-                  if (oldUnit === 'pt' && newUnit === 'sp') {
-                    newValue = parseFloat(
-                      nearestSpacingStep(widthParsed.value, DEFAULT_SPACING_UNIT),
-                    );
-                  } else if (oldUnit === 'sp' && newUnit === 'pt') {
-                    newValue = widthParsed.value * DEFAULT_SPACING_UNIT;
-                  }
-                  handleSideChange(
-                    side,
-                    'width',
-                    newValue > 0 ? formatValueWithUnit(newValue, newUnit) : '',
-                  );
-                }}
-              >
-                ${units.map(
-                  (u) =>
-                    html`<option .value=${u} ?selected=${u === widthParsed.unit}>${u}</option>`,
-                )}
-              </select>
-            `
-          : nothing}
-        <select
-          class="ep-select style-border-style-select"
-          ?disabled=${readOnly}
-          @change=${(e: Event) =>
-            handleSideChange(side, 'style', (e.target as HTMLSelectElement).value)}
-        >
-          ${BORDER_STYLES.map(
-            (opt) => html`
-              <option .value=${opt.value} ?selected=${s.style === opt.value}>${opt.label}</option>
-            `,
-          )}
-        </select>
-        <input
-          type="color"
-          class="style-border-color-picker"
-          .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
-          ?disabled=${readOnly}
-          @input=${(e: Event) =>
-            handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
-        />
-      </div>
-    `;
-  };
-
-  return html`
-    <div class="style-border-input">
-      <div class="style-border-header">
-        <button
-          type="button"
-          class="style-border-link-toggle ${linked ? 'linked' : ''}"
-          title=${linked ? 'Edit sides independently' : 'Apply to all sides'}
-          ?disabled=${readOnly}
-          @click=${handleToggleLinked}
-        >
-          ⊞
-        </button>
-      </div>
-      ${linked
-        ? renderSideRow('top', 'All', inputId)
-        : sides.map((side) =>
-            renderSideRow(side, side[0].toUpperCase(), side === 'top' ? inputId : undefined),
-          )}
-    </div>
-  `;
-}
+export const COMPOUND_STYLE_TYPES: Record<
+  string,
+  {
+    read: (key: string, styles: Record<string, unknown>) => unknown;
+    write: (key: string, value: unknown, styles: Record<string, unknown>) => void;
+  }
+> = {
+  spacing: {
+    read: (key, styles) => readSpacingFromStyles(key, styles),
+    write: (key, value, styles) => expandSpacingToStyles(key, value as SpacingValue, styles),
+  },
+  border: {
+    read: (_key, styles) => readBorderFromStyles(styles),
+    write: (_key, value, styles) => expandBorderToStyles(value as BorderValue, styles),
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Select input (for style properties)

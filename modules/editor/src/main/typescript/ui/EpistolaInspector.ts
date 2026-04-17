@@ -17,14 +17,10 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
-  renderBorderInput,
-  expandSpacingToStyles,
-  readSpacingFromStyles,
-  expandBorderToStyles,
-  readBorderFromStyles,
-  type SpacingValue,
+  COMPOUND_STYLE_TYPES,
   type BorderValue,
 } from './inputs/style-inputs.js';
+import './inputs/BorderInput.js';
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -300,17 +296,12 @@ export class EpistolaInspector extends LitElement {
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
               ${filteredProps.map((prop) => {
-                // For compound properties, reconstruct from individual keys
-                let value: unknown;
-                if (prop.type === 'spacing') {
-                  value = readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px');
-                } else if (prop.type === 'border') {
-                  value = readBorderFromStyles(inlineStyles);
-                } else {
-                  value = inlineStyles[prop.key];
-                }
+                const compound = COMPOUND_STYLE_TYPES[prop.type];
+                const value = compound
+                  ? compound.read(prop.key, inlineStyles)
+                  : inlineStyles[prop.key];
                 return this._renderStyleProperty(prop, value, (v) =>
-                  this._handleNodeStyleChange(prop.key, v),
+                  this._handleNodeStyleChange(prop.key, v, prop.type),
                 );
               })}
             </div>
@@ -370,7 +361,13 @@ export class EpistolaInspector extends LitElement {
           inputId,
         );
       case 'border':
-        return renderBorderInput(value, prop.units ?? ['pt'], (v) => onChange(v), inputId);
+        return html`
+          <epistola-border-input
+            .value=${value as BorderValue | undefined}
+            .units=${prop.units ?? ['pt', 'sp']}
+            @change=${(e: CustomEvent) => onChange(e.detail)}
+          ></epistola-border-input>
+        `;
       case 'number':
         return html`
           <input
@@ -610,7 +607,7 @@ export class EpistolaInspector extends LitElement {
     });
   }
 
-  private _handleNodeStyleChange(key: string, value: unknown) {
+  private _handleNodeStyleChange(key: string, value: unknown, type?: string) {
     if (!this.engine || !this.selectedNodeId) return;
 
     const node = this.doc!.nodes[this.selectedNodeId];
@@ -618,11 +615,9 @@ export class EpistolaInspector extends LitElement {
 
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>;
 
-    // Compound properties: expand to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles);
-    } else if (key === 'border' && value != null && typeof value === 'object') {
-      expandBorderToStyles(value as BorderValue, newStyles);
+    const compound = type ? COMPOUND_STYLE_TYPES[type] : undefined;
+    if (compound && value != null && typeof value === 'object') {
+      compound.write(key, value, newStyles);
     } else if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
@@ -644,12 +639,7 @@ export class EpistolaInspector extends LitElement {
       unknown
     >;
 
-    // Compound properties: expand to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles);
-    } else if (key === 'border' && value != null && typeof value === 'object') {
-      expandBorderToStyles(value as BorderValue, newStyles);
-    } else if (value === undefined || value === '') {
+    if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
       newStyles[key] = value;
