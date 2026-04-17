@@ -427,6 +427,122 @@ export function readSpacingFromStyles(
 }
 
 // ---------------------------------------------------------------------------
+// Border input: per-side border editing (width + style + color per side)
+// ---------------------------------------------------------------------------
+
+export interface BorderSideValue {
+  width: string;
+  style: string;
+  color: string;
+}
+
+export interface BorderValue {
+  top: BorderSideValue;
+  right: BorderSideValue;
+  bottom: BorderSideValue;
+  left: BorderSideValue;
+}
+
+const EMPTY_SIDE: BorderSideValue = { width: '', style: 'solid', color: '' };
+
+/** Check if all four border sides have equal values. */
+export function areBorderSidesEqual(border: BorderValue): boolean {
+  const { top, right, bottom, left } = border;
+  return (
+    top.width === right.width &&
+    top.width === bottom.width &&
+    top.width === left.width &&
+    top.style === right.style &&
+    top.style === bottom.style &&
+    top.style === left.style &&
+    top.color === right.color &&
+    top.color === bottom.color &&
+    top.color === left.color
+  );
+}
+
+/** Parse a border shorthand like "2pt solid #000" into parts. */
+export function parseBorderShorthand(raw: unknown): BorderSideValue {
+  if (raw == null || raw === '') return { ...EMPTY_SIDE };
+  const str = String(raw).trim();
+  const parts = str.split(/\s+/);
+  return {
+    width: parts[0] ?? '',
+    style: parts[1] ?? 'solid',
+    color: parts[2] ?? '',
+  };
+}
+
+/** Format border side parts back to a shorthand string. */
+function formatBorderShorthand(side: BorderSideValue): string {
+  if (!side.width || side.style === 'none') return '';
+  return `${side.width} ${side.style} ${side.color || '#000000'}`.trim();
+}
+
+/**
+ * Read per-side border values from individual style keys.
+ * Keys: borderTop, borderRight, borderBottom, borderLeft (shorthand strings like "2pt solid #000")
+ */
+export function readBorderFromStyles(styles: Record<string, unknown>): BorderValue | undefined {
+  const top = styles['borderTop'];
+  const right = styles['borderRight'];
+  const bottom = styles['borderBottom'];
+  const left = styles['borderLeft'];
+
+  if (top == null && right == null && bottom == null && left == null) return undefined;
+
+  return {
+    top: parseBorderShorthand(top),
+    right: parseBorderShorthand(right),
+    bottom: parseBorderShorthand(bottom),
+    left: parseBorderShorthand(left),
+  };
+}
+
+/**
+ * Expand a BorderValue into individual style keys.
+ * Writes: borderTop, borderRight, borderBottom, borderLeft as shorthand strings like "2pt solid #000".
+ */
+export function expandBorderToStyles(value: BorderValue, styles: Record<string, unknown>): void {
+  const sides = { Top: value.top, Right: value.right, Bottom: value.bottom, Left: value.left };
+  for (const [suffix, side] of Object.entries(sides)) {
+    const shorthand = formatBorderShorthand(side);
+    const key = `border${suffix}`;
+    if (shorthand) {
+      styles[key] = shorthand;
+    } else {
+      delete styles[key];
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compound style types: generic read/write for compound properties
+// ---------------------------------------------------------------------------
+
+/**
+ * Registry of compound style types that expand to/from individual style keys.
+ * Used by the inspector and theme editor to generically handle compound properties
+ * without hardcoding type-specific logic.
+ */
+export const COMPOUND_STYLE_TYPES: Record<
+  string,
+  {
+    read: (key: string, styles: Record<string, unknown>) => unknown;
+    write: (key: string, value: unknown, styles: Record<string, unknown>) => void;
+  }
+> = {
+  spacing: {
+    read: (key, styles) => readSpacingFromStyles(key, styles),
+    write: (key, value, styles) => expandSpacingToStyles(key, value as SpacingValue, styles),
+  },
+  border: {
+    read: (_key, styles) => readBorderFromStyles(styles),
+    write: (_key, value, styles) => expandBorderToStyles(value as BorderValue, styles),
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Select input (for style properties)
 // ---------------------------------------------------------------------------
 

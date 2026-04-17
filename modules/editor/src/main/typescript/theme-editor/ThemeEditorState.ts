@@ -6,7 +6,7 @@
  */
 
 import type { BlockStylePreset, PageSettings } from '@epistola.app/epistola-model/generated/theme';
-import { expandSpacingToStyles, type SpacingValue } from '../ui/inputs/style-inputs.js';
+import { COMPOUND_STYLE_TYPES } from '../ui/inputs/style-inputs.js';
 
 export interface ThemeData {
   id: string;
@@ -54,10 +54,10 @@ export class ThemeEditorState extends EventTarget {
   // Document styles
   // -----------------------------------------------------------------------
 
-  updateDocumentStyle(key: string, value: unknown): void {
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, this._current.documentStyles);
+  updateDocumentStyle(key: string, value: unknown, type?: string): void {
+    const compound = type ? COMPOUND_STYLE_TYPES[type] : undefined;
+    if (compound && value != null && typeof value === 'object') {
+      compound.write(key, value, this._current.documentStyles);
     } else if (value === undefined || value === '' || value === null) {
       delete this._current.documentStyles[key];
     } else {
@@ -141,14 +141,14 @@ export class ThemeEditorState extends EventTarget {
     this._fireChange();
   }
 
-  updatePresetStyle(name: string, key: string, value: unknown): void {
+  updatePresetStyle(name: string, key: string, value: unknown, type?: string): void {
     const preset = this._current.blockStylePresets[name];
     if (!preset) return;
     const styles = preset.styles as Record<string, unknown>;
 
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, styles);
+    const compound = type ? COMPOUND_STYLE_TYPES[type] : undefined;
+    if (compound && value != null && typeof value === 'object') {
+      compound.write(key, value, styles);
     } else if (value === undefined || value === '' || value === null) {
       delete styles[key];
     } else {

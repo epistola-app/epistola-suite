@@ -16,7 +16,7 @@
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.7",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
-    "@epistola.app/epistola-model": "0.2.1",
+    "@epistola.app/epistola-model": "0.2.2",
     "@epistola/design-system": "workspace:*",
     "@floating-ui/dom": "^1.7.5",
     "jsonata": "^2.0.5",

@@ -17,10 +17,10 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
-  expandSpacingToStyles,
-  readSpacingFromStyles,
-  type SpacingValue,
+  COMPOUND_STYLE_TYPES,
+  type BorderValue,
 } from './inputs/style-inputs.js';
+import './inputs/BorderInput.js';
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -296,13 +296,12 @@ export class EpistolaInspector extends LitElement {
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
               ${filteredProps.map((prop) => {
-                // For spacing properties, reconstruct compound value from individual keys
-                const value =
-                  prop.type === 'spacing'
-                    ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
-                    : inlineStyles[prop.key];
+                const compound = COMPOUND_STYLE_TYPES[prop.type];
+                const value = compound
+                  ? compound.read(prop.key, inlineStyles)
+                  : inlineStyles[prop.key];
                 return this._renderStyleProperty(prop, value, (v) =>
-                  this._handleNodeStyleChange(prop.key, v),
+                  this._handleNodeStyleChange(prop.key, v, prop.type),
                 );
               })}
             </div>
@@ -361,6 +360,14 @@ export class EpistolaInspector extends LitElement {
           undefined,
           inputId,
         );
+      case 'border':
+        return html`
+          <epistola-border-input
+            .value=${value as BorderValue | undefined}
+            .units=${prop.units ?? ['pt', 'sp']}
+            @change=${(e: CustomEvent) => onChange(e.detail)}
+          ></epistola-border-input>
+        `;
       case 'number':
         return html`
           <input
@@ -600,7 +607,7 @@ export class EpistolaInspector extends LitElement {
     });
   }
 
-  private _handleNodeStyleChange(key: string, value: unknown) {
+  private _handleNodeStyleChange(key: string, value: unknown, type?: string) {
     if (!this.engine || !this.selectedNodeId) return;
 
     const node = this.doc!.nodes[this.selectedNodeId];
@@ -608,9 +615,9 @@ export class EpistolaInspector extends LitElement {
 
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>;
 
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles);
+    const compound = type ? COMPOUND_STYLE_TYPES[type] : undefined;
+    if (compound && value != null && typeof value === 'object') {
+      compound.write(key, value, newStyles);
     } else if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
@@ -632,10 +639,7 @@ export class EpistolaInspector extends LitElement {
       unknown
     >;
 
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles);
-    } else if (value === undefined || value === '') {
+    if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
       newStyles[key] = value;

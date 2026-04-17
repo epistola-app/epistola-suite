@@ -15,8 +15,10 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
-  readSpacingFromStyles,
+  COMPOUND_STYLE_TYPES,
+  type BorderValue,
 } from '../../ui/inputs/style-inputs.js';
+import '../../ui/inputs/BorderInput.js';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 
 /** Node types available for applicableTo multi-select. */
@@ -153,14 +155,12 @@ function renderPresetBody(
           <div class="inspector-style-group">
             <div class="inspector-style-group-label">${group.label}</div>
             ${group.properties.map((prop) => {
-              const value =
-                prop.type === 'spacing'
-                  ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
-                  : styles[prop.key];
+              const compound = COMPOUND_STYLE_TYPES[prop.type];
+              const value = compound ? compound.read(prop.key, styles) : styles[prop.key];
               return renderPresetStyleProperty(
                 prop,
                 value,
-                (v) => state.updatePresetStyle(name, prop.key, v),
+                (v) => state.updatePresetStyle(name, prop.key, v, prop.type),
                 `preset-${name}-style-${prop.key}`,
                 readOnly,
               );
@@ -223,6 +223,15 @@ function renderPresetStyleInput(
         inputId,
         readOnly,
       );
+    case 'border':
+      return html`
+        <epistola-border-input
+          .value=${value as BorderValue | undefined}
+          .units=${prop.units ?? ['pt', 'sp']}
+          ?readOnly=${readOnly}
+          @change=${(e: CustomEvent) => onChange(e.detail)}
+        ></epistola-border-input>
+      `;
     default:
       return html`
         <input

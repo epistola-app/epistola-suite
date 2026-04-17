@@ -13,15 +13,7 @@ import { html } from 'lit';
 import { nanoid } from 'nanoid';
 
 /** Layout style properties available on columns nodes. */
-const LAYOUT_STYLES = [
-  'padding',
-  'margin',
-  'backgroundColor',
-  'borderWidth',
-  'borderStyle',
-  'borderColor',
-  'borderRadius',
-];
+const LAYOUT_STYLES = ['padding', 'margin', 'backgroundColor', 'border', 'borderRadius'];
 
 export function createColumnsDefinition(): ComponentDefinition {
   return {

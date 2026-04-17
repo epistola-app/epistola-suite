@@ -48,8 +48,8 @@ importers:
         specifier: ^1.1.0
         version: 1.1.0
       '@epistola.app/epistola-model':
-        specifier: 0.2.1
-        version: 0.2.1
+        specifier: 0.2.2
+        version: 0.2.2
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -260,8 +260,8 @@ packages:
   '@emnapi/wasi-threads@1.2.0':
     resolution: {integrity: sha512-N10dEJNSsUx41Z6pZsXU8FjPjpBEplgH24sfkmITrBED1/U2Esum9F3lfLrMjKHHjmi557zQn7kR9R+XWXu5Rg==}
 
-  '@epistola.app/epistola-model@0.2.1':
-    resolution: {integrity: sha512-eeHJl36BSQEZhVj0nrH3bgKCmpXYsLPx2eEG7AvRb7FYf9KL/gXRS8O9OIROdoX6wJrupkn1Bi0uTJ3SykBnGA==}
+  '@epistola.app/epistola-model@0.2.2':
+    resolution: {integrity: sha512-sh4cDVtiA0PeMEaSyJbCUc/3vnja2WB/QqBJTOPQDLC5NJmaLHD19Iw6aYolBaJNGUKp8GddqT6J/dVDmcxulA==}
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -1908,7 +1908,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@epistola.app/epistola-model@0.2.1': {}
+  '@epistola.app/epistola-model@0.2.2': {}
 
   '@esbuild/aix-ppc64@0.27.3':
     optional: true
