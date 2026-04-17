@@ -185,13 +185,12 @@
   }
 
   .style-border-side-group {
-    display: grid;
-    grid-template-columns: 20px 1fr;
-    gap: 2px var(--ep-space-1);
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .style-border-side-group > .style-border-row {
+  .style-border-row {
     display: flex;
     align-items: center;
     gap: var(--ep-space-1);
@@ -201,6 +200,8 @@
     font-size: 9px;
     color: var(--ep-gray-400);
     font-weight: 500;
+    width: 20px;
+    flex-shrink: 0;
     text-align: center;
   }
 
