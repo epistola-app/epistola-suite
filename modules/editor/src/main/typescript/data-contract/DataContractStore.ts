@@ -39,7 +39,11 @@ export interface EditorHost {
 // =============================================================================
 
 export class DataContractStore {
-  private _host!: EditorHost;
+  private _host: EditorHost | null = null;
+  private readonly _controller = {
+    hostConnected: () => this.hostConnected(),
+    hostDisconnected: () => this.hostDisconnected(),
+  };
   private _state: EditorState;
   private _callbacks: SaveCallbacks = {};
   private _updateScheduled = false;
@@ -61,11 +65,16 @@ export class DataContractStore {
   // ---------------------------------------------------------------------------
 
   setHost(host: EditorHost): void {
+    if (this._host === host) {
+      return;
+    }
+
+    if (this._host) {
+      this._host.removeController(this._controller);
+    }
+
     this._host = host;
-    host.addController({
-      hostConnected: () => this.hostConnected(),
-      hostDisconnected: () => this.hostDisconnected(),
-    });
+    this._host.addController(this._controller);
   }
 
   get state(): EditorState {
@@ -804,9 +813,10 @@ export class DataContractStore {
   private _requestUpdate(): void {
     if (!this._updateScheduled && this._host) {
       this._updateScheduled = true;
+      const host = this._host;
       queueMicrotask(() => {
         this._updateScheduled = false;
-        this._host.requestUpdate();
+        host.requestUpdate();
       });
     }
   }

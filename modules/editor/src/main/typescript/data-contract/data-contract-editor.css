@@ -1430,7 +1430,7 @@
   .dc-fix-overlay {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: var(--ep-z-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1663,7 +1663,7 @@
     border-top: 1px solid var(--ep-red-200);
     background: var(--ep-red-50);
     color: var(--ep-red-700);
-    font-size: 0.875rem;
+    font-size: var(--ep-text-sm);
     flex-shrink: 0;
   }
 
