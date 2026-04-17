@@ -38,18 +38,24 @@ class TipTapConverter(
     /**
      * Converts TipTap JSON content to a list of iText block elements.
      */
+    /**
+     * @param resolvedStyles Resolved style cascade for the parent text node.
+     *   TipTapConverter reads properties like `lineHeight` from this map
+     *   and applies them to generated paragraphs/headings.
+     */
     fun convert(
         content: Map<String, Any>?,
         data: Map<String, Any?>,
         loopContext: Map<String, Any?> = emptyMap(),
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any> = emptyMap(),
     ): kotlin.collections.List<IBlockElement> {
         if (content == null) return emptyList()
 
         @Suppress("UNCHECKED_CAST")
         val nodes = content["content"] as? kotlin.collections.List<Map<String, Any>> ?: return emptyList()
 
-        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache) }
+        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache, resolvedStyles) }
     }
 
     private fun convertNode(
@@ -57,12 +63,13 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any>,
     ): IBlockElement? {
         val type = node["type"] as? String ?: return null
 
         return when (type) {
-            "paragraph" -> convertParagraph(node, data, loopContext, fontCache)
-            "heading" -> convertHeading(node, data, loopContext, fontCache)
+            "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles)
+            "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles)
             "bulletList" -> convertBulletList(node, data, loopContext, fontCache)
             "orderedList" -> convertOrderedList(node, data, loopContext, fontCache)
             else -> null
@@ -74,9 +81,11 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any>,
     ): Paragraph {
         val paragraph = Paragraph()
         paragraph.setMarginBottom(renderingDefaults.paragraphMarginBottom)
+        applyTextStyles(paragraph, resolvedStyles)
 
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
@@ -92,6 +101,7 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any>,
     ): Paragraph {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
@@ -99,6 +109,7 @@ class TipTapConverter(
 
         val paragraph = Paragraph()
         paragraph.setFont(fontCache.bold)
+        applyTextStyles(paragraph, resolvedStyles)
 
         // Set font size based on heading level
         val fontSize = renderingDefaults.headingFontSize(level)
@@ -307,6 +318,20 @@ class TipTapConverter(
             val attrs = linkMark["attrs"] as? Map<String, Any> ?: return null
             val href = attrs["href"] as? String
             return href?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    /**
+     * Apply resolved text styles (lineHeight, etc.) to a paragraph.
+     * This is the single place to add new style properties that affect TipTap paragraphs/headings.
+     */
+    /**
+     * Apply pre-resolved text styles to a paragraph.
+     * Values in the map should already be in points (resolved by the caller).
+     */
+    private fun applyTextStyles(paragraph: Paragraph, resolvedStyles: Map<String, Any>) {
+        (resolvedStyles["lineHeight"] as? Float)?.let {
+            paragraph.setFixedLeading(it)
         }
     }
 
