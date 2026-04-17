@@ -59,6 +59,8 @@ export interface EditorState {
   committedSchema: JsonSchema | null;
   examples: DataExample[];
   committedExamples: DataExample[];
+  schemaDirty: boolean;
+  examplesDirty: boolean;
 
   // Schema editing
   visualSchema: VisualSchema;

@@ -5,9 +5,10 @@
  * No DOM, no side effects. Testable with state-in, action-out.
  */
 
-import type { DataExample, JsonSchema, SchemaCompatibilityPreviewResult } from './types.js';
+import type { DataExample, SchemaCompatibilityPreviewResult } from './types.js';
 import type { DataContractStore } from './DataContractStore.js';
 import type { SaveIntent, SaveOutcome } from './store-types.js';
+import { getActiveSchema } from './utils/activeSchema.js';
 
 /**
  * Pure save decision: read state, decide what to do.
@@ -112,10 +113,15 @@ export async function executeSave(
 
       const schemaResult = await store.saveSchema(outcome.force, examplesToSave);
       if (!schemaResult.success) {
+        const canForceSave = deriveCanForceSaveOnSchemaError(
+          outcome.force,
+          outcome.examples,
+          schemaResult,
+        );
         store.dispatch({
           type: 'save-error',
           message: schemaResult.error ?? 'Failed to save schema',
-          canForceSave: !!schemaResult.warnings,
+          canForceSave,
         });
         store.dispatch({
           type: 'set-schema-warnings',
@@ -190,23 +196,6 @@ export async function executeSave(
   return _exhaustive;
 }
 
-function getActiveSchema(state: DataContractStore['state']): JsonSchema | null {
-  if (state.schemaEditMode === 'json-only') {
-    return isRootJsonSchema(state.rawJsonSchema) ? state.rawJsonSchema : null;
-  }
-
-  return state.schema;
-}
-
-function isRootJsonSchema(value: unknown): value is JsonSchema {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Reflect.get(value, 'type') === 'object'
-  );
-}
-
 function mergeFixedExamples(
   allExamples: DataExample[],
   fixedExamples: DataExample[],
@@ -277,4 +266,27 @@ export function flattenCompatibilityWarnings(
   }
 
   return warnings;
+}
+
+function deriveCanForceSaveOnSchemaError(
+  forceSave: boolean,
+  fixedExamples: DataExample[] | undefined,
+  schemaResult: { warnings?: Record<string, { path: string; message: string }[]>; error?: string },
+): boolean {
+  if (forceSave) {
+    return false;
+  }
+
+  // If this save came from fix-and-save flow, always keep force-save available.
+  // The fix screen exists specifically to resolve compatibility issues; backend
+  // may still return recent-usage compatibility failures as plain errors.
+  if (fixedExamples && fixedExamples.length > 0) {
+    return true;
+  }
+
+  if (schemaResult.warnings && Object.keys(schemaResult.warnings).length > 0) {
+    return true;
+  }
+
+  return false;
 }

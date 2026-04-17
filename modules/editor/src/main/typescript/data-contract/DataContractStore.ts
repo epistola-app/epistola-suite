@@ -23,7 +23,8 @@ import { SnapshotHistory } from './utils/snapshotHistory.js';
 import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
 import { checkSchemaCompatibility } from './utils/schemaCompatibility.js';
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
-import { setNestedValue, deleteNestedValue, normalizePath } from './sections/ExampleForm.js';
+import { setNestedValue, deleteNestedValue, normalizePath } from './utils/nestedValue.js';
+import { getActiveSchema, toJsonSchemaOrNull } from './utils/activeSchema.js';
 import type { EditorState, FixFieldValue, StoreCommand } from './store-types.js';
 
 export type { EditorState, StoreCommand } from './store-types.js';
@@ -99,6 +100,7 @@ export class DataContractStore {
     callbacks: SaveCallbacks,
   ): void {
     this._callbacks = callbacks;
+    this._state = this._createInitialState();
     const s = this._state;
 
     s.committedSchema = structuredClone(initialSchema);
@@ -110,11 +112,11 @@ export class DataContractStore {
     if (initialSchema) {
       const compat = checkSchemaCompatibility(initialSchema);
       if (!compat.compatible) {
-        s.rawJsonSchema = initialSchema;
+        s.rawJsonSchema = structuredClone(initialSchema);
         s.committedRawJsonSchema = structuredClone(initialSchema);
         s.schemaEditMode = 'json-only';
         s.schemaViewMode = 'json';
-        s.schema = initialSchema;
+        s.schema = structuredClone(initialSchema);
         s.committedSchema = structuredClone(initialSchema);
       }
     }
@@ -135,6 +137,7 @@ export class DataContractStore {
 
     // Validate all examples
     this._validateAllExamples();
+    this._syncDirtyFlags();
 
     this._requestUpdate();
   }
@@ -153,21 +156,27 @@ export class DataContractStore {
   // ---------------------------------------------------------------------------
 
   private _reduce(command: StoreCommand): void {
+    if (this._reduceNavigation(command)) return;
+    if (this._reduceSchema(command)) return;
+    if (this._reduceExamples(command)) return;
+    if (this._reduceFixScreen(command)) return;
+    if (this._reduceSaveStatus(command)) return;
+  }
+
+  private _reduceNavigation(command: StoreCommand): boolean {
     const s = this._state;
 
     switch (command.type) {
-      // --- Navigation ---
       case 'select-tab':
         s.activeTab = command.tab;
-        break;
+        return true;
       case 'select-field':
         s.selectedFieldId = command.fieldId;
-        break;
+        return true;
       case 'select-example':
         s.selectedExampleId = command.exampleId;
         this._clearSaveStatus();
-        this._syncExampleUndoRedoState();
-        break;
+        return true;
       case 'toggle-field-expand': {
         const newSet = new Set(s.expandedFields);
         if (newSet.has(command.fieldId)) {
@@ -176,16 +185,24 @@ export class DataContractStore {
           newSet.add(command.fieldId);
         }
         s.expandedFields = newSet;
-        break;
+        return true;
       }
       case 'set-schema-view-mode':
         s.schemaViewMode = command.mode;
-        break;
+        return true;
+      default:
+        return false;
+    }
+  }
 
-      // --- Schema ---
+  private _reduceSchema(command: StoreCommand): boolean {
+    const s = this._state;
+
+    switch (command.type) {
       case 'set-schema':
         s.schema = command.schema;
-        break;
+        this._syncSchemaDirtyFlag();
+        return true;
       case 'set-raw-json-schema':
         s.rawJsonSchema = command.schema ? structuredClone(command.schema) : null;
         s.schemaEditMode = command.mode;
@@ -194,7 +211,8 @@ export class DataContractStore {
           s.committedRawJsonSchema = command.schema ? structuredClone(command.schema) : null;
           s.committedSchema = structuredClone(s.schema);
         }
-        break;
+        this._syncSchemaDirtyFlag();
+        return true;
       case 'import-visual-schema':
         s.schemaCommandHistory.snapshotForImport(s.visualSchema);
         s.visualSchema = command.visualSchema;
@@ -205,7 +223,8 @@ export class DataContractStore {
         s.selectedFieldId = command.selectedFieldId;
         this._clearSaveStatus();
         this._validateAllExamples();
-        break;
+        this._syncSchemaDirtyFlag();
+        return true;
       case 'import-json-only-schema':
         s.schemaCommandHistory.snapshotForImport(s.visualSchema);
         s.rawJsonSchema = structuredClone(command.schema);
@@ -214,20 +233,19 @@ export class DataContractStore {
         s.schemaViewMode = 'json';
         this._clearSaveStatus();
         this._validateAllExamples();
-        break;
+        this._syncSchemaDirtyFlag();
+        return true;
       case 'execute-schema-command': {
         const prevFields = s.visualSchema.fields;
         s.visualSchema = s.schemaCommandHistory.execute(command.command, s.visualSchema);
         this._syncVisualSchemaToState();
         this._clearSaveStatus();
 
-        // Auto-select newly added field
         if (command.command.type === 'addField') {
           const newFieldId = this._findNewFieldId(prevFields, s.visualSchema.fields);
           if (newFieldId) s.selectedFieldId = newFieldId;
         }
 
-        // Clear selection if deleted field was selected
         if (
           command.command.type === 'deleteField' &&
           s.selectedFieldId === command.command.fieldId
@@ -236,38 +254,48 @@ export class DataContractStore {
         }
 
         this._validateAllExamples();
-        break;
+        this._syncSchemaDirtyFlag();
+        return true;
       }
       case 'undo-schema': {
         const prev = s.schemaCommandHistory.undo(s.visualSchema);
-        if (prev) {
-          s.visualSchema = prev;
-          this._syncVisualSchemaToState();
-          this._clearSaveStatus();
-          this._validateAllExamples();
-        }
-        break;
+        if (!prev) return true;
+
+        s.visualSchema = prev;
+        this._syncVisualSchemaToState();
+        this._clearSaveStatus();
+        this._validateAllExamples();
+        this._syncSchemaDirtyFlag();
+        return true;
       }
       case 'redo-schema': {
         const next = s.schemaCommandHistory.redo(s.visualSchema);
-        if (next) {
-          s.visualSchema = next;
-          this._syncVisualSchemaToState();
-          this._clearSaveStatus();
-          this._validateAllExamples();
-        }
-        break;
-      }
+        if (!next) return true;
 
-      // --- Examples ---
+        s.visualSchema = next;
+        this._syncVisualSchemaToState();
+        this._clearSaveStatus();
+        this._validateAllExamples();
+        this._syncSchemaDirtyFlag();
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
+  private _reduceExamples(command: StoreCommand): boolean {
+    const s = this._state;
+
+    switch (command.type) {
       case 'add-example':
         s.examples = [...s.examples, command.example];
         s.selectedExampleId = command.example.id;
         this._clearSaveStatus();
         this._clearExampleHistory(command.example.id);
         this._validateAllExamples();
-        this._syncExampleUndoRedoState();
-        break;
+        this._syncExamplesDirtyFlag();
+        return true;
       case 'delete-example': {
         const delId = command.exampleId;
         s.examples = s.examples.filter((e) => e.id !== delId);
@@ -276,83 +304,96 @@ export class DataContractStore {
         if (s.selectedExampleId === delId) {
           s.selectedExampleId = s.examples.length > 0 ? s.examples[0].id : null;
         }
+
         this._validateAllExamples();
         this._clearSaveStatus();
-        this._syncExampleUndoRedoState();
-        break;
+        this._syncExamplesDirtyFlag();
+        return true;
       }
       case 'update-example-name':
         s.examples = s.examples.map((e) =>
           e.id === command.exampleId ? { ...e, name: command.name } : e,
         );
         this._clearSaveStatus();
-        break;
+        this._syncExamplesDirtyFlag();
+        return true;
       case 'update-example-data': {
         const ex = s.examples.find((e) => e.id === command.exampleId);
-        if (ex) {
-          this._getExampleHistory(command.exampleId).push(ex.data);
-          const updatedData = setNestedValue(ex.data, command.path, command.value);
-          s.examples = s.examples.map((e) =>
-            e.id === command.exampleId ? { ...e, data: updatedData } : e,
-          );
-          this._clearSaveStatus();
-          this._validateAllExamples();
-          this._syncExampleUndoRedoState();
-        }
-        break;
+        if (!ex) return true;
+
+        this._getExampleHistory(command.exampleId).push(ex.data);
+        const updatedData = setNestedValue(ex.data, command.path, command.value);
+        s.examples = s.examples.map((e) =>
+          e.id === command.exampleId ? { ...e, data: updatedData } : e,
+        );
+        this._clearSaveStatus();
+        this._validateAllExamples();
+        this._syncExamplesDirtyFlag();
+        return true;
       }
       case 'clear-example-field': {
         const ex = s.examples.find((e) => e.id === command.exampleId);
-        if (ex) {
-          this._getExampleHistory(command.exampleId).push(ex.data);
-          const updatedData = deleteNestedValue(ex.data, command.path);
-          s.examples = s.examples.map((e) =>
-            e.id === command.exampleId ? { ...e, data: updatedData } : e,
-          );
-          this._clearSaveStatus();
-          this._validateAllExamples();
-          this._syncExampleUndoRedoState();
-        }
-        break;
+        if (!ex) return true;
+
+        this._getExampleHistory(command.exampleId).push(ex.data);
+        const updatedData = deleteNestedValue(ex.data, command.path);
+        s.examples = s.examples.map((e) =>
+          e.id === command.exampleId ? { ...e, data: updatedData } : e,
+        );
+        this._clearSaveStatus();
+        this._validateAllExamples();
+        this._syncExamplesDirtyFlag();
+        return true;
       }
       case 'set-examples':
         s.examples = command.examples;
-        break;
+        this._syncExamplesDirtyFlag();
+        return true;
       case 'commit-examples':
         s.committedExamples = structuredClone(s.examples);
-        break;
+        this._syncExamplesDirtyFlag();
+        return true;
       case 'undo-example': {
-        if (!s.selectedExampleId) break;
+        if (!s.selectedExampleId) return true;
         const ex = s.examples.find((e) => e.id === s.selectedExampleId);
-        if (!ex) break;
+        if (!ex) return true;
+
         const history = this._getExampleHistory(s.selectedExampleId);
         const prevData = history.undo(ex.data);
-        if (prevData) {
-          s.examples = s.examples.map((e) =>
-            e.id === s.selectedExampleId ? { ...e, data: prevData } : e,
-          );
-          this._validateAllExamples();
-          this._syncExampleUndoRedoState();
-        }
-        break;
+        if (!prevData) return true;
+
+        s.examples = s.examples.map((e) =>
+          e.id === s.selectedExampleId ? { ...e, data: prevData } : e,
+        );
+        this._validateAllExamples();
+        this._syncExamplesDirtyFlag();
+        return true;
       }
       case 'redo-example': {
-        if (!s.selectedExampleId) break;
+        if (!s.selectedExampleId) return true;
         const ex = s.examples.find((e) => e.id === s.selectedExampleId);
-        if (!ex) break;
+        if (!ex) return true;
+
         const history = this._getExampleHistory(s.selectedExampleId);
         const nextData = history.redo(ex.data);
-        if (nextData) {
-          s.examples = s.examples.map((e) =>
-            e.id === s.selectedExampleId ? { ...e, data: nextData } : e,
-          );
-          this._validateAllExamples();
-          this._syncExampleUndoRedoState();
-        }
-        break;
-      }
+        if (!nextData) return true;
 
-      // --- Fix screen ---
+        s.examples = s.examples.map((e) =>
+          e.id === s.selectedExampleId ? { ...e, data: nextData } : e,
+        );
+        this._validateAllExamples();
+        this._syncExamplesDirtyFlag();
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
+  private _reduceFixScreen(command: StoreCommand): boolean {
+    const s = this._state;
+
+    switch (command.type) {
       case 'open-fix-screen': {
         const fields = new Map<string, FixFieldValue>();
         const editedData = new Map<string, JsonObject>();
@@ -369,7 +410,6 @@ export class DataContractStore {
           }
         }
 
-        // Reset mismatched/missing fields to schema-appropriate defaults
         for (const m of command.migrations) {
           if (m.issue === 'UNKNOWN_FIELD') continue;
           const data = editedData.get(m.exampleId);
@@ -387,7 +427,7 @@ export class DataContractStore {
           errors: new Map(),
           editedData,
         };
-        break;
+        return true;
       }
       case 'fix-field-change':
         if (s.fixScreen) {
@@ -397,7 +437,7 @@ export class DataContractStore {
             value: command.value,
             removed: existing?.removed ?? false,
           });
-          // Update the full edited copy so nested edits (add/remove array items) work
+
           const edited = s.fixScreen.editedData.get(command.exampleId);
           if (edited) {
             const dotPath = normalizePath(command.path);
@@ -410,7 +450,7 @@ export class DataContractStore {
             s.fixScreen.editedData.set(command.exampleId, setNestedValue(edited, dotPath, coerced));
           }
         }
-        break;
+        return true;
       case 'fix-remove-field':
         if (s.fixScreen) {
           const key = `${command.exampleId}:${command.path}`;
@@ -419,14 +459,14 @@ export class DataContractStore {
             value: existing?.value ?? null,
             removed: true,
           });
-          // Also remove from editedData
+
           const edited = s.fixScreen.editedData.get(command.exampleId);
           if (edited) {
             const dotPath = normalizePath(command.path);
             s.fixScreen.editedData.set(command.exampleId, deleteNestedValue(edited, dotPath));
           }
         }
-        break;
+        return true;
       case 'fix-remove-all-unknown':
         if (s.fixScreen) {
           for (const m of s.fixScreen.migrations) {
@@ -437,7 +477,6 @@ export class DataContractStore {
                 value: existing?.value ?? null,
                 removed: true,
               });
-              // Remove from editedData
               const edited = s.fixScreen.editedData.get(m.exampleId);
               if (edited) {
                 const dotPath = normalizePath(m.path);
@@ -446,36 +485,42 @@ export class DataContractStore {
             }
           }
         }
-        break;
+        return true;
       case 'close-fix-screen':
         s.fixScreen = null;
-        break;
+        return true;
+      default:
+        return false;
+    }
+  }
 
-      // --- Save status ---
+  private _reduceSaveStatus(command: StoreCommand): boolean {
+    const s = this._state;
+
+    switch (command.type) {
       case 'set-saving':
         s.saveStatus = { type: 'saving' };
-        break;
+        return true;
       case 'set-schema-warnings':
         s.schemaWarnings = command.warnings;
-        break;
+        return true;
       case 'save-success':
         s.saveStatus = { type: 'success', expiresAt: Date.now() + 3000 };
-        break;
+        return true;
       case 'save-error':
         s.saveStatus = {
           type: 'error',
           message: command.message,
           canForceSave: command.canForceSave,
         };
-        break;
+        return true;
       case 'clear-save-status':
         s.saveStatus = { type: 'idle' };
-        break;
+        return true;
       case 'revert-to-committed': {
         s.schema = structuredClone(s.committedSchema);
         s.examples = structuredClone(s.committedExamples);
 
-        // Restore schema edit mode/view from committed state
         if (s.committedRawJsonSchema !== null) {
           s.rawJsonSchema = structuredClone(s.committedRawJsonSchema);
           s.schemaEditMode = 'json-only';
@@ -499,8 +544,11 @@ export class DataContractStore {
         }
 
         this._validateAllExamples();
-        break;
+        this._syncDirtyFlags();
+        return true;
       }
+      default:
+        return false;
     }
   }
 
@@ -509,23 +557,35 @@ export class DataContractStore {
   // ---------------------------------------------------------------------------
 
   get isSchemaDirty(): boolean {
-    // NOTE: This uses structural JSON comparison for correctness and simplicity.
-    // For very large schemas, this may be expensive; if profiling shows hotspots,
-    // prefer memoized dirty checks tied to reducer revision counters.
-    const s = this._state;
-    if (s.schemaEditMode === 'json-only') {
-      return JSON.stringify(s.rawJsonSchema) !== JSON.stringify(s.committedRawJsonSchema);
-    }
-    return JSON.stringify(s.schema) !== JSON.stringify(s.committedSchema);
+    return this._state.schemaDirty;
   }
 
   get isExamplesDirty(): boolean {
-    const s = this._state;
-    return JSON.stringify(s.examples) !== JSON.stringify(s.committedExamples);
+    return this._state.examplesDirty;
   }
 
   get isDirty(): boolean {
     return this.isSchemaDirty || this.isExamplesDirty;
+  }
+
+  private _syncDirtyFlags(): void {
+    this._syncSchemaDirtyFlag();
+    this._syncExamplesDirtyFlag();
+  }
+
+  private _syncSchemaDirtyFlag(): void {
+    const s = this._state;
+    if (s.schemaEditMode === 'json-only') {
+      s.schemaDirty = !isDeepEqual(s.rawJsonSchema, s.committedRawJsonSchema);
+      return;
+    }
+
+    s.schemaDirty = !isDeepEqual(s.schema, s.committedSchema);
+  }
+
+  private _syncExamplesDirtyFlag(): void {
+    const s = this._state;
+    s.examplesDirty = !isDeepEqual(s.examples, s.committedExamples);
   }
 
   // ---------------------------------------------------------------------------
@@ -726,12 +786,6 @@ export class DataContractStore {
     this._getExampleHistory(exampleId).clear();
   }
 
-  private _syncExampleUndoRedoState(): void {
-    // The undo/redo state is derived from the selected example's history.
-    // The store exposes canUndo/canRedo via the state's exampleHistories.
-    // The editor reads this when building the UI state.
-  }
-
   // Derived undo/redo state for the selected example
   get exampleCanUndo(): boolean {
     const s = this._state;
@@ -763,6 +817,7 @@ export class DataContractStore {
       if (s.schemaEditMode === 'json-only') {
         s.committedRawJsonSchema = structuredClone(s.rawJsonSchema);
       }
+      this._syncSchemaDirtyFlag();
       return { success: true };
     }
 
@@ -774,6 +829,7 @@ export class DataContractStore {
         if (s.schemaEditMode === 'json-only') {
           s.committedRawJsonSchema = structuredClone(s.rawJsonSchema);
         }
+        this._syncSchemaDirtyFlag();
       }
       return result;
     } catch (error) {
@@ -792,6 +848,7 @@ export class DataContractStore {
     const s = this._state;
     if (!this._callbacks.onSaveDataExamples) {
       s.committedExamples = structuredClone(s.examples);
+      this._syncExamplesDirtyFlag();
       return { success: true };
     }
 
@@ -799,6 +856,7 @@ export class DataContractStore {
       const result = await this._callbacks.onSaveDataExamples(s.examples);
       if (result.success) {
         s.committedExamples = structuredClone(s.examples);
+        this._syncExamplesDirtyFlag();
       }
       return result;
     } catch (error) {
@@ -850,6 +908,8 @@ export class DataContractStore {
       committedSchema: null,
       examples: [],
       committedExamples: [],
+      schemaDirty: false,
+      examplesDirty: false,
       visualSchema: { fields: [] },
       schemaEditMode: 'visual',
       rawJsonSchema: null,
@@ -928,22 +988,6 @@ function pruneValueToSchema(value: JsonValue, schema: JsonSchema | JsonSchemaPro
   }
 
   return value;
-}
-
-function toJsonSchemaOrNull(schema: object | null): JsonSchema | null {
-  return isRootJsonSchema(schema) ? schema : null;
-}
-
-function getActiveSchema(state: EditorState): JsonSchema | null {
-  if (state.schemaEditMode === 'json-only') {
-    return toJsonSchemaOrNull(state.rawJsonSchema);
-  }
-
-  return state.schema;
-}
-
-function isRootJsonSchema(value: unknown): value is JsonSchema {
-  return isRecord(value) && value.type === 'object';
 }
 
 /**
@@ -1072,4 +1116,39 @@ function buildDefaultValue(propSchema: JsonSchemaProperty): JsonValue {
     default:
       return '';
   }
+}
+
+function isDeepEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+
+  if (left === null || right === null || left === undefined || right === undefined) {
+    return left === right;
+  }
+
+  if (typeof left !== 'object' || typeof right !== 'object') {
+    return false;
+  }
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) return false;
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i++) {
+      if (!isDeepEqual(left[i], right[i])) return false;
+    }
+    return true;
+  }
+
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  for (const key of leftKeys) {
+    if (!(key in rightRecord)) return false;
+    if (!isDeepEqual(leftRecord[key], rightRecord[key])) return false;
+  }
+
+  return true;
 }

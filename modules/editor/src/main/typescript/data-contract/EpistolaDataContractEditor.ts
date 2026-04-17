@@ -29,6 +29,7 @@ import {
 import { renderSchemaFixScreen } from './sections/SchemaFixScreen.js';
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
+import { getActiveSchema, isRootJsonSchema } from './utils/activeSchema.js';
 
 type TabId = 'schema' | 'examples';
 
@@ -568,13 +569,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _currentSchemaForFixScreen(): JsonSchema | null {
-    const s = this.store.state;
-
-    if (s.schemaEditMode === 'json-only') {
-      return isRootJsonSchema(s.rawJsonSchema) ? s.rawJsonSchema : null;
-    }
-
-    return s.schema;
+    return getActiveSchema(this.store.state);
   }
 
   private _scheduleSuccessClear(fn: () => void): void {
@@ -584,15 +579,6 @@ export class EpistolaDataContractEditor extends LitElement {
       this.requestUpdate();
     }, 3000);
   }
-}
-
-function isRootJsonSchema(value: unknown): value is JsonSchema {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Reflect.get(value, 'type') === 'object'
-  );
 }
 
 declare global {
