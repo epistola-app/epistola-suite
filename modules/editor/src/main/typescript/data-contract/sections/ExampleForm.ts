@@ -19,10 +19,7 @@
 import { html, nothing } from 'lit';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
-import {
-  getNestedValue,
-  validationPathToFormPath,
-} from '../utils/nestedValue.js';
+import { getNestedValue, validationPathToFormPath } from '../utils/nestedValue.js';
 
 export {
   deleteNestedValue,

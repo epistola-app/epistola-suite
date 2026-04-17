@@ -6,10 +6,7 @@ import type { JsonObject, JsonValue } from '../types.js';
  * Handles mixed formats like `/customer.address.0` or `customer/address/city`.
  */
 export function normalizePath(path: string): string {
-  return path
-    .replace(/^\//, '')
-    .replace(/\/$/, '')
-    .replace(/\//g, '.');
+  return path.replace(/^\//, '').replace(/\/$/, '').replace(/\//g, '.');
 }
 
 /**

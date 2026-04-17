@@ -79,7 +79,10 @@ describe('DataContractStore.validateSchemaCompatibility', () => {
     await store.validateSchemaCompatibility(overrideSchema);
 
     expect(onValidateSchemaCompatibility).toHaveBeenCalledTimes(1);
-    expect(onValidateSchemaCompatibility).toHaveBeenCalledWith(overrideSchema, store.state.examples);
+    expect(onValidateSchemaCompatibility).toHaveBeenCalledWith(
+      overrideSchema,
+      store.state.examples,
+    );
   });
 
   it('returns unavailable result when callback throws', async () => {

@@ -25,7 +25,9 @@ function createEngineWithHostSlot(initialChildren: string[]) {
 
       if (command.type === 'RemoveNode') {
         const nodeId = command.nodeId as string;
-        doc.slots['host-slot']!.children = doc.slots['host-slot']!.children.filter((id) => id !== nodeId);
+        doc.slots['host-slot']!.children = doc.slots['host-slot']!.children.filter(
+          (id) => id !== nodeId,
+        );
       }
 
       if (command.type === 'InsertNode') {
@@ -58,7 +60,10 @@ function emptyContent(): TemplateDocument {
 describe('replaceStencilSlotContent', () => {
   it('removes existing slot children, then inserts re-keyed top-level nodes', () => {
     const { engine, commands } = createEngineWithHostSlot(['old-1', 'old-2']);
-    const stencilNode = { id: 'stencil-node', slots: ['host-slot'] } as unknown as Pick<Node, 'slots'>;
+    const stencilNode = { id: 'stencil-node', slots: ['host-slot'] } as unknown as Pick<
+      Node,
+      'slots'
+    >;
 
     const childA = { id: 'new-a', type: 'text', slots: [] } as unknown as Node;
     const childB = { id: 'new-b', type: 'container', slots: ['slot-b'] } as unknown as Node;
@@ -76,12 +81,7 @@ describe('replaceStencilSlotContent', () => {
       slots: [slotB],
     });
 
-    replaceStencilSlotContent(
-      engine as never,
-      stencilNode,
-      emptyContent(),
-      fakeRekey as never,
-    );
+    replaceStencilSlotContent(engine as never, stencilNode, emptyContent(), fakeRekey as never);
 
     expect(commands.slice(0, 2)).toEqual([
       { type: 'RemoveNode', nodeId: 'old-1' },
@@ -108,7 +108,10 @@ describe('replaceStencilSlotContent', () => {
 
   it('skips missing child ids without throwing', () => {
     const { engine, commands } = createEngineWithHostSlot([]);
-    const stencilNode = { id: 'stencil-node', slots: ['host-slot'] } as unknown as Pick<Node, 'slots'>;
+    const stencilNode = { id: 'stencil-node', slots: ['host-slot'] } as unknown as Pick<
+      Node,
+      'slots'
+    >;
     const child = { id: 'new-a', type: 'text', slots: [] } as unknown as Node;
 
     const fakeRekey = () => ({
@@ -118,12 +121,7 @@ describe('replaceStencilSlotContent', () => {
     });
 
     expect(() => {
-      replaceStencilSlotContent(
-        engine as never,
-        stencilNode,
-        emptyContent(),
-        fakeRekey as never,
-      );
+      replaceStencilSlotContent(engine as never, stencilNode, emptyContent(), fakeRekey as never);
     }).not.toThrow();
 
     const insertCommands = commands.filter((cmd) => cmd.type === 'InsertNode');

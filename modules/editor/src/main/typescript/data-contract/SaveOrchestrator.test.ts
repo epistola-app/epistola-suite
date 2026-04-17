@@ -145,7 +145,10 @@ describe('orchestrateSave', () => {
     const store = createStore();
     store.dispatch({
       type: 'set-schema',
-      schema: { ...baseSchema, properties: { ...baseSchema.properties, extra: { type: 'string' } } },
+      schema: {
+        ...baseSchema,
+        properties: { ...baseSchema.properties, extra: { type: 'string' } },
+      },
     });
 
     const outcome = orchestrateSave(
@@ -172,7 +175,10 @@ describe('orchestrateSave', () => {
     const store = createStore();
     store.dispatch({
       type: 'set-schema',
-      schema: { ...baseSchema, properties: { ...baseSchema.properties, extra: { type: 'string' } } },
+      schema: {
+        ...baseSchema,
+        properties: { ...baseSchema.properties, extra: { type: 'string' } },
+      },
     });
 
     const outcome = orchestrateSave(
@@ -192,11 +198,16 @@ describe('orchestrateSave', () => {
 
   it('returns save-schema with examples for atomic save when schema and examples are dirty', () => {
     const store = createStore();
-    const nextExamples = [{ id: 'example-1', name: 'Example 1', data: { count: 7, name: 'Seven' } }];
+    const nextExamples = [
+      { id: 'example-1', name: 'Example 1', data: { count: 7, name: 'Seven' } },
+    ];
 
     store.dispatch({
       type: 'set-schema',
-      schema: { ...baseSchema, properties: { ...baseSchema.properties, enabled: { type: 'boolean' } } },
+      schema: {
+        ...baseSchema,
+        properties: { ...baseSchema.properties, enabled: { type: 'boolean' } },
+      },
     });
     store.dispatch({ type: 'set-examples', examples: nextExamples });
 
@@ -212,7 +223,10 @@ describe('orchestrateSave', () => {
 
     store.dispatch({
       type: 'set-schema',
-      schema: { ...baseSchema, properties: { ...baseSchema.properties, enabled: { type: 'boolean' } } },
+      schema: {
+        ...baseSchema,
+        properties: { ...baseSchema.properties, enabled: { type: 'boolean' } },
+      },
     });
 
     expect(orchestrateSave(store, { type: 'save' })).toEqual({
