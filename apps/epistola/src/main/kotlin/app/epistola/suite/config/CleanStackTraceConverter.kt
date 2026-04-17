@@ -23,6 +23,7 @@ class CleanStackTraceConverter : ThrowableProxyConverter() {
             "org.apache.tomcat.",
             "jakarta.servlet.",
             "java.lang.reflect.",
+            "java.lang.VirtualThread.",
             "jdk.internal.",
             "sun.reflect.",
             "net.bytebuddy.",
