@@ -212,13 +212,13 @@ object StyleApplicator {
             parseSize(radius, baseFontSizePt, spacingUnit)?.let { element.setBorderRadius(BorderRadius(it)) }
         }
 
-        // Line height: applied as fixed leading on Paragraph elements.
+        // Line height: applied as multiplied leading on Paragraph elements.
         // For Div containers, this is a no-op — line height is applied by TipTapConverter
         // on individual paragraphs where it actually takes effect.
         (styles["lineHeight"] as? Any)?.let { v ->
-            val pts = parseSize(v.toString(), baseFontSizePt, spacingUnit)
-            if (pts != null && element is com.itextpdf.layout.element.Paragraph) {
-                element.setFixedLeading(pts)
+            val value = v.toString().toFloatOrNull()
+            if (value != null && element is com.itextpdf.layout.element.Paragraph) {
+                element.setMultipliedLeading(value)
             }
         }
 

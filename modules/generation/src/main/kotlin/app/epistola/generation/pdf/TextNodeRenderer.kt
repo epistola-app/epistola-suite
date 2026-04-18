@@ -41,9 +41,8 @@ class TextNodeRenderer : NodeRenderer {
                 ?.let { putAll(it) }
         }
         val resolvedStyles = buildMap<String, Any> {
-            rawStyles["lineHeight"]?.toString()?.let { v ->
-                StyleApplicator.parseSize(v, context.renderingDefaults.baseFontSizePt, context.spacingUnit)
-                    ?.let { put("lineHeight", it) }
+            rawStyles["lineHeight"]?.toString()?.toFloatOrNull()?.let {
+                put("lineHeight", it)
             }
         }
 

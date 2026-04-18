@@ -52,7 +52,8 @@
       "modelVersion": 1,
       "root": "n-root",
       "themeRef": {
-        "type": "inherit"
+        "type": "override",
+        "themeId": "corporate"
       },
       "pageSettingsOverride": {
         "format": "A4",
@@ -82,11 +83,11 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "sender.name", "fallback": "Sender Name" } },
-                    { "type": "hardBreak" },
-                    { "type": "expression", "attrs": { "expression": "sender.address", "fallback": "Address" } },
-                    { "type": "hardBreak" },
-                    { "type": "expression", "attrs": { "expression": "sender.city", "fallback": "City" } }
+                    { "type": "expression", "attrs": { "expression": "sender.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "sender.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "sender.city" } }
                   ]
                 }
               ]
@@ -105,11 +106,11 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "recipient.name", "fallback": "Recipient Name" } },
-                    { "type": "hardBreak" },
-                    { "type": "expression", "attrs": { "expression": "recipient.address", "fallback": "Address" } },
-                    { "type": "hardBreak" },
-                    { "type": "expression", "attrs": { "expression": "recipient.city", "fallback": "City" } }
+                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.city" } }
                   ]
                 }
               ]
@@ -128,7 +129,7 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "date", "fallback": "Date" } }
+                    { "type": "expression", "attrs": { "expression": "date" } }
                   ]
                 }
               ]
@@ -148,7 +149,7 @@
                   "type": "heading",
                   "attrs": { "level": 2 },
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "subject", "fallback": "Subject" } }
+                    { "type": "expression", "attrs": { "expression": "subject" } }
                   ]
                 }
               ]
@@ -177,7 +178,43 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "body", "fallback": "Letter body text goes here." } }
+                    { "type": "expression", "attrs": { "expression": "body" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-attachments": {
+          "id": "n-attachments",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Attachments:", "marks": [{ "type": "bold" }] }
+                  ]
+                },
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Project proposal (PDF)" }] }]
+                    },
+                    {
+                      "type": "list_item",
+                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Budget overview (XLSX)" }] }]
+                    },
+                    {
+                      "type": "list_item",
+                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Timeline (PDF)" }] }]
+                    }
                   ]
                 }
               ]
@@ -190,7 +227,7 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-sender", "n-recipient", "n-date", "n-separator", "n-subject", "n-body"]
+          "children": ["n-sender", "n-recipient", "n-date", "n-separator", "n-subject", "n-body", "n-attachments"]
         }
       }
     },

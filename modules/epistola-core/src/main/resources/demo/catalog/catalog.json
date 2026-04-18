@@ -10,8 +10,8 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "4.3",
-    "releasedAt": "2026-04-17T00:00:00Z"
+    "version": "4.7",
+    "releasedAt": "2026-04-18T00:00:00Z"
   },
   "resources": [
     {
@@ -59,7 +59,7 @@
       "slug": "simple-letter",
       "name": "Simple Letter",
       "description": "A basic letter template with sender, recipient, subject, and body.",
-      "updatedAt": "2026-04-17T00:00:00Z",
+      "updatedAt": "2026-04-18T00:00:00Z",
       "detailUrl": "./resources/templates/simple-letter.json"
     },
     {

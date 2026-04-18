@@ -82,7 +82,7 @@ class CreateTenantHandler(
                 "fontFamily" to "Helvetica, Arial, sans-serif",
                 "fontSize" to "11pt",
                 "color" to "#333333",
-                "lineHeight" to "1.5",
+                "lineHeight" to 1.5,
             )
             val pageSettings = PageSettings(
                 format = PageFormat.A4,
