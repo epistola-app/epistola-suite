@@ -7,7 +7,7 @@ dependencies {
     implementation(libs.epistola.model)
 
     // iText 9 for PDF generation
-    implementation("com.itextpdf:itext-core:9.5.0")
+    implementation("com.itextpdf:itext-core:9.6.0")
 
     // Kotlin reflection for expression evaluation
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -20,7 +20,7 @@ dependencies {
     implementation("org.graalvm.polyglot:js:25.0.2")
 
     // QR code generation
-    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:core:3.5.4")
 
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
