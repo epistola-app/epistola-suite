@@ -158,6 +158,39 @@ withListNodes = withListNodes.update('ordered_list', {
   },
 });
 
+// Extend bullet_list with a listStyle attribute for bullet style
+const ulSpec = withListNodes.get('bullet_list')!;
+withListNodes = withListNodes.update('bullet_list', {
+  ...ulSpec,
+  attrs: {
+    listStyle: { default: 'disc' },
+  },
+  parseDOM: [
+    {
+      tag: 'ul',
+      getAttrs(dom) {
+        const el = dom as HTMLElement;
+        return {
+          listStyle: el.getAttribute('data-list-style') || 'disc',
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    if (node.attrs.listStyle !== 'disc') {
+      return [
+        'ul',
+        {
+          'data-list-style': node.attrs.listStyle,
+          style: `list-style-type: ${node.attrs.listStyle === 'dash' ? '"– "' : node.attrs.listStyle}`,
+        },
+        0,
+      ];
+    }
+    return ['ul', 0];
+  },
+});
+
 // Combine marks: basic (strong, em, code, link) + underline + strikethrough
 const allMarks: Record<string, MarkSpec> = {
   ...basicMarks,

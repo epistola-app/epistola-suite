@@ -9,11 +9,24 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { Schema, MarkType, NodeType } from 'prosemirror-model';
 import { toggleMark, setBlockType } from 'prosemirror-commands';
-import { wrapInList } from 'prosemirror-schema-list';
+import { wrapInList, liftListItem } from 'prosemirror-schema-list';
 import { computePosition, offset, flip, shift } from '@floating-ui/dom';
 import { TEXT_SHORTCUT_COMMAND_IDS, getTextBubbleTitle } from '../shortcuts/text-runtime.js';
 
 const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu');
+
+/** Convert a list from one type to another (e.g., bullet → ordered) by changing the node type. */
+function convertListType(view: EditorView, fromType: NodeType, toType: NodeType): void {
+  const { $from } = view.state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    if (node.type === fromType) {
+      const tr = view.state.tr.setNodeMarkup($from.before(d), toType, node.attrs);
+      view.dispatch(tr);
+      return;
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Mark / block active helpers
@@ -160,52 +173,78 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
     command: () => {},
   });
 
-  // Bullet list
-  if (schema.nodes.bullet_list) {
+  // Bullet list (toggle: wrap if not in list, lift if already bullet, convert if ordered)
+  if (schema.nodes.bullet_list && schema.nodes.list_item) {
     defs.push({
       label: 'UL',
       title: 'Bullet List',
       className: 'pm-bubble-btn',
       isActive: (view) => blockActive(view, schema.nodes.bullet_list),
-      command: (view) => wrapInList(schema.nodes.bullet_list)(view.state, view.dispatch, view),
+      command: (view) => {
+        if (blockActive(view, schema.nodes.bullet_list)) {
+          liftListItem(schema.nodes.list_item)(view.state, view.dispatch, view);
+        } else if (blockActive(view, schema.nodes.ordered_list)) {
+          convertListType(view, schema.nodes.ordered_list, schema.nodes.bullet_list);
+        } else {
+          wrapInList(schema.nodes.bullet_list)(view.state, view.dispatch, view);
+        }
+      },
     });
   }
 
-  // Ordered list
-  if (schema.nodes.ordered_list) {
+  // Ordered list (toggle: wrap if not in list, lift if already ordered, convert if bullet)
+  if (schema.nodes.ordered_list && schema.nodes.list_item) {
     defs.push({
       label: 'OL',
       title: 'Ordered List',
       className: 'pm-bubble-btn',
       isActive: (view) => blockActive(view, schema.nodes.ordered_list),
-      command: (view) => wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch, view),
+      command: (view) => {
+        if (blockActive(view, schema.nodes.ordered_list)) {
+          liftListItem(schema.nodes.list_item)(view.state, view.dispatch, view);
+        } else if (blockActive(view, schema.nodes.bullet_list)) {
+          convertListType(view, schema.nodes.bullet_list, schema.nodes.ordered_list);
+        } else {
+          wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch, view);
+        }
+      },
     });
+  }
 
-    // List numbering format (only active when inside an ordered list)
-    const listTypes = [
-      { label: '1,2,3', value: 'decimal' },
-      { label: 'a,b,c', value: 'lower-alpha' },
-      { label: 'A,B,C', value: 'upper-alpha' },
-      { label: 'i,ii,iii', value: 'lower-roman' },
-      { label: 'I,II,III', value: 'upper-roman' },
-    ];
+  // List style cycling: # button cycles through styles within the current list type
+  if (schema.nodes.ordered_list || schema.nodes.bullet_list) {
+    const olStyles = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
+    const ulStyles = ['disc', 'circle', 'square', 'dash'];
+
     defs.push({
       label: '#',
-      title: 'List numbering format',
+      title: 'Cycle list style',
       className: 'pm-bubble-btn list-type-btn',
       isActive: () => false,
       command: (view) => {
-        // Cycle through list types
         const { $from } = view.state.selection;
         for (let d = $from.depth; d > 0; d--) {
           const node = $from.node(d);
+
           if (node.type === schema.nodes.ordered_list) {
-            const currentType = (node.attrs.listType as string) || 'decimal';
-            const currentIndex = listTypes.findIndex((t) => t.value === currentType);
-            const nextType = listTypes[(currentIndex + 1) % listTypes.length];
+            const current = (node.attrs.listType as string) || 'decimal';
+            const idx = olStyles.indexOf(current);
+            const next = olStyles[(idx + 1) % olStyles.length];
             const tr = view.state.tr.setNodeMarkup($from.before(d), undefined, {
               ...node.attrs,
-              listType: nextType.value,
+              listType: next,
+            });
+            view.dispatch(tr);
+            break;
+          }
+
+          if (node.type === schema.nodes.bullet_list) {
+            const current = (node.attrs.listStyle as string) || 'disc';
+            const idx = ulStyles.indexOf(current);
+            const next = ulStyles[(idx + 1) % ulStyles.length];
+            const tr = view.state.tr.setNodeMarkup($from.before(d), undefined, {
+              ...node.attrs,
+              listStyle: next,
             });
             view.dispatch(tr);
             break;

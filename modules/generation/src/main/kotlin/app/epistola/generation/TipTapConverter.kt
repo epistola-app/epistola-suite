@@ -139,7 +139,18 @@ class TipTapConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
     ): List {
+        @Suppress("UNCHECKED_CAST")
+        val attrs = node["attrs"] as? Map<String, Any>
+        val listStyle = attrs?.get("listStyle") as? String ?: "disc"
+
         val list = List()
+        val symbol = when (listStyle) {
+            "circle" -> "\u25CB  " // ○
+            "square" -> "\u25A0  " // ■
+            "dash" -> "\u2013  " // –
+            else -> "\u2022  " // • (disc, default)
+        }
+        list.setListSymbol(symbol)
         list.setMarginBottom(renderingDefaults.listMarginBottom)
         list.setMarginLeft(renderingDefaults.listMarginLeft)
 
