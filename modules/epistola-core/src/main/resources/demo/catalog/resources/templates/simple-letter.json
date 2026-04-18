@@ -220,6 +220,37 @@
               ]
             }
           }
+        },
+        "n-footer": {
+          "id": "n-footer",
+          "type": "pagefooter",
+          "slots": ["s-footer-children"],
+          "props": {
+            "height": "30pt",
+            "hideOnFirstPage": true
+          }
+        },
+        "n-footer-text": {
+          "id": "n-footer-text",
+          "type": "text",
+          "slots": [],
+          "styles": { "fontSize": "9pt", "color": "#999999", "textAlign": "center" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Confidential — Page " },
+                    { "type": "expression", "attrs": { "expression": "sys.pages.current" } },
+                    { "type": "text", "text": " of " },
+                    { "type": "expression", "attrs": { "expression": "sys.pages.total" } }
+                  ]
+                }
+              ]
+            }
+          }
         }
       },
       "slots": {
@@ -227,7 +258,13 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-sender", "n-recipient", "n-date", "n-separator", "n-subject", "n-body", "n-attachments"]
+          "children": ["n-footer", "n-sender", "n-recipient", "n-date", "n-separator", "n-subject", "n-body", "n-attachments"]
+        },
+        "s-footer-children": {
+          "id": "s-footer-children",
+          "nodeId": "n-footer",
+          "name": "children",
+          "children": ["n-footer-text"]
         }
       }
     },
