@@ -729,4 +729,204 @@ class TipTapConverterTest {
         val paragraph = assertIs<Paragraph>(result[0])
         assertIs<Link>(paragraph.children[0])
     }
+
+    // -----------------------------------------------------------------------
+    // Snake_case node types (ProseMirror output format)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `converts bullet_list with snake_case type`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "bullet_list",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "list_item",
+                            "content" to listOf(
+                                mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "Item"))),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(1, result.size)
+        assertTrue(result[0] is List)
+    }
+
+    @Test
+    fun `converts ordered_list with snake_case type`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "ordered_list",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "list_item",
+                            "content" to listOf(
+                                mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "First"))),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(1, result.size)
+        assertTrue(result[0] is List)
+    }
+
+    // -----------------------------------------------------------------------
+    // List numbering formats
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `converts ordered list with lower-alpha numbering`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "ordered_list",
+                    "attrs" to mapOf("listType" to "lower-alpha", "order" to 1),
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "list_item",
+                            "content" to listOf(
+                                mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "Item"))),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(1, result.size)
+        assertTrue(result[0] is List)
+    }
+
+    @Test
+    fun `converts ordered list with custom start number`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "ordered_list",
+                    "attrs" to mapOf("order" to 5),
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "list_item",
+                            "content" to listOf(
+                                mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "Item"))),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(1, result.size)
+        assertTrue(result[0] is List)
+    }
+
+    // -----------------------------------------------------------------------
+    // Bullet list styles
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `converts bullet list with square style`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "bullet_list",
+                    "attrs" to mapOf("listStyle" to "square"),
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "list_item",
+                            "content" to listOf(
+                                mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "Item"))),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(1, result.size)
+        assertTrue(result[0] is List)
+    }
+
+    // -----------------------------------------------------------------------
+    // Hard break splitting
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `hard break splits paragraph into multiple paragraphs`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "Line 1"),
+                        mapOf("type" to "hard_break"),
+                        mapOf("type" to "text", "text" to "Line 2"),
+                        mapOf("type" to "hard_break"),
+                        mapOf("type" to "text", "text" to "Line 3"),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(3, result.size)
+        assertTrue(result.all { it is Paragraph })
+    }
+
+    @Test
+    fun `paragraph without hard breaks produces single paragraph`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "No breaks here"),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `hard break with camelCase type also works`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "Line 1"),
+                        mapOf("type" to "hardBreak"),
+                        mapOf("type" to "text", "text" to "Line 2"),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(2, result.size)
+    }
 }
