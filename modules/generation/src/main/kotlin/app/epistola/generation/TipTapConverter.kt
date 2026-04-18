@@ -70,8 +70,8 @@ class TipTapConverter(
         return when (type) {
             "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles)
             "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles)
-            "bulletList" -> convertBulletList(node, data, loopContext, fontCache)
-            "orderedList" -> convertOrderedList(node, data, loopContext, fontCache)
+            "bulletList", "bullet_list" -> convertBulletList(node, data, loopContext, fontCache)
+            "orderedList", "ordered_list" -> convertOrderedList(node, data, loopContext, fontCache)
             else -> null
         }
     }
@@ -158,7 +158,7 @@ class TipTapConverter(
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
         for (item in items) {
-            if (item["type"] == "listItem") {
+            if (item["type"] == "listItem" || item["type"] == "list_item") {
                 val listItem = convertListItem(item, data, loopContext, fontCache)
                 list.add(listItem)
             }
@@ -195,7 +195,7 @@ class TipTapConverter(
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
         for (item in items) {
-            if (item["type"] == "listItem") {
+            if (item["type"] == "listItem" || item["type"] == "list_item") {
                 val listItem = convertListItem(item, data, loopContext, fontCache)
                 list.add(listItem)
             }
