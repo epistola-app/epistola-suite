@@ -96,5 +96,13 @@ export const defaultStyleRegistry: StyleRegistry = {
         { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt', 'sp'] },
       ],
     },
+    {
+      name: 'pageFlow',
+      label: 'Page Flow',
+      properties: [
+        { key: 'keepTogether', label: 'Keep Together', type: 'boolean' },
+        { key: 'keepWithNext', label: 'Keep With Next', type: 'boolean' },
+      ],
+    },
   ],
 };

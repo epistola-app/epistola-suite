@@ -85,6 +85,8 @@ class TipTapConverter(
     ): Paragraph {
         val paragraph = Paragraph()
         paragraph.setMarginBottom(renderingDefaults.paragraphMarginBottom)
+        paragraph.setOrphansControl(com.itextpdf.layout.properties.ParagraphOrphansControl(2))
+        paragraph.setWidowsControl(com.itextpdf.layout.properties.ParagraphWidowsControl(2, 2, false))
         applyTextStyles(paragraph, resolvedStyles)
 
         @Suppress("UNCHECKED_CAST")
@@ -109,6 +111,8 @@ class TipTapConverter(
 
         val paragraph = Paragraph()
         paragraph.setFont(fontCache.bold)
+        paragraph.setOrphansControl(com.itextpdf.layout.properties.ParagraphOrphansControl(2))
+        paragraph.setWidowsControl(com.itextpdf.layout.properties.ParagraphWidowsControl(2, 2, false))
         applyTextStyles(paragraph, resolvedStyles)
 
         // Set font size based on heading level
