@@ -63,7 +63,7 @@
                   "attrs": { "level": 1 },
                   "content": [
                     { "type": "text", "text": "Hello, " },
-                    { "type": "expression", "attrs": { "expression": "name", "fallback": "World" } },
+                    { "type": "expression", "attrs": { "expression": "name" } },
                     { "type": "text", "text": "!" }
                   ]
                 }
@@ -82,7 +82,7 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "message", "fallback": "Welcome to Epistola!" } }
+                    { "type": "expression", "attrs": { "expression": "message" } }
                   ]
                 }
               ]

@@ -322,7 +322,8 @@
       "modelVersion": 1,
       "root": "n-root",
       "themeRef": {
-        "type": "inherit"
+        "type": "override",
+        "themeId": "corporate"
       },
       "pageSettingsOverride": {
         "format": "A4",
@@ -337,8 +338,7 @@
       "documentStylesOverride": {
         "fontFamily": "Helvetica",
         "fontSize": "10pt",
-        "color": "#333333",
-        "lineHeight": "1.4"
+        "color": "#333333"
       },
       "nodes": {
         "n-root": {
@@ -424,8 +424,7 @@
           "slots": [],
           "styles": {
             "fontSize": "9pt",
-            "color": "#666666",
-            "lineHeight": "1.5"
+            "color": "#666666"
           },
           "props": {
             "content": {
@@ -512,8 +511,7 @@
           "slots": [],
           "styles": {
             "fontSize": "9pt",
-            "textAlign": "right",
-            "lineHeight": "1.6"
+            "textAlign": "right"
           },
           "props": {
             "content": {
@@ -612,8 +610,7 @@
           "type": "text",
           "slots": [],
           "styles": {
-            "fontSize": "10pt",
-            "lineHeight": "1.5"
+            "fontSize": "10pt"
           },
           "props": {
             "content": {
@@ -1259,8 +1256,7 @@
           "slots": [],
           "styles": {
             "fontSize": "8pt",
-            "color": "#9ca3af",
-            "lineHeight": "1.6"
+            "color": "#9ca3af"
           },
           "props": {
             "content": {
