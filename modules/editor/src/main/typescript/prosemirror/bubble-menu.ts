@@ -180,6 +180,39 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
       isActive: (view) => blockActive(view, schema.nodes.ordered_list),
       command: (view) => wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch, view),
     });
+
+    // List numbering format (only active when inside an ordered list)
+    const listTypes = [
+      { label: '1,2,3', value: 'decimal' },
+      { label: 'a,b,c', value: 'lower-alpha' },
+      { label: 'A,B,C', value: 'upper-alpha' },
+      { label: 'i,ii,iii', value: 'lower-roman' },
+      { label: 'I,II,III', value: 'upper-roman' },
+    ];
+    defs.push({
+      label: '#',
+      title: 'List numbering format',
+      className: 'pm-bubble-btn list-type-btn',
+      isActive: () => false,
+      command: (view) => {
+        // Cycle through list types
+        const { $from } = view.state.selection;
+        for (let d = $from.depth; d > 0; d--) {
+          const node = $from.node(d);
+          if (node.type === schema.nodes.ordered_list) {
+            const currentType = (node.attrs.listType as string) || 'decimal';
+            const currentIndex = listTypes.findIndex((t) => t.value === currentType);
+            const nextType = listTypes[(currentIndex + 1) % listTypes.length];
+            const tr = view.state.tr.setNodeMarkup($from.before(d), undefined, {
+              ...node.attrs,
+              listType: nextType.value,
+            });
+            view.dispatch(tr);
+            break;
+          }
+        }
+      },
+    });
   }
 
   // Separator

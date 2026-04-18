@@ -125,7 +125,38 @@ const baseNodes: Record<string, NodeSpec> = {
 // addListNodes expects an OrderedMap — we create a temp Schema to get one.
 const tempSchema = new Schema({ nodes: baseNodes, marks: {} });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const withListNodes = addListNodes(tempSchema.spec.nodes as any, 'paragraph block*', 'block');
+let withListNodes = addListNodes(tempSchema.spec.nodes as any, 'paragraph block*', 'block');
+
+// Extend ordered_list with a listType attribute for numbering format
+const olSpec = withListNodes.get('ordered_list')!;
+withListNodes = withListNodes.update('ordered_list', {
+  ...olSpec,
+  attrs: {
+    ...(olSpec.attrs as Record<string, unknown>),
+    listType: { default: 'decimal' },
+  },
+  parseDOM: [
+    {
+      tag: 'ol',
+      getAttrs(dom) {
+        const el = dom as HTMLElement;
+        return {
+          order: el.hasAttribute('start') ? +el.getAttribute('start')! : 1,
+          listType: el.getAttribute('data-list-type') || 'decimal',
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const attrs: Record<string, string> = {};
+    if (node.attrs.order !== 1) attrs.start = String(node.attrs.order);
+    if (node.attrs.listType !== 'decimal') {
+      attrs['data-list-type'] = node.attrs.listType;
+      attrs.style = `list-style-type: ${node.attrs.listType}`;
+    }
+    return Object.keys(attrs).length ? ['ol', attrs, 0] : ['ol', 0];
+  },
+});
 
 // Combine marks: basic (strong, em, code, link) + underline + strikethrough
 const allMarks: Record<string, MarkSpec> = {

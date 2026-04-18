@@ -162,7 +162,21 @@ class TipTapConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
     ): List {
-        val list = List(ListNumberingType.DECIMAL)
+        @Suppress("UNCHECKED_CAST")
+        val attrs = node["attrs"] as? Map<String, Any>
+        val listTypeStr = attrs?.get("listType") as? String ?: "decimal"
+        val startNumber = (attrs?.get("order") as? Number)?.toInt() ?: 1
+
+        val numberingType = when (listTypeStr) {
+            "lower-alpha" -> ListNumberingType.ENGLISH_LOWER
+            "upper-alpha" -> ListNumberingType.ENGLISH_UPPER
+            "lower-roman" -> ListNumberingType.ROMAN_LOWER
+            "upper-roman" -> ListNumberingType.ROMAN_UPPER
+            else -> ListNumberingType.DECIMAL
+        }
+
+        val list = List(numberingType)
+        if (startNumber > 1) list.setItemStartIndex(startNumber)
         list.setMarginBottom(renderingDefaults.listMarginBottom)
         list.setMarginLeft(renderingDefaults.listMarginLeft)
 
