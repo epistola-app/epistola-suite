@@ -107,9 +107,12 @@ class TipTapConverter(
         return segments.mapIndexed { index, segment ->
             val paragraph = Paragraph()
             applyTextStyles(paragraph, resolvedStyles)
-            if (index == segments.size - 1) {
-                paragraph.setMarginBottom(renderingDefaults.paragraphMarginBottom)
-            }
+            // Hard break lines: no spacing between them, only the last gets paragraph margin
+            paragraph.setMarginTop(0f)
+            paragraph.setMarginBottom(if (index == segments.size - 1) renderingDefaults.paragraphMarginBottom else 0f)
+            paragraph.setPaddingTop(0f)
+            paragraph.setPaddingBottom(0f)
+            paragraph.setSpacingRatio(0f)
             if (segment.isNotEmpty()) {
                 addInlineContent(paragraph, segment, data, loopContext, fontCache)
             }
@@ -152,18 +155,12 @@ class TipTapConverter(
             paragraph.setFont(fontCache.bold)
             paragraph.setFontSize(fontSize)
             applyTextStyles(paragraph, resolvedStyles)
-            when (index) {
-                0 -> {
-                    paragraph.setMarginTop(marginVertical)
-                    if (segments.size == 1) {
-                        paragraph.setMarginBottom(marginVertical)
-                    } else {
-                        paragraph.setMarginBottom(0f)
-                    }
-                }
-                segments.size - 1 -> paragraph.setMarginBottom(marginVertical)
-                else -> paragraph.setMarginBottom(0f)
-            }
+            // Hard break lines: tight spacing, only first/last get heading margins
+            paragraph.setMarginTop(if (index == 0) marginVertical else 0f)
+            paragraph.setMarginBottom(if (index == segments.size - 1) marginVertical else 0f)
+            paragraph.setPaddingTop(0f)
+            paragraph.setPaddingBottom(0f)
+            paragraph.setSpacingRatio(0f)
             if (segment.isNotEmpty()) {
                 addInlineContent(paragraph, segment, data, loopContext, fontCache)
             }
