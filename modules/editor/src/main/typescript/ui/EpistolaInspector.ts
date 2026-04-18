@@ -701,7 +701,8 @@ export class EpistolaInspector extends LitElement {
 
     // For loop/datatable expressions, highlight array-type fields
     const isLoopExpr =
-      (node.type === 'loop' || node.type === 'datatable') && key === 'expression.raw';
+      (node.type === 'loop' || node.type === 'datatable' || node.type === 'datalist') &&
+      key === 'expression.raw';
     const isConditionalExpr = node.type === 'conditional' && key === 'condition.raw';
     const placeholder = isLoopExpr
       ? 'e.g. items'

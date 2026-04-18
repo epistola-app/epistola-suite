@@ -416,6 +416,7 @@ class DirectPdfRenderer(
                 "table" to TableNodeRenderer(),
                 "conditional" to ConditionalNodeRenderer(),
                 "loop" to LoopNodeRenderer(),
+                "datalist" to DataListNodeRenderer(),
                 "datatable" to DatatableNodeRenderer(),
                 "datatable-column" to DatatableColumnNodeRenderer(),
                 "image" to ImageNodeRenderer(),

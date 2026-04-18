@@ -443,6 +443,42 @@ export function createDefaultRegistry(): ComponentRegistry {
   });
 
   registry.register({
+    type: 'datalist',
+    label: 'Data List',
+    icon: 'list',
+    category: 'logic',
+    slots: [{ name: 'item-template' }],
+    allowedChildren: { mode: 'all' },
+    applicableStyles: LAYOUT_STYLES,
+    inspector: [
+      { key: 'expression.raw', label: 'Data Source', type: 'expression' },
+      { key: 'itemAlias', label: 'Item Variable', type: 'text', defaultValue: 'item' },
+      { key: 'indexAlias', label: 'Index Variable', type: 'text' },
+      {
+        key: 'listType',
+        label: 'List Type',
+        type: 'select',
+        options: [
+          { label: 'Bullet', value: 'bullet' },
+          { label: 'Numbered', value: 'decimal' },
+          { label: 'Letters (a, b, c)', value: 'lower-alpha' },
+          { label: 'Letters (A, B, C)', value: 'upper-alpha' },
+          { label: 'Roman (i, ii, iii)', value: 'lower-roman' },
+          { label: 'Roman (I, II, III)', value: 'upper-roman' },
+          { label: 'No marker', value: 'none' },
+        ],
+      },
+    ],
+    defaultProps: {
+      expression: { raw: '', language: 'jsonata' },
+      itemAlias: 'item',
+      indexAlias: undefined,
+      listType: 'bullet',
+    },
+    scopeProvider: buildIterationScope,
+  });
+
+  registry.register({
     type: 'separator',
     label: 'Separator',
     icon: 'minus',
