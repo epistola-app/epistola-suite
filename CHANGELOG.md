@@ -16,6 +16,7 @@
 - **Keep-together / keep-with-next**: New page flow style properties that prevent page breaks from splitting a block or separating it from the next block. Available as checkboxes in the inspector's Page Flow section.
 - **Widow/orphan control**: PDF paragraphs and headings now enforce a minimum of 2 lines at the top and bottom of each page, preventing single isolated lines.
 - **List numbering formats**: Ordered lists now support decimal, lower/upper alpha (a,b,c / A,B,C), and lower/upper roman (i,ii,iii / I,II,III) numbering. Toggle format via the # button in the bubble menu. Custom start numbers are also supported.
+- **First-page header/footer variation**: Page headers and footers now have a "Hide on first page" checkbox. When enabled, the header/footer is not rendered on the first page of the PDF.
 
 ### Fixed
 

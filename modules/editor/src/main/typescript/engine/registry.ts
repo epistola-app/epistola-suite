@@ -504,6 +504,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     applicableStyles: 'all',
     inspector: [
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+      { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
     maxInstancesPerDocument: 1,
   });
@@ -518,6 +519,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     applicableStyles: 'all',
     inspector: [
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+      { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
     maxInstancesPerDocument: 1,
   });
