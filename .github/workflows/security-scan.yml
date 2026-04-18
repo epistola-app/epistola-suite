@@ -32,7 +32,7 @@ jobs:
 
       - name: Scan backend SBOM for vulnerabilities
         id: trivy-backend
-        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
+        uses: aquasecurity/trivy-action@876cf04c63f65e9799bcf1043b584e72469c7143 # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -42,7 +42,7 @@ jobs:
 
       - name: Scan frontend SBOM for vulnerabilities
         id: trivy-frontend
-        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
+        uses: aquasecurity/trivy-action@876cf04c63f65e9799bcf1043b584e72469c7143 # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
