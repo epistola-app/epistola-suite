@@ -64,7 +64,15 @@ function buildAliasedFieldPaths(
   const paths: FieldPath[] = [];
   const arrayPathPrefix = `${arrayExpression}[].`;
 
-  // Map array item sub-properties to aliased paths
+  // Add the item alias itself (for simple arrays and direct reference)
+  paths.push({
+    path: itemAlias,
+    type: 'string',
+    scope: itemAlias,
+    description: 'Current iteration item',
+  });
+
+  // Map array item sub-properties to aliased paths (for object arrays)
   for (const fp of schemaFieldPaths) {
     if (fp.path.startsWith(arrayPathPrefix)) {
       const subPath = fp.path.slice(arrayPathPrefix.length);
