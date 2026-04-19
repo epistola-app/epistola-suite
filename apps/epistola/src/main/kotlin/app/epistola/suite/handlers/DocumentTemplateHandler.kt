@@ -17,6 +17,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
+import app.epistola.suite.templates.commands.PublishDocumentTemplateContractDraft
+import app.epistola.suite.templates.commands.PublishDocumentTemplateContractValidationException
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.model.DataExample
@@ -31,8 +33,10 @@ import app.epistola.suite.templates.validation.RecentUsageCompatibilityResult
 import app.epistola.suite.templates.validation.RecentUsageValidationIssue
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.TemplateRecentUsageCompatibilityService
+import app.epistola.suite.templates.validation.TemplateSchemaCompatibilityProperties
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -45,7 +49,9 @@ import java.time.OffsetDateTime
  * Request body for updating a document template's metadata.
  * Note: templateModel is now stored in TemplateVersion and updated separately.
  *
- * @property forceUpdate When true, validation warnings don't block the update
+ * Data contract edits are saved to the template's draft contract.
+ *
+ * @property forceUpdate When true, validation warnings don't block the draft save
  * @property themeId The default theme ID for this template (optional)
  * @property clearThemeId When true, removes the default theme assignment
  */
@@ -65,6 +71,10 @@ data class UpdateTemplateRequest(
 data class ValidateSchemaRequest(
     val schema: ObjectNode,
     val examples: List<DataExample>? = null,
+)
+
+data class PublishContractRequest(
+    val forceUpdate: Boolean = false,
 )
 
 /**
@@ -102,24 +112,79 @@ data class ValidateSchemaResponse(
 
 data class RecentUsageValidationResponse(
     val available: Boolean,
-    val checkedCount: Int,
-    val incompatibleCount: Int,
+    val window: RecentUsageWindowResponse,
+    val summary: RecentUsageSummaryResponse,
+    val samples: List<RecentUsageSampleResponse>,
     val issues: List<RecentUsageIssueResponse>,
     val unavailableReason: String? = null,
 ) {
     companion object {
         fun from(result: RecentUsageCompatibilityResult) = RecentUsageValidationResponse(
             available = result.available,
-            checkedCount = result.checkedCount,
-            incompatibleCount = result.incompatibleCount,
+            window = RecentUsageWindowResponse.from(result.window),
+            summary = RecentUsageSummaryResponse.from(result.summary),
+            samples = result.samples.map(RecentUsageSampleResponse::from),
             issues = result.issues.map(RecentUsageIssueResponse::from),
             unavailableReason = result.unavailableReason,
         )
     }
 }
 
+data class RecentUsageWindowResponse(
+    val maxDays: Int,
+    val sampleLimit: Int,
+    val checkedFrom: java.time.Instant,
+    val checkedTo: java.time.Instant,
+) {
+    companion object {
+        fun from(window: app.epistola.suite.templates.validation.RecentUsageWindow) = RecentUsageWindowResponse(
+            maxDays = window.maxDays,
+            sampleLimit = window.sampleLimit,
+            checkedFrom = window.checkedFrom,
+            checkedTo = window.checkedTo,
+        )
+    }
+}
+
+data class RecentUsageSummaryResponse(
+    val checkedCount: Int,
+    val compatibleCount: Int,
+    val incompatibleCount: Int,
+) {
+    companion object {
+        fun from(summary: app.epistola.suite.templates.validation.RecentUsageSummary) = RecentUsageSummaryResponse(
+            checkedCount = summary.checkedCount,
+            compatibleCount = summary.compatibleCount,
+            incompatibleCount = summary.incompatibleCount,
+        )
+    }
+}
+
+data class RecentUsageSampleResponse(
+    val requestId: String,
+    val sampleRank: Int,
+    val createdAt: OffsetDateTime,
+    val correlationKey: String?,
+    val status: String,
+    val compatible: Boolean,
+    val errorCount: Int,
+) {
+    companion object {
+        fun from(sample: app.epistola.suite.templates.validation.RecentUsageSampleResult) = RecentUsageSampleResponse(
+            requestId = sample.requestId,
+            sampleRank = sample.sampleRank,
+            createdAt = sample.createdAt,
+            correlationKey = sample.correlationKey,
+            status = sample.status.name,
+            compatible = sample.compatible,
+            errorCount = sample.errorCount,
+        )
+    }
+}
+
 data class RecentUsageIssueResponse(
     val requestId: String,
+    val sampleRank: Int,
     val createdAt: OffsetDateTime,
     val correlationKey: String?,
     val status: String,
@@ -128,6 +193,7 @@ data class RecentUsageIssueResponse(
     companion object {
         fun from(issue: RecentUsageValidationIssue) = RecentUsageIssueResponse(
             requestId = issue.requestId,
+            sampleRank = issue.sampleRank,
             createdAt = issue.createdAt,
             correlationKey = issue.correlationKey,
             status = issue.status.name,
@@ -147,6 +213,7 @@ class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val recentUsageCompatibilityService: TemplateRecentUsageCompatibilityService,
+    private val templateSchemaCompatibilityProperties: TemplateSchemaCompatibilityProperties,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -330,6 +397,49 @@ class DocumentTemplateHandler(
         }
     }
 
+    fun publishContract(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val body = request.body(String::class.java)
+        val publishRequest = if (body.isBlank()) PublishContractRequest() else objectMapper.readValue(body, PublishContractRequest::class.java)
+
+        return try {
+            val result = PublishDocumentTemplateContractDraft(
+                id = templateId,
+                forceUpdate = publishRequest.forceUpdate,
+            ).execute()
+                ?: return ServerResponse.notFound().build()
+
+            ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "id" to result.template.id,
+                        "dataModel" to result.template.dataModel,
+                        "dataExamples" to result.template.dataExamples,
+                    ),
+                )
+        } catch (e: PublishDocumentTemplateContractValidationException) {
+            ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "errors" to e.validationErrors,
+                        "recentUsage" to e.recentUsage?.let(RecentUsageValidationResponse::from),
+                    ),
+                )
+        } catch (e: DataModelValidationException) {
+            ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("errors" to e.validationErrors))
+        } catch (e: ValidationException) {
+            ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
+    }
+
     /**
      * Updates the template's default theme via HTMX.
      * Returns the theme-section fragment for seamless UI updates.
@@ -468,6 +578,9 @@ class DocumentTemplateHandler(
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
 
+        val dataContractSchemaJson = template.dataModel?.toString() ?: "null"
+        val dataContractExamplesJson = objectMapper.writeValueAsString(template.dataExamples)
+
         val variants = GetVariantSummaries(templateId = templateId).query()
 
         // Load available themes for theme selection
@@ -480,6 +593,12 @@ class DocumentTemplateHandler(
             "pageTitle" to "${template.name} - Epistola"
             "tenantId" to tenantId.key
             "template" to template
+            "dataContractSchema" to template.dataModel
+            "dataContractExamples" to template.dataExamples
+            "dataContractSchemaJson" to dataContractSchemaJson
+            "dataContractExamplesJson" to dataContractExamplesJson
+            "hasDraftContract" to template.hasDraftContract
+            "recentUsageSampleLimit" to templateSchemaCompatibilityProperties.recentUsageSampleLimit
             "variants" to variants
             "themes" to themes
             "attributeDefinitions" to attributeDefinitions

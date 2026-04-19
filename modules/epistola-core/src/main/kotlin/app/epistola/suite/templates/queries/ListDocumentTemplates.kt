@@ -28,7 +28,7 @@ class ListDocumentTemplatesHandler(
 ) : QueryHandler<ListDocumentTemplates, List<DocumentTemplate>> {
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified FROM document_templates WHERE tenant_key = :tenantId")
+            append("SELECT id, tenant_key, name, theme_key, schema, data_model AS published_data_model, data_examples AS published_data_examples, draft_data_model, draft_data_examples, pdfa_enabled, created_at, last_modified FROM document_templates WHERE tenant_key = :tenantId")
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND name ILIKE :searchTerm")
             }

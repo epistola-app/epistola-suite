@@ -9,10 +9,35 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.time.Instant
 import java.time.OffsetDateTime
+
+data class RecentUsageWindow(
+    val maxDays: Int,
+    val sampleLimit: Int,
+    val checkedFrom: Instant,
+    val checkedTo: Instant,
+)
+
+data class RecentUsageSummary(
+    val checkedCount: Int,
+    val compatibleCount: Int,
+    val incompatibleCount: Int,
+)
+
+data class RecentUsageSampleResult(
+    val requestId: String,
+    val sampleRank: Int,
+    val createdAt: OffsetDateTime,
+    val correlationKey: String?,
+    val status: RequestStatus,
+    val compatible: Boolean,
+    val errorCount: Int,
+)
 
 data class RecentUsageValidationIssue(
     val requestId: String,
+    val sampleRank: Int,
     val createdAt: OffsetDateTime,
     val correlationKey: String?,
     val status: RequestStatus,
@@ -22,36 +47,59 @@ data class RecentUsageValidationIssue(
 data class RecentUsageCompatibilityResult(
     val compatible: Boolean,
     val available: Boolean,
-    val checkedCount: Int,
-    val incompatibleCount: Int,
+    val window: RecentUsageWindow,
+    val summary: RecentUsageSummary,
+    val samples: List<RecentUsageSampleResult>,
     val issues: List<RecentUsageValidationIssue>,
     val unavailableReason: String? = null,
 ) {
     companion object {
-        fun compatible(checkedCount: Int) = RecentUsageCompatibilityResult(
+        fun compatible(
+            window: RecentUsageWindow,
+            samples: List<RecentUsageSampleResult>,
+        ) = RecentUsageCompatibilityResult(
             compatible = true,
             available = true,
-            checkedCount = checkedCount,
-            incompatibleCount = 0,
+            window = window,
+            summary = RecentUsageSummary(
+                checkedCount = samples.size,
+                compatibleCount = samples.size,
+                incompatibleCount = 0,
+            ),
+            samples = samples,
             issues = emptyList(),
         )
 
         fun incompatible(
-            checkedCount: Int,
+            window: RecentUsageWindow,
+            samples: List<RecentUsageSampleResult>,
             issues: List<RecentUsageValidationIssue>,
         ) = RecentUsageCompatibilityResult(
             compatible = false,
             available = true,
-            checkedCount = checkedCount,
-            incompatibleCount = issues.size,
+            window = window,
+            summary = RecentUsageSummary(
+                checkedCount = samples.size,
+                compatibleCount = samples.count { it.compatible },
+                incompatibleCount = samples.count { !it.compatible },
+            ),
+            samples = samples,
             issues = issues,
         )
 
-        fun unavailable(reason: String? = null) = RecentUsageCompatibilityResult(
+        fun unavailable(
+            window: RecentUsageWindow,
+            reason: String? = null,
+        ) = RecentUsageCompatibilityResult(
             compatible = false,
             available = false,
-            checkedCount = 0,
-            incompatibleCount = 0,
+            window = window,
+            summary = RecentUsageSummary(
+                checkedCount = 0,
+                compatibleCount = 0,
+                incompatibleCount = 0,
+            ),
+            samples = emptyList(),
             issues = emptyList(),
             unavailableReason = reason,
         )
@@ -72,37 +120,56 @@ class TemplateRecentUsageCompatibilityService(
         tenantKey: TenantKey,
         templateKey: TemplateKey,
         schema: ObjectNode,
-    ): RecentUsageCompatibilityResult = try {
-        analyzeInternal(tenantKey, templateKey, schema)
-    } catch (e: Exception) {
-        logger.warn(
-            "Recent usage compatibility check unavailable for tenant={} template={}",
-            tenantKey,
-            templateKey,
-            e,
-        )
-        RecentUsageCompatibilityResult.unavailable(
-            reason = "Recent usage compatibility check is temporarily unavailable.",
-        )
+    ): RecentUsageCompatibilityResult {
+        val window = currentWindow()
+
+        return try {
+            analyzeInternal(tenantKey, templateKey, schema, window)
+        } catch (e: Exception) {
+            logger.warn(
+                "Recent usage compatibility check unavailable for tenant={} template={}",
+                tenantKey,
+                templateKey,
+                e,
+            )
+            RecentUsageCompatibilityResult.unavailable(
+                window = window,
+                reason = "Recent usage compatibility check is temporarily unavailable.",
+            )
+        }
     }
 
     private fun analyzeInternal(
         tenantKey: TenantKey,
         templateKey: TemplateKey,
         schema: ObjectNode,
+        window: RecentUsageWindow,
     ): RecentUsageCompatibilityResult {
         val samples = fetchRecentSamples(tenantKey, templateKey)
         if (samples.isEmpty()) {
-            return RecentUsageCompatibilityResult.compatible(checkedCount = 0)
+            return RecentUsageCompatibilityResult.compatible(window = window, samples = emptyList())
         }
 
-        val issues = samples.mapNotNull { sample ->
+        val sampleResults = mutableListOf<RecentUsageSampleResult>()
+        val issues = samples.mapIndexedNotNull { index, sample ->
             val errors = jsonSchemaValidator.validate(schema, sample.data)
+            val sampleRank = index + 1
+            sampleResults += RecentUsageSampleResult(
+                requestId = sample.requestId,
+                sampleRank = sampleRank,
+                createdAt = sample.createdAt,
+                correlationKey = sample.correlationKey,
+                status = sample.status,
+                compatible = errors.isEmpty(),
+                errorCount = errors.size,
+            )
+
             if (errors.isEmpty()) {
                 null
             } else {
                 RecentUsageValidationIssue(
                     requestId = sample.requestId,
+                    sampleRank = sampleRank,
                     createdAt = sample.createdAt,
                     correlationKey = sample.correlationKey,
                     status = sample.status,
@@ -112,14 +179,22 @@ class TemplateRecentUsageCompatibilityService(
         }
 
         if (issues.isEmpty()) {
-            return RecentUsageCompatibilityResult.compatible(checkedCount = samples.size)
+            return RecentUsageCompatibilityResult.compatible(window = window, samples = sampleResults)
         }
 
         return RecentUsageCompatibilityResult.incompatible(
-            checkedCount = samples.size,
+            window = window,
+            samples = sampleResults,
             issues = issues,
         )
     }
+
+    private fun currentWindow(now: Instant = Instant.now()): RecentUsageWindow = RecentUsageWindow(
+        maxDays = properties.recentUsageWindowDays,
+        sampleLimit = properties.recentUsageSampleLimit,
+        checkedFrom = now.minusSeconds(properties.recentUsageWindowDays.toLong() * 24 * 60 * 60),
+        checkedTo = now,
+    )
 
     private fun fetchRecentSamples(
         tenantKey: TenantKey,

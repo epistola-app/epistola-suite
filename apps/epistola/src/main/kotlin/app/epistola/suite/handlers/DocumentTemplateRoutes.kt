@@ -30,6 +30,7 @@ class DocumentTemplateRoutes(
             PATCH("/{id}/theme", handler::updateTheme)
             GET("/{id}/api", handler::get)
             POST("/{id}/validate-schema", handler::validateSchema)
+            POST("/{id}/publish-contract", handler::publishContract)
 
             // Data example routes
             PATCH("/{id}/data-examples/{exampleId}", handler::updateDataExample)

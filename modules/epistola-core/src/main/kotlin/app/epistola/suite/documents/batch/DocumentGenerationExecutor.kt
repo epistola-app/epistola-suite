@@ -180,8 +180,8 @@ class DocumentGenerationExecutor(
             ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
         // 5. Validate data against template schema (if defined)
-        if (template.dataModel != null) {
-            val errors = schemaValidator.validate(template.dataModel, request.data)
+        if (template.publishedDataModel != null) {
+            val errors = schemaValidator.validate(template.publishedDataModel, request.data)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")

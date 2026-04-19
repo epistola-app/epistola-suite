@@ -215,7 +215,7 @@ class EpistolaTemplateApi(
         val template = GetDocumentTemplate(id = templateIdComposite).query()
             ?: return ResponseEntity.notFound().build()
 
-        val dataModel = template.dataModel
+        val dataModel = template.publishedDataModel
             ?: return ResponseEntity.ok(TemplateDataValidationResult(valid = true, errors = emptyList()))
 
         val dataNode = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data)

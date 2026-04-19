@@ -32,6 +32,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.PublishDocumentTemplateContractDraft
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
@@ -399,6 +400,7 @@ class DemoLoader(
                 forceUpdate = true, // Skip validation warnings for demo data
             ),
         )
+        mediator.send(PublishDocumentTemplateContractDraft(id = templateId))
         log.debug("Updated template metadata for: {}", template.name)
 
         // 3. Get the default variant (first variant, auto-created by CreateDocumentTemplate)

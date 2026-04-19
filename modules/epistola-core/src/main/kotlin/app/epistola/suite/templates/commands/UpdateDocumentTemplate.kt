@@ -11,8 +11,6 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
-import app.epistola.suite.templates.validation.RecentUsageCompatibilityResult
-import app.epistola.suite.templates.validation.TemplateRecentUsageCompatibilityService
 import app.epistola.suite.templates.validation.ValidationError
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -58,10 +56,10 @@ class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
-    private val recentUsageCompatibilityService: TemplateRecentUsageCompatibilityService,
 ) : CommandHandler<UpdateDocumentTemplate, UpdateDocumentTemplateResult?> {
     override fun handle(command: UpdateDocumentTemplate): UpdateDocumentTemplateResult? {
-        // Validate examples and recent usage against schema before persistence
+        // Contract edits are saved as drafts. Only validate the draft schema/examples
+        // against each other here; runtime compatibility is enforced on publish.
         val warnings = mutableMapOf<String, List<ValidationError>>()
         val blockingErrors = mutableMapOf<String, MutableList<ValidationError>>()
         val schemaToValidate = command.dataModel
@@ -83,8 +81,9 @@ class UpdateDocumentTemplateHandler(
         // If only schema is being updated, validate existing examples against new schema
         if (schemaToValidate != null && examplesToValidate == null) {
             val existing = getExistingTemplate() ?: return null
-            if (existing.dataExamples.isNotEmpty()) {
-                val errors = jsonSchemaValidator.validateExamples(schemaToValidate, existing.dataExamples)
+            val draftExamples = existing.dataExamples
+            if (draftExamples.isNotEmpty()) {
+                val errors = jsonSchemaValidator.validateExamples(schemaToValidate, draftExamples)
                 mergeValidationErrors(blockingErrors, errors)
             }
         }
@@ -97,15 +96,6 @@ class UpdateDocumentTemplateHandler(
                 val errors = jsonSchemaValidator.validateExamples(existingSchema, examplesToValidate)
                 mergeValidationErrors(blockingErrors, errors)
             }
-        }
-
-        if (schemaToValidate != null) {
-            val recentUsageResult = recentUsageCompatibilityService.analyze(
-                tenantKey = command.id.tenantKey,
-                templateKey = command.id.key,
-                schema = schemaToValidate,
-            )
-            mergeValidationErrors(blockingErrors, mapRecentUsageErrors(recentUsageResult))
         }
 
         if (blockingErrors.isNotEmpty()) {
@@ -132,12 +122,12 @@ class UpdateDocumentTemplateHandler(
             bindings["themeId"] = command.themeId
         }
         if (command.dataModel != null) {
-            updates.add("data_model = :dataModel::jsonb")
-            bindings["dataModel"] = objectMapper.writeValueAsString(command.dataModel)
+            updates.add("draft_data_model = :draftDataModel::jsonb")
+            bindings["draftDataModel"] = objectMapper.writeValueAsString(command.dataModel)
         }
         if (command.dataExamples != null) {
-            updates.add("data_examples = :dataExamples::jsonb")
-            bindings["dataExamples"] = objectMapper.writeValueAsString(command.dataExamples)
+            updates.add("draft_data_examples = :draftDataExamples::jsonb")
+            bindings["draftDataExamples"] = objectMapper.writeValueAsString(command.dataExamples)
         }
         if (command.pdfaEnabled != null) {
             updates.add("pdfa_enabled = :pdfaEnabled")
@@ -155,7 +145,14 @@ class UpdateDocumentTemplateHandler(
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
             WHERE id = :id AND tenant_key = :tenantId
-            RETURNING id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            RETURNING id, tenant_key, name, theme_key, schema,
+                      data_model AS published_data_model,
+                      data_examples AS published_data_examples,
+                      draft_data_model,
+                      draft_data_examples,
+                      pdfa_enabled,
+                      created_at,
+                      last_modified
         """
 
         val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
@@ -184,38 +181,17 @@ class UpdateDocumentTemplateHandler(
             }
     }
 
-    private fun mapRecentUsageErrors(result: RecentUsageCompatibilityResult): Map<String, List<ValidationError>> {
-        if (!result.available) {
-            return mapOf(
-                "recent-usage-check" to listOf(
-                    ValidationError(
-                        message = result.unavailableReason
-                            ?: "Recent usage compatibility check is temporarily unavailable.",
-                        path = "recentUsage",
-                    ),
-                ),
-            )
-        }
-
-        // Invariant: result.issues contains at most one entry per requestId.
-        // TemplateRecentUsageCompatibilityService builds issues from sampled
-        // document_generation_requests rows (one issue per request row), so
-        // using associate here is intentional.
-        return result.issues.associate { issue ->
-            "recent-request:${issue.requestId}" to issue.errors.map { error ->
-                val correlationInfo = issue.correlationKey?.let { " correlation=$it" } ?: ""
-                ValidationError(
-                    message = "${error.message} [status=${issue.status.name}$correlationInfo]",
-                    path = "request:${issue.requestId} ${error.path}".trim(),
-                )
-            }
-        }
-    }
-
     private fun getExisting(id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            SELECT id, tenant_key, name, theme_key, schema,
+                   data_model AS published_data_model,
+                   data_examples AS published_data_examples,
+                   draft_data_model,
+                   draft_data_examples,
+                   pdfa_enabled,
+                   created_at,
+                   last_modified
             FROM document_templates
             WHERE id = :id AND tenant_key = :tenantId
             """,

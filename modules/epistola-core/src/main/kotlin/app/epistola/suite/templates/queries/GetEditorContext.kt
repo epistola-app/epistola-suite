@@ -46,8 +46,8 @@ class GetEditorContextHandler(
             """
             SELECT
                 dt.name as template_name,
-                dt.data_model,
-                dt.data_examples,
+                COALESCE(dt.draft_data_model, dt.data_model) as data_model,
+                COALESCE(dt.draft_data_examples, dt.data_examples) as data_examples,
                 tv.attributes as variant_attributes,
                 ver.template_model as draft_template_model
             FROM template_variants tv

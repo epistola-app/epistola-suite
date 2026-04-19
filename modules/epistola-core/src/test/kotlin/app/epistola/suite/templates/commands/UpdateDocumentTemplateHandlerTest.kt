@@ -79,6 +79,36 @@ class UpdateDocumentTemplateHandlerTest : IntegrationTestBase() {
         assertThat(result).isNotNull()
         assertThat(result!!.template.name).isEqualTo("Renamed With Warnings")
         assertThat(result.warnings).containsKey("Bad Example")
+        assertThat(result.template.draftDataModel).isNotNull()
+        assertThat(result.template.draftDataExamples).isNotNull()
+    }
+
+    @Test
+    fun `saving contract updates draft columns without changing active contract`() = withMediator {
+        val templateId = createTemplateId()
+        CreateDocumentTemplate(id = templateId, name = "Template").execute()
+
+        UpdateDocumentTemplate(
+            id = templateId,
+            dataModel = schemaWithInteger("count"),
+            dataExamples = listOf(
+                DataExample(
+                    id = "ex-1",
+                    name = "Draft Example",
+                    data = objectMapper.createObjectNode().put("count", 1),
+                ),
+            ),
+        ).execute()
+
+        val persisted = GetDocumentTemplate(templateId).query()
+
+        assertThat(persisted).isNotNull()
+        assertThat(persisted!!.publishedDataModel).isNull()
+        assertThat(persisted.publishedDataExamples).isEmpty()
+        assertThat(persisted.draftDataModel).isNotNull()
+        assertThat(persisted.draftDataExamples).hasSize(1)
+        assertThat(persisted.dataModel).isNotNull()
+        assertThat(persisted.dataExamples).hasSize(1)
     }
 
     @Test
