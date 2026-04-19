@@ -1407,7 +1407,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    max-width: 640px;
+    max-width: var(--ep-max-width-base);
     width: 90%;
     max-height: 80vh;
     border: 1px solid var(--ep-gray-200);
@@ -1417,6 +1417,7 @@
     background: var(--ep-white);
     overflow: hidden;
     z-index: var(--ep-z-modal);
+    margin: auto 0;
   }
 
   .dc-dialog::backdrop {
@@ -1880,6 +1881,9 @@
   .dc-import-dialog {
     padding: var(--ep-space-4);
     min-width: 480px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
   }
 
   .dc-dialog-title {

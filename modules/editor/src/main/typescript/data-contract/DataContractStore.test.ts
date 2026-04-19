@@ -37,12 +37,27 @@ function compatibleResult(): SchemaCompatibilityPreviewResult {
     compatible: true,
     errors: [],
     migrations: [],
-    recentUsage: {
-      available: true,
-      checkedCount: 0,
-      incompatibleCount: 0,
-      issues: [],
+    recentUsage: emptyRecentUsage(),
+  };
+}
+
+function emptyRecentUsage(overrides = {}) {
+  return {
+    available: true,
+    window: {
+      maxDays: 7,
+      sampleLimit: 100,
+      checkedFrom: '2026-04-12T00:00:00Z',
+      checkedTo: '2026-04-19T00:00:00Z',
     },
+    summary: {
+      checkedCount: 0,
+      compatibleCount: 0,
+      incompatibleCount: 0,
+    },
+    samples: [],
+    issues: [],
+    ...overrides,
   };
 }
 
@@ -53,17 +68,19 @@ describe('DataContractStore.validateSchemaCompatibility', () => {
 
     const result = await store.validateSchemaCompatibility();
 
-    expect(result).toEqual({
-      compatible: true,
-      errors: [],
-      migrations: [],
-      recentUsage: {
-        available: true,
-        checkedCount: 0,
-        incompatibleCount: 0,
-        issues: [],
-      },
+    expect(result.compatible).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.migrations).toEqual([]);
+    expect(result.recentUsage.available).toBe(true);
+    expect(result.recentUsage.summary).toEqual({
+      checkedCount: 0,
+      compatibleCount: 0,
+      incompatibleCount: 0,
     });
+    expect(result.recentUsage.samples).toEqual([]);
+    expect(result.recentUsage.issues).toEqual([]);
+    expect(result.recentUsage.window.maxDays).toBe(0);
+    expect(result.recentUsage.window.sampleLimit).toBe(0);
   });
 
   it('uses provided schemaToValidate instead of state schema', async () => {

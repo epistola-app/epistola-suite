@@ -192,18 +192,50 @@ export interface CompatibilityMigrationSuggestion {
 
 export interface RecentUsageCompatibilityIssue {
   requestId: string;
+  sampleRank: number;
   createdAt: string;
   correlationKey: string | null;
   status: string;
   errors: ValidationError[];
 }
 
+export interface RecentUsageWindow {
+  maxDays: number;
+  sampleLimit: number;
+  checkedFrom: string;
+  checkedTo: string;
+}
+
+export interface RecentUsageSummary {
+  checkedCount: number;
+  compatibleCount: number;
+  incompatibleCount: number;
+}
+
+export interface RecentUsageSample {
+  requestId: string;
+  sampleRank: number;
+  createdAt: string;
+  correlationKey: string | null;
+  status: string;
+  compatible: boolean;
+  errorCount: number;
+}
+
 export interface RecentUsageCompatibilitySummary {
   available: boolean;
-  checkedCount: number;
-  incompatibleCount: number;
+  window: RecentUsageWindow;
+  summary: RecentUsageSummary;
+  samples: RecentUsageSample[];
   issues: RecentUsageCompatibilityIssue[];
   unavailableReason?: string | null;
+}
+
+export interface PublishDraftResult {
+  success: boolean;
+  error?: string;
+  canForceSave?: boolean;
+  recentUsage?: RecentUsageCompatibilitySummary;
 }
 
 export interface SchemaCompatibilityPreviewResult {
@@ -220,6 +252,7 @@ export interface SaveCallbacks {
     forceUpdate?: boolean,
     examples?: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
+  onPublishDraft?: (forceUpdate?: boolean) => Promise<PublishDraftResult>;
   onValidateSchemaCompatibility?: (
     schema: JsonSchema | null,
     examples: DataExample[],

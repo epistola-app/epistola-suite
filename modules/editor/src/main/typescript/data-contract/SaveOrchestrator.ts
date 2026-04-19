@@ -62,13 +62,11 @@ export function orchestrateSave(
       }
     }
 
-    const hasRecentUsageIssues = compatibilityResult.recentUsage.incompatibleCount > 0;
-    const hasRecentUsageUnavailable = compatibilityResult.recentUsage.available === false;
     const hasBlockingExampleErrors = compatibilityResult.errors.length > 0;
 
-    if (hasRecentUsageUnavailable || hasRecentUsageIssues || hasBlockingExampleErrors) {
+    if (hasBlockingExampleErrors) {
       const message = buildCompatibilityErrorMessage(compatibilityResult);
-      return { action: 'error', message, canForceSave: true };
+      return { action: 'error', message, canForceSave: false };
     }
   }
 
@@ -209,17 +207,6 @@ function mergeFixedExamples(
  * Build a user-facing error message from a compatibility result.
  */
 function buildCompatibilityErrorMessage(result: SchemaCompatibilityPreviewResult): string {
-  if (!result.recentUsage.available) {
-    return (
-      result.recentUsage.unavailableReason ??
-      'Recent usage compatibility check is temporarily unavailable.'
-    );
-  }
-
-  if (result.recentUsage.incompatibleCount > 0) {
-    return `Schema incompatible with ${result.recentUsage.incompatibleCount} of ${result.recentUsage.checkedCount} recent generation requests.`;
-  }
-
   if (result.errors.length > 0) {
     return 'Schema incompatible with current test data.';
   }
@@ -273,20 +260,8 @@ function deriveCanForceSaveOnSchemaError(
   fixedExamples: DataExample[] | undefined,
   schemaResult: { warnings?: Record<string, { path: string; message: string }[]>; error?: string },
 ): boolean {
-  if (forceSave) {
-    return false;
-  }
-
-  // If this save came from fix-and-save flow, always keep force-save available.
-  // The fix screen exists specifically to resolve compatibility issues; backend
-  // may still return recent-usage compatibility failures as plain errors.
-  if (fixedExamples && fixedExamples.length > 0) {
-    return true;
-  }
-
-  if (schemaResult.warnings && Object.keys(schemaResult.warnings).length > 0) {
-    return true;
-  }
-
+  void forceSave;
+  void fixedExamples;
+  void schemaResult;
   return false;
 }

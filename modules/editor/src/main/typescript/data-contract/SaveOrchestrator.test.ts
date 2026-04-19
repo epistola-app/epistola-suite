@@ -36,12 +36,27 @@ function incompatibleResult(
     compatible: false,
     errors: [],
     migrations: [],
-    recentUsage: {
-      available: true,
-      checkedCount: 0,
-      incompatibleCount: 0,
-      issues: [],
+    recentUsage: emptyRecentUsage(),
+    ...overrides,
+  };
+}
+
+function emptyRecentUsage(overrides = {}) {
+  return {
+    available: true,
+    window: {
+      maxDays: 7,
+      sampleLimit: 100,
+      checkedFrom: '2026-04-12T00:00:00Z',
+      checkedTo: '2026-04-19T00:00:00Z',
     },
+    summary: {
+      checkedCount: 0,
+      compatibleCount: 0,
+      incompatibleCount: 0,
+    },
+    samples: [],
+    issues: [],
     ...overrides,
   };
 }
@@ -112,7 +127,7 @@ describe('orchestrateSave', () => {
     });
   });
 
-  it('returns force-save error when recent usage is unavailable', () => {
+  it('allows draft save when recent usage is unavailable', () => {
     const store = createStore();
     const nextSchema: JsonSchema = {
       ...baseSchema,
@@ -124,24 +139,17 @@ describe('orchestrateSave', () => {
       store,
       { type: 'save' },
       incompatibleResult({
-        recentUsage: {
+        recentUsage: emptyRecentUsage({
           available: false,
-          checkedCount: 0,
-          incompatibleCount: 0,
-          issues: [],
           unavailableReason: 'compat service unavailable',
-        },
+        }),
       }),
     );
 
-    expect(outcome).toEqual({
-      action: 'error',
-      message: 'compat service unavailable',
-      canForceSave: true,
-    });
+    expect(outcome).toEqual({ action: 'save-schema', force: false });
   });
 
-  it('returns force-save error with recent usage incompatibility count', () => {
+  it('allows draft save when only recent usage is incompatible', () => {
     const store = createStore();
     store.dispatch({
       type: 'set-schema',
@@ -155,23 +163,16 @@ describe('orchestrateSave', () => {
       store,
       { type: 'save' },
       incompatibleResult({
-        recentUsage: {
-          available: true,
-          checkedCount: 7,
-          incompatibleCount: 3,
-          issues: [],
-        },
+        recentUsage: emptyRecentUsage({
+          summary: { checkedCount: 7, compatibleCount: 4, incompatibleCount: 3 },
+        }),
       }),
     );
 
-    expect(outcome).toEqual({
-      action: 'error',
-      message: 'Schema incompatible with 3 of 7 recent generation requests.',
-      canForceSave: true,
-    });
+    expect(outcome).toEqual({ action: 'save-schema', force: false });
   });
 
-  it('returns force-save error with test-data incompatibility message', () => {
+  it('returns blocking error with test-data incompatibility message', () => {
     const store = createStore();
     store.dispatch({
       type: 'set-schema',
@@ -192,7 +193,7 @@ describe('orchestrateSave', () => {
     expect(outcome).toEqual({
       action: 'error',
       message: 'Schema incompatible with current test data.',
-      canForceSave: true,
+      canForceSave: false,
     });
   });
 
@@ -391,7 +392,7 @@ describe('executeSave', () => {
     });
   });
 
-  it('sets save-error with force option and flattens warnings when schema save fails', async () => {
+  it('sets save-error without force-save option and flattens warnings when schema save fails', async () => {
     const warningA: ValidationError = { path: '$.x', message: 'x invalid' };
     const warningB: ValidationError = { path: '$.y', message: 'y invalid' };
 
@@ -412,7 +413,7 @@ describe('executeSave', () => {
     expect(store.state.saveStatus).toEqual({
       type: 'error',
       message: 'schema failed',
-      canForceSave: true,
+      canForceSave: false,
     });
     expect(store.state.schemaWarnings).toEqual([warningA, warningB]);
   });
@@ -475,7 +476,7 @@ describe('executeSave', () => {
     });
   });
 
-  it('keeps force-save available after fix-and-save is blocked by recent usage compatibility', async () => {
+  it('does not keep force-save available after schema save fails', async () => {
     const store = createStore({
       onSaveSchema: vi.fn().mockResolvedValue({
         success: false,
@@ -496,11 +497,11 @@ describe('executeSave', () => {
     expect(store.state.saveStatus).toEqual({
       type: 'error',
       message: 'Schema incompatible with 2 of 10 recent generation requests.',
-      canForceSave: true,
+      canForceSave: false,
     });
   });
 
-  it('keeps force-save available for recent-request validation errors from fix-and-save', async () => {
+  it('does not keep force-save available for recent-request validation errors', async () => {
     const store = createStore({
       onSaveSchema: vi.fn().mockResolvedValue({
         success: false,
@@ -524,7 +525,7 @@ describe('executeSave', () => {
       type: 'error',
       message:
         "Validation failed (12 issues in 12 examples): recent-request:019d9692-b201-7048-be32-069870c63090 request:019d9692-b201-7048-be32-069870c63090 /field11 required property 'field11' not found [status=COMPLETED correlation=order-0003]",
-      canForceSave: true,
+      canForceSave: false,
     });
   });
 });
@@ -546,20 +547,19 @@ describe('flattenCompatibilityWarnings', () => {
           autoMigratable: false,
         },
       ],
-      recentUsage: {
-        available: true,
-        checkedCount: 3,
-        incompatibleCount: 1,
+      recentUsage: emptyRecentUsage({
+        summary: { checkedCount: 3, compatibleCount: 2, incompatibleCount: 1 },
         issues: [
           {
             requestId: 'req_1234567890abcdef',
+            sampleRank: 1,
             createdAt: '2026-01-01T00:00:00Z',
             correlationKey: 'corr-123',
             status: 'FAILED',
             errors: [{ path: '$.name', message: 'name is required' }],
           },
         ],
-      },
+      }),
     };
 
     expect(flattenCompatibilityWarnings(result)).toEqual([
@@ -577,12 +577,7 @@ describe('flattenCompatibilityWarnings', () => {
       compatible: false,
       errors: [],
       migrations: [],
-      recentUsage: {
-        available: false,
-        checkedCount: 0,
-        incompatibleCount: 0,
-        issues: [],
-      },
+      recentUsage: emptyRecentUsage({ available: false }),
     };
 
     expect(flattenCompatibilityWarnings(result)).toEqual([

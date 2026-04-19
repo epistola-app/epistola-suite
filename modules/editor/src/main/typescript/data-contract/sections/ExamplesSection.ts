@@ -11,7 +11,7 @@ import type { DataExample, JsonSchema, JsonValue } from '../types.js';
 import { renderExampleForm } from './ExampleForm.js';
 
 export interface ExamplesSectionState {
-  dataExamples: DataExample[];
+  examples: DataExample[];
   schema: JsonSchema | null;
 }
 
@@ -40,7 +40,7 @@ export function renderExamplesSection(
   uiState: ExamplesUiState,
   callbacks: ExamplesSectionCallbacks,
 ): unknown {
-  const examples = state.dataExamples;
+  const examples = state.examples;
   const selectedExample = uiState.editingId
     ? examples.find((e) => e.id === uiState.editingId)
     : null;

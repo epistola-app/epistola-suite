@@ -218,9 +218,9 @@
         <!-- Tab Panel: Data Contract -->
         <div id="tab-data-contract" class="tab-panel">
             <div id="data-contract-container"
-                 th:attr="data-tenant-id=${tenantId},data-template-id=${template.id}"></div>
-            <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
-            <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
+                  th:attr="data-tenant-id=${tenantId},data-template-id=${template.id}"></div>
+            <script id="data-contract-schema" type="application/json" th:utext="${dataContractSchemaJson}">null</script>
+            <script id="data-contract-examples" type="application/json" th:utext="${dataContractExamplesJson}">[]</script>
         </div>
 
         <!-- Tab Panel: Settings -->
@@ -316,9 +316,6 @@
         <script th:inline="javascript">
             const TENANT_ID = [[${tenantId}]];
             const TEMPLATE_ID = [[${template.id}]];
-            const INITIAL_SCHEMA = [[${template.dataModel}]];
-            const INITIAL_EXAMPLES = [[${template.dataExamples}]];
-
             const deploymentsUrl = [[${'/tenants/' + tenantId + '/templates/' + template.id + '/deployments'}]];
             let deploymentsLoaded = false;
 
@@ -498,6 +495,24 @@
                     return fallbackMessage;
                 }
 
+                function canForcePublishDraft(payload) {
+                    if (!payload || typeof payload !== 'object') {
+                        return false;
+                    }
+
+                    const errors = payload.errors;
+                    if (!errors || typeof errors !== 'object') {
+                        return false;
+                    }
+
+                    const keys = Object.keys(errors);
+                    if (keys.length === 0) {
+                        return false;
+                    }
+
+                    return keys.every((key) => key === 'recent-usage-check' || key.startsWith('recent-request:'));
+                }
+
                 async function mountDataContractEditorForCurrentPage() {
                     const container = document.getElementById('data-contract-container');
                     if (!container) return;
@@ -512,11 +527,34 @@
 
                     const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
 
+                    function createEmptyRecentUsage(available = true, unavailableReason = null) {
+                        const now = new Date().toISOString();
+                        return {
+                            available,
+                            window: {
+                                maxDays: 0,
+                                sampleLimit: 0,
+                                checkedFrom: now,
+                                checkedTo: now
+                            },
+                            summary: {
+                                checkedCount: 0,
+                                compatibleCount: 0,
+                                incompatibleCount: 0
+                            },
+                            samples: [],
+                            issues: [],
+                            unavailableReason
+                        };
+                    }
+
                     mountDataContractEditor({
                         container: container,
                         templateId: templateId,
                         initialSchema: initialSchema,
                         initialExamples: initialExamples,
+                        hasDraftContract: [[${hasDraftContract}]],
+                        recentUsageRenderLimit: [[${recentUsageSampleLimit}]],
                         callbacks: {
                             onValidateSchemaCompatibility: async (schema, examples) => {
                                 if (!schema) {
@@ -524,7 +562,7 @@
                                         compatible: true,
                                         errors: [],
                                         migrations: [],
-                                        recentUsage: { available: true, checkedCount: 0, incompatibleCount: 0, issues: [] }
+                                        recentUsage: createEmptyRecentUsage(true)
                                     };
                                 }
 
@@ -545,13 +583,7 @@
                                             compatible: false,
                                             errors: [],
                                             migrations: [],
-                                            recentUsage: {
-                                                available: false,
-                                                checkedCount: 0,
-                                                incompatibleCount: 0,
-                                                issues: [],
-                                                unavailableReason: `Failed to validate schema compatibility (${response.status})`
-                                            },
+                                            recentUsage: createEmptyRecentUsage(false, `Failed to validate schema compatibility (${response.status})`),
                                             error: `Failed to validate schema compatibility (${response.status})`
                                         };
                                     }
@@ -561,12 +593,7 @@
                                         compatible: result.compatible ?? true,
                                         errors: result.errors ?? [],
                                         migrations: result.migrations ?? [],
-                                        recentUsage: result.recentUsage ?? {
-                                            available: true,
-                                            checkedCount: 0,
-                                            incompatibleCount: 0,
-                                            issues: []
-                                        }
+                                        recentUsage: result.recentUsage ?? createEmptyRecentUsage(true)
                                     };
                                 } catch (error) {
                                     console.error('Failed to validate schema compatibility:', error);
@@ -574,13 +601,7 @@
                                         compatible: false,
                                         errors: [],
                                         migrations: [],
-                                        recentUsage: {
-                                            available: false,
-                                            checkedCount: 0,
-                                            incompatibleCount: 0,
-                                            issues: [],
-                                            unavailableReason: error instanceof Error ? error.message : 'Failed to validate schema compatibility'
-                                        },
+                                        recentUsage: createEmptyRecentUsage(false, error instanceof Error ? error.message : 'Failed to validate schema compatibility'),
                                         error: error instanceof Error ? error.message : 'Failed to validate schema compatibility'
                                     };
                                 }
@@ -658,6 +679,42 @@
                                     return {
                                         success: false,
                                         error: error instanceof Error ? error.message : 'Failed to save examples'
+                                    };
+                                }
+                            },
+
+                            onPublishDraft: async (forceUpdate) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${templateId}/publish-contract`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
+                                        },
+                                        body: JSON.stringify({ forceUpdate: !!forceUpdate })
+                                    });
+
+                                    if (!response.ok) {
+                                        let errorBody = {};
+                                        try {
+                                            errorBody = await response.json();
+                                        } catch {
+                                            // Non-JSON error payload (proxy/app server HTML, etc.)
+                                        }
+                                        return {
+                                            success: false,
+                                            error: formatValidationError(errorBody, `Failed to publish draft contract (${response.status})`),
+                                            canForceSave: canForcePublishDraft(errorBody),
+                                            recentUsage: errorBody.recentUsage
+                                        };
+                                    }
+
+                                    return { success: true };
+                                } catch (error) {
+                                    console.error('Failed to publish draft contract:', error);
+                                    return {
+                                        success: false,
+                                        error: error instanceof Error ? error.message : 'Failed to publish draft contract'
                                     };
                                 }
                             },

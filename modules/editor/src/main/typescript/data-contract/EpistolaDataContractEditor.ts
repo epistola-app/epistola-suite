@@ -29,6 +29,11 @@ import {
 import { renderSchemaFixScreen } from './sections/SchemaFixScreen.js';
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
+import {
+  buildPublishRiskDialogState,
+  renderPublishRiskDialog,
+  type PublishRiskDialogState,
+} from './sections/PublishRiskDialog.js';
 import { getActiveSchema, isRootJsonSchema } from './utils/activeSchema.js';
 
 type TabId = 'schema' | 'examples';
@@ -46,22 +51,26 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _importParseError: string | null = null;
   @state() private _copySuccess = false;
   @state() private _compatibilityIssues: CompatibilityIssue[] = [];
+  @state() private _hasDraftContract = false;
+  @state() private _publishing = false;
+  @state() private _successMessage = 'Draft saved';
+  @state() private _publishWarningDialog: PublishRiskDialogState | null = null;
+  private _recentUsageRenderLimit = Number.POSITIVE_INFINITY;
   private _successTimer?: ReturnType<typeof setTimeout>;
   private _boundBeforeUnload = this._handleBeforeUnload.bind(this);
   private _boundKeyDown = this._handleKeyDown.bind(this);
-
-  // Keep contractState for backward compat (ExamplesSection reads it)
-  get contractState(): DataContractStore {
-    return this.store;
-  }
 
   init(
     initialSchema: JsonSchema | null,
     initialExamples: DataExample[],
     callbacks: SaveCallbacks,
+    hasDraftContract = false,
+    recentUsageRenderLimit?: number,
   ): void {
     this.store.setHost(this);
     this.store.init(initialSchema, initialExamples, callbacks);
+    this._hasDraftContract = hasDraftContract;
+    this._recentUsageRenderLimit = recentUsageRenderLimit ?? Number.POSITIVE_INFINITY;
 
     if (initialSchema) {
       const compat = checkSchemaCompatibility(initialSchema);
@@ -100,25 +109,27 @@ export class EpistolaDataContractEditor extends LitElement {
 
           <!-- Unified save -->
           ${saveStatus.type === 'success'
-            ? html`<span class="dc-status-success">Saved successfully</span>`
+            ? html`<span class="dc-status-success">${this._successMessage}</span>`
             : nothing}
-          ${saveStatus.type === 'error'
+          ${saveStatus.type === 'error' && !saveStatus.canForceSave && !this._publishWarningDialog
             ? html`<span class="dc-status-error">${saveStatus.message}</span>`
             : nothing}
-          ${saveStatus.type === 'error' && saveStatus.canForceSave
-            ? html`<button
-                class="ep-btn-outline btn-sm dc-force-save-btn"
-                @click=${() => this._saveAll(true)}
-              >
-                Save Anyway
-              </button>`
-            : nothing}
+          <button
+            class="ep-btn-outline btn-sm dc-publish-draft-btn"
+            ?disabled=${this._publishing || this.store.isDirty || !this._hasDraftContract}
+            @click=${() => this._publishDraft()}
+            title=${this.store.isDirty
+              ? 'Save the draft before publishing'
+              : 'Publish the saved draft contract'}
+          >
+            ${this._publishing ? 'Publishing...' : 'Publish Draft'}
+          </button>
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
             ?disabled=${saveStatus.type === 'saving' || !this.store.isDirty}
             @click=${() => this._saveAll(false)}
           >
-            ${saveStatus.type === 'saving' ? 'Saving...' : 'Save'}
+            ${saveStatus.type === 'saving' ? 'Saving...' : 'Save Draft'}
           </button>
         </div>
 
@@ -163,6 +174,21 @@ export class EpistolaDataContractEditor extends LitElement {
                 onImportFromFile: (file) => this._handleImportFromFile(file),
                 onCancel: () => this._closeImportDialog(),
               })}
+            </dialog>
+          `
+        : nothing}
+      ${this._publishWarningDialog
+        ? html`
+            <dialog class="dc-dialog" open @close=${() => this._closePublishWarningDialog()}>
+              ${renderPublishRiskDialog(
+                this._publishWarningDialog,
+                {
+                  onCancel: () => this._closePublishWarningDialog(),
+                  onConfirm: () => this._confirmPublishAnyway(),
+                  onPeriodChange: (period) => this._updatePublishWarningPeriod(period),
+                },
+                this._recentUsageRenderLimit,
+              )}
             </dialog>
           `
         : nothing}
@@ -312,14 +338,11 @@ export class EpistolaDataContractEditor extends LitElement {
       onRedo: () => this.store.dispatch({ type: 'redo-example' }),
     };
 
-    // Create a state-like object for ExamplesSection (it reads .dataExamples and .schema)
-    const stateForSection = {
-      dataExamples: s.examples,
-      schema: s.schema,
-    };
-
     return renderExamplesSection(
-      stateForSection as Parameters<typeof renderExamplesSection>[0],
+      {
+        examples: s.examples,
+        schema: s.schema,
+      },
       uiState,
       callbacks,
     );
@@ -363,11 +386,8 @@ export class EpistolaDataContractEditor extends LitElement {
 
     await executeSave(this.store, outcome);
 
-    // Auto-clear success after 3 seconds
     if (this.store.state.saveStatus.type === 'success') {
-      this._scheduleSuccessClear(() => {
-        this.store.dispatch({ type: 'clear-save-status' });
-      });
+      this._handleDraftSaved();
     }
   }
 
@@ -383,10 +403,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const result = await executeSave(this.store, outcome);
 
     if (result.success) {
-      this.store.dispatch({ type: 'close-fix-screen' });
-      this._scheduleSuccessClear(() => {
-        this.store.dispatch({ type: 'clear-save-status' });
-      });
+      this._handleDraftSaved({ closeFixScreen: true });
     }
     // On failure: fix screen stays open, error is shown in the save status
   }
@@ -400,10 +417,39 @@ export class EpistolaDataContractEditor extends LitElement {
     const result = await executeSave(this.store, outcome);
 
     if (result.success) {
-      this.store.dispatch({ type: 'close-fix-screen' });
-      this._scheduleSuccessClear(() => {
-        this.store.dispatch({ type: 'clear-save-status' });
-      });
+      this._handleDraftSaved({ closeFixScreen: true });
+    }
+  }
+
+  private async _publishDraft(forceUpdate = false): Promise<void> {
+    if (this._publishing || this.store.isDirty || !this._hasDraftContract) {
+      return;
+    }
+
+    const publishDraft = this.store.callbacks.onPublishDraft;
+    if (!publishDraft) {
+      return;
+    }
+
+    this._publishing = true;
+
+    try {
+      const result = await publishDraft(forceUpdate);
+      if (!result.success) {
+        if (!forceUpdate && result.canForceSave && result.recentUsage) {
+          this._publishWarningDialog = buildPublishRiskDialogState(result.recentUsage);
+        }
+        this.store.dispatch({
+          type: 'save-error',
+          message: result.error ?? 'Failed to publish draft contract',
+          canForceSave: result.canForceSave ?? false,
+        });
+        return;
+      }
+
+      this._handleDraftPublished();
+    } finally {
+      this._publishing = false;
     }
   }
 
@@ -424,6 +470,37 @@ export class EpistolaDataContractEditor extends LitElement {
       migrations: [],
       newSchema: currentSchema,
     });
+  }
+
+  private _closePublishWarningDialog(): void {
+    this._publishWarningDialog = null;
+  }
+
+  private _updatePublishWarningPeriod(period: '24h' | '3d' | '7d' | '30d'): void {
+    if (!this._publishWarningDialog) return;
+    this._publishWarningDialog = { ...this._publishWarningDialog, selectedPeriod: period };
+  }
+
+  private async _confirmPublishAnyway(): Promise<void> {
+    this._closePublishWarningDialog();
+    await this._publishDraft(true);
+  }
+
+  private _handleDraftSaved(options: { closeFixScreen?: boolean } = {}): void {
+    this._successMessage = 'Draft saved';
+    this._hasDraftContract = true;
+    if (options.closeFixScreen) {
+      this.store.dispatch({ type: 'close-fix-screen' });
+    }
+    this._scheduleSaveStatusClear();
+  }
+
+  private _handleDraftPublished(): void {
+    this._successMessage = 'Draft published';
+    this._hasDraftContract = false;
+    this._publishWarningDialog = null;
+    this.store.dispatch({ type: 'save-success' });
+    this._scheduleSaveStatusClear();
   }
 
   // ---------------------------------------------------------------------------
@@ -570,6 +647,12 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private _currentSchemaForFixScreen(): JsonSchema | null {
     return getActiveSchema(this.store.state);
+  }
+
+  private _scheduleSaveStatusClear(): void {
+    this._scheduleSuccessClear(() => {
+      this.store.dispatch({ type: 'clear-save-status' });
+    });
   }
 
   private _scheduleSuccessClear(fn: () => void): void {

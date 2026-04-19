@@ -625,7 +625,7 @@ export class DataContractStore {
         compatible: true,
         errors: [],
         migrations: [],
-        recentUsage: { available: true, checkedCount: 0, incompatibleCount: 0, issues: [] },
+        recentUsage: defaultRecentUsageSummary(),
       };
     }
 
@@ -634,7 +634,7 @@ export class DataContractStore {
         compatible: true,
         errors: [],
         migrations: [],
-        recentUsage: { available: true, checkedCount: 0, incompatibleCount: 0, issues: [] },
+        recentUsage: defaultRecentUsageSummary(),
       };
     }
 
@@ -647,8 +647,9 @@ export class DataContractStore {
         migrations: [],
         recentUsage: {
           available: false,
-          checkedCount: 0,
-          incompatibleCount: 0,
+          window: defaultRecentUsageSummary().window,
+          summary: defaultRecentUsageSummary().summary,
+          samples: [],
           issues: [],
           unavailableReason:
             error instanceof Error ? error.message : 'Failed to validate schema compatibility',
@@ -927,6 +928,26 @@ export class DataContractStore {
       exampleHistories: new Map(),
     };
   }
+}
+
+function defaultRecentUsageSummary() {
+  const now = new Date().toISOString();
+  return {
+    available: true,
+    window: {
+      maxDays: 0,
+      sampleLimit: 0,
+      checkedFrom: now,
+      checkedTo: now,
+    },
+    summary: {
+      checkedCount: 0,
+      compatibleCount: 0,
+      incompatibleCount: 0,
+    },
+    samples: [],
+    issues: [],
+  };
 }
 
 // ---------------------------------------------------------------------------
