@@ -7,6 +7,8 @@
 
 import { html, nothing } from 'lit';
 
+/* oxlint-disable eslint/no-use-before-define */
+
 export interface ValidationWarning {
   path: string;
   message: string;
@@ -96,6 +98,12 @@ export function parseValidationWarning(w: ValidationWarning): ParsedWarning {
   const requestMatch = /^request:([^\s]+)(?:\s+(.+))?$/.exec(w.path);
   const metadataMatch = /\s*\[status=([^\]\s]+)(?:\s+correlation=([^\]]+))?\]\s*$/.exec(w.message);
   const cleanMessage = metadataMatch ? w.message.replace(metadataMatch[0], '').trim() : w.message;
+  let status: string | undefined;
+  let correlation: string | undefined;
+  if (metadataMatch) {
+    status = metadataMatch[1];
+    correlation = metadataMatch[2];
+  }
 
   if (requestMatch) {
     return {
@@ -103,8 +111,8 @@ export function parseValidationWarning(w: ValidationWarning): ParsedWarning {
       requestId: requestMatch[1],
       path: requestMatch[2] ?? '',
       message: cleanMessage,
-      status: metadataMatch?.[1],
-      correlation: metadataMatch?.[2],
+      status,
+      correlation,
     };
   }
 
@@ -112,8 +120,8 @@ export function parseValidationWarning(w: ValidationWarning): ParsedWarning {
     sourceLabel: 'Schema',
     path: w.path,
     message: cleanMessage,
-    status: metadataMatch?.[1],
-    correlation: metadataMatch?.[2],
+    status,
+    correlation,
   };
 }
 

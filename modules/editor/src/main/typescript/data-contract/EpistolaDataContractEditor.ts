@@ -6,6 +6,8 @@
  * Light DOM (no Shadow DOM) for design system CSS integration.
  */
 
+/* oxlint-disable typescript-eslint/promise-function-async */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
@@ -40,8 +42,12 @@ type TabId = 'schema' | 'examples';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
-  override createRenderRoot() {
+  override createRenderRoot(): this {
     return this;
+  }
+
+  private static _isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 
   store = new DataContractStore();
@@ -78,13 +84,13 @@ export class EpistolaDataContractEditor extends LitElement {
     }
   }
 
-  override connectedCallback() {
+  override connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener('beforeunload', this._boundBeforeUnload);
     window.addEventListener('keydown', this._boundKeyDown);
   }
 
-  override disconnectedCallback() {
+  override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('beforeunload', this._boundBeforeUnload);
     window.removeEventListener('keydown', this._boundKeyDown);
@@ -95,7 +101,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // Render
   // ---------------------------------------------------------------------------
 
-  override render() {
+  override render(): unknown {
     const s = this.store.state;
     const saveStatus = s.saveStatus;
 
@@ -117,7 +123,7 @@ export class EpistolaDataContractEditor extends LitElement {
           <button
             class="ep-btn-outline btn-sm dc-publish-draft-btn"
             ?disabled=${this._publishing || this.store.isDirty || !this._hasDraftContract}
-            @click=${() => this._publishDraft()}
+            @click=${(): Promise<void> => this._publishDraft()}
             title=${this.store.isDirty
               ? 'Save the draft before publishing'
               : 'Publish the saved draft contract'}
@@ -127,7 +133,7 @@ export class EpistolaDataContractEditor extends LitElement {
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
             ?disabled=${saveStatus.type === 'saving' || !this.store.isDirty}
-            @click=${() => this._saveAll(false)}
+            @click=${(): Promise<void> => this._saveAll(false)}
           >
             ${saveStatus.type === 'saving' ? 'Saving...' : 'Save Draft'}
           </button>
@@ -158,8 +164,8 @@ export class EpistolaDataContractEditor extends LitElement {
                 this.store.dispatch({ type: 'fix-remove-field', exampleId, path }),
               onRemoveAllUnknown: () => this.store.dispatch({ type: 'fix-remove-all-unknown' }),
               onRevert: () => this._handleFixRevert(),
-              onContinue: () => this._handleFixContinue(),
-              onForceSave: () => this._handleFixForceSave(),
+               onContinue: (): Promise<void> => this._handleFixContinue(),
+               onForceSave: (): Promise<void> => this._handleFixForceSave(),
               onCancel: () => this.store.dispatch({ type: 'close-fix-screen' }),
             },
           )
@@ -171,7 +177,7 @@ export class EpistolaDataContractEditor extends LitElement {
             <dialog class="dc-dialog" open @close=${() => this._closeImportDialog()}>
               ${renderImportSchemaDialog(this._importParseError, {
                 onImportFromText: (text) => this._handleImportFromText(text),
-                onImportFromFile: (file) => this._handleImportFromFile(file),
+                onImportFromFile: (file): Promise<void> => this._handleImportFromFile(file),
                 onCancel: () => this._closeImportDialog(),
               })}
             </dialog>
@@ -184,7 +190,7 @@ export class EpistolaDataContractEditor extends LitElement {
                 this._publishWarningDialog,
                 {
                   onCancel: () => this._closePublishWarningDialog(),
-                  onConfirm: () => this._confirmPublishAnyway(),
+                  onConfirm: (): Promise<void> => this._confirmPublishAnyway(),
                   onPeriodChange: (period) => this._updatePublishWarningPeriod(period),
                 },
                 this._recentUsageRenderLimit,
@@ -218,8 +224,8 @@ export class EpistolaDataContractEditor extends LitElement {
     const isJsonOnly = s.schemaEditMode === 'json-only';
 
     const jsonSchemaViewCallbacks = {
-      onCopyToClipboard: () => this._copyJsonSchemaToClipboard(),
-      onImportSchema: () => this._openImportDialog(),
+      onCopyToClipboard: (): Promise<void> => this._copyJsonSchemaToClipboard(),
+      onImportSchema: (): void => this._openImportDialog(),
     };
 
     if (isJsonOnly) {
@@ -352,105 +358,117 @@ export class EpistolaDataContractEditor extends LitElement {
   // Save
   // ---------------------------------------------------------------------------
 
-  private async _saveAll(forceSave: boolean): Promise<void> {
+  private _saveAll(forceSave: boolean): Promise<void> {
     const intent = forceSave ? { type: 'force-save' as const } : { type: 'save' as const };
 
-    // Compatibility check (only for non-force saves with dirty schema)
-    let compatibilityResult;
-    if (!forceSave && this.store.isSchemaDirty) {
-      compatibilityResult = await this.store.validateSchemaCompatibility();
-    }
+    const runSave = (
+      compatibilityResult?: Awaited<ReturnType<DataContractStore['validateSchemaCompatibility']>>,
+    ): Promise<void> => {
+      const outcome = orchestrateSave(this.store, intent, compatibilityResult);
 
-    const outcome = orchestrateSave(this.store, intent, compatibilityResult);
+      if (outcome.action === 'open-fix-screen') {
+        // Orchestrator decided to show fix screen. Store will handle state.
+        return executeSave(this.store, outcome).then((): void => {
+          return;
+        });
+      }
 
-    if (outcome.action === 'open-fix-screen') {
-      // Orchestrator decided to show fix screen. Store will handle state.
-      await executeSave(this.store, outcome);
-      return;
-    }
+      if (outcome.action === 'error') {
+        this.store.dispatch({
+          type: 'set-schema-warnings',
+          warnings: compatibilityResult ? flattenCompatibilityWarnings(compatibilityResult) : [],
+        });
 
-    if (outcome.action === 'error') {
-      this.store.dispatch({
-        type: 'set-schema-warnings',
-        warnings: compatibilityResult ? flattenCompatibilityWarnings(compatibilityResult) : [],
+        return executeSave(this.store, outcome).then(() => {
+          this._openWarningsModal();
+        });
+      }
+
+      // Clear warnings on successful compatibility check
+      if (compatibilityResult && compatibilityResult.compatible) {
+        this.store.dispatch({ type: 'set-schema-warnings', warnings: [] });
+      }
+
+      return executeSave(this.store, outcome).then(() => {
+        if (this.store.state.saveStatus.type === 'success') {
+          this._handleDraftSaved();
+        }
       });
-      await executeSave(this.store, outcome);
-      this._openWarningsModal();
-      return;
+    };
+
+    // Compatibility check (only for non-force saves with dirty schema)
+    if (!forceSave && this.store.isSchemaDirty) {
+      return this.store.validateSchemaCompatibility().then((compatibilityResult) => {
+        return runSave(compatibilityResult);
+      });
     }
 
-    // Clear warnings on successful compatibility check
-    if (compatibilityResult?.compatible) {
-      this.store.dispatch({ type: 'set-schema-warnings', warnings: [] });
-    }
-
-    await executeSave(this.store, outcome);
-
-    if (this.store.state.saveStatus.type === 'success') {
-      this._handleDraftSaved();
-    }
+    return runSave();
   }
 
   // ---------------------------------------------------------------------------
   // Fix screen
   // ---------------------------------------------------------------------------
 
-  private async _handleFixContinue(): Promise<void> {
+  private _handleFixContinue(): Promise<void> {
     const valid = this.store.validateFixScreenFields();
-    if (!valid) return;
+    if (!valid) {
+      return Promise.resolve();
+    }
 
     const outcome = orchestrateSave(this.store, { type: 'fix-and-save' });
-    const result = await executeSave(this.store, outcome);
-
-    if (result.success) {
-      this._handleDraftSaved({ closeFixScreen: true });
-    }
-    // On failure: fix screen stays open, error is shown in the save status
+    return executeSave(this.store, outcome).then((result) => {
+      if (result.success) {
+        this._handleDraftSaved({ closeFixScreen: true });
+      }
+      // On failure: fix screen stays open, error is shown in the save status
+    });
   }
 
-  private async _handleFixForceSave(): Promise<void> {
+  private _handleFixForceSave(): Promise<void> {
     const fixedExamples = this.store.buildFixedExamples();
     const outcome =
       fixedExamples && fixedExamples.length > 0
         ? { action: 'save-schema' as const, force: true, examples: fixedExamples }
         : orchestrateSave(this.store, { type: 'force-save' });
-    const result = await executeSave(this.store, outcome);
-
-    if (result.success) {
-      this._handleDraftSaved({ closeFixScreen: true });
-    }
+    return executeSave(this.store, outcome).then((result) => {
+      if (result.success) {
+        this._handleDraftSaved({ closeFixScreen: true });
+      }
+    });
   }
 
-  private async _publishDraft(forceUpdate = false): Promise<void> {
+  private _publishDraft(forceUpdate = false): Promise<void> {
     if (this._publishing || this.store.isDirty || !this._hasDraftContract) {
-      return;
+      return Promise.resolve();
     }
 
     const publishDraft = this.store.callbacks.onPublishDraft;
     if (!publishDraft) {
-      return;
+      return Promise.resolve();
     }
 
     this._publishing = true;
 
-    try {
-      const result = await publishDraft(forceUpdate);
-      if (!result.success) {
-        if (!forceUpdate && result.canForceSave && result.recentUsage) {
-          this._publishWarningDialog = buildPublishRiskDialogState(result.recentUsage);
+    return publishDraft(forceUpdate)
+      .then((result) => {
+        if (!result.success) {
+          if (!forceUpdate && result.canForceSave && result.recentUsage) {
+            this._publishWarningDialog = buildPublishRiskDialogState(result.recentUsage);
+          }
+          this.store.dispatch({
+            type: 'save-error',
+            message: result.error ?? 'Failed to publish draft contract',
+            canForceSave: result.canForceSave ?? false,
+          });
+          return;
         }
-        this.store.dispatch({
-          type: 'save-error',
-          message: result.error ?? 'Failed to publish draft contract',
-          canForceSave: result.canForceSave ?? false,
-        });
-        return;
-      }
 
-      this._handleDraftPublished();
-    } finally {
-      this._publishing = false;
-    }
+        this._handleDraftPublished();
+      })
+      .finally(() => {
+        this._publishing = false;
+      });
   }
 
   private _handleFixRevert(): void {
@@ -478,12 +496,14 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private _updatePublishWarningPeriod(period: '24h' | '3d' | '7d' | '30d'): void {
     if (!this._publishWarningDialog) return;
-    this._publishWarningDialog = { ...this._publishWarningDialog, selectedPeriod: period };
+    this._publishWarningDialog = Object.assign({}, this._publishWarningDialog, {
+      selectedPeriod: period,
+    });
   }
 
-  private async _confirmPublishAnyway(): Promise<void> {
+  private _confirmPublishAnyway(): Promise<void> {
     this._closePublishWarningDialog();
-    await this._publishDraft(true);
+    return this._publishDraft(true);
   }
 
   private _handleDraftSaved(options: { closeFixScreen?: boolean } = {}): void {
@@ -540,21 +560,23 @@ export class EpistolaDataContractEditor extends LitElement {
       return;
     }
 
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (!EpistolaDataContractEditor._isRecord(parsed)) {
       this._importParseError = 'JSON Schema must be a JSON object';
       return;
     }
 
-    this._importSchema(parsed as Record<string, unknown>);
+    this._importSchema(parsed);
   }
 
-  private async _handleImportFromFile(file: File): Promise<void> {
-    try {
-      const text = await file.text();
-      this._handleImportFromText(text);
-    } catch {
-      this._importParseError = 'Failed to read file';
-    }
+  private _handleImportFromFile(file: File): Promise<void> {
+    return file
+      .text()
+      .then((text) => {
+        this._handleImportFromText(text);
+      })
+      .catch(() => {
+        this._importParseError = 'Failed to read file';
+      });
   }
 
   private _importSchema(schema: Record<string, unknown>): void {
@@ -588,7 +610,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // Copy to clipboard
   // ---------------------------------------------------------------------------
 
-  private async _copyJsonSchemaToClipboard(): Promise<void> {
+  private _copyJsonSchemaToClipboard(): Promise<void> {
     const s = this.store.state;
     const schema =
       s.schemaEditMode === 'json-only'
@@ -597,13 +619,16 @@ export class EpistolaDataContractEditor extends LitElement {
           ? visualSchemaToJsonSchema(s.visualSchema)
           : null;
 
-    if (schema) {
-      await navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
+    if (!schema) {
+      return Promise.resolve();
+    }
+
+    return navigator.clipboard.writeText(JSON.stringify(schema, null, 2)).then(() => {
       this._copySuccess = true;
       this._scheduleSuccessClear(() => {
         this._copySuccess = false;
       });
-    }
+    });
   }
 
   // ---------------------------------------------------------------------------

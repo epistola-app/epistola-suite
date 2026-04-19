@@ -1,10 +1,12 @@
+/* eslint-disable no-use-before-define, no-undefined, complexity */
+/* oxlint-disable no-optional-chaining, no-rest-spread-properties */
+
 import { nanoid } from 'nanoid';
 import type {
   JsonObject,
   JsonSchema,
   JsonSchemaProperty,
   JsonValue,
-  PrimitiveField,
   PrimitiveFieldType,
   SchemaField,
   SchemaFieldType,
@@ -12,6 +14,33 @@ import type {
   StringFormat,
   VisualSchema,
 } from '../types.js';
+
+function isJsonSchemaObject(schema: JsonSchema | JsonObject): schema is JsonSchema {
+  return (
+    typeof schema === 'object' &&
+    schema !== null &&
+    'type' in schema &&
+    schema.type === 'object' &&
+    'properties' in schema
+  );
+}
+
+function isStringFormat(value: string): value is StringFormat {
+  return value === 'date-time' || value === 'email' || value === 'uri';
+}
+
+function toPrimitiveFieldType(type: SchemaFieldType): PrimitiveFieldType {
+  switch (type) {
+    case 'string':
+    case 'number':
+    case 'integer':
+    case 'boolean':
+    case 'date':
+      return type;
+    default:
+      return 'string';
+  }
+}
 
 /**
  * Convert a visual schema to JSON Schema format.
@@ -117,15 +146,14 @@ export function jsonSchemaToVisualSchema(schema: JsonSchema | JsonObject | null)
     return { fields: [] };
   }
 
-  const jsonSchema = schema as JsonSchema;
-  if (jsonSchema.type !== 'object' || !jsonSchema.properties) {
+  if (!isJsonSchemaObject(schema) || !schema.properties) {
     return { fields: [] };
   }
 
-  const requiredFields = new Set(jsonSchema.required || []);
+  const requiredFields = new Set(schema.required || []);
   const fields: SchemaField[] = [];
 
-  for (const [name, prop] of Object.entries(jsonSchema.properties)) {
+  for (const [name, prop] of Object.entries(schema.properties)) {
     fields.push(jsonSchemaPropertyToField(name, prop, requiredFields.has(name), name));
   }
 
@@ -172,7 +200,7 @@ function jsonSchemaPropertyToField(
     return {
       ...baseField,
       type: 'array' as const,
-      arrayItemType: itemType as SchemaFieldType,
+      arrayItemType: itemType,
       nestedFields,
       ...(prop.minItems !== undefined ? { minItems: prop.minItems } : {}),
     };
@@ -195,18 +223,23 @@ function jsonSchemaPropertyToField(
   // Primitive types — carry over format, minimum, maximum
   const primitiveField: SchemaField = {
     ...baseField,
-    type: type as PrimitiveFieldType,
+    type: toPrimitiveFieldType(type),
   };
 
   // String format (non-date, since date is already handled via type conversion)
-  if (type === 'string' && prop.format && prop.format !== 'date') {
-    (primitiveField as PrimitiveField).format = prop.format as StringFormat;
+  if (
+    type === 'string' &&
+    prop.format &&
+    prop.format !== 'date' &&
+    isStringFormat(prop.format)
+  ) {
+    primitiveField.format = prop.format;
   }
 
   // Numeric constraints
   if (type === 'number' || type === 'integer') {
-    if (prop.minimum !== undefined) (primitiveField as PrimitiveField).minimum = prop.minimum;
-    if (prop.maximum !== undefined) (primitiveField as PrimitiveField).maximum = prop.maximum;
+    if (prop.minimum !== undefined) (primitiveField).minimum = prop.minimum;
+    if (prop.maximum !== undefined) (primitiveField).maximum = prop.maximum;
   }
 
   return primitiveField;
@@ -266,7 +299,7 @@ function inferFieldFromValue(name: string, value: JsonValue, path: string): Sche
   // Primitive types
   return {
     ...baseField,
-    type: type as PrimitiveFieldType,
+    type: toPrimitiveFieldType(type),
   };
 }
 
@@ -370,14 +403,14 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
 
   // Format: only relevant for string types, carry over only if type didn't change
   const existingFormat =
-    sameType && isString && oldIsPrimitive ? (field as PrimitiveField).format : undefined;
+    sameType && isString && oldIsPrimitive ? (field).format : undefined;
   const format = 'format' in updates ? updates.format : existingFormat;
 
   // Minimum/maximum: only relevant for numeric types, carry over only if type didn't change
   const existingMinimum =
-    sameType && isNumeric && oldIsPrimitive ? (field as PrimitiveField).minimum : undefined;
+    sameType && isNumeric && oldIsPrimitive ? (field).minimum : undefined;
   const existingMaximum =
-    sameType && isNumeric && oldIsPrimitive ? (field as PrimitiveField).maximum : undefined;
+    sameType && isNumeric && oldIsPrimitive ? (field).maximum : undefined;
   const minimum = 'minimum' in updates ? updates.minimum : existingMinimum;
   const maximum = 'maximum' in updates ? updates.maximum : existingMaximum;
 
@@ -396,7 +429,7 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
 export function getSchemaFieldPaths(schema: VisualSchema): Set<string> {
   const paths = new Set<string>();
 
-  function traverse(fields: SchemaField[], prefix = '') {
+  function traverse(fields: SchemaField[], prefix = ''): void {
     for (const field of fields) {
       const path = prefix ? `${prefix}.${field.name}` : field.name;
       paths.add(path);

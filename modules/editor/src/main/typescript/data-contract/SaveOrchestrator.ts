@@ -10,6 +10,8 @@ import type { DataContractStore } from './DataContractStore.js';
 import type { SaveIntent, SaveOutcome } from './store-types.js';
 import { getActiveSchema } from './utils/activeSchema.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+
 /**
  * Pure save decision: read state, decide what to do.
  * This is called by the editor before executing the save.
@@ -87,6 +89,7 @@ export function orchestrateSave(
  * Execute the save outcome by calling the appropriate store/orchestrator methods.
  * This performs the actual async work (side effects).
  */
+// oxlint-disable-next-line oxc/no-async-await
 export async function executeSave(
   store: DataContractStore,
   outcome: SaveOutcome,
@@ -111,11 +114,7 @@ export async function executeSave(
 
       const schemaResult = await store.saveSchema(outcome.force, examplesToSave);
       if (!schemaResult.success) {
-        const canForceSave = deriveCanForceSaveOnSchemaError(
-          outcome.force,
-          outcome.examples,
-          schemaResult,
-        );
+        const canForceSave = deriveCanForceSaveOnSchemaError();
         store.dispatch({
           type: 'save-error',
           message: schemaResult.error ?? 'Failed to save schema',
@@ -188,10 +187,11 @@ export async function executeSave(
         canForceSave: true,
       });
       return { success: false, error: outcome.message };
+    default: {
+      const _exhaustive: never = outcome;
+      return _exhaustive;
+    }
   }
-
-  const _exhaustive: never = outcome;
-  return _exhaustive;
 }
 
 function mergeFixedExamples(
@@ -255,13 +255,6 @@ export function flattenCompatibilityWarnings(
   return warnings;
 }
 
-function deriveCanForceSaveOnSchemaError(
-  forceSave: boolean,
-  fixedExamples: DataExample[] | undefined,
-  schemaResult: { warnings?: Record<string, { path: string; message: string }[]>; error?: string },
-): boolean {
-  void forceSave;
-  void fixedExamples;
-  void schemaResult;
+function deriveCanForceSaveOnSchemaError(): boolean {
   return false;
 }

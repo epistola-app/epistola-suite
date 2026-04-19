@@ -1,6 +1,8 @@
 import { html, nothing } from 'lit';
 import type { RecentUsageCompatibilityIssue, RecentUsageCompatibilitySummary } from '../types.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+
 const LATEST_INCOMPATIBLE_WINDOW = 20;
 const PERIOD_OPTIONS = [
   { value: '24h', label: '24h', hours: 24 },
@@ -25,6 +27,17 @@ export interface PublishRiskDialogCallbacks {
   onPeriodChange: (period: PeriodOptionValue) => void;
 }
 
+interface FilteredRecentUsage {
+  checkedCount: number;
+  compatibleCount: number;
+  incompatibleCount: number;
+  issues: RecentUsageCompatibilityIssue[];
+}
+
+function isPeriodOptionValue(value: string): value is PeriodOptionValue {
+  return PERIOD_OPTIONS.some((option) => option.value === value);
+}
+
 export function buildPublishRiskDialogState(
   recentUsage: RecentUsageCompatibilitySummary,
 ): PublishRiskDialogState {
@@ -35,14 +48,16 @@ export function buildPublishRiskDialogState(
         recentUsage.unavailableReason ??
         'Recent usage compatibility could not be checked before publishing.',
       recentUsage,
-      selectedPeriod: defaultPeriod(recentUsage.window.maxDays),
+      selectedPeriod: defaultPeriod(),
     };
   }
 
-  const newestIncompatibleRank = recentUsage.issues.reduce(
-    (min, issue) => Math.min(min, issue.sampleRank),
-    Number.POSITIVE_INFINITY,
-  );
+  let newestIncompatibleRank = Number.POSITIVE_INFINITY;
+  for (const issue of recentUsage.issues) {
+    if (issue.sampleRank < newestIncompatibleRank) {
+      newestIncompatibleRank = issue.sampleRank;
+    }
+  }
 
   if (
     Number.isFinite(newestIncompatibleRank) &&
@@ -53,7 +68,7 @@ export function buildPublishRiskDialogState(
       message:
         'Newest generation requests are incompatible with this draft. Publishing may break future requests unless request payloads have already been updated.',
       recentUsage,
-      selectedPeriod: defaultPeriod(recentUsage.window.maxDays),
+      selectedPeriod: defaultPeriod(),
     };
   }
 
@@ -62,7 +77,7 @@ export function buildPublishRiskDialogState(
     message:
       'Newest generation requests look compatible. Some older recent generations are incompatible, so review the historical mismatch before publishing.',
     recentUsage,
-    selectedPeriod: defaultPeriod(recentUsage.window.maxDays),
+    selectedPeriod: defaultPeriod(),
   };
 }
 
@@ -88,10 +103,17 @@ export function renderPublishRiskDialog(
                     id="publish-risk-period"
                     class="ep-select dc-detail-select"
                     .value=${dialog.selectedPeriod}
-                    @change=${(event: Event) =>
-                      callbacks.onPeriodChange(
-                        (event.target as HTMLSelectElement).value as PeriodOptionValue,
-                      )}
+                    @change=${(event: Event) => {
+                      const target = event.currentTarget;
+                      if (!(target instanceof HTMLSelectElement)) {
+                        return;
+                      }
+                      const value = target.value;
+                      if (!isPeriodOptionValue(value)) {
+                        return;
+                      }
+                      callbacks.onPeriodChange(value);
+                    }}
                   >
                     ${availablePeriods(recentUsage.window.maxDays).map(
                       (option) => html`<option value=${option.value}>${option.label}</option>`,
@@ -124,21 +146,20 @@ export function renderPublishRiskDialog(
   `;
 }
 
-function defaultPeriod(maxDays: number): PeriodOptionValue {
-  void maxDays;
+function defaultPeriod(): PeriodOptionValue {
   return '24h';
 }
 
-function availablePeriods(maxDays: number) {
+function availablePeriods(maxDays: number): readonly (typeof PERIOD_OPTIONS)[number][] {
   return PERIOD_OPTIONS.filter((option) => option.hours <= maxDays * 24);
 }
 
 function filterRecentUsage(
   recentUsage: RecentUsageCompatibilitySummary | null,
   period: PeriodOptionValue,
-) {
-  const samples = recentUsage?.samples ?? [];
-  const issues = recentUsage?.issues ?? [];
+): FilteredRecentUsage {
+  const samples = recentUsage ? recentUsage.samples : [];
+  const issues = recentUsage ? recentUsage.issues : [];
   const cutoff = cutoffForPeriod(period);
   const filteredSamples = samples.filter(
     (sample) => new Date(sample.createdAt).getTime() >= cutoff,
@@ -167,6 +188,8 @@ function dialogTitle(mode: PublishRiskDialogMode): string {
       return 'Older Requests Are Incompatible';
     case 'unavailable':
       return 'Recent Usage Check Unavailable';
+    default:
+      return 'Recent Usage Check';
   }
 }
 

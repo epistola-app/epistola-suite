@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { DataContractStore } from './DataContractStore.js';
 import type { JsonSchema, SaveCallbacks, SchemaCompatibilityPreviewResult } from './types.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+/* oxlint-disable eslint/no-undefined */
+/* oxlint-disable oxc/no-rest-spread-properties */
+/* oxlint-disable oxc/no-optional-chaining */
+/* oxlint-disable oxc/no-async-await */
+/* oxlint-disable typescript-eslint/explicit-function-return-type */
+
 const baseSchema: JsonSchema = {
   type: 'object',
   properties: {

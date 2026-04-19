@@ -6,6 +6,8 @@
  * The store triggers host re-renders on state changes.
  */
 
+/* oxlint-disable eslint/no-use-before-define */
+
 import type {
   CompatibilityMigrationSuggestion,
   DataExample,
@@ -13,6 +15,7 @@ import type {
   JsonSchema,
   JsonSchemaProperty,
   JsonValue,
+  RecentUsageCompatibilitySummary,
   SaveCallbacks,
   SchemaField,
   SchemaCompatibilityPreviewResult,
@@ -45,25 +48,20 @@ export interface EditorHost {
 
 export class DataContractStore {
   private _host: EditorHost | null = null;
+  private static readonly _noop = (): void => {
+    return;
+  };
   private readonly _controller = {
-    hostConnected: () => this.hostConnected(),
-    hostDisconnected: () => this.hostDisconnected(),
+    hostConnected: DataContractStore._noop,
+    hostDisconnected: DataContractStore._noop,
   };
   private _state: EditorState;
   private _callbacks: SaveCallbacks = {};
   private _updateScheduled = false;
 
   constructor() {
-    this._state = this._createInitialState();
+    this._state = createInitialState();
   }
-
-  // ---------------------------------------------------------------------------
-  // ReactiveController lifecycle
-  // ---------------------------------------------------------------------------
-
-  hostConnected(): void {}
-
-  hostDisconnected(): void {}
 
   // ---------------------------------------------------------------------------
   // Host management
@@ -100,7 +98,7 @@ export class DataContractStore {
     callbacks: SaveCallbacks,
   ): void {
     this._callbacks = callbacks;
-    this._state = this._createInitialState();
+    this._state = createInitialState();
     const s = this._state;
 
     s.committedSchema = structuredClone(initialSchema);
@@ -242,7 +240,7 @@ export class DataContractStore {
         this._clearSaveStatus();
 
         if (command.command.type === 'addField') {
-          const newFieldId = this._findNewFieldId(prevFields, s.visualSchema.fields);
+          const newFieldId = findNewFieldId(prevFields, s.visualSchema.fields);
           if (newFieldId) s.selectedFieldId = newFieldId;
         }
 
@@ -311,9 +309,13 @@ export class DataContractStore {
         return true;
       }
       case 'update-example-name':
-        s.examples = s.examples.map((e) =>
-          e.id === command.exampleId ? { ...e, name: command.name } : e,
-        );
+        s.examples = s.examples.map((e) => {
+          if (e.id !== command.exampleId) {
+            return e;
+          }
+
+          return Object.assign({}, e, { name: command.name });
+        });
         this._clearSaveStatus();
         this._syncExamplesDirtyFlag();
         return true;
@@ -323,9 +325,13 @@ export class DataContractStore {
 
         this._getExampleHistory(command.exampleId).push(ex.data);
         const updatedData = setNestedValue(ex.data, command.path, command.value);
-        s.examples = s.examples.map((e) =>
-          e.id === command.exampleId ? { ...e, data: updatedData } : e,
-        );
+        s.examples = s.examples.map((e) => {
+          if (e.id !== command.exampleId) {
+            return e;
+          }
+
+          return Object.assign({}, e, { data: updatedData });
+        });
         this._clearSaveStatus();
         this._validateAllExamples();
         this._syncExamplesDirtyFlag();
@@ -337,9 +343,13 @@ export class DataContractStore {
 
         this._getExampleHistory(command.exampleId).push(ex.data);
         const updatedData = deleteNestedValue(ex.data, command.path);
-        s.examples = s.examples.map((e) =>
-          e.id === command.exampleId ? { ...e, data: updatedData } : e,
-        );
+        s.examples = s.examples.map((e) => {
+          if (e.id !== command.exampleId) {
+            return e;
+          }
+
+          return Object.assign({}, e, { data: updatedData });
+        });
         this._clearSaveStatus();
         this._validateAllExamples();
         this._syncExamplesDirtyFlag();
@@ -362,9 +372,13 @@ export class DataContractStore {
         const prevData = history.undo(ex.data);
         if (!prevData) return true;
 
-        s.examples = s.examples.map((e) =>
-          e.id === s.selectedExampleId ? { ...e, data: prevData } : e,
-        );
+        s.examples = s.examples.map((e) => {
+          if (e.id !== s.selectedExampleId) {
+            return e;
+          }
+
+          return Object.assign({}, e, { data: prevData });
+        });
         this._validateAllExamples();
         this._syncExamplesDirtyFlag();
         return true;
@@ -378,9 +392,13 @@ export class DataContractStore {
         const nextData = history.redo(ex.data);
         if (!nextData) return true;
 
-        s.examples = s.examples.map((e) =>
-          e.id === s.selectedExampleId ? { ...e, data: nextData } : e,
-        );
+        s.examples = s.examples.map((e) => {
+          if (e.id !== s.selectedExampleId) {
+            return e;
+          }
+
+          return Object.assign({}, e, { data: nextData });
+        });
         this._validateAllExamples();
         this._syncExamplesDirtyFlag();
         return true;
@@ -390,6 +408,7 @@ export class DataContractStore {
     }
   }
 
+  // oxlint-disable-next-line eslint/complexity
   private _reduceFixScreen(command: StoreCommand): boolean {
     const s = this._state;
 
@@ -433,9 +452,10 @@ export class DataContractStore {
         if (s.fixScreen) {
           const key = `${command.exampleId}:${command.path}`;
           const existing = s.fixScreen.fields.get(key);
+          const removed = existing ? existing.removed : false;
           s.fixScreen.fields.set(key, {
             value: command.value,
-            removed: existing?.removed ?? false,
+            removed,
           });
 
           const edited = s.fixScreen.editedData.get(command.exampleId);
@@ -455,8 +475,9 @@ export class DataContractStore {
         if (s.fixScreen) {
           const key = `${command.exampleId}:${command.path}`;
           const existing = s.fixScreen.fields.get(key);
+          const value = existing ? existing.value : null;
           s.fixScreen.fields.set(key, {
-            value: existing?.value ?? null,
+            value,
             removed: true,
           });
 
@@ -473,8 +494,9 @@ export class DataContractStore {
             if (m.issue === 'UNKNOWN_FIELD') {
               const key = `${m.exampleId}:${m.path}`;
               const existing = s.fixScreen.fields.get(key);
+              const value = existing ? existing.value : null;
               s.fixScreen.fields.set(key, {
-                value: existing?.value ?? null,
+                value,
                 removed: true,
               });
               const edited = s.fixScreen.editedData.get(m.exampleId);
@@ -614,49 +636,51 @@ export class DataContractStore {
   // Compatibility
   // ---------------------------------------------------------------------------
 
-  async validateSchemaCompatibility(
+  // oxlint-disable-next-line typescript-eslint/promise-function-async
+  validateSchemaCompatibility(
     schemaToValidate?: JsonSchema | null,
   ): Promise<SchemaCompatibilityPreviewResult> {
     const s = this._state;
     const schema = schemaToValidate ?? getActiveSchema(s);
 
     if (!schema) {
-      return {
+      return Promise.resolve({
         compatible: true,
         errors: [],
         migrations: [],
         recentUsage: defaultRecentUsageSummary(),
-      };
+      });
     }
 
-    if (!this._callbacks.onValidateSchemaCompatibility) {
-      return {
+    const onValidateSchemaCompatibility = this._callbacks.onValidateSchemaCompatibility;
+    if (!onValidateSchemaCompatibility) {
+      return Promise.resolve({
         compatible: true,
         errors: [],
         migrations: [],
         recentUsage: defaultRecentUsageSummary(),
-      };
+      });
     }
 
-    try {
-      return await this._callbacks.onValidateSchemaCompatibility(schema, s.examples);
-    } catch (error) {
+    return onValidateSchemaCompatibility(schema, s.examples).catch((error: unknown) => {
+      const fallbackRecentUsage = defaultRecentUsageSummary();
+      const message =
+        error instanceof Error ? error.message : 'Failed to validate schema compatibility';
       return {
         compatible: false,
         errors: [],
         migrations: [],
         recentUsage: {
           available: false,
-          window: defaultRecentUsageSummary().window,
-          summary: defaultRecentUsageSummary().summary,
+          window: fallbackRecentUsage.window,
+          summary: fallbackRecentUsage.summary,
           samples: [],
           issues: [],
-          unavailableReason:
-            error instanceof Error ? error.message : 'Failed to validate schema compatibility',
+          unavailableReason: message,
         },
-        error: error instanceof Error ? error.message : 'Failed to validate schema compatibility',
+        error: message,
       };
-    }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -674,10 +698,7 @@ export class DataContractStore {
       const existing = s.examples.find((e) => e.id === exampleId);
       if (!existing) continue;
 
-      updatedExamples.push({
-        ...existing,
-        data: structuredClone(editedData),
-      });
+      updatedExamples.push(Object.assign({}, existing, { data: structuredClone(editedData) }));
     }
 
     return updatedExamples;
@@ -714,9 +735,9 @@ export class DataContractStore {
     // Update errors in fix screen state
     if (hasErrors) {
       // We need to create a new fixScreen object to trigger re-render
-      s.fixScreen = { ...fixScreen, errors: newErrors };
+      s.fixScreen = Object.assign({}, fixScreen, { errors: newErrors });
     } else {
-      s.fixScreen = { ...fixScreen, errors: new Map() };
+      s.fixScreen = Object.assign({}, fixScreen, { errors: new Map<string, string>() });
     }
 
     return !hasErrors;
@@ -741,34 +762,6 @@ export class DataContractStore {
     }
   }
 
-  private _findNewFieldId(
-    oldFields: readonly SchemaField[],
-    newFields: readonly SchemaField[],
-  ): string | null {
-    const oldIds = new Set<string>();
-    const collectIds = (fields: readonly SchemaField[]) => {
-      for (const f of fields) {
-        oldIds.add(f.id);
-        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
-          collectIds(f.nestedFields);
-        }
-      }
-    };
-    collectIds(oldFields);
-
-    const findNew = (fields: readonly SchemaField[]): string | null => {
-      for (const f of fields) {
-        if (!oldIds.has(f.id)) return f.id;
-        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
-          const found = findNew(f.nestedFields);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    return findNew(newFields);
-  }
-
   // ---------------------------------------------------------------------------
   // Example undo/redo helpers
   // ---------------------------------------------------------------------------
@@ -791,20 +784,23 @@ export class DataContractStore {
   get exampleCanUndo(): boolean {
     const s = this._state;
     if (!s.selectedExampleId) return false;
-    return s.exampleHistories.get(s.selectedExampleId)?.canUndo ?? false;
+    const selectedHistory = s.exampleHistories.get(s.selectedExampleId);
+    return selectedHistory ? selectedHistory.canUndo : false;
   }
 
   get exampleCanRedo(): boolean {
     const s = this._state;
     if (!s.selectedExampleId) return false;
-    return s.exampleHistories.get(s.selectedExampleId)?.canRedo ?? false;
+    const selectedHistory = s.exampleHistories.get(s.selectedExampleId);
+    return selectedHistory ? selectedHistory.canRedo : false;
   }
 
   // ---------------------------------------------------------------------------
   // Save helpers (called by orchestrator)
   // ---------------------------------------------------------------------------
 
-  async saveSchema(
+  // oxlint-disable-next-line typescript-eslint/promise-function-async
+  saveSchema(
     forceUpdate = false,
     examples?: DataExample[],
   ): Promise<{
@@ -819,29 +815,32 @@ export class DataContractStore {
         s.committedRawJsonSchema = structuredClone(s.rawJsonSchema);
       }
       this._syncSchemaDirtyFlag();
-      return { success: true };
+      return Promise.resolve({ success: true });
     }
 
-    try {
-      const schemaToSave = getActiveSchema(s);
-      const result = await this._callbacks.onSaveSchema(schemaToSave, forceUpdate, examples);
-      if (result.success) {
-        s.committedSchema = structuredClone(s.schema);
-        if (s.schemaEditMode === 'json-only') {
-          s.committedRawJsonSchema = structuredClone(s.rawJsonSchema);
+    const schemaToSave = getActiveSchema(s);
+    return this._callbacks
+      .onSaveSchema(schemaToSave, forceUpdate, examples)
+      .then((result) => {
+        if (result.success) {
+          s.committedSchema = structuredClone(s.schema);
+          if (s.schemaEditMode === 'json-only') {
+            s.committedRawJsonSchema = structuredClone(s.rawJsonSchema);
+          }
+          this._syncSchemaDirtyFlag();
         }
-        this._syncSchemaDirtyFlag();
-      }
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save schema',
-      };
-    }
+        return result;
+      })
+      .catch((error: unknown) => {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save schema',
+        };
+      });
   }
 
-  async saveExamples(): Promise<{
+  // oxlint-disable-next-line typescript-eslint/promise-function-async
+  saveExamples(): Promise<{
     success: boolean;
     warnings?: Record<string, ValidationError[]>;
     error?: string;
@@ -850,30 +849,33 @@ export class DataContractStore {
     if (!this._callbacks.onSaveDataExamples) {
       s.committedExamples = structuredClone(s.examples);
       this._syncExamplesDirtyFlag();
-      return { success: true };
+      return Promise.resolve({ success: true });
     }
 
-    try {
-      const result = await this._callbacks.onSaveDataExamples(s.examples);
-      if (result.success) {
-        s.committedExamples = structuredClone(s.examples);
-        this._syncExamplesDirtyFlag();
-      }
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save examples',
-      };
-    }
+    return this._callbacks
+      .onSaveDataExamples(s.examples)
+      .then((result) => {
+        if (result.success) {
+          s.committedExamples = structuredClone(s.examples);
+          this._syncExamplesDirtyFlag();
+        }
+        return result;
+      })
+      .catch((error: unknown) => {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save examples',
+        };
+      });
   }
 
   pruneExamplesForSchema(schema: JsonSchema | null): DataExample[] {
     if (!schema) return structuredClone(this._state.examples);
-    return this._state.examples.map((example) => ({
-      ...example,
-      data: (pruneValueToSchema(example.data, schema) as JsonObject) ?? {},
-    }));
+    return this._state.examples.map((example) => {
+      const prunedData = pruneValueToSchema(example.data, schema);
+      const normalizedData: JsonObject = isJsonObject(prunedData) ? prunedData : {};
+      return Object.assign({}, example, { data: normalizedData });
+    });
   }
 
   markSchemaCommandHistoryClear(): void {
@@ -903,34 +905,63 @@ export class DataContractStore {
     }
   }
 
-  private _createInitialState(): EditorState {
-    return {
-      schema: null,
-      committedSchema: null,
-      examples: [],
-      committedExamples: [],
-      schemaDirty: false,
-      examplesDirty: false,
-      visualSchema: { fields: [] },
-      schemaEditMode: 'visual',
-      rawJsonSchema: null,
-      committedRawJsonSchema: null,
-      schemaCommandHistory: new SchemaCommandHistory(),
-      activeTab: 'schema',
-      selectedFieldId: null,
-      selectedExampleId: null,
-      expandedFields: new Set(),
-      schemaViewMode: 'visual',
-      fixScreen: null,
-      saveStatus: { type: 'idle' },
-      validationErrors: new Map(),
-      schemaWarnings: [],
-      exampleHistories: new Map(),
-    };
-  }
 }
 
-function defaultRecentUsageSummary() {
+function createInitialState(): EditorState {
+  return {
+    schema: null,
+    committedSchema: null,
+    examples: [],
+    committedExamples: [],
+    schemaDirty: false,
+    examplesDirty: false,
+    visualSchema: { fields: [] },
+    schemaEditMode: 'visual',
+    rawJsonSchema: null,
+    committedRawJsonSchema: null,
+    schemaCommandHistory: new SchemaCommandHistory(),
+    activeTab: 'schema',
+    selectedFieldId: null,
+    selectedExampleId: null,
+    expandedFields: new Set(),
+    schemaViewMode: 'visual',
+    fixScreen: null,
+    saveStatus: { type: 'idle' },
+    validationErrors: new Map(),
+    schemaWarnings: [],
+    exampleHistories: new Map(),
+  };
+}
+
+function findNewFieldId(
+  oldFields: readonly SchemaField[],
+  newFields: readonly SchemaField[],
+): string | null {
+  const oldIds = new Set<string>();
+  const collectIds = (fields: readonly SchemaField[]): void => {
+    for (const f of fields) {
+      oldIds.add(f.id);
+      if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
+        collectIds(f.nestedFields);
+      }
+    }
+  };
+  collectIds(oldFields);
+
+  const findNew = (fields: readonly SchemaField[]): string | null => {
+    for (const f of fields) {
+      if (!oldIds.has(f.id)) return f.id;
+      if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
+        const found = findNew(f.nestedFields);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  return findNew(newFields);
+}
+
+function defaultRecentUsageSummary(): RecentUsageCompatibilitySummary {
   const now = new Date().toISOString();
   return {
     available: true,
@@ -959,12 +990,16 @@ function getExpectedTypeForPath(
   exampleId: string,
   path: string,
 ): string | null {
-  const m = migrations.find((m) => m.exampleId === exampleId && m.path === path);
-  return m?.expectedType ?? null;
+  const migration = migrations.find((m) => m.exampleId === exampleId && m.path === path);
+  if (!migration) {
+    return null;
+  }
+
+  return migration.expectedType ?? null;
 }
 
 function coerceValue(value: JsonValue | null, expectedType: string | null): JsonValue | null {
-  if (value === null || value === undefined || !expectedType) return value;
+  if (value === null || typeof value === 'undefined' || !expectedType) return value;
 
   switch (expectedType) {
     case 'number':
@@ -984,12 +1019,12 @@ function coerceValue(value: JsonValue | null, expectedType: string | null): Json
 }
 
 function pruneValueToSchema(value: JsonValue, schema: JsonSchema | JsonSchemaProperty): JsonValue {
-  if (value === null || value === undefined) return value;
+  if (value === null || typeof value === 'undefined') return value;
 
   const schemaType = Array.isArray(schema.type) ? schema.type[0] : schema.type;
 
   if (schemaType === 'object' && typeof value === 'object' && !Array.isArray(value)) {
-    const obj = value as JsonObject;
+    const obj = value;
     const properties = schema.properties ?? {};
     const result: JsonObject = {};
 
@@ -1003,12 +1038,43 @@ function pruneValueToSchema(value: JsonValue, schema: JsonSchema | JsonSchemaPro
   }
 
   if (schemaType === 'array' && Array.isArray(value)) {
-    const itemSchema = 'items' in schema ? schema.items : undefined;
+    const itemSchema = 'items' in schema ? schema.items : null;
     if (!itemSchema) return value;
     return value.map((item) => pruneValueToSchema(item, itemSchema));
   }
 
   return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isJsonObject(value: JsonValue): value is JsonObject {
+  return isRecord(value) && !Array.isArray(value);
+}
+
+function getProperties(node: Record<string, unknown>): Record<string, unknown> | null {
+  const properties = node.properties;
+  return isRecord(properties) ? properties : null;
+}
+
+function getItems(node: Record<string, unknown>): Record<string, unknown> | null {
+  const items = node.items;
+  return isRecord(items) ? items : null;
+}
+
+function isJsonSchemaProperty(value: unknown): value is JsonSchemaProperty {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const typeValue = value.type;
+  if (typeof typeValue === 'string') {
+    return true;
+  }
+
+  return Array.isArray(typeValue) && typeValue.every((item) => typeof item === 'string');
 }
 
 /**
@@ -1018,7 +1084,7 @@ function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaPrope
   const segments = dotPath.split('.');
   let current: unknown = schema;
 
-  for (let i = 0; i < segments.length; i++) {
+  for (let i = 0; i < segments.length; i += 1) {
     if (!isRecord(current)) {
       return null;
     }
@@ -1027,7 +1093,10 @@ function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaPrope
     const props = getProperties(current);
 
     if (i === segments.length - 1) {
-      const candidate = props?.[segment];
+      let candidate: unknown = null;
+      if (props) {
+        candidate = props[segment];
+      }
       if (isJsonSchemaProperty(candidate)) {
         return candidate;
       }
@@ -1054,7 +1123,10 @@ function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaPrope
       continue;
     }
 
-    const childFromProperties = props?.[segment];
+    let childFromProperties: unknown = null;
+    if (props) {
+      childFromProperties = props[segment];
+    }
     if (isRecord(childFromProperties)) {
       current = childFromProperties;
       continue;
@@ -1066,7 +1138,10 @@ function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaPrope
     }
 
     const nestedProps = getProperties(items);
-    const childFromItems = nestedProps?.[segment];
+    let childFromItems: unknown = null;
+    if (nestedProps) {
+      childFromItems = nestedProps[segment];
+    }
     if (isRecord(childFromItems)) {
       current = childFromItems;
     } else {
@@ -1075,33 +1150,6 @@ function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaPrope
   }
 
   return isJsonSchemaProperty(current) ? current : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function getProperties(node: Record<string, unknown>): Record<string, unknown> | null {
-  const properties = node.properties;
-  return isRecord(properties) ? properties : null;
-}
-
-function getItems(node: Record<string, unknown>): Record<string, unknown> | null {
-  const items = node.items;
-  return isRecord(items) ? items : null;
-}
-
-function isJsonSchemaProperty(value: unknown): value is JsonSchemaProperty {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const typeValue = value.type;
-  if (typeof typeValue === 'string') {
-    return true;
-  }
-
-  return Array.isArray(typeValue) && typeValue.every((item) => typeof item === 'string');
 }
 
 /**
@@ -1142,7 +1190,12 @@ function buildDefaultValue(propSchema: JsonSchemaProperty): JsonValue {
 function isDeepEqual(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) return true;
 
-  if (left === null || right === null || left === undefined || right === undefined) {
+  if (
+    left === null ||
+    right === null ||
+    typeof left === 'undefined' ||
+    typeof right === 'undefined'
+  ) {
     return left === right;
   }
 
@@ -1151,16 +1204,37 @@ function isDeepEqual(left: unknown, right: unknown): boolean {
   }
 
   if (Array.isArray(left) || Array.isArray(right)) {
-    if (!Array.isArray(left) || !Array.isArray(right)) return false;
-    if (left.length !== right.length) return false;
-    for (let i = 0; i < left.length; i++) {
-      if (!isDeepEqual(left[i], right[i])) return false;
-    }
-    return true;
+    return isDeepEqualArray(left, right);
   }
 
-  const leftRecord = left as Record<string, unknown>;
-  const rightRecord = right as Record<string, unknown>;
+  if (!isRecord(left) || !isRecord(right)) {
+    return false;
+  }
+
+  return isDeepEqualRecord(left, right);
+}
+
+function isDeepEqualArray(left: unknown, right: unknown): boolean {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
+    return false;
+  }
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let i = 0; i < left.length; i += 1) {
+    if (!isDeepEqual(left[i], right[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isDeepEqualRecord(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
+  const leftRecord = left;
+  const rightRecord = right;
   const leftKeys = Object.keys(leftRecord);
   const rightKeys = Object.keys(rightRecord);
 

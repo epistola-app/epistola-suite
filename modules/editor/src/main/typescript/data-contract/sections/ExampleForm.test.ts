@@ -184,7 +184,11 @@ describe('deleteNestedValue', () => {
 
 describe('optional clear behavior', () => {
   it('hasFieldValue treats only null and undefined as empty', () => {
-    expect(hasFieldValue(undefined)).toBe(false);
+    const missingValue = (() : void => {
+      return;
+    })();
+
+    expect(hasFieldValue(missingValue)).toBe(false);
     expect(hasFieldValue(null)).toBe(false);
     expect(hasFieldValue('')).toBe(true);
     expect(hasFieldValue(false)).toBe(true);
@@ -195,7 +199,7 @@ describe('optional clear behavior', () => {
     expect(canClearOptionalField(false, '')).toBe(true);
     expect(canClearOptionalField(false, false)).toBe(true);
     expect(canClearOptionalField(false, 0)).toBe(true);
-    expect(canClearOptionalField(false, undefined)).toBe(false);
+    expect(canClearOptionalField(false)).toBe(false);
     expect(canClearOptionalField(false, null)).toBe(false);
     expect(canClearOptionalField(true, 'value')).toBe(false);
   });

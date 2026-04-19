@@ -108,7 +108,11 @@ export function renderExamplesSection(
                     .value=${selectedExample.name}
                     placeholder="Enter example name"
                     @change=${(e: Event) => {
-                      const name = (e.target as HTMLInputElement).value.trim();
+                      const target = e.currentTarget;
+                      if (!(target instanceof HTMLInputElement)) {
+                        return;
+                      }
+                      const name = target.value.trim();
                       if (name) {
                         callbacks.onUpdateExampleName(selectedExample.id, name);
                       }

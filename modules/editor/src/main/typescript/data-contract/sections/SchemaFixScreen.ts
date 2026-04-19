@@ -22,6 +22,8 @@ import type { FixFieldValue } from '../store-types.js';
 import { renderFormField, normalizePath } from './ExampleForm.js';
 import { renderValidationMessages, type ValidationWarning } from './ValidationMessages.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+
 export interface SchemaFixScreenCallbacks {
   onFieldChange: (exampleId: string, path: string, value: JsonValue) => void;
   onRemoveField: (exampleId: string, path: string) => void;
@@ -44,6 +46,10 @@ interface FixField {
   currentValue: JsonValue | null;
   expectedType: string;
 }
+
+const noopClear = (_path: string): void => {
+  return;
+};
 
 export function renderSchemaFixScreen(
   migrations: CompatibilityMigrationSuggestion[],
@@ -238,7 +244,7 @@ function renderFixField(
 ): unknown {
   const stateKey = `${exampleId}:${field.path}`;
   const state = fieldValues.get(stateKey);
-  const removed = state?.removed ?? false;
+  const removed = state ? state.removed : false;
 
   if (removed) {
     return html`
@@ -276,11 +282,9 @@ function renderFixField(
   const errorMap = error ? new Map([[dotPath, error]]) : new Map<string, string>();
 
   // Wrap onChange to dispatch fix-field-change with the actual sub-path
-  const onChange = (subPath: string, value: JsonValue) => {
+  const onChange = (subPath: string, value: JsonValue): void => {
     callbacks.onFieldChange(exampleId, subPath, value);
   };
-  // no-op: clear button is suppressed by isRequired=true
-  const onClear = (_path: string) => {};
 
   return html`
     <div class="dc-fix-field ${error ? 'dc-fix-field-error' : ''}">
@@ -303,14 +307,14 @@ function renderFixField(
             rootData,
             true,
             onChange,
-            onClear,
+            noopClear,
             0,
             errorMap,
           )
         : html`<input
             type="text"
             class="ep-input dc-fix-field-input"
-            .value=${String(field.currentValue ?? '')}
+            .value=${toInputString(field.currentValue)}
             placeholder="${fieldName}"
           />`}
       ${error ? html`<span class="dc-field-error">${error}</span>` : nothing}
@@ -359,54 +363,132 @@ function groupByExample(migrations: CompatibilityMigrationSuggestion[]): FixFiel
  */
 function getPropertySchema(schema: JsonSchema, dotPath: string): JsonSchemaProperty | null {
   const segments = dotPath.split('.');
-  let current: Record<string, unknown> = schema as unknown as Record<string, unknown>;
+  let current: unknown = schema;
 
-  for (let i = 0; i < segments.length; i++) {
+  for (let i = 0; i < segments.length; i += 1) {
+    if (!isRecord(current)) {
+      return null;
+    }
+
     const segment = segments[i];
+    const props = getProperties(current);
 
     // Last segment: return the property schema
     if (i === segments.length - 1) {
-      const props = current.properties as Record<string, unknown> | undefined;
-      if (props && props[segment]) {
-        return props[segment] as JsonSchemaProperty;
+      let candidate: unknown = null;
+      if (props) {
+        candidate = props[segment];
       }
+
+      if (isJsonSchemaProperty(candidate)) {
+        return candidate;
+      }
+
       // Numeric segment: return the array items schema
-      if (/^\d+$/.test(segment) && current.items) {
-        return current.items as JsonSchemaProperty;
+      if (/^\d+$/.test(segment)) {
+        const items = getItems(current);
+        if (isJsonSchemaProperty(items)) {
+          return items;
+        }
       }
+
       return null;
     }
 
     // Numeric segment: skip through array items schema
-    if (/^\d+$/.test(segment) && current.items) {
-      current = current.items as Record<string, unknown>;
+    if (/^\d+$/.test(segment)) {
+      const items = getItems(current);
+      if (!items) {
+        return null;
+      }
+
+      current = items;
       continue;
     }
 
     // Navigate through properties or items
-    const props = current.properties as Record<string, unknown> | undefined;
-    if (props && props[segment]) {
-      current = props[segment] as Record<string, unknown>;
-    } else if (current.items) {
-      current = current.items as Record<string, unknown>;
-      const nestedProps = current.properties as Record<string, unknown> | undefined;
-      if (nestedProps && nestedProps[segment]) {
-        current = nestedProps[segment] as Record<string, unknown>;
-      } else {
-        return null;
-      }
+    let childFromProperties: unknown = null;
+    if (props) {
+      childFromProperties = props[segment];
+    }
+
+    if (isRecord(childFromProperties)) {
+      current = childFromProperties;
+      continue;
+    }
+
+    const items = getItems(current);
+    if (!items) {
+      return null;
+    }
+
+    const nestedProps = getProperties(items);
+    let childFromItems: unknown = null;
+    if (nestedProps) {
+      childFromItems = nestedProps[segment];
+    }
+
+    if (isRecord(childFromItems)) {
+      current = childFromItems;
     } else {
       return null;
     }
   }
 
-  return current as unknown as JsonSchemaProperty;
+  return isJsonSchemaProperty(current) ? current : null;
 }
 
 function formatValue(value: unknown): string {
   if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
+  if (typeof value === 'undefined') return 'undefined';
   if (typeof value === 'string') return `"${value}"`;
+  if (typeof value === 'number') return `${value}`;
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'bigint') return `${value}`;
+  if (typeof value === 'symbol') return value.toString();
   if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+  return '';
+}
+
+function toInputString(value: JsonValue | null): string {
+  if (value === null) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return `${value}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getProperties(node: Record<string, unknown>): Record<string, unknown> | null {
+  const properties = node.properties;
+  return isRecord(properties) ? properties : null;
+}
+
+function getItems(node: Record<string, unknown>): Record<string, unknown> | null {
+  const items = node.items;
+  return isRecord(items) ? items : null;
+}
+
+function isJsonSchemaProperty(value: unknown): value is JsonSchemaProperty {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const typeValue = value.type;
+  if (typeof typeValue === 'string') {
+    return true;
+  }
+
+  return Array.isArray(typeValue) && typeValue.every((item) => typeof item === 'string');
 }

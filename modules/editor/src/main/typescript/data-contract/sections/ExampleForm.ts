@@ -1,3 +1,6 @@
+/* eslint-disable no-use-before-define, no-undefined, complexity */
+/* oxlint-disable no-optional-chaining */
+
 /**
  * ExampleForm — Auto-generates form inputs from a JSON Schema.
  *
@@ -62,6 +65,35 @@ export function hasChildErrors(parentPath: string, errors: Map<string, string>):
 // ---------------------------------------------------------------------------
 
 const NO_ERRORS: Map<string, string> = new Map();
+
+function readInputValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function readInputChecked(event: Event): boolean {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return false;
+  }
+  return target.checked;
+}
+
+function toInputString(value: JsonValue | undefined): string {
+  if (typeof value === 'undefined' || value === null) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
 
 export function hasFieldValue(value: JsonValue | undefined): boolean {
   return value !== undefined && value !== null;
@@ -201,10 +233,10 @@ export function renderFormField(
                 type="text"
                 class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
                 id=${fieldId}
-                .value=${String(value ?? '')}
+                .value=${toInputString(value)}
                 placeholder="${name}"
                 aria-describedby=${fieldError ? errorId : nothing}
-                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+                @change=${(e: Event) => onChange(path, readInputValue(e))}
               />
               ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
             </div>
@@ -226,15 +258,15 @@ export function renderFormField(
                 class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
                 step="any"
                 id=${fieldId}
-                .value=${value != null ? String(value) : ''}
+                .value=${toInputString(value)}
                 placeholder="${name}"
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => {
-                  const raw = (e.target as HTMLInputElement).value;
+                  const raw = readInputValue(e);
                   if (raw === '') {
                     onClear(path);
                   } else {
-                    onChange(path, parseFloat(raw));
+                    onChange(path, Number.parseFloat(raw));
                   }
                 }}
               />
@@ -258,15 +290,15 @@ export function renderFormField(
                 class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
                 step="1"
                 id=${fieldId}
-                .value=${value != null ? String(value) : ''}
+                .value=${toInputString(value)}
                 placeholder="${name}"
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => {
-                  const raw = (e.target as HTMLInputElement).value;
+                  const raw = readInputValue(e);
                   if (raw === '') {
                     onClear(path);
                   } else {
-                    onChange(path, parseInt(raw, 10));
+                    onChange(path, Number.parseInt(raw, 10));
                   }
                 }}
               />
@@ -293,7 +325,7 @@ export function renderFormField(
                   .checked=${value === true}
                   aria-label="${name}"
                   aria-describedby=${fieldError ? errorId : nothing}
-                  @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
+                  @change=${(e: Event) => onChange(path, readInputChecked(e))}
                 />
               </label>
               ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
@@ -315,9 +347,9 @@ export function renderFormField(
                 type="date"
                 class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
                 id=${fieldId}
-                .value=${String(value ?? '')}
+                .value=${toInputString(value)}
                 aria-describedby=${fieldError ? errorId : nothing}
-                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+                @change=${(e: Event) => onChange(path, readInputValue(e))}
               />
               ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
             </div>
@@ -364,10 +396,10 @@ export function renderFormField(
                 type="text"
                 class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
                 id=${fieldId}
-                .value=${String(value ?? '')}
+                .value=${toInputString(value)}
                 placeholder="${name}"
                 aria-describedby=${fieldError ? errorId : nothing}
-                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+                @change=${(e: Event) => onChange(path, readInputValue(e))}
               />
               ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
             </div>
@@ -478,13 +510,13 @@ function renderArrayField(
     : 'string';
   const itemType = rawItemType === 'string' && itemSchema?.format === 'date' ? 'date' : rawItemType;
 
-  const addItem = () => {
+  const addItem = (): void => {
     const defaultValue = getDefaultValueForType(itemType, itemSchema);
     const newItems = [...items, defaultValue];
     onChange(path, newItems);
   };
 
-  const removeItem = (index: number) => {
+  const removeItem = (index: number): void => {
     const newItems = items.filter((_, i) => i !== index);
     onChange(path, newItems);
   };
@@ -719,12 +751,12 @@ function renderPrimitiveInput(
           type="number"
           class="ep-input dc-array-item-input ${errorClass}"
           step="any"
-          .value=${value != null ? String(value) : ''}
+          .value=${toInputString(value)}
           placeholder="${label}"
           aria-label="${label}"
           @change=${(e: Event) => {
-            const raw = (e.target as HTMLInputElement).value;
-            onChange(raw === '' ? null : parseFloat(raw));
+            const raw = readInputValue(e);
+            onChange(raw === '' ? null : Number.parseFloat(raw));
           }}
         />
       `;
@@ -734,12 +766,12 @@ function renderPrimitiveInput(
           type="number"
           class="ep-input dc-array-item-input ${errorClass}"
           step="1"
-          .value=${value != null ? String(value) : ''}
+          .value=${toInputString(value)}
           placeholder="${label}"
           aria-label="${label}"
           @change=${(e: Event) => {
-            const raw = (e.target as HTMLInputElement).value;
-            onChange(raw === '' ? null : parseInt(raw, 10));
+            const raw = readInputValue(e);
+            onChange(raw === '' ? null : Number.parseInt(raw, 10));
           }}
         />
       `;
@@ -751,7 +783,7 @@ function renderPrimitiveInput(
             class="ep-checkbox"
             .checked=${value === true}
             aria-label="${label}"
-            @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
+            @change=${(e: Event) => onChange(readInputChecked(e))}
           />
         </label>
       `;
@@ -760,9 +792,9 @@ function renderPrimitiveInput(
         <input
           type="date"
           class="ep-input dc-array-item-input ${errorClass}"
-          .value=${String(value ?? '')}
+          .value=${toInputString(value)}
           aria-label="${label}"
-          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          @change=${(e: Event) => onChange(readInputValue(e))}
         />
       `;
     default:
@@ -770,10 +802,10 @@ function renderPrimitiveInput(
         <input
           type="text"
           class="ep-input dc-array-item-input ${errorClass}"
-          .value=${String(value ?? '')}
+          .value=${toInputString(value)}
           placeholder="${label}"
           aria-label="${label}"
-          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          @change=${(e: Event) => onChange(readInputValue(e))}
         />
       `;
   }

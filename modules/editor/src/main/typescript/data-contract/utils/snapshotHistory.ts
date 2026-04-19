@@ -36,7 +36,8 @@ export class SnapshotHistory<T> {
   undo(current: T): T | null {
     if (!this.canUndo) return null;
     this.redoStack.push(structuredClone(current));
-    return this.undoStack.pop()!;
+    const restored = this.undoStack.pop();
+    return typeof restored === 'undefined' ? null : restored;
   }
 
   /**
@@ -46,7 +47,8 @@ export class SnapshotHistory<T> {
   redo(current: T): T | null {
     if (!this.canRedo) return null;
     this.undoStack.push(structuredClone(current));
-    return this.redoStack.pop()!;
+    const restored = this.redoStack.pop();
+    return typeof restored === 'undefined' ? null : restored;
   }
 
   /**

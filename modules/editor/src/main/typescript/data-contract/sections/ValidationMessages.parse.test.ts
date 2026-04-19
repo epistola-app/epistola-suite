@@ -29,9 +29,9 @@ describe('parseValidationWarning', () => {
       requestId: 'req_1234567890abcdef',
       path: '',
       message: 'invalid payload',
-      status: undefined,
-      correlation: undefined,
     });
+    expect(typeof parsed.status).toBe('undefined');
+    expect(typeof parsed.correlation).toBe('undefined');
   });
 
   it('parses schema warning and strips status metadata suffix', () => {
@@ -45,8 +45,8 @@ describe('parseValidationWarning', () => {
       path: '$.items[0].name',
       message: 'is required',
       status: 'IN_PROGRESS',
-      correlation: undefined,
     });
+    expect(typeof parsed.correlation).toBe('undefined');
   });
 
   it('keeps message unchanged when there is no metadata suffix', () => {
@@ -59,9 +59,9 @@ describe('parseValidationWarning', () => {
       sourceLabel: 'Schema',
       path: '$.count',
       message: 'must be integer',
-      status: undefined,
-      correlation: undefined,
     });
+    expect(typeof parsed.status).toBe('undefined');
+    expect(typeof parsed.correlation).toBe('undefined');
   });
 });
 

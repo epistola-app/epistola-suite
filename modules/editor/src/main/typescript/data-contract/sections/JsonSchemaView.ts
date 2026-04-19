@@ -10,6 +10,8 @@ import { html, nothing } from 'lit';
 import { icon } from '../../ui/icons.js';
 import type { CompatibilityIssue } from '../utils/schemaCompatibility.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+
 export interface JsonSchemaViewCallbacks {
   onCopyToClipboard: () => void;
   onImportSchema: () => void;
@@ -100,8 +102,8 @@ function renderJsonNode(value: unknown, depth: number, open: boolean): unknown {
     return renderJsonArray(value, depth, open);
   }
 
-  if (typeof value === 'object') {
-    return renderJsonObject(value as Record<string, unknown>, depth, open);
+  if (isRecord(value)) {
+    return renderJsonObject(value, depth, open);
   }
 
   if (typeof value === 'string') {
@@ -112,8 +114,15 @@ function renderJsonNode(value: unknown, depth: number, open: boolean): unknown {
     return html`<span class="dc-json-boolean">${String(value)}</span>`;
   }
 
-  // number
-  return html`<span class="dc-json-number">${String(value)}</span>`;
+  if (typeof value === 'number') {
+    return html`<span class="dc-json-number">${value}</span>`;
+  }
+
+  return html`<span class="dc-json-string">${JSON.stringify(value)}</span>`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function renderJsonObject(obj: Record<string, unknown>, depth: number, open: boolean): unknown {

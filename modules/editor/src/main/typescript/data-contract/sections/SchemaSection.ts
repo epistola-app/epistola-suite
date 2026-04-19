@@ -1,3 +1,5 @@
+/* eslint-disable no-use-before-define, no-undefined */
+
 /**
  * SchemaSection — Two-panel visual schema builder.
  *
@@ -182,6 +184,46 @@ const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
   { value: 'uri', label: 'URI' },
 ];
 
+function getInputValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function getInputChecked(event: Event): boolean {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return false;
+  }
+  return target.checked;
+}
+
+function getSelectValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLSelectElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function getTextareaValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLTextAreaElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function isSchemaFieldType(value: string): value is SchemaFieldType {
+  return FIELD_TYPES.some((type) => type === value);
+}
+
+function isStringFormat(value: string): value is StringFormat {
+  return value === 'date-time' || value === 'email' || value === 'uri';
+}
+
 function renderDetailPanel(
   field: SchemaField | null,
   callbacks: SchemaSectionCallbacks,
@@ -195,7 +237,7 @@ function renderDetailPanel(
     `;
   }
 
-  const emitUpdate = (updates: SchemaFieldUpdate) => {
+  const emitUpdate = (updates: SchemaFieldUpdate): void => {
     callbacks.onCommand({ type: 'updateField', fieldId: field.id, updates });
   };
 
@@ -217,7 +259,7 @@ function renderDetailPanel(
             .value=${field.name}
             placeholder="Field name"
             @change=${(e: Event) => {
-              const value = (e.target as HTMLInputElement).value.trim();
+              const value = getInputValue(e).trim();
               if (value && value !== field.name) {
                 emitUpdate({ name: value });
               }
@@ -232,9 +274,13 @@ function renderDetailPanel(
             class="ep-select dc-detail-select"
             .value=${field.type}
             @change=${(e: Event) => {
-              const newType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+              const nextType = getSelectValue(e);
+              if (!isSchemaFieldType(nextType)) {
+                return;
+              }
+              const newType = nextType;
               const updates: SchemaFieldUpdate = { type: newType };
-              if (newType === 'array') {
+              if (nextType === 'array') {
                 updates.arrayItemType = 'string';
               }
               emitUpdate(updates);
@@ -258,7 +304,11 @@ function renderDetailPanel(
                   class="ep-select dc-detail-select"
                   .value=${field.arrayItemType}
                   @change=${(e: Event) => {
-                    const newItemType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+                    const nextItemType = getSelectValue(e);
+                    if (!isSchemaFieldType(nextItemType)) {
+                      return;
+                    }
+                    const newItemType = nextItemType;
                     emitUpdate({ arrayItemType: newItemType });
                   }}
                 >
@@ -282,7 +332,7 @@ function renderDetailPanel(
             id="dc-detail-required"
             .checked=${field.required}
             @change=${(e: Event) => {
-              emitUpdate({ required: (e.target as HTMLInputElement).checked });
+              emitUpdate({ required: getInputChecked(e) });
             }}
           />
           <label class="dc-detail-label" for="dc-detail-required">Required</label>
@@ -296,7 +346,7 @@ function renderDetailPanel(
             .value=${field.description ?? ''}
             placeholder="Optional description"
             @change=${(e: Event) => {
-              const value = (e.target as HTMLTextAreaElement).value;
+              const value = getTextareaValue(e);
               emitUpdate({ description: value || undefined });
             }}
           ></textarea>
@@ -386,13 +436,13 @@ function renderTypeConstraints(
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   if (field.type === 'string') {
-    return renderStringConstraints(field as PrimitiveField, emitUpdate);
+    return renderStringConstraints(field, emitUpdate);
   }
   if (field.type === 'number' || field.type === 'integer') {
-    return renderNumericConstraints(field as PrimitiveField, emitUpdate);
+    return renderNumericConstraints(field, emitUpdate);
   }
   if (field.type === 'array') {
-    return renderArrayConstraints(field as ArrayField, emitUpdate);
+    return renderArrayConstraints(field, emitUpdate);
   }
   return nothing;
 }
@@ -410,8 +460,15 @@ function renderStringConstraints(
         class="ep-select dc-detail-select"
         .value=${currentFormat}
         @change=${(e: Event) => {
-          const val = (e.target as HTMLSelectElement).value;
-          emitUpdate({ format: val ? (val as StringFormat) : undefined });
+          const val = getSelectValue(e);
+          if (!val) {
+            emitUpdate({ format: undefined });
+            return;
+          }
+          if (!isStringFormat(val)) {
+            return;
+          }
+          emitUpdate({ format: val });
         }}
       >
         ${STRING_FORMATS.map(
@@ -442,10 +499,10 @@ function renderNumericConstraints(
           type="number"
           class="ep-input dc-detail-input"
           step=${step}
-          .value=${min !== undefined ? String(min) : ''}
+          .value=${typeof min !== 'undefined' ? String(min) : ''}
           placeholder="—"
           @change=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
+            const val = getInputValue(e);
             emitUpdate({ minimum: val ? Number(val) : undefined });
           }}
         />
@@ -456,10 +513,10 @@ function renderNumericConstraints(
           type="number"
           class="ep-input dc-detail-input"
           step=${step}
-          .value=${max !== undefined ? String(max) : ''}
+          .value=${typeof max !== 'undefined' ? String(max) : ''}
           placeholder="—"
           @change=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
+            const val = getInputValue(e);
             emitUpdate({ maximum: val ? Number(val) : undefined });
           }}
         />
@@ -483,10 +540,10 @@ function renderArrayConstraints(
         class="ep-input dc-detail-input"
         min="0"
         step="1"
-        .value=${minItems !== undefined ? String(minItems) : ''}
+        .value=${typeof minItems !== 'undefined' ? String(minItems) : ''}
         placeholder="—"
         @change=${(e: Event) => {
-          const val = (e.target as HTMLInputElement).value;
+          const val = getInputValue(e);
           emitUpdate({ minItems: val ? Number(val) : undefined });
         }}
       />

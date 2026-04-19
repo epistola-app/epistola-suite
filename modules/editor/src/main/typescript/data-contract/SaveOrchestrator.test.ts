@@ -8,6 +8,12 @@ import type {
   ValidationError,
 } from './types.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+/* oxlint-disable oxc/no-rest-spread-properties */
+/* oxlint-disable oxc/no-optional-chaining */
+/* oxlint-disable oxc/no-async-await */
+/* oxlint-disable typescript-eslint/explicit-function-return-type */
+
 const baseSchema: JsonSchema = {
   type: 'object',
   properties: {

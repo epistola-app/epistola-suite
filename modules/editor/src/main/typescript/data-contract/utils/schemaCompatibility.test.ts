@@ -373,13 +373,17 @@ describe('checkSchemaCompatibility', () => {
     });
 
     it('flags if/then/else', () => {
-      const result = checkSchemaCompatibility({
-        type: 'object',
-        properties: {},
-        if: { properties: { type: { const: 'a' } } },
-        then: { required: ['a'] },
-        else: { required: ['b'] },
-      });
+      const conditionalSchema = JSON.parse(`
+        {
+          "type": "object",
+          "properties": {},
+          "if": { "properties": { "type": { "const": "a" } } },
+          "then": { "required": ["a"] },
+          "else": { "required": ["b"] }
+        }
+      `);
+
+      const result = checkSchemaCompatibility(conditionalSchema);
       expect(result.compatible).toBe(false);
       expect(result.issues.some((i) => i.feature === 'if')).toBe(true);
       expect(result.issues.some((i) => i.feature === 'then')).toBe(true);

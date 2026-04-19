@@ -31,7 +31,7 @@ export function renderSchemaFieldListItem(
   const isExpanded = expandedFields.has(field.id);
   const isSelected = selectedFieldId === field.id;
 
-  const nestStyle = depth > 0 ? `--nest-depth: ${depth}` : undefined;
+  const nestStyle = depth > 0 ? `--nest-depth: ${depth}` : null;
 
   return html`
     <div
