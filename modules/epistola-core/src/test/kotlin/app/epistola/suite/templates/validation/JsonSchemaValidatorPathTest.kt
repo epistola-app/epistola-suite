@@ -85,5 +85,47 @@ class JsonSchemaValidatorPathTest {
         assertThat(migration.autoMigratable).isTrue()
     }
 
+    @Test
+    fun `validate rewrites scalar type mismatch with expected and actual types`() {
+        val schema = parseSchema(
+            """
+            {
+              "type": "object",
+              "properties": { "count": { "type": "integer" } }
+            }
+            """.trimIndent(),
+        )
+
+        val errors = validator.validate(schema, objectMapper.createObjectNode().put("count", "42"))
+
+        assertThat(errors).hasSize(1)
+        assertThat(errors.first().path).isEqualTo("/count")
+        assertThat(errors.first().message).isEqualTo("expected integer but found string")
+    }
+
+    @Test
+    fun `validate reclassifies nested required error when parent value has wrong type`() {
+        val schema = parseSchema(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "customer": {
+                  "type": "object",
+                  "properties": { "name": { "type": "string" } },
+                  "required": ["name"]
+                }
+              }
+            }
+            """.trimIndent(),
+        )
+
+        val errors = validator.validate(schema, objectMapper.createObjectNode().put("customer", "legacy-value"))
+
+        assertThat(errors).hasSize(1)
+        assertThat(errors.first().path).isEqualTo("/customer")
+        assertThat(errors.first().message).isEqualTo("expected object but found string")
+    }
+
     private fun parseSchema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
 }

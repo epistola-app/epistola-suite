@@ -58,13 +58,23 @@ class JsonSchemaValidator(
         val jsonSchema = schemaRegistry.getSchema(schemaJson)
         val errors = jsonSchema.validate(dataJson, InputFormat.JSON)
 
-        return errors.map { error ->
-            val basePath = error.instanceLocation.toString()
-            ValidationError(
-                message = error.message,
-                path = normalizeRequiredPropertyPath(error.message, basePath),
-            )
-        }
+        return errors.map { error -> normalizeValidationError(schema, data, error.message, error.instanceLocation.toString()) }
+    }
+
+    private fun normalizeValidationError(
+        schema: ObjectNode,
+        data: ObjectNode,
+        message: String,
+        basePath: String,
+    ): ValidationError {
+        val normalizedPath = normalizeRequiredPropertyPath(message, basePath)
+
+        reclassifyRequiredPropertyTypeMismatch(schema, data, message, normalizedPath)?.let { return it }
+
+        return ValidationError(
+            message = normalizeTypeMismatchMessage(schema, data, normalizedPath, message),
+            path = normalizedPath,
+        )
     }
 
     private fun normalizeRequiredPropertyPath(message: String, basePath: String): String {
@@ -87,6 +97,82 @@ class JsonSchemaValidator(
             "/$escapedProperty"
         } else {
             "$sanitizedBase/$escapedProperty"
+        }
+    }
+
+    private fun reclassifyRequiredPropertyTypeMismatch(
+        schema: ObjectNode,
+        data: ObjectNode,
+        message: String,
+        normalizedPath: String,
+    ): ValidationError? {
+        val requiredProperty = requiredPropertyRegex.find(message)?.groupValues?.getOrNull(1)
+            ?: return null
+        if (requiredProperty.isBlank()) {
+            return null
+        }
+
+        val parentPath = parentPath(normalizedPath) ?: return null
+        val parentValue = getValueAtPath(data, parentPath) ?: return null
+        val expectedParentType = getExpectedType(schema, parentPath)
+        if (expectedParentType == ExpectedType.UNKNOWN || matchesExpectedType(parentValue, expectedParentType)) {
+            return null
+        }
+
+        return ValidationError(
+            message = typeMismatchMessage(expectedParentType, parentValue),
+            path = if (parentPath.isBlank()) normalizedPath else parentPath,
+        )
+    }
+
+    private fun normalizeTypeMismatchMessage(
+        schema: ObjectNode,
+        data: ObjectNode,
+        path: String,
+        originalMessage: String,
+    ): String {
+        val actualValue = getValueAtPath(data, path) ?: return originalMessage
+        val expectedType = getExpectedType(schema, path)
+        if (expectedType == ExpectedType.UNKNOWN || matchesExpectedType(actualValue, expectedType)) {
+            return originalMessage
+        }
+
+        return typeMismatchMessage(expectedType, actualValue)
+    }
+
+    private fun typeMismatchMessage(expectedType: ExpectedType, actualValue: JsonNode): String = "expected ${expectedType.value} but found ${describeActualType(actualValue)}"
+
+    private fun matchesExpectedType(value: JsonNode, expectedType: ExpectedType): Boolean = when (expectedType) {
+        ExpectedType.STRING, ExpectedType.DATE -> value.isTextual
+        ExpectedType.NUMBER -> value.isNumber
+        ExpectedType.INTEGER -> value.isIntegralNumber
+        ExpectedType.BOOLEAN -> value.isBoolean
+        ExpectedType.ARRAY -> value.isArray
+        ExpectedType.OBJECT -> value.isObject
+        ExpectedType.UNKNOWN -> true
+    }
+
+    private fun describeActualType(value: JsonNode): String = when {
+        value.isTextual -> ExpectedType.STRING.value
+        value.isIntegralNumber -> ExpectedType.INTEGER.value
+        value.isNumber -> ExpectedType.NUMBER.value
+        value.isBoolean -> ExpectedType.BOOLEAN.value
+        value.isArray -> ExpectedType.ARRAY.value
+        value.isObject -> ExpectedType.OBJECT.value
+        value.isNull -> "null"
+        else -> ExpectedType.UNKNOWN.value
+    }
+
+    private fun parentPath(path: String): String? {
+        if (path.isBlank() || path == "$") {
+            return null
+        }
+
+        val lastSlash = path.lastIndexOf('/')
+        return when {
+            lastSlash < 0 -> ""
+            lastSlash == 0 -> ""
+            else -> path.substring(0, lastSlash)
         }
     }
 

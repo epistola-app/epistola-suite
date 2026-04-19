@@ -45,8 +45,9 @@ class TemplateRecentUsageCompatibilityServiceTest : IntegrationTestBase() {
 
             assertThat(result.compatible).isTrue()
             assertThat(result.available).isTrue()
-            assertThat(result.checkedCount).isEqualTo(0)
-            assertThat(result.incompatibleCount).isEqualTo(0)
+            assertThat(result.summary.checkedCount).isEqualTo(0)
+            assertThat(result.summary.incompatibleCount).isEqualTo(0)
+            assertThat(result.samples).isEmpty()
             assertThat(result.issues).isEmpty()
         }
     }
@@ -90,11 +91,80 @@ class TemplateRecentUsageCompatibilityServiceTest : IntegrationTestBase() {
 
             assertThat(result.available).isTrue()
             assertThat(result.compatible).isFalse()
-            assertThat(result.checkedCount).isEqualTo(1)
-            assertThat(result.incompatibleCount).isEqualTo(1)
+            assertThat(result.summary.checkedCount).isEqualTo(1)
+            assertThat(result.summary.compatibleCount).isEqualTo(0)
+            assertThat(result.summary.incompatibleCount).isEqualTo(1)
+            val sample = result.samples.single()
+            assertThat(sample.compatible).isFalse()
+            assertThat(sample.errorCount).isEqualTo(1)
             assertThat(result.issues).hasSize(1)
             assertThat(result.issues.first().status).isEqualTo(RequestStatus.FAILED)
             assertThat(result.issues.first().errors).isNotEmpty()
+        }
+    }
+
+    @Test
+    @DisplayName("analyze reports type mismatch instead of missing field when parent value changed type")
+    fun analyzeReportsTypeMismatchWhenParentValueChangedType() {
+        withMediator {
+            val tenant = createTenant("Type Changed Samples")
+            val prepared = prepareTemplateForGeneration(tenant.id)
+
+            GenerateDocument(
+                tenantId = tenant.id,
+                templateId = prepared.templateId.key,
+                variantId = prepared.variantId.key,
+                versionId = prepared.versionId,
+                environmentId = null,
+                data = objectMapper.createObjectNode().put("customer", "legacy-value"),
+                filename = "sample.pdf",
+            ).execute().also { request ->
+                jdbi.withHandle<Any, Exception> { handle ->
+                    handle.createUpdate(
+                        """
+                        UPDATE document_generation_requests
+                        SET status = :status
+                        WHERE id = :id
+                        """.trimIndent(),
+                    )
+                        .bind("status", RequestStatus.FAILED.name)
+                        .bind("id", request.id)
+                        .execute()
+                    Unit
+                }
+            }
+
+            val schema = objectMapper.createObjectNode()
+                .put("type", "object")
+                .set(
+                    "properties",
+                    objectMapper.createObjectNode().set(
+                        "customer",
+                        objectMapper.createObjectNode()
+                            .put("type", "object")
+                            .set(
+                                "properties",
+                                objectMapper.createObjectNode().set(
+                                    "name",
+                                    objectMapper.createObjectNode().put("type", "string"),
+                                ),
+                            )
+                            .set("required", objectMapper.createArrayNode().add("name")),
+                    ),
+                )
+
+            val result = service.analyze(
+                tenantKey = tenant.id,
+                templateKey = prepared.templateId.key,
+                schema = schema,
+            )
+
+            assertThat(result.compatible).isFalse()
+            assertThat(result.issues).hasSize(1)
+            val error = result.issues.first().errors.single()
+            assertThat(error.path).isEqualTo("/customer")
+            assertThat(error.message).isEqualTo("expected object but found string")
+            Unit
         }
     }
 
@@ -137,7 +207,7 @@ class TemplateRecentUsageCompatibilityServiceTest : IntegrationTestBase() {
 
             assertThat(result.available).isTrue()
             assertThat(result.compatible).isTrue()
-            assertThat(result.checkedCount).isEqualTo(0)
+            assertThat(result.summary.checkedCount).isEqualTo(0)
             assertThat(result.issues).isEmpty()
         }
     }
@@ -182,8 +252,8 @@ class TemplateRecentUsageCompatibilityServiceTest : IntegrationTestBase() {
 
             assertThat(result.available).isFalse()
             assertThat(result.compatible).isFalse()
-            assertThat(result.checkedCount).isEqualTo(0)
-            assertThat(result.incompatibleCount).isEqualTo(0)
+            assertThat(result.summary.checkedCount).isEqualTo(0)
+            assertThat(result.summary.incompatibleCount).isEqualTo(0)
             assertThat(result.unavailableReason).isEqualTo(
                 "Recent usage compatibility check is temporarily unavailable.",
             )
@@ -230,7 +300,7 @@ class TemplateRecentUsageCompatibilityServiceTest : IntegrationTestBase() {
 
             assertThat(result.available).isTrue()
             assertThat(result.compatible).isTrue()
-            assertThat(result.checkedCount).isEqualTo(0)
+            assertThat(result.summary.checkedCount).isEqualTo(0)
             assertThat(result.issues).isEmpty()
         }
     }
