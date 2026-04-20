@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -115,10 +116,10 @@ class UpdateDocumentTemplateHandlerTest : IntegrationTestBase() {
     fun `clearThemeId takes precedence over themeId`() = withMediator {
         val tenant = createTenant("Theme Tenant")
         val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Template").execute()
 
-        val themeId = ThemeId(ThemeKey.of("theme-a"), tenantId)
+        val themeId = ThemeId(ThemeKey.of("theme-a"), CatalogId.default(tenantId))
         CreateTheme(id = themeId, name = "Theme A").execute()
 
         UpdateDocumentTemplate(id = templateId, themeId = themeId.key).execute()
@@ -188,7 +189,8 @@ class UpdateDocumentTemplateHandlerTest : IntegrationTestBase() {
     @Test
     fun `returns null when template does not exist`() = withMediator {
         val tenant = createTenant("Missing Template")
-        val missingId = TemplateId(TestIdHelpers.nextTemplateId(), TenantId(tenant.id))
+        val tenantId = TenantId(tenant.id)
+        val missingId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
 
         val result = UpdateDocumentTemplate(
             id = missingId,
@@ -201,7 +203,8 @@ class UpdateDocumentTemplateHandlerTest : IntegrationTestBase() {
 
     private fun createTemplateId(): TemplateId {
         val tenant = createTenant("Update Template")
-        return TemplateId(TestIdHelpers.nextTemplateId(), TenantId(tenant.id))
+        val tenantId = TenantId(tenant.id)
+        return TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
     }
 
     private fun schemaWithInteger(field: String): ObjectNode = objectMapper.createObjectNode()

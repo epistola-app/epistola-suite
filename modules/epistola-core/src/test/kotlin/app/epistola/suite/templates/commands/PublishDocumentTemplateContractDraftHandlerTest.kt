@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -136,7 +137,8 @@ class PublishDocumentTemplateContractDraftHandlerTest : IntegrationTestBase() {
 
     private fun createTemplateId(): TemplateId {
         val tenant = createTenant("Publish Contract")
-        return TemplateId(TestIdHelpers.nextTemplateId(), TenantId(tenant.id))
+        val tenantId = TenantId(tenant.id)
+        return TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
     }
 
     private fun defaultVariantId(templateId: TemplateId): VariantId = VariantId(

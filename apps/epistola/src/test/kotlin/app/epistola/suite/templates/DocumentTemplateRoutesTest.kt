@@ -583,7 +583,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -626,7 +626,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 """.trimIndent()
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -666,7 +666,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 """.trimIndent()
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/${template.id}",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
