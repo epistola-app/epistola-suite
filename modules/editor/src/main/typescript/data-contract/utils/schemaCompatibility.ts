@@ -205,7 +205,11 @@ function checkUnsupportedPropertyKeys(
   }
 }
 
-function checkPropertyType(prop: Record<string, unknown>, path: string, issues: CompatibilityIssue[]): void {
+function checkPropertyType(
+  prop: Record<string, unknown>,
+  path: string,
+  issues: CompatibilityIssue[],
+): void {
   const rawType = prop.type;
   if (Array.isArray(rawType)) {
     issues.push({

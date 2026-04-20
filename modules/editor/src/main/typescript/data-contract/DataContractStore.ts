@@ -904,7 +904,6 @@ export class DataContractStore {
       });
     }
   }
-
 }
 
 function createInitialState(): EditorState {

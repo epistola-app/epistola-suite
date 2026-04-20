@@ -270,7 +270,7 @@ describe('generateSchemaFromData', () => {
     expect(result.fields.find((f) => f.name === 'age')?.type).toBe('integer');
     expect(result.fields.find((f) => f.name === 'active')?.type).toBe('boolean');
     // All fields should default to optional
-    expect(result.fields.every((f) => ! f.required)).toBe(true);
+    expect(result.fields.every((f) => !f.required)).toBe(true);
   });
 
   it('infers number vs integer correctly', () => {

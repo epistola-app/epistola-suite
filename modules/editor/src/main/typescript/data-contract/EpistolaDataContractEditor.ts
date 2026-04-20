@@ -125,7 +125,10 @@ export class EpistolaDataContractEditor extends LitElement {
             : nothing}
           <button
             class="ep-btn-outline btn-sm dc-publish-draft-btn"
-            ?disabled=${this._readOnly || this._publishing || this.store.isDirty || !this._hasDraftContract}
+            ?disabled=${this._readOnly ||
+            this._publishing ||
+            this.store.isDirty ||
+            !this._hasDraftContract}
             @click=${(): Promise<void> => this._publishDraft()}
             title=${this.store.isDirty
               ? 'Save the draft before publishing'
@@ -167,8 +170,8 @@ export class EpistolaDataContractEditor extends LitElement {
                 this.store.dispatch({ type: 'fix-remove-field', exampleId, path }),
               onRemoveAllUnknown: () => this.store.dispatch({ type: 'fix-remove-all-unknown' }),
               onRevert: () => this._handleFixRevert(),
-               onContinue: (): Promise<void> => this._handleFixContinue(),
-               onForceSave: (): Promise<void> => this._handleFixForceSave(),
+              onContinue: (): Promise<void> => this._handleFixContinue(),
+              onForceSave: (): Promise<void> => this._handleFixForceSave(),
               onCancel: () => this.store.dispatch({ type: 'close-fix-screen' }),
             },
           )

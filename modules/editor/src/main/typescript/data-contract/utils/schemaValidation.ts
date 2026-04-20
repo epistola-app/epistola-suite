@@ -27,10 +27,7 @@ export interface SchemaValidationResult {
 
 function isJsonSchemaObject(schema: JsonSchema | JsonObject): schema is JsonSchema {
   return (
-    typeof schema === 'object' &&
-    schema !== null &&
-    'type' in schema &&
-    schema.type === 'object'
+    typeof schema === 'object' && schema !== null && 'type' in schema && schema.type === 'object'
   );
 }
 
@@ -91,7 +88,11 @@ function validateArrayItems(
   schema: JsonSchemaProperty,
   path: string,
   errors: SchemaValidationError[],
-  validateNested: (value: JsonValue, schema: JsonSchemaProperty, path: string) => SchemaValidationError[],
+  validateNested: (
+    value: JsonValue,
+    schema: JsonSchemaProperty,
+    path: string,
+  ) => SchemaValidationError[],
 ): void {
   if (!Array.isArray(value) || !schema.items) {
     return;
@@ -108,7 +109,11 @@ function validateObjectValue(
   schema: JsonSchemaProperty,
   path: string,
   errors: SchemaValidationError[],
-  validateNested: (value: JsonValue, schema: JsonSchemaProperty, path: string) => SchemaValidationError[],
+  validateNested: (
+    value: JsonValue,
+    schema: JsonSchemaProperty,
+    path: string,
+  ) => SchemaValidationError[],
 ): void {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return;

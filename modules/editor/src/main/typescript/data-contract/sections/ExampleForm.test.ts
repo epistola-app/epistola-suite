@@ -184,7 +184,7 @@ describe('deleteNestedValue', () => {
 
 describe('optional clear behavior', () => {
   it('hasFieldValue treats only null and undefined as empty', () => {
-    const missingValue = (() : void => {
+    const missingValue = ((): void => {
       return;
     })();
 
