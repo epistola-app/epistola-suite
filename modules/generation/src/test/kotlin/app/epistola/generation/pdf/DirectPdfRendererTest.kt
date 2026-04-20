@@ -1090,4 +1090,133 @@ class DirectPdfRendererTest {
         assertTrue(extracted.contains("2/3"), "Page 2 should show '2/3' but got:\n$extracted")
         assertTrue(extracted.contains("3/3"), "Page 3 should show '3/3' but got:\n$extracted")
     }
+
+    // -----------------------------------------------------------------------
+    // Address block hoisting
+    // -----------------------------------------------------------------------
+
+    private fun textNode(id: String, text: String) = Node(
+        id = id,
+        type = "text",
+        props = mapOf(
+            "content" to mapOf(
+                "type" to "doc",
+                "content" to listOf(
+                    mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to text))),
+                ),
+            ),
+        ),
+    )
+
+    @Test
+    fun `address block nested in container is hoisted to root and renders`() {
+        val rootSlotId = "slot-root"
+        val containerSlotId = "slot-container"
+        val addressSlotId = "slot-address"
+        val asideSlotId = "slot-aside"
+
+        val document = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "body" to textNode("body", "Body after address"),
+                "container" to Node(id = "container", type = "container", slots = listOf(containerSlotId)),
+                "addressblock" to Node(
+                    id = "addressblock",
+                    type = "addressblock",
+                    slots = listOf(addressSlotId, asideSlotId),
+                    props = mapOf("top" to 45, "left" to 20, "addressWidth" to 85, "height" to 45),
+                ),
+                "address-text" to textNode("address-text", "HOISTED ADDRESS"),
+                "aside-text" to textNode("aside-text", "HOISTED ASIDE"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(id = rootSlotId, nodeId = "root", name = "children", children = listOf("container", "body")),
+                containerSlotId to Slot(id = containerSlotId, nodeId = "container", name = "children", children = listOf("addressblock")),
+                addressSlotId to Slot(id = addressSlotId, nodeId = "addressblock", name = "address", children = listOf("address-text")),
+                asideSlotId to Slot(id = asideSlotId, nodeId = "addressblock", name = "aside", children = listOf("aside-text")),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val text = PdfContentExtractor.extract(output.toByteArray())
+        assertTrue(text.contains("HOISTED ADDRESS"), "Address content should render")
+        assertTrue(text.contains("HOISTED ASIDE"), "Aside content should render")
+        assertTrue(text.contains("Body after address"), "Body content should render")
+    }
+
+    @Test
+    fun `address block already at root is not duplicated`() {
+        val rootSlotId = "slot-root"
+        val addressSlotId = "slot-address"
+        val asideSlotId = "slot-aside"
+
+        val document = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "addressblock" to Node(
+                    id = "addressblock",
+                    type = "addressblock",
+                    slots = listOf(addressSlotId, asideSlotId),
+                    props = mapOf("top" to 45, "left" to 20, "addressWidth" to 85, "height" to 45),
+                ),
+                "address-text" to textNode("address-text", "Address"),
+                "aside-text" to textNode("aside-text", "Aside"),
+                "body" to textNode("body", "Body"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(id = rootSlotId, nodeId = "root", name = "children", children = listOf("addressblock", "body")),
+                addressSlotId to Slot(id = addressSlotId, nodeId = "addressblock", name = "address", children = listOf("address-text")),
+                asideSlotId to Slot(id = asideSlotId, nodeId = "addressblock", name = "aside", children = listOf("aside-text")),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `renders with custom page margins in mm`() {
+        val document = documentWithChildren(
+            childNodes = mapOf("text1" to textNode("text1", "Content with large margins")),
+            childNodeIds = listOf("text1"),
+            pageSettingsOverride = PageSettings(
+                format = PageFormat.A4,
+                orientation = Orientation.portrait,
+                margins = Margins(top = 50, right = 40, bottom = 50, left = 40),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+
+        // Verify content renders (margins don't push content off page)
+        val text = PdfContentExtractor.extract(pdfBytes)
+        assertTrue(text.contains("Content with large margins"))
+    }
+
+    @Test
+    fun `document without address block renders normally`() {
+        val document = documentWithChildren(
+            childNodes = mapOf("text1" to textNode("text1", "No address block")),
+            childNodeIds = listOf("text1"),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val text = PdfContentExtractor.extract(output.toByteArray())
+        assertTrue(text.contains("No address block"))
+    }
 }
