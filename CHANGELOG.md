@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-04-20
+
 ### Added
 
 - **Custom error pages**: Added styled error pages for 404, 500, and a generic fallback, replacing the Spring Boot whitelabel error page. Stacktraces are no longer exposed.
