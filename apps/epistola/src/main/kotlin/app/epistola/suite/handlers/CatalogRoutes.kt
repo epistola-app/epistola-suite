@@ -12,9 +12,13 @@ class CatalogRoutes(private val handler: CatalogHandler) {
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
             GET("", handler::list)
-            POST("", handler::register)
+            POST("/register", handler::register)
+            POST("/create", handler::createCatalog)
+            POST("/import", handler::importZip)
             POST("/{catalogId}/delete", handler::unregister)
             GET("/{catalogId}/browse", handler::browse)
+            GET("/{catalogId}/export", handler::export)
+            GET("/{catalogId}/install-preview", handler::installPreview)
             POST("/{catalogId}/install", handler::install)
         }
     }

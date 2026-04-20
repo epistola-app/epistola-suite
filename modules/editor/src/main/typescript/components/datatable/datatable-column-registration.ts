@@ -18,7 +18,7 @@ export function createDatatableColumnDefinition(): ComponentDefinition {
     hidden: true,
     slots: [{ name: 'body' }],
     allowedChildren: { mode: 'all' },
-    applicableStyles: ['padding', 'backgroundColor', 'borderWidth', 'borderStyle', 'borderColor'],
+    applicableStyles: ['padding', 'backgroundColor', 'border'],
     inspector: [
       { key: 'header', label: 'Header', type: 'text' },
       { key: 'width', label: 'Width', type: 'number', defaultValue: 33 },

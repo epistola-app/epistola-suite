@@ -352,10 +352,10 @@ const LAYOUT_STYLES = [
   'padding',
   'margin',
   'backgroundColor',
-  'borderWidth',
-  'borderStyle',
-  'borderColor',
+  'border',
   'borderRadius',
+  'keepTogether',
+  'keepWithNext',
 ];
 
 export function createDefaultRegistry(): ComponentRegistry {
@@ -443,9 +443,86 @@ export function createDefaultRegistry(): ComponentRegistry {
   });
 
   registry.register({
+    type: 'datalist',
+    label: 'Data List',
+    icon: 'list',
+    category: 'logic',
+    slots: [{ name: 'item-template' }],
+    allowedChildren: { mode: 'all' },
+    applicableStyles: LAYOUT_STYLES,
+    inspector: [
+      { key: 'expression.raw', label: 'Data Source', type: 'expression' },
+      { key: 'itemAlias', label: 'Item Variable', type: 'text', defaultValue: 'item' },
+      { key: 'indexAlias', label: 'Index Variable', type: 'text' },
+      {
+        key: 'listType',
+        label: 'List Type',
+        type: 'select',
+        options: [
+          { label: 'Bullet', value: 'bullet' },
+          { label: 'Numbered', value: 'decimal' },
+          { label: 'Letters (a, b, c)', value: 'lower-alpha' },
+          { label: 'Letters (A, B, C)', value: 'upper-alpha' },
+          { label: 'Roman (i, ii, iii)', value: 'lower-roman' },
+          { label: 'Roman (I, II, III)', value: 'upper-roman' },
+          { label: 'No marker', value: 'none' },
+        ],
+      },
+    ],
+    defaultProps: {
+      expression: { raw: '', language: 'jsonata' },
+      itemAlias: 'item',
+      indexAlias: undefined,
+      listType: 'bullet',
+    },
+    scopeProvider: buildIterationScope,
+  });
+
+  registry.register({
+    type: 'separator',
+    label: 'Separator',
+    icon: 'minus',
+    category: 'content',
+    slots: [],
+    allowedChildren: { mode: 'none' },
+    applicableStyles: ['margin'],
+    inspector: [
+      { key: 'thickness', label: 'Thickness', type: 'unit', units: ['pt'], defaultValue: '1pt' },
+      {
+        key: 'width',
+        label: 'Width',
+        type: 'unit',
+        units: ['%'],
+        defaultValue: '100%',
+      },
+      { key: 'color', label: 'Color', type: 'color' },
+      {
+        key: 'style',
+        label: 'Style',
+        type: 'select',
+        options: [
+          { label: 'Solid', value: 'solid' },
+          { label: 'Dashed', value: 'dashed' },
+          { label: 'Dotted', value: 'dotted' },
+        ],
+      },
+    ],
+    defaultStyles: {
+      marginTop: '1.5sp',
+      marginBottom: '1.5sp',
+    },
+    defaultProps: {
+      thickness: '1pt',
+      width: '100%',
+      color: '#d1d5db',
+      style: 'solid',
+    },
+  });
+
+  registry.register({
     type: 'pagebreak',
     label: 'Page Break',
-    icon: 'minus',
+    icon: 'file-break',
     category: 'page',
     slots: [],
     allowedChildren: { mode: 'none' },
@@ -463,6 +540,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     applicableStyles: 'all',
     inspector: [
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+      { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
     maxInstancesPerDocument: 1,
   });
@@ -477,6 +555,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     applicableStyles: 'all',
     inspector: [
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+      { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
     maxInstancesPerDocument: 1,
   });

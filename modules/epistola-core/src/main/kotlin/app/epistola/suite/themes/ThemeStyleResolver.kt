@@ -1,6 +1,7 @@
 package app.epistola.suite.themes
 
 import app.epistola.generation.pdf.SpacingScale
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.template.model.DocumentStyles
@@ -83,6 +84,7 @@ class ThemeStyleResolver(
         templateDefaultThemeId: ThemeKey?,
         tenantDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
+        templateCatalogKey: CatalogKey? = null,
     ): ResolvedStyles {
         // Theme cascade: variant-level > template-level > tenant-level
         val effectiveThemeId = when (val ref = templateModel.themeRef) {
@@ -90,7 +92,13 @@ class ThemeStyleResolver(
             else -> null
         } ?: templateDefaultThemeId ?: tenantDefaultThemeId
 
-        val theme = effectiveThemeId?.let { getTheme(tenantId, it) }
+        // Resolve catalog for theme lookup: explicit from override > template's catalog > null (tenant-wide)
+        val effectiveCatalogKey = when (val ref = templateModel.themeRef) {
+            is ThemeRefOverride -> ref.catalogKey?.let { CatalogKey.of(it) } ?: templateCatalogKey
+            else -> templateCatalogKey
+        }
+
+        val theme = effectiveThemeId?.let { getTheme(tenantId, effectiveCatalogKey, it) }
         val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
 
         return if (theme != null) {
@@ -110,17 +118,22 @@ class ThemeStyleResolver(
     }
 
     /**
-     * Gets a theme by ID for a tenant.
+     * Gets a theme by ID for a tenant, optionally scoped to a catalog.
      */
-    private fun getTheme(tenantId: TenantKey, themeId: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
-            """,
-        )
+    private fun getTheme(tenantId: TenantKey, catalogKey: CatalogKey?, themeId: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
+        val sql = buildString {
+            append("SELECT t.*, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.id = :id AND t.tenant_key = :tenantId")
+            if (catalogKey != null) {
+                append(" AND t.catalog_key = :catalogKey")
+            }
+        }
+        val query = handle.createQuery(sql)
             .bind("id", themeId)
             .bind("tenantId", tenantId)
-            .mapTo<Theme>()
+        if (catalogKey != null) {
+            query.bind("catalogKey", catalogKey)
+        }
+        query.mapTo<Theme>()
             .findOne()
             .orElse(null)
     }

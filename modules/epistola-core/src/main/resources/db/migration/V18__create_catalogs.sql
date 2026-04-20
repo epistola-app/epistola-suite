@@ -1,0 +1,5 @@
+-- V18: Catalogs table moved to V4 (core module) since catalogs are a core concept.
+-- This migration is now empty but kept for Flyway history compatibility.
+--
+-- The catalogs table is created in V4__create_tenants.sql alongside the CATALOG_KEY domain.
+-- All resource tables (V5-V19) reference catalogs(tenant_key, id) via FK with ON DELETE CASCADE.

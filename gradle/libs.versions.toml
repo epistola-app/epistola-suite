@@ -12,8 +12,8 @@ json-schema-validator = "3.0.1"
 uuid-creator = "6.1.1"
 spring-web = "7.0.6"
 playwright = "1.58.0"
-epistola-contract = "0.1.21"
-epistola-editor-model = "0.1.21"
+epistola-contract = "0.2.1"
+epistola-model = "0.2.1"
 aws-sdk = "2.42.23"
 
 [libraries]
@@ -29,7 +29,7 @@ uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
-epistola-editor-model = { module = "app.epistola.contract:editor-model", version.ref = "epistola-editor-model" }
+epistola-model = { module = "app.epistola.contract:epistola-model", version.ref = "epistola-model" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 

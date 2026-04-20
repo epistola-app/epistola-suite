@@ -2,6 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -47,7 +48,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 variantKey = "${template.id}-default"
                 CreateVersion(
@@ -60,7 +61,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.set("HX-Request", "true")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/$templateId/variants/$variantKey/compare",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/compare",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -96,7 +97,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.set("HX-Request", "true")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/$templateId/variants/$variantKey/compare",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/compare",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -127,7 +128,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/$templateId/variants/$variantKey/compare",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/compare",
                     String::class.java,
                 )
             }
@@ -154,7 +155,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 variantKey = "${template.id}-default"
                 val varId = VariantId(VariantKey.of(variantKey), tplId)
@@ -175,9 +176,9 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
             whenever {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
-                val request = HttpEntity("{}", headers)
+                val request = HttpEntity("""{"versionId": $versionNumber}""", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/$templateId/variants/$variantKey/versions/$versionNumber/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -202,7 +203,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 val tenantId = TenantId(testTenant.id)
-                val tplId = TemplateId(template.id, tenantId)
+                val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = template.id.value
                 variantKey = "${template.id}-default"
                 val varId = VariantId(VariantKey.of(variantKey), tplId)
@@ -216,7 +217,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 headers.contentType = MediaType.APPLICATION_JSON
                 val request = HttpEntity("{}", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/$templateId/variants/$variantKey/versions/$versionNumber/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -247,9 +248,9 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
             whenever {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
-                val request = HttpEntity("{}", headers)
+                val request = HttpEntity("""{"versionId": 999}""", headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/$templateId/variants/$variantKey/versions/999/preview",
+                    "/tenants/${testTenant.id}/templates/default/$templateId/variants/$variantKey/preview",
                     request,
                     String::class.java,
                 )

@@ -15,12 +15,13 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 
 dependencies {
     // Existing modules
-    api(libs.epistola.editor.model)
+    api(libs.epistola.model)
     api(project(":modules:generation"))
 
     // Spring Boot - core dependencies for business logic
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     // Jackson for JSON handling (required by JDBI Jackson3 plugin)
@@ -55,6 +56,7 @@ dependencies {
     // Testing
     testImplementation(project(":modules:testing"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")

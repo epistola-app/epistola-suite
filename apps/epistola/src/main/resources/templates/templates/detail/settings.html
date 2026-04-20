@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="tab-content">
+        <!-- Details -->
+        <div class="detail-section">
+            <div class="detail-section-header"><h3>Details</h3></div>
+            <div class="detail-section-body">
+                <dl class="description-list">
+                    <dt>ID</dt>
+                    <dd><code th:text="${template.id}"></code></dd>
+                    <dt>Created</dt>
+                    <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                    <dt>Modified</dt>
+                    <dd th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Default Theme -->
+        <div class="detail-section" id="theme-section" th:fragment="theme-section">
+            <div class="detail-section-header"><h3>Default Theme</h3></div>
+            <div class="detail-section-body">
+                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                    Set the default theme for all variants. Individual variants can override this in the editor.
+                </p>
+                <div class="form-row">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <select id="theme-select" name="themeId" class="ep-select"
+                                th:disabled="${!editable}" onchange="updateTheme(this)">
+                            <option value="">No theme (use variant defaults)</option>
+                            <th:block th:each="catalog : ${themeCatalogs}">
+                                <optgroup th:label="${catalog.key}">
+                                    <option th:each="theme : ${catalog.value}"
+                                            th:value="${theme.catalogKey + '/' + theme.id}"
+                                            th:text="${theme.name}"
+                                            th:selected="${template.themeKey != null and template.themeKey.equals(theme.id) and (template.themeCatalogKey == null or template.themeCatalogKey.equals(theme.catalogKey))}"></option>
+                                </optgroup>
+                            </th:block>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Settings -->
+        <div class="detail-section" id="output-settings-section">
+            <div class="detail-section-header"><h3>Output Settings</h3></div>
+            <div class="detail-section-body">
+                <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
+                    <input type="checkbox" class="ep-checkbox" id="pdfa-toggle"
+                           style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
+                           th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
+                           onchange="updatePdfaSetting(this.checked)">
+                    <span>
+                        <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
+                        <span class="text-muted" style="display: block; font-size: var(--ep-text-sm); margin-top: 2px;">
+                            Enable for long-term archival. Embeds fonts and ICC color profile, resulting in larger files.
+                        </span>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="detail-section danger-zone">
+            <div class="detail-section-header"><h3>Danger Zone</h3></div>
+            <div class="detail-section-body">
+                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                    Permanently delete this template and all its variants, versions, and data.
+                </p>
+                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                      method="post" hx-boost="false"
+                      onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.')">
+                    <button type="submit" class="btn btn-sm btn-destructive">Delete Template</button>
+                </form>
+            </div>
+        </div>
+
+        <script th:inline="javascript">
+            const TENANT_ID = [[${tenantId}]];
+            const CATALOG_ID = [[${catalogId}]];
+            const TEMPLATE_ID = [[${template.id}]];
+
+            function updatePdfaSetting(enabled) {
+                const url = `/tenants/${TENANT_ID}/templates/${CATALOG_ID}/${TEMPLATE_ID}`;
+                const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
+                    body: JSON.stringify({ pdfaEnabled: enabled })
+                }).then(r => { if (!r.ok) document.getElementById('pdfa-toggle').checked = !enabled; });
+            }
+
+            function updateTheme(select) {
+                const raw = select.value;
+                const clearThemeId = !raw;
+                let themeId = null;
+                let themeCatalogKey = null;
+                if (raw) {
+                    const slash = raw.indexOf('/');
+                    themeCatalogKey = raw.substring(0, slash);
+                    themeId = raw.substring(slash + 1);
+                }
+                const url = [[${'/tenants/' + tenantId + '/templates/' + catalogId + '/' + template.id + '/theme'}]];
+                const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken, 'HX-Request': 'true' },
+                    body: JSON.stringify({ themeId: themeId, themeCatalogKey: themeCatalogKey, clearThemeId: clearThemeId })
+                }).then(r => r.text()).then(html => {
+                    document.getElementById('theme-section').outerHTML = html;
+                });
+            }
+        </script>
+    </th:block>
+</body>
+</html>

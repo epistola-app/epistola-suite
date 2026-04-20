@@ -1,6 +1,7 @@
 package app.epistola.suite.documents.model
 
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
@@ -47,6 +48,7 @@ data class DocumentGenerationRequest(
     val id: GenerationRequestKey,
     val batchId: BatchKey?,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val versionKey: VersionKey?,

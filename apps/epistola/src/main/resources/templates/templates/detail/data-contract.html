@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="tab-content">
+        <div id="data-contract-container"
+             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
+        <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
+        <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
+
+        <script>
+            (function() {
+                function parseJsonScript(id, fallback) {
+                    const el = document.getElementById(id);
+                    if (!el) return fallback;
+                    try {
+                        return JSON.parse(el.textContent);
+                    } catch {
+                        return fallback;
+                    }
+                }
+
+                function createEmptyRecentUsage(available = true, unavailableReason = null) {
+                    const now = new Date().toISOString();
+                    return {
+                        available,
+                        window: {
+                            maxDays: 0,
+                            sampleLimit: 0,
+                            checkedFrom: now,
+                            checkedTo: now
+                        },
+                        summary: {
+                            checkedCount: 0,
+                            compatibleCount: 0,
+                            incompatibleCount: 0
+                        },
+                        samples: [],
+                        issues: [],
+                        unavailableReason
+                    };
+                }
+
+                function formatValidationError(payload, fallbackMessage) {
+                    if (!payload || typeof payload !== 'object') {
+                        return fallbackMessage;
+                    }
+
+                    const errors = payload.errors;
+                    if (errors && typeof errors === 'object') {
+                        const entries = Object.entries(errors).filter(([, value]) => Array.isArray(value) && value.length > 0);
+                        if (entries.length > 0) {
+                            const total = entries.reduce((sum, [, value]) => sum + value.length, 0);
+                            const [exampleName, firstErrors] = entries[0];
+                            const first = firstErrors[0] ?? {};
+                            const path = typeof first.path === 'string' && first.path.length > 0 ? ` ${first.path}` : '';
+                            const message = typeof first.message === 'string' && first.message.length > 0 ? first.message : 'Validation failed';
+                            const issueWord = total === 1 ? 'issue' : 'issues';
+                            const exampleWord = entries.length === 1 ? 'example' : 'examples';
+                            return `Validation failed (${total} ${issueWord} in ${entries.length} ${exampleWord}): ${exampleName}${path} ${message}`.trim();
+                        }
+                    }
+
+                    if (typeof payload.error === 'string' && payload.error.length > 0) {
+                        return payload.error;
+                    }
+
+                    if (typeof payload.message === 'string' && payload.message.length > 0) {
+                        return payload.message;
+                    }
+
+                    return fallbackMessage;
+                }
+
+                function canForcePublishDraft(payload) {
+                    if (!payload || typeof payload !== 'object') {
+                        return false;
+                    }
+
+                    const errors = payload.errors;
+                    if (!errors || typeof errors !== 'object') {
+                        return false;
+                    }
+
+                    const keys = Object.keys(errors);
+                    if (keys.length === 0) {
+                        return false;
+                    }
+
+                    return keys.every((key) => key === 'recent-usage-check' || key.startsWith('recent-request:'));
+                }
+
+                async function mount() {
+                    const container = document.getElementById('data-contract-container');
+                    if (!container || container.dataset.editorMounted === 'true') return;
+                    const tenantId = container.dataset.tenantId;
+                    const catalogId = container.dataset.catalogId;
+                    const templateId = container.dataset.templateId;
+                    const readonly = container.dataset.readonly === 'true';
+                    if (!tenantId || !catalogId || !templateId) return;
+
+                    const initialSchema = parseJsonScript('data-contract-schema', null);
+                    const initialExamples = parseJsonScript('data-contract-examples', []);
+                    const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
+
+                    mountDataContractEditor({
+                        container: container,
+                        templateId: templateId,
+                        initialSchema: initialSchema,
+                        initialExamples: initialExamples,
+                        hasDraftContract: [[${template.hasDraftContract}]],
+                        recentUsageRenderLimit: [[${recentUsageSampleLimit}]],
+                        readonly: readonly,
+                        callbacks: readonly ? {} : {
+                            onValidateSchemaCompatibility: async (schema, examples) => {
+                                if (!schema) {
+                                    return {
+                                        compatible: true,
+                                        errors: [],
+                                        migrations: [],
+                                        recentUsage: createEmptyRecentUsage(true)
+                                    };
+                                }
+
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/validate-schema`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ schema, examples })
+                                    });
+
+                                    if (!response.ok) {
+                                        return {
+                                            compatible: false,
+                                            errors: [],
+                                            migrations: [],
+                                            recentUsage: createEmptyRecentUsage(false, `Failed to validate schema compatibility (${response.status})`),
+                                            error: `Failed to validate schema compatibility (${response.status})`
+                                        };
+                                    }
+
+                                    const result = await response.json();
+                                    return {
+                                        compatible: result.compatible ?? true,
+                                        errors: result.errors ?? [],
+                                        migrations: result.migrations ?? [],
+                                        recentUsage: result.recentUsage ?? createEmptyRecentUsage(true)
+                                    };
+                                } catch (error) {
+                                    return {
+                                        compatible: false,
+                                        errors: [],
+                                        migrations: [],
+                                        recentUsage: createEmptyRecentUsage(false, error instanceof Error ? error.message : 'Failed to validate schema compatibility'),
+                                        error: error instanceof Error ? error.message : 'Failed to validate schema compatibility'
+                                    };
+                                }
+                            },
+                            onSaveSchema: async (schema, forceUpdate, examples) => {
+                                try {
+                                    const body = { dataModel: schema, forceUpdate };
+                                    if (examples) {
+                                        body.dataExamples = examples;
+                                    }
+
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify(body)
+                                    });
+
+                                    if (!response.ok) {
+                                        let errorBody = {};
+                                        try {
+                                            errorBody = await response.json();
+                                        } catch {
+                                            // Ignore non-JSON error payloads.
+                                        }
+                                        return {
+                                            success: false,
+                                            error: formatValidationError(errorBody, `Failed to save schema (${response.status})`),
+                                            warnings: errorBody.warnings
+                                        };
+                                    }
+
+                                    const result = await response.json();
+                                    return { success: true, warnings: result.warnings };
+                                } catch (error) {
+                                    return {
+                                        success: false,
+                                        error: error instanceof Error ? error.message : 'Failed to save schema'
+                                    };
+                                }
+                            },
+                            onSaveDataExamples: async (examples) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ dataExamples: examples })
+                                    });
+
+                                    if (!response.ok) {
+                                        let errorBody = {};
+                                        try {
+                                            errorBody = await response.json();
+                                        } catch {
+                                            // Ignore non-JSON error payloads.
+                                        }
+                                        return {
+                                            success: false,
+                                            error: formatValidationError(errorBody, `Failed to save examples (${response.status})`),
+                                            warnings: errorBody.warnings
+                                        };
+                                    }
+
+                                    const result = await response.json();
+                                    return { success: true, warnings: result.warnings };
+                                } catch (error) {
+                                    return {
+                                        success: false,
+                                        error: error instanceof Error ? error.message : 'Failed to save examples'
+                                    };
+                                }
+                            },
+                            onPublishDraft: async (forceUpdate) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/publish-contract`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ forceUpdate: !!forceUpdate })
+                                    });
+
+                                    if (!response.ok) {
+                                        let errorBody = {};
+                                        try {
+                                            errorBody = await response.json();
+                                        } catch {
+                                            // Ignore non-JSON error payloads.
+                                        }
+                                        return {
+                                            success: false,
+                                            error: formatValidationError(errorBody, `Failed to publish draft contract (${response.status})`),
+                                            canForceSave: canForcePublishDraft(errorBody),
+                                            recentUsage: errorBody.recentUsage
+                                        };
+                                    }
+
+                                    return { success: true };
+                                } catch (error) {
+                                    return {
+                                        success: false,
+                                        error: error instanceof Error ? error.message : 'Failed to publish draft contract'
+                                    };
+                                }
+                            },
+                            onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        body: JSON.stringify({ ...updates, forceUpdate })
+                                    });
+                                    if (!response.ok) {
+                                        const err = await response.json();
+                                        return { success: false, errors: err.errors, warnings: err.warnings };
+                                    }
+                                    const result = await response.json();
+                                    return { success: true, example: result, warnings: result.warnings };
+                                } catch {
+                                    return { success: false };
+                                }
+                            },
+                            onDeleteDataExample: async (exampleId) => {
+                                try {
+                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                        method: 'DELETE',
+                                        headers: { 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' }
+                                    });
+                                    return { success: response.ok };
+                                } catch {
+                                    return { success: false };
+                                }
+                            }
+                        }
+                    });
+                    container.dataset.editorMounted = 'true';
+                }
+
+                mount();
+            })();
+        </script>
+    </th:block>
+</body>
+</html>

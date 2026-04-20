@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "broken-template",
+    "name": "Broken Template",
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": { "type": "override", "themeId": "nonexistent-theme" },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-stencil": {
+          "id": "n-stencil",
+          "type": "stencil",
+          "slots": [],
+          "props": { "stencilId": "nonexistent-stencil", "version": 1 }
+        },
+        "n-img": {
+          "id": "n-img",
+          "type": "image",
+          "slots": [],
+          "props": { "assetId": "00000000-0000-0000-0000-missing00001" }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-stencil", "n-img"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": { "nonexistent-attr": "value" },
+        "isDefault": true
+      }
+    ]
+  }
+}

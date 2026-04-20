@@ -37,12 +37,12 @@ class ListStencilSummariesHandler(
         val sql = buildString {
             append(
                 """
-                    SELECT s.id, s.tenant_key, s.name, s.description, s.tags,
+                    SELECT s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags,
                            s.created_at, s.last_modified,
                            MAX(CASE WHEN v.status = 'published' THEN v.id END) AS latest_published_version,
                            MAX(v.id) AS latest_version
                     FROM stencils s
-                    LEFT JOIN stencil_versions v ON v.tenant_key = s.tenant_key AND v.stencil_key = s.id
+                    LEFT JOIN stencil_versions v ON v.tenant_key = s.tenant_key AND v.catalog_key = s.catalog_key AND v.stencil_key = s.id
                     WHERE s.tenant_key = :tenantId
                     """,
             )
@@ -52,7 +52,7 @@ class ListStencilSummariesHandler(
             if (!query.tag.isNullOrBlank()) {
                 append(" AND s.tags @> :tag::jsonb")
             }
-            append(" GROUP BY s.id, s.tenant_key, s.name, s.description, s.tags, s.created_at, s.last_modified")
+            append(" GROUP BY s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags, s.created_at, s.last_modified")
             append(" ORDER BY s.last_modified DESC")
             append(" LIMIT :limit OFFSET :offset")
         }
@@ -86,6 +86,7 @@ class ListStencilSummariesHandler(
                 StencilSummaryWithVersionInfo(
                     id = StencilKey.of(rs.getString("id")),
                     tenantKey = TenantKey.of(rs.getString("tenant_key")),
+                    catalogKey = app.epistola.suite.common.ids.CatalogKey.of(rs.getString("catalog_key")),
                     name = rs.getString("name"),
                     description = rs.getString("description"),
                     tags = tags,

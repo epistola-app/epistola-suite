@@ -8,7 +8,7 @@ import {
   DEFAULT_PAGE_SETTINGS,
 } from './styles.js';
 import { defaultStyleRegistry } from './style-registry.js';
-import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
+import type { StyleRegistry } from '@epistola.app/epistola-model/generated/style-registry';
 
 // ---------------------------------------------------------------------------
 // getInheritableKeys
@@ -34,8 +34,8 @@ describe('getInheritableKeys', () => {
     expect(keys.has('padding')).toBe(false);
     expect(keys.has('margin')).toBe(false);
     expect(keys.has('backgroundColor')).toBe(false);
-    expect(keys.has('borderWidth')).toBe(false);
-    expect(keys.has('borderColor')).toBe(false);
+    expect(keys.has('border')).toBe(false);
+    expect(keys.has('borderRadius')).toBe(false);
   });
 
   it('works with a custom minimal registry', () => {

@@ -6,9 +6,55 @@
 
 ### Added
 
+- **Custom error pages**: Added styled error pages for 404, 500, and a generic fallback, replacing the Spring Boot whitelabel error page. Stacktraces are no longer exposed.
+- **Clean stacktraces in logs**: Added a custom Logback converter that collapses framework frames (Spring, Tomcat, reflection, etc.) in stacktraces, keeping only application-relevant frames for readability.
+- **UI exception filter**: Replaced `AuthorizationExceptionFilter` with a generic `UiExceptionFilter` that catches all UI request exceptions, maps known domain exceptions to appropriate HTTP status codes, and returns a generic 500 for unknown errors — preventing Tomcat from rendering raw stacktraces.
+- **Per-side border controls**: The editor now supports setting border width, style, and color independently per side (top, right, bottom, left). Replaces the previous all-or-nothing border controls. Backwards compatible with existing unified border styles.
+- **Separator component**: New horizontal rule block type for visually separating sections in templates. Renders as a styled line with configurable border and margin.
+- **Line height in PDF**: The `lineHeight` style property now renders correctly in generated PDFs. Resolved styles are passed to `TipTapConverter` via a single map, enabling future style properties without parameter changes.
+- **Subscript and superscript**: New text formatting marks for m², footnote markers, and legal references. Available in the bubble menu toolbar and rendered in PDF output.
+- **Keep-together / keep-with-next**: New page flow style properties that prevent page breaks from splitting a block or separating it from the next block. Available as checkboxes in the inspector's Page Flow section.
+- **Widow/orphan control**: PDF paragraphs and headings now enforce a minimum of 2 lines at the top and bottom of each page, preventing single isolated lines.
+- **List numbering formats**: Ordered lists now support decimal, lower/upper alpha (a,b,c / A,B,C), and lower/upper roman (i,ii,iii / I,II,III) numbering. Toggle format via the # button in the bubble menu. Custom start numbers are also supported.
+- **First-page header/footer variation**: Page headers and footers now have a "Hide on first page" checkbox. When enabled, the header/footer is not rendered on the first page of the PDF.
+- **Data list component**: New block that loops over a data expression and renders items as a formatted list (bullet, numbered, alpha, roman, or no marker). Combines the iteration of loop blocks with proper list formatting.
+
+### Fixed
+
+- **Read-only catalog enforcement for version commands**: The `UpdateDraft`, `CreateVersion`, `UpdateVersion`, `PublishToEnvironment`, and `ArchiveVersion` command handlers now check `requireCatalogEditable` before executing, preventing modifications to templates in subscribed (read-only) catalogs.
+- **Document generation passes catalogId**: The REST API mappers (`DocumentDtoMappers`) now correctly pass `catalogId` from API requests to the `GenerateDocument`, `BatchGenerationItem`, and `PreviewDocument` commands. Previously these defaulted to `CatalogKey.DEFAULT`, causing `DEFAULT_VARIANT_NOT_FOUND` errors when generating documents for templates in non-default catalogs.
+- **Version fallback when no environment specified**: Document generation and preview no longer require an explicit `versionId` or `environmentId`. When neither is provided, the latest published version is used automatically. This fixes failures for catalog-imported templates that have published versions but no environment activations.
+- **Editor loads published versions when no draft exists**: The template editor now falls back to the latest published version when no draft exists for a variant. When the user saves, a new draft is created automatically. This supports catalog-imported templates that only have published versions.
+
+### Changed
+
+- **Catalog import creates published versions**: Imported templates now get published versions instead of drafts, making catalogs ready to use immediately without manual publishing.
+- **Removed template import endpoint**: The `POST /templates/import` endpoint (superseded by catalog import) has been removed. The `importTemplates` override was already a throwing stub.
+- **ProtocolMapper centralizes type conversions**: Extracted all inline conversions between protocol `Map<String, Any?>` types and suite internal types (ObjectNode, DocumentStyles, BlockStylePresets) into a new `ProtocolMapper` component. Cleaned up scattered conversion logic in `ImportCatalogZip`, `InstallFromCatalog`.
+
+### Added
+
+- **Export catalog as ZIP**: All catalogs (authored and subscribed) can be exported as self-contained ZIP archives from the Catalogs page. The ZIP contains the catalog manifest, all resource detail files (templates, themes, stencils, attributes, assets), and asset binary content with proper file extensions. Exports all resources in the catalog, not just template dependencies.
+- **Import catalog from ZIP**: Upload a ZIP archive to create or update a catalog. User chooses whether the imported catalog should be authored (editable) or subscribed (read-only). If a catalog with the same slug already exists and is authored, resources are updated in place. Subscribed catalogs cannot be overwritten.
+- **Dedicated asset upload page**: Assets are now uploaded via a dedicated `/assets/new` page with an explicit catalog selector, replacing the inline drag-drop zone. Catalog is always explicitly chosen.
+- **Delete authored catalogs**: Authored catalogs (except the default) can now be deleted with a confirmation dialog warning about resource deletion. Subscribed catalogs retain the existing remove functionality.
+- **Cross-catalog deletion protection**: Deleting a catalog now checks for cross-catalog references (themes, stencils, assets used by templates in other catalogs) and prevents deletion with a descriptive error listing the affected templates.
+- **Global closeDialog event**: HTMX responses can trigger `closeDialog` via `HX-Trigger` header to close any open dialog. Replaces CSP-incompatible `hx-on::after-request` attributes.
+- **Theme editor read-only mode**: The theme editor now supports an optional `readonly` flag. When enabled, all inputs are disabled, autosave is suppressed, keyboard shortcuts are ignored, and the save status bar is hidden.
+- **Read-only enforcement for subscribed catalogs**: Resources in subscribed catalogs are protected from modification at both the backend and UI levels. All 21 mutating command handlers check `IsCatalogEditable` and throw `CatalogReadOnlyException` for subscribed catalogs. The UI shows a "Read-only" badge and hides edit/delete buttons for subscribed resources.
+- **Catalog-aware UI for all resource types**: Themes, stencils, assets, and attributes now have full catalog integration in the UI — catalog filter dropdown on list pages, catalog column in tables, catalog selector in create forms, and `/{catalogId}/{resourceId}` URL patterns for detail pages. Consistent with the template catalog UI.
+- **Complete catalog resource types**: Catalogs now support themes, stencils, attributes, and assets alongside templates. A catalog is a self-contained package — importing one installs everything needed.
+  - **Import**: All 5 resource types with dependency-ordered installation (assets → attributes → themes → stencils → templates). Auto-includes dependencies when installing individual resources (e.g., installing a template pulls in its theme, stencils, and attributes). Recursive scanning resolves transitive deps (template → stencil → asset).
+  - **Export**: `ExportCatalog` builds self-contained manifests. `DependencyScanner` auto-includes all referenced resources. Per-type export queries for themes, attributes, stencils, and assets.
+  - **Validation**: Catalogs with missing dependencies are rejected before install with a clear error listing what's missing.
+  - **Protocol**: Polymorphic `CatalogResource` sealed hierarchy with Jackson `@JsonTypeInfo`. Asset binaries fetched via `contentUrl` (separate binary URLs). Schema version bumped to 2.
+  - **DB**: Generic `catalog_resources` table replaces `catalog_templates`.
+  - **UI**: Browse page shows resource types with badges. Install confirmation dialog previews what will be installed (including auto-resolved dependencies). HTMX inline updates with OOB success/error alerts.
+- **BREAKING: Import/export moved to catalog module**: `ImportTemplates` and `ExportTemplates` moved from `epistola-core` to `epistola-catalog`. The catalog module is now the exchange boundary for all import/export operations. `TestTemplateBuilder` moved to the shared testing module.
 - **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
 - **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
 - **Draft/publish data contract workflow**: Template data contracts now support explicit draft editing and publish. Schema and example changes are saved to draft fields first, while document generation and published previews continue validating against the active published contract until the draft is published. Added `POST /tenants/{tenantId}/templates/{templateId}/publish-contract`, Flyway migration `V22__template_contract_drafts.sql`, and recent-usage publish checks before activation.
+- **Editor block clipboard copy/paste**: The template editor can now copy the selected block subtree to a dedicated clipboard payload and paste it before, after, or inside another target block using a placement dialog with slot selection for multi-slot containers.
 
 ### Fixed
 
@@ -34,6 +80,12 @@
 
 ### Fixed
 
+- **Systematic catalog_key fix across all SQL queries**: Added `catalog_key` to WHERE/JOIN/SELECT clauses in ~35 queries across template commands, variants, activations, versions, stencil commands, attribute commands, document queries, and catalog import. Prevents ambiguous results when the same slug exists in multiple catalogs.
+- **CSP-compliant dialog close**: Replaced `hx-on::after-request` (uses `eval()`, blocked by CSP) with `HX-Trigger: closeDialog` pattern in variant edit and attribute edit forms.
+- **Missing catalogId in variant edit URL**: Fixed Thymeleaf URL expression missing the `catalogId` parameter, causing `CatalogKey` validation failure.
+- **Export includes all catalog resources**: ZIP export now queries all resources by `catalog_key` directly instead of relying on dependency scanning. Fixed `ExportAssets` to filter by asset ID instead of name.
+- **ImportAsset updates existing assets**: Re-importing a catalog with modified assets now updates the asset metadata and binary content instead of silently skipping.
+- **DeleteAsset fails with JDBI mapping error**: Replaced `mapTo<CatalogKey>()` with a manual row mapper in `DeleteAssetHandler`, fixing `IllegalArgumentException: Could not match constructor parameters [catalog_key] for CatalogKey`. JDBI cannot auto-map Kotlin value classes.
 - **DemoLoader fails on user ID scheme change**: Fixed `ON CONFLICT DO NOTHING` in user upsert to `DO UPDATE`, so existing users with changed deterministic UUIDs are updated instead of silently skipped (which caused FK violations on `tenant_memberships`).
 - **PDF preview blocked by CSP**: Added `frame-src blob:` to the Content Security Policy to allow blob URLs in iframes, fixing the PDF preview feature.
 - **DOM XSS in HTMX error banner**: Replaced `innerHTML` with safe DOM API (`textContent` + `createElement`) in the global HTMX error handler to prevent potential cross-site scripting via error messages.

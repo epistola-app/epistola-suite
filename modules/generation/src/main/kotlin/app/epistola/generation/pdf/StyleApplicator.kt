@@ -198,17 +198,7 @@ object StyleApplicator {
             element.setFont(font)
         }
 
-        // Borders: individual properties (borderWidth + borderStyle + borderColor)
-        val borderWidth = (styles["borderWidth"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
-        val borderStyle = styles["borderStyle"] as? String ?: "solid"
-        val borderColor = (styles["borderColor"] as? String)?.let { parseColor(it) }
-        if (borderWidth != null && borderWidth > 0f && borderStyle != "none") {
-            val color = borderColor ?: DeviceRgb(0, 0, 0)
-            val border = createBorder(borderStyle, borderWidth, color)
-            element.setBorder(border)
-        }
-
-        // Borders: compound shorthand per side (e.g., "2pt solid #2563eb")
+        // Borders: per-side shorthand (e.g., "2pt solid #2563eb")
         for ((side, setter) in BORDER_SIDE_SETTERS) {
             (styles[side] as? String)?.let { shorthand ->
                 parseBorderShorthand(shorthand, baseFontSizePt, spacingUnit)?.let { border ->
@@ -222,7 +212,23 @@ object StyleApplicator {
             parseSize(radius, baseFontSizePt, spacingUnit)?.let { element.setBorderRadius(BorderRadius(it)) }
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Line height: applied as multiplied leading on Paragraph elements.
+        // For Div containers, this is a no-op — line height is applied by TipTapConverter
+        // on individual paragraphs where it actually takes effect.
+        (styles["lineHeight"] as? Any)?.let { v ->
+            val value = v.toString().toFloatOrNull()
+            if (value != null && element is com.itextpdf.layout.element.Paragraph) {
+                element.setMultipliedLeading(value)
+            }
+        }
+
+        // Page flow: prevent page breaks from splitting or separating blocks
+        if (styles["keepTogether"] == true || styles["keepTogether"] == "true") {
+            element.setKeepTogether(true)
+        }
+        if (styles["keepWithNext"] == true || styles["keepWithNext"] == "true") {
+            element.setKeepWithNext(true)
+        }
     }
 
     private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border = when (style) {
@@ -262,7 +268,7 @@ object StyleApplicator {
         }
     }
 
-    private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
+    internal fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
         // Try spacing token first (e.g., "2sp" → 8pt with default base unit)
         SpacingScale.parseSp(size, spacingUnit)?.let { return it }
 
@@ -273,7 +279,7 @@ object StyleApplicator {
         }
     }
 
-    private fun parseColor(color: String): DeviceRgb? = try {
+    internal fun parseColor(color: String): DeviceRgb? = try {
         when {
             color.startsWith("#") -> {
                 val hex = color.removePrefix("#")

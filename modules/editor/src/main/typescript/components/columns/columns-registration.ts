@@ -17,10 +17,10 @@ const LAYOUT_STYLES = [
   'padding',
   'margin',
   'backgroundColor',
-  'borderWidth',
-  'borderStyle',
-  'borderColor',
+  'border',
   'borderRadius',
+  'keepTogether',
+  'keepWithNext',
 ];
 
 export function createColumnsDefinition(): ComponentDefinition {

@@ -34,11 +34,12 @@ class SetDefaultVariantHandler(
             """
                 SELECT EXISTS (
                     SELECT 1 FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 )
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("variantId", command.variantId.key)
             .bind("templateId", command.variantId.templateKey)
             .mapTo<Boolean>()
@@ -51,10 +52,11 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("templateId", command.variantId.templateKey)
             .execute()
 
@@ -63,11 +65,12 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = TRUE
-                WHERE tenant_key = :tenantId AND id = :variantId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId
                 RETURNING *
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("variantId", command.variantId.key)
             .mapTo<TemplateVariant>()
             .findOne()

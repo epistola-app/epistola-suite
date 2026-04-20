@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
@@ -45,6 +46,8 @@ class CreateDocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
+        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+
         // Validate schema if provided
         command.schema?.let { schemaJson ->
             when (val result = jsonSchemaValidator.validateSchema(schemaJson)) {
@@ -58,9 +61,9 @@ class CreateDocumentTemplateHandler(
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, name, theme_key, schema, data_model, data_examples, draft_data_model, draft_data_examples, pdfa_enabled, created_at, last_modified)
-                VALUES (:id, :tenantId, :name, NULL, :schema::jsonb, NULL, '[]'::jsonb, NULL, NULL, FALSE, NOW(), NOW())
-                RETURNING id, tenant_key, name, theme_key, schema,
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema, data_model, data_examples, draft_data_model, draft_data_examples, pdfa_enabled, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :name, NULL, NULL, :schema::jsonb, NULL, '[]'::jsonb, NULL, NULL, FALSE, NOW(), NOW())
+                RETURNING id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema,
                           data_model AS published_data_model,
                           data_examples AS published_data_examples,
                           draft_data_model,
@@ -72,6 +75,7 @@ class CreateDocumentTemplateHandler(
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .bind("name", command.name)
                     .bind("schema", command.schema)
                     .mapTo<DocumentTemplate>()
@@ -81,12 +85,13 @@ class CreateDocumentTemplateHandler(
                 val variantId = VariantKey.of("${command.id.key}-default")
                 handle.createUpdate(
                     """
-                INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
-                VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, attributes, is_default, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
                 """,
                 )
                     .bind("id", variantId)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", template.id)
                     .execute()
 
@@ -118,12 +123,13 @@ class CreateDocumentTemplateHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
                 )
                     .bind("id", versionId)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", command.id.key)
                     .bind("variantId", variantId)
                     .bind("templateModel", templateModelJson)

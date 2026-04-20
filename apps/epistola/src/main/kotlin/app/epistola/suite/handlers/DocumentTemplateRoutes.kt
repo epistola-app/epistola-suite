@@ -13,59 +13,65 @@ class DocumentTemplateRoutes(
     private val versionHandler: VersionRouteHandler,
     private val previewHandler: TemplatePreviewHandler,
     private val deploymentMatrixHandler: DeploymentMatrixHandler,
+    private val settingsTabHandler: SettingsTabHandler,
+    private val dataContractTabHandler: DataContractTabHandler,
     private val versionComparisonHandler: VersionComparisonHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/templates".nest {
+            // List and create (across all catalogs)
             GET("", handler::list)
             GET("/search", handler::search)
             GET("/new", handler::newForm)
             POST("", handler::create)
 
-            // Template detail and actions
-            GET("/{id}", handler::detail)
-            POST("/{id}/delete", handler::delete)
-            PATCH("/{id}", handler::update)
-            PATCH("/{id}/theme", handler::updateTheme)
-            GET("/{id}/api", handler::get)
-            POST("/{id}/validate-schema", handler::validateSchema)
-            POST("/{id}/publish-contract", handler::publishContract)
+            // Detail page — each tab has its own handler
+            GET("/{catalogId}/{id}", handler::detail)
+            GET("/{catalogId}/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
+            GET("/{catalogId}/{id}/data-contract", dataContractTabHandler::dataContract)
+            GET("/{catalogId}/{id}/settings", settingsTabHandler::settings)
+
+            // Template actions
+            POST("/{catalogId}/{id}/delete", handler::delete)
+            PATCH("/{catalogId}/{id}", handler::update)
+            PATCH("/{catalogId}/{id}/theme", handler::updateTheme)
+            GET("/{catalogId}/{id}/api", handler::get)
+            POST("/{catalogId}/{id}/validate-schema", handler::validateSchema)
+            POST("/{catalogId}/{id}/publish-contract", handler::publishContract)
 
             // Data example routes
-            PATCH("/{id}/data-examples/{exampleId}", handler::updateDataExample)
-            DELETE("/{id}/data-examples/{exampleId}", handler::deleteDataExample)
+            PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)
+            DELETE("/{catalogId}/{id}/data-examples/{exampleId}", handler::deleteDataExample)
 
-            // Deployment matrix routes (delegated to DeploymentMatrixHandler)
-            GET("/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
-            POST("/{id}/deployments", deploymentMatrixHandler::updateDeployment)
+            // Deployment matrix actions (POST only — GET is handled by deploymentMatrixHandler above)
+            POST("/{catalogId}/{id}/deployments", deploymentMatrixHandler::updateDeployment)
 
-            // Variant routes (delegated to VariantRouteHandler)
-            POST("/{id}/variants", variantHandler::createVariant)
-            GET("/{id}/variants/{variantId}/edit", variantHandler::editVariantForm)
-            PATCH("/{id}/variants/{variantId}", variantHandler::updateVariant)
-            POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
-            POST("/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
+            // Variant routes
+            POST("/{catalogId}/{id}/variants", variantHandler::createVariant)
+            GET("/{catalogId}/{id}/variants/{variantId}/edit", variantHandler::editVariantForm)
+            PATCH("/{catalogId}/{id}/variants/{variantId}", variantHandler::updateVariant)
+            POST("/{catalogId}/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
+            POST("/{catalogId}/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
 
             // Version comparison
-            GET("/{id}/variants/{variantId}/compare", versionComparisonHandler::compareDialog)
+            GET("/{catalogId}/{id}/variants/{variantId}/compare", versionComparisonHandler::compareDialog)
 
-            // Variant version history (loaded into dialog)
-            GET("/{id}/variants/{variantId}/versions", versionHandler::listVersions)
+            // Variant version history
+            GET("/{catalogId}/{id}/variants/{variantId}/versions", versionHandler::listVersions)
 
-            // Editor route (with variant)
-            GET("/{id}/variants/{variantId}/editor", handler::editor)
+            // Editor route
+            GET("/{catalogId}/{id}/variants/{variantId}/editor", handler::editor)
 
-            // PDF preview (delegated to TemplatePreviewHandler)
-            POST("/{id}/variants/{variantId}/preview", previewHandler::preview)
-            POST("/{id}/variants/{variantId}/versions/{versionId}/preview", previewHandler::previewVersion)
+            // PDF preview
+            POST("/{catalogId}/{id}/variants/{variantId}/preview", previewHandler::preview)
 
-            // Draft creation and updates (delegated to VersionRouteHandler)
-            POST("/{id}/variants/{variantId}/draft", versionHandler::createDraft)
-            PUT("/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
+            // Draft creation and updates
+            POST("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::createDraft)
+            PUT("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
 
-            // Version lifecycle (delegated to VersionRouteHandler)
-            POST("/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
+            // Version lifecycle
+            POST("/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
         }
     }
 }

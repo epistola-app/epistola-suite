@@ -12,7 +12,9 @@
         <div class="page-header">
             <h1 th:text="${theme.name}">Theme Name</h1>
             <div class="page-actions">
-                <form th:action="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
+                <span th:if="${!editable}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                <form th:if="${editable}"
+                      th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
                       method="post"
                       onsubmit="return confirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.')">
                     <button type="submit" class="btn btn-sm btn-destructive">Delete Theme</button>
@@ -36,6 +38,7 @@
             /*<![CDATA[*/
             window.THEME_EDITOR_CONFIG = /*[[${themeJson}]]*/ {};
             window.TENANT_ID = /*[[${tenantId}]]*/ '';
+            window.CATALOG_ID = /*[[${catalogId}]]*/ '';
             window.THEME_ID = /*[[${theme.id}]]*/ '';
 
             window.getCsrfToken = function() {
@@ -49,14 +52,18 @@
 
             const container = document.getElementById('theme-editor-container');
             const tenantId = window.TENANT_ID;
+            const catalogId = window.CATALOG_ID;
             const themeId = window.THEME_ID;
             const themeData = window.THEME_EDITOR_CONFIG;
+
+            const editable = /*[[${editable}]]*/ true;
 
             mountThemeEditor({
                 container: container,
                 theme: themeData,
+                readonly: !editable,
                 onSave: async (payload) => {
-                    const response = await fetch('/tenants/' + tenantId + '/themes/' + themeId, {
+                    const response = await fetch('/tenants/' + tenantId + '/themes/' + catalogId + '/' + themeId, {
                         method: 'PATCH',
                         headers: {
                             'Content-Type': 'application/json',

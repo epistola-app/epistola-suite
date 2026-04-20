@@ -22,10 +22,10 @@ const LAYOUT_STYLES = [
   'padding',
   'margin',
   'backgroundColor',
-  'borderWidth',
-  'borderStyle',
-  'borderColor',
+  'border',
   'borderRadius',
+  'keepTogether',
+  'keepWithNext',
 ];
 
 export const TABLE_DEFAULT_PROPS = {

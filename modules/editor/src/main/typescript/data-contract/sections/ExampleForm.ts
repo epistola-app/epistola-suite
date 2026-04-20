@@ -165,6 +165,7 @@ export function renderExampleForm(
   onChange: (path: string, value: JsonValue) => void,
   onClear: (path: string) => void,
   errors: Map<string, string> = NO_ERRORS,
+  readOnly = false,
 ): unknown {
   if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
     return html` <div class="dc-form-empty">Define a schema first to create examples.</div> `;
@@ -185,6 +186,7 @@ export function renderExampleForm(
           onClear,
           0,
           errors,
+          readOnly,
         ),
       )}
     </div>
@@ -205,6 +207,7 @@ export function renderFormField(
   onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
+  readOnly: boolean,
 ): unknown {
   const rawType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type;
   const type = rawType === 'string' && propSchema.format === 'date' ? 'date' : rawType;
@@ -235,6 +238,7 @@ export function renderFormField(
                 id=${fieldId}
                 .value=${toInputString(value)}
                 placeholder="${name}"
+                ?disabled=${readOnly}
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => onChange(path, readInputValue(e))}
               />
@@ -260,6 +264,7 @@ export function renderFormField(
                 id=${fieldId}
                 .value=${toInputString(value)}
                 placeholder="${name}"
+                ?disabled=${readOnly}
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => {
                   const raw = readInputValue(e);
@@ -292,6 +297,7 @@ export function renderFormField(
                 id=${fieldId}
                 .value=${toInputString(value)}
                 placeholder="${name}"
+                ?disabled=${readOnly}
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => {
                   const raw = readInputValue(e);
@@ -323,6 +329,7 @@ export function renderFormField(
                   class="ep-checkbox"
                   id=${fieldId}
                   .checked=${value === true}
+                  ?disabled=${readOnly}
                   aria-label="${name}"
                   aria-describedby=${fieldError ? errorId : nothing}
                   @change=${(e: Event) => onChange(path, readInputChecked(e))}
@@ -348,6 +355,7 @@ export function renderFormField(
                 class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
                 id=${fieldId}
                 .value=${toInputString(value)}
+                ?disabled=${readOnly}
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => onChange(path, readInputValue(e))}
               />
@@ -371,6 +379,7 @@ export function renderFormField(
         onClear,
         depth,
         errors,
+        readOnly,
       );
 
     case 'array':
@@ -384,6 +393,7 @@ export function renderFormField(
         onClear,
         depth,
         errors,
+        readOnly,
       );
 
     default:
@@ -398,6 +408,7 @@ export function renderFormField(
                 id=${fieldId}
                 .value=${toInputString(value)}
                 placeholder="${name}"
+                ?disabled=${readOnly}
                 aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) => onChange(path, readInputValue(e))}
               />
@@ -426,6 +437,7 @@ function renderObjectField(
   onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
+  readOnly: boolean,
 ): unknown {
   const currentValue = getNestedValue(rootData, path);
 
@@ -479,6 +491,7 @@ function renderObjectField(
             onClear,
             depth + 1,
             errors,
+            readOnly,
           ),
         )}
       </div>
@@ -499,6 +512,7 @@ function renderArrayField(
   onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
+  readOnly: boolean,
 ): unknown {
   const currentValue = getNestedValue(rootData, path);
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : [];
@@ -536,6 +550,7 @@ function renderArrayField(
       removeItem,
       depth,
       errors,
+      readOnly,
     );
   }
 
@@ -580,6 +595,7 @@ function renderArrayField(
                       onChange(path, newItems);
                     },
                     itemError,
+                    readOnly,
                   )}
                 </div>
                 ${itemError ? html`<span class="dc-field-error">${itemError}</span>` : nothing}
@@ -588,6 +604,7 @@ function renderArrayField(
                 class="dc-array-item-remove"
                 title="Remove item"
                 aria-label="Remove item ${index + 1}"
+                ?disabled=${readOnly}
                 @click=${() => removeItem(index)}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -602,7 +619,7 @@ function renderArrayField(
             </div>
           `;
         })}
-        <button class="dc-array-add-btn" @click=${() => addItem()}>
+        <button class="dc-array-add-btn" ?disabled=${readOnly} @click=${() => addItem()}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="M8 3v10M3 8h10"
@@ -635,6 +652,7 @@ function renderArrayOfObjects(
   removeItem: (index: number) => void,
   depth: number,
   errors: Map<string, string>,
+  readOnly: boolean,
 ): unknown {
   const nestedRequired = new Set(itemSchema.required ?? []);
   const groupHasErrors = hasChildErrors(path, errors);
@@ -681,6 +699,7 @@ function renderArrayOfObjects(
                   class="dc-array-item-remove dc-array-item-remove-subtle"
                   title="Remove item"
                   aria-label="Remove item ${index + 1}"
+                  ?disabled=${readOnly}
                   @click=${(e: Event) => {
                     e.preventDefault();
                     removeItem(index);
@@ -709,6 +728,7 @@ function renderArrayOfObjects(
                         onClear,
                         depth + 1,
                         errors,
+                        readOnly,
                       ),
                     )
                   : nothing}
@@ -716,7 +736,7 @@ function renderArrayOfObjects(
             </details>
           `;
         })}
-        <button class="dc-array-add-btn" @click=${() => addItem()}>
+        <button class="dc-array-add-btn" ?disabled=${readOnly} @click=${() => addItem()}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="M8 3v10M3 8h10"
@@ -741,6 +761,7 @@ function renderPrimitiveInput(
   label: string,
   onChange: (value: JsonValue) => void,
   error?: string,
+  readOnly = false,
 ): unknown {
   const errorClass = error ? 'dc-input-error' : '';
 
@@ -753,6 +774,7 @@ function renderPrimitiveInput(
           step="any"
           .value=${toInputString(value)}
           placeholder="${label}"
+          ?disabled=${readOnly}
           aria-label="${label}"
           @change=${(e: Event) => {
             const raw = readInputValue(e);
@@ -768,6 +790,7 @@ function renderPrimitiveInput(
           step="1"
           .value=${toInputString(value)}
           placeholder="${label}"
+          ?disabled=${readOnly}
           aria-label="${label}"
           @change=${(e: Event) => {
             const raw = readInputValue(e);
@@ -782,6 +805,7 @@ function renderPrimitiveInput(
             type="checkbox"
             class="ep-checkbox"
             .checked=${value === true}
+            ?disabled=${readOnly}
             aria-label="${label}"
             @change=${(e: Event) => onChange(readInputChecked(e))}
           />
@@ -793,6 +817,7 @@ function renderPrimitiveInput(
           type="date"
           class="ep-input dc-array-item-input ${errorClass}"
           .value=${toInputString(value)}
+          ?disabled=${readOnly}
           aria-label="${label}"
           @change=${(e: Event) => onChange(readInputValue(e))}
         />
@@ -804,6 +829,7 @@ function renderPrimitiveInput(
           class="ep-input dc-array-item-input ${errorClass}"
           .value=${toInputString(value)}
           placeholder="${label}"
+          ?disabled=${readOnly}
           aria-label="${label}"
           @change=${(e: Event) => onChange(readInputValue(e))}
         />

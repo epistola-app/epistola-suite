@@ -38,18 +38,24 @@ class TipTapConverter(
     /**
      * Converts TipTap JSON content to a list of iText block elements.
      */
+    /**
+     * @param resolvedStyles Resolved style cascade for the parent text node.
+     *   TipTapConverter reads properties like `lineHeight` from this map
+     *   and applies them to generated paragraphs/headings.
+     */
     fun convert(
         content: Map<String, Any>?,
         data: Map<String, Any?>,
         loopContext: Map<String, Any?> = emptyMap(),
         fontCache: app.epistola.generation.pdf.FontCache,
+        resolvedStyles: Map<String, Any> = emptyMap(),
     ): kotlin.collections.List<IBlockElement> {
         if (content == null) return emptyList()
 
         @Suppress("UNCHECKED_CAST")
         val nodes = content["content"] as? kotlin.collections.List<Map<String, Any>> ?: return emptyList()
 
-        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache) }
+        return nodes.flatMap { node -> convertNode(node, data, loopContext, fontCache, resolvedStyles) }
     }
 
     private fun convertNode(
@@ -57,34 +63,61 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
-    ): IBlockElement? {
-        val type = node["type"] as? String ?: return null
+        resolvedStyles: Map<String, Any>,
+    ): kotlin.collections.List<IBlockElement> {
+        val type = node["type"] as? String ?: return emptyList()
 
         return when (type) {
-            "paragraph" -> convertParagraph(node, data, loopContext, fontCache)
-            "heading" -> convertHeading(node, data, loopContext, fontCache)
-            "bulletList" -> convertBulletList(node, data, loopContext, fontCache)
-            "orderedList" -> convertOrderedList(node, data, loopContext, fontCache)
-            else -> null
+            "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles)
+            "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles)
+            "bulletList", "bullet_list" -> listOf(convertBulletList(node, data, loopContext, fontCache))
+            "orderedList", "ordered_list" -> listOf(convertOrderedList(node, data, loopContext, fontCache))
+            else -> emptyList()
         }
     }
 
+    /**
+     * Converts a paragraph node, splitting at hard breaks into separate Paragraph elements.
+     * Only the last paragraph gets marginBottom spacing.
+     */
     private fun convertParagraph(
         node: Map<String, Any>,
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
-    ): Paragraph {
-        val paragraph = Paragraph()
-        paragraph.setMarginBottom(renderingDefaults.paragraphMarginBottom)
-
+        resolvedStyles: Map<String, Any>,
+    ): kotlin.collections.List<Paragraph> {
         @Suppress("UNCHECKED_CAST")
-        val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
-        if (content != null) {
-            addInlineContent(paragraph, content, data, loopContext, fontCache)
-        }
+        val content = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
-        return paragraph
+        // Split content at hard breaks into segments
+        val segments = mutableListOf<kotlin.collections.List<Map<String, Any>>>()
+        var current = mutableListOf<Map<String, Any>>()
+        for (child in content) {
+            val childType = child["type"] as? String
+            if (childType == "hard_break" || childType == "hardBreak") {
+                segments.add(current)
+                current = mutableListOf()
+            } else {
+                current.add(child)
+            }
+        }
+        segments.add(current)
+
+        return segments.mapIndexed { index, segment ->
+            val paragraph = Paragraph()
+            applyTextStyles(paragraph, resolvedStyles)
+            // Hard break lines: no spacing between them, only the last gets paragraph margin
+            paragraph.setMarginTop(0f)
+            paragraph.setMarginBottom(if (index == segments.size - 1) renderingDefaults.paragraphMarginBottom else 0f)
+            paragraph.setPaddingTop(0f)
+            paragraph.setPaddingBottom(0f)
+            paragraph.setSpacingRatio(0f)
+            if (segment.isNotEmpty()) {
+                addInlineContent(paragraph, segment, data, loopContext, fontCache)
+            }
+            paragraph
+        }
     }
 
     private fun convertHeading(
@@ -92,30 +125,47 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
-    ): Paragraph {
+        resolvedStyles: Map<String, Any>,
+    ): kotlin.collections.List<Paragraph> {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
         val level = (attrs?.get("level") as? Number)?.toInt() ?: 1
-
-        val paragraph = Paragraph()
-        paragraph.setFont(fontCache.bold)
-
-        // Set font size based on heading level
         val fontSize = renderingDefaults.headingFontSize(level)
-        paragraph.setFontSize(fontSize)
-
-        // Set margins to match editor CSS (proportional to font size)
         val marginVertical = renderingDefaults.headingMargin(level)
-        paragraph.setMarginTop(marginVertical)
-        paragraph.setMarginBottom(marginVertical)
 
         @Suppress("UNCHECKED_CAST")
-        val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
-        if (content != null) {
-            addInlineContent(paragraph, content, data, loopContext, fontCache)
-        }
+        val content = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
-        return paragraph
+        // Split at hard breaks
+        val segments = mutableListOf<kotlin.collections.List<Map<String, Any>>>()
+        var current = mutableListOf<Map<String, Any>>()
+        for (child in content) {
+            val childType = child["type"] as? String
+            if (childType == "hard_break" || childType == "hardBreak") {
+                segments.add(current)
+                current = mutableListOf()
+            } else {
+                current.add(child)
+            }
+        }
+        segments.add(current)
+
+        return segments.mapIndexed { index, segment ->
+            val paragraph = Paragraph()
+            paragraph.setFont(fontCache.bold)
+            paragraph.setFontSize(fontSize)
+            applyTextStyles(paragraph, resolvedStyles)
+            // Hard break lines: tight spacing, only first/last get heading margins
+            paragraph.setMarginTop(if (index == 0) marginVertical else 0f)
+            paragraph.setMarginBottom(if (index == segments.size - 1) marginVertical else 0f)
+            paragraph.setPaddingTop(0f)
+            paragraph.setPaddingBottom(0f)
+            paragraph.setSpacingRatio(0f)
+            if (segment.isNotEmpty()) {
+                addInlineContent(paragraph, segment, data, loopContext, fontCache)
+            }
+            paragraph
+        }
     }
 
     private fun convertBulletList(
@@ -124,7 +174,18 @@ class TipTapConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
     ): List {
+        @Suppress("UNCHECKED_CAST")
+        val attrs = node["attrs"] as? Map<String, Any>
+        val listStyle = attrs?.get("listStyle") as? String ?: "disc"
+
         val list = List()
+        val symbol = when (listStyle) {
+            "circle" -> "\u25CB  " // ○
+            "square" -> "\u25A0  " // ■
+            "dash" -> "\u2013  " // –
+            else -> "\u2022  " // • (disc, default)
+        }
+        list.setListSymbol(symbol)
         list.setMarginBottom(renderingDefaults.listMarginBottom)
         list.setMarginLeft(renderingDefaults.listMarginLeft)
 
@@ -132,7 +193,7 @@ class TipTapConverter(
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
         for (item in items) {
-            if (item["type"] == "listItem") {
+            if (item["type"] == "listItem" || item["type"] == "list_item") {
                 val listItem = convertListItem(item, data, loopContext, fontCache)
                 list.add(listItem)
             }
@@ -147,7 +208,21 @@ class TipTapConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
     ): List {
-        val list = List(ListNumberingType.DECIMAL)
+        @Suppress("UNCHECKED_CAST")
+        val attrs = node["attrs"] as? Map<String, Any>
+        val listTypeStr = attrs?.get("listType") as? String ?: "decimal"
+        val startNumber = (attrs?.get("order") as? Number)?.toInt() ?: 1
+
+        val numberingType = when (listTypeStr) {
+            "lower-alpha" -> ListNumberingType.ENGLISH_LOWER
+            "upper-alpha" -> ListNumberingType.ENGLISH_UPPER
+            "lower-roman" -> ListNumberingType.ROMAN_LOWER
+            "upper-roman" -> ListNumberingType.ROMAN_UPPER
+            else -> ListNumberingType.DECIMAL
+        }
+
+        val list = List(numberingType)
+        if (startNumber > 1) list.setItemStartIndex(startNumber)
         list.setMarginBottom(renderingDefaults.listMarginBottom)
         list.setMarginLeft(renderingDefaults.listMarginLeft)
 
@@ -155,7 +230,7 @@ class TipTapConverter(
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
         for (item in items) {
-            if (item["type"] == "listItem") {
+            if (item["type"] == "listItem" || item["type"] == "list_item") {
                 val listItem = convertListItem(item, data, loopContext, fontCache)
                 list.add(listItem)
             }
@@ -234,7 +309,8 @@ class TipTapConverter(
                     paragraph.add(text)
                 }
                 "hard_break", "hardBreak" -> {
-                    paragraph.add(Text("\n"))
+                    // Hard breaks are handled by splitting paragraphs in convertParagraph/convertHeading.
+                    // This case should not be reached, but is kept as a safe fallback.
                 }
                 "expression" -> {
                     // Expression atom node
@@ -269,6 +345,14 @@ class TipTapConverter(
                 "italic" -> isItalic = true
                 "underline" -> text.setUnderline()
                 "strike" -> text.setLineThrough()
+                "subscript" -> {
+                    text.setTextRise(-3f)
+                    text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
+                }
+                "superscript" -> {
+                    text.setTextRise(5f)
+                    text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
+                }
                 "link" -> { /* handled separately via Link element */ }
                 "textStyle" -> {
                     @Suppress("UNCHECKED_CAST")
@@ -307,6 +391,20 @@ class TipTapConverter(
             val attrs = linkMark["attrs"] as? Map<String, Any> ?: return null
             val href = attrs["href"] as? String
             return href?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    /**
+     * Apply resolved text styles (lineHeight, etc.) to a paragraph.
+     * This is the single place to add new style properties that affect TipTap paragraphs/headings.
+     */
+    /**
+     * Apply pre-resolved text styles to a paragraph.
+     * Values in the map should already be in points (resolved by the caller).
+     */
+    private fun applyTextStyles(paragraph: Paragraph, resolvedStyles: Map<String, Any>) {
+        (resolvedStyles["lineHeight"] as? Float)?.let {
+            paragraph.setMultipliedLeading(it)
         }
     }
 

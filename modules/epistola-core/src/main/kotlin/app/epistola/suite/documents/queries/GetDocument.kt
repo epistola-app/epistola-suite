@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -42,7 +43,7 @@ class GetDocumentHandler(
     override fun handle(query: GetDocument): Document? = jdbi.withHandle<Document?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, template_key, variant_key, version_key,
+            SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -56,6 +57,7 @@ class GetDocumentHandler(
                 Document(
                     id = DocumentKey(rs.getObject("id", UUID::class.java)),
                     tenantKey = TenantKey(rs.getString("tenant_key")),
+                    catalogKey = CatalogKey(rs.getString("catalog_key")),
                     templateKey = TemplateKey(rs.getString("template_key")),
                     variantKey = VariantKey(rs.getString("variant_key")),
                     versionKey = VersionKey(rs.getInt("version_key")),

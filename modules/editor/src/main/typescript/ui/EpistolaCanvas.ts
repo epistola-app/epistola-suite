@@ -498,6 +498,30 @@ export class EpistolaCanvas extends LitElement {
           ></epistola-text-editor>
         `;
       }
+      case 'separator': {
+        const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
+        const def = this.engine!.registry.get(node.type);
+        const filteredStyles = filterByApplicableStyles(resolvedStyles, def?.applicableStyles);
+        const wrapperStyle = toStyleMap(filteredStyles);
+        const props = node.props ?? {};
+        const thickness = (props.thickness as string) || '1pt';
+        const width = (props.width as string) || '100%';
+        const color = (props.color as string) || '#d1d5db';
+        const lineStyle = (props.style as string) || 'solid';
+        return html`<div
+          class="canvas-separator"
+          style=${styleMap({ ...wrapperStyle, 'text-align': 'center' })}
+        >
+          <hr
+            style=${styleMap({
+              width,
+              border: 'none',
+              'border-top': `${thickness} ${lineStyle} ${color}`,
+              margin: '0 auto',
+            })}
+          />
+        </div>`;
+      }
       case 'pagebreak':
         return html`<div class="canvas-pagebreak">
           <div class="canvas-pagebreak-line"></div>

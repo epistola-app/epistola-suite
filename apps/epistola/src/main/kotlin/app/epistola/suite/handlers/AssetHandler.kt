@@ -4,10 +4,14 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -28,8 +32,10 @@ class AssetHandler {
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val tenant = GetTenant(id = tenantId).query()
-        val assets = ListAssets(tenantId = tenantId).query()
+        val catalogs = ListCatalogs(tenantId).query()
+        val assets = ListAssets(tenantId = tenantId, catalogKey = catalogFilter).query()
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -37,6 +43,8 @@ class AssetHandler {
                 "pageTitle" to "Assets - Epistola",
                 "tenantId" to tenantId.value,
                 "tenant" to tenant,
+                "catalogs" to catalogs,
+                "selectedCatalog" to (catalogFilter?.value ?: ""),
                 "assets" to assets,
                 "activeNavSection" to "assets",
             ),
@@ -46,11 +54,12 @@ class AssetHandler {
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val searchTerm = request.param("q").orElse(null)
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
 
         // HTMX search — return HTML fragment
         if (request.isHtmx) {
             val tenant = GetTenant(id = tenantId).query()
-            val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm).query()
+            val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
             return request.htmx {
                 fragment("assets/list", "asset-grid-items") {
                     "tenantId" to tenantId.value
@@ -62,7 +71,7 @@ class AssetHandler {
         }
 
         // Editor calls with Accept: application/json
-        val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm).query()
+        val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
         val assetInfoList = assets.map { asset ->
             mapOf(
                 "id" to asset.id.value.toString(),
@@ -71,12 +80,22 @@ class AssetHandler {
                 "sizeBytes" to asset.sizeBytes,
                 "width" to asset.width,
                 "height" to asset.height,
-                "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.id.value}/content",
+                "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.catalogKey.value}/${asset.id.value}/content",
             )
         }
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(assetInfoList)
+    }
+
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogs = ListCatalogs(tenantId).query().filter { it.type == CatalogType.AUTHORED }
+        return ServerResponse.ok().page("assets/new") {
+            "pageTitle" to "Upload Asset - Epistola"
+            "tenantId" to tenantId.value
+            "catalogs" to catalogs
+        }
     }
 
     fun upload(request: ServerRequest): ServerResponse {
@@ -118,6 +137,11 @@ class AssetHandler {
             null
         }
 
+        val catalogKeyStr = multipartData["catalog"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        }?.ifBlank { null }
+        val catalogKey = if (catalogKeyStr != null) CatalogKey.of(catalogKeyStr) else null
+
         val asset = try {
             UploadAsset(
                 tenantId = tenantId,
@@ -126,6 +150,7 @@ class AssetHandler {
                 content = contentBytes,
                 width = dimensions?.first,
                 height = dimensions?.second,
+                catalogKey = catalogKey ?: CatalogKey.DEFAULT,
             ).execute()
         } catch (e: AssetTooLargeException) {
             return ServerResponse.badRequest()
@@ -133,21 +158,14 @@ class AssetHandler {
                 .body(mapOf("error" to e.message))
         }
 
-        // HTMX: return updated asset grid
+        // HTMX form submission — redirect to asset list
         if (request.isHtmx) {
-            val tenant = GetTenant(id = tenantId).query()
-            val assets = ListAssets(tenantId = tenantId).query()
-            return request.htmx {
-                fragment("assets/list", "asset-grid-items") {
-                    "tenantId" to tenantId.value
-                    "tenant" to tenant
-                    "assets" to assets
-                }
-                onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
-            }
+            return ServerResponse.ok()
+                .header("HX-Redirect", "/tenants/${tenantId.value}/assets")
+                .build()
         }
 
-        // Editor calls — return JSON
+        // Editor API calls (Accept: application/json) — return JSON
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
@@ -158,13 +176,14 @@ class AssetHandler {
                     "sizeBytes" to asset.sizeBytes,
                     "width" to asset.width,
                     "height" to asset.height,
-                    "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.id.value}/content",
+                    "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.catalogKey.value}/${asset.id.value}/content",
                 ),
             )
     }
 
     fun content(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
         val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId).query()
@@ -178,10 +197,13 @@ class AssetHandler {
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
         val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
+        val force = request.param("force").orElse("false").toBoolean()
+
         try {
-            DeleteAsset(tenantId = tenantId, assetId = assetId).execute()
+            DeleteAsset(tenantId = tenantId, assetId = assetId, force = force).execute()
         } catch (e: AssetInUseException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)

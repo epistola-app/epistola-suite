@@ -106,7 +106,7 @@ describe('buildIterationScope', () => {
     const scope = buildIterationScope(node, { schemaFieldPaths })!;
 
     const paths = scope.variables.map((fp) => fp.path);
-    expect(paths).toEqual(['expensive_index', 'expensive_first', 'expensive_last']);
+    expect(paths).toEqual(['expensive', 'expensive_index', 'expensive_first', 'expensive_last']);
   });
 
   it('returns evaluation data with first array item', () => {

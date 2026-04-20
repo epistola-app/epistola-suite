@@ -33,19 +33,20 @@ class GetStencilUsageDetailsHandler(
     override fun handle(query: GetStencilUsageDetails): List<StencilUsageDetail> = jdbi.withHandle<List<StencilUsageDetail>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.template_key, dt.name as template_name,
+                SELECT tv.template_key, tv.catalog_key, c.type as catalog_type, dt.name as template_name,
                        tv.variant_key, tv.id as version_id, tv.status as version_status,
                        COALESCE((node.value -> 'props' ->> 'version')::int, 0) as stencil_version,
                        COUNT(*) as instance_count
                 FROM template_versions tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+                JOIN catalogs c ON c.tenant_key = tv.tenant_key AND c.id = tv.catalog_key
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
                 WHERE tv.tenant_key = :tenantId
                   AND node.value ->> 'type' = 'stencil'
                   AND node.value -> 'props' ->> 'stencilId' = :stencilId
-                GROUP BY tv.template_key, dt.name, tv.variant_key, tv.id, tv.status,
+                GROUP BY tv.template_key, tv.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                          COALESCE((node.value -> 'props' ->> 'version')::int, 0)
-                ORDER BY dt.name, tv.variant_key, tv.id DESC
+                ORDER BY (CASE WHEN c.type = 'AUTHORED' THEN 0 ELSE 1 END), tv.catalog_key, dt.name, tv.variant_key, tv.id DESC
                 """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
@@ -53,6 +54,8 @@ class GetStencilUsageDetailsHandler(
             .map { rs, _ ->
                 StencilUsageDetail(
                     templateId = TemplateKey.of(rs.getString("template_key")),
+                    catalogKey = app.epistola.suite.common.ids.CatalogKey.of(rs.getString("catalog_key")),
+                    catalogType = app.epistola.suite.catalog.CatalogType.valueOf(rs.getString("catalog_type")),
                     templateName = rs.getString("template_name"),
                     variantId = VariantKey.of(rs.getString("variant_key")),
                     versionId = VersionKey.of(rs.getInt("version_id")),

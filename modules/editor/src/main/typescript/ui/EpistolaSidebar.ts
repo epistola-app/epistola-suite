@@ -33,6 +33,12 @@ export class EpistolaSidebar extends LitElement {
 
   @state() private _activeTab = 'blocks';
 
+  override willUpdate(changed: Map<string, unknown>) {
+    if (changed.has('selectedNodeId') && this.selectedNodeId != null) {
+      this._activeTab = 'inspector';
+    }
+  }
+
   private _setTab(tabId: string) {
     this._activeTab = tabId;
   }

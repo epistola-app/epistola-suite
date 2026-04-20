@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -21,6 +22,7 @@ import java.util.UUID
 data class DocumentMetadata(
     val id: DocumentKey,
     val tenantId: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val versionId: VersionKey,
@@ -55,7 +57,7 @@ class GetDocumentMetadataHandler(
     override fun handle(query: GetDocumentMetadata): DocumentMetadata? = jdbi.withHandle<DocumentMetadata?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, template_key, variant_key, version_key,
+            SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -69,6 +71,7 @@ class GetDocumentMetadataHandler(
                 DocumentMetadata(
                     id = DocumentKey(rs.getObject("id", UUID::class.java)),
                     tenantId = TenantKey(rs.getString("tenant_key")),
+                    catalogKey = CatalogKey(rs.getString("catalog_key")),
                     templateId = TemplateKey(rs.getString("template_key")),
                     variantId = VariantKey(rs.getString("variant_key")),
                     versionId = VersionKey(rs.getInt("version_key")),

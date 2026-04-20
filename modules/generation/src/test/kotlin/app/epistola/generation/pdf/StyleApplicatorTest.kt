@@ -1,9 +1,11 @@
 package app.epistola.generation.pdf
 
 import com.itextpdf.layout.element.Div
+import com.itextpdf.layout.properties.Property
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class StyleApplicatorTest {
 
@@ -185,5 +187,65 @@ class StyleApplicatorTest {
             documentStyles = null,
             fontCache = fontCache,
         )
+    }
+
+    // -----------------------------------------------------------------------
+    // keepTogether / keepWithNext
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `keepTogether true sets property on element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("keepTogether" to true),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
+    }
+
+    @Test
+    fun `keepTogether string true sets property on element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("keepTogether" to "true"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
+    }
+
+    @Test
+    fun `keepWithNext true sets property on element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("keepWithNext" to true),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        assertTrue(div.getProperty<Boolean>(Property.KEEP_WITH_NEXT) == true)
+    }
+
+    @Test
+    fun `keepTogether absent does not set property`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("marginBottom" to "4pt"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))
     }
 }

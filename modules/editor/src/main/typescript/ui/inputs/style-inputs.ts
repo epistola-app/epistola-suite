@@ -40,6 +40,7 @@ export function renderUnitInput(
   onChange: (value: string) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
   inputId?: string,
+  readOnly = false,
 ): unknown {
   const defaultUnit = units[0] ?? 'pt';
   const parsed = parseValueWithUnit(value, defaultUnit);
@@ -70,11 +71,16 @@ export function renderUnitInput(
         id=${inputId ?? nothing}
         step=${parsed.unit === 'sp' ? '0.5' : '1'}
         .value=${String(parsed.value)}
+        ?disabled=${readOnly}
         @change=${handleNumberChange}
       />
       ${units.length > 1
         ? html`
-            <select class="ep-select style-unit-select" @change=${handleUnitChange}>
+            <select
+              class="ep-select style-unit-select"
+              ?disabled=${readOnly}
+              @change=${handleUnitChange}
+            >
               ${units.map(
                 (u) => html` <option .value=${u} ?selected=${u === parsed.unit}>${u}</option> `,
               )}
@@ -93,6 +99,7 @@ export function renderColorInput(
   value: unknown,
   onChange: (value: string) => void,
   inputId?: string,
+  readOnly = false,
 ): unknown {
   const colorValue = value != null ? String(value) : '';
   // Ensure the color picker gets a valid hex value
@@ -104,6 +111,7 @@ export function renderColorInput(
         type="color"
         class="style-color-picker"
         .value=${pickerValue}
+        ?disabled=${readOnly}
         @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
       />
       <input
@@ -111,6 +119,7 @@ export function renderColorInput(
         class="ep-input style-color-text"
         id=${inputId ?? nothing}
         .value=${colorValue}
+        ?disabled=${readOnly}
         @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
         placeholder="#000000"
       />
@@ -269,6 +278,7 @@ export function renderSpacingInput(
   onChange: (value: SpacingValue) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
   inputId?: string,
+  readOnly = false,
 ): unknown {
   const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
   const parsed = parseSpacingValue(value, firstAbsUnit);
@@ -307,6 +317,7 @@ export function renderSpacingInput(
               step=${currentUnit === 'sp' ? '0.5' : '1'}
               min="0"
               .value=${String(sideNumber(parsed[side]))}
+              ?disabled=${readOnly}
               @change=${(e: Event) => {
                 const num = parseFloat((e.target as HTMLInputElement).value) || 0;
                 handleSideChange(side, formatSide(num));
@@ -321,6 +332,7 @@ export function renderSpacingInput(
               <span class="style-spacing-label">&nbsp;</span>
               <select
                 class="ep-select style-spacing-unit"
+                ?disabled=${readOnly}
                 @change=${(e: Event) => {
                   const newUnit = (e.target as HTMLSelectElement).value;
                   const result: SpacingValue = { top: '', right: '', bottom: '', left: '' };
@@ -415,6 +427,122 @@ export function readSpacingFromStyles(
 }
 
 // ---------------------------------------------------------------------------
+// Border input: per-side border editing (width + style + color per side)
+// ---------------------------------------------------------------------------
+
+export interface BorderSideValue {
+  width: string;
+  style: string;
+  color: string;
+}
+
+export interface BorderValue {
+  top: BorderSideValue;
+  right: BorderSideValue;
+  bottom: BorderSideValue;
+  left: BorderSideValue;
+}
+
+const EMPTY_SIDE: BorderSideValue = { width: '', style: 'solid', color: '' };
+
+/** Check if all four border sides have equal values. */
+export function areBorderSidesEqual(border: BorderValue): boolean {
+  const { top, right, bottom, left } = border;
+  return (
+    top.width === right.width &&
+    top.width === bottom.width &&
+    top.width === left.width &&
+    top.style === right.style &&
+    top.style === bottom.style &&
+    top.style === left.style &&
+    top.color === right.color &&
+    top.color === bottom.color &&
+    top.color === left.color
+  );
+}
+
+/** Parse a border shorthand like "2pt solid #000" into parts. */
+export function parseBorderShorthand(raw: unknown): BorderSideValue {
+  if (raw == null || raw === '') return { ...EMPTY_SIDE };
+  const str = String(raw).trim();
+  const parts = str.split(/\s+/);
+  return {
+    width: parts[0] ?? '',
+    style: parts[1] ?? 'solid',
+    color: parts[2] ?? '',
+  };
+}
+
+/** Format border side parts back to a shorthand string. */
+function formatBorderShorthand(side: BorderSideValue): string {
+  if (!side.width || side.style === 'none') return '';
+  return `${side.width} ${side.style} ${side.color || '#000000'}`.trim();
+}
+
+/**
+ * Read per-side border values from individual style keys.
+ * Keys: borderTop, borderRight, borderBottom, borderLeft (shorthand strings like "2pt solid #000")
+ */
+export function readBorderFromStyles(styles: Record<string, unknown>): BorderValue | undefined {
+  const top = styles['borderTop'];
+  const right = styles['borderRight'];
+  const bottom = styles['borderBottom'];
+  const left = styles['borderLeft'];
+
+  if (top == null && right == null && bottom == null && left == null) return undefined;
+
+  return {
+    top: parseBorderShorthand(top),
+    right: parseBorderShorthand(right),
+    bottom: parseBorderShorthand(bottom),
+    left: parseBorderShorthand(left),
+  };
+}
+
+/**
+ * Expand a BorderValue into individual style keys.
+ * Writes: borderTop, borderRight, borderBottom, borderLeft as shorthand strings like "2pt solid #000".
+ */
+export function expandBorderToStyles(value: BorderValue, styles: Record<string, unknown>): void {
+  const sides = { Top: value.top, Right: value.right, Bottom: value.bottom, Left: value.left };
+  for (const [suffix, side] of Object.entries(sides)) {
+    const shorthand = formatBorderShorthand(side);
+    const key = `border${suffix}`;
+    if (shorthand) {
+      styles[key] = shorthand;
+    } else {
+      delete styles[key];
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compound style types: generic read/write for compound properties
+// ---------------------------------------------------------------------------
+
+/**
+ * Registry of compound style types that expand to/from individual style keys.
+ * Used by the inspector and theme editor to generically handle compound properties
+ * without hardcoding type-specific logic.
+ */
+export const COMPOUND_STYLE_TYPES: Record<
+  string,
+  {
+    read: (key: string, styles: Record<string, unknown>) => unknown;
+    write: (key: string, value: unknown, styles: Record<string, unknown>) => void;
+  }
+> = {
+  spacing: {
+    read: (key, styles) => readSpacingFromStyles(key, styles),
+    write: (key, value, styles) => expandSpacingToStyles(key, value as SpacingValue, styles),
+  },
+  border: {
+    read: (_key, styles) => readBorderFromStyles(styles),
+    write: (_key, value, styles) => expandBorderToStyles(value as BorderValue, styles),
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Select input (for style properties)
 // ---------------------------------------------------------------------------
 
@@ -423,6 +551,7 @@ export function renderSelectInput(
   options: { label: string; value: string }[],
   onChange: (value: string) => void,
   selectId?: string,
+  readOnly = false,
 ): unknown {
   const currentValue = value != null ? String(value) : '';
 
@@ -430,6 +559,7 @@ export function renderSelectInput(
     <select
       class="ep-select"
       id=${selectId ?? nothing}
+      ?disabled=${readOnly}
       @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
     >
       <option value="" ?selected=${!currentValue}>—</option>

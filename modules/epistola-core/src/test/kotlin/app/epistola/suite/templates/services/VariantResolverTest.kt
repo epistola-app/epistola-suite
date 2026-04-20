@@ -3,6 +3,7 @@ package app.epistola.suite.templates.services
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -26,14 +27,14 @@ class VariantResolverTest : IntegrationTestBase() {
     private fun setupAttributeDefinitions(tenantId: TenantId): Unit = withMediator {
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), tenantId),
+                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "french"),
             ),
         )
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("brand"), tenantId),
+                id = AttributeId(AttributeKey.of("brand"), CatalogId.default(tenantId)),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
             ),
@@ -49,7 +50,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -90,7 +91,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -135,7 +136,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -178,7 +179,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -224,7 +225,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -258,7 +259,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -302,7 +303,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -350,7 +351,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -404,7 +405,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -450,7 +451,7 @@ class VariantResolverTest : IntegrationTestBase() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
@@ -473,7 +474,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 setupAttributeDefinitions(tenantId)
-                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
                 val template = mediator.send(
                     CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )

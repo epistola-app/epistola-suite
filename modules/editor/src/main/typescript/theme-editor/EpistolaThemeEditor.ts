@@ -26,6 +26,7 @@ export class EpistolaThemeEditor extends LitElement {
   // Injected from outside
   themeState?: ThemeEditorState;
   onSave?: (payload: object) => Promise<void>;
+  private _readOnly = false;
 
   @state() private _saveState: SaveState = 'idle';
   @state() private _errorMessage = '';
@@ -35,13 +36,16 @@ export class EpistolaThemeEditor extends LitElement {
   private _boundKeydown = this._handleKeydown.bind(this);
   private _boundBeforeUnload = this._handleBeforeUnload.bind(this);
 
-  init(themeData: ThemeData, onSave: (payload: object) => Promise<void>): void {
+  init(themeData: ThemeData, onSave: (payload: object) => Promise<void>, readOnly = false): void {
     this.themeState = new ThemeEditorState(themeData);
     this.onSave = onSave;
+    this._readOnly = readOnly;
 
     this.themeState.addEventListener('change', () => {
       this._saveState = 'dirty';
-      this._scheduleAutosave();
+      if (!this._readOnly) {
+        this._scheduleAutosave();
+      }
       this.requestUpdate();
     });
   }
@@ -66,11 +70,13 @@ export class EpistolaThemeEditor extends LitElement {
     }
 
     return html`
-      ${this._renderStatusBar()}
+      ${this._readOnly ? '' : this._renderStatusBar()}
       <div class="theme-editor-layout">
         <div class="theme-editor-panel">
-          ${renderBasicInfoSection(this.themeState)} ${renderDocumentStylesSection(this.themeState)}
-          ${renderPageSettingsSection(this.themeState)} ${renderPresetsSection(this.themeState)}
+          ${renderBasicInfoSection(this.themeState, this._readOnly)}
+          ${renderDocumentStylesSection(this.themeState, this._readOnly)}
+          ${renderPageSettingsSection(this.themeState, this._readOnly)}
+          ${renderPresetsSection(this.themeState, this._readOnly)}
         </div>
         <div class="theme-editor-preview">
           <div class="theme-editor-preview-placeholder">Preview panel coming soon</div>
@@ -149,6 +155,7 @@ export class EpistolaThemeEditor extends LitElement {
   // -----------------------------------------------------------------------
 
   private _handleKeydown(e: KeyboardEvent): void {
+    if (this._readOnly) return;
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       this._save();

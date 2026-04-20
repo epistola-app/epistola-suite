@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="tab-content">
+        <div id="deployments-content">
+            <div th:replace="~{templates/deployment-matrix :: deployment-matrix}"></div>
+        </div>
+    </th:block>
+</body>
+</html>

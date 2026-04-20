@@ -49,17 +49,24 @@ class GetEditorContextHandler(
                 COALESCE(dt.draft_data_model, dt.data_model) as data_model,
                 COALESCE(dt.draft_data_examples, dt.data_examples) as data_examples,
                 tv.attributes as variant_attributes,
-                ver.template_model as draft_template_model
+                COALESCE(draft.template_model, published.template_model) as draft_template_model
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
-            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft'
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            LEFT JOIN template_versions draft ON draft.tenant_key = tv.tenant_key AND draft.catalog_key = tv.catalog_key AND draft.template_key = tv.template_key AND draft.variant_key = tv.id AND draft.status = 'draft'
+            LEFT JOIN LATERAL (
+                SELECT template_model FROM template_versions
+                WHERE tenant_key = tv.tenant_key AND catalog_key = tv.catalog_key AND template_key = tv.template_key AND variant_key = tv.id AND status = 'published'
+                ORDER BY id DESC LIMIT 1
+            ) published ON draft.template_model IS NULL
             WHERE tv.template_key = :templateId
               AND tv.tenant_key = :tenantId
+              AND tv.catalog_key = :catalogKey
               AND tv.id = :variantId
             """,
         )
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
+            .bind("catalogKey", query.variantId.catalogKey)
             .bind("variantId", query.variantId.key)
             .mapToMap()
             .findOne()
@@ -103,7 +110,7 @@ class GetEditorContextHandler(
             } else {
                 null
             }
-        } ?: error("Variant ${query.variantId} has no draft with templateModel - data integrity issue")
+        } ?: error("Variant ${query.variantId} has no draft or published version with templateModel")
 
         EditorContext(
             templateName = row["template_name"] as String,

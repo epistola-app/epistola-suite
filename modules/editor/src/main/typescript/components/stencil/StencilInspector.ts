@@ -11,7 +11,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Node, TemplateDocument } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import type { StencilCallbacks } from './types.js';
+import type { StencilCallbacks, StencilRef } from './types.js';
 import { extractSubtree } from './extract-subtree.js';
 import { replaceStencilSlotContent } from './replace-content.js';
 
@@ -50,11 +50,10 @@ export class StencilInspector extends LitElement {
 
   /** Check for upgrades for this specific stencil on every selection. */
   private async _checkForUpgrades() {
-    if (!this.callbacks?.listVersions || !this._stencilId || !this._version || this._isDraft)
-      return;
+    if (!this.callbacks?.listVersions || !this._ref || !this._version || this._isDraft) return;
 
     try {
-      const versions = await this.callbacks.listVersions(this._stencilId);
+      const versions = await this.callbacks.listVersions(this._ref);
       const latestPublished = versions
         .filter((v) => v.status === 'published')
         .toSorted((a, b) => b.version - a.version)[0];
@@ -64,7 +63,7 @@ export class StencilInspector extends LitElement {
           this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
         this.engine.setComponentState('stencil:upgrades', {
           ...current,
-          [this._stencilId]: latestPublished.version,
+          [this._stencilId!]: latestPublished.version,
         });
       }
     } catch {
@@ -90,6 +89,12 @@ export class StencilInspector extends LitElement {
 
   private get _stencilId(): string | null {
     return (this.node.props?.stencilId as string) ?? null;
+  }
+
+  private get _ref(): StencilRef | null {
+    const id = this._stencilId;
+    const catalog = this.node.props?.catalogKey as string | null;
+    return id && catalog ? { stencilId: id, catalogKey: catalog } : null;
   }
 
   private get _version(): number | null {
@@ -217,7 +222,7 @@ export class StencilInspector extends LitElement {
     this._message = '';
 
     try {
-      const result = await this.callbacks.startEditing(this._stencilId);
+      const result = await this.callbacks.startEditing(this._ref!);
       this._draftVersion = result.draftVersion;
 
       this.engine.dispatch({
@@ -238,15 +243,12 @@ export class StencilInspector extends LitElement {
   }
 
   private async _handleUpgrade() {
-    if (!this.callbacks?.getStencilVersion || !this._stencilId || !this._latestVersion) return;
+    if (!this.callbacks?.getStencilVersion || !this._ref || !this._latestVersion) return;
     this._busy = true;
     this._message = '';
 
     try {
-      const versionInfo = await this.callbacks.getStencilVersion(
-        this._stencilId,
-        this._latestVersion,
-      );
+      const versionInfo = await this.callbacks.getStencilVersion(this._ref, this._latestVersion);
       if (!versionInfo) {
         this._message = 'Could not load the new version';
         return;
@@ -275,13 +277,13 @@ export class StencilInspector extends LitElement {
   }
 
   private async _handleSaveDraft() {
-    if (!this.callbacks?.updateStencil || !this._stencilId) return;
+    if (!this.callbacks?.updateStencil || !this._ref) return;
     this._busy = true;
     this._message = '';
 
     try {
       const content = extractSubtree(this.engine.doc, this.node.id);
-      const result = await this.callbacks.updateStencil(this._stencilId, content);
+      const result = await this.callbacks.updateStencil(this._ref!, content);
       this._draftVersion = result.version;
 
       this._message = `Draft v${result.version} saved`;
@@ -294,7 +296,7 @@ export class StencilInspector extends LitElement {
 
   private async _handlePublishDraft() {
     const draftVersion = this._draftVersion ?? this._version;
-    if (!this.callbacks?.publishDraft || !this._stencilId || !draftVersion) return;
+    if (!this.callbacks?.publishDraft || !this._ref || !draftVersion) return;
     this._busy = true;
     this._message = '';
 
@@ -302,11 +304,11 @@ export class StencilInspector extends LitElement {
       // Save current content to draft first
       if (this.callbacks.updateStencil) {
         const content = extractSubtree(this.engine.doc, this.node.id);
-        await this.callbacks.updateStencil(this._stencilId, content);
+        await this.callbacks.updateStencil(this._ref, content);
       }
 
       // Publish the draft
-      const result = await this.callbacks.publishDraft(this._stencilId, draftVersion);
+      const result = await this.callbacks.publishDraft(this._ref, draftVersion);
 
       // Update node to reference the new published version and exit draft mode
       this.engine.dispatch({
@@ -328,13 +330,13 @@ export class StencilInspector extends LitElement {
   }
 
   private async _handleDiscard() {
-    if (!this.callbacks?.getStencilVersion || !this._stencilId || !this._version) return;
+    if (!this.callbacks?.getStencilVersion || !this._ref || !this._version) return;
     this._busy = true;
     this._message = '';
 
     try {
       // Fetch the published version's content
-      const versionInfo = await this.callbacks.getStencilVersion(this._stencilId, this._version);
+      const versionInfo = await this.callbacks.getStencilVersion(this._ref!, this._version);
       if (!versionInfo) {
         this._message = 'Could not load published version';
         return;

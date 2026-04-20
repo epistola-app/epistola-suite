@@ -47,9 +47,9 @@ importers:
       '@atlaskit/pragmatic-drag-and-drop-hitbox':
         specifier: ^1.1.0
         version: 1.1.0
-      '@epistola.app/editor-model':
-        specifier: 0.1.18
-        version: 0.1.18
+      '@epistola.app/epistola-model':
+        specifier: 0.2.3
+        version: 0.2.3
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -260,8 +260,8 @@ packages:
   '@emnapi/wasi-threads@1.2.0':
     resolution: {integrity: sha512-N10dEJNSsUx41Z6pZsXU8FjPjpBEplgH24sfkmITrBED1/U2Esum9F3lfLrMjKHHjmi557zQn7kR9R+XWXu5Rg==}
 
-  '@epistola.app/editor-model@0.1.18':
-    resolution: {integrity: sha512-g+96xABLTPbWs5XzoXLQIg0KxLZAVw3C3ZxRQqnL8Ruvsp7JFZsvkUumUjTwsNUJaFs3lWgYm9Smg86xuBZjEA==}
+  '@epistola.app/epistola-model@0.2.3':
+    resolution: {integrity: sha512-Hi7v5+xj7m1V0UACXB0imQKFlmVudXULIXEjOGYrRzhDkpm+IW0xgjCASDFFeki5pseQXBLwlhM2/iWoLBdfHg==}
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -1908,7 +1908,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@epistola.app/editor-model@0.1.18': {}
+  '@epistola.app/epistola-model@0.2.3': {}
 
   '@esbuild/aix-ppc64@0.27.3':
     optional: true

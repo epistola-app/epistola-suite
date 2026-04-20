@@ -7,6 +7,7 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
@@ -23,6 +24,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
@@ -152,7 +154,8 @@ class DocumentGenerationExecutor(
 
         // Build composite IDs
         val tenantId = TenantId(request.tenantKey)
-        val templateId = TemplateId(request.templateKey, tenantId)
+        val catalogId = CatalogId(request.catalogKey, tenantId)
+        val templateId = TemplateId(request.templateKey, catalogId)
         val variantId = VariantId(request.variantKey, templateId)
 
         // 1. Resolve template version
@@ -161,11 +164,15 @@ class DocumentGenerationExecutor(
             val versionId = VersionId(request.versionKey, variantId)
             mediator.query(GetVersion(versionId))
                 ?: throw IllegalStateException("Version ${request.versionKey} not found")
-        } else {
+        } else if (request.environmentKey != null) {
             // Use environment to determine active version
-            val environmentId = EnvironmentId(request.environmentKey!!, tenantId)
+            val environmentId = EnvironmentId(request.environmentKey, tenantId)
             mediator.query(GetActiveVersion(variantId, environmentId))
                 ?: throw IllegalStateException("No active version for environment ${request.environmentKey}")
+        } else {
+            // Fallback: latest published version (safety net — handler should have resolved this)
+            mediator.query(GetLatestPublishedVersion(variantId))
+                ?: throw IllegalStateException("No published version found for template ${request.templateKey} variant ${request.variantKey}. Import a catalog or publish a version first.")
         }
 
         // 2. Get template model
@@ -256,6 +263,7 @@ class DocumentGenerationExecutor(
         val document = Document(
             id = DocumentKey.generate(),
             tenantKey = request.tenantKey,
+            catalogKey = request.catalogKey,
             templateKey = request.templateKey,
             variantKey = request.variantKey,
             versionKey = version.id,
@@ -301,12 +309,12 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, template_key, variant_key, version_key,
+                    id, tenant_key, catalog_key, template_key, variant_key, version_key,
                     filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
                 VALUES (
-                    :id, :tenantId, :templateId, :variantId, :versionId,
+                    :id, :tenantId, :catalogKey, :templateId, :variantId, :versionId,
                     :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
@@ -314,6 +322,7 @@ class DocumentGenerationExecutor(
             )
                 .bind("id", document.id)
                 .bind("tenantId", document.tenantKey)
+                .bind("catalogKey", document.catalogKey)
                 .bind("templateId", document.templateKey)
                 .bind("variantId", document.variantKey)
                 .bind("versionId", document.versionKey)

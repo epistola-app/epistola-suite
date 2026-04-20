@@ -1,14 +1,17 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewDocument
-import app.epistola.suite.documents.queries.PreviewDraft
+import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.templates.commands.PublishDocumentTemplateContractDraft
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
@@ -25,7 +28,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
 
     @Nested
-    inner class PreviewDraftTests {
+    inner class PreviewVariantTests {
 
         @Test
         fun `preview draft returns PDF bytes`() = scenario {
@@ -33,7 +36,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -41,8 +44,9 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 query(
-                    PreviewDraft(
+                    PreviewVariant(
                         tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -64,7 +68,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -73,8 +77,9 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.whenever { setup ->
                 val liveModel = TestTemplateBuilder.buildMinimal(name = "Live Preview Model")
                 query(
-                    PreviewDraft(
+                    PreviewVariant(
                         tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -93,8 +98,9 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             withAuthentication {
                 assertThatThrownBy {
                     mediator.query(
-                        PreviewDraft(
+                        PreviewVariant(
                             tenantId = tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = app.epistola.suite.common.ids.TemplateKey.of("nonexistent"),
                             variantId = app.epistola.suite.common.ids.VariantKey.of("nonexistent"),
                             data = emptyData(),
@@ -110,7 +116,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -133,8 +139,9 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 // Empty data should fail validation (missing required 'name')
                 assertThatThrownBy {
                     query(
-                        PreviewDraft(
+                        PreviewVariant(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -156,7 +163,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -166,6 +173,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 query(
                     PreviewDocument(
                         tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         versionId = setup.version.id,
@@ -184,7 +192,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -197,6 +205,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     query(
                         PreviewDocument(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             versionId = app.epistola.suite.common.ids.VersionKey.of(199),
@@ -210,41 +219,12 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `preview requires versionId or environmentId`() = scenario {
-            given {
-                val tenant = tenant("Test Tenant")
-                val tenantId = TenantId(tenant.id)
-                val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
-                val variant = variant(compositeTemplateId, "Default")
-                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
-                val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-                val version = version(compositeVariantId, templateModel)
-                DocumentSetup(tenant, template, variant, version)
-            }.whenever { setup ->
-                setup
-            }.then { setup, _ ->
-                assertThatThrownBy {
-                    query(
-                        PreviewDocument(
-                            tenantId = setup.tenant.id,
-                            templateId = setup.template.id,
-                            variantId = setup.variant.id,
-                            data = emptyData(),
-                        ),
-                    )
-                }.isInstanceOf(IllegalArgumentException::class.java)
-                    .hasMessageContaining("versionId or environmentId")
-            }
-        }
-
-        @Test
         fun `preview validates data against schema`() = scenario {
             given {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
-                val compositeTemplateId = TemplateId(template.id, tenantId)
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
@@ -268,6 +248,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     query(
                         PreviewDocument(
                             tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             versionId = setup.version.id,

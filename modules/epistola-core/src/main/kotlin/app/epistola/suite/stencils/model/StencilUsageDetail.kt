@@ -1,5 +1,7 @@
 package app.epistola.suite.stencils.model
 
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -10,6 +12,8 @@ import app.epistola.suite.common.ids.VersionKey
  */
 data class StencilUsageDetail(
     val templateId: TemplateKey,
+    val catalogKey: CatalogKey,
+    val catalogType: CatalogType = CatalogType.AUTHORED,
     val templateName: String,
     val variantId: VariantKey,
     val versionId: VersionKey,

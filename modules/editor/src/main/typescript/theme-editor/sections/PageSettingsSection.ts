@@ -10,7 +10,7 @@ import type { ThemeEditorState } from '../ThemeEditorState.js';
 
 const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
 
-export function renderPageSettingsSection(state: ThemeEditorState): unknown {
+export function renderPageSettingsSection(state: ThemeEditorState, readOnly = false): unknown {
   const settings = state.theme.pageSettings;
   const format = settings?.format ?? 'A4';
   const orientation = settings?.orientation ?? 'portrait';
@@ -28,6 +28,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
         <select
           id="theme-page-format"
           class="ep-select"
+          ?disabled=${readOnly}
           @change=${(e: Event) =>
             state.updatePageSetting('format', (e.target as HTMLSelectElement).value)}
         >
@@ -42,6 +43,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
         <select
           id="theme-page-orientation"
           class="ep-select"
+          ?disabled=${readOnly}
           @change=${(e: Event) =>
             state.updatePageSetting('orientation', (e.target as HTMLSelectElement).value)}
         >
@@ -67,6 +69,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
                   id=${`theme-page-margin-${side}`}
                   class="ep-input style-spacing-number"
                   .value=${String(margins[side])}
+                  ?disabled=${readOnly}
                   @change=${(e: Event) =>
                     state.updateMargin(side, Number((e.target as HTMLInputElement).value))}
                 />
@@ -84,6 +87,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
           backgroundColor,
           (value) => state.updatePageSetting('backgroundColor', value || undefined),
           'theme-page-background-color',
+          readOnly,
         )}
       </div>
 
@@ -100,6 +104,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
           max="16"
           step="0.5"
           .value=${String(state.theme.spacingUnit ?? DEFAULT_SPACING_UNIT)}
+          ?disabled=${readOnly}
           @change=${(e: Event) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             if (val >= 1 && val <= 16) {

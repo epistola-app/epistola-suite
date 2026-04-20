@@ -11,12 +11,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps -o build/sbom.json"
+    "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps --spec-version 1.6 -o build/sbom.json"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.7",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
-    "@epistola.app/editor-model": "0.1.18",
+    "@epistola.app/epistola-model": "0.2.3",
     "@epistola/design-system": "workspace:*",
     "@floating-ui/dom": "^1.7.5",
     "jsonata": "^2.0.5",

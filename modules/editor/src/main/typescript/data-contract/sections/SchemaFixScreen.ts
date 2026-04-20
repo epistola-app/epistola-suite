@@ -310,6 +310,7 @@ function renderFixField(
             noopClear,
             0,
             errorMap,
+            false,
           )
         : html`<input
             type="text"

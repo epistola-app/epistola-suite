@@ -5,7 +5,7 @@
  * how they should be edited, and which ones cascade from document styles.
  */
 
-import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
+import type { StyleRegistry } from '@epistola.app/epistola-model/generated/style-registry';
 
 export const defaultStyleRegistry: StyleRegistry = {
   groups: [
@@ -91,20 +91,16 @@ export const defaultStyleRegistry: StyleRegistry = {
       name: 'borders',
       label: 'Borders',
       properties: [
-        { key: 'borderWidth', label: 'Width', type: 'unit', units: ['pt', 'sp'] },
-        {
-          key: 'borderStyle',
-          label: 'Style',
-          type: 'select',
-          options: [
-            { label: 'None', value: 'none' },
-            { label: 'Solid', value: 'solid' },
-            { label: 'Dashed', value: 'dashed' },
-            { label: 'Dotted', value: 'dotted' },
-          ],
-        },
-        { key: 'borderColor', label: 'Color', type: 'color' },
+        { key: 'border', label: 'Border', type: 'border', units: ['pt', 'sp'] },
         { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt', 'sp'] },
+      ],
+    },
+    {
+      name: 'pageFlow',
+      label: 'Page Flow',
+      properties: [
+        { key: 'keepTogether', label: 'Keep Together', type: 'boolean' },
+        { key: 'keepWithNext', label: 'Keep With Next', type: 'boolean' },
       ],
     },
   ],

@@ -10,13 +10,14 @@
 
 import type {
   StencilCallbacks,
+  StencilRef,
   StencilSummary,
   StencilVersionSummary,
   StencilVersionInfo,
 } from './types.js';
 
 export type StencilPickerResult =
-  | { action: 'create-new'; stencilId: string; version: number }
+  | { action: 'create-new'; ref: StencilRef; version: number }
   | { action: 'use-existing'; versionInfo: StencilVersionInfo }
   | null;
 
@@ -135,8 +136,12 @@ export async function openStencilPickerDialog(
             ? `v${stencil.latestVersion} (draft)`
             : '<span class="text-muted">no versions</span>';
 
+        const catalogBadge = stencil.catalogKey
+          ? `<span class="stencil-picker-tag">${stencil.catalogKey}</span>`
+          : '';
+
         card.innerHTML = `
-          <div class="stencil-picker-card-name">${stencil.name}</div>
+          <div class="stencil-picker-card-name">${stencil.name} ${catalogBadge}</div>
           <div class="stencil-picker-card-meta">
             <span class="stencil-picker-card-version">${versionLabel}</span>
             ${tags ? `<span class="stencil-picker-card-tags">${tags}</span>` : ''}
@@ -164,7 +169,10 @@ export async function openStencilPickerDialog(
       selectedVersion = null;
 
       try {
-        const versions = await callbacks.listVersions(stencil.id);
+        const versions = await callbacks.listVersions({
+          stencilId: stencil.id,
+          catalogKey: stencil.catalogKey ?? 'default',
+        });
         renderVersionList(versions);
       } catch {
         versionList.innerHTML = '<div class="stencil-picker-empty">Failed to load versions.</div>';
@@ -293,7 +301,11 @@ export async function openStencilPickerDialog(
 
       try {
         const result = await callbacks.createStencil(slug, name);
-        close({ action: 'create-new', stencilId: result.stencilId, version: result.version });
+        close({
+          action: 'create-new',
+          ref: result.ref,
+          version: result.version,
+        });
       } catch (e) {
         createError.textContent = (e as Error).message || 'Failed to create stencil';
         createError.style.display = '';
@@ -311,10 +323,11 @@ export async function openStencilPickerDialog(
       insertBtn.disabled = true;
       insertBtn.textContent = 'Loading...';
 
-      const versionInfo = await callbacks.getStencilVersion(
-        selectedStencil.id,
-        selectedVersion.version,
-      );
+      const ref: StencilRef = {
+        stencilId: selectedStencil.id,
+        catalogKey: selectedStencil.catalogKey ?? 'default',
+      };
+      const versionInfo = await callbacks.getStencilVersion(ref, selectedVersion.version);
       if (!versionInfo) {
         insertBtn.textContent = 'Insert';
         insertBtn.disabled = false;
@@ -357,7 +370,7 @@ export async function openStencilPickerDialog(
         if (createConfirmBtn) createConfirmBtn.style.display = '';
       } else {
         // No create callback — insert empty (legacy fallback)
-        close({ action: 'create-new', stencilId: '', version: 0 });
+        close({ action: 'create-new', ref: { stencilId: '', catalogKey: '' }, version: 0 });
       }
     });
     const createConfirmBtn = dialog.querySelector<HTMLButtonElement>('.create-confirm');

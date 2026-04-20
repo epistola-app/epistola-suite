@@ -25,6 +25,8 @@ export interface ThemeEditorOptions {
   theme: ThemeData;
   /** Callback when saving — receives the minimal PATCH payload */
   onSave: (payload: object) => Promise<void>;
+  /** When true, all inputs are disabled and saving is suppressed */
+  readonly?: boolean;
 }
 
 export interface ThemeEditorInstance {
@@ -36,12 +38,12 @@ export interface ThemeEditorInstance {
  * Mount the theme editor into a DOM element.
  */
 export function mountThemeEditor(options: ThemeEditorOptions): ThemeEditorInstance {
-  const { container, theme, onSave } = options;
+  const { container, theme, onSave, readonly } = options;
 
   const editorEl = document.createElement('epistola-theme-editor') as EpistolaThemeEditor;
   editorEl.style.display = 'block';
 
-  editorEl.init(theme, onSave);
+  editorEl.init(theme, onSave, readonly);
 
   container.innerHTML = '';
   container.appendChild(editorEl);

@@ -1,731 +1,348 @@
 # Catalogs & Resource Exchange
 
-Catalogs are a first-class entity in Epistola for organizing, versioning, and sharing templates. A catalog groups templates under a common identity and supports releasing versioned snapshots of its contents. Catalogs can be **local** (created within the instance) or **imported** (sourced from a remote URL). Local catalogs can optionally be made public, exposing them via a `.well-known` endpoint for other Epistola instances to consume.
+Catalogs are first-class entities in Epistola for organizing, sharing, and importing resources. A catalog groups templates, themes, stencils, attributes, and assets under a common identity. Every resource belongs to exactly one catalog.
 
 ## Concepts
 
-### Catalog
+### Catalog Types
 
-A catalog is a tenant-scoped container that owns a set of templates. Every template belongs to at most one catalog — or to none (standalone templates).
+- **Authored**: Created within the Epistola instance. Resources are authored and managed here. Can be exported as ZIP archives.
+- **Subscribed**: Sourced from a remote URL. Resources are installed from the remote catalog. The installed release version is tracked for upgrade detection.
 
-Catalogs have two types:
+Every tenant has a `default` catalog (authored) that cannot be deleted. Additional catalogs can be created or subscribed to.
 
-- **Local**: Created within the Epistola instance. Templates are authored and managed here. Can be released as versioned snapshots and optionally published via `.well-known`.
-- **Imported**: Sourced from a remote URL. Templates are installed from the remote catalog and can be upgraded when new releases are published upstream.
+### Resource Types
 
-### Catalog Release
+Catalogs contain five resource types, installed in dependency order:
 
-A release is a versioned, immutable snapshot of a catalog's contents at a point in time. When a catalog owner creates a release, Epistola captures the current state of all templates (including their variants and the latest published version of each) and assigns it a version label.
+1. **Assets** — Binary images (PNG, JPEG, WebP, SVG) used in templates
+2. **Attributes** — Variant attribute definitions (e.g., language, region)
+3. **Themes** — Document styles, page settings, block style presets
+4. **Stencils** — Reusable content blocks with versioning
+5. **Templates** — Document templates with variants, versions, and data contracts
 
-Releases serve two purposes:
+### Catalog Scoping
 
-- **For local catalogs**: a release is what gets published. The `.well-known` endpoint and exported catalog files reflect the latest release, not the live state of the templates.
-- **For imported catalogs**: a release represents a version available from the upstream source. The installed release version is stored locally so Epistola can detect when a newer release is available.
+All catalog-scoped tables use a composite primary key: `(tenant_key, catalog_key, id)`. This means the same slug can exist in multiple catalogs within a tenant. All queries filter by `catalog_key` to ensure isolation.
 
-### Template Ownership
+### Read-Only Enforcement
 
-A template belongs to at most one catalog (via the `catalog_templates` join table) or to none (standalone). Templates in a catalog are managed together — they are released, exported, and upgraded as a unit.
+Resources in subscribed catalogs are read-only. All mutating command handlers call `requireCatalogEditable()` which checks `IsCatalogEditable` (verifying the catalog type is `AUTHORED`). The UI hides edit/delete controls and shows a "Read-only" badge for subscribed resources.
 
-When importing a catalog, all templates from that catalog are created under the imported catalog entity. This keeps a clear separation between locally-authored templates and imported ones.
+During catalog import, the `CatalogImportContext` ScopedValue bypasses editability checks so that `InstallFromCatalog` can write resources into subscribed catalogs.
 
-### Source Tracking
+## Architecture
 
-Imported catalogs store metadata about their remote source:
-
-- The remote catalog URL
-- The installed release version
-- When the last install or upgrade happened
-
-This enables detecting available upgrades by comparing the local release version with the remote catalog's latest release.
-
-## Module Architecture
-
-The catalog feature is implemented as an independent module (`modules/epistola-catalog/`) that depends on `epistola-core` but does not modify it. Core has no awareness of catalogs.
+All catalog logic lives in `modules/epistola-core` under `app.epistola.suite.catalog`:
 
 ```
-modules/
-  epistola-core/       # Existing — unchanged
-  epistola-catalog/    # New — all catalog logic
-    src/main/kotlin/
-      app/epistola/suite/catalog/
-        Catalog.kt                  # Entity
-        CatalogRelease.kt           # Entity
-        CatalogTemplate.kt          # Entity (join table)
-        CatalogClient.kt            # HTTP client for remote catalogs
-        commands/                    # CreateCatalog, CreateRelease, ImportCatalog, UpgradeCatalog, ...
-        queries/                     # ListCatalogs, GetCatalogDiff, ...
-    src/main/resources/
-      db/migration/catalog/         # Own Flyway migration path
+catalog/
+  Catalog.kt                      # Data model (CatalogType, AuthType)
+  CatalogClient.kt                # HTTP/file/classpath fetching
+  CatalogImportContext.kt          # ScopedValue for import bypass
+  CatalogReadOnlyException.kt     # requireCatalogEditable()
+  DependencyResolver.kt           # Transitive dependency resolution
+  DependencyScanner.kt            # Scan template model for refs
+  commands/
+    CreateCatalog.kt               # Create authored catalog
+    RegisterCatalog.kt             # Subscribe to remote catalog
+    UnregisterCatalog.kt           # Remove catalog + all resources
+    InstallFromCatalog.kt          # Import orchestrator
+    ExportCatalog.kt               # Export by template dependencies
+    ExportCatalogZip.kt            # Export entire catalog as ZIP
+    Import*.kt                     # Per-type importers
+  queries/
+    BrowseCatalog.kt               # List resources in catalog
+    ExportAssets.kt                # Query assets for export
+    ExportResources.kt             # Query themes/stencils/attributes for export
+    GetCatalog.kt, ListCatalogs.kt
+    PreviewInstall.kt              # Dependency resolution preview
+  protocol/
+    CatalogManifest.kt            # Wire format
+    ResourceDetail.kt             # Resource detail wire format
 ```
 
-The module interacts with core through:
+UI handlers and routes are in `apps/epistola`:
 
-- **`ImportTemplates` command**: used to upsert templates during catalog install/upgrade.
-- **`ExportTemplates` query**: used to build release snapshots from live templates.
-- **Domain types**: `TemplateKey`, `TenantKey`, `VariantKey`, etc.
-- **JDBI**: joins against `document_templates` for read queries, but never modifies its schema.
-
-The `.well-known` controller and UI handlers live in `apps/epistola` (web layer), calling into the catalog module's commands and queries.
+- `CatalogHandler.kt` — list, create, register, unregister, browse, install, export
+- `CatalogRoutes.kt` — route bindings under `/tenants/{tenantId}/catalogs`
 
 ## Data Model
 
-All catalog tables are owned by the catalog module. The core `document_templates` table is **not modified** — the relationship is maintained through a separate join table.
-
 ### `catalogs`
 
-| Field                       | Type                  | Description                                                                    |
-| --------------------------- | --------------------- | ------------------------------------------------------------------------------ |
-| `id`                        | CatalogKey (slug)     | URL-safe slug identifier (3-50 chars). Unique per tenant.                      |
-| `tenant_key`                | TenantKey             | Owning tenant. FK to `tenants(id)`.                                            |
-| `name`                      | varchar(255)          | Human-readable display name.                                                   |
-| `description`               | text, nullable        | Optional description.                                                          |
-| `type`                      | varchar(20)           | `LOCAL` or `IMPORTED`.                                                         |
-| `source_url`                | text, nullable        | Remote catalog URL. Required for `IMPORTED`, null for `LOCAL`.                 |
-| `source_auth_type`          | varchar(20), nullable | `NONE`, `API_KEY`, or `BEARER`. For imported catalogs.                         |
-| `source_auth_credential`    | text, nullable        | Encrypted credential for authenticated remote catalogs.                        |
-| `public`                    | boolean               | Whether this catalog is exposed via `.well-known`. Only applicable to `LOCAL`. |
-| `installed_release_version` | varchar(50), nullable | Version label of the currently installed release. For `IMPORTED` only.         |
-| `installed_at`              | timestamptz, nullable | When the catalog was last installed or upgraded. For `IMPORTED` only.          |
-| `created_at`                | timestamptz           | Creation timestamp.                                                            |
-| `last_modified`             | timestamptz           | Last modification timestamp.                                                   |
+| Field                       | Type              | Description                                       |
+| --------------------------- | ----------------- | ------------------------------------------------- |
+| `id`                        | CatalogKey (slug) | URL-safe slug. Unique per tenant.                 |
+| `tenant_key`                | TenantKey         | Owning tenant.                                    |
+| `name`                      | varchar(255)      | Display name.                                     |
+| `description`               | text, nullable    | Optional description.                             |
+| `type`                      | varchar(20)       | `AUTHORED` or `SUBSCRIBED`.                       |
+| `source_url`                | text, nullable    | Remote catalog URL. Required for `SUBSCRIBED`.    |
+| `source_auth_type`          | varchar(20)       | `NONE`, `API_KEY`, or `BEARER`.                   |
+| `source_auth_credential`    | text, nullable    | Credential for authenticated remote catalogs.     |
+| `installed_release_version` | varchar(50)       | Installed release version. For `SUBSCRIBED` only. |
+| `installed_at`              | timestamptz       | Last install/upgrade timestamp.                   |
+| `created_at`                | timestamptz       | Creation timestamp.                               |
+| `last_modified`             | timestamptz       | Last modification timestamp.                      |
 
 Primary key: `(tenant_key, id)`.
 
-### `catalog_releases`
+### Resource Tables
 
-| Field           | Type            | Description                                                 |
-| --------------- | --------------- | ----------------------------------------------------------- |
-| `id`            | UUID            | Unique identifier.                                          |
-| `tenant_key`    | TenantKey       | Owning tenant.                                              |
-| `catalog_key`   | CatalogKey      | Parent catalog. FK to `catalogs(tenant_key, id)`.           |
-| `version`       | varchar(50)     | Version label. Unique per catalog.                          |
-| `snapshot`      | JSONB           | Serialized catalog manifest with embedded resource details. |
-| `compatibility` | JSONB, nullable | `{ "epistolaVersions": ">=0.12.0" }` constraint.            |
-| `released_at`   | timestamptz     | When this release was created.                              |
+Resources have `catalog_key` as part of their primary key:
 
-Primary key: `(tenant_key, catalog_key, version)`.
-
-The `snapshot` field contains the complete catalog state at release time — all templates, variants, and their template models. This makes releases fully self-contained and immutable.
-
-### `catalog_templates`
-
-This join table links templates to catalogs. It is the only table that references `document_templates`, and it does so via a foreign key — core's schema is never modified.
-
-| Field                   | Type            | Description                                                                                             |
-| ----------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
-| `tenant_key`            | TenantKey       | Owning tenant.                                                                                          |
-| `catalog_key`           | CatalogKey      | Parent catalog. FK to `catalogs(tenant_key, id)`.                                                       |
-| `template_key`          | TemplateKey     | The template. FK to `document_templates(tenant_key, id)`.                                               |
-| `catalog_resource_slug` | text            | The slug of this template in the origin catalog. May differ from the local slug if remapped on install. |
-| `installed_snapshot`    | JSONB, nullable | Snapshot of the resource payload at install/upgrade time. Used for local change detection.              |
-
-Primary key: `(tenant_key, catalog_key, template_key)`.
-Unique constraint: `(tenant_key, template_key)` — a template can belong to at most one catalog.
-
-#### Origin Link
-
-Every template in a catalog maintains a link back to its catalog resource via `catalog_resource_slug`. This link enables:
-
-- **Finding the upstream resource**: given a template, look up the corresponding resource in the catalog's latest release by slug.
-- **Slug remapping**: the local template slug can differ from the catalog resource slug. The origin link uses the catalog slug.
-- **Detecting removals**: if the catalog resource slug no longer exists in a new release, the template is flagged as "no longer in upstream".
-
-#### Installed Snapshot
-
-The `installed_snapshot` column stores the resource payload (template model, variants, data model, data examples) exactly as it was when the template was installed or last upgraded from the catalog. This enables detecting local changes by comparing the current template state against the snapshot.
-
-This comparison happens within a single Epistola instance — both the snapshot and the current state are serialized by the same system, so no cross-instance canonicalization is needed. For local catalogs, `installed_snapshot` is null (there's no "installed from" state to compare against).
+- `document_templates (tenant_key, catalog_key, id)`
+- `template_variants (tenant_key, catalog_key, template_key, id)`
+- `template_versions (tenant_key, catalog_key, template_key, variant_key, id)`
+- `themes (tenant_key, catalog_key, id)`
+- `stencils (tenant_key, catalog_key, id)`
+- `stencil_versions (tenant_key, catalog_key, stencil_key, id)`
+- `variant_attribute_definitions (tenant_key, catalog_key, id)`
+- `assets (tenant_key, catalog_key, id)` — Note: assets are catalog-scoped for ownership but can be referenced by any template in the tenant.
 
 ## Protocol Specification
 
-The catalog exchange protocol defines the wire format for sharing catalogs between Epistola instances. It is used both for the `.well-known` endpoint (served by Epistola) and for static catalog files hosted externally.
+The catalog exchange protocol defines the wire format for sharing catalogs between Epistola instances. It is used for remote catalog URLs, ZIP exports, and classpath-bundled demo catalogs.
 
-The catalog JSON schema is published as part of the [epistola-contract](https://github.com/epistola-app/epistola-contract) repository.
-
-### Catalog Manifest
-
-The catalog manifest is the top-level JSON document describing a catalog and its available resources.
-
-#### URL Convention
-
-```
-https://example.com/.well-known/epistola/v1/tenants/{tenantId}/catalogs/{catalogId}.json
-```
-
-For Epistola-served catalogs, this URL is generated automatically. For externally hosted catalogs, any URL that returns a valid manifest is accepted.
-
-#### Schema
+### Catalog Manifest (`catalog.json`)
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "catalog": {
     "slug": "acme-templates",
     "name": "Acme Corp Templates",
     "description": "Official templates for Acme Corp documents."
   },
   "publisher": {
-    "name": "Acme Corp",
-    "url": "https://example.com"
+    "name": "Acme Corp"
   },
   "release": {
-    "version": "2.1",
-    "releasedAt": "2026-04-01T10:00:00Z"
+    "version": "1.0"
   },
-  "compatibility": {
-    "epistolaVersions": ">=0.12.0"
-  },
-  "includes": [
-    {
-      "url": "https://community.example.com/.well-known/epistola/v1/catalog.json",
-      "description": "Community base templates"
-    }
-  ],
   "resources": [
     {
       "type": "template",
       "slug": "invoice-standard",
       "name": "Standard Invoice",
-      "description": "A clean, professional invoice template with line items, totals, and payment details.",
-      "updatedAt": "2026-04-01T10:00:00Z",
-      "detailUrl": "./resources/templates/invoice-standard.json",
-      "compatibility": {
-        "epistolaVersions": ">=0.12.0"
-      }
+      "detailUrl": "./resources/template/invoice-standard.json"
+    },
+    {
+      "type": "theme",
+      "slug": "corporate",
+      "name": "Corporate Theme",
+      "detailUrl": "./resources/theme/corporate.json"
+    },
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000001",
+      "name": "Company Logo",
+      "detailUrl": "./resources/asset/01966a00-0000-7000-8000-000000000001.json"
     }
+  ],
+  "dependencies": [
+    { "type": "theme", "catalogKey": "shared-styles", "slug": "base-theme" },
+    { "type": "stencil", "catalogKey": "shared-components", "slug": "company-header" },
+    { "type": "asset", "slug": "01966a00-0000-7000-8000-000000000002" }
   ]
 }
 ```
 
-| Field                                        | Type    | Required | Description                                                                           |
-| -------------------------------------------- | ------- | -------- | ------------------------------------------------------------------------------------- |
-| `schemaVersion`                              | integer | yes      | Protocol version. Currently `1`.                                                      |
-| `catalog.slug`                               | string  | yes      | Catalog identifier (3-50 chars, URL-safe slug).                                       |
-| `catalog.name`                               | string  | yes      | Human-readable catalog name.                                                          |
-| `catalog.description`                        | string  | no       | Catalog description.                                                                  |
-| `publisher.name`                             | string  | yes      | Human-readable publisher name.                                                        |
-| `publisher.url`                              | string  | no       | Publisher website URL.                                                                |
-| `release.version`                            | string  | yes      | Release version label (max 50 chars). Drives upgrade detection.                       |
-| `release.releasedAt`                         | string  | yes      | ISO 8601 timestamp of when this release was created.                                  |
-| `compatibility`                              | object  | no       | Catalog-level compatibility constraints. Applied to all resources unless overridden.  |
-| `compatibility.epistolaVersions`             | string  | no       | Semver range of compatible Epistola versions (e.g. `>=0.12.0`).                       |
-| `includes`                                   | array   | no       | List of other catalog URLs to include. See [Catalog Includes](#catalog-includes).     |
-| `includes[].url`                             | string  | yes      | Absolute URL to another catalog manifest.                                             |
-| `includes[].description`                     | string  | no       | Human-readable description of the included catalog.                                   |
-| `resources`                                  | array   | yes      | List of available resources. May be empty if the catalog only aggregates includes.    |
-| `resources[].type`                           | string  | yes      | Resource type. v1 supports `template` only.                                           |
-| `resources[].slug`                           | string  | yes      | Unique identifier within the catalog (3-50 chars, URL-safe slug).                     |
-| `resources[].name`                           | string  | yes      | Human-readable display name.                                                          |
-| `resources[].description`                    | string  | no       | Short description of the resource.                                                    |
-| `resources[].updatedAt`                      | string  | no       | ISO 8601 timestamp of last update to this resource.                                   |
-| `resources[].detailUrl`                      | string  | yes      | URL to the full resource payload. Relative URLs are resolved against the catalog URL. |
-| `resources[].compatibility`                  | object  | no       | Resource-level compatibility. Overrides catalog-level if present.                     |
-| `resources[].compatibility.epistolaVersions` | string  | no       | Semver range for this specific resource.                                              |
+| Field                       | Type    | Required    | Description                                                                               |
+| --------------------------- | ------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `schemaVersion`             | integer | yes         | Protocol version. Currently `2`.                                                          |
+| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                       |
+| `catalog.name`              | string  | yes         | Display name.                                                                             |
+| `publisher.name`            | string  | yes         | Publisher name.                                                                           |
+| `release.version`           | string  | yes         | Release version label.                                                                    |
+| `resources`                 | array   | yes         | List of available resources.                                                              |
+| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                  |
+| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                     |
+| `resources[].name`          | string  | yes         | Display name.                                                                             |
+| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                            |
+| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                       |
+| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                           |
+| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global). |
+| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                |
 
-Note that versioning is at the **catalog level** (`release.version`), not per-resource. All resources in a release are part of the same version. The `updatedAt` on individual resources is informational only.
+### Cross-Catalog Dependencies
 
-#### Detail URLs
+Templates may reference resources from other catalogs:
 
-Detail URLs can be relative or absolute:
+- **Themes**: via `themeRef.catalogKey` in the template model
+- **Stencils**: via `node.props.catalogKey` in stencil nodes
+- **Assets**: via `node.props.assetId` in image nodes (tenant-global, no catalog needed)
 
-- **Relative**: `./resources/templates/invoice-standard.json` — resolved against the catalog manifest URL.
-- **Absolute**: `https://cdn.example.com/epistola/invoice-standard.json` — fetched as-is.
+During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
 
-### Catalog Includes
+During import, Epistola validates that all declared dependencies exist in the target tenant before installing. If any are missing, the import is rejected with a clear error listing what's needed.
 
-A catalog can include other catalogs via the `includes` array. This enables composition — an organization can maintain a curated catalog that aggregates resources from multiple upstream sources.
+Dependencies use a sealed type hierarchy:
 
-When Epistola resolves a catalog with includes:
+| Type      | Fields               | Scope                                                |
+| --------- | -------------------- | ---------------------------------------------------- |
+| `theme`   | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `stencil` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `asset`   | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
 
-1. Fetch the root catalog manifest.
-2. For each entry in `includes`, recursively fetch and resolve that catalog.
-3. Merge all resources into a flat list. If two catalogs define a resource with the same slug and type, the resource from the **root catalog** takes precedence, followed by includes in declaration order.
-4. Apply a maximum include depth of 3 to prevent infinite loops and excessive fetching.
+### Resource Detail Files
 
-Included catalogs inherit the **authentication** of the root catalog unless they require different credentials. If an included catalog needs separate auth, it must also be registered as its own imported catalog in Epistola.
-
-### Resource Detail: Template
-
-The template resource detail contains everything needed to install a template.
+Each resource has a detail JSON file (`./resources/{type}/{slug}.json`) containing the full resource payload:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "resource": {
     "type": "template",
     "slug": "invoice-standard",
     "name": "Standard Invoice",
-    "dataModel": {
-      "type": "object",
-      "properties": {
-        "invoiceNumber": { "type": "string" },
-        "lineItems": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "description": { "type": "string" },
-              "amount": { "type": "number" }
-            }
-          }
-        }
-      }
-    },
-    "dataExamples": [
-      {
-        "name": "Sample Invoice",
-        "data": {
-          "invoiceNumber": "INV-2026-001",
-          "lineItems": [{ "description": "Consulting", "amount": 1500.0 }]
-        }
-      }
-    ],
-    "templateModel": { "...ProseMirror document JSON..." },
-    "variants": [
-      {
-        "id": "default",
-        "title": "Default",
-        "attributes": {},
-        "templateModel": null,
-        "isDefault": true
-      }
-    ]
+    "templateModel": { ... },
+    "variants": [ ... ],
+    "dataModel": { ... },
+    "dataExamples": [ ... ]
   }
 }
 ```
 
-The `resource` object matches the shape of Epistola's existing `ImportTemplateInput` (minus `publishTo` and `version`, which are catalog-level concerns). It is wrapped in a `schemaVersion` envelope for protocol versioning.
+Resource types use Jackson polymorphic serialization (`@JsonTypeInfo` on `CatalogResource`):
 
-| Field                               | Type    | Required | Description                                                               |
-| ----------------------------------- | ------- | -------- | ------------------------------------------------------------------------- |
-| `schemaVersion`                     | integer | yes      | Protocol version. Must match the catalog's `schemaVersion`.               |
-| `resource.type`                     | string  | yes      | Resource type (`template`).                                               |
-| `resource.slug`                     | string  | yes      | Template slug. Used as the template ID when installing.                   |
-| `resource.name`                     | string  | yes      | Template display name.                                                    |
-| `resource.dataModel`                | object  | no       | JSON Schema describing the template's data contract.                      |
-| `resource.dataExamples`             | array   | no       | Sample data objects for preview and testing.                              |
-| `resource.templateModel`            | object  | yes      | ProseMirror document JSON (the template content).                         |
-| `resource.variants`                 | array   | yes      | At least one variant. Exactly one must have `isDefault: true`.            |
-| `resource.variants[].id`            | string  | yes      | Variant slug (3-50 chars).                                                |
-| `resource.variants[].title`         | string  | no       | Display title.                                                            |
-| `resource.variants[].attributes`    | object  | no       | Key-value attribute pairs.                                                |
-| `resource.variants[].templateModel` | object  | no       | Variant-specific content. `null` means use the top-level `templateModel`. |
-| `resource.variants[].isDefault`     | boolean | yes      | Whether this is the default variant.                                      |
+- **TemplateResource**: `templateModel`, `variants` (with per-variant `templateModel`, `attributes`, `isDefault`), `dataModel`, `dataExamples`
+- **ThemeResource**: `documentStyles`, `pageSettings`, `blockStylePresets`, `spacingUnit`
+- **StencilResource**: `content` (TemplateDocument), `tags`
+- **AttributeResource**: `allowedValues`
+- **AssetResource**: `mediaType`, `width`, `height`, `contentUrl` (relative path to binary file)
+
+### Asset Binary Content
+
+Asset resources reference their binary content via `contentUrl`:
+
+```json
+{
+  "type": "asset",
+  "slug": "01966a00-0000-7000-8000-000000000001",
+  "name": "Company Logo",
+  "mediaType": "image/png",
+  "contentUrl": "./resources/assets/01966a00-0000-7000-8000-000000000001"
+}
+```
+
+The `contentUrl` is resolved relative to the manifest URL. For ZIP exports, the binary file is stored at the path directly (no extension). For HTTP-served catalogs, it's a URL endpoint.
+
+### URL Schemes
+
+`CatalogClient` supports multiple URL schemes for fetching catalogs:
+
+| Scheme       | Usage                                                        |
+| ------------ | ------------------------------------------------------------ |
+| `https://`   | Remote catalogs (production)                                 |
+| `http://`    | Remote catalogs (only if `epistola.catalog.allow-http=true`) |
+| `file://`    | Local filesystem                                             |
+| `classpath:` | Bundled demo catalogs                                        |
+
+Relative `detailUrl` and `contentUrl` values are resolved against the manifest URL. Path traversal (`..`) is rejected.
 
 ### Authentication
 
-Remote catalogs may optionally require authentication:
+Remote catalogs support three authentication types:
 
-| Mode      | Header                          | Description                                       |
-| --------- | ------------------------------- | ------------------------------------------------- |
-| `NONE`    | —                               | Public catalog, no authentication needed.         |
-| `API_KEY` | `X-API-Key: <key>`              | API key authentication.                           |
-| `BEARER`  | `Authorization: Bearer <token>` | Bearer token (e.g. GitHub PAT for private repos). |
+- `NONE` — No authentication
+- `API_KEY` — Sent as `X-API-Key` header
+- `BEARER` — Sent as `Authorization: Bearer <token>` header
 
-### Version Compatibility
+## Import Flow
 
-Compatibility constraints ensure resources are only installed on Epistola instances that support them. Declared using **semver ranges** (e.g. `>=0.12.0`, `^0.12.0`):
+`InstallFromCatalog` orchestrates the import process:
 
-- **Catalog-level** (`compatibility.epistolaVersions`): baseline for all resources.
-- **Resource-level** (`resources[].compatibility.epistolaVersions`): override for a specific resource.
+1. Fetch catalog metadata from DB (source URL, auth type, credential)
+2. Fetch remote manifest via `CatalogClient.fetchManifest()`
+3. Filter resources by optional slug list (or install all)
+4. Resolve transitive dependencies via `DependencyResolver`
+5. Sort by install order: assets, attributes, themes, stencils, templates
+6. For each resource, fetch the detail JSON and call the type-specific importer
+7. Asset binaries are fetched separately via `CatalogClient.fetchBinaryContent()`
 
-Incompatible resources are shown but marked as incompatible. Installation is blocked.
+Before installing, the import validates that all declared cross-catalog dependencies exist in the target tenant. If any are missing, the import is rejected with a descriptive error.
 
-## Local Catalogs
+The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
 
-### Creating a Catalog
+### Dependency Resolution
 
-A local catalog is created within a tenant:
+`DependencyScanner` scans template models for references to other resources:
 
-```
-POST /api/v1/tenants/{tenantId}/catalogs
-{
-  "slug": "acme-templates",
-  "name": "Acme Corp Templates",
-  "description": "Official templates for Acme Corp documents."
-}
-```
+- **Themes**: via `themeRef` overrides (with `catalogKey`)
+- **Stencils**: via `stencilId` in stencil node props (with `catalogKey`)
+- **Assets**: via `assetId` in image node props (UUID)
+- **Attributes**: via variant attribute keys
 
-### Adding Templates
+`DependencyResolver` takes selected resources and the full manifest, then iteratively adds missing dependencies until the set is complete. It validates that all dependencies exist in the manifest.
 
-Templates are added to a catalog by creating an entry in `catalog_templates`. Existing standalone templates can be moved into a catalog. A template can only belong to one catalog at a time (enforced by unique constraint).
+## Export
 
-### Creating a Release
+### ZIP Export
 
-When the catalog owner is ready to publish a version:
-
-```
-POST /api/v1/tenants/{tenantId}/catalogs/{catalogId}/releases
-{
-  "version": "1.0"
-}
-```
-
-This snapshots the current state of all templates in the catalog (using their latest published version, falling back to draft). The snapshot is stored as an immutable release record. Version labels must be unique within a catalog.
-
-### Publishing via .well-known
-
-A local catalog can be made public:
+`ExportCatalogZip` exports all resources in a catalog as a self-contained ZIP:
 
 ```
-PATCH /api/v1/tenants/{tenantId}/catalogs/{catalogId}
-{
-  "public": true
-}
+catalog.json
+resources/
+  template/hello-world.json
+  theme/corporate.json
+  stencil/company-header.json
+  attribute/language.json
+  asset/01966a00-0000-7000-8000-000000000001.json
+  assets/01966a00-0000-7000-8000-000000000001      (binary)
 ```
 
-When public, the catalog's **latest release** is served at:
+The ZIP structure matches the protocol layout, so it can be served as a static catalog. Available via `GET /tenants/{tenantId}/catalogs/{catalogId}/export`.
 
-```
-GET /.well-known/epistola/v1/tenants/{tenantId}/catalogs/{catalogId}.json
-```
+Both authored and subscribed catalogs can be exported. For authored catalogs, all resources in the catalog are included. For subscribed catalogs, all installed resources are included.
 
-The `.well-known` endpoint requires its own security filter chain entry. Public catalogs are accessible without authentication. If the Epistola instance requires auth for the `.well-known` endpoint, the existing API key or bearer token mechanisms apply.
+Cross-catalog dependencies are automatically detected during export by scanning template models against the catalog's own resource list. Any external reference is added to the `dependencies` field in `catalog.json`.
 
-Only released snapshots are served — the live state of templates is never exposed directly. If no release exists, the endpoint returns 404.
+Configurable size limits protect against oversized exports:
 
-### Exporting as Static Files
+- `epistola.catalog.max-zip-size`: Maximum compressed ZIP size (default 10MB)
+- `epistola.catalog.max-decompressed-size`: Maximum decompressed size (default 20MB)
 
-For hosting catalogs externally (GitHub Pages, S3, etc.), the catalog can be exported as a ZIP archive:
+### ZIP Import
 
-**REST API**:
+`ImportCatalogZip` imports a catalog from a ZIP archive:
 
-```
-POST /api/v1/tenants/{tenantId}/catalogs/{catalogId}/export
-{
-  "releaseVersion": "1.0"
-}
-```
+- If the catalog slug already exists and is AUTHORED: resources are updated in place
+- If the catalog slug already exists and is SUBSCRIBED: the import is rejected
+- If the catalog slug is new: a new catalog is created with the specified type
 
-Returns a ZIP file containing the catalog structure:
+Available via:
 
-```
-acme-templates/
-  catalog.json
-  resources/
-    templates/
-      invoice-standard.json
-      letter-formal.json
-```
+- UI: `POST /tenants/{tenantId}/catalogs/import` (multipart form)
+- REST API: `POST /api/tenants/{tenantId}/catalogs/import` (multipart, API key auth)
 
-**UI**: An "Export" action on the catalog detail page. The user selects a release and downloads the archive.
+The REST API endpoint is used by the Valtimo plugin for catalog sync on startup.
 
-## Imported Catalogs
+## UI
 
-### Registering a Remote Catalog
+### Catalog List (`/tenants/{tenantId}/catalogs`)
 
-A tenant can import a catalog from a remote URL:
+- Create authored catalog (dialog)
+- Subscribe to remote catalog (dialog with URL, auth type, credential)
+- Browse catalog resources
+- Export catalog as ZIP (all catalogs)
+- Delete catalog (all except default, with confirmation)
 
-```
-POST /api/v1/tenants/{tenantId}/catalogs/import
-{
-  "sourceUrl": "https://example.com/.well-known/epistola/v1/tenants/acme/catalogs/acme-templates.json",
-  "authType": "NONE"
-}
-```
+### Catalog Browse (`/tenants/{tenantId}/catalogs/{catalogId}/browse`)
 
-Epistola fetches the remote catalog manifest, creates a local catalog entity of type `IMPORTED`, and presents the available resources to the user. The catalog slug and name are taken from the remote manifest's `catalog.slug` and `catalog.name` fields. If the slug conflicts with an existing local catalog, the user can provide an override.
+- List all resources with type badges
+- Install individual resources or all resources
+- Dependency resolution preview (shows auto-included dependencies)
 
-### Installing
+### Resource Pages
 
-After registering an imported catalog, the user can install its templates:
+All resource list pages (templates, themes, stencils, attributes, assets) have:
 
-```
-POST /api/v1/tenants/{tenantId}/catalogs/{catalogId}/install
-```
+- Catalog filter dropdown
+- Catalog column in tables
+- Catalog selector in create forms
+- `/{catalogId}/{resourceId}` URL patterns for detail pages
 
-This installs all templates from the catalog's current release:
-
-1. Fetch each resource detail from its `detailUrl`.
-2. Check version compatibility against the Epistola instance version.
-3. Create each template and register it in `catalog_templates` (with `catalog_resource_slug` and `installed_snapshot`).
-4. Use the existing `ImportTemplates` logic for upserting templates, variants, and versions.
-5. Record the installed release version and timestamp on the catalog entity.
-
-Templates are installed as drafts. The user decides when to publish them to environments.
-
-#### Selective Install
-
-The user can also install individual templates from the catalog rather than the full set:
-
-```
-POST /api/v1/tenants/{tenantId}/catalogs/{catalogId}/install
-{
-  "templates": ["invoice-standard"]
-}
-```
-
-#### Slug and Name Remapping
-
-When installing, the user can override the local slug and/or name of individual templates:
-
-```
-POST /api/v1/tenants/{tenantId}/catalogs/{catalogId}/install
-{
-  "templates": [
-    {
-      "slug": "invoice-standard",
-      "localSlug": "acme-invoice",
-      "localName": "Acme Invoice"
-    }
-  ]
-}
-```
-
-The original catalog slug is still tracked on the template for upgrade purposes.
-
-#### Theme Resolution on Install
-
-If a template references a theme by slug (`themeKey`):
-
-- **Theme exists locally**: the reference is kept.
-- **Theme does not exist**: `themeKey` is set to `null` (falls back to tenant default). The install result includes a warning.
-
-#### Asset References
-
-Templates with image asset references (by UUID) will have **broken images** after install, since assets are instance-local. The install result warns about this. See [Asset Bundling](#asset-bundling) for future plans.
-
-### Checking for Updates
-
-When viewing an imported catalog, Epistola fetches the remote manifest and compares `release.version` with `installedReleaseVersion`:
-
-- **Same version**: up to date.
-- **Different version**: a newer release is available. The UI shows the new version label, release date, and a list of changed resources.
-
-### Upgrading
-
-When the user initiates an upgrade to a newer release, Epistola computes a diff between the installed state and the new release before applying any changes. This gives the user full visibility and control.
-
-#### Upgrade Diff
-
-For each template in the catalog, Epistola determines its status by comparing three states:
-
-- **Installed snapshot** (`installed_snapshot`): what was originally installed from the catalog.
-- **Current local state**: the template as it exists now (may include local edits).
-- **New upstream state**: the resource in the new catalog release.
-
-This produces five possible statuses per template:
-
-| Status        | Condition                                                                      | Default action             |
-| ------------- | ------------------------------------------------------------------------------ | -------------------------- |
-| **Unchanged** | Same in upstream and locally, no changes anywhere.                             | Skip (no action needed).   |
-| **Updated**   | Changed upstream, no local changes (local matches installed snapshot).         | Auto-update.               |
-| **Conflict**  | Changed upstream AND locally modified (local differs from installed snapshot). | Show to user for decision. |
-| **Added**     | New resource in upstream, doesn't exist locally.                               | Install.                   |
-| **Removed**   | Resource no longer in upstream, exists locally.                                | Show to user for decision. |
-
-The "local changes" check compares the current template state against the `installed_snapshot` using Epistola's own serialization. Since both are produced by the same system, no canonicalization is needed.
-
-#### Upgrade Flow
-
-1. Fetch the new release from the remote catalog.
-2. Check version compatibility.
-3. Compute the upgrade diff (as described above).
-4. Present the diff summary to the user:
-   - **Unchanged**: listed but no action needed.
-   - **Updated**: will be auto-updated (snapshot current draft first).
-   - **Conflict**: user chooses per template — **accept upstream** (snapshot + overwrite) or **keep local** (skip this template).
-   - **Added**: will be installed as new templates.
-   - **Removed**: user chooses — **keep** (template stays, flagged as "detached from catalog") or **delete**.
-5. Apply the confirmed changes:
-   - For updates and accepted conflicts: publish the current draft (preserving it in version history), then import the new version. Update `installed_snapshot`.
-   - For additions: create new templates under the catalog.
-   - For removals (if user chose delete): delete the template.
-   - For removals (if user chose keep): remove the `catalog_templates` entry (template becomes standalone).
-6. Update `installedReleaseVersion` and `installedAt` on the catalog.
-
-No content is ever lost without explicit user confirmation. Updated templates always have their previous state preserved in version history. Conflict resolution defaults to showing the user, never silently overwriting local work.
-
-## Example: End-to-End Flow
-
-### Publishing a catalog
-
-1. Tenant "acme" creates a local catalog `acme-templates`.
-2. Assigns templates `invoice-standard` and `letter-formal` to the catalog.
-3. Publishes versions of the templates (so they have published content).
-4. Creates release `"1.0"` — Epistola snapshots both templates.
-5. Marks the catalog as `public: true`.
-6. The catalog is now available at `/.well-known/epistola/v1/tenants/acme/catalogs/acme-templates.json`.
-
-### Consuming a catalog
-
-1. Tenant "beta-corp" on a different Epistola instance registers the catalog URL.
-2. Browses the catalog — sees `invoice-standard` and `letter-formal`.
-3. Installs both templates (remapping `invoice-standard` to `beta-invoice`).
-4. Templates appear as drafts under the imported catalog. Reviews and publishes to staging.
-
-### Upgrading
-
-1. "acme" updates `invoice-standard`, adds `receipt-simple`, and creates release `"1.1"`.
-2. "beta-corp" opens the imported catalog — sees "Update available: 1.0 → 1.1".
-3. Clicks upgrade. Epistola shows the diff:
-   - `beta-invoice` (was `invoice-standard`): **Conflict** — changed upstream and locally modified.
-   - `letter-formal`: **Unchanged**.
-   - `receipt-simple`: **Added**.
-4. User chooses "accept upstream" for `beta-invoice` (local changes are preserved in version history).
-5. Upgrade applies. User reviews the imported changes and publishes to staging.
-
-## Hosting Catalogs Externally
-
-While Epistola can serve catalogs via `.well-known`, catalogs can also be exported and hosted as static files. This is useful for:
-
-- Publishing without exposing the Epistola instance to the internet.
-- Using CDNs or static hosting (GitHub Pages, S3, GitLab Pages).
-- Distributing catalogs through package registries or git repositories.
-
-| Platform           | Setup                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **GitHub Pages**   | Export catalog, commit to repo with Pages enabled. Free, versioned via git. |
-| **GitLab Pages**   | Same approach as GitHub Pages.                                              |
-| **S3 / GCS**       | Upload to a bucket with static website hosting or direct object URLs.       |
-| **Any web server** | Serve the catalog directory as static files.                                |
-
-For private external catalogs, configure authentication on the imported catalog (API key or bearer token).
-
-### Authoring Catalogs by Hand
-
-Since the catalog format is plain JSON, catalogs can be authored manually without an Epistola instance. The required structure is:
-
-1. A `catalog.json` manifest with `schemaVersion`, `catalog`, `publisher`, `release`, and `resources` array.
-2. One JSON file per resource, containing the `schemaVersion` and `resource` payload.
-
-## Known Limitations (v1)
-
-### Network Resilience
-
-v1 fetches remote catalogs synchronously. No caching, retry logic, or background polling.
-
-- **Timeouts**: 5 seconds connect, 15 seconds read.
-- **No retry**: On failure, show the error and let the user retry manually.
-- **No caching**: Every browse fetches fresh. Acceptable because browsing is an explicit user action.
-- **Large catalogs**: No pagination. Catalogs are expected to contain tens to low hundreds of resources.
-
-### Catalog Include Authentication
-
-Included catalogs inherit the root catalog's authentication. If an included catalog requires different credentials, it must be registered separately as its own imported catalog.
-
-### Concurrent Upgrades
-
-The upgrade flow (publish current draft, then import) is not protected against concurrent execution. If two users upgrade simultaneously, one user's snapshot could be lost. Low-probability edge case for v1.
-
-### Catalog URL Changes
-
-If a remote catalog moves to a new URL, the imported catalog's `source_url` must be updated manually. Templates already installed retain their catalog association (via `catalog_templates`), so only the URL needs updating.
-
-### Removed Templates on Upgrade
-
-When upgrading to a new release that no longer contains a template that was previously installed, the local template is left in place. It remains in the imported catalog but is flagged as "no longer in upstream". The user can choose to keep or delete it. In v1, this is a manual process.
-
-## Implementation Phases
-
-The full design described above is the target architecture. Implementation is broken into incremental phases, each delivering a usable feature on its own.
-
-### Phase 1: Import from URL
-
-**Goal**: A user can register a catalog URL, browse its contents, and install templates.
-
-**Scope**:
-
-- Module skeleton: `modules/epistola-catalog/` with Gradle setup, dependency on `epistola-core`.
-- DB tables: `catalogs` (IMPORTED type only, no LOCAL yet) and `catalog_templates` (without `installed_snapshot` — not needed until phase 2).
-- `CatalogClient`: HTTP client that fetches a catalog manifest and resource details. Supports `NONE` and `BEARER` auth. Timeouts (5s connect, 15s read).
-- Commands: `RegisterCatalog` (fetch manifest, create IMPORTED catalog entity), `InstallFromCatalog` (fetch resource details, call `ImportTemplates`, create `catalog_templates` entries).
-- Queries: `ListCatalogs`, `GetCatalog`, `BrowseCatalog` (fetch manifest, annotate with install status).
-- UI: Settings page to register a catalog URL. Browse page showing available templates with "Install" buttons.
-- No releases, no versioning, no upgrade flow. The catalog manifest's `release.version` is stored on the catalog but not compared yet.
-- No `includes` resolution — only the root catalog's resources.
-- No compatibility checking.
-- No slug remapping — templates are installed with the catalog slug as-is.
-
-**What this enables**: Loading templates from any static catalog (GitHub Pages, etc.) into an Epistola instance.
-
-### Phase 2: Upgrade Detection & Sync
-
-**Goal**: Detect when a catalog has a newer release and upgrade installed templates with conflict awareness.
-
-**Scope**:
-
-- Add `installed_snapshot` column to `catalog_templates`. Populated on install (backfill existing entries).
-- Add `installed_release_version` and `installed_at` to `catalogs`. Set on install.
-- Query: `GetUpgradeDiff` — fetch remote manifest, compare `release.version` with `installed_release_version`. For each template, compute status (unchanged/updated/conflict/added/removed) by comparing installed snapshot, current state, and new upstream state.
-- Command: `UpgradeCatalog` — apply the upgrade with snapshot-before-overwrite for changed templates.
-- UI: "Update available" badge on imported catalogs. Upgrade review screen showing the diff summary. Per-template decisions for conflicts and removals.
-
-**What this enables**: Keeping imported templates in sync with upstream catalogs. Safe upgrades that preserve local changes in version history.
-
-### Phase 3: Local Catalogs
-
-**Goal**: Create catalogs within Epistola, assign templates, and create releases.
-
-**Scope**:
-
-- Support `LOCAL` type in `catalogs` table.
-- DB table: `catalog_releases`.
-- Commands: `CreateCatalog` (LOCAL type), `AddTemplateToCatalog`, `RemoveTemplateFromCatalog`, `CreateRelease` (snapshot all templates in the catalog).
-- Queries: `ListReleases`, `GetRelease`.
-- UI: Catalog management page. Create catalog, add/remove templates, create releases.
-
-**What this enables**: Organizing templates into versioned, distributable groups.
-
-### Phase 4: Publishing & .well-known
-
-**Goal**: Expose local catalogs for other instances to consume.
-
-**Scope**:
-
-- `public` flag on `catalogs`.
-- `.well-known` controller: `GET /.well-known/epistola/v1/tenants/{tenantId}/catalogs/{catalogId}.json` — serves the latest release's snapshot as a catalog manifest.
-- Resource detail endpoints: `GET /.well-known/epistola/v1/tenants/{tenantId}/catalogs/{catalogId}/resources/templates/{slug}.json`.
-- Security filter chain entry for `.well-known` (public access, or API key/bearer if configured).
-
-**What this enables**: One Epistola instance can serve catalogs that other instances import. Full round-trip: create → release → publish → import.
-
-### Phase 5: Export & Static Hosting
-
-**Goal**: Export catalogs as static files for hosting on GitHub Pages, S3, etc.
-
-**Scope**:
-
-- Command: `ExportCatalog` — generate ZIP archive from a release.
-- REST endpoint: `POST /api/v1/tenants/{tenantId}/catalogs/{catalogId}/export`.
-- UI: Export button on catalog detail page.
-
-**What this enables**: Publishing catalogs without exposing the Epistola instance to the internet.
-
-### Phase 6: Advanced Features
-
-**Goal**: Remaining features from the full design.
-
-**Scope** (can be done independently):
-
-- **Slug remapping**: Override local slug/name on install.
-- **Compatibility checking**: Parse semver ranges, block incompatible installs.
-- **Catalog includes**: Recursive resolution of `includes` array.
-- **Selective install**: Install individual templates instead of full catalog.
-- **REST API**: Full catalog CRUD via the external API (for automation).
-
-## Future Considerations
-
-### Theme Exchange
-
-A future version could add `theme` as a resource type, allowing catalogs to bundle themes alongside templates. Themes referenced by templates could be auto-installed.
-
-### Asset Bundling
-
-A future version could include assets in the resource payload (base64-encoded or via separate asset URLs), auto-importing them during install.
-
-### Merge-Based Upgrades
-
-The v1 upgrade strategy (overwrite with snapshot) requires manual re-application of customizations. A future version could explore ProseMirror-aware diffing and merging for upgrades that preserve local changes.
-
-### Automatic Update Notifications
-
-A future version could add periodic background polling of imported catalogs with in-app notifications when new releases are available.
-
-### Catalog Search and Categories
-
-Future versions could add categories, tags, and search to the catalog manifest for discoverability in large catalogs.
-
-### Release Notes
-
-Future versions could add a `releaseNotes` field to releases, describing what changed between versions. This would be shown in the upgrade UI.
+Resources in subscribed catalogs show as read-only with disabled edit/delete controls.

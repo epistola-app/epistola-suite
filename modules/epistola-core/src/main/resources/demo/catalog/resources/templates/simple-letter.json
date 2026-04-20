@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "simple-letter",
+    "name": "Simple Letter",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "sender": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" }
+          }
+        },
+        "recipient": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" }
+          }
+        },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "date": { "type": "string", "format": "date" }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Sample Letter",
+        "data": {
+          "sender": {
+            "name": "Jane Smith",
+            "address": "123 Main Street",
+            "city": "Amsterdam"
+          },
+          "recipient": {
+            "name": "John Doe",
+            "address": "456 Oak Avenue",
+            "city": "Rotterdam"
+          },
+          "subject": "Project Update",
+          "body": "I am writing to inform you about the progress of our project. Everything is on track and we expect to deliver by the end of the quarter.",
+          "date": "2026-04-03"
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "override",
+        "themeId": "corporate"
+      },
+      "pageSettingsOverride": {
+        "format": "A4",
+        "orientation": "portrait",
+        "margins": {
+          "top": 50,
+          "right": 40,
+          "bottom": 40,
+          "left": 40
+        }
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-sender": {
+          "id": "n-sender",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "6sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "sender.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "sender.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "sender.city" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-recipient": {
+          "id": "n-recipient",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "6sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.city" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-date": {
+          "id": "n-date",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "date" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-subject": {
+          "id": "n-subject",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": { "level": 2 },
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "subject" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-separator": {
+          "id": "n-separator",
+          "type": "separator",
+          "slots": [],
+          "props": {
+            "thickness": "1pt",
+            "width": "100%",
+            "color": "#d1d5db",
+            "style": "solid"
+          }
+        },
+        "n-body": {
+          "id": "n-body",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "body" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-attachments": {
+          "id": "n-attachments",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Attachments:", "marks": [{ "type": "bold" }] }
+                  ]
+                },
+                {
+                  "type": "bullet_list",
+                  "content": [
+                    {
+                      "type": "list_item",
+                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Project proposal (PDF)" }] }]
+                    },
+                    {
+                      "type": "list_item",
+                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Budget overview (XLSX)" }] }]
+                    },
+                    {
+                      "type": "list_item",
+                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Timeline (PDF)" }] }]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-footer": {
+          "id": "n-footer",
+          "type": "pagefooter",
+          "slots": ["s-footer-children"],
+          "props": {
+            "height": "30pt",
+            "hideOnFirstPage": true
+          }
+        },
+        "n-footer-text": {
+          "id": "n-footer-text",
+          "type": "text",
+          "slots": [],
+          "styles": { "fontSize": "9pt", "color": "#999999", "textAlign": "center" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Confidential — Page " },
+                    { "type": "expression", "attrs": { "expression": "sys.pages.current" } },
+                    { "type": "text", "text": " of " },
+                    { "type": "expression", "attrs": { "expression": "sys.pages.total" } }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-footer", "n-sender", "n-recipient", "n-date", "n-separator", "n-subject", "n-body", "n-attachments"]
+        },
+        "s-footer-children": {
+          "id": "s-footer-children",
+          "nodeId": "n-footer",
+          "name": "children",
+          "children": ["n-footer-text"]
+        }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}

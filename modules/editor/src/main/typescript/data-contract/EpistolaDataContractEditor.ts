@@ -61,6 +61,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _publishing = false;
   @state() private _successMessage = 'Draft saved';
   @state() private _publishWarningDialog: PublishRiskDialogState | null = null;
+  @state() private _readOnly = false;
   private _recentUsageRenderLimit = Number.POSITIVE_INFINITY;
   private _successTimer?: ReturnType<typeof setTimeout>;
   private _boundBeforeUnload = this._handleBeforeUnload.bind(this);
@@ -72,7 +73,9 @@ export class EpistolaDataContractEditor extends LitElement {
     callbacks: SaveCallbacks,
     hasDraftContract = false,
     recentUsageRenderLimit?: number,
+    readOnly = false,
   ): void {
+    this._readOnly = readOnly;
     this.store.setHost(this);
     this.store.init(initialSchema, initialExamples, callbacks);
     this._hasDraftContract = hasDraftContract;
@@ -122,7 +125,7 @@ export class EpistolaDataContractEditor extends LitElement {
             : nothing}
           <button
             class="ep-btn-outline btn-sm dc-publish-draft-btn"
-            ?disabled=${this._publishing || this.store.isDirty || !this._hasDraftContract}
+            ?disabled=${this._readOnly || this._publishing || this.store.isDirty || !this._hasDraftContract}
             @click=${(): Promise<void> => this._publishDraft()}
             title=${this.store.isDirty
               ? 'Save the draft before publishing'
@@ -132,7 +135,7 @@ export class EpistolaDataContractEditor extends LitElement {
           </button>
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
-            ?disabled=${saveStatus.type === 'saving' || !this.store.isDirty}
+            ?disabled=${this._readOnly || saveStatus.type === 'saving' || !this.store.isDirty}
             @click=${(): Promise<void> => this._saveAll(false)}
           >
             ${saveStatus.type === 'saving' ? 'Saving...' : 'Save Draft'}
@@ -261,6 +264,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
         <button
           class="ep-btn-outline btn-sm dc-btn-icon"
+          ?disabled=${this._readOnly}
           @click=${() => this._openImportDialog()}
           title="Import a JSON Schema"
         >
@@ -287,6 +291,7 @@ export class EpistolaDataContractEditor extends LitElement {
       canUndo: s.schemaCommandHistory.canUndo,
       canRedo: s.schemaCommandHistory.canRedo,
       selectedFieldId: s.selectedFieldId,
+      readOnly: this._readOnly,
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -328,6 +333,7 @@ export class EpistolaDataContractEditor extends LitElement {
       exampleErrorCounts,
       canUndo: this.store.exampleCanUndo,
       canRedo: this.store.exampleCanRedo,
+      readOnly: this._readOnly,
     };
 
     const callbacks: ExamplesSectionCallbacks = {
@@ -642,6 +648,7 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _handleKeyDown(e: KeyboardEvent): void {
+    if (this._readOnly) return;
     const isMod = e.metaKey || e.ctrlKey;
     if (!isMod) return;
 

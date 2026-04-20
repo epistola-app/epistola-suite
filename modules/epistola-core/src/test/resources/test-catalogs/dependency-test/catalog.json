@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "catalog": {
+    "slug": "dep-test",
+    "name": "Dependency Test Catalog"
+  },
+  "publisher": { "name": "Test" },
+  "release": { "version": "1.0" },
+  "resources": [
+    {
+      "type": "asset",
+      "slug": "01966a00-0000-7000-8000-000000000099",
+      "name": "Test Logo",
+      "detailUrl": "./resources/assets/test-logo.json"
+    },
+    {
+      "type": "attribute",
+      "slug": "language",
+      "name": "Language",
+      "detailUrl": "./resources/attributes/language.json"
+    },
+    {
+      "type": "theme",
+      "slug": "test-theme",
+      "name": "Test Theme",
+      "detailUrl": "./resources/themes/test-theme.json"
+    },
+    {
+      "type": "stencil",
+      "slug": "header-with-logo",
+      "name": "Header With Logo",
+      "description": "Stencil that references an image asset.",
+      "detailUrl": "./resources/stencils/header-with-logo.json"
+    },
+    {
+      "type": "template",
+      "slug": "full-deps",
+      "name": "Full Dependencies",
+      "description": "Template referencing theme, stencil, and attribute.",
+      "detailUrl": "./resources/templates/full-deps.json"
+    },
+    {
+      "type": "template",
+      "slug": "no-deps",
+      "name": "No Dependencies",
+      "description": "Template with no external dependencies.",
+      "detailUrl": "./resources/templates/no-deps.json"
+    }
+  ]
+}

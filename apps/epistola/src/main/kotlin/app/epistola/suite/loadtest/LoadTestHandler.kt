@@ -1,5 +1,6 @@
 package app.epistola.suite.loadtest
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -69,8 +70,12 @@ class LoadTestHandler(
         val tenantId = TenantId(tenantKey)
 
         // Check if this is a template selection (HTMX cascade update)
+        // Template select value is "catalogKey/templateKey"
         val templateIdStr = request.param("templateId").orElse("")
-        val templateKey = TemplateKey.validateOrNull(templateIdStr)
+        val slashIdx = templateIdStr.indexOf('/')
+        val catalogKey = if (slashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(templateIdStr.substring(0, slashIdx)) else null
+        val templateKeyStr = if (slashIdx > 0) templateIdStr.substring(slashIdx + 1) else templateIdStr
+        val templateKey = TemplateKey.validateOrNull(templateKeyStr)
 
         // If no template selected, return empty fragment for HTMX or full page for non-HTMX
         if (templateKey == null) {
@@ -87,7 +92,7 @@ class LoadTestHandler(
             }
         }
 
-        val templateId = TemplateId(templateKey, tenantId)
+        val templateId = TemplateId(templateKey, CatalogId(catalogKey ?: return ServerResponse.badRequest().build(), tenantId))
 
         // Template selected - prepare cascade data
         val variants = ListVariants(templateId = templateId).query()
@@ -176,7 +181,7 @@ class LoadTestHandler(
         val form = request.form {
             field("templateId") {
                 required()
-                asTemplateId()
+                // No asTemplateId() — value is composite "catalogKey/templateKey", parsed manually below
             }
             field("variantId") {
                 required()
@@ -204,7 +209,12 @@ class LoadTestHandler(
             }
         }
 
-        val templateKey = form.getTemplateId("templateId")!!
+        // Parse composite templateId (catalogKey/templateKey)
+        val rawTemplateId = form.formData["templateId"] ?: ""
+        val templateSlashIdx = rawTemplateId.indexOf('/')
+        val templateCatalogKey = if (templateSlashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(rawTemplateId.substring(0, templateSlashIdx)) else return ServerResponse.badRequest().build()
+        val templateKeyStr = if (templateSlashIdx > 0) rawTemplateId.substring(templateSlashIdx + 1) else rawTemplateId
+        val templateKey = TemplateKey.validateOrNull(templateKeyStr) ?: return ServerResponse.badRequest().build()
         val variantKey = form.getVariantId("variantId")!!
 
         // Parse version or environment
@@ -224,6 +234,7 @@ class LoadTestHandler(
         try {
             val run = StartLoadTest(
                 tenantId = tenantKey,
+                catalogKey = templateCatalogKey,
                 templateId = templateKey,
                 variantId = variantKey,
                 versionId = versionId,
@@ -273,7 +284,7 @@ class LoadTestHandler(
             ?: return ServerResponse.notFound().build()
 
         // Fetch template name for display
-        val templateId = TemplateId(run.templateKey, tenantId)
+        val templateId = TemplateId(run.templateKey, CatalogId(run.catalogKey, tenantId))
         val template = GetDocumentTemplate(id = templateId).query()
 
         return ServerResponse.ok().page("loadtest/detail") {

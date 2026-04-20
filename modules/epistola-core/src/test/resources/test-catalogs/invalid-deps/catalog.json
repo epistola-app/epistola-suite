@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "catalog": {
+    "slug": "invalid-deps",
+    "name": "Invalid Deps Catalog"
+  },
+  "publisher": { "name": "Test" },
+  "release": { "version": "1.0" },
+  "resources": [
+    {
+      "type": "template",
+      "slug": "broken-template",
+      "name": "Broken Template",
+      "detailUrl": "./resources/templates/broken-template.json"
+    }
+  ]
+}

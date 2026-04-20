@@ -161,6 +161,7 @@ describe('Stencil component registration', () => {
     const def = registry.get('stencil');
     expect(def!.defaultProps).toEqual({
       stencilId: null,
+      catalogKey: null,
       version: null,
       isDraft: false,
     });

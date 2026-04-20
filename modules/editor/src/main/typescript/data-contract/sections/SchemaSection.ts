@@ -29,6 +29,7 @@ export interface SchemaUiState {
   canUndo: boolean;
   canRedo: boolean;
   selectedFieldId: string | null;
+  readOnly: boolean;
 }
 
 export interface SchemaSectionCallbacks {
@@ -73,7 +74,7 @@ export function renderSchemaSection(
         <button
           class="ep-btn-outline btn-sm dc-undo-btn"
           @click=${() => callbacks.onUndo()}
-          ?disabled=${!uiState.canUndo}
+          ?disabled=${uiState.readOnly || !uiState.canUndo}
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
         >
@@ -83,7 +84,7 @@ export function renderSchemaSection(
         <button
           class="ep-btn-outline btn-sm dc-redo-btn"
           @click=${() => callbacks.onRedo()}
-          ?disabled=${!uiState.canRedo}
+          ?disabled=${uiState.readOnly || !uiState.canRedo}
           title="Redo (Ctrl+Shift+Z)"
           aria-label="Redo"
         >
@@ -104,7 +105,7 @@ export function renderSchemaSection(
         ? html`
             <div class="dc-schema-layout">
               ${renderFieldList(fields, uiState, callbacks, expandedFields)}
-              ${renderDetailPanel(selectedField, callbacks, !isLastRootFieldSelected)}
+              ${renderDetailPanel(selectedField, uiState, callbacks, !isLastRootFieldSelected)}
             </div>
           `
         : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
@@ -113,6 +114,7 @@ export function renderSchemaSection(
       <button
         class="ep-btn-outline btn-sm dc-add-field-btn"
         @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
+        ?disabled=${uiState.readOnly}
       >
         + Add Field
       </button>
@@ -226,6 +228,7 @@ function isStringFormat(value: string): value is StringFormat {
 
 function renderDetailPanel(
   field: SchemaField | null,
+  uiState: SchemaUiState,
   callbacks: SchemaSectionCallbacks,
   canDeleteField: boolean,
 ): unknown {
@@ -258,6 +261,7 @@ function renderDetailPanel(
             class="ep-input dc-detail-input"
             .value=${field.name}
             placeholder="Field name"
+            ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
               const value = getInputValue(e).trim();
               if (value && value !== field.name) {
@@ -273,6 +277,7 @@ function renderDetailPanel(
           <select
             class="ep-select dc-detail-select"
             .value=${field.type}
+            ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
               const nextType = getSelectValue(e);
               if (!isSchemaFieldType(nextType)) {
@@ -303,6 +308,7 @@ function renderDetailPanel(
                 <select
                   class="ep-select dc-detail-select"
                   .value=${field.arrayItemType}
+                  ?disabled=${uiState.readOnly}
                   @change=${(e: Event) => {
                     const nextItemType = getSelectValue(e);
                     if (!isSchemaFieldType(nextItemType)) {
@@ -331,6 +337,7 @@ function renderDetailPanel(
             class="ep-checkbox"
             id="dc-detail-required"
             .checked=${field.required}
+            ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
               emitUpdate({ required: getInputChecked(e) });
             }}
@@ -345,6 +352,7 @@ function renderDetailPanel(
             class="ep-input dc-detail-textarea"
             .value=${field.description ?? ''}
             placeholder="Optional description"
+            ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
               const value = getTextareaValue(e);
               emitUpdate({ description: value || undefined });
@@ -353,7 +361,7 @@ function renderDetailPanel(
         </div>
 
         <!-- Type-specific constraints -->
-        ${renderTypeConstraints(field, emitUpdate)}
+        ${renderTypeConstraints(field, uiState, emitUpdate)}
 
         <!-- Actions -->
         <div class="dc-detail-actions">
@@ -365,6 +373,7 @@ function renderDetailPanel(
                     callbacks.onCommand({ type: 'addField', parentFieldId: field.id });
                     callbacks.onToggleFieldExpand(field.id);
                   }}
+                  ?disabled=${uiState.readOnly}
                 >
                   + Add Nested Field
                 </button>
@@ -379,6 +388,7 @@ function renderDetailPanel(
             title=${deleteA11y.title}
             aria-describedby=${deleteA11y.ariaDescribedBy ?? nothing}
             @click=${() => callbacks.onCommand({ type: 'deleteField', fieldId: field.id })}
+            ?disabled=${uiState.readOnly}
           >
             Delete Field
           </button>
@@ -433,22 +443,24 @@ export function getDeleteFieldA11y(fieldId: string, canDeleteField: boolean): De
 
 function renderTypeConstraints(
   field: SchemaField,
+  uiState: SchemaUiState,
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   if (field.type === 'string') {
-    return renderStringConstraints(field, emitUpdate);
+    return renderStringConstraints(field, uiState, emitUpdate);
   }
   if (field.type === 'number' || field.type === 'integer') {
-    return renderNumericConstraints(field, emitUpdate);
+    return renderNumericConstraints(field, uiState, emitUpdate);
   }
   if (field.type === 'array') {
-    return renderArrayConstraints(field, emitUpdate);
+    return renderArrayConstraints(field, uiState, emitUpdate);
   }
   return nothing;
 }
 
 function renderStringConstraints(
   field: PrimitiveField,
+  uiState: SchemaUiState,
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   const currentFormat = field.format ?? '';
@@ -459,6 +471,7 @@ function renderStringConstraints(
       <select
         class="ep-select dc-detail-select"
         .value=${currentFormat}
+        ?disabled=${uiState.readOnly}
         @change=${(e: Event) => {
           const val = getSelectValue(e);
           if (!val) {
@@ -484,6 +497,7 @@ function renderStringConstraints(
 
 function renderNumericConstraints(
   field: PrimitiveField,
+  uiState: SchemaUiState,
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   const min = field.minimum;
@@ -501,6 +515,7 @@ function renderNumericConstraints(
           step=${step}
           .value=${typeof min !== 'undefined' ? String(min) : ''}
           placeholder="—"
+          ?disabled=${uiState.readOnly}
           @change=${(e: Event) => {
             const val = getInputValue(e);
             emitUpdate({ minimum: val ? Number(val) : undefined });
@@ -515,6 +530,7 @@ function renderNumericConstraints(
           step=${step}
           .value=${typeof max !== 'undefined' ? String(max) : ''}
           placeholder="—"
+          ?disabled=${uiState.readOnly}
           @change=${(e: Event) => {
             const val = getInputValue(e);
             emitUpdate({ maximum: val ? Number(val) : undefined });
@@ -527,6 +543,7 @@ function renderNumericConstraints(
 
 function renderArrayConstraints(
   field: ArrayField,
+  uiState: SchemaUiState,
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   const minItems = field.minItems;
@@ -542,6 +559,7 @@ function renderArrayConstraints(
         step="1"
         .value=${typeof minItems !== 'undefined' ? String(minItems) : ''}
         placeholder="—"
+        ?disabled=${uiState.readOnly}
         @change=${(e: Event) => {
           const val = getInputValue(e);
           emitUpdate({ minItems: val ? Number(val) : undefined });

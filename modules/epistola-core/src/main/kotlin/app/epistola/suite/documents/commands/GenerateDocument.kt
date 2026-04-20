@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.DocumentGenerationRequest
@@ -35,18 +36,20 @@ import tools.jackson.databind.node.ObjectNode
  * @property variantId Explicit variant ID (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant (mutually exclusive with variantId)
  * @property versionId Explicit version ID (mutually exclusive with environmentId)
- * @property environmentId Environment to determine version from (mutually exclusive with versionId)
+ * @property environmentId Environment to determine version from (mutually exclusive with versionId).
+ *   If neither versionId nor environmentId is provided, the latest published version is used.
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
  */
 data class GenerateDocument(
     val tenantId: TenantKey,
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey?,
-    val environmentId: EnvironmentKey?,
+    val versionId: VersionKey? = null,
+    val environmentId: EnvironmentKey? = null,
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
@@ -59,8 +62,8 @@ data class GenerateDocument(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
+        require(!(versionId != null && environmentId != null)) {
+            "Cannot specify both versionId and environmentId"
         }
     }
 }
@@ -77,7 +80,7 @@ class GenerateDocumentHandler(
         // Resolve variant: explicit ID > attribute selection > default variant
         val resolvedVariantId = command.variantId
             ?: command.variantSelectionCriteria?.let { variantResolver.resolve(command.tenantId, command.templateId, it) }
-            ?: resolveDefaultVariant(command.tenantId, command.templateId)
+            ?: resolveDefaultVariant(command.tenantId, command.catalogKey, command.templateId)
 
         logger.info("Generating single document for tenant {} template {} variant {}", command.tenantId, command.templateId, resolvedVariantId)
 
@@ -88,11 +91,12 @@ class GenerateDocumentHandler(
                 SELECT EXISTS (
                     SELECT 1
                     FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 )
                 """,
             )
                 .bind("templateId", command.templateId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("variantId", resolvedVariantId)
                 .bind("tenantId", command.tenantId)
                 .mapTo<Boolean>()
@@ -102,18 +106,19 @@ class GenerateDocumentHandler(
                 throw TemplateVariantNotFoundException(command.tenantId, command.templateId, resolvedVariantId)
             }
 
-            // 2. Verify version or environment exists
+            // 2. Verify version or environment exists (when specified)
             if (command.versionId != null) {
                 val versionExists = handle.createQuery(
                     """
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_versions
-                        WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId AND id = :versionId
                     )
                     """,
                 )
                     .bind("versionId", command.versionId)
+                    .bind("catalogKey", command.catalogKey)
                     .bind("variantId", resolvedVariantId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
@@ -122,7 +127,7 @@ class GenerateDocumentHandler(
                 if (!versionExists) {
                     throw VersionNotFoundException(command.tenantId, command.templateId, resolvedVariantId, command.versionId!!)
                 }
-            } else {
+            } else if (command.environmentId != null) {
                 val environmentExists = handle.createQuery(
                     """
                     SELECT EXISTS (
@@ -143,26 +148,52 @@ class GenerateDocumentHandler(
                 }
             }
 
+            // 2b. Resolve version upfront when neither versionId nor environmentId is specified
+            val resolvedVersionId = command.versionId ?: if (command.environmentId == null) {
+                // Resolve latest published version
+                handle.createQuery(
+                    """
+                    SELECT id FROM template_versions
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
+                      AND template_key = :templateId AND variant_key = :variantId
+                      AND status = 'published'
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                )
+                    .bind("tenantId", command.tenantId)
+                    .bind("catalogKey", command.catalogKey)
+                    .bind("templateId", command.templateId)
+                    .bind("variantId", resolvedVariantId)
+                    .mapTo<Int>()
+                    .findOne()
+                    .orElse(null)
+                    ?.let { VersionKey.of(it) }
+                    ?: throw NoPublishedVersionException(command.tenantId, command.templateId, resolvedVariantId)
+            } else {
+                null
+            }
+
             // 3. Create generation request with all data (stays in PENDING status for poller to pick up)
             val requestId = GenerationRequestKey.generate()
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                    id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                     data, filename, correlation_key, document_key, status
                 )
-                VALUES (:id, NULL, :tenantId, :templateId, :variantId, :versionId, :environmentId,
+                VALUES (:id, NULL, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
                         :data::jsonb, :filename, :correlationId, NULL, :status)
-                RETURNING id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                           data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
                           error_message, created_at, started_at, completed_at, expires_at
                 """,
             )
                 .bind("id", requestId)
                 .bind("tenantId", command.tenantId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("templateId", command.templateId)
                 .bind("variantId", resolvedVariantId)
-                .bind("versionId", command.versionId)
+                .bind("versionId", resolvedVersionId)
                 .bind("environmentId", command.environmentId)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
@@ -180,15 +211,16 @@ class GenerateDocumentHandler(
         return request
     }
 
-    private fun resolveDefaultVariant(tenantId: TenantKey, templateId: TemplateKey): VariantKey {
+    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey): VariantKey {
         val variantId = jdbi.withHandle<String?, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)
+                .bind("catalogKey", catalogKey)
                 .bind("templateId", templateId)
                 .mapTo<String>()
                 .findOne()

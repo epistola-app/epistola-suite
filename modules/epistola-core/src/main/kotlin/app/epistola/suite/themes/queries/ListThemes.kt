@@ -1,5 +1,6 @@
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component
 data class ListThemes(
     val tenantId: TenantId,
     val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
 ) : Query<List<Theme>>,
     RequiresPermission {
     override val permission get() = Permission.THEME_VIEW
@@ -25,15 +27,21 @@ class ListThemesHandler(
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT * FROM themes WHERE tenant_key = :tenantId")
-            if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND name ILIKE :searchTerm")
+            append("SELECT t.*, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantId")
+            if (query.catalogKey != null) {
+                append(" AND t.catalog_key = :catalogKey")
             }
-            append(" ORDER BY last_modified DESC")
+            if (!query.searchTerm.isNullOrBlank()) {
+                append(" AND t.name ILIKE :searchTerm")
+            }
+            append(" ORDER BY t.last_modified DESC")
         }
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

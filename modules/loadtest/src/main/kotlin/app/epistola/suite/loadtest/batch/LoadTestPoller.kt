@@ -1,8 +1,15 @@
 package app.epistola.suite.loadtest.batch
 
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -29,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger
 )
 class LoadTestPoller(
     private val jdbi: Jdbi,
+    private val mediator: Mediator,
     private val loadTestExecutor: LoadTestExecutor,
     @Value("\${epistola.loadtest.polling.max-concurrent-tests:1}")
     private val maxConcurrentTests: Int,
@@ -62,7 +70,12 @@ class LoadTestPoller(
             // Execute on virtual thread, don't block the scheduler
             executor.submit {
                 try {
-                    loadTestExecutor.execute(run)
+                    // Bind system principal + mediator for the virtual thread
+                    SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
+                        MediatorContext.runWithMediator(mediator) {
+                            loadTestExecutor.execute(run)
+                        }
+                    }
                 } catch (e: Exception) {
                     logger.error("Load test execution failed for run {}: {}", run.id, e.message, e)
                     markRunFailed(run.id, e.message)
@@ -95,7 +108,7 @@ class LoadTestPoller(
                 started_at = NOW()
             FROM claimed
             WHERE load_test_runs.id = claimed.id
-            RETURNING load_test_runs.id, tenant_key, template_key, variant_key, version_key, environment_key,
+            RETURNING load_test_runs.id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                       target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                       completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                       min_response_time_ms, max_response_time_ms, p50_response_time_ms,
@@ -154,5 +167,19 @@ class LoadTestPoller(
         if (recovered > 0) {
             logger.warn("Recovered {} stale load test runs", recovered)
         }
+    }
+
+    companion object {
+        /** System principal for load test execution — runs with full access. */
+        private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
+            userId = UserKey.of(java.util.UUID.nameUUIDFromBytes("loadtest@epistola.app".toByteArray())),
+            externalId = "loadtest",
+            email = "loadtest@epistola.app",
+            displayName = "Load Test System",
+            tenantMemberships = emptyMap(),
+            globalRoles = TenantRole.entries.toSet(),
+            platformRoles = PlatformRole.entries.toSet(),
+            currentTenantId = null,
+        )
     }
 }

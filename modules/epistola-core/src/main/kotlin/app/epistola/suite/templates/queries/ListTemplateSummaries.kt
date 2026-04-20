@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -17,6 +19,8 @@ import java.time.OffsetDateTime
  */
 data class TemplateSummary(
     val id: TemplateKey,
+    val catalogKey: CatalogKey,
+    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val lastModified: OffsetDateTime,
     val variantCount: Int,
@@ -27,6 +31,7 @@ data class TemplateSummary(
 data class ListTemplateSummaries(
     val tenantId: TenantId,
     val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<TemplateSummary>>,
@@ -45,6 +50,8 @@ class ListTemplateSummariesHandler(
                 """
                 SELECT
                     dt.id,
+                    dt.catalog_key,
+                    c.type AS catalog_type,
                     dt.name,
                     dt.last_modified,
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), 0)::int as variant_count,
@@ -57,9 +64,13 @@ class ListTemplateSummariesHandler(
                               JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
                               WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count
                 FROM document_templates dt
+                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
                 WHERE dt.tenant_key = :tenantId
                 """.trimIndent(),
             )
+            if (query.catalogKey != null) {
+                append(" AND dt.catalog_key = :catalogKey")
+            }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
@@ -69,6 +80,9 @@ class ListTemplateSummariesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             jdbiQuery.bind("searchTerm", "%$escaped%")

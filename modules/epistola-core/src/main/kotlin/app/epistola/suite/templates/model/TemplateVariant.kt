@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.model
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
@@ -12,6 +13,7 @@ import java.time.OffsetDateTime
 data class TemplateVariant(
     val id: VariantKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateKey: TemplateKey,
     val title: String?,
     val description: String?,

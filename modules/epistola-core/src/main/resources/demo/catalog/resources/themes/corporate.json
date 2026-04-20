@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "theme",
+    "slug": "corporate",
+    "name": "Corporate Theme",
+    "description": "A clean corporate theme with professional styling.",
+    "documentStyles": {
+      "fontFamily": "Helvetica, Arial, sans-serif",
+      "fontSize": "11pt",
+      "lineHeight": 1.5,
+      "color": "#333333"
+    },
+    "pageSettings": {
+      "format": "A4",
+      "orientation": "portrait",
+      "margins": {
+        "top": 72,
+        "right": 72,
+        "bottom": 72,
+        "left": 72
+      }
+    },
+    "blockStylePresets": {
+      "muted": {
+        "label": "Muted Text",
+        "styles": {
+          "color": "#666666",
+          "fontSize": "9pt"
+        }
+      }
+    },
+    "spacingUnit": 4.0
+  }
+}

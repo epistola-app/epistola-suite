@@ -52,11 +52,12 @@ class RemoveActivationHandler(
         val rowsDeleted = handle.createUpdate(
             """
                 DELETE FROM environment_activations
-                WHERE tenant_key = :tenantId AND environment_key = :environmentId
+                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND environment_key = :environmentId
                   AND template_key = :templateId AND variant_key = :variantId
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("catalogKey", command.variantId.catalogKey)
             .bind("environmentId", command.environmentId.key)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)

@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
-import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
+import type { TemplateDocument, NodeId, SlotId } from '../types/index.js';
 import { EditorEngine } from '../engine/EditorEngine.js';
 import {
   createDefaultRegistry,
@@ -22,7 +22,6 @@ import type {
 } from '../plugins/types.js';
 import type { EpistolaSidebar } from './EpistolaSidebar.js';
 import type { EpistolaToolbar } from './EpistolaToolbar.js';
-import { nanoid } from 'nanoid';
 import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';
 import {
   getAllLeaderIdleTokens,
@@ -43,6 +42,13 @@ import {
 } from '../shortcuts/resolver.js';
 import { LeaderModeController, type LeaderModeState } from '../shortcuts/leader-controller.js';
 import { validateCoreShortcutRegistriesOnStartup } from '../shortcuts/startup-validation.js';
+import {
+  extractBlockSubtree,
+  readBlockClipboardData,
+  rekeyBlockSubtree,
+  writeBlockClipboardData,
+  type BlockSubtree,
+} from './block-clipboard.js';
 
 import './EpistolaSidebar.js';
 import './EpistolaCanvas.js';
@@ -51,6 +57,10 @@ import './EpistolaPreview.js';
 import './EpistolaResizeHandle.js';
 
 type InsertMode = 'after' | 'before' | 'inside' | 'start' | 'end';
+type PasteDialogMode = 'placement' | 'slot';
+type ClosestCapableTarget = {
+  closest(selector: string): Element | null;
+};
 
 interface InsertSlotOption {
   slotId: SlotId;
@@ -66,6 +76,28 @@ interface InsertTarget {
 const INSERT_DIALOG_SHORTCUTS = INSERT_DIALOG_KEYS;
 
 const EDITABLE_TARGET_SELECTOR = 'input, textarea, select, [contenteditable="true"], .ProseMirror';
+
+function isClosestCapableTarget(value: unknown): value is ClosestCapableTarget {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'closest' in value &&
+    typeof value.closest === 'function'
+  );
+}
+
+function getClosestCapableTarget(target: EventTarget | null): ClosestCapableTarget | null {
+  if (isClosestCapableTarget(target)) {
+    return target;
+  }
+
+  if (!target || typeof target !== 'object' || !('parentElement' in target)) {
+    return null;
+  }
+
+  const parentElement = target.parentElement;
+  return isClosestCapableTarget(parentElement) ? parentElement : null;
+}
 
 /**
  * <epistola-editor> — Root editor element.
@@ -88,6 +120,8 @@ export class EpistolaEditor extends LitElement {
   private _saveService?: SaveService;
   private _pluginDisposers: PluginDisposeFn[] = [];
   private _onKeydown = this._handleKeydown.bind(this);
+  private _onCopy = this._handleCopy.bind(this);
+  private _onPaste = this._handlePaste.bind(this);
   private _onBeforeUnload = this._handleBeforeUnload.bind(this);
   private readonly _shortcutResolver = new ShortcutResolver<unknown>(
     mergeRegistries(getEditorShortcutRegistry(), getInsertDialogShortcutRegistry()),
@@ -131,8 +165,13 @@ export class EpistolaEditor extends LitElement {
   @state() private _insertDialogQuery = '';
   @state() private _insertDialogHighlight = 0;
   @state() private _insertDialogError = '';
+  @state() private _pasteDialogOpen = false;
+  @state() private _pasteDialogMode: PasteDialogMode = 'placement';
+  @state() private _pasteDialogSlotOptions: InsertSlotOption[] = [];
+  @state() private _pasteDialogError = '';
 
   private _insertTarget: InsertTarget | null = null;
+  private _pasteSubtree: BlockSubtree | null = null;
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open';
   private static readonly CLEAN_MODE_KEY = 'ep:clean-mode';
@@ -231,6 +270,8 @@ export class EpistolaEditor extends LitElement {
     super.connectedCallback();
     validateCoreShortcutRegistriesOnStartup();
     window.addEventListener('keydown', this._onKeydown);
+    window.addEventListener('copy', this._onCopy);
+    window.addEventListener('paste', this._onPaste);
     this.addEventListener('toggle-preview', this._handleTogglePreview);
     this.addEventListener('toggle-clean-mode', this._handleToggleCleanMode);
     this.addEventListener('force-save', this._handleForceSave);
@@ -247,6 +288,8 @@ export class EpistolaEditor extends LitElement {
 
   override disconnectedCallback(): void {
     window.removeEventListener('keydown', this._onKeydown);
+    window.removeEventListener('copy', this._onCopy);
+    window.removeEventListener('paste', this._onPaste);
     this.removeEventListener('toggle-preview', this._handleTogglePreview);
     this.removeEventListener('toggle-clean-mode', this._handleToggleCleanMode);
     this.removeEventListener('force-save', this._handleForceSave);
@@ -264,8 +307,48 @@ export class EpistolaEditor extends LitElement {
   // Keyboard Handling
   // ---------------------------------------------------------------------------
 
-  private _isShortcutEditingTarget(target: HTMLElement | null): boolean {
-    return !!target?.closest(EDITABLE_TARGET_SELECTOR);
+  private _isShortcutEditingTarget(target: ClosestCapableTarget | null): boolean {
+    return !!target && !!target.closest(EDITABLE_TARGET_SELECTOR);
+  }
+
+  private _isCopyPasteEventInsideEditor(target: EventTarget | null): boolean {
+    const targetElement = getClosestCapableTarget(target);
+    const ownerDocument = this.ownerDocument;
+    const defaultView = ownerDocument ? ownerDocument.defaultView : null;
+    const nodeCtor = defaultView ? defaultView.Node : null;
+    if (targetElement && nodeCtor && target instanceof nodeCtor && this.contains(target)) {
+      return true;
+    }
+
+    const active = globalThis.document ? globalThis.document.activeElement : null;
+    return !!active && this.contains(active);
+  }
+
+  private _handleCopy(e: ClipboardEvent): void {
+    if (!this._engine || !this._doc) return;
+    if (!this._isCopyPasteEventInsideEditor(e.target)) return;
+    if (this._isShortcutEditingTarget(getClosestCapableTarget(e.target))) return;
+
+    const selectedNodeId = this._selectedNodeId;
+    if (!selectedNodeId || selectedNodeId === this._doc.root) return;
+
+    const subtree = extractBlockSubtree(this._doc, selectedNodeId);
+    if (!subtree) return;
+    if (!writeBlockClipboardData(e.clipboardData, subtree)) return;
+
+    e.preventDefault();
+  }
+
+  private _handlePaste(e: ClipboardEvent): void {
+    if (!this._engine || !this._doc) return;
+    if (!this._isCopyPasteEventInsideEditor(e.target)) return;
+    if (this._isShortcutEditingTarget(getClosestCapableTarget(e.target))) return;
+
+    const subtree = readBlockClipboardData(e.clipboardData);
+    if (!subtree) return;
+
+    e.preventDefault();
+    this._openPasteDialog(subtree);
   }
 
   private _canDeleteSelectedBlock(): boolean {
@@ -337,6 +420,11 @@ export class EpistolaEditor extends LitElement {
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return;
 
+    if (this._pasteDialogOpen) {
+      this._handlePasteDialogKeydown(e);
+      return;
+    }
+
     const inInsertDialog = this._insertDialogOpen;
     const activeContexts = inInsertDialog
       ? (['insertDialog'] as const)
@@ -398,8 +486,12 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _focusCanvasBlock(nodeId: NodeId | null): void {
-    if (!nodeId) return;
-    requestAnimationFrame(() => {
+    if (!nodeId || typeof this.querySelector !== 'function') return;
+    const schedule =
+      globalThis.requestAnimationFrame ??
+      ((callback: FrameRequestCallback) => setTimeout(callback, 0));
+
+    schedule(() => {
       const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
       block?.focus({ preventScroll: true });
     });
@@ -484,6 +576,186 @@ export class EpistolaEditor extends LitElement {
       return true;
     }
     return false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Paste Dialog
+  // ---------------------------------------------------------------------------
+
+  private _openPasteDialog(subtree: BlockSubtree): void {
+    this._pasteSubtree = subtree;
+    this._pasteDialogOpen = true;
+    this._pasteDialogMode = 'placement';
+    this._pasteDialogSlotOptions = [];
+    this._pasteDialogError = '';
+  }
+
+  private _closePasteDialog(): void {
+    this._pasteDialogOpen = false;
+    this._pasteDialogMode = 'placement';
+    this._pasteDialogSlotOptions = [];
+    this._pasteDialogError = '';
+    this._pasteSubtree = null;
+  }
+
+  private _returnToPastePlacement(): void {
+    this._pasteDialogMode = 'placement';
+    this._pasteDialogSlotOptions = [];
+    this._pasteDialogError = '';
+  }
+
+  private _handlePasteDialogKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (this._pasteDialogMode === 'slot') {
+        this._returnToPastePlacement();
+      } else {
+        this._closePasteDialog();
+      }
+      return;
+    }
+
+    if (!/^[1-9]$/.test(e.key)) {
+      return;
+    }
+
+    e.preventDefault();
+    const index = Number(e.key);
+
+    if (this._pasteDialogMode === 'slot') {
+      const slot = this._pasteDialogSlotOptions[index - 1];
+      if (!slot) {
+        this._pasteDialogError = 'Invalid slot number';
+        return;
+      }
+      this._handlePasteSlotSelection(slot.slotId);
+      return;
+    }
+
+    if (index === 1) {
+      this._handlePastePlacement('after');
+      return;
+    }
+    if (index === 2) {
+      this._handlePastePlacement('before');
+      return;
+    }
+    if (index === 3) {
+      this._handlePastePlacement('inside');
+    }
+  }
+
+  private _handlePastePlacement(placement: 'after' | 'before' | 'inside'): void {
+    this._pasteDialogError = '';
+
+    if (placement === 'inside') {
+      const slotOptions = this._getInsertSlotOptionsForInside();
+      if (slotOptions.length === 0) {
+        this._pasteDialogError = 'No valid inside slot for selected block';
+        return;
+      }
+
+      if (slotOptions.length === 1) {
+        this._handlePasteSlotSelection(slotOptions[0].slotId);
+        return;
+      }
+
+      this._pasteDialogMode = 'slot';
+      this._pasteDialogSlotOptions = slotOptions;
+      return;
+    }
+
+    const target = this._getPasteTargetForPlacement(placement);
+    if (!target) {
+      this._pasteDialogError = `No valid ${placement} target`;
+      return;
+    }
+
+    this._insertPastedSubtreeAtTarget(target);
+  }
+
+  private _handlePasteSlotSelection(slotId: SlotId): void {
+    const target = this._buildInsideTargetFromSlot(slotId);
+    if (!target) {
+      this._pasteDialogError = 'Cannot paste into selected slot';
+      return;
+    }
+
+    this._insertPastedSubtreeAtTarget(target);
+  }
+
+  private _getPasteTargetForPlacement(placement: 'after' | 'before'): InsertTarget | null {
+    if (placement === 'after') {
+      return this._isDocumentInsertContext()
+        ? this._getInsertTargetDocumentEnd()
+        : this._getInsertTargetAfterSelected();
+    }
+
+    return this._isDocumentInsertContext()
+      ? this._getInsertTargetDocumentStart()
+      : this._getInsertTargetBeforeSelected();
+  }
+
+  private _canPastePlacement(placement: 'after' | 'before'): boolean {
+    return this._getPasteTargetForPlacement(placement) !== null;
+  }
+
+  private _canPasteInside(): boolean {
+    return this._getInsertSlotOptionsForInside().length > 0;
+  }
+
+  private _getPasteDialogHint(): string {
+    if (this._pasteDialogMode === 'slot') {
+      return '1-9=Choose slot  Esc=Back';
+    }
+
+    return '1=After  2=Before  3=Inside  Esc=Close';
+  }
+
+  private _getPasteDialogContext(): string {
+    if (this._pasteDialogMode === 'slot') {
+      return `Choose a slot inside ${this._selectedNodeLabel()}`;
+    }
+
+    return this._isDocumentInsertContext()
+      ? 'Paste into the document'
+      : `Paste relative to ${this._selectedNodeLabel()}`;
+  }
+
+  private _getPastePlacementDetail(placement: 'after' | 'before' | 'inside'): string {
+    if (this._isDocumentInsertContext()) {
+      if (placement === 'after') return 'document end';
+      if (placement === 'before') return 'document start';
+      return 'document body';
+    }
+
+    if (placement === 'after') return `after ${this._selectedNodeLabel()}`;
+    if (placement === 'before') return `before ${this._selectedNodeLabel()}`;
+    return `inside ${this._selectedNodeLabel()}`;
+  }
+
+  private _insertPastedSubtreeAtTarget(target: InsertTarget): boolean {
+    if (!this._engine || !this._pasteSubtree) return false;
+
+    const cloned = rekeyBlockSubtree(this._pasteSubtree);
+    const result = this._engine.dispatch({
+      type: 'InsertNode',
+      node: cloned.node,
+      slots: cloned.slots,
+      targetSlotId: target.slotId,
+      index: target.index,
+      _restoreNodes: cloned.extraNodes,
+    });
+
+    if (!result.ok) {
+      this._pasteDialogError = result.error;
+      return false;
+    }
+
+    this._engine.selectNode(cloned.node.id);
+    this._focusCanvasBlock(cloned.node.id);
+    this._closePasteDialog();
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -1005,7 +1277,10 @@ export class EpistolaEditor extends LitElement {
     const index = parentSlot.children.indexOf(nodeId);
     if (index < 0) return false;
 
-    const clone = this._cloneSubtree(nodeId);
+    const source = extractBlockSubtree(this._doc, nodeId);
+    if (!source) return false;
+
+    const clone = rekeyBlockSubtree(source);
     if (!clone) return false;
 
     const result = this._engine.dispatch({
@@ -1023,68 +1298,6 @@ export class EpistolaEditor extends LitElement {
       return true;
     }
     return false;
-  }
-
-  private _cloneSubtree(nodeId: NodeId): { node: Node; slots: Slot[]; extraNodes?: Node[] } | null {
-    const doc = this._doc;
-    if (!doc) return null;
-
-    const nodeIds: NodeId[] = [];
-    const slotIds: SlotId[] = [];
-    const visit = (currentId: NodeId) => {
-      nodeIds.push(currentId);
-      const node = doc.nodes[currentId];
-      if (!node) return;
-      for (const slotId of node.slots) {
-        slotIds.push(slotId);
-        const slot = doc.slots[slotId];
-        if (!slot) continue;
-        for (const childId of slot.children) {
-          visit(childId);
-        }
-      }
-    };
-    visit(nodeId);
-
-    const nodeIdMap = new Map<NodeId, NodeId>();
-    const slotIdMap = new Map<SlotId, SlotId>();
-    for (const id of nodeIds) {
-      nodeIdMap.set(id, nanoid() as NodeId);
-    }
-    for (const id of slotIds) {
-      slotIdMap.set(id, nanoid() as SlotId);
-    }
-
-    const clonedNodes: Node[] = nodeIds.map((id) => {
-      const node = doc.nodes[id];
-      const mappedSlots = node.slots.map((slotId) => slotIdMap.get(slotId)!);
-      return {
-        ...structuredClone(node),
-        id: nodeIdMap.get(id)!,
-        slots: mappedSlots,
-      };
-    });
-
-    const clonedSlots: Slot[] = slotIds.map((id) => {
-      const slot = doc.slots[id];
-      const mappedChildren = slot.children.map((childId) => nodeIdMap.get(childId)!);
-      return {
-        ...structuredClone(slot),
-        id: slotIdMap.get(id)!,
-        nodeId: nodeIdMap.get(slot.nodeId)!,
-        children: mappedChildren,
-      };
-    });
-
-    const rootNode = clonedNodes.find((n) => n.id === nodeIdMap.get(nodeId));
-    if (!rootNode) return null;
-    const extraNodes = clonedNodes.filter((n) => n.id !== rootNode.id);
-
-    return {
-      node: rootNode,
-      slots: clonedSlots,
-      extraNodes: extraNodes.length > 0 ? extraNodes : undefined,
-    };
   }
 
   private _handleTogglePreview = () => {
@@ -1118,6 +1331,98 @@ export class EpistolaEditor extends LitElement {
     if (this._saveService?.isDirtyOrSaving) {
       e.preventDefault();
     }
+  }
+
+  private _handlePasteDialogBackdropClick = (): void => {
+    this._closePasteDialog();
+  };
+
+  private _buildPasteSlotClickHandler(slotId: SlotId): () => void {
+    return (): void => {
+      this._handlePasteSlotSelection(slotId);
+    };
+  }
+
+  private _renderPasteDialog(): unknown {
+    if (!this._pasteDialogOpen) return nothing;
+
+    return html`
+      <div class="paste-dialog-backdrop" @click=${this._handlePasteDialogBackdropClick}></div>
+      <div class="paste-dialog" data-testid="paste-dialog" role="dialog" aria-label="Paste block">
+        <div class="paste-dialog-title">Paste Block</div>
+        <div class="paste-dialog-hint">${this._getPasteDialogHint()}</div>
+        <div class="paste-dialog-context">${this._getPasteDialogContext()}</div>
+
+        ${this._pasteDialogError
+          ? html`<div class="paste-dialog-error">${this._pasteDialogError}</div>`
+          : nothing}
+        ${this._pasteDialogMode === 'slot'
+          ? html`
+              <div class="paste-dialog-slot-list">
+                ${this._pasteDialogSlotOptions.map(
+                  (slot, index) => html`
+                    <button
+                      class="paste-dialog-slot-option"
+                      data-testid=${`paste-slot-${index + 1}`}
+                      type="button"
+                      ?autofocus=${index === 0}
+                      @click=${this._buildPasteSlotClickHandler(slot.slotId)}
+                    >
+                      <span class="paste-dialog-slot-index">${index + 1}</span>
+                      <span class="paste-dialog-slot-label">${slot.label}</span>
+                    </button>
+                  `,
+                )}
+              </div>
+            `
+          : html`
+              <div class="paste-dialog-actions">
+                <button
+                  class="paste-dialog-action"
+                  data-testid="paste-after"
+                  type="button"
+                  ?disabled=${!this._canPastePlacement('after')}
+                  autofocus
+                  @click=${() => this._handlePastePlacement('after')}
+                >
+                  <span class="paste-dialog-action-index">1</span>
+                  <span class="paste-dialog-action-label">After</span>
+                  <span class="paste-dialog-action-detail"
+                    >${this._getPastePlacementDetail('after')}</span
+                  >
+                </button>
+
+                <button
+                  class="paste-dialog-action"
+                  data-testid="paste-before"
+                  type="button"
+                  ?disabled=${!this._canPastePlacement('before')}
+                  @click=${() => this._handlePastePlacement('before')}
+                >
+                  <span class="paste-dialog-action-index">2</span>
+                  <span class="paste-dialog-action-label">Before</span>
+                  <span class="paste-dialog-action-detail"
+                    >${this._getPastePlacementDetail('before')}</span
+                  >
+                </button>
+
+                <button
+                  class="paste-dialog-action"
+                  data-testid="paste-inside"
+                  type="button"
+                  ?disabled=${!this._canPasteInside()}
+                  @click=${() => this._handlePastePlacement('inside')}
+                >
+                  <span class="paste-dialog-action-index">3</span>
+                  <span class="paste-dialog-action-label">Inside</span>
+                  <span class="paste-dialog-action-detail"
+                    >${this._getPastePlacementDetail('inside')}</span
+                  >
+                </button>
+              </div>
+            `}
+      </div>
+    `;
   }
 
   // ---------------------------------------------------------------------------
@@ -1267,6 +1572,7 @@ export class EpistolaEditor extends LitElement {
               </div>
             `
           : nothing}
+        ${this._renderPasteDialog()}
       </div>
     `;
   }

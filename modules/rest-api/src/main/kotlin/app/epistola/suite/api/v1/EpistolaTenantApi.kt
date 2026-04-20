@@ -23,6 +23,8 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -114,18 +116,20 @@ class EpistolaTenantApi :
 
     override fun listAttributes(
         tenantId: String,
+        catalogId: String,
     ): ResponseEntity<AttributeListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId)).query()
         return ResponseEntity.ok(AttributeListResponse(items = attributes.map { it.toDto() }))
     }
 
     override fun createAttribute(
         tenantId: String,
+        catalogId: String,
         createAttributeRequest: CreateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val attribute = CreateAttributeDefinition(
             id = attributeIdComposite,
             displayName = createAttributeRequest.description ?: createAttributeRequest.key,
@@ -135,10 +139,11 @@ class EpistolaTenantApi :
 
     override fun getAttribute(
         tenantId: String,
+        catalogId: String,
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val attribute = GetAttributeDefinition(id = attributeIdComposite).query()
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(attribute.toDto())
@@ -146,13 +151,14 @@ class EpistolaTenantApi :
 
     override fun updateAttribute(
         tenantId: String,
+        catalogId: String,
         attributeKey: String,
         updateAttributeRequest: UpdateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
         val description = updateAttributeRequest.description
             ?: return ResponseEntity.badRequest().build()
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val attribute = UpdateAttributeDefinition(
             id = attributeIdComposite,
             displayName = description,
@@ -162,10 +168,11 @@ class EpistolaTenantApi :
 
     override fun deleteAttribute(
         tenantId: String,
+        catalogId: String,
         attributeKey: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val deleted = DeleteAttributeDefinition(id = attributeIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()

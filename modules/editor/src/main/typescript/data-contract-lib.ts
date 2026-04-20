@@ -33,6 +33,8 @@ export interface DataContractEditorOptions {
   recentUsageRenderLimit?: number;
   /** Callbacks for saving schema, examples, etc. */
   callbacks: SaveCallbacks;
+  /** When true, all editing controls are disabled */
+  readonly?: boolean;
 }
 
 export interface DataContractEditorInstance {
@@ -53,6 +55,7 @@ export function mountDataContractEditor(
     hasDraftContract,
     recentUsageRenderLimit,
     callbacks,
+    readonly = false,
   } = options;
 
   const editorEl = document.createElement(
@@ -66,6 +69,7 @@ export function mountDataContractEditor(
     callbacks,
     hasDraftContract ?? false,
     recentUsageRenderLimit,
+    readonly,
   );
 
   container.innerHTML = '';

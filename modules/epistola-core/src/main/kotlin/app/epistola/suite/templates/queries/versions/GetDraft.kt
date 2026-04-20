@@ -33,9 +33,10 @@ class GetDraftHandler(
                        ver.created_at, ver.published_at, ver.archived_at,
                        ver.rendering_defaults_version, ver.resolved_theme
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.id = ver.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.variant_key = :variantId
                   AND ver.tenant_key = :tenantId
+                  AND ver.catalog_key = :catalogKey
                   AND ver.status = 'draft'
                   AND tv.template_key = :templateId
                 """,
@@ -43,6 +44,7 @@ class GetDraftHandler(
             .bind("variantId", query.variantId.key)
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
+            .bind("catalogKey", query.variantId.catalogKey)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)

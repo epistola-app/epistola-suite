@@ -9,7 +9,7 @@ import { html } from 'lit';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 import { renderPresetItem } from './PresetItem.js';
 
-export function renderPresetsSection(state: ThemeEditorState): unknown {
+export function renderPresetsSection(state: ThemeEditorState, readOnly = false): unknown {
   const presets = state.theme.blockStylePresets;
   const entries = Object.entries(presets);
 
@@ -29,12 +29,13 @@ export function renderPresetsSection(state: ThemeEditorState): unknown {
               </div>
             `
           : entries.map(([name, preset]) =>
-              renderPresetItem(state, name, preset, () => state.removePreset(name)),
+              renderPresetItem(state, name, preset, () => state.removePreset(name), readOnly),
             )}
       </div>
 
       <button
         class="theme-preset-add-btn"
+        ?disabled=${readOnly}
         @click=${() => {
           const name = generatePresetName(presets);
           state.addPreset(name);

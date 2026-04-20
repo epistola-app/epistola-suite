@@ -1,5 +1,9 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
@@ -9,6 +13,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -52,10 +57,14 @@ class StencilHandler(
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val stencils = ListStencils(tenantId = tenantId).query()
+        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val stencils = ListStencils(tenantId = tenantId, catalogKey = catalogFilter).query()
         return ServerResponse.ok().page("stencils/list") {
             "pageTitle" to "Stencils - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
+            "selectedCatalog" to (catalogFilter?.value ?: "")
             "stencils" to stencils
         }
     }
@@ -63,12 +72,14 @@ class StencilHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
+        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
 
         if (!request.isHtmx()) {
             val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
             val items = summaries.map { s ->
                 mapOf(
                     "id" to s.id.value,
+                    "catalogKey" to s.catalogKey.value,
                     "name" to s.name,
                     "description" to s.description,
                     "tags" to s.tags,
@@ -81,7 +92,7 @@ class StencilHandler(
                 .body(mapOf("items" to items))
         }
 
-        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm).query()
+        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key
@@ -95,9 +106,11 @@ class StencilHandler(
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         return ServerResponse.ok().page("stencils/new") {
             "pageTitle" to "New Stencil - Epistola"
             "tenantId" to tenantId.key
+            "catalogs" to catalogs
         }
     }
 
@@ -120,6 +133,7 @@ class StencilHandler(
 
     private fun createForm(request: ServerRequest, tenantId: TenantId): ServerResponse {
         val form = request.form {
+            field("catalog") {}
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -133,10 +147,14 @@ class StencilHandler(
             field("description") {}
         }
 
+        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
+        val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+
         if (form.hasErrors()) {
             return ServerResponse.ok().page("stencils/new") {
                 "pageTitle" to "New Stencil - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -148,6 +166,7 @@ class StencilHandler(
             return ServerResponse.ok().page("stencils/new") {
                 "pageTitle" to "New Stencil - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -160,7 +179,7 @@ class StencilHandler(
 
         val result = form.executeOrFormError {
             CreateStencil(
-                id = StencilId(stencilKey, tenantId),
+                id = StencilId(stencilKey, CatalogId(catalogKey, tenantId)),
                 name = name,
                 description = description,
                 tags = tags,
@@ -171,13 +190,14 @@ class StencilHandler(
             return ServerResponse.ok().page("stencils/new") {
                 "pageTitle" to "New Stencil - Epistola"
                 "tenantId" to tenantId.key
+                "catalogs" to catalogs
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/stencils/$stencilKey")
+            .header("Location", "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey")
             .build()
     }
 
@@ -186,6 +206,7 @@ class StencilHandler(
         val name: String,
         val description: String? = null,
         val tags: List<String>? = null,
+        val catalogKey: String? = null,
         val content: app.epistola.template.model.TemplateDocument? = null,
         val publish: Boolean = false,
     )
@@ -194,7 +215,9 @@ class StencilHandler(
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, CreateStencilJsonRequest::class.java)
 
-        val stencilId = StencilId(StencilKey.of(req.id), tenantId)
+        val catalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) }
+            ?: return ServerResponse.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
+        val stencilId = StencilId(StencilKey.of(req.id), catalog)
 
         CreateStencil(
             id = stencilId,
@@ -213,13 +236,14 @@ class StencilHandler(
 
         return ServerResponse.status(201)
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("stencilId" to req.id, "version" to (publishedVersion ?: 1)))
+            .body(mapOf("stencilId" to req.id, "version" to (publishedVersion ?: 1), "catalogKey" to req.catalogKey))
     }
 
     // ── Detail & Update & Delete ───────────────────────────────────────────
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -232,6 +256,7 @@ class StencilHandler(
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
             "tenantId" to tenantId.key
+            "catalogId" to catalogId.value
             "stencil" to stencil
             "versions" to versions
             "usage" to usage
@@ -240,6 +265,7 @@ class StencilHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -276,10 +302,19 @@ class StencilHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        DeleteStencil(id = stencilId).execute()
+        val force = request.param("force").orElse("false").toBoolean()
+
+        try {
+            DeleteStencil(id = stencilId, force = force).execute()
+        } catch (e: app.epistola.suite.stencils.StencilInUseException) {
+            return ServerResponse.badRequest()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
 
         val stencils = ListStencils(tenantId = tenantId).query()
         return request.htmx {
@@ -343,13 +378,16 @@ class StencilHandler(
         data class UpgradeRequest(
             val templateId: String,
             val variantId: String,
+            val catalogKey: String? = null,
             val newVersion: Int,
         )
 
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, UpgradeRequest::class.java)
 
-        val templateId = TemplateId(TemplateKey.of(req.templateId), tenantId)
+        val templateCatalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) }
+            ?: return ServerResponse.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
+        val templateId = TemplateId(TemplateKey.of(req.templateId), templateCatalog)
         val variantId = VariantId(VariantKey.of(req.variantId), templateId)
 
         val count = UpdateStencilInTemplate(
@@ -502,7 +540,9 @@ class StencilHandler(
         // Ensure a draft exists (idempotent). Pass content so it works even
         // for brand-new stencils with no published versions to copy from.
         val draft = CreateStencilVersion(stencilId = stencilId, content = req.content).execute()
-            ?: return ServerResponse.notFound().build()
+            ?: return ServerResponse.status(404)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Stencil '${stencilId.key}' not found. Create it first using the stencil picker."))
 
         // Always update — CreateStencilVersion returns existing draft without updating content
         UpdateStencilDraft(

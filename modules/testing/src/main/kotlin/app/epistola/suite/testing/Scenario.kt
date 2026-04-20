@@ -1,5 +1,6 @@
 package app.epistola.suite.testing
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -152,7 +153,7 @@ class ScenarioBuilder(private val namespace: String) {
             val tenantId = TenantId(tenantKey)
             return capturedMediator.send(
                 CreateDocumentTemplate(
-                    id = TemplateId(TestIdHelpers.nextTemplateId(), tenantId),
+                    id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),
                     name = name,
                 ),
             )

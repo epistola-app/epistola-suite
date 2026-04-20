@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.model
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -29,6 +30,7 @@ import java.time.OffsetDateTime
 data class Document(
     val id: DocumentKey,
     val tenantKey: TenantKey,
+    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val versionKey: VersionKey,

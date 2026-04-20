@@ -85,14 +85,30 @@ describe('ThemeEditorState', () => {
       expect('color' in state.theme.documentStyles).toBe(false);
     });
 
+    it('updateDocumentStyle expands border to per-side keys', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      state.updateDocumentStyle(
+        'border',
+        {
+          top: { width: '1pt', style: 'solid', color: '#000' },
+          right: { width: '', style: 'none', color: '' },
+          bottom: { width: '1pt', style: 'solid', color: '#000' },
+          left: { width: '', style: 'none', color: '' },
+        },
+        'border',
+      );
+      expect(state.theme.documentStyles.borderTop).toBe('1pt solid #000');
+      expect(state.theme.documentStyles.borderBottom).toBe('1pt solid #000');
+      expect(state.theme.documentStyles.borderRight).toBeUndefined();
+    });
+
     it('updateDocumentStyle expands spacing to individual keys', () => {
       const state = new ThemeEditorState(createTestTheme());
-      state.updateDocumentStyle('margin', {
-        top: '0px',
-        right: '0px',
-        bottom: '10px',
-        left: '0px',
-      });
+      state.updateDocumentStyle(
+        'margin',
+        { top: '0px', right: '0px', bottom: '10px', left: '0px' },
+        'spacing',
+      );
       expect(state.theme.documentStyles.marginBottom).toBe('10px');
       expect(state.theme.documentStyles.margin).toBeUndefined();
     });
@@ -183,12 +199,17 @@ describe('ThemeEditorState', () => {
 
     it('updatePresetStyle expands spacing to individual keys', () => {
       const state = new ThemeEditorState(createTestTheme());
-      state.updatePresetStyle('heading', 'margin', {
-        top: '10px',
-        right: '0px',
-        bottom: '16px',
-        left: '0px',
-      });
+      state.updatePresetStyle(
+        'heading',
+        'margin',
+        {
+          top: '10px',
+          right: '0px',
+          bottom: '16px',
+          left: '0px',
+        },
+        'spacing',
+      );
       const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
       expect(styles.marginTop).toBe('10px');
       expect(styles.marginBottom).toBe('16px');
@@ -199,18 +220,43 @@ describe('ThemeEditorState', () => {
 
     it('updatePresetStyle expands padding to individual keys', () => {
       const state = new ThemeEditorState(createTestTheme());
-      state.updatePresetStyle('heading', 'padding', {
-        top: '8px',
-        right: '12px',
-        bottom: '8px',
-        left: '12px',
-      });
+      state.updatePresetStyle(
+        'heading',
+        'padding',
+        {
+          top: '8px',
+          right: '12px',
+          bottom: '8px',
+          left: '12px',
+        },
+        'spacing',
+      );
       const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
       expect(styles.paddingTop).toBe('8px');
       expect(styles.paddingRight).toBe('12px');
       expect(styles.paddingBottom).toBe('8px');
       expect(styles.paddingLeft).toBe('12px');
       expect(styles.padding).toBeUndefined();
+    });
+
+    it('updatePresetStyle expands border to per-side shorthand keys', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      state.updatePresetStyle(
+        'heading',
+        'border',
+        {
+          top: { width: '2pt', style: 'solid', color: '#000' },
+          right: { width: '', style: 'none', color: '' },
+          bottom: { width: '1pt', style: 'dashed', color: '#ccc' },
+          left: { width: '', style: 'none', color: '' },
+        },
+        'border',
+      );
+      const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
+      expect(styles.borderTop).toBe('2pt solid #000');
+      expect(styles.borderBottom).toBe('1pt dashed #ccc');
+      expect(styles.borderRight).toBeUndefined();
+      expect(styles.borderLeft).toBeUndefined();
     });
 
     it('updatePresetApplicableTo sets node types', () => {
