@@ -16,6 +16,14 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import {
+  renderColorInput,
+  renderSelectInput,
+  readBorderFromStyles,
+  expandBorderToStyles,
+  type BorderValue,
+} from '../../ui/inputs/style-inputs.js';
+import '../../ui/inputs/BorderInput.js';
+import {
   findMergeAt,
   canMerge,
   normalizeSelection,
@@ -72,6 +80,7 @@ export class TableInspector extends LitElement {
         ${this._renderRowCount()} ${this._renderColumnCount()} ${this._renderColumnWidths()}
         ${this._renderHeaderRows()} ${this._renderMergeControls()}
       </div>
+      ${this._renderCellStyles()}
     `;
   }
 
@@ -304,6 +313,107 @@ export class TableInspector extends LitElement {
       nodeId: this.node.id,
       row,
       col,
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Cell styles
+  // -----------------------------------------------------------------------
+
+  private _renderCellStyles() {
+    if (!this._cellSelection) return nothing;
+
+    const sel = normalizeSelection(this._cellSelection);
+    const cellKey = `${sel.startRow}-${sel.startCol}`;
+    const cellStyles =
+      (this.node.props?.cellStyles as Record<string, Record<string, unknown>>) ?? {};
+    const currentStyles = cellStyles[cellKey] ?? {};
+
+    return html`
+      <div class="inspector-section">
+        <div class="inspector-section-label">Cell Style</div>
+        <div class="inspector-field">
+          <label class="inspector-field-label">Background</label>
+          ${renderColorInput(currentStyles.backgroundColor as string | undefined, (v) =>
+            this._handleCellStyleChange('backgroundColor', v || undefined),
+          )}
+        </div>
+        <div class="inspector-field">
+          <label class="inspector-field-label">Text Align</label>
+          ${renderSelectInput(
+            currentStyles.textAlign as string | undefined,
+            [
+              { label: 'Left', value: 'left' },
+              { label: 'Center', value: 'center' },
+              { label: 'Right', value: 'right' },
+            ],
+            (v) => this._handleCellStyleChange('textAlign', v || undefined),
+          )}
+        </div>
+        <div class="inspector-field">
+          <label class="inspector-field-label">Border</label>
+          <epistola-border-input
+            .value=${readBorderFromStyles(currentStyles as Record<string, unknown>)}
+            .units=${['pt', 'sp']}
+            @change=${(e: CustomEvent) => this._handleCellBorderChange(e.detail as BorderValue)}
+          ></epistola-border-input>
+        </div>
+      </div>
+    `;
+  }
+
+  private _handleCellBorderChange(borderValue: BorderValue) {
+    const sel = normalizeSelection(this._cellSelection!);
+    const props = this.node.props ?? {};
+    const cellStyles = { ...((props.cellStyles as Record<string, Record<string, unknown>>) ?? {}) };
+
+    for (let row = sel.startRow; row <= sel.endRow; row++) {
+      for (let col = sel.startCol; col <= sel.endCol; col++) {
+        const cellKey = `${row}-${col}`;
+        const existing = { ...(cellStyles[cellKey] ?? {}) };
+        expandBorderToStyles(borderValue, existing);
+        if (Object.keys(existing).length > 0) {
+          cellStyles[cellKey] = existing;
+        } else {
+          delete cellStyles[cellKey];
+        }
+      }
+    }
+
+    this.engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: this.node.id,
+      props: { ...props, cellStyles },
+    });
+  }
+
+  private _handleCellStyleChange(styleKey: string, value: unknown) {
+    const sel = normalizeSelection(this._cellSelection!);
+    const props = this.node.props ?? {};
+    const cellStyles = { ...((props.cellStyles as Record<string, Record<string, unknown>>) ?? {}) };
+
+    // Apply to all cells in selection
+    for (let row = sel.startRow; row <= sel.endRow; row++) {
+      for (let col = sel.startCol; col <= sel.endCol; col++) {
+        const cellKey = `${row}-${col}`;
+        const existing = { ...(cellStyles[cellKey] ?? {}) };
+        if (value === undefined || value === '') {
+          delete existing[styleKey];
+        } else {
+          existing[styleKey] = value;
+        }
+        if (Object.keys(existing).length > 0) {
+          cellStyles[cellKey] = existing;
+        } else {
+          delete cellStyles[cellKey];
+        }
+      }
+    }
+
+    this.engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: this.node.id,
+      props: { ...props, cellStyles },
     });
   }
 }

@@ -60,11 +60,17 @@ class TableNodeRenderer : NodeRenderer {
             context.spacingUnit,
         )
 
-        // Border style
+        // Border style — overridable from props, falls back to rendering defaults
         val borderStyle = parseBorderStyle(node.props?.get("borderStyle") as? String)
+        val borderColor = (node.props?.get("borderColor") as? String)?.let { StyleApplicator.parseColor(it) }
+            ?: parseHexBorderColor(context.renderingDefaults.tableBorderColorHex)
+        val borderWidth = (node.props?.get("borderWidth") as? Number)?.toFloat()
+            ?: context.renderingDefaults.tableBorderWidth
 
-        val borderColor = parseHexBorderColor(context.renderingDefaults.tableBorderColorHex)
-        val borderWidth = context.renderingDefaults.tableBorderWidth
+        // Per-cell styles from props
+        @Suppress("UNCHECKED_CAST")
+        val cellStyles = node.props?.get("cellStyles") as? Map<String, Map<String, Any>>
+
         val headerRows = (node.props?.get("headerRows") as? Number)?.toInt() ?: 0
 
         // Parse merge definitions and build a set of covered cells
@@ -90,10 +96,30 @@ class TableNodeRenderer : NodeRenderer {
                 val colSpan = merge?.colSpan ?: 1
 
                 val cell = Cell(rowSpan, colSpan)
-                cell.setPadding(context.renderingDefaults.tableCellPadding)
 
-                // Apply border based on border style
-                applyCellBorder(cell, borderStyle, borderColor, borderWidth)
+                // Apply per-cell styles if defined, otherwise use defaults
+                val cellKey = "$row-$col"
+                val perCellStyles = cellStyles?.get(cellKey)
+                if (perCellStyles != null) {
+                    StyleApplicator.applyStyles(
+                        cell,
+                        perCellStyles,
+                        null,
+                        context.fontCache,
+                        context.renderingDefaults.baseFontSizePt,
+                        context.spacingUnit,
+                    )
+                }
+                // Apply default padding only if no per-cell padding is set
+                if (perCellStyles?.keys?.none { it.startsWith("padding") } != false) {
+                    cell.setPadding(context.renderingDefaults.tableCellPadding)
+                }
+
+                // Apply table-level border only if no per-cell borders are set
+                val hasCellBorders = perCellStyles?.keys?.any { it.startsWith("border") } == true
+                if (!hasCellBorders) {
+                    applyCellBorder(cell, borderStyle, borderColor, borderWidth)
+                }
 
                 // Bold for header rows
                 if (isHeaderRow) {
