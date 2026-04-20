@@ -4,6 +4,7 @@
     "type": "template",
     "slug": "simple-letter",
     "name": "Simple Letter",
+    "themeId": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -52,8 +53,7 @@
       "modelVersion": 1,
       "root": "n-root",
       "themeRef": {
-        "type": "override",
-        "themeId": "corporate"
+        "type": "inherit"
       },
       "pageSettingsOverride": {
         "format": "A4",

@@ -46,6 +46,10 @@ class DependencyResolver(
                 val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential)
                 when (val resource = detail.resource) {
                     is TemplateResource -> {
+                        // Resource-level theme reference (themeId field)
+                        if (resource.themeId != null) {
+                            deps += DependencyScanner.Dependencies(themeRefs = setOf(resource.themeId!!))
+                        }
                         val variantAttrs = resource.variants
                             .flatMap { (it.attributes ?: emptyMap()).keys }
                             .toSet()

@@ -4,6 +4,7 @@
     "type": "template",
     "slug": "hello-world",
     "name": "Hello World",
+    "themeId": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -30,9 +31,7 @@
       "modelVersion": 1,
       "root": "n-root",
       "themeRef": {
-        "type": "override",
-        "themeId": "corporate",
-        "catalogKey": "epistola-demo"
+        "type": "inherit"
       },
       "nodes": {
         "n-root": {

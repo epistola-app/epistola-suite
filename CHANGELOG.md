@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
+
+### Changed
+
+- **Demo templates**: Replaced `themeRef` overrides (which lock the theme at the variant level) with `themeId` at the resource level, allowing the theme to be changed from the template settings page.
+
 ## [0.15.0] - 2026-04-20
 
 ### Added

@@ -13,7 +13,7 @@ uuid-creator = "6.1.1"
 spring-web = "7.0.6"
 playwright = "1.58.0"
 epistola-contract = "0.2.1"
-epistola-model = "0.2.1"
+epistola-model = "0.2.4"
 aws-sdk = "2.42.23"
 
 [libraries]
