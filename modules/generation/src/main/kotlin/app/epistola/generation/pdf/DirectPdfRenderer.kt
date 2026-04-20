@@ -165,9 +165,10 @@ class DirectPdfRenderer(
             parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
-        val topMargin = margins.top.toFloat() +
+        val mmToPt = 2.834645f
+        val topMargin = margins.top.toFloat() * mmToPt +
             if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
-        val bottomMargin = margins.bottom.toFloat() +
+        val bottomMargin = margins.bottom.toFloat() * mmToPt +
             if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
 
         performRenderWithContext(
@@ -181,8 +182,8 @@ class DirectPdfRenderer(
             pageSettings = pageSettings,
             topMargin = topMargin,
             bottomMargin = bottomMargin,
-            rightMargin = margins.right.toFloat(),
-            leftMargin = margins.left.toFloat(),
+            rightMargin = margins.right.toFloat() * mmToPt,
+            leftMargin = margins.left.toFloat() * mmToPt,
         )
     }
 
@@ -224,9 +225,10 @@ class DirectPdfRenderer(
             parseNodeHeight(it, heightContext) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
-        val topMargin = margins.top.toFloat() +
+        val mmToPt = 2.834645f
+        val topMargin = margins.top.toFloat() * mmToPt +
             if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
-        val bottomMargin = margins.bottom.toFloat() +
+        val bottomMargin = margins.bottom.toFloat() * mmToPt +
             if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
 
         // First pass: render to count total pages (bytes are discarded).
@@ -254,8 +256,8 @@ class DirectPdfRenderer(
             pageSettings = pageSettings,
             topMargin = topMargin,
             bottomMargin = bottomMargin,
-            rightMargin = margins.right.toFloat(),
-            leftMargin = margins.left.toFloat(),
+            rightMargin = margins.right.toFloat() * mmToPt,
+            leftMargin = margins.left.toFloat() * mmToPt,
             enablePdfA = false,
             enableMetadata = false,
             enableHeaderFooter = false,
@@ -284,8 +286,8 @@ class DirectPdfRenderer(
             pageSettings = pageSettings,
             topMargin = topMargin,
             bottomMargin = bottomMargin,
-            rightMargin = margins.right.toFloat(),
-            leftMargin = margins.left.toFloat(),
+            rightMargin = margins.right.toFloat() * mmToPt,
+            leftMargin = margins.left.toFloat() * mmToPt,
         )
     }
 
@@ -337,7 +339,18 @@ class DirectPdfRenderer(
             footerHandler?.let { pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, it) }
         }
 
-        val elements = nodeRendererRegistry.renderNode(document.root, document, context)
+        // Address block: aside rendered in flow (hoisted to first child of root),
+        // address content rendered at absolute coordinates via event handler.
+        val renderDocument = hoistAddressBlock(document)
+        val addressNode = renderDocument.nodes.values.firstOrNull { it.type == "addressblock" }
+        addressNode?.let {
+            pdfDocument.addEventHandler(
+                PdfDocumentEvent.END_PAGE,
+                AddressBlockEventHandler(it.id, renderDocument, context, nodeRendererRegistry),
+            )
+        }
+
+        val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, context)
         for (element in elements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> iTextDocument.add(element)
@@ -425,7 +438,45 @@ class DirectPdfRenderer(
                 "pagebreak" to PageBreakNodeRenderer(),
                 "pageheader" to PageHeaderNodeRenderer(),
                 "pagefooter" to PageFooterNodeRenderer(),
+                "addressblock" to AddressBlockNodeRenderer(),
             ),
         )
+    }
+
+    /**
+     * If the document contains an address block nested somewhere in the tree,
+     * move it to be the first child of the root slot. This ensures it renders
+     * on page 1 before any other content.
+     *
+     * Returns the original document if no address block exists or if it's
+     * already the first child of root.
+     */
+    private fun hoistAddressBlock(document: TemplateDocument): TemplateDocument {
+        val addressNode = document.nodes.values.firstOrNull { it.type == "addressblock" }
+            ?: return document
+
+        val rootNode = document.nodes[document.root] ?: return document
+        val rootSlotId = rootNode.slots.firstOrNull() ?: return document
+        val rootSlot = document.slots[rootSlotId] ?: return document
+
+        // Already first child of root?
+        if (rootSlot.children.firstOrNull() == addressNode.id) return document
+
+        // Find the slot that currently contains the address block and remove it
+        val mutableSlots = document.slots.toMutableMap()
+        for ((slotId, slot) in document.slots) {
+            if (addressNode.id in slot.children) {
+                mutableSlots[slotId] = slot.copy(children = slot.children.filter { it != addressNode.id })
+                break
+            }
+        }
+
+        // Insert as first child of root slot
+        val updatedRootSlot = mutableSlots[rootSlotId]!!
+        mutableSlots[rootSlotId] = updatedRootSlot.copy(
+            children = listOf(addressNode.id) + updatedRootSlot.children,
+        )
+
+        return document.copy(slots = mutableSlots)
     }
 }

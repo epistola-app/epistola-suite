@@ -19,6 +19,11 @@
 - **First-page header/footer variation**: Page headers and footers now have a "Hide on first page" checkbox. When enabled, the header/footer is not rendered on the first page of the PDF.
 - **Data list component**: New block that loops over a data expression and renders items as a formatted list (bullet, numbered, alpha, roman, or no marker). Combines the iteration of loop blocks with proper list formatting.
 - **Table cell styling**: Per-cell background color, text alignment, and padding via the inspector when a cell is selected. Table border color and width are now overridable from props instead of hardcoded.
+- **Address block**: Two-part envelope window component. Address content renders at absolute page coordinates (exact mm from page edge, regardless of margins). Aside content renders in normal flow beside the address. DIN C5/6 left/right presets. Nestable in stencils/containers.
+
+### Fixed
+
+- **Page margins**: Margins are now correctly converted from mm to points before passing to iText. Previously mm values were treated as points, making margins ~2.8x smaller than intended.
 
 ### Fixed
 

@@ -71,6 +71,69 @@
           "type": "root",
           "slots": ["s-root-children"]
         },
+        "n-addressblock": {
+          "id": "n-addressblock",
+          "type": "addressblock",
+          "slots": ["s-address", "s-aside"],
+          "props": {
+            "standard": "din-c56-left",
+            "top": 45,
+            "left": 20,
+            "addressWidth": 85,
+            "height": 45
+          }
+        },
+        "n-address-text": {
+          "id": "n-address-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.city" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-aside-text": {
+          "id": "n-aside-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "sender.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "sender.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "sender.city" } }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Date: " },
+                    { "type": "expression", "attrs": { "expression": "date" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
         "n-sender": {
           "id": "n-sender",
           "type": "text",
@@ -258,7 +321,19 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-footer", "n-sender", "n-recipient", "n-date", "n-separator", "n-subject", "n-body", "n-attachments"]
+          "children": ["n-footer", "n-addressblock", "n-separator", "n-subject", "n-body", "n-attachments"]
+        },
+        "s-address": {
+          "id": "s-address",
+          "nodeId": "n-addressblock",
+          "name": "address",
+          "children": ["n-address-text"]
+        },
+        "s-aside": {
+          "id": "s-aside",
+          "nodeId": "n-addressblock",
+          "name": "aside",
+          "children": ["n-aside-text"]
         },
         "s-footer-children": {
           "id": "s-footer-children",
