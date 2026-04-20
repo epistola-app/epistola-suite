@@ -50,6 +50,7 @@ class TableNodeRendererTest {
         borderStyle: String = "all",
         headerRows: Int = 0,
         merges: List<Map<String, Any>> = emptyList(),
+        cellStyles: Map<String, Map<String, Any>>? = null,
     ): TemplateDocument {
         val tableNodeId = "table1"
         val rootNodeId = "root-1"
@@ -87,6 +88,9 @@ class TableNodeRendererTest {
         }
         if (merges.isNotEmpty()) {
             tableProps["merges"] = merges
+        }
+        if (cellStyles != null) {
+            tableProps["cellStyles"] = cellStyles
         }
 
         nodes[tableNodeId] = Node(
@@ -253,6 +257,171 @@ class TableNodeRendererTest {
             merges = listOf(
                 mapOf("row" to 0), // incomplete
                 mapOf("row" to 0, "col" to 0, "rowSpan" to 0, "colSpan" to 1), // rowSpan < 1
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    // -----------------------------------------------------------------------
+    // Cell styling
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `renders table with per-cell background color`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("backgroundColor" to "#ff0000"),
+                "1-1" to mapOf("backgroundColor" to "#00ff00"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with per-cell text alignment`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("textAlign" to "center"),
+                "0-1" to mapOf("textAlign" to "right"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with per-cell padding`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("paddingTop" to "2pt", "paddingBottom" to "2pt"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table without cellStyles unchanged`() {
+        val doc = tableDocument(rows = 2, columns = 2)
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with all cell style properties combined`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf(
+                    "backgroundColor" to "#f0f0f0",
+                    "textAlign" to "center",
+                    "paddingTop" to "4pt",
+                    "paddingRight" to "8pt",
+                    "paddingBottom" to "4pt",
+                    "paddingLeft" to "8pt",
+                    "color" to "#ff0000",
+                    "fontSize" to "14pt",
+                    "fontWeight" to "700",
+                ),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with cell styles on merged cell`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            merges = listOf(mapOf("row" to 0, "col" to 0, "rowSpan" to 2, "colSpan" to 1)),
+            cellStyles = mapOf(
+                "0-0" to mapOf("backgroundColor" to "#e0e0ff", "textAlign" to "center"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with cell styles and header rows`() {
+        val doc = tableDocument(
+            rows = 3,
+            columns = 2,
+            headerRows = 1,
+            cellStyles = mapOf(
+                "0-0" to mapOf("backgroundColor" to "#333333", "color" to "#ffffff"),
+                "0-1" to mapOf("backgroundColor" to "#333333", "color" to "#ffffff"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with cell styles referencing nonexistent cells gracefully`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "99-99" to mapOf("backgroundColor" to "#ff0000"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with custom border color and width from props`() {
+        val rootSlotId = "slot-root"
+        val tableSlotId = "slot-cell-0-0"
+        val textId = "t-0-0"
+
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "table1" to Node(
+                    id = "table1",
+                    type = "table",
+                    slots = listOf(tableSlotId),
+                    props = mapOf(
+                        "rows" to 1,
+                        "columns" to 1,
+                        "borderStyle" to "all",
+                        "borderColor" to "#2563eb",
+                        "borderWidth" to 2.0,
+                    ),
+                ),
+                textId to textNode(textId, "Blue border"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(id = rootSlotId, nodeId = "root", name = "children", children = listOf("table1")),
+                tableSlotId to Slot(id = tableSlotId, nodeId = "table1", name = "cell-0-0", children = listOf(textId)),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `cell styles with sp units render correctly`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("paddingTop" to "2sp", "paddingBottom" to "2sp"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `cell styles with 3-digit hex color render correctly`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("backgroundColor" to "#f00"),
             ),
         )
         assertValidPdf(renderToBytes(doc))
