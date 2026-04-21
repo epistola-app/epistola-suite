@@ -341,10 +341,10 @@ class TipTapConverter(
 
         for (mark in marks) {
             when (mark["type"]) {
-                "bold" -> isBold = true
-                "italic" -> isItalic = true
+                "bold", "strong" -> isBold = true
+                "italic", "em" -> isItalic = true
                 "underline" -> text.setUnderline()
-                "strike" -> text.setLineThrough()
+                "strike", "strikethrough" -> text.setLineThrough()
                 "subscript" -> {
                     text.setTextRise(-3f)
                     text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
