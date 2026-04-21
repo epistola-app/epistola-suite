@@ -57,7 +57,7 @@ class PageHeaderEventHandler(
             val hideOnFirstPage = headerNode.props?.get("hideOnFirstPage") == true
             if (hideOnFirstPage && pageNumber == 1) return
             val totalPages = context.totalPages ?: pdfDoc.numberOfPages
-            val pageContext = context.withPageParams(pageNumber, totalPages)
+            val pageContext = context.withInheritedStylesFrom(headerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(headerNode, document, pageContext)
             for (element in elements) {
                 when (element) {

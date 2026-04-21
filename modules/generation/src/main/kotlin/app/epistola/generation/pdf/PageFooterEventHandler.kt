@@ -54,7 +54,7 @@ class PageFooterEventHandler(
             val hideOnFirstPage = footerNode.props?.get("hideOnFirstPage") == true
             if (hideOnFirstPage && pageNumber == 1) return
             val totalPages = context.totalPages ?: pdfDoc.numberOfPages
-            val pageContext = context.withPageParams(pageNumber, totalPages)
+            val pageContext = context.withInheritedStylesFrom(footerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(footerNode, document, pageContext)
             for (element in elements) {
                 when (element) {

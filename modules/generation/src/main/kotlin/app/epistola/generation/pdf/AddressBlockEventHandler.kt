@@ -52,7 +52,8 @@ class AddressBlockEventHandler(
         }.toMap()
 
         slotsByName["address"]?.let { slotId ->
-            for (element in registry.renderSlot(slotId, document, context)) {
+            val childContext = context.withInheritedStylesFrom(addressNode)
+            for (element in registry.renderSlot(slotId, document, childContext)) {
                 when (element) {
                     is IBlockElement -> canvas.add(element)
                     is Image -> canvas.add(element)
