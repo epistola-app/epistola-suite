@@ -79,9 +79,11 @@ object StyleApplicator {
         // Apply component default styles first (lowest priority)
         defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
-        // Apply inherited styles (from parent node, or document styles at root level)
-        if (inheritedStyles.isNotEmpty()) {
-            applyBlockStyles(element, inheritedStyles, fontCache, baseFontSizePt, spacingUnit)
+        // Apply inherited styles (from parent node, or document styles at root level),
+        // but only for keys that are allowed to cascade.
+        val effectiveInheritedStyles = inheritedStyles.filterKeys { it in INHERITABLE_KEYS }
+        if (effectiveInheritedStyles.isNotEmpty()) {
+            applyBlockStyles(element, effectiveInheritedStyles, fontCache, baseFontSizePt, spacingUnit)
         }
 
         // Resolve preset styles (if preset exists)
