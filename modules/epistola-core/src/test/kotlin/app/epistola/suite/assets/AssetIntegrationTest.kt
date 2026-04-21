@@ -8,6 +8,7 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -41,6 +42,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             content = testPngBytes,
             width = 1,
             height = 1,
+            catalogKey = CatalogKey.DEFAULT,
         ).execute()
 
         assertThat(asset.id).isNotNull()
@@ -55,8 +57,8 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `list assets returns uploaded assets in reverse chronological order`() = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        UploadAsset(tenant.id, "first.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
-        UploadAsset(tenant.id, "second.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        UploadAsset(tenant.id, "first.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
+        UploadAsset(tenant.id, "second.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val assets = ListAssets(tenantId = tenant.id).query()
 
@@ -69,8 +71,8 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `list assets with search filter`() = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
-        UploadAsset(tenant.id, "banner.jpeg", AssetMediaType.JPEG, testPngBytes, 1, 1).execute()
+        UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
+        UploadAsset(tenant.id, "banner.jpeg", AssetMediaType.JPEG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val results = ListAssets(tenantId = tenant.id, searchTerm = "logo").query()
 
@@ -81,7 +83,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `get asset metadata`() = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val asset = GetAsset(tenantId = tenant.id, assetId = uploaded.id).query()
 
@@ -93,7 +95,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `get asset content`() = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val content = GetAssetContent(tenantId = tenant.id, assetId = uploaded.id).query()
 
@@ -114,7 +116,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `delete asset`() = withMediator {
         val tenant = createTenant("Test Tenant")
-        val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val deleted = DeleteAsset(tenantId = tenant.id, assetId = uploaded.id).execute()
         assertThat(deleted).isTrue()
@@ -137,8 +139,8 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        UploadAsset(tenant1.id, "tenant1-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
-        UploadAsset(tenant2.id, "tenant2-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        UploadAsset(tenant1.id, "tenant1-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
+        UploadAsset(tenant2.id, "tenant2-logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val tenant1Assets = ListAssets(tenantId = tenant1.id).query()
         val tenant2Assets = ListAssets(tenantId = tenant2.id).query()
@@ -154,7 +156,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val uploaded = UploadAsset(tenant1.id, "secret.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val uploaded = UploadAsset(tenant1.id, "secret.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val content = GetAssetContent(tenantId = tenant2.id, assetId = uploaded.id).query()
 
@@ -168,7 +170,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             val oversizedContent = ByteArray(5 * 1024 * 1024 + 1) // 5MB + 1 byte
 
             assertThatThrownBy {
-                UploadAsset(tenant.id, "huge.png", AssetMediaType.PNG, oversizedContent, 100, 100).execute()
+                UploadAsset(tenant.id, "huge.png", AssetMediaType.PNG, oversizedContent, 100, 100, CatalogKey.DEFAULT).execute()
             }.isInstanceOf(AssetTooLargeException::class.java)
         }
     }
@@ -179,7 +181,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             val tenant = createTenant("Test Tenant")
 
             assertThatThrownBy {
-                UploadAsset(tenant.id, "  ", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+                UploadAsset(tenant.id, "  ", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
     }
@@ -196,6 +198,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             content = svgBytes,
             width = null,
             height = null,
+            catalogKey = CatalogKey.DEFAULT,
         ).execute()
 
         assertThat(asset.width).isNull()
@@ -208,7 +211,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         withMediator {
             val tenant = createTenant("Test Tenant")
             val tenantId = TenantId(tenant.id)
-            val asset = UploadAsset(tenant.id, "header.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+            val asset = UploadAsset(tenant.id, "header.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
             val templateKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
@@ -231,7 +234,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `find asset usages returns template info for referenced asset`() = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val asset = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val asset = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
@@ -252,7 +255,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     @Test
     fun `find asset usages returns empty for unused asset`() = withMediator {
         val tenant = createTenant("Test Tenant")
-        val asset = UploadAsset(tenant.id, "unused.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val asset = UploadAsset(tenant.id, "unused.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id).query()
 
@@ -263,7 +266,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     fun `delete asset succeeds when asset removed from template`() = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
-        val asset = UploadAsset(tenant.id, "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+        val asset = UploadAsset(tenant.id, "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))

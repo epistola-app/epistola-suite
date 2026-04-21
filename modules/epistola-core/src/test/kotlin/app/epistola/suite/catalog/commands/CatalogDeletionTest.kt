@@ -237,6 +237,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     content = createMinimalPng(),
                     width = 1,
                     height = 1,
+                    catalogKey = CatalogKey.DEFAULT,
                 ).execute()
 
                 // Create a template that uses the asset
@@ -271,6 +272,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     content = createMinimalPng(),
                     width = 1,
                     height = 1,
+                    catalogKey = CatalogKey.DEFAULT,
                 ).execute()
 
                 // Create a template that uses the asset

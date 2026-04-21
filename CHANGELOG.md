@@ -11,6 +11,7 @@
 - **Catalog export**: Cross-catalog theme dependencies from resource-level `themeId` are now included in the exported `catalog.json` dependencies list. Previously only `ThemeRefOverride` inside template models was scanned.
 - **Catalog ZIP import**: Template `themeId` and `themeCatalogKey` are now preserved when importing from a ZIP archive. Previously these fields were silently dropped.
 - **Catalog export assets**: Assets referenced by templates but stored in other catalogs are now bundled in the exported ZIP. Previously only same-catalog assets were included, leaving cross-catalog asset references as unresolved dependencies.
+- **Asset catalog scoping**: Assets are now properly catalog-scoped. The `catalogKey` parameter is required on `UploadAsset` and `ImportAsset` (no more DEFAULT fallback). The template editor passes the current catalog when listing and uploading assets.
 - **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
 - **Catalog delete dialog**: Delete errors (e.g. "catalog in use") now display in the confirm dialog instead of silently failing. Returns 422 with JSON error for HTMX requests.
 - **Address block positioning**: Replaced `left` prop with `align` (`left`/`right`) and `sideDistance` (distance from the aligned page edge). The `standard` select now acts as a preset that populates these properties. Previously, right-window positioning required manually computing the left offset from the page edge.

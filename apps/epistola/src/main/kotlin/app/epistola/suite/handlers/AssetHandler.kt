@@ -140,7 +140,10 @@ class AssetHandler {
         val catalogKeyStr = multipartData["catalog"]?.firstOrNull()?.let {
             String(it.inputStream.readAllBytes()).trim()
         }?.ifBlank { null }
-        val catalogKey = if (catalogKeyStr != null) CatalogKey.of(catalogKeyStr) else null
+            ?: return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "catalog is required"))
+        val catalogKey = CatalogKey.of(catalogKeyStr)
 
         val asset = try {
             UploadAsset(
@@ -150,7 +153,7 @@ class AssetHandler {
                 content = contentBytes,
                 width = dimensions?.first,
                 height = dimensions?.second,
-                catalogKey = catalogKey ?: CatalogKey.DEFAULT,
+                catalogKey = catalogKey,
             ).execute()
         } catch (e: AssetTooLargeException) {
             return ServerResponse.badRequest()

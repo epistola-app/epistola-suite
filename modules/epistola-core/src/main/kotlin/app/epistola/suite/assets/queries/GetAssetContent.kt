@@ -3,6 +3,7 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -43,7 +44,7 @@ class GetAssetContentHandler(
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, media_type
+                SELECT id, tenant_key, catalog_key, media_type
                 FROM assets
                 WHERE id = :assetId
                   AND tenant_key = :tenantId
@@ -55,6 +56,7 @@ class GetAssetContentHandler(
                     AssetMeta(
                         id = AssetKey(rs.getObject("id", UUID::class.java)),
                         tenantId = TenantKey(rs.getString("tenant_key")),
+                        catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                         mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     )
                 }
@@ -69,6 +71,7 @@ class GetAssetContentHandler(
         return AssetContent(
             id = metadata.id,
             tenantKey = metadata.tenantId,
+            catalogKey = metadata.catalogKey,
             mediaType = metadata.mediaType,
             content = stored.content.readAllBytes(),
         )
@@ -77,6 +80,7 @@ class GetAssetContentHandler(
     private data class AssetMeta(
         val id: AssetKey,
         val tenantId: TenantKey,
+        val catalogKey: CatalogKey,
         val mediaType: AssetMediaType,
     )
 }

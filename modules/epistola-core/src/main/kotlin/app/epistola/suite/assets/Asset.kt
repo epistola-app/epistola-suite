@@ -30,7 +30,7 @@ enum class AssetMediaType(val mimeType: String) {
 data class Asset(
     val id: AssetKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val mediaType: AssetMediaType,
@@ -46,7 +46,7 @@ data class Asset(
 data class AssetContent(
     val id: AssetKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val mediaType: AssetMediaType,
     val content: ByteArray,
 ) {
