@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.form
@@ -172,6 +173,7 @@ class CatalogHandler {
 
         return try {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+            val crossReferences = FindCatalogCrossReferences(tenantKey = tenantId.key, catalogKey = catalogKey).query()
 
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
@@ -179,6 +181,7 @@ class CatalogHandler {
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
                 "resources" to result.resources
+                "crossReferences" to crossReferences
             }
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)

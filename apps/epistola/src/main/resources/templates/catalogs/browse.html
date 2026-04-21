@@ -13,6 +13,13 @@
 
         <div id="catalog-alert"></div>
 
+        <div th:if="${!crossReferences.isEmpty()}" class="alert alert-info" style="margin-bottom: var(--ep-space-4);">
+            <strong>Referenced by other catalogs:</strong>
+            <ul style="margin: var(--ep-space-2) 0 0 var(--ep-space-4); padding: 0;">
+                <li th:each="ref : ${crossReferences}" th:text="${ref}"></li>
+            </ul>
+        </div>
+
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Resources</h2>
