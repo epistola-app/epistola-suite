@@ -26,15 +26,16 @@ class ContainerNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults(node.type),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
         )
 
-        // Render all slots
-        val childElements = registry.renderSlots(node, document, context)
+        // Render all slots with this node's resolved styles as inherited styles for children
+        val childContext = context.withInheritedStylesFrom(node)
+        val childElements = registry.renderSlots(node, document, childContext)
         for (element in childElements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> div.add(element)

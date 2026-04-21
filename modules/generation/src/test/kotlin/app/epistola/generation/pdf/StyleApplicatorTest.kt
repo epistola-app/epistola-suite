@@ -84,7 +84,7 @@ class StyleApplicatorTest {
             blockInlineStyles = null,
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
@@ -99,7 +99,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("color" to "#333"),
             blockStylePreset = "heading",
             blockStylePresets = presets,
-            documentStyles = mapOf("fontFamily" to "Arial"),
+            inheritedStyles = mapOf("fontFamily" to "Arial"),
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
@@ -113,7 +113,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("fontSize" to "14pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
     }
@@ -126,7 +126,7 @@ class StyleApplicatorTest {
             blockInlineStyles = null,
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14pt"),
+            inheritedStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14pt"),
             fontCache = fontCache,
         )
     }
@@ -143,7 +143,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "2sp"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
     }
@@ -156,7 +156,7 @@ class StyleApplicatorTest {
             blockInlineStyles = null,
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
@@ -170,7 +170,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "2sp"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
             spacingUnit = 6f, // 2sp = 12pt
         )
@@ -184,7 +184,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "16pt", "paddingTop" to "8pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
     }
@@ -201,7 +201,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("keepTogether" to true),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
@@ -215,7 +215,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("keepTogether" to "true"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
@@ -229,7 +229,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("keepWithNext" to true),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_WITH_NEXT) == true)
@@ -243,7 +243,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "4pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))

@@ -72,7 +72,7 @@ class DatatableNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("datatable"),
             context.renderingDefaults.baseFontSizePt,
@@ -117,7 +117,7 @@ class DatatableNodeRenderer : NodeRenderer {
                 itemContext[indexAlias] = index
             }
 
-            val childContext = context.copy(loopContext = itemContext)
+            val childContext = context.withInheritedStylesFrom(node).copy(loopContext = itemContext)
 
             // Render each column's body slot with the loop context
             for (columnNode in columnNodes) {
@@ -156,7 +156,7 @@ class DatatableNodeRenderer : NodeRenderer {
             styles,
             columnNode.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             baseFontSizePt = context.renderingDefaults.baseFontSizePt,
             spacingUnit = context.spacingUnit,

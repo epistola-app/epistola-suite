@@ -47,7 +47,7 @@ export function renderUnitInput(
 
   const handleNumberChange = (e: Event) => {
     const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-    onChange(formatValueWithUnit(num, parsed.unit));
+    onChange(num === 0 ? '' : formatValueWithUnit(num, parsed.unit));
   };
 
   const handleUnitChange = (e: Event) => {
@@ -60,7 +60,7 @@ export function renderUnitInput(
     } else if (oldUnit === 'sp' && newUnit === 'pt') {
       newValue = parsed.value * baseUnit;
     }
-    onChange(formatValueWithUnit(newValue, newUnit));
+    onChange(newValue === 0 ? '' : formatValueWithUnit(newValue, newUnit));
   };
 
   return html`

@@ -53,7 +53,7 @@ class TableNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("table"),
             context.renderingDefaults.baseFontSizePt,
@@ -130,7 +130,8 @@ class TableNodeRenderer : NodeRenderer {
                 val slotName = "cell-$row-$col"
                 val slotId = slotsByName[slotName]
                 if (slotId != null) {
-                    val childElements = registry.renderSlot(slotId, document, context)
+                    val childContext = context.withInheritedStylesFrom(node)
+                    val childElements = registry.renderSlot(slotId, document, childContext)
                     for (element in childElements) {
                         when (element) {
                             is com.itextpdf.layout.element.IBlockElement -> cell.add(element)
