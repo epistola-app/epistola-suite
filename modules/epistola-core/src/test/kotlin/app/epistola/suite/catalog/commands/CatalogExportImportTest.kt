@@ -21,6 +21,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme
@@ -65,6 +67,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 id = ThemeId(themeKey, catalogId),
                 name = "Round-Trip Theme",
                 description = "A test theme",
+            ).execute()
+
+            // Assign theme to template
+            val templateId = TemplateId(templateKey, catalogId)
+            UpdateDocumentTemplate(
+                id = templateId,
+                themeId = themeKey,
+                themeCatalogKey = catalogKey,
             ).execute()
 
             // Create an attribute
@@ -121,6 +131,12 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).query()
 
             assertThat(browseResult.resources).isNotEmpty()
+
+            // Verify theme reference survived the round-trip
+            val reimportedTemplate = GetDocumentTemplate(templateId).query()
+            assertThat(reimportedTemplate).isNotNull
+            assertThat(reimportedTemplate!!.themeKey).isEqualTo(themeKey)
+            assertThat(reimportedTemplate.themeCatalogKey).isEqualTo(catalogKey)
         }
     }
 

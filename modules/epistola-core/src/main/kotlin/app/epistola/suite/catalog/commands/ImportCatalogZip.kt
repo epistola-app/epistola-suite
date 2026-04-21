@@ -181,6 +181,8 @@ class ImportCatalogZipHandler(
                 slug = resource.slug,
                 name = resource.name,
                 version = version,
+                themeId = resource.themeId,
+                themeCatalogKey = if (resource.themeId != null) resource.themeCatalogKey ?: catalogKey.value else null,
                 dataModel = protocolMapper.toObjectNode(resource.dataModel),
                 dataExamples = resource.dataExamples?.map {
                     DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)
