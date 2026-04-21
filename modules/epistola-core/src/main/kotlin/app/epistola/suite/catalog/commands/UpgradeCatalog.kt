@@ -137,6 +137,8 @@ class UpgradeCatalogHandler(
     /**
      * Removes locally installed resources that are no longer in the remote manifest.
      * Only deletes resources that were previously installed, not all resources in the catalog.
+     * Resources referenced by other catalogs (e.g. themes used by external templates)
+     * are skipped with a warning rather than silently nulling out the reference.
      */
     private fun removeStaleResources(
         tenantKey: TenantKey,
@@ -149,10 +151,11 @@ class UpgradeCatalogHandler(
         data class TableMapping(val type: String, val table: String)
 
         val tables = listOf(
+            // Delete templates before themes — templates may reference themes in the same catalog
             TableMapping("template", "document_templates"),
-            TableMapping("theme", "themes"),
             TableMapping("stencil", "stencils"),
             TableMapping("attribute", "variant_attribute_definitions"),
+            TableMapping("theme", "themes"),
         )
 
         jdbi.useHandle<Exception> { handle ->
@@ -162,6 +165,16 @@ class UpgradeCatalogHandler(
                 val toRemove = installed.filter { it !in inManifest }
 
                 for (slug in toRemove) {
+                    // Check for cross-catalog references before deleting
+                    if (type == "theme" && isThemeReferencedExternally(handle, tenantKey, catalogKey, slug)) {
+                        logger.warn(
+                            "Skipping removal of theme '{}' from catalog '{}': still referenced by templates in other catalogs",
+                            slug,
+                            catalogKey,
+                        )
+                        continue
+                    }
+
                     handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND catalog_key = :c AND id = :id")
                         .bind("t", tenantKey).bind("c", catalogKey).bind("id", slug).execute()
                     removed.add(RemovedResource(type, slug))
@@ -172,4 +185,19 @@ class UpgradeCatalogHandler(
 
         return removed
     }
+
+    private fun isThemeReferencedExternally(
+        handle: org.jdbi.v3.core.Handle,
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        themeSlug: String,
+    ): Boolean = handle.createQuery(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM document_templates
+            WHERE tenant_key = :t AND theme_catalog_key = :c AND theme_key = :slug AND catalog_key != :c
+        )
+        """,
+    ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", themeSlug)
+        .mapTo(Boolean::class.java).one()
 }

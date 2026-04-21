@@ -101,12 +101,15 @@ class AddressBlockTest {
 
     @Test
     fun `renders with DIN C5-6 right window`() {
-        val pdf = renderToBytes(
+        val text = renderAndExtract(
             documentWithAddressBlock(
                 addressProps = mapOf("align" to "right", "sideDistance" to 20),
+                addressText = "Right Window Recipient",
+                asideText = "Right Window Reference",
             ),
         )
-        assertTrue(pdf.isNotEmpty())
+        assertContains(text, "Right Window Recipient", message = "Address content should appear in right-window PDF")
+        assertContains(text, "Right Window Reference", message = "Aside content should appear in right-window PDF")
     }
 
     @Test
