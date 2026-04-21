@@ -118,17 +118,33 @@ class StyleApplicatorTest {
         )
     }
 
+    // -----------------------------------------------------------------------
+    // resolveInheritedStyles
+    // -----------------------------------------------------------------------
+
     @Test
-    fun `applyStylesWithPreset filters non-inheritable document styles`() {
-        val div = Div()
-        StyleApplicator.applyStylesWithPreset(
-            div,
-            blockInlineStyles = null,
-            blockStylePreset = null,
-            blockStylePresets = emptyMap(),
-            inheritedStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14pt"),
-            fontCache = fontCache,
-        )
+    fun `resolveInheritedStyles returns parent styles when no overrides`() {
+        val parent = mapOf("fontSize" to "12pt" as Any, "color" to "#000" as Any)
+        val result = StyleApplicator.resolveInheritedStyles(parent, null, emptyMap(), null)
+        assertEquals(parent, result)
+    }
+
+    @Test
+    fun `resolveInheritedStyles merges inline overrides filtered to inheritable keys`() {
+        val parent = mapOf("fontSize" to "12pt" as Any)
+        val inline = mapOf("fontSize" to "18pt" as Any, "marginBottom" to "8pt" as Any)
+        val result = StyleApplicator.resolveInheritedStyles(parent, null, emptyMap(), inline)
+        assertEquals("18pt", result["fontSize"]) // overridden
+        assert("marginBottom" !in result) // non-inheritable filtered out
+    }
+
+    @Test
+    fun `resolveInheritedStyles merges preset overrides filtered to inheritable keys`() {
+        val parent = mapOf("fontSize" to "12pt" as Any)
+        val presets = mapOf("heading" to mapOf("fontSize" to "24pt" as Any, "paddingTop" to "4pt" as Any))
+        val result = StyleApplicator.resolveInheritedStyles(parent, "heading", presets, null)
+        assertEquals("24pt", result["fontSize"]) // preset overrides parent
+        assert("paddingTop" !in result) // non-inheritable filtered out
     }
 
     // -----------------------------------------------------------------------
