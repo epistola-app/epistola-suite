@@ -7,7 +7,7 @@
         <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
         <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
 
-        <script>
+        <script th:inline="javascript">
             (function() {
                 function parseJsonScript(id, fallback) {
                     const el = document.getElementById(id);

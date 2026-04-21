@@ -143,7 +143,7 @@ class JsonSchemaValidator(
     private fun typeMismatchMessage(expectedType: ExpectedType, actualValue: JsonNode): String = "expected ${expectedType.value} but found ${describeActualType(actualValue)}"
 
     private fun matchesExpectedType(value: JsonNode, expectedType: ExpectedType): Boolean = when (expectedType) {
-        ExpectedType.STRING, ExpectedType.DATE -> value.isTextual
+        ExpectedType.STRING, ExpectedType.DATE -> value.isString
         ExpectedType.NUMBER -> value.isNumber
         ExpectedType.INTEGER -> value.isIntegralNumber
         ExpectedType.BOOLEAN -> value.isBoolean
@@ -153,7 +153,7 @@ class JsonSchemaValidator(
     }
 
     private fun describeActualType(value: JsonNode): String = when {
-        value.isTextual -> ExpectedType.STRING.value
+        value.isString -> ExpectedType.STRING.value
         value.isIntegralNumber -> ExpectedType.INTEGER.value
         value.isNumber -> ExpectedType.NUMBER.value
         value.isBoolean -> ExpectedType.BOOLEAN.value
