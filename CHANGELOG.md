@@ -10,7 +10,7 @@
 - **API docs**: Fixed 404 on `/api-docs/epistola-contract.yaml` — the resource handler used an exact path instead of a wildcard pattern, preventing Spring from resolving the OpenAPI spec from the classpath.
 - **Catalog export**: Cross-catalog theme dependencies from resource-level `themeId` are now included in the exported `catalog.json` dependencies list. Previously only `ThemeRefOverride` inside template models was scanned.
 - **Catalog ZIP import**: Template `themeId` and `themeCatalogKey` are now preserved when importing from a ZIP archive. Previously these fields were silently dropped.
-- **Catalog export assets**: Assets referenced by templates but stored in other catalogs are now bundled in the exported ZIP. Previously only same-catalog assets were included, leaving cross-catalog asset references as unresolved dependencies.
+- **Catalog export assets**: Cross-catalog asset references are now listed as dependencies in the exported `catalog.json`, consistent with how themes and stencils are handled.
 - **Asset catalog scoping**: Assets are now properly catalog-scoped. The `catalogKey` parameter is required on `UploadAsset` and `ImportAsset` (no more DEFAULT fallback). The template editor passes the current catalog when listing and uploading assets.
 - **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
 - **Catalog delete dialog**: Delete errors (e.g. "catalog in use") now display in the confirm dialog instead of silently failing. Returns 422 with JSON error for HTMX requests.
