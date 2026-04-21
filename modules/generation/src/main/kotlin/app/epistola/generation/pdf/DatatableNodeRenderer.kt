@@ -105,6 +105,9 @@ class DatatableNodeRenderer : NodeRenderer {
         val itemAlias = node.props?.get("itemAlias") as? String ?: "item"
         val indexAlias = node.props?.get("indexAlias") as? String
 
+        // Compute inherited styles once for all row iterations
+        val inheritedContext = context.withInheritedStylesFrom(node)
+
         for ((index, item) in iterable.withIndex()) {
             // Create loop context with current item
             val itemContext = context.loopContext.toMutableMap()
@@ -117,7 +120,7 @@ class DatatableNodeRenderer : NodeRenderer {
                 itemContext[indexAlias] = index
             }
 
-            val childContext = context.withInheritedStylesFrom(node).copy(loopContext = itemContext)
+            val childContext = inheritedContext.copy(loopContext = itemContext)
 
             // Render each column's body slot with the loop context
             for (columnNode in columnNodes) {
