@@ -1,6 +1,8 @@
 package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
+import app.epistola.template.model.Orientation
+import app.epistola.template.model.PageFormat
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IBlockElement
@@ -37,7 +39,6 @@ class AddressBlockNodeRenderer : NodeRenderer {
         val addressWidthMm = (props["addressWidth"] as? Number)?.toFloat() ?: 85f
         val heightMm = (props["height"] as? Number)?.toFloat() ?: 45f
 
-        val addressWidthPt = addressWidthMm * MM_TO_PT
         val addressBottomPt = (topMm + heightMm) * MM_TO_PT
 
         val pageMargins = document.pageSettingsOverride?.margins
@@ -68,8 +69,15 @@ class AddressBlockNodeRenderer : NodeRenderer {
         // gives the margin needed in the content area.
         val gapPt = 4f * MM_TO_PT // small gap between address and aside
         if (isRightWindow) {
-            val addressLeftFromContentRight = addressWidthPt + gapPt
-            asideDiv.setMarginRight(addressLeftFromContentRight)
+            val pageSettings = document.pageSettingsOverride ?: context.renderingDefaults.defaultPageSettings
+            val pageWidthMm = when (pageSettings.format) {
+                PageFormat.A4 -> if (pageSettings.orientation == Orientation.landscape) 297f else 210f
+                PageFormat.Letter -> if (pageSettings.orientation == Orientation.landscape) 279.4f else 215.9f
+                PageFormat.Custom -> if (pageSettings.orientation == Orientation.landscape) 297f else 210f
+            }
+            val contentRightEdgePt = (pageWidthMm - pageMargins.right.toFloat()) * MM_TO_PT
+            val addressLeftEdgePt = leftMm * MM_TO_PT
+            asideDiv.setMarginRight(maxOf(0f, contentRightEdgePt - addressLeftEdgePt + gapPt))
         } else {
             val addressRightEdgeFromPageEdge = (leftMm + addressWidthMm) * MM_TO_PT
             val addressRightEdgeFromContentLeft = addressRightEdgeFromPageEdge - pageLeftMarginPt
