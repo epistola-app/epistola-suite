@@ -15,6 +15,7 @@
 
 ### Added
 
+- **`UpgradeCatalog` command**: Upgrades a subscribed catalog in place — re-fetches the manifest, updates metadata and version, upgrades previously installed resources, and removes installed resources no longer in the manifest. Replaces the old unregister/re-register approach which failed when other templates referenced the catalog's themes.
 - **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
 
 ### Changed
