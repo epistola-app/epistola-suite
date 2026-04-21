@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stencil creation**: Fixed crash when saving a newly created stencil. The initial draft version was stored with an empty JSON object (`{}`), which failed deserialization because `TemplateDocument` requires a `root` node. Now stores a valid minimal document with an empty root node.
+
 ### Added
 
 - **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
