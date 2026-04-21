@@ -147,10 +147,22 @@ class CatalogHandler {
                 }
             }
         } catch (e: app.epistola.suite.catalog.CatalogInUseException) {
-            listWithError(request, e.message ?: "Catalog is in use by other catalogs")
+            if (request.isHtmx) {
+                ServerResponse.status(422)
+                    .header("Content-Type", "application/json")
+                    .body(mapOf("error" to (e.message ?: "Catalog is in use by other catalogs")))
+            } else {
+                listWithError(request, e.message ?: "Catalog is in use by other catalogs")
+            }
         } catch (e: Exception) {
             logger.warn("Failed to unregister catalog: ${e.message}", e)
-            listWithError(request, e.message ?: "Failed to remove catalog.")
+            if (request.isHtmx) {
+                ServerResponse.status(422)
+                    .header("Content-Type", "application/json")
+                    .body(mapOf("error" to (e.message ?: "Failed to remove catalog.")))
+            } else {
+                listWithError(request, e.message ?: "Failed to remove catalog.")
+            }
         }
     }
 
