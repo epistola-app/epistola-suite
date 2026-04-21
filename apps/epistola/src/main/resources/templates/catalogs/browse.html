@@ -32,6 +32,7 @@
                             <th>Name</th>
                             <th>Slug</th>
                             <th>Description</th>
+                            <th>Used by</th>
                             <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Status</th>
                             <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Actions</th>
                         </tr>
@@ -72,6 +73,18 @@
                                 <span th:if="${resource.description}" th:text="${resource.description}"></span>
                                 <span th:unless="${resource.description}" class="text-muted">-</span>
                             </td>
+                            <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
+                                <button th:if="${count > 0}"
+                                        type="button" class="badge badge-default"
+                                        style="cursor: pointer; border: none; background: var(--ep-muted); padding: 2px 8px;"
+                                        th:text="${count}"
+                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalog.id},type=${resource.type},slug=${resource.slug})}"
+                                        hx-target="#usage-detail-body"
+                                        hx-swap="innerHTML"
+                                        onclick="document.getElementById('usage-detail-dialog').showModal()">
+                                </button>
+                                <span th:if="${count == 0}" class="text-muted">-</span>
+                            </td>
                             <!-- Status + Actions only for subscribed catalogs -->
                             <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
                                 <span th:if="${resource.status.name() == 'INSTALLED'}" class="badge badge-success">Installed</span>
@@ -97,6 +110,15 @@
                 <p class="text-muted">This catalog has no resources.</p>
             </div>
         </div>
+
+        <!-- Usage detail dialog -->
+        <dialog id="usage-detail-dialog" class="ep-dialog">
+            <div id="usage-detail-body">
+                <div class="ep-dialog-body">
+                    <p class="text-muted">Loading...</p>
+                </div>
+            </div>
+        </dialog>
 
         <!-- Install preview dialog (subscribed catalogs only) -->
         <dialog th:if="${catalog.type.name() == 'SUBSCRIBED'}" id="install-preview-dialog" class="ep-dialog">
@@ -184,6 +206,37 @@
         <div class="ep-dialog-footer">
             <button type="button" class="btn btn-ghost"
                     onclick="document.getElementById('install-preview-dialog').close()">Close</button>
+        </div>
+    </th:block>
+
+    <!-- Fragment: usage detail (loaded into dialog via HTMX) -->
+    <th:block th:fragment="usage-detail">
+        <div class="ep-dialog-header">
+            <h3>
+                Used by
+                <span style="opacity: 0.6;" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
+            </h3>
+        </div>
+        <div class="ep-dialog-body">
+            <table class="ep-table" th:if="${!usages.isEmpty()}">
+                <thead>
+                    <tr>
+                        <th>Template</th>
+                        <th>Catalog</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="usage : ${usages}">
+                        <td th:text="${usage.referencedByName}"></td>
+                        <td><code th:text="${usage.referencedByCatalog}"></code></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p th:if="${usages.isEmpty()}" class="text-muted">No external usages found.</p>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="btn btn-ghost"
+                    onclick="document.getElementById('usage-detail-dialog').close()">Close</button>
         </div>
     </th:block>
 

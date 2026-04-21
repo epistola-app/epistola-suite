@@ -38,7 +38,7 @@ data class UploadAsset(
     val content: ByteArray,
     val width: Int?,
     val height: Int?,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val id: AssetKey? = null,
 ) : Command<Asset>,
     RequiresPermission {
@@ -112,6 +112,7 @@ class UploadAssetHandler(
         return Asset(
             id = id,
             tenantKey = command.tenantId,
+            catalogKey = command.catalogKey,
             name = command.name,
             mediaType = command.mediaType,
             sizeBytes = sizeBytes,

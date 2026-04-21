@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.UnregisterCatalog
+import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -117,10 +117,25 @@ class DemoLoader(
             }
 
             log.info("Demo catalog version changed: {} -> {}", installedVersion, remoteVersion)
-            // Unregister and re-register to get fresh resources
-            mediator.send(UnregisterCatalog(tenantKey = tenantKey, catalogKey = existingCatalog.id))
+            transactionTemplate.executeWithoutResult {
+                val result = mediator.send(UpgradeCatalog(tenantKey = tenantKey, catalogKey = existingCatalog.id))
+                val installed = result.installResults.count { it.status == InstallStatus.INSTALLED }
+                val updated = result.installResults.count { it.status == InstallStatus.UPDATED }
+                val failed = result.installResults.count { it.status == InstallStatus.FAILED }
+                log.info(
+                    "Upgraded demo catalog: {} -> {}, {} installed, {} updated, {} failed, {} removed",
+                    result.previousVersion,
+                    result.newVersion,
+                    installed,
+                    updated,
+                    failed,
+                    result.removedResources.size,
+                )
+            }
+            return
         }
 
+        // First-time registration
         transactionTemplate.executeWithoutResult {
             val catalog = mediator.send(RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL))
             log.info("Registered demo catalog: {} (version {})", catalog.name, catalog.installedReleaseVersion)

@@ -530,7 +530,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     inspector: [
       {
         key: 'standard',
-        label: 'Envelope Standard',
+        label: 'Envelope Preset',
         type: 'select',
         options: [
           { label: 'DIN C5/6 Left Window', value: 'din-c56-left' },
@@ -538,17 +538,50 @@ export function createDefaultRegistry(): ComponentRegistry {
           { label: 'Custom', value: 'custom' },
         ],
       },
+      {
+        key: 'align',
+        label: 'Align',
+        type: 'select',
+        options: [
+          { label: 'Left', value: 'left' },
+          { label: 'Right', value: 'right' },
+        ],
+      },
       { key: 'top', label: 'Top (mm)', type: 'number' },
-      { key: 'left', label: 'Left (mm)', type: 'number' },
+      { key: 'sideDistance', label: 'Side Distance (mm)', type: 'number' },
       { key: 'addressWidth', label: 'Address Width (mm)', type: 'number' },
       { key: 'height', label: 'Height (mm)', type: 'number' },
     ],
     defaultProps: {
       standard: 'din-c56-left',
+      align: 'left',
       top: 45,
-      left: 20,
+      sideDistance: 20,
       addressWidth: 85,
       height: 45,
+    },
+    onPropChange: (key, value, props) => {
+      if (key === 'standard' && value !== 'custom') {
+        const presets: Record<string, Record<string, unknown>> = {
+          'din-c56-left': {
+            align: 'left',
+            top: 45,
+            sideDistance: 20,
+            addressWidth: 85,
+            height: 45,
+          },
+          'din-c56-right': {
+            align: 'right',
+            top: 45,
+            sideDistance: 20,
+            addressWidth: 85,
+            height: 45,
+          },
+        };
+        const preset = presets[value as string];
+        if (preset) Object.assign(props, preset);
+      }
+      return props;
     },
     maxInstancesPerDocument: 1,
   });
