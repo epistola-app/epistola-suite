@@ -89,15 +89,7 @@ class UpgradeCatalogHandler(
             }
         }
 
-        // 5. Re-register: upserts metadata + version
-        val updated = RegisterCatalog(
-            tenantKey = command.tenantKey,
-            sourceUrl = sourceUrl,
-            authType = catalog.sourceAuthType,
-            authCredential = catalog.sourceAuthCredential,
-        ).execute()
-
-        // 6. Upgrade only previously installed resources
+        // 5. Install/update only previously installed resources
         val slugsToUpgrade = installedSlugs.values.flatten().map { it.slug }
         val installResults = if (slugsToUpgrade.isNotEmpty()) {
             InstallFromCatalog(
@@ -109,9 +101,14 @@ class UpgradeCatalogHandler(
             emptyList()
         }
 
-        // 7. Remove stale resources (already validated)
+        // 6. Remove stale resources (already validated)
         val removed = removeStaleResources(command.tenantKey, command.catalogKey, staleResources)
 
+        // 7. Bump version last — if any step above fails, version stays at the old value
+        //    and the next run will retry the upgrade.
+        updateCatalogVersion(command.tenantKey, command.catalogKey, manifest.release.version, manifest.catalog.name, manifest.catalog.description)
+
+        val newVersion = manifest.release.version
         val installed = installResults.count { it.status == InstallStatus.INSTALLED }
         val updatedCount = installResults.count { it.status == InstallStatus.UPDATED }
         val failed = installResults.count { it.status == InstallStatus.FAILED }
@@ -119,7 +116,7 @@ class UpgradeCatalogHandler(
             "Upgraded catalog '{}': {} -> {}, {} installed, {} updated, {} failed, {} removed",
             command.catalogKey,
             previousVersion,
-            updated.installedReleaseVersion,
+            newVersion,
             installed,
             updatedCount,
             failed,
@@ -128,7 +125,7 @@ class UpgradeCatalogHandler(
 
         UpgradeCatalogResult(
             previousVersion = previousVersion,
-            newVersion = updated.installedReleaseVersion ?: manifest.release.version,
+            newVersion = newVersion,
             installResults = installResults,
             removedResources = removed,
         )
@@ -310,5 +307,23 @@ class UpgradeCatalogHandler(
         }
 
         return removed
+    }
+
+    private fun updateCatalogVersion(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, name: String, description: String?) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE catalogs
+                SET installed_release_version = :version, name = :name, description = :description, last_modified = NOW()
+                WHERE tenant_key = :t AND id = :c
+                """,
+            )
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .bind("version", version)
+                .bind("name", name)
+                .bind("description", description)
+                .execute()
+        }
     }
 }
