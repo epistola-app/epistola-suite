@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.form
@@ -147,10 +148,22 @@ class CatalogHandler {
                 }
             }
         } catch (e: app.epistola.suite.catalog.CatalogInUseException) {
-            listWithError(request, e.message ?: "Catalog is in use by other catalogs")
+            if (request.isHtmx) {
+                ServerResponse.status(422)
+                    .header("Content-Type", "application/json")
+                    .body(mapOf("error" to (e.message ?: "Catalog is in use by other catalogs")))
+            } else {
+                listWithError(request, e.message ?: "Catalog is in use by other catalogs")
+            }
         } catch (e: Exception) {
             logger.warn("Failed to unregister catalog: ${e.message}", e)
-            listWithError(request, e.message ?: "Failed to remove catalog.")
+            if (request.isHtmx) {
+                ServerResponse.status(422)
+                    .header("Content-Type", "application/json")
+                    .body(mapOf("error" to (e.message ?: "Failed to remove catalog.")))
+            } else {
+                listWithError(request, e.message ?: "Failed to remove catalog.")
+            }
         }
     }
 
@@ -160,6 +173,8 @@ class CatalogHandler {
 
         return try {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+            val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+            val usageCounts = usages.mapValues { it.value.size }
 
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
@@ -167,11 +182,32 @@ class CatalogHandler {
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
                 "resources" to result.resources
+                "usageCounts" to usageCounts
             }
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)
             listWithError(request, "Failed to fetch catalog. The remote server may be unavailable or the URL may be incorrect.")
         }
+    }
+
+    fun resourceUsages(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val resourceType = request.param("type").orElse("")
+        val resourceSlug = request.param("slug").orElse("")
+        val key = "$resourceType:$resourceSlug"
+
+        val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+        val resourceUsages = usages[key] ?: emptyList()
+
+        return ServerResponse.ok().render(
+            "catalogs/browse :: usage-detail",
+            mapOf(
+                "resourceType" to resourceType,
+                "resourceSlug" to resourceSlug,
+                "usages" to resourceUsages,
+            ),
+        )
     }
 
     fun installPreview(request: ServerRequest): ServerResponse {

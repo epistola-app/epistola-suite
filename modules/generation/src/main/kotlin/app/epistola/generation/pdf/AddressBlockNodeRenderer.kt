@@ -1,6 +1,8 @@
 package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
+import app.epistola.template.model.Orientation
+import app.epistola.template.model.PageFormat
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IBlockElement
@@ -13,7 +15,7 @@ import com.itextpdf.layout.element.Image
  * by [AddressBlockEventHandler].
  *
  * The aside div has:
- * - Left margin matching the address width (for left window) so text wraps beside the address
+ * - Left/right margin matching the address area so text wraps beside the address
  * - Min-height ensuring body content after starts below the address bottom
  *
  * [DirectPdfRenderer.hoistAddressBlock] moves this to the first child of root.
@@ -31,17 +33,16 @@ class AddressBlockNodeRenderer : NodeRenderer {
         registry: NodeRendererRegistry,
     ): List<IElement> {
         val props = node.props ?: return emptyList()
-        val standard = props["standard"] as? String ?: "din-c56-left"
+        val align = props["align"] as? String ?: "left"
         val topMm = (props["top"] as? Number)?.toFloat() ?: 45f
-        val leftMm = (props["left"] as? Number)?.toFloat() ?: 20f
+        val sideDistanceMm = (props["sideDistance"] as? Number)?.toFloat() ?: 20f
         val addressWidthMm = (props["addressWidth"] as? Number)?.toFloat() ?: 85f
         val heightMm = (props["height"] as? Number)?.toFloat() ?: 45f
 
-        val addressWidthPt = addressWidthMm * MM_TO_PT
         val addressBottomPt = (topMm + heightMm) * MM_TO_PT
 
-        val pageMargins = document.pageSettingsOverride?.margins
-            ?: context.renderingDefaults.defaultPageSettings.margins
+        val pageSettings = document.pageSettingsOverride ?: context.renderingDefaults.defaultPageSettings
+        val pageMargins = pageSettings.margins
         val pageTopMarginPt = pageMargins.top.toFloat() * MM_TO_PT
         val pageLeftMarginPt = pageMargins.left.toFloat() * MM_TO_PT
 
@@ -54,7 +55,7 @@ class AddressBlockNodeRenderer : NodeRenderer {
         }
 
         val contentAreaTopPt = pageTopMarginPt + headerHeightPt
-        val isRightWindow = standard == "din-c56-right"
+        val isRight = align == "right"
 
         // Render aside slot
         val slotsByName = node.slots.mapNotNull { slotId ->
@@ -65,16 +66,17 @@ class AddressBlockNodeRenderer : NodeRenderer {
 
         val asideDiv = Div()
         // Margin on the address side to leave room for the absolute-positioned address.
-        // The address right edge (from page edge) minus the content area left edge (page left margin)
-        // gives the margin needed in the content area.
         val gapPt = 4f * MM_TO_PT // small gap between address and aside
-        if (isRightWindow) {
-            val addressLeftFromContentRight = addressWidthPt + gapPt
-            asideDiv.setMarginRight(addressLeftFromContentRight)
+        if (isRight) {
+            // sideDistance is from the right page edge; compute margin from content area right edge
+            val pageWidthMm = pageWidthMm(pageSettings.format, pageSettings.orientation)
+            val addressLeftEdgePt = (pageWidthMm - sideDistanceMm - addressWidthMm) * MM_TO_PT
+            val contentRightEdgePt = (pageWidthMm - pageMargins.right.toFloat()) * MM_TO_PT
+            asideDiv.setMarginRight(maxOf(0f, contentRightEdgePt - addressLeftEdgePt + gapPt))
         } else {
-            val addressRightEdgeFromPageEdge = (leftMm + addressWidthMm) * MM_TO_PT
-            val addressRightEdgeFromContentLeft = addressRightEdgeFromPageEdge - pageLeftMarginPt
-            asideDiv.setMarginLeft(maxOf(0f, addressRightEdgeFromContentLeft + gapPt))
+            // sideDistance is from the left page edge
+            val addressRightEdgePt = (sideDistanceMm + addressWidthMm) * MM_TO_PT
+            asideDiv.setMarginLeft(maxOf(0f, addressRightEdgePt - pageLeftMarginPt + gapPt))
         }
         asideDiv.setMarginTop(0f)
         asideDiv.setMarginBottom(0f)
@@ -90,5 +92,11 @@ class AddressBlockNodeRenderer : NodeRenderer {
         }
 
         return listOf(asideDiv)
+    }
+
+    private fun pageWidthMm(format: PageFormat, orientation: Orientation): Float = when (format) {
+        PageFormat.A4 -> if (orientation == Orientation.landscape) 297f else 210f
+        PageFormat.Letter -> if (orientation == Orientation.landscape) 279.4f else 215.9f
+        PageFormat.Custom -> if (orientation == Orientation.landscape) 297f else 210f
     }
 }

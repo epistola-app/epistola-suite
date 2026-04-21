@@ -72,6 +72,7 @@ class ExportCatalogZipHandler(
         val themes = ExportThemes(command.tenantKey, catalogKey = command.catalogKey).query()
         val stencils = ExportStencils(command.tenantKey, catalogKey = command.catalogKey).query()
         val attributes = ExportAttributes(command.tenantKey, catalogKey = command.catalogKey).query()
+
         val assets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
 
         // Build resource entries and details
@@ -116,7 +117,7 @@ class ExportCatalogZipHandler(
             for ((_, detail) in resourceDetails) {
                 val resource = detail.resource
                 if (resource is AssetResource) {
-                    val filename = resource.contentUrl.removePrefix("./resources/assets/")
+                    val filename = resource.contentUrl.removePrefix("./resources/asset/")
                     val uuidStr = filename.substringBefore(".")
                     val assetId = try {
                         AssetKey.of(UUID.fromString(uuidStr))
@@ -128,7 +129,7 @@ class ExportCatalogZipHandler(
                         assetId = assetId,
                     ).query() ?: continue
 
-                    zip.putNextEntry(ZipEntry("resources/assets/$filename"))
+                    zip.putNextEntry(ZipEntry("resources/asset/$filename"))
                     zip.write(content.content)
                     zip.closeEntry()
                 }
@@ -277,9 +278,6 @@ class ExportCatalogZipHandler(
                         "image" -> {
                             val assetId = node.props?.get("assetId") as? String
                             if (assetId != null && "asset:$assetId" !in ownResources) {
-                                // Asset is external — we don't know which catalog it's in from the template model alone,
-                                // but we know it's not in this catalog. Use the current catalog as placeholder.
-                                // The importing system will resolve it by tenant-global asset lookup.
                                 dependencies.add(DependencyRef.Asset(slug = assetId))
                             }
                         }

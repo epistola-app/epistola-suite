@@ -69,7 +69,7 @@ class ExportAssetsHandler(
                 mediaType = row.mediaType,
                 width = row.width,
                 height = row.height,
-                contentUrl = "./resources/assets/${row.id}$ext",
+                contentUrl = "./resources/asset/${row.id}$ext",
             )
         }
     }

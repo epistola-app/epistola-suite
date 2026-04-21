@@ -122,9 +122,9 @@
             dataModel: window.DATA_MODEL,
             plugins: plugins,
             imageOptions: {
-                contentUrlPattern: '/tenants/' + tenantId + '/assets/default/{assetId}/content',
+                contentUrlPattern: '/tenants/' + tenantId + '/assets/' + catalogId + '/{assetId}/content',
                 listAssets: async () => {
-                    const resp = await fetch('/tenants/' + tenantId + '/assets/search', {
+                    const resp = await fetch('/tenants/' + tenantId + '/assets/search?catalog=' + catalogId, {
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                     });
                     if (!resp.ok) throw new Error('Failed to list assets');
@@ -133,6 +133,7 @@
                 uploadAsset: async (file) => {
                     const formData = new FormData();
                     formData.append('file', file);
+                    formData.append('catalog', catalogId);
                     const resp = await fetch('/tenants/' + tenantId + '/assets', {
                         method: 'POST',
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },

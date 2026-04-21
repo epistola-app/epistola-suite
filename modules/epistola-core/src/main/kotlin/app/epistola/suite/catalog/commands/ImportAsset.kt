@@ -23,7 +23,7 @@ import java.io.ByteArrayInputStream
  */
 data class ImportAsset(
     val tenantId: TenantId,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val id: AssetKey,
     val name: String,
     val mediaType: AssetMediaType,
