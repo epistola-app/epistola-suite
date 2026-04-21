@@ -10,6 +10,7 @@
 - **API docs**: Fixed 404 on `/api-docs/epistola-contract.yaml` — the resource handler used an exact path instead of a wildcard pattern, preventing Spring from resolving the OpenAPI spec from the classpath.
 - **Catalog export**: Cross-catalog theme dependencies from resource-level `themeId` are now included in the exported `catalog.json` dependencies list. Previously only `ThemeRefOverride` inside template models was scanned.
 - **Catalog ZIP import**: Template `themeId` and `themeCatalogKey` are now preserved when importing from a ZIP archive. Previously these fields were silently dropped.
+- **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
 
 ### Added
 

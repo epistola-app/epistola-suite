@@ -279,7 +279,7 @@ class CatalogHandler {
 
         val multipartData = request.multipartData()
         val filePart = multipartData["file"]?.firstOrNull()
-            ?: return listWithError(request, "No file provided")
+            ?: return importError(request, "No file provided")
 
         val zipBytes = filePart.inputStream.use { it.readAllBytes() }
 
@@ -289,7 +289,7 @@ class CatalogHandler {
         val catalogType = try {
             CatalogType.valueOf(catalogTypeStr)
         } catch (_: Exception) {
-            return listWithError(request, "Invalid catalog type: $catalogTypeStr")
+            return importError(request, "Invalid catalog type: $catalogTypeStr")
         }
 
         return try {
@@ -324,8 +324,18 @@ class CatalogHandler {
             }
         } catch (e: Exception) {
             logger.warn("Failed to import catalog from ZIP: ${e.message}", e)
-            listWithError(request, e.message ?: "Failed to import catalog")
+            importError(request, e.message ?: "Failed to import catalog")
         }
+    }
+
+    private fun importError(request: ServerRequest, error: String): ServerResponse {
+        if (request.isHtmx) {
+            val escaped = error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            return ServerResponse.ok()
+                .header("Content-Type", "text/html")
+                .body("""<div class="alert alert-danger">$escaped</div>""")
+        }
+        return listWithError(request, error)
     }
 
     fun export(request: ServerRequest): ServerResponse {
