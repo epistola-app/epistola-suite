@@ -520,6 +520,40 @@ export function createDefaultRegistry(): ComponentRegistry {
   });
 
   registry.register({
+    type: 'addressblock',
+    label: 'Address Block',
+    icon: 'mail',
+    category: 'page',
+    slots: [{ name: 'address' }, { name: 'aside' }],
+    allowedChildren: { mode: 'all' },
+    applicableStyles: [],
+    inspector: [
+      {
+        key: 'standard',
+        label: 'Envelope Standard',
+        type: 'select',
+        options: [
+          { label: 'DIN C5/6 Left Window', value: 'din-c56-left' },
+          { label: 'DIN C5/6 Right Window', value: 'din-c56-right' },
+          { label: 'Custom', value: 'custom' },
+        ],
+      },
+      { key: 'top', label: 'Top (mm)', type: 'number' },
+      { key: 'left', label: 'Left (mm)', type: 'number' },
+      { key: 'addressWidth', label: 'Address Width (mm)', type: 'number' },
+      { key: 'height', label: 'Height (mm)', type: 'number' },
+    ],
+    defaultProps: {
+      standard: 'din-c56-left',
+      top: 45,
+      left: 20,
+      addressWidth: 85,
+      height: 45,
+    },
+    maxInstancesPerDocument: 1,
+  });
+
+  registry.register({
     type: 'pagebreak',
     label: 'Page Break',
     icon: 'file-break',
