@@ -20,7 +20,7 @@ class WebMvcConfig(
     }
 
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
-        registry.addResourceHandler("/api-docs/epistola-contract.yaml")
+        registry.addResourceHandler("/api-docs/**")
             .addResourceLocations("classpath:/openapi/")
             .resourceChain(true)
     }

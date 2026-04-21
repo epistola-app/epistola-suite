@@ -11,7 +11,10 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -75,7 +78,8 @@ class CreateStencilHandler(
 
                 // 2. Create initial draft version (empty if no content provided)
                 run {
-                    val contentJson = if (command.content != null) objectMapper.writeValueAsString(command.content) else "{}"
+                    val content = command.content ?: emptyTemplateDocument()
+                    val contentJson = objectMapper.writeValueAsString(content)
                     handle.createUpdate(
                         """
                         INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, created_at)
@@ -94,4 +98,20 @@ class CreateStencilHandler(
             }
         }
     }
+}
+
+private fun emptyTemplateDocument(): TemplateDocument {
+    val rootId = "root"
+    val slotId = "slot-root"
+    return TemplateDocument(
+        modelVersion = 1,
+        root = rootId,
+        nodes = mapOf(
+            rootId to Node(id = rootId, type = "root", slots = listOf(slotId)),
+        ),
+        slots = mapOf(
+            slotId to Slot(id = slotId, nodeId = rootId, name = "children", children = emptyList()),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
 }

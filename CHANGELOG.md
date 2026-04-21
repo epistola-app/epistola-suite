@@ -8,6 +8,19 @@
 
 - **Style inheritance in PDF**: Inheritable styles (font family, size, weight, color, line height, letter spacing, text align) now cascade from parent nodes to children in generated PDFs, matching the browser behavior in the editor. Previously each node resolved styles only from the document level, ignoring parent overrides.
 - **Editor unit input clearing**: Setting a unit-type style value (font size, letter spacing, border radius) to 0 now removes the property instead of storing an explicit "0pt", allowing inheritance from the parent or document level.
+- **Stencil creation**: Fixed crash when saving a newly created stencil. The initial draft version was stored with an empty JSON object (`{}`), which failed deserialization because `TemplateDocument` requires a `root` node. Now stores a valid minimal document with an empty root node.
+- **API docs**: Fixed 404 on `/api-docs/epistola-contract.yaml` — the resource handler used an exact path instead of a wildcard pattern, preventing Spring from resolving the OpenAPI spec from the classpath.
+- **Catalog export**: Cross-catalog theme dependencies from resource-level `themeId` are now included in the exported `catalog.json` dependencies list. Previously only `ThemeRefOverride` inside template models was scanned.
+- **Catalog ZIP import**: Template `themeId` and `themeCatalogKey` are now preserved when importing from a ZIP archive. Previously these fields were silently dropped.
+- **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
+
+### Added
+
+- **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
+
+### Changed
+
+- **Demo templates**: Replaced `themeRef` overrides (which lock the theme at the variant level) with `themeId` at the resource level, allowing the theme to be changed from the template settings page.
 
 ## [0.15.0] - 2026-04-20
 

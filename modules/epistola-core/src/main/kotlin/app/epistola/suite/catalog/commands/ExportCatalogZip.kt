@@ -146,12 +146,12 @@ class ExportCatalogZipHandler(
     }
 
     private fun loadTemplates(tenantKey: TenantKey, catalogKey: CatalogKey): List<TemplateResource> {
-        data class TemplateRow(val id: String, val name: String, val dataModel: String?, val dataExamples: String?)
+        data class TemplateRow(val id: String, val name: String, val themeKey: String?, val themeCatalogKey: String?, val dataModel: String?, val dataExamples: String?)
         data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: TemplateDocument?, val isDefault: Boolean)
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id, name, data_model::text, data_examples::text FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+                "SELECT id, name, theme_key, theme_catalog_key, data_model::text, data_examples::text FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
             )
                 .bind("tenantKey", tenantKey)
                 .bind("catalogKey", catalogKey)
@@ -159,6 +159,8 @@ class ExportCatalogZipHandler(
                     TemplateRow(
                         id = rs.getString("id"),
                         name = rs.getString("name"),
+                        themeKey = rs.getString("theme_key"),
+                        themeCatalogKey = rs.getString("theme_catalog_key"),
                         dataModel = rs.getString("data_model"),
                         dataExamples = rs.getString("data_examples"),
                     )
@@ -202,6 +204,8 @@ class ExportCatalogZipHandler(
             TemplateResource(
                 slug = template.id,
                 name = template.name,
+                themeId = template.themeKey,
+                themeCatalogKey = template.themeCatalogKey,
                 dataModel = template.dataModel?.let {
                     objectMapper.readValue<Map<String, Any?>>(
                         it,
@@ -241,11 +245,17 @@ class ExportCatalogZipHandler(
         val dependencies = mutableSetOf<DependencyRef>()
 
         for (template in templates) {
+            // Resource-level theme reference
+            val themeCatalog = template.themeCatalogKey
+            if (template.themeId != null && "theme:${template.themeId}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
+                dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, slug = template.themeId!!))
+            }
+
             val docs = mutableListOf(template.templateModel)
             template.variants.mapNotNull { it.templateModel }.forEach { docs.add(it) }
 
             for (doc in docs) {
-                // Theme references
+                // Theme override references inside template model
                 val themeRef = doc.themeRef
                 if (themeRef is app.epistola.template.model.ThemeRefOverride) {
                     val refCatalog = themeRef.catalogKey

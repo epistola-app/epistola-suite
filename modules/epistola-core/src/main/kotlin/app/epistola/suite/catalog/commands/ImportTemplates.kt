@@ -37,6 +37,8 @@ data class ImportTemplateInput(
     val slug: String,
     val name: String,
     val version: String,
+    val themeId: String? = null,
+    val themeCatalogKey: String? = null,
     val dataModel: ObjectNode?,
     val dataExamples: List<DataExample>,
     val templateModel: TemplateDocument,
@@ -120,16 +122,18 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
-                    VALUES (:id, :tenantId, :catalogKey, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
+                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
                     ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                    SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     """,
             )
                 .bind("id", templateId)
                 .bind("tenantId", tenantId.key)
                 .bind("catalogKey", catalogKey)
                 .bind("name", input.name)
+                .bind("themeKey", input.themeId)
+                .bind("themeCatalogKey", input.themeCatalogKey)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
                 .execute()
@@ -138,7 +142,7 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     UPDATE document_templates
-                    SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
             )
@@ -146,6 +150,8 @@ class ImportTemplatesHandler(
                 .bind("tenantId", tenantId.key)
                 .bind("catalogKey", catalogKey)
                 .bind("name", input.name)
+                .bind("themeKey", input.themeId)
+                .bind("themeCatalogKey", input.themeCatalogKey)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
                 .execute()

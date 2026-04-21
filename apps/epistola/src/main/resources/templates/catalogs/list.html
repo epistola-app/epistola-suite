@@ -171,8 +171,11 @@
                 <h3>Import Catalog from ZIP</h3>
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
-                  hx-encoding="multipart/form-data">
+                  hx-encoding="multipart/form-data"
+                  hx-target="#import-error"
+                  hx-swap="innerHTML">
                 <div class="ep-dialog-body">
+                    <div id="import-error"></div>
                     <div class="form-group">
                         <label class="ep-label" for="import-file">ZIP file</label>
                         <input type="file" id="import-file" name="file" class="ep-input"
