@@ -11,7 +11,7 @@
 - **Catalog export**: Cross-catalog theme dependencies from resource-level `themeId` are now included in the exported `catalog.json` dependencies list. Previously only `ThemeRefOverride` inside template models was scanned.
 - **Catalog ZIP import**: Template `themeId` and `themeCatalogKey` are now preserved when importing from a ZIP archive. Previously these fields were silently dropped.
 - **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
-- **Address block right window**: Fixed aside margin calculation for DIN C5/6 right window positioning. The margin was computed using only the address width, ignoring the `left` prop and page geometry, causing the aside content to overlap the address area.
+- **Address block positioning**: Replaced `left` prop with `align` (`left`/`right`) and `sideDistance` (distance from the aligned page edge). The `standard` select now acts as a preset that populates these properties. Previously, right-window positioning required manually computing the left offset from the page edge.
 
 ### Added
 

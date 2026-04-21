@@ -37,11 +37,17 @@ class AddressBlockEventHandler(
         val addressNode = document.nodes[addressNodeId] ?: return
         val props = addressNode.props ?: return
 
+        val align = props["align"] as? String ?: "left"
         val topPt = ((props["top"] as? Number)?.toFloat() ?: 45f) * MM_TO_PT
-        val leftPt = ((props["left"] as? Number)?.toFloat() ?: 20f) * MM_TO_PT
+        val sideDistancePt = ((props["sideDistance"] as? Number)?.toFloat() ?: 20f) * MM_TO_PT
         val widthPt = ((props["addressWidth"] as? Number)?.toFloat() ?: 85f) * MM_TO_PT
         val heightPt = ((props["height"] as? Number)?.toFloat() ?: 45f) * MM_TO_PT
 
+        val leftPt = if (align == "right") {
+            pageSize.width - sideDistancePt - widthPt
+        } else {
+            sideDistancePt
+        }
         val rect = Rectangle(leftPt, pageSize.top - topPt - heightPt, widthPt, heightPt)
 
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)

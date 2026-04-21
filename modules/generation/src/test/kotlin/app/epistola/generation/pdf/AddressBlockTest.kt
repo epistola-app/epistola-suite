@@ -45,7 +45,7 @@ class AddressBlockTest {
                     props = mapOf(
                         "standard" to "din-c56-left",
                         "top" to 45,
-                        "left" to 20,
+                        "sideDistance" to 20,
                         "addressWidth" to 85,
                         "height" to 45,
                     ) + addressProps,
@@ -103,7 +103,7 @@ class AddressBlockTest {
     fun `renders with DIN C5-6 right window`() {
         val pdf = renderToBytes(
             documentWithAddressBlock(
-                addressProps = mapOf("standard" to "din-c56-right", "left" to 105),
+                addressProps = mapOf("align" to "right", "sideDistance" to 20),
             ),
         )
         assertTrue(pdf.isNotEmpty())
@@ -113,7 +113,7 @@ class AddressBlockTest {
     fun `renders with custom position`() {
         val pdf = renderToBytes(
             documentWithAddressBlock(
-                addressProps = mapOf("standard" to "custom", "top" to 30, "left" to 50, "addressWidth" to 70, "height" to 30),
+                addressProps = mapOf("top" to 30, "sideDistance" to 50, "addressWidth" to 70, "height" to 30),
             ),
         )
         assertTrue(pdf.isNotEmpty())
@@ -135,7 +135,7 @@ class AddressBlockTest {
                     id = "addressblock",
                     type = "addressblock",
                     slots = listOf(addressSlotId, asideSlotId),
-                    props = mapOf("top" to 45, "left" to 20, "addressWidth" to 85, "height" to 45),
+                    props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
                 ),
                 "address-text" to textNode("address-text", "Nested Address"),
                 "aside-text" to textNode("aside-text", "Nested Aside"),
@@ -163,7 +163,7 @@ class AddressBlockTest {
                     id = "addressblock",
                     type = "addressblock",
                     slots = listOf("slot-address", "slot-aside"),
-                    props = mapOf("top" to 45, "left" to 20, "addressWidth" to 85, "height" to 45),
+                    props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
                 ),
                 "address-text" to Node(
                     id = "address-text",
@@ -215,7 +215,7 @@ class AddressBlockTest {
                     id = "addressblock",
                     type = "addressblock",
                     slots = listOf(addressSlotId, asideSlotId),
-                    props = mapOf("top" to 45, "left" to 20, "addressWidth" to 85, "height" to 45),
+                    props = mapOf("top" to 45, "sideDistance" to 20, "addressWidth" to 85, "height" to 45),
                 ),
                 "address-text" to textNode("address-text", "PAGE ONE ADDRESS"),
                 "aside-text" to textNode("aside-text", "Reference"),

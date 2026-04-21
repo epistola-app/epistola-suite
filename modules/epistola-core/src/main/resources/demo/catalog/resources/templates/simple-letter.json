@@ -76,9 +76,9 @@
           "type": "addressblock",
           "slots": ["s-address", "s-aside"],
           "props": {
-            "standard": "din-c56-left",
+            "align": "left",
             "top": 45,
-            "left": 20,
+            "sideDistance": 20,
             "addressWidth": 85,
             "height": 45
           }
