@@ -127,7 +127,7 @@ class ExportCatalogZipHandler(
             for ((_, detail) in resourceDetails) {
                 val resource = detail.resource
                 if (resource is AssetResource) {
-                    val filename = resource.contentUrl.removePrefix("./resources/assets/")
+                    val filename = resource.contentUrl.removePrefix("./resources/asset/")
                     val uuidStr = filename.substringBefore(".")
                     val assetId = try {
                         AssetKey.of(UUID.fromString(uuidStr))
@@ -139,7 +139,7 @@ class ExportCatalogZipHandler(
                         assetId = assetId,
                     ).query() ?: continue
 
-                    zip.putNextEntry(ZipEntry("resources/assets/$filename"))
+                    zip.putNextEntry(ZipEntry("resources/asset/$filename"))
                     zip.write(content.content)
                     zip.closeEntry()
                 }
