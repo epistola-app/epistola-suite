@@ -11,14 +11,18 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
  * Upgrades a subscribed catalog by re-fetching from its source URL.
- * Updates catalog metadata and version, upgrades previously installed
- * resources, and removes installed resources no longer in the manifest.
+ *
+ * The upgrade is validated before execution: if removing stale resources
+ * would break cross-catalog references (themes used by other templates,
+ * stencils embedded in other template models, etc.), the entire upgrade
+ * is rejected with a [CatalogUpgradeConflictException].
  *
  * Only resources that are already installed locally are upgraded — new
  * resources in the manifest are not automatically installed.
@@ -43,6 +47,13 @@ data class RemovedResource(
     val slug: String,
 )
 
+class CatalogUpgradeConflictException(
+    val conflicts: List<String>,
+) : RuntimeException(
+    "Catalog upgrade blocked — the following resources would be removed but are still in use:\n" +
+        conflicts.joinToString("\n") { "  - $it" },
+)
+
 @Component
 class UpgradeCatalogHandler(
     private val jdbi: Jdbi,
@@ -60,7 +71,25 @@ class UpgradeCatalogHandler(
 
         val previousVersion = catalog.installedReleaseVersion
 
-        // 1. Re-register: upserts metadata + version
+        // 1. Fetch manifest (once — reused for install and stale check)
+        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
+
+        // 2. Find which resources are currently installed locally
+        val installedSlugs = findInstalledResourceSlugs(command.tenantKey, command.catalogKey)
+
+        // 3. Compute what would be removed
+        val staleResources = computeStaleResources(installedSlugs, manifestSlugs)
+
+        // 4. Validate: fail if any stale resource is still referenced
+        if (staleResources.isNotEmpty()) {
+            val conflicts = findConflicts(command.tenantKey, command.catalogKey, staleResources)
+            if (conflicts.isNotEmpty()) {
+                throw CatalogUpgradeConflictException(conflicts)
+            }
+        }
+
+        // 5. Re-register: upserts metadata + version
         val updated = RegisterCatalog(
             tenantKey = command.tenantKey,
             sourceUrl = sourceUrl,
@@ -68,10 +97,7 @@ class UpgradeCatalogHandler(
             authCredential = catalog.sourceAuthCredential,
         ).execute()
 
-        // 2. Find which resources are currently installed locally
-        val installedSlugs = findInstalledResourceSlugs(command.tenantKey, command.catalogKey)
-
-        // 3. Upgrade only previously installed resources
+        // 6. Upgrade only previously installed resources
         val slugsToUpgrade = installedSlugs.values.flatten().map { it.slug }
         val installResults = if (slugsToUpgrade.isNotEmpty()) {
             InstallFromCatalog(
@@ -83,10 +109,8 @@ class UpgradeCatalogHandler(
             emptyList()
         }
 
-        // 4. Remove installed resources no longer in the manifest
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
-        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
-        val removed = removeStaleResources(command.tenantKey, command.catalogKey, installedSlugs, manifestSlugs)
+        // 7. Remove stale resources (already validated)
+        val removed = removeStaleResources(command.tenantKey, command.catalogKey, staleResources)
 
         val installed = installResults.count { it.status == InstallStatus.INSTALLED }
         val updatedCount = installResults.count { it.status == InstallStatus.UPDATED }
@@ -110,94 +134,181 @@ class UpgradeCatalogHandler(
         )
     }
 
+    // ── Installed resource discovery ──────────────────────────────────────────
+
     private data class InstalledResource(val type: String, val slug: String)
 
     private fun findInstalledResourceSlugs(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, List<InstalledResource>> = jdbi.withHandle<Map<String, List<InstalledResource>>, Exception> { handle ->
         val resources = mutableListOf<InstalledResource>()
 
-        handle.createQuery("SELECT id FROM document_templates WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
-            .forEach { resources.add(InstalledResource("template", it)) }
+        data class TableType(val type: String, val table: String)
 
-        handle.createQuery("SELECT id FROM themes WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
-            .forEach { resources.add(InstalledResource("theme", it)) }
+        val tables = listOf(
+            TableType("template", "document_templates"),
+            TableType("theme", "themes"),
+            TableType("stencil", "stencils"),
+            TableType("attribute", "variant_attribute_definitions"),
+            TableType("asset", "assets"),
+        )
 
-        handle.createQuery("SELECT id FROM stencils WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
-            .forEach { resources.add(InstalledResource("stencil", it)) }
-
-        handle.createQuery("SELECT id FROM variant_attribute_definitions WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
-            .forEach { resources.add(InstalledResource("attribute", it)) }
+        for ((type, table) in tables) {
+            handle.createQuery("SELECT id FROM $table WHERE tenant_key = :t AND catalog_key = :c")
+                .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
+                .forEach { resources.add(InstalledResource(type, it)) }
+        }
 
         resources.groupBy { it.type }
     }
 
+    // ── Stale resource computation ───────────────────────────────────────────
+
+    private fun computeStaleResources(
+        installedSlugs: Map<String, List<InstalledResource>>,
+        manifestSlugs: Map<String, List<String>>,
+    ): List<InstalledResource> {
+        val stale = mutableListOf<InstalledResource>()
+        for ((type, installed) in installedSlugs) {
+            val inManifest = manifestSlugs[type]?.toSet() ?: emptySet()
+            installed.filter { it.slug !in inManifest }.forEach { stale.add(it) }
+        }
+        return stale
+    }
+
+    // ── Conflict validation ──────────────────────────────────────────────────
+
     /**
-     * Removes locally installed resources that are no longer in the remote manifest.
-     * Only deletes resources that were previously installed, not all resources in the catalog.
-     * Resources referenced by other catalogs (e.g. themes used by external templates)
-     * are skipped with a warning rather than silently nulling out the reference.
+     * Checks all stale resources for cross-catalog references.
+     * Returns human-readable conflict descriptions. Empty list = safe to proceed.
      */
+    private fun findConflicts(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        staleResources: List<InstalledResource>,
+    ): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        val conflicts = mutableListOf<String>()
+
+        for (resource in staleResources) {
+            when (resource.type) {
+                "theme" -> findThemeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "stencil" -> findStencilConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "template" -> findTemplateConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "attribute" -> findAttributeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+            }
+        }
+
+        conflicts
+    }
+
+    private fun findThemeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+        // Templates in other catalogs referencing this theme
+        handle.createQuery(
+            """
+            SELECT name, catalog_key FROM document_templates
+            WHERE tenant_key = :t AND theme_catalog_key = :c AND theme_key = :slug AND catalog_key != :c
+            """,
+        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+            .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
+            .list().let { conflicts.addAll(it) }
+
+        // Tenant default theme
+        handle.createQuery(
+            "SELECT id FROM tenants WHERE id = :t AND default_theme_catalog_key = :c AND default_theme_key = :slug",
+        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+            .mapTo(String::class.java).findOne().ifPresent {
+                conflicts.add("Theme '$slug' is the tenant default theme")
+            }
+    }
+
+    private fun findStencilConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+        // Templates in other catalogs that embed this stencil in their template model
+        handle.createQuery(
+            """
+            SELECT DISTINCT dt.name, tv.catalog_key
+            FROM template_versions tv
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
+            WHERE tv.tenant_key = :t AND tv.catalog_key != :c
+              AND tv.status IN ('draft', 'published')
+              AND n.value ->> 'type' = 'stencil'
+              AND n.value -> 'props' ->> 'catalogKey' = :cStr
+              AND n.value -> 'props' ->> 'stencilId' = :slug
+            """,
+        ).bind("t", tenantKey).bind("c", catalogKey).bind("cStr", catalogKey.value).bind("slug", slug)
+            .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
+            .list().let { conflicts.addAll(it) }
+    }
+
+    private fun findTemplateConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+        // Template has active environment activations
+        val activationCount = handle.createQuery(
+            """
+            SELECT COUNT(*) FROM environment_activations
+            WHERE tenant_key = :t AND catalog_key = :c AND template_key = :slug
+            """,
+        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+            .mapTo(Long::class.java).one()
+
+        if (activationCount > 0) {
+            conflicts.add("Template '$slug' has $activationCount environment activation(s) — removing it would break document generation")
+        }
+    }
+
+    private fun findAttributeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+        // Variants in other catalogs that use this attribute
+        handle.createQuery(
+            """
+            SELECT DISTINCT dt.name, v.catalog_key
+            FROM template_variants v
+            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.catalog_key = v.catalog_key AND dt.id = v.template_key
+            WHERE v.tenant_key = :t AND v.catalog_key != :c
+              AND v.attributes::jsonb ? :slug
+            """,
+        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+            .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
+            .list().let { conflicts.addAll(it) }
+    }
+
+    // ── Stale resource removal ───────────────────────────────────────────────
+
     private fun removeStaleResources(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
-        installedSlugs: Map<String, List<InstalledResource>>,
-        manifestSlugs: Map<String, List<String>>,
+        staleResources: List<InstalledResource>,
     ): List<RemovedResource> {
+        if (staleResources.isEmpty()) return emptyList()
+
         val removed = mutableListOf<RemovedResource>()
 
-        data class TableMapping(val type: String, val table: String)
-
-        val tables = listOf(
-            // Delete templates before themes — templates may reference themes in the same catalog
-            TableMapping("template", "document_templates"),
-            TableMapping("stencil", "stencils"),
-            TableMapping("attribute", "variant_attribute_definitions"),
-            TableMapping("theme", "themes"),
+        val tableByType = mapOf(
+            "template" to "document_templates",
+            "stencil" to "stencils",
+            "attribute" to "variant_attribute_definitions",
+            "theme" to "themes",
+            "asset" to "assets",
         )
 
+        // Delete in dependency order: templates first (may reference themes/stencils), then the rest
+        val ordered = staleResources.sortedBy {
+            when (it.type) {
+                "template" -> 0
+                "stencil" -> 1
+                "attribute" -> 2
+                "asset" -> 3
+                "theme" -> 4
+                else -> 5
+            }
+        }
+
         jdbi.useHandle<Exception> { handle ->
-            for ((type, table) in tables) {
-                val installed = installedSlugs[type]?.map { it.slug } ?: continue
-                val inManifest = manifestSlugs[type]?.toSet() ?: emptySet()
-                val toRemove = installed.filter { it !in inManifest }
-
-                for (slug in toRemove) {
-                    // Check for cross-catalog references before deleting
-                    if (type == "theme" && isThemeReferencedExternally(handle, tenantKey, catalogKey, slug)) {
-                        logger.warn(
-                            "Skipping removal of theme '{}' from catalog '{}': still referenced by templates in other catalogs",
-                            slug,
-                            catalogKey,
-                        )
-                        continue
-                    }
-
-                    handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND catalog_key = :c AND id = :id")
-                        .bind("t", tenantKey).bind("c", catalogKey).bind("id", slug).execute()
-                    removed.add(RemovedResource(type, slug))
-                    logger.info("Removed stale {} '{}' from catalog '{}'", type, slug, catalogKey)
-                }
+            for (resource in ordered) {
+                val table = tableByType[resource.type] ?: continue
+                handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND catalog_key = :c AND id = :id")
+                    .bind("t", tenantKey).bind("c", catalogKey).bind("id", resource.slug).execute()
+                removed.add(RemovedResource(resource.type, resource.slug))
+                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalogKey)
             }
         }
 
         return removed
     }
-
-    private fun isThemeReferencedExternally(
-        handle: org.jdbi.v3.core.Handle,
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        themeSlug: String,
-    ): Boolean = handle.createQuery(
-        """
-        SELECT EXISTS(
-            SELECT 1 FROM document_templates
-            WHERE tenant_key = :t AND theme_catalog_key = :c AND theme_key = :slug AND catalog_key != :c
-        )
-        """,
-    ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", themeSlug)
-        .mapTo(Boolean::class.java).one()
 }
