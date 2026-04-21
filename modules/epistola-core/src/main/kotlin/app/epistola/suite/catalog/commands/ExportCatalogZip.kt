@@ -72,7 +72,18 @@ class ExportCatalogZipHandler(
         val themes = ExportThemes(command.tenantKey, catalogKey = command.catalogKey).query()
         val stencils = ExportStencils(command.tenantKey, catalogKey = command.catalogKey).query()
         val attributes = ExportAttributes(command.tenantKey, catalogKey = command.catalogKey).query()
-        val assets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
+
+        // Assets: include same-catalog assets + any assets referenced by templates (may be in other catalogs)
+        val catalogAssets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
+        val referencedAssetIds = collectReferencedAssetIds(templates)
+        val catalogAssetIds = catalogAssets.map { it.slug }.toSet()
+        val missingAssetIds = referencedAssetIds - catalogAssetIds
+        val externalAssets = if (missingAssetIds.isNotEmpty()) {
+            ExportAssets(command.tenantKey, assetIds = missingAssetIds.toList()).query()
+        } else {
+            emptyList()
+        }
+        val assets = catalogAssets + externalAssets
 
         // Build resource entries and details
         val resourceEntries = mutableListOf<ResourceEntry>()
@@ -231,6 +242,26 @@ class ExportCatalogZipHandler(
     }
 
     /**
+     * Scan all template models for image node asset references.
+     */
+    private fun collectReferencedAssetIds(templates: List<TemplateResource>): Set<String> {
+        val assetIds = mutableSetOf<String>()
+        for (template in templates) {
+            val docs = mutableListOf(template.templateModel)
+            template.variants.mapNotNull { it.templateModel }.forEach { docs.add(it) }
+            for (doc in docs) {
+                for (node in doc.nodes.values) {
+                    if (node.type == "image") {
+                        val assetId = node.props?.get("assetId") as? String
+                        if (assetId != null) assetIds.add(assetId)
+                    }
+                }
+            }
+        }
+        return assetIds
+    }
+
+    /**
      * Scan template models for references to resources NOT in this catalog's manifest.
      * Collect them as cross-catalog dependencies. No DB queries — purely in-memory.
      */
@@ -274,15 +305,7 @@ class ExportCatalogZipHandler(
                                 dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
                             }
                         }
-                        "image" -> {
-                            val assetId = node.props?.get("assetId") as? String
-                            if (assetId != null && "asset:$assetId" !in ownResources) {
-                                // Asset is external — we don't know which catalog it's in from the template model alone,
-                                // but we know it's not in this catalog. Use the current catalog as placeholder.
-                                // The importing system will resolve it by tenant-global asset lookup.
-                                dependencies.add(DependencyRef.Asset(slug = assetId))
-                            }
-                        }
+                        // Assets are bundled in the ZIP (including cross-catalog), so no dependency needed
                     }
                 }
             }
