@@ -61,7 +61,7 @@ class ColumnsNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("columns"),
             context.renderingDefaults.baseFontSizePt,
@@ -85,8 +85,9 @@ class ColumnsNodeRenderer : NodeRenderer {
                 cell.setPaddingRight(cellPadding)
             }
 
-            // Render slot children
-            val childElements = registry.renderSlot(slot.id, document, context)
+            // Render slot children with this node's resolved styles as inherited styles
+            val childContext = context.withInheritedStylesFrom(node)
+            val childElements = registry.renderSlot(slot.id, document, childContext)
             for (element in childElements) {
                 when (element) {
                     is com.itextpdf.layout.element.IBlockElement -> cell.add(element)

@@ -57,7 +57,7 @@ class QrCodeNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("qrcode"),
             context.renderingDefaults.baseFontSizePt,
