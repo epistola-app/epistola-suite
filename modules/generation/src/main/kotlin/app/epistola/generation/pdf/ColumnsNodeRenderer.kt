@@ -72,6 +72,9 @@ class ColumnsNodeRenderer : NodeRenderer {
         val gap = (node.props?.get("gap") as? Number)?.toFloat() ?: context.renderingDefaults.columnGap
         val cellPadding = gap / 2f
 
+        // Compute inherited styles once for all column slots
+        val childContext = context.withInheritedStylesFrom(node)
+
         // Render each column slot
         for ((index, slot) in columnSlots.withIndex()) {
             val cell = Cell()
@@ -85,8 +88,6 @@ class ColumnsNodeRenderer : NodeRenderer {
                 cell.setPaddingRight(cellPadding)
             }
 
-            // Render slot children with this node's resolved styles as inherited styles
-            val childContext = context.withInheritedStylesFrom(node)
             val childElements = registry.renderSlot(slot.id, document, childContext)
             for (element in childElements) {
                 when (element) {

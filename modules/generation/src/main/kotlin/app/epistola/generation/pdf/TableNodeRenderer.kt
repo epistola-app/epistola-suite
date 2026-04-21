@@ -83,6 +83,9 @@ class TableNodeRenderer : NodeRenderer {
             document.slots[slotId]?.let { slot -> slot.name to slot.id }
         }.toMap()
 
+        // Compute inherited styles once for all cell slots
+        val childContext = context.withInheritedStylesFrom(node)
+
         // Render cells in row-major order
         for (row in 0 until rowCount) {
             val isHeaderRow = row < headerRows
@@ -130,7 +133,6 @@ class TableNodeRenderer : NodeRenderer {
                 val slotName = "cell-$row-$col"
                 val slotId = slotsByName[slotName]
                 if (slotId != null) {
-                    val childContext = context.withInheritedStylesFrom(node)
                     val childElements = registry.renderSlot(slotId, document, childContext)
                     for (element in childElements) {
                         when (element) {
