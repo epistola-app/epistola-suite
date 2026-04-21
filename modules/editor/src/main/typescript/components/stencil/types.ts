@@ -6,8 +6,6 @@
  * delegation pattern used for SaveFn, FetchPreviewFn, and AssetPickerCallbacks.
  */
 
-import type { TemplateDocument } from '../../types/index.js';
-
 /** Uniquely identifies a stencil within a tenant. */
 export interface StencilRef {
   stencilId: string;
@@ -32,7 +30,7 @@ export interface StencilVersionInfo {
   stencilName: string;
   version: number;
   /** The template document fragment (nodes + slots) to embed. */
-  content: TemplateDocument;
+  content: import('../../types/index.js').TemplateDocument;
 }
 
 /** Version summary for the version picker. */
@@ -69,7 +67,7 @@ export type CreateStencilFn = (
 /** Push updated content back to a stencil as a new draft version. */
 export type UpdateStencilFn = (
   ref: StencilRef,
-  content: TemplateDocument,
+  content: import('../../types/index.js').TemplateDocument,
 ) => Promise<{ version: number }>;
 
 /** Ensure a draft exists for a stencil (creates one if needed). */
