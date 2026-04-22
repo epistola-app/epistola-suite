@@ -1462,6 +1462,12 @@
     color: var(--ep-blue-700);
   }
 
+  .dc-breaking-change-chip-required_added,
+  .dc-breaking-change-chip-made_required {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
   /* --------------------------------------------------------------------------
    * Breaking changes dialog
    * ---------------------------------------------------------------------- */
@@ -1510,6 +1516,12 @@
   .dc-breaking-change-type_changed .dc-breaking-change-badge {
     background: var(--ep-blue-100);
     color: var(--ep-blue-700);
+  }
+
+  .dc-breaking-change-required_added .dc-breaking-change-badge,
+  .dc-breaking-change-made_required .dc-breaking-change-badge {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
   }
 
   /* --------------------------------------------------------------------------
@@ -1796,6 +1808,16 @@
       height: 1px;
       background: var(--ep-gray-200);
     }
+  }
+
+  .dc-dialog-content {
+    padding: var(--ep-space-4);
+  }
+
+  .dc-dialog-description {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-600);
+    margin: 0 0 var(--ep-space-2) 0;
   }
 
   .dc-dialog-actions {

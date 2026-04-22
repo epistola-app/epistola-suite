@@ -118,9 +118,60 @@ describe('detectBreakingChanges', () => {
     expect(changes[0].description).toContain('array<integer>');
   });
 
-  it('returns empty when old schema is empty', () => {
-    const next: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+  it('returns empty when old schema is empty and new fields are optional', () => {
+    const next: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: false }];
 
     expect(detectBreakingChanges([], next)).toEqual([]);
+  });
+
+  it('detects new required field', () => {
+    const old: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+    const next: SchemaField[] = [
+      { id: 'f1', name: 'name', type: 'string', required: true },
+      { id: 'f2', name: 'email', type: 'string', required: true },
+    ];
+
+    const changes = detectBreakingChanges(old, next);
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0].type).toBe('required_added');
+    expect(changes[0].description).toBe('"email" added as required');
+  });
+
+  it('ignores new optional field', () => {
+    const old: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+    const next: SchemaField[] = [
+      { id: 'f1', name: 'name', type: 'string', required: true },
+      { id: 'f2', name: 'email', type: 'string', required: false },
+    ];
+
+    expect(detectBreakingChanges(old, next)).toEqual([]);
+  });
+
+  it('detects optional field made required', () => {
+    const old: SchemaField[] = [{ id: 'f1', name: 'email', type: 'string', required: false }];
+    const next: SchemaField[] = [{ id: 'f1', name: 'email', type: 'string', required: true }];
+
+    const changes = detectBreakingChanges(old, next);
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0].type).toBe('made_required');
+    expect(changes[0].description).toBe('"email" is now required');
+  });
+
+  it('does not flag required field staying required', () => {
+    const old: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+    const next: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+
+    expect(detectBreakingChanges(old, next)).toEqual([]);
+  });
+
+  it('detects new required field added to empty schema', () => {
+    const next: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+
+    const changes = detectBreakingChanges([], next);
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0].type).toBe('required_added');
   });
 });

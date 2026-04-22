@@ -7,7 +7,12 @@
 
 import type { SchemaField, SchemaFieldType } from '../types.js';
 
-export type BreakingChangeType = 'removed' | 'renamed' | 'type_changed';
+export type BreakingChangeType =
+  | 'removed'
+  | 'renamed'
+  | 'type_changed'
+  | 'required_added'
+  | 'made_required';
 
 export interface BreakingChange {
   type: BreakingChangeType;
@@ -26,6 +31,19 @@ export function detectBreakingChanges(
 ): BreakingChange[] {
   const changes: BreakingChange[] = [];
   const newById = indexById(newFields);
+  const oldById = indexById(oldFields);
+
+  // Detect new required fields (ID not in old schema)
+  for (const newField of newFields) {
+    if (!oldById.has(newField.id) && newField.required) {
+      const path = basePath ? `${basePath}.${newField.name}` : newField.name;
+      changes.push({
+        type: 'required_added',
+        path,
+        description: `"${newField.name}" added as required`,
+      });
+    }
+  }
 
   for (const oldField of oldFields) {
     const path = basePath ? `${basePath}.${oldField.name}` : oldField.name;
@@ -39,6 +57,16 @@ export function detectBreakingChanges(
         description: `"${oldField.name}" removed`,
       });
       continue;
+    }
+
+    // Optional → required
+    if (newField.required && !oldField.required) {
+      const displayName = newField.name !== oldField.name ? newField.name : oldField.name;
+      changes.push({
+        type: 'made_required',
+        path: basePath ? `${basePath}.${displayName}` : displayName,
+        description: `"${displayName}" is now required`,
+      });
     }
 
     if (newField.name !== oldField.name) {
