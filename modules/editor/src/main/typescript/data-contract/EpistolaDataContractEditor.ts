@@ -120,8 +120,9 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _pendingMigrations: MigrationSuggestion[] = [];
   @state() private _selectedMigrations = new Set<string>();
 
-  // Breaking changes (live banner)
+  // Breaking changes (live banner + confirmation dialog)
   @state() private _breakingChanges: BreakingChange[] = [];
+  @state() private _showBreakingChangesDialog = false;
 
   // Timers
   private _successTimer?: ReturnType<typeof setTimeout>;
@@ -234,6 +235,45 @@ export class EpistolaDataContractEditor extends LitElement {
           ${this._renderSchemaSection()} ${this._renderExamplesSection()}
         </div>
       </div>
+
+      <!-- Breaking changes confirmation dialog -->
+      ${this._showBreakingChangesDialog
+        ? html`
+            <dialog class="dc-dialog" open @close=${() => this._dismissBreakingChanges()}>
+              <div class="dc-dialog-content">
+                <h3 class="dc-dialog-title">Breaking Changes</h3>
+                <p class="dc-dialog-description">
+                  The following changes may affect external systems consuming this data contract.
+                  Are you sure you want to save?
+                </p>
+                <ul class="dc-breaking-changes-list">
+                  ${this._breakingChanges.map(
+                    (c) => html`
+                      <li class="dc-breaking-change dc-breaking-change-${c.type}">
+                        <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
+                        ${c.description}
+                      </li>
+                    `,
+                  )}
+                </ul>
+                <div class="dc-dialog-actions">
+                  <button
+                    class="ep-btn-outline btn-sm"
+                    @click=${() => this._dismissBreakingChanges()}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="ep-btn-primary btn-sm"
+                    @click=${() => this._confirmBreakingChanges()}
+                  >
+                    Save Anyway
+                  </button>
+                </div>
+              </div>
+            </dialog>
+          `
+        : nothing}
 
       <!-- Migration dialog -->
       ${this._showMigrationDialog
@@ -525,6 +565,12 @@ export class EpistolaDataContractEditor extends LitElement {
     if (this._saving) return;
     if (this._hasExampleErrors) return;
 
+    // Confirm breaking changes before saving
+    if (this._breakingChanges.length > 0 && !this._showBreakingChangesDialog) {
+      this._showBreakingChangesDialog = true;
+      return;
+    }
+
     // Check for pending migrations before saving
     if (state.isSchemaDirty) {
       const schemaForMigration =
@@ -679,6 +725,23 @@ export class EpistolaDataContractEditor extends LitElement {
     this._showMigrationDialog = false;
     this._pendingMigrations = [];
     this._selectedMigrations = new Set();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Example operations
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Breaking changes dialog
+  // ---------------------------------------------------------------------------
+
+  private async _confirmBreakingChanges(): Promise<void> {
+    this._showBreakingChangesDialog = false;
+    await this._saveAll();
+  }
+
+  private _dismissBreakingChanges(): void {
+    this._showBreakingChangesDialog = false;
   }
 
   // ---------------------------------------------------------------------------
