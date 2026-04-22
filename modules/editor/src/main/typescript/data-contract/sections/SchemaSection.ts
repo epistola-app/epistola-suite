@@ -209,17 +209,20 @@ function renderDetailPanel(
             class="ep-input dc-detail-input"
             .value=${field.name}
             placeholder="Field name"
-            pattern="[a-zA-Z_][a-zA-Z0-9_]*"
             title="Letters, digits, and underscores only. Must start with a letter or underscore."
             ?disabled=${uiState.readOnly}
-            @change=${(e: Event) => {
+            @input=${(e: Event) => {
               const input = e.target as HTMLInputElement;
-              const value = input.value.trim();
-              if (value && value !== field.name) {
-                if (!isValidFieldName(value)) {
-                  input.value = field.name;
-                  return;
-                }
+              const pos = input.selectionStart ?? 0;
+              const filtered = input.value.replace(/[^a-zA-Z0-9_]/g, '');
+              if (filtered !== input.value) {
+                input.value = filtered;
+                input.selectionStart = input.selectionEnd = pos - 1;
+              }
+            }}
+            @change=${(e: Event) => {
+              const value = (e.target as HTMLInputElement).value.trim();
+              if (value && value !== field.name && isValidFieldName(value)) {
                 emitUpdate({ name: value });
               }
             }}
