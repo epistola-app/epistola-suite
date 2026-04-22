@@ -491,6 +491,64 @@
     color: var(--ep-red-400);
   }
 
+  /* ── Shared button base ─────────────────────────────────────────────── */
+
+  .ep-btn-primary,
+  .ep-btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ep-space-1-5);
+    height: var(--ep-h-9);
+    padding: 0 var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    border-radius: var(--ep-radius-md);
+    cursor: pointer;
+    transition: var(--ep-transition-colors);
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow:
+        0 0 0 var(--ep-ring-offset) var(--ep-white),
+        0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color);
+    }
+  }
+
+  .ep-btn-primary {
+    background: var(--ep-primary);
+    color: var(--ep-white);
+    border: 1px solid var(--ep-primary);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-blue-700);
+      border-color: var(--ep-blue-700);
+    }
+  }
+
+  .ep-btn-outline {
+    background: var(--ep-white);
+    color: var(--ep-gray-700);
+    border: 1px solid var(--ep-gray-300);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-gray-50);
+      border-color: var(--ep-gray-400);
+      color: var(--ep-gray-900);
+    }
+  }
+
+  .btn-sm {
+    height: var(--ep-h-8);
+    padding: 0 var(--ep-space-2-5);
+    font-size: var(--ep-text-xs);
+  }
+
   /* ── Danger button (existing, updated) ───────────────────────────────── */
 
   .ep-btn-danger {

@@ -73,6 +73,15 @@ export function renderSchemaSection(
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
         >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M3 6h7a4 4 0 014 4v0M3 6l3-3M3 6l3 3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           Undo
         </button>
 
@@ -83,6 +92,15 @@ export function renderSchemaSection(
           title="Redo (Ctrl+Shift+Z)"
           aria-label="Redo"
         >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M13 6H6a4 4 0 00-4 4v0M13 6l-3-3M13 6l-3 3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           Redo
         </button>
       </div>
