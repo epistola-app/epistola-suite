@@ -34,7 +34,30 @@ data class RenderContext(
     val systemParams: Map<String, Any?> = emptyMap(),
     /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
     val totalPages: Int? = null,
+    /**
+     * Inherited styles from the parent node, used for CSS-like style inheritance.
+     * Initialized from document styles (inheritable keys only) and updated as we
+     * traverse the node tree — each node's resolved inheritable styles become the
+     * inherited styles for its children.
+     */
+    val inheritedStyles: Map<String, Any> = documentStyles
+        ?.filterKeys { it in StyleApplicator.INHERITABLE_KEYS }
+        ?: emptyMap(),
 ) {
+    /**
+     * Returns a copy of this context with updated inherited styles based on a node's
+     * resolved styles. Only inheritable style properties are propagated to children.
+     */
+    fun withInheritedStylesFrom(node: app.epistola.template.model.Node): RenderContext {
+        val resolved = StyleApplicator.resolveInheritedStyles(
+            inheritedStyles,
+            node.stylePreset,
+            blockStylePresets,
+            node.styles?.filterNonNullValues(),
+        )
+        return if (resolved === inheritedStyles) this else copy(inheritedStyles = resolved)
+    }
+
     /**
      * Data map with system parameters merged under the `sys` key.
      * Returns the original [data] map when no system parameters are set.

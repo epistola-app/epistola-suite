@@ -61,7 +61,7 @@ object StyleApplicator {
      * @param blockInlineStyles The block's inline styles (may be null)
      * @param blockStylePreset The name of the theme preset referenced by the block (may be null)
      * @param blockStylePresets All available presets from the theme
-     * @param documentStyles Document-level default styles
+     * @param inheritedStyles Inherited styles from parent node (inheritable keys only)
      * @param fontCache The font cache for font lookups
      * @param defaultStyles Component-type default styles (may be null)
      */
@@ -70,7 +70,7 @@ object StyleApplicator {
         blockInlineStyles: Map<String, Any>?,
         blockStylePreset: String?,
         blockStylePresets: Map<String, Map<String, Any>>,
-        documentStyles: DocumentStyles?,
+        inheritedStyles: Map<String, Any>,
         fontCache: FontCache,
         defaultStyles: Map<String, Any>? = null,
         baseFontSizePt: Float = 12f,
@@ -79,22 +79,43 @@ object StyleApplicator {
         // Apply component default styles first (lowest priority)
         defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
-        // Apply only inheritable document-level styles
-        documentStyles?.let { docStyles ->
-            val inheritable = docStyles.filterKeys { it in INHERITABLE_KEYS }
-            if (inheritable.isNotEmpty()) {
-                applyBlockStyles(element, inheritable, fontCache, baseFontSizePt, spacingUnit)
-            }
+        // Apply inherited styles (from parent node, or document styles at root level),
+        // but only for keys that are allowed to cascade.
+        val effectiveInheritedStyles = inheritedStyles.filterKeys { it in INHERITABLE_KEYS }
+        if (effectiveInheritedStyles.isNotEmpty()) {
+            applyBlockStyles(element, effectiveInheritedStyles, fontCache, baseFontSizePt, spacingUnit)
         }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
 
-        // Apply preset styles (override document styles)
+        // Apply preset styles (override inherited styles)
         presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply block inline styles (override preset styles)
         blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
+    }
+
+    /**
+     * Resolves the effective inherited styles for child nodes.
+     * Merges parent inherited styles with the current node's preset and inline styles
+     * (filtered to inheritable keys only).
+     */
+    fun resolveInheritedStyles(
+        parentInherited: Map<String, Any>,
+        presetName: String?,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        inlineStyles: Map<String, Any>?,
+    ): Map<String, Any> {
+        val presetStyles = presetName?.let { blockStylePresets[it] }
+        val hasOverrides = presetStyles != null || inlineStyles != null
+        if (!hasOverrides) return parentInherited
+
+        return buildMap {
+            putAll(parentInherited)
+            presetStyles?.filterKeys { it in INHERITABLE_KEYS }?.let { putAll(it) }
+            inlineStyles?.filterKeys { it in INHERITABLE_KEYS }?.let { putAll(it) }
+        }
     }
 
     /**

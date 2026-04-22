@@ -53,12 +53,15 @@ class DataListNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("datalist"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
         )
+
+        // Compute inherited styles once for all iterations
+        val inheritedContext = context.withInheritedStylesFrom(node)
 
         for ((index, item) in iterable.withIndex()) {
             val itemContext = context.loopContext.toMutableMap()
@@ -70,7 +73,7 @@ class DataListNodeRenderer : NodeRenderer {
                 itemContext[indexAlias] = index
             }
 
-            val childContext = context.copy(loopContext = itemContext)
+            val childContext = inheritedContext.copy(loopContext = itemContext)
             val childElements = registry.renderSlots(node, document, childContext)
 
             val listItem = ListItem()

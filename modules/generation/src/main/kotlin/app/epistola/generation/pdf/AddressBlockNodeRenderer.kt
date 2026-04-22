@@ -61,7 +61,8 @@ class AddressBlockNodeRenderer : NodeRenderer {
         val slotsByName = node.slots.mapNotNull { slotId ->
             document.slots[slotId]?.let { slot -> slot.name to slot.id }
         }.toMap()
-        val asideElements = slotsByName["aside"]?.let { registry.renderSlot(it, document, context) } ?: emptyList()
+        val childContext = context.withInheritedStylesFrom(node)
+        val asideElements = slotsByName["aside"]?.let { registry.renderSlot(it, document, childContext) } ?: emptyList()
 
         val asideDiv = Div()
         // Margin on the address side to leave room for the absolute-positioned address.

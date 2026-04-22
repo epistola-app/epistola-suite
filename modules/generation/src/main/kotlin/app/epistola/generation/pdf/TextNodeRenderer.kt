@@ -26,7 +26,7 @@ class TextNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("text"),
             context.renderingDefaults.baseFontSizePt,
@@ -36,7 +36,7 @@ class TextNodeRenderer : NodeRenderer {
         // Resolve the full style cascade, then parse size values to points.
         // TipTapConverter receives pre-resolved values — it doesn't parse units.
         val rawStyles = buildMap<String, Any> {
-            context.documentStyles?.filterKeys { it in StyleApplicator.INHERITABLE_KEYS }?.let { putAll(it) }
+            putAll(context.inheritedStyles)
             StyleApplicator.resolveBlockStyles(context.blockStylePresets, node.stylePreset, node.styles?.filterNonNullValues())
                 ?.let { putAll(it) }
         }
