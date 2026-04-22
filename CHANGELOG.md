@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Data contract editor: single-page layout**: Replaced the Schema/Test Data tab layout with a single scrollable page showing both sections. The Visual/JSON sub-tabs are replaced with a collapsible "View JSON" panel. Breaking changes display as a live banner between the header and schema section.
+- **Data contract editor: block save on invalid examples**: The Save button is now disabled when any example has validation errors. Examples must be valid before saving.
+
 ### Fixed
 
 - **Image aspect ratio lock**: Changing width or height with "Lock Aspect Ratio" enabled now correctly adjusts the other dimension. Previously the ratio calculation always evaluated to 1 because the new value was applied before the `onPropChange` hook could read the old value.

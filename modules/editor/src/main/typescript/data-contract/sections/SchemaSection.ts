@@ -19,17 +19,16 @@ import type {
 } from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
 import { FIELD_TYPE_LABELS, isValidFieldName } from '../utils/schemaUtils.js';
-import type { BreakingChange } from '../utils/schemaBreakingChanges.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>;
-  breakingChanges: BreakingChange[];
   canUndo: boolean;
   canRedo: boolean;
   selectedFieldId: string | null;
   readOnly: boolean;
+  jsonPanelOpen: boolean;
 }
 
 export interface SchemaSectionCallbacks {
@@ -38,6 +37,9 @@ export interface SchemaSectionCallbacks {
   onSelectField: (fieldId: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onAddField: () => void;
+  onImport: () => void;
+  onToggleJson: () => void;
 }
 
 // =============================================================================
@@ -66,6 +68,31 @@ export function renderSchemaSection(
 
       <!-- Toolbar -->
       <div class="dc-toolbar">
+        <button
+          class="ep-btn-outline btn-sm dc-add-field-btn"
+          @click=${() => callbacks.onAddField()}
+          ?disabled=${uiState.readOnly}
+        >
+          + Add Field
+        </button>
+
+        <button
+          class="ep-btn-outline btn-sm dc-btn-icon"
+          ?disabled=${uiState.readOnly}
+          @click=${() => callbacks.onImport()}
+          title="Import a JSON Schema"
+        >
+          Import
+        </button>
+
+        <button class="ep-btn-outline btn-sm dc-btn-icon" @click=${() => callbacks.onToggleJson()}>
+          <span
+            class="dc-json-toggle-arrow ${uiState.jsonPanelOpen ? 'dc-json-toggle-arrow-open' : ''}"
+            >&#9654;</span
+          >
+          JSON
+        </button>
+
         <div class="dc-toolbar-spacer"></div>
 
         <button
@@ -107,25 +134,6 @@ export function renderSchemaSection(
         </button>
       </div>
 
-      <!-- Breaking changes banner -->
-      ${uiState.breakingChanges.length > 0
-        ? html`
-            <div class="dc-breaking-changes-banner">
-              <div class="dc-breaking-changes-banner-title">
-                ${uiState.breakingChanges.length} breaking
-                change${uiState.breakingChanges.length === 1 ? '' : 's'}
-              </div>
-              ${uiState.breakingChanges.map(
-                (c) => html`
-                  <span class="dc-breaking-change-chip dc-breaking-change-chip-${c.type}">
-                    ${c.description}
-                  </span>
-                `,
-              )}
-            </div>
-          `
-        : nothing}
-
       <!-- Validation warnings -->
       ${renderValidationMessages(uiState.warnings)}
 
@@ -138,15 +146,6 @@ export function renderSchemaSection(
             </div>
           `
         : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
-
-      <!-- Add field button -->
-      <button
-        class="ep-btn-outline btn-sm dc-add-field-btn"
-        @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
-        ?disabled=${uiState.readOnly}
-      >
-        + Add Field
-      </button>
     </section>
   `;
 }

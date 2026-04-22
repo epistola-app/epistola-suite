@@ -18,7 +18,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
-import { icon } from '../ui/icons.js';
 import { DataContractState } from './DataContractState.js';
 import type {
   DataExample,
@@ -58,8 +57,6 @@ import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
 
-type TabId = 'schema' | 'examples';
-
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
   override createRenderRoot() {
@@ -84,13 +81,11 @@ export class EpistolaDataContractEditor extends LitElement {
   // UI state (reactive via @state())
   // ---------------------------------------------------------------------------
 
-  @state() private _activeTab: TabId = 'schema';
-
   // Schema tab UI state
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
   @state() private _expandedFields = new Set<string>();
   @state() private _selectedFieldId: string | null = null;
-  @state() private _schemaViewMode: 'visual' | 'json' = 'visual';
+  @state() private _jsonPanelOpen = false;
   @state() private _compatibilityIssues: CompatibilityIssue[] = [];
 
   // Import dialog state
@@ -125,9 +120,8 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _pendingMigrations: MigrationSuggestion[] = [];
   @state() private _selectedMigrations = new Set<string>();
 
-  // Breaking changes (live + dialog)
+  // Breaking changes (live banner)
   @state() private _breakingChanges: BreakingChange[] = [];
-  @state() private _showBreakingChangesDialog = false;
 
   // Timers
   private _successTimer?: ReturnType<typeof setTimeout>;
@@ -159,7 +153,6 @@ export class EpistolaDataContractEditor extends LitElement {
       this._compatibilityIssues = compat.issues;
       if (!compat.compatible) {
         this.contractState.setRawJsonSchema(initialSchema, 'json-only', true);
-        this._schemaViewMode = 'json';
       }
     }
 
@@ -203,6 +196,13 @@ export class EpistolaDataContractEditor extends LitElement {
   // Render
   // ---------------------------------------------------------------------------
 
+  private get _hasExampleErrors(): boolean {
+    for (const errors of this._exampleValidationErrors.values()) {
+      if (errors.length > 0) return true;
+    }
+    return false;
+  }
+
   override render() {
     if (!this.contractState) {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`;
@@ -212,13 +212,8 @@ export class EpistolaDataContractEditor extends LitElement {
 
     return html`
       <div class="dc-editor-layout">
-        <!-- Tab bar -->
-        <div class="dc-tabs" role="tablist">
-          ${this._renderTab('schema', 'Schema')} ${this._renderTab('examples', 'Test Data')}
-
-          <div class="dc-tabs-spacer"></div>
-
-          <!-- Unified save -->
+        <!-- Save bar -->
+        <div class="dc-header-bar">
           ${this._saveSuccess
             ? html`<span class="dc-status-success">Saved successfully</span>`
             : nothing}
@@ -236,56 +231,38 @@ export class EpistolaDataContractEditor extends LitElement {
             : nothing}
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
-            ?disabled=${this._readOnly || this._saving || !state.isDirty}
+            ?disabled=${this._readOnly || this._saving || !state.isDirty || this._hasExampleErrors}
             @click=${() => this._saveAll()}
+            title=${this._hasExampleErrors ? 'Fix example validation errors before saving' : ''}
           >
             ${this._saving ? 'Saving...' : 'Save'}
           </button>
         </div>
 
-        <!-- Tab content -->
-        <div class="dc-tab-content">
-          ${this._activeTab === 'schema' ? this._renderSchemaTab() : this._renderExamplesTab()}
+        <!-- Breaking changes banner -->
+        ${this._breakingChanges.length > 0
+          ? html`
+              <div class="dc-breaking-changes-banner">
+                <div class="dc-breaking-changes-banner-title">
+                  ${this._breakingChanges.length} breaking
+                  change${this._breakingChanges.length === 1 ? '' : 's'}
+                </div>
+                ${this._breakingChanges.map(
+                  (c) => html`
+                    <span class="dc-breaking-change-chip dc-breaking-change-chip-${c.type}">
+                      ${c.description}
+                    </span>
+                  `,
+                )}
+              </div>
+            `
+          : nothing}
+
+        <!-- Page content: schema then examples -->
+        <div class="dc-page-content">
+          ${this._renderSchemaSection()} ${this._renderExamplesSection()}
         </div>
       </div>
-
-      <!-- Breaking changes dialog -->
-      ${this._showBreakingChangesDialog
-        ? html`
-            <dialog class="dc-dialog" open @close=${() => this._cancelBreakingChanges()}>
-              <div class="dc-dialog-content">
-                <h3 class="dc-dialog-title">Breaking Changes</h3>
-                <p class="dc-dialog-description">
-                  The following changes may affect external systems consuming this data contract:
-                </p>
-                <ul class="dc-breaking-changes-list">
-                  ${this._breakingChanges.map(
-                    (c) => html`
-                      <li class="dc-breaking-change dc-breaking-change-${c.type}">
-                        <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
-                        ${c.description}
-                      </li>
-                    `,
-                  )}
-                </ul>
-                <div class="dc-dialog-actions">
-                  <button
-                    class="ep-btn-outline btn-sm"
-                    @click=${() => this._cancelBreakingChanges()}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="ep-btn-primary btn-sm"
-                    @click=${() => this._acknowledgeBreakingChanges()}
-                  >
-                    Save Anyway
-                  </button>
-                </div>
-              </div>
-            </dialog>
-          `
-        : nothing}
 
       <!-- Migration dialog -->
       ${this._showMigrationDialog
@@ -318,27 +295,11 @@ export class EpistolaDataContractEditor extends LitElement {
     `;
   }
 
-  private _renderTab(tabId: TabId, label: string): unknown {
-    const isActive = this._activeTab === tabId;
-    return html`
-      <button
-        class="dc-tab ${isActive ? 'dc-tab-active' : ''}"
-        role="tab"
-        aria-selected="${isActive}"
-        @click=${() => {
-          this._activeTab = tabId;
-        }}
-      >
-        ${label}
-      </button>
-    `;
-  }
-
   // ---------------------------------------------------------------------------
-  // Schema tab
+  // Schema section
   // ---------------------------------------------------------------------------
 
-  private _renderSchemaTab(): unknown {
+  private _renderSchemaSection(): unknown {
     const state = this.contractState!;
     const isJsonOnly = state.schemaEditMode === 'json-only';
 
@@ -357,64 +318,14 @@ export class EpistolaDataContractEditor extends LitElement {
       );
     }
 
-    // Visual mode: show Visual/JSON sub-tab toggle
-    return html`
-      <!-- View toggle -->
-      <div class="dc-toolbar">
-        <div class="dc-schema-view-toggle">
-          <button
-            class="dc-schema-view-toggle-btn ${this._schemaViewMode === 'visual'
-              ? 'dc-schema-view-toggle-btn-active'
-              : ''}"
-            @click=${() => {
-              this._schemaViewMode = 'visual';
-            }}
-          >
-            Visual
-          </button>
-          <button
-            class="dc-schema-view-toggle-btn ${this._schemaViewMode === 'json'
-              ? 'dc-schema-view-toggle-btn-active'
-              : ''}"
-            @click=${() => {
-              this._schemaViewMode = 'json';
-            }}
-          >
-            JSON
-          </button>
-        </div>
-
-        <button
-          class="ep-btn-outline btn-sm dc-btn-icon"
-          ?disabled=${this._readOnly}
-          @click=${() => this._openImportDialog()}
-          title="Import a JSON Schema"
-        >
-          ${icon('upload', 14)} Import
-        </button>
-      </div>
-
-      ${this._schemaViewMode === 'json'
-        ? renderJsonSchemaView(
-            this._visualSchema.fields.length > 0
-              ? visualSchemaToJsonSchema(this._visualSchema)
-              : null,
-            [],
-            this._copySuccess,
-            jsonSchemaViewCallbacks,
-          )
-        : this._renderVisualSchemaSection()}
-    `;
-  }
-
-  private _renderVisualSchemaSection(): unknown {
+    // Visual mode: schema editor + bottom bar + collapsible JSON panel
     const uiState: SchemaUiState = {
       warnings: this._schemaWarnings,
-      breakingChanges: this._breakingChanges,
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
       selectedFieldId: this._selectedFieldId,
       readOnly: this._readOnly,
+      jsonPanelOpen: this._jsonPanelOpen,
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -423,16 +334,37 @@ export class EpistolaDataContractEditor extends LitElement {
       onSelectField: (fieldId) => this._selectField(fieldId),
       onUndo: () => this._undo(),
       onRedo: () => this._redo(),
+      onAddField: () => this._executeCommand({ type: 'addField', parentFieldId: null }),
+      onImport: () => this._openImportDialog(),
+      onToggleJson: () => {
+        this._jsonPanelOpen = !this._jsonPanelOpen;
+      },
     };
 
-    return renderSchemaSection(this._visualSchema, uiState, callbacks, this._expandedFields);
+    return html`
+      ${renderSchemaSection(this._visualSchema, uiState, callbacks, this._expandedFields)}
+      ${this._jsonPanelOpen
+        ? html`
+            <div class="dc-json-panel">
+              ${renderJsonSchemaView(
+                this._visualSchema.fields.length > 0
+                  ? visualSchemaToJsonSchema(this._visualSchema)
+                  : null,
+                [],
+                this._copySuccess,
+                jsonSchemaViewCallbacks,
+              )}
+            </div>
+          `
+        : nothing}
+    `;
   }
 
   // ---------------------------------------------------------------------------
   // Examples tab
   // ---------------------------------------------------------------------------
 
-  private _renderExamplesTab(): unknown {
+  private _renderExamplesSection(): unknown {
     const state = this.contractState!;
 
     // Derive errors for selected example
@@ -612,26 +544,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private async _saveAll(): Promise<void> {
     const state = this.contractState!;
     if (this._saving) return;
-
-    // Check for breaking schema changes (renames, deletions, type changes)
-    if (state.isSchemaDirty && state.schemaEditMode !== 'json-only') {
-      const breakingChanges = detectBreakingChanges(
-        this._committedVisualSchema.fields,
-        this._visualSchema.fields,
-      );
-      if (breakingChanges.length > 0) {
-        this._breakingChanges = breakingChanges;
-        this._showBreakingChangesDialog = true;
-        return;
-      }
-    }
-
-    await this._continueSave();
-  }
-
-  /** Continue save after breaking changes have been acknowledged. */
-  private async _continueSave(): Promise<void> {
-    const state = this.contractState!;
+    if (this._hasExampleErrors) return;
 
     // Check for pending migrations before saving
     if (state.isSchemaDirty) {
@@ -745,19 +658,6 @@ export class EpistolaDataContractEditor extends LitElement {
       newSet.add(key);
     }
     this._selectedMigrations = newSet;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Breaking changes dialog operations
-  // ---------------------------------------------------------------------------
-
-  private async _acknowledgeBreakingChanges(): Promise<void> {
-    this._showBreakingChangesDialog = false;
-    await this._continueSave();
-  }
-
-  private _cancelBreakingChanges(): void {
-    this._showBreakingChangesDialog = false;
   }
 
   private _selectAllMigrations(): void {
@@ -962,21 +862,33 @@ export class EpistolaDataContractEditor extends LitElement {
     const isMod = e.metaKey || e.ctrlKey;
     if (!isMod) return;
 
-    if (this._activeTab === 'schema' && this.contractState?.schemaEditMode !== 'json-only') {
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        this._undo();
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault();
-        this._redo();
+    // Ctrl+S: save
+    if (e.key === 's') {
+      e.preventDefault();
+      if (!this._saving && this.contractState?.isDirty && !this._hasExampleErrors) {
+        this._saveAll();
       }
-    } else if (this._activeTab === 'examples') {
+      return;
+    }
+
+    // Undo/redo: dispatch based on focus context
+    const isInExamples = !!(e.target as Element)?.closest?.('.dc-examples-section');
+
+    if (isInExamples) {
       if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         this._undoExampleData();
       } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
         e.preventDefault();
         this._redoExampleData();
+      }
+    } else if (this.contractState?.schemaEditMode !== 'json-only') {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        this._undo();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        this._redo();
       }
     }
   }
@@ -1036,12 +948,10 @@ export class EpistolaDataContractEditor extends LitElement {
       this._visualSchema = visualSchema;
       state.setRawJsonSchema(null, 'visual');
       this._syncVisualSchemaToState();
-      this._schemaViewMode = 'visual';
       this._selectedFieldId = visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
     } else {
       // Store raw schema, disable visual editor
       state.setRawJsonSchema(schema, 'json-only');
-      this._schemaViewMode = 'json';
     }
 
     this._closeImportDialog();
