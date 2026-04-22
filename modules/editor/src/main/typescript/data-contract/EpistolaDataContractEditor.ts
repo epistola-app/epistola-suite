@@ -613,9 +613,13 @@ export class EpistolaDataContractEditor extends LitElement {
     this._canForceSave = false;
 
     try {
-      // Save schema if dirty
-      if (state.isSchemaDirty) {
-        const schemaResult = await state.saveSchema(forceUpdate);
+      const schemaDirty = state.isSchemaDirty;
+      const examplesDirty = state.isExamplesDirty;
+
+      // Save schema (include examples in the same request when both are dirty,
+      // so the backend validates the updated examples against the new schema)
+      if (schemaDirty) {
+        const schemaResult = await state.saveSchema(forceUpdate, examplesDirty);
         if (!schemaResult.success) {
           this._saveError = schemaResult.error ?? 'Failed to save schema';
           if (schemaResult.warnings) {
@@ -632,10 +636,15 @@ export class EpistolaDataContractEditor extends LitElement {
         } else {
           this._schemaWarnings = [];
         }
+        if (examplesDirty) {
+          // Examples were saved with the schema — clear histories
+          this._exampleHistories.clear();
+          this._syncExampleUndoRedoState();
+        }
       }
 
-      // Save all examples if dirty
-      if (state.isExamplesDirty) {
+      // Save examples separately only if schema wasn't dirty (otherwise already saved above)
+      if (!schemaDirty && examplesDirty) {
         const examplesResult = await state.saveExamples();
         if (!examplesResult.success) {
           this._saveError = examplesResult.error ?? 'Failed to save examples';

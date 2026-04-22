@@ -35,12 +35,14 @@
                         initialExamples: initialExamples,
                         readonly: readonly,
                         callbacks: readonly ? {} : {
-                            onSaveSchema: async (schema, forceUpdate) => {
+                            onSaveSchema: async (schema, forceUpdate, dataExamples) => {
                                 try {
+                                    const body = { dataModel: schema, forceUpdate };
+                                    if (dataExamples) body.dataExamples = dataExamples;
                                     const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
                                         method: 'PATCH',
                                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
-                                        body: JSON.stringify({ dataModel: schema, forceUpdate })
+                                        body: JSON.stringify(body)
                                     });
                                     if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
                                     const result = await response.json();

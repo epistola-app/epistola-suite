@@ -181,6 +181,7 @@ export interface SaveCallbacks {
   onSaveSchema?: (
     schema: JsonSchema | null,
     forceUpdate?: boolean,
+    dataExamples?: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
   onSaveDataExamples?: (
     examples: DataExample[],
