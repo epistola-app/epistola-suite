@@ -123,6 +123,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // Breaking changes (live banner + confirmation dialog)
   @state() private _breakingChanges: BreakingChange[] = [];
   @state() private _showBreakingChangesDialog = false;
+  private _breakingChangesAcknowledged = false;
 
   // Timers
   private _successTimer?: ReturnType<typeof setTimeout>;
@@ -566,7 +567,7 @@ export class EpistolaDataContractEditor extends LitElement {
     if (this._hasExampleErrors) return;
 
     // Confirm breaking changes before saving
-    if (this._breakingChanges.length > 0 && !this._showBreakingChangesDialog) {
+    if (this._breakingChanges.length > 0 && !this._breakingChangesAcknowledged) {
       this._showBreakingChangesDialog = true;
       return;
     }
@@ -737,7 +738,9 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _confirmBreakingChanges(): Promise<void> {
     this._showBreakingChangesDialog = false;
+    this._breakingChangesAcknowledged = true;
     await this._saveAll();
+    this._breakingChangesAcknowledged = false;
   }
 
   private _dismissBreakingChanges(): void {
