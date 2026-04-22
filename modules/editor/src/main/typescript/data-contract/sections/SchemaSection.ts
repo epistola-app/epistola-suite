@@ -18,7 +18,7 @@ import type {
   VisualSchema,
 } from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
-import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
+import { FIELD_TYPE_LABELS, isValidFieldName } from '../utils/schemaUtils.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
@@ -209,10 +209,17 @@ function renderDetailPanel(
             class="ep-input dc-detail-input"
             .value=${field.name}
             placeholder="Field name"
+            pattern="[a-zA-Z_][a-zA-Z0-9_]*"
+            title="Letters, digits, and underscores only. Must start with a letter or underscore."
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
-              const value = (e.target as HTMLInputElement).value.trim();
+              const input = e.target as HTMLInputElement;
+              const value = input.value.trim();
               if (value && value !== field.name) {
+                if (!isValidFieldName(value)) {
+                  input.value = field.name;
+                  return;
+                }
                 emitUpdate({ name: value });
               }
             }}

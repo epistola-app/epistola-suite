@@ -293,6 +293,48 @@ class JsonSchemaValidator(
         }
         else -> Pair(null, false)
     }
+
+    companion object {
+        /** Valid field name: starts with letter or underscore, contains only letters, digits, underscores. */
+        private val VALID_FIELD_NAME_RE = Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")
+    }
+
+    /**
+     * Validates that all property names in a JSON Schema are valid identifiers.
+     * Returns a list of invalid property name paths, empty if all are valid.
+     */
+    fun validatePropertyNames(schema: ObjectNode): List<String> {
+        val invalid = mutableListOf<String>()
+        collectInvalidPropertyNames(schema, "$", invalid)
+        return invalid
+    }
+
+    private fun collectInvalidPropertyNames(
+        schema: ObjectNode,
+        basePath: String,
+        invalid: MutableList<String>,
+    ) {
+        val properties = schema.get("properties") as? ObjectNode ?: return
+
+        for ((name, propNode) in properties.properties()) {
+            val path = basePath + "." + name
+
+            if (!VALID_FIELD_NAME_RE.matches(name)) {
+                invalid.add(path)
+            }
+
+            val type = propNode.get("type")?.asString()
+
+            if (type == "object" && propNode is ObjectNode) {
+                collectInvalidPropertyNames(propNode, path, invalid)
+            } else if (type == "array") {
+                val items = propNode.get("items") as? ObjectNode
+                if (items != null && items.get("type")?.asString() == "object") {
+                    collectInvalidPropertyNames(items, path + "[]", invalid)
+                }
+            }
+        }
+    }
 }
 
 /**

@@ -7,6 +7,10 @@
 ### Fixed
 
 - **Image aspect ratio lock**: Changing width or height with "Lock Aspect Ratio" enabled now correctly adjusts the other dimension. Previously the ratio calculation always evaluated to 1 because the new value was applied before the `onPropChange` hook could read the old value.
+- **Data contract: orphaned example data on field delete**: Deleting a schema property now removes the corresponding key from all example data. Previously the key persisted invisibly, causing stale data in exports and API responses.
+- **Data contract: save fails after field rename**: Renaming a schema property now automatically renames the key in all example data. Previously the stale key caused backend validation to reject the save.
+- **Data contract: property name validation**: Field names are now restricted to valid identifiers (letters, digits, underscores). Names with dashes or special characters broke JSONata expressions in the template editor. Validation is enforced in the editor UI, backend API, and catalog import.
+- **Data contract: unknown field detection**: The migration dialog now detects and offers to remove example data keys that are not defined in the schema.
 - **Style inheritance in PDF**: Inheritable styles (font family, size, weight, color, line height, letter spacing, text align) now cascade from parent nodes to children in generated PDFs, matching the browser behavior in the editor. Previously each node resolved styles only from the document level, ignoring parent overrides.
 - **Editor unit input clearing**: Setting a unit-type style value (font size, letter spacing, border radius) to 0 now removes the property instead of storing an explicit "0pt", allowing inheritance from the parent or document level.
 - **Bold, italic, and strikethrough in PDF**: Text marks now render correctly in generated PDFs. The PDF converter expected TipTap mark names (`bold`, `italic`, `strike`) but ProseMirror uses `strong`, `em`, and `strikethrough`.

@@ -32,10 +32,13 @@ import type {
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
 import type { SchemaCommand } from './utils/schemaCommands.js';
 import { SchemaCommandHistory } from './utils/schemaCommandHistory.js';
+import { findFieldPath } from './utils/schemaCommands.js';
 import { SnapshotHistory } from './utils/snapshotHistory.js';
 import {
   detectMigrations,
   applyAllMigrations,
+  stripOrphanedKeys,
+  renameExampleKey,
   type MigrationSuggestion,
 } from './utils/schemaMigration.js';
 import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
@@ -444,8 +447,50 @@ export class EpistolaDataContractEditor extends LitElement {
         this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
     }
 
+    // Auto-strip orphaned example data keys when a field is deleted
+    if (command.type === 'deleteField') {
+      this._stripOrphanedExampleKeys();
+    }
+
+    // Auto-rename example data keys when a field is renamed
+    if (command.type === 'updateField' && command.updates.name) {
+      const oldFieldInfo = findFieldPath(prevSchema.fields, command.fieldId);
+      if (oldFieldInfo && oldFieldInfo.field.name !== command.updates.name) {
+        this._renameExampleKeys(oldFieldInfo.path, oldFieldInfo.field.name, command.updates.name);
+      }
+    }
+
     // Re-validate examples against the updated schema
     this._validateAllExamples();
+  }
+
+  /**
+   * Strip keys from all example data that no longer exist in the schema.
+   */
+  private _stripOrphanedExampleKeys(): void {
+    const state = this.contractState!;
+    const schema = state.schema;
+    if (!schema) return;
+
+    for (const example of state.dataExamples) {
+      const cleaned = stripOrphanedKeys(example.data, schema);
+      if (JSON.stringify(cleaned) !== JSON.stringify(example.data)) {
+        state.updateDraftExample(example.id, { data: cleaned });
+      }
+    }
+  }
+
+  /**
+   * Rename a key in all examples' data when a schema field is renamed.
+   */
+  private _renameExampleKeys(pathSegments: string[], oldName: string, newName: string): void {
+    const state = this.contractState!;
+    for (const example of state.dataExamples) {
+      const updated = renameExampleKey(example.data, pathSegments, oldName, newName);
+      if (JSON.stringify(updated) !== JSON.stringify(example.data)) {
+        state.updateDraftExample(example.id, { data: updated });
+      }
+    }
   }
 
   private _selectField(fieldId: string): void {
