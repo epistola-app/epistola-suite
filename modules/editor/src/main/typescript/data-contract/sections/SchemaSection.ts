@@ -18,7 +18,7 @@ import type {
   VisualSchema,
 } from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
-import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
+import { FIELD_TYPE_LABELS, isValidFieldName } from '../utils/schemaUtils.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
@@ -28,6 +28,14 @@ export interface SchemaUiState {
   canRedo: boolean;
   selectedFieldId: string | null;
   readOnly: boolean;
+  jsonPanelOpen: boolean;
+  // Save state
+  saving: boolean;
+  canSave: boolean;
+  saveSuccess: boolean;
+  saveError: string | null;
+  canForceSave: boolean;
+  saveTooltip: string;
 }
 
 export interface SchemaSectionCallbacks {
@@ -36,6 +44,11 @@ export interface SchemaSectionCallbacks {
   onSelectField: (fieldId: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onAddField: () => void;
+  onImport: () => void;
+  onToggleJson: () => void;
+  onSave: () => void;
+  onForceSave: () => void;
 }
 
 // =============================================================================
@@ -64,6 +77,31 @@ export function renderSchemaSection(
 
       <!-- Toolbar -->
       <div class="dc-toolbar">
+        <button
+          class="ep-btn-outline btn-sm dc-add-field-btn"
+          @click=${() => callbacks.onAddField()}
+          ?disabled=${uiState.readOnly}
+        >
+          + Add Field
+        </button>
+
+        <button
+          class="ep-btn-outline btn-sm dc-btn-icon"
+          ?disabled=${uiState.readOnly}
+          @click=${() => callbacks.onImport()}
+          title="Import a JSON Schema"
+        >
+          Import
+        </button>
+
+        <button class="ep-btn-outline btn-sm dc-btn-icon" @click=${() => callbacks.onToggleJson()}>
+          <span
+            class="dc-json-toggle-arrow ${uiState.jsonPanelOpen ? 'dc-json-toggle-arrow-open' : ''}"
+            >&#9654;</span
+          >
+          JSON
+        </button>
+
         <div class="dc-toolbar-spacer"></div>
 
         <button
@@ -73,6 +111,15 @@ export function renderSchemaSection(
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
         >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M3 6h7a4 4 0 014 4v0M3 6l3-3M3 6l3 3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           Undo
         </button>
 
@@ -83,7 +130,38 @@ export function renderSchemaSection(
           title="Redo (Ctrl+Shift+Z)"
           aria-label="Redo"
         >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M13 6H6a4 4 0 00-4 4v0M13 6l-3-3M13 6l-3 3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           Redo
+        </button>
+
+        ${uiState.saveSuccess ? html`<span class="dc-status-success">Saved</span>` : nothing}
+        ${uiState.saveError
+          ? html`<span class="dc-status-error">${uiState.saveError}</span>`
+          : nothing}
+        ${uiState.canForceSave
+          ? html`<button
+              class="ep-btn-outline btn-sm dc-force-save-btn"
+              ?disabled=${uiState.saving}
+              @click=${() => callbacks.onForceSave()}
+            >
+              Save Anyway
+            </button>`
+          : nothing}
+        <button
+          class="ep-btn-primary btn-sm dc-save-btn"
+          ?disabled=${uiState.readOnly || uiState.saving || !uiState.canSave}
+          @click=${() => callbacks.onSave()}
+          title=${uiState.saveTooltip}
+        >
+          ${uiState.saving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
@@ -99,15 +177,6 @@ export function renderSchemaSection(
             </div>
           `
         : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
-
-      <!-- Add field button -->
-      <button
-        class="ep-btn-outline btn-sm dc-add-field-btn"
-        @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
-        ?disabled=${uiState.readOnly}
-      >
-        + Add Field
-      </button>
     </section>
   `;
 }
@@ -209,10 +278,20 @@ function renderDetailPanel(
             class="ep-input dc-detail-input"
             .value=${field.name}
             placeholder="Field name"
+            title="Letters, digits, and underscores only. Must start with a letter or underscore."
             ?disabled=${uiState.readOnly}
+            @input=${(e: Event) => {
+              const input = e.target as HTMLInputElement;
+              const pos = input.selectionStart ?? 0;
+              const filtered = input.value.replace(/[^a-zA-Z0-9_]/g, '');
+              if (filtered !== input.value) {
+                input.value = filtered;
+                input.selectionStart = input.selectionEnd = pos - 1;
+              }
+            }}
             @change=${(e: Event) => {
               const value = (e.target as HTMLInputElement).value.trim();
-              if (value && value !== field.name) {
+              if (value && value !== field.name && isValidFieldName(value)) {
                 emitUpdate({ name: value });
               }
             }}

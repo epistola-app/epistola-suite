@@ -128,7 +128,7 @@ export class DataContractState extends EventTarget {
   // Save operations
   // ---------------------------------------------------------------------------
 
-  async saveSchema(forceUpdate = false): Promise<SaveSchemaResult> {
+  async saveSchema(forceUpdate = false, includeExamples = false): Promise<SaveSchemaResult> {
     if (!this._callbacks.onSaveSchema) {
       return { success: false, error: 'Failed to save schema' };
     }
@@ -138,9 +138,13 @@ export class DataContractState extends EventTarget {
         this._schemaEditMode === 'json-only'
           ? (this._rawJsonSchema as unknown as JsonSchema | null)
           : this._draftSchema;
-      const result = await this._callbacks.onSaveSchema(schemaToSave, forceUpdate);
+      const examples = includeExamples ? this._draftExamples : undefined;
+      const result = await this._callbacks.onSaveSchema(schemaToSave, forceUpdate, examples);
       if (result.success) {
         this._markSchemaCommitted();
+        if (includeExamples) {
+          this._markExamplesCommitted();
+        }
       }
       return {
         success: result.success,

@@ -298,6 +298,17 @@ function inferType(value: JsonValue): SchemaFieldType {
   return 'string';
 }
 
+/** Valid field name: starts with letter or underscore, contains only letters, digits, underscores. */
+const VALID_FIELD_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+/**
+ * Check whether a field name is a valid identifier.
+ * Rejects dashes, dots, spaces, and other special characters that break JSONata expressions.
+ */
+export function isValidFieldName(name: string): boolean {
+  return VALID_FIELD_NAME_RE.test(name);
+}
+
 /**
  * Create an empty field with default values.
  */

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applyAllMigrations, applyMigration, detectMigrations } from './schemaMigration.js';
+import {
+  applyAllMigrations,
+  applyMigration,
+  detectMigrations,
+  stripOrphanedKeys,
+  renameExampleKey,
+  type MigrationSuggestion,
+} from './schemaMigration.js';
 import type { DataExample, JsonObject, JsonSchema } from '../types.js';
 
 describe('detectMigrations', () => {
@@ -388,19 +395,22 @@ describe('detectMigrations', () => {
       ).toBe(true);
     });
 
-    it('compatible when optional field is renamed (no data impact)', () => {
+    it('detects unknown field when optional field is renamed', () => {
       const schema: JsonSchema = {
         type: 'object',
         properties: {
           fullName: { type: 'string' },
         },
       };
-      // Example has old name, but new field is optional
+      // Example has old name — detected as UNKNOWN_FIELD
       const examples: DataExample[] = [{ id: '1', name: 'Test', data: { name: 'John' } }];
 
       const result = detectMigrations(schema, examples);
 
-      expect(result.compatible).toBe(true);
+      expect(result.compatible).toBe(false);
+      expect(result.migrations).toHaveLength(1);
+      expect(result.migrations[0].issue).toBe('UNKNOWN_FIELD');
+      expect(result.migrations[0].path).toBe('$.name');
     });
   });
 
@@ -460,10 +470,15 @@ describe('detectMigrations', () => {
       const result = detectMigrations(schema, examples);
 
       expect(result.compatible).toBe(false);
-      // Only examples 2 and 3 should have issues
-      expect(result.migrations).toHaveLength(2);
-      expect(result.migrations[0].exampleId).toBe('2');
-      expect(result.migrations[1].exampleId).toBe('3');
+      // Example 2: MISSING_REQUIRED email
+      // Example 3: MISSING_REQUIRED email + UNKNOWN_FIELD name
+      const missingRequired = result.migrations.filter((m) => m.issue === 'MISSING_REQUIRED');
+      expect(missingRequired).toHaveLength(2);
+      expect(missingRequired[0].exampleId).toBe('2');
+      expect(missingRequired[1].exampleId).toBe('3');
+      const unknownFields = result.migrations.filter((m) => m.issue === 'UNKNOWN_FIELD');
+      expect(unknownFields).toHaveLength(1);
+      expect(unknownFields[0].exampleId).toBe('3');
     });
   });
 
@@ -532,9 +547,15 @@ describe('detectMigrations', () => {
       const result = detectMigrations(schema, examples);
 
       expect(result.compatible).toBe(false);
-      expect(result.migrations).toHaveLength(1);
-      expect(result.migrations[0].issue).toBe('MISSING_REQUIRED');
-      expect(result.migrations[0].path).toBe('$.items[0].total1');
+      // MISSING_REQUIRED for total1 + UNKNOWN_FIELD for total
+      expect(
+        result.migrations.some(
+          (m) => m.issue === 'MISSING_REQUIRED' && m.path === '$.items[0].total1',
+        ),
+      ).toBe(true);
+      expect(
+        result.migrations.some((m) => m.issue === 'UNKNOWN_FIELD' && m.path === '$.items[0].total'),
+      ).toBe(true);
     });
 
     it('detects missing required across multiple array items', () => {
@@ -565,9 +586,11 @@ describe('detectMigrations', () => {
 
       expect(result.compatible).toBe(false);
       // Items 0 and 1 are missing 'price', item 2 has it
-      expect(result.migrations).toHaveLength(2);
-      expect(result.migrations[0].path).toBe('$.items[0].price');
-      expect(result.migrations[1].path).toBe('$.items[1].price');
+      // Also detects 'cost' as UNKNOWN_FIELD in items 0 and 1
+      const missingRequired = result.migrations.filter((m) => m.issue === 'MISSING_REQUIRED');
+      expect(missingRequired).toHaveLength(2);
+      expect(missingRequired[0].path).toBe('$.items[0].price');
+      expect(missingRequired[1].path).toBe('$.items[1].price');
     });
 
     it('detects type mismatch in array item object fields', () => {
@@ -868,5 +891,309 @@ describe('applyAllMigrations', () => {
     const result = applyAllMigrations(data, []);
 
     expect(result).toEqual(data);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UNKNOWN_FIELD detection
+// ---------------------------------------------------------------------------
+
+describe('UNKNOWN_FIELD detection', () => {
+  it('detects orphaned key in example data', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    };
+    const examples: DataExample[] = [
+      { id: '1', name: 'Test', data: { name: 'John', oldField: 'stale' } },
+    ];
+
+    const result = detectMigrations(schema, examples);
+
+    expect(result.compatible).toBe(false);
+    expect(result.migrations).toHaveLength(1);
+    expect(result.migrations[0].issue).toBe('UNKNOWN_FIELD');
+    expect(result.migrations[0].path).toBe('$.oldField');
+    expect(result.migrations[0].autoMigratable).toBe(true);
+  });
+
+  it('detects orphaned key in nested object', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        address: {
+          type: 'object',
+          properties: { city: { type: 'string' } },
+        },
+      },
+    };
+    const examples: DataExample[] = [
+      { id: '1', name: 'Test', data: { address: { city: 'NYC', oldProp: 'stale' } } },
+    ];
+
+    const result = detectMigrations(schema, examples);
+
+    expect(
+      result.migrations.some((m) => m.issue === 'UNKNOWN_FIELD' && m.path === '$.address.oldProp'),
+    ).toBe(true);
+  });
+
+  it('does not flag keys that exist in schema', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' }, age: { type: 'integer' } },
+    };
+    const examples: DataExample[] = [{ id: '1', name: 'Test', data: { name: 'John', age: 30 } }];
+
+    const result = detectMigrations(schema, examples);
+
+    expect(result.compatible).toBe(true);
+    expect(result.migrations.filter((m) => m.issue === 'UNKNOWN_FIELD')).toHaveLength(0);
+  });
+});
+
+describe('applyMigration with UNKNOWN_FIELD', () => {
+  it('deletes the orphaned key', () => {
+    const data: JsonObject = { name: 'John', oldField: 'stale' };
+    const migration: MigrationSuggestion = {
+      exampleId: '1',
+      exampleName: 'Test',
+      path: '$.oldField',
+      issue: 'UNKNOWN_FIELD',
+      currentValue: 'stale',
+      expectedType: 'none',
+      suggestedValue: null,
+      autoMigratable: true,
+    };
+
+    const result = applyMigration(data, migration);
+
+    expect(result).toEqual({ name: 'John' });
+    expect('oldField' in result).toBe(false);
+  });
+
+  it('deletes nested orphaned key', () => {
+    const data: JsonObject = { address: { city: 'NYC', old: 'x' } };
+    const migration: MigrationSuggestion = {
+      exampleId: '1',
+      exampleName: 'Test',
+      path: '$.address.old',
+      issue: 'UNKNOWN_FIELD',
+      currentValue: 'x',
+      expectedType: 'none',
+      suggestedValue: null,
+      autoMigratable: true,
+    };
+
+    const result = applyMigration(data, migration);
+
+    expect(result).toEqual({ address: { city: 'NYC' } });
+  });
+
+  it('does not mutate original data', () => {
+    const data: JsonObject = { name: 'John', old: 'stale' };
+    const original = structuredClone(data);
+    const migration: MigrationSuggestion = {
+      exampleId: '1',
+      exampleName: 'Test',
+      path: '$.old',
+      issue: 'UNKNOWN_FIELD',
+      currentValue: 'stale',
+      expectedType: 'none',
+      suggestedValue: null,
+      autoMigratable: true,
+    };
+
+    applyMigration(data, migration);
+
+    expect(data).toEqual(original);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stripOrphanedKeys
+// ---------------------------------------------------------------------------
+
+describe('stripOrphanedKeys', () => {
+  it('removes keys not in schema', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    };
+
+    const result = stripOrphanedKeys({ name: 'John', removed: 'value' }, schema);
+
+    expect(result).toEqual({ name: 'John' });
+  });
+
+  it('recurses into nested objects', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        address: {
+          type: 'object',
+          properties: { city: { type: 'string' } },
+        },
+      },
+    };
+
+    const result = stripOrphanedKeys({ address: { city: 'NYC', zip: '10001' } }, schema);
+
+    expect(result).toEqual({ address: { city: 'NYC' } });
+  });
+
+  it('recurses into array items with object schema', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { name: { type: 'string' } },
+          },
+        },
+      },
+    };
+
+    const result = stripOrphanedKeys({ items: [{ name: 'A', removed: 'x' }] }, schema);
+
+    expect(result).toEqual({ items: [{ name: 'A' }] });
+  });
+
+  it('preserves primitive array items', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        tags: { type: 'array', items: { type: 'string' } },
+      },
+    };
+
+    const result = stripOrphanedKeys({ tags: ['a', 'b'] }, schema);
+
+    expect(result).toEqual({ tags: ['a', 'b'] });
+  });
+
+  it('does not mutate original data', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    };
+    const data = { name: 'John', removed: 'value' };
+    const original = structuredClone(data);
+
+    stripOrphanedKeys(data, schema);
+
+    expect(data).toEqual(original);
+  });
+
+  it('returns data as-is when schema has no properties', () => {
+    const schema: JsonSchema = { type: 'object' };
+    const data = { name: 'John' };
+
+    const result = stripOrphanedKeys(data, schema);
+
+    expect(result).toEqual(data);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renameExampleKey
+// ---------------------------------------------------------------------------
+
+describe('renameExampleKey', () => {
+  it('renames a root-level key', () => {
+    const data = { oldName: 'value', other: 'keep' };
+
+    const result = renameExampleKey(data, [], 'oldName', 'newName');
+
+    expect(result).toEqual({ newName: 'value', other: 'keep' });
+  });
+
+  it('renames a nested key', () => {
+    const data = { address: { oldCity: 'NYC', zip: '10001' } };
+
+    const result = renameExampleKey(data, ['address'], 'oldCity', 'city');
+
+    expect(result).toEqual({ address: { city: 'NYC', zip: '10001' } });
+  });
+
+  it('renames key in all array items', () => {
+    const data = { items: [{ oldName: 'A' }, { oldName: 'B' }] };
+
+    const result = renameExampleKey(data, ['items'], 'oldName', 'name');
+
+    expect(result).toEqual({ items: [{ name: 'A' }, { name: 'B' }] });
+  });
+
+  it('does not mutate original data', () => {
+    const data = { oldName: 'value' };
+    const original = structuredClone(data);
+
+    renameExampleKey(data, [], 'oldName', 'newName');
+
+    expect(data).toEqual(original);
+  });
+
+  it('is a no-op when key does not exist', () => {
+    const data = { name: 'value' };
+
+    const result = renameExampleKey(data, [], 'missing', 'newName');
+
+    expect(result).toEqual({ name: 'value' });
+  });
+
+  it('handles deeply nested rename in object inside array', () => {
+    const data = {
+      orders: [{ billing: { oldAddr: '123 Main' } }],
+    };
+
+    const result = renameExampleKey(data, ['orders', 'billing'], 'oldAddr', 'address');
+
+    expect(result).toEqual({
+      orders: [{ billing: { address: '123 Main' } }],
+    });
+  });
+
+  it('renames in multiple examples independently', () => {
+    const data1 = { old: 'a' };
+    const data2 = { old: 'b' };
+
+    expect(renameExampleKey(data1, [], 'old', 'new')).toEqual({ new: 'a' });
+    expect(renameExampleKey(data2, [], 'old', 'new')).toEqual({ new: 'b' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rename + detectMigrations integration
+// ---------------------------------------------------------------------------
+
+describe('rename + detectMigrations integration', () => {
+  it('after renaming example key, detectMigrations returns compatible', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { newName: { type: 'string' } },
+      required: ['newName'],
+    };
+    // Simulate: original data had { oldName: 'value' }, renamed to { newName: 'value' }
+    const data = renameExampleKey({ oldName: 'value' }, [], 'oldName', 'newName');
+    const examples: DataExample[] = [{ id: '1', name: 'Test', data }];
+
+    const result = detectMigrations(schema, examples);
+
+    expect(result.compatible).toBe(true);
+  });
+
+  it('rename leaves no orphaned keys', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { newName: { type: 'string' } },
+    };
+    const data = renameExampleKey({ oldName: 'value' }, [], 'oldName', 'newName');
+    const examples: DataExample[] = [{ id: '1', name: 'Test', data }];
+
+    const result = detectMigrations(schema, examples);
+
+    expect(result.migrations.filter((m) => m.issue === 'UNKNOWN_FIELD')).toHaveLength(0);
   });
 });

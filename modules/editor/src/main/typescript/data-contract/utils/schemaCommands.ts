@@ -136,6 +136,28 @@ function getNestedFields(field: SchemaField): SchemaField[] | undefined {
   return undefined;
 }
 
+/**
+ * Find a field by ID and return the path (chain of parent field names) from root.
+ * Returns null if the field is not found.
+ */
+export function findFieldPath(
+  fields: readonly SchemaField[],
+  fieldId: string,
+  parentPath: string[] = [],
+): { path: string[]; field: SchemaField } | null {
+  for (const field of fields) {
+    if (field.id === fieldId) {
+      return { path: parentPath, field };
+    }
+    const nested = getNestedFields(field);
+    if (nested && nested.length > 0) {
+      const found = findFieldPath(nested, fieldId, [...parentPath, field.name]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function countAllFields(fields: SchemaField[]): number {
   let count = 0;
   for (const field of fields) {

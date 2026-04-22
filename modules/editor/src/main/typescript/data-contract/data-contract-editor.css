@@ -25,10 +25,6 @@
     display: flex;
     flex-direction: column;
   }
-
-  .dc-tab-content {
-    padding: var(--ep-space-4) 0;
-  }
 }
 
 /* ============================================================================
@@ -42,45 +38,16 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Tabs
+   * Header bar
    * ---------------------------------------------------------------------- */
 
-  .dc-tabs {
+  /* (header bar removed — save button lives in the schema toolbar) */
+
+  .dc-page-content {
     display: flex;
-    align-items: center;
-    gap: 0;
-    border-bottom: 1px solid var(--ep-gray-200);
-    padding-right: var(--ep-space-3);
-  }
-
-  .dc-tabs-spacer {
-    flex: 1;
-  }
-
-  .dc-tab {
-    padding: var(--ep-space-2) var(--ep-space-4);
-    font-size: var(--ep-text-sm);
-    font-weight: 500;
-    color: var(--ep-gray-500);
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    transition: all var(--ep-transition-base);
-
-    &:hover {
-      color: var(--ep-gray-700);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ep-ring);
-    }
-  }
-
-  .dc-tab-active {
-    color: var(--ep-blue-600);
-    border-bottom-color: var(--ep-blue-600);
+    flex-direction: column;
+    gap: var(--ep-space-6);
+    padding: var(--ep-space-4) 0;
   }
 
   /* --------------------------------------------------------------------------
@@ -388,7 +355,7 @@
    * ---------------------------------------------------------------------- */
 
   .dc-add-field-btn {
-    margin-bottom: var(--ep-space-4);
+    flex-shrink: 0;
   }
 
   /* --------------------------------------------------------------------------
@@ -1415,53 +1382,140 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Schema view toggle (Visual / JSON sub-tabs)
+   * Breaking changes banner (live, in schema tab)
    * ---------------------------------------------------------------------- */
 
-  .dc-schema-view-toggle {
-    display: inline-flex;
-    border: 1px solid var(--ep-gray-200);
+  .dc-breaking-changes-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+    background: var(--ep-amber-50);
+    border: 1px solid var(--ep-amber-200);
     border-radius: var(--ep-radius-md);
-    overflow: hidden;
   }
 
-  .dc-schema-view-toggle-btn {
-    padding: var(--ep-space-1) var(--ep-space-3);
+  .dc-breaking-changes-banner-title {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-amber-800);
+    margin-right: var(--ep-space-1);
+  }
+
+  .dc-breaking-change-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--ep-space-0-5) var(--ep-space-2);
     font-size: var(--ep-text-xs);
     font-weight: 500;
-    color: var(--ep-gray-500);
-    background: var(--ep-white);
-    border: none;
-    cursor: pointer;
-    transition: all var(--ep-transition-base);
-
-    &:not(:last-child) {
-      border-right: 1px solid var(--ep-gray-200);
-    }
-
-    &:hover:not(:disabled) {
-      color: var(--ep-gray-700);
-      background: var(--ep-gray-50);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ep-ring);
-    }
+    border-radius: 999px;
+    white-space: nowrap;
   }
 
-  .dc-schema-view-toggle-btn-active {
-    color: var(--ep-blue-600);
-    background: var(--ep-blue-50);
+  .dc-breaking-change-chip-removed {
+    background: var(--ep-red-100);
+    color: var(--ep-red-700);
+  }
 
-    &:hover {
-      background: var(--ep-blue-50);
-    }
+  .dc-breaking-change-chip-renamed {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
+  .dc-breaking-change-chip-type_changed {
+    background: var(--ep-blue-100);
+    color: var(--ep-blue-700);
+  }
+
+  .dc-breaking-change-chip-required_added,
+  .dc-breaking-change-chip-made_required {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Breaking changes dialog
+   * ---------------------------------------------------------------------- */
+
+  .dc-breaking-changes-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--ep-space-3) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-2);
+  }
+
+  .dc-breaking-change {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    border-radius: var(--ep-radius-md);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-200);
+  }
+
+  .dc-breaking-change-badge {
+    display: inline-block;
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-radius: var(--ep-radius-sm);
+    white-space: nowrap;
+  }
+
+  .dc-breaking-change-removed .dc-breaking-change-badge {
+    background: var(--ep-red-100);
+    color: var(--ep-red-700);
+  }
+
+  .dc-breaking-change-renamed .dc-breaking-change-badge {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
+  .dc-breaking-change-type_changed .dc-breaking-change-badge {
+    background: var(--ep-blue-100);
+    color: var(--ep-blue-700);
+  }
+
+  .dc-breaking-change-required_added .dc-breaking-change-badge,
+  .dc-breaking-change-made_required .dc-breaking-change-badge {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Schema bottom bar & collapsible JSON panel
+   * ---------------------------------------------------------------------- */
+
+  .dc-schema-bottom-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-top: var(--ep-space-3);
+  }
+
+  .dc-json-toggle-arrow {
+    display: inline-block;
+    font-size: 10px;
+    transition: transform var(--ep-transition-base);
+  }
+
+  .dc-json-toggle-arrow-open {
+    transform: rotate(90deg);
+  }
+
+  .dc-json-panel {
+    margin-top: var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-200);
+    padding-top: var(--ep-space-3);
   }
 
   /* --------------------------------------------------------------------------
@@ -1698,6 +1752,16 @@
       height: 1px;
       background: var(--ep-gray-200);
     }
+  }
+
+  .dc-dialog-content {
+    padding: var(--ep-space-4);
+  }
+
+  .dc-dialog-description {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-600);
+    margin: 0 0 var(--ep-space-2) 0;
   }
 
   .dc-dialog-actions {

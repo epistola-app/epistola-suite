@@ -13,6 +13,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -75,6 +76,7 @@ enum class ImportStatus {
 class ImportTemplatesHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<ImportTemplates, List<ImportTemplateResult>> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -98,6 +100,14 @@ class ImportTemplatesHandler(
         val templateId = TemplateKey.of(input.slug)
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
         val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
+
+        // Validate property names in the schema
+        if (input.dataModel != null) {
+            val invalidNames = jsonSchemaValidator.validatePropertyNames(input.dataModel)
+            if (invalidNames.isNotEmpty()) {
+                error("Template '${input.slug}': invalid property names in schema: ${invalidNames.joinToString()}")
+            }
+        }
 
         // Validate: exactly one variant must be marked as default
         val defaultCount = input.variants.count { it.isDefault }
