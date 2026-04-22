@@ -344,3 +344,375 @@ describe('DataContractStore dirty tracking', () => {
     expect(store.isSchemaDirty).toBe(false);
   });
 });
+
+describe('DataContractStore fix screen', () => {
+  it('opens fix screen with migration fields', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/count',
+          issue: 'TYPE_MISMATCH',
+          currentValue: '2',
+          expectedType: 'integer',
+          suggestedValue: 2,
+          autoMigratable: true,
+        },
+      ],
+    });
+
+    expect(store.state.fixScreen).not.toBeNull();
+    expect(store.state.fixScreen?.migrations).toHaveLength(1);
+    expect(store.state.fixScreen?.fields.get('example-1:/count')).toEqual({
+      value: '2',
+      removed: false,
+    });
+  });
+
+  it('coerces field change to expected type', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/count',
+          issue: 'TYPE_MISMATCH',
+          currentValue: '2',
+          expectedType: 'integer',
+          suggestedValue: 2,
+          autoMigratable: true,
+        },
+      ],
+    });
+
+    store.dispatch({
+      type: 'fix-field-change',
+      exampleId: 'example-1',
+      path: '/count',
+      value: '42',
+    });
+
+    const editedData = store.state.fixScreen?.editedData.get('example-1');
+    expect(editedData?.count).toBe(42);
+  });
+
+  it('marks field as removed', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/count',
+          issue: 'UNKNOWN_FIELD',
+          currentValue: 2,
+          expectedType: 'integer',
+          suggestedValue: 2,
+          autoMigratable: true,
+        },
+      ],
+    });
+
+    store.dispatch({
+      type: 'fix-remove-field',
+      exampleId: 'example-1',
+      path: '/count',
+    });
+
+    expect(store.state.fixScreen?.fields.get('example-1:/count')?.removed).toBe(true);
+    const editedData = store.state.fixScreen?.editedData.get('example-1');
+    expect(editedData?.count).toBeUndefined();
+  });
+
+  it('removes all unknown fields', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/count',
+          issue: 'UNKNOWN_FIELD',
+          currentValue: 2,
+          expectedType: 'integer',
+          suggestedValue: 2,
+          autoMigratable: true,
+        },
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/name',
+          issue: 'TYPE_MISMATCH',
+          currentValue: 'hello',
+          expectedType: 'string',
+          suggestedValue: 'hello',
+          autoMigratable: true,
+        },
+      ],
+    });
+
+    store.dispatch({ type: 'fix-remove-all-unknown' });
+
+    expect(store.state.fixScreen?.fields.get('example-1:/count')?.removed).toBe(true);
+    expect(store.state.fixScreen?.fields.get('example-1:/name')?.removed).toBe(false);
+  });
+
+  it('closes fix screen', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [],
+    });
+
+    expect(store.state.fixScreen).not.toBeNull();
+
+    store.dispatch({ type: 'close-fix-screen' });
+
+    expect(store.state.fixScreen).toBeNull();
+  });
+
+  it('builds fixed examples from edited data', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/count',
+          issue: 'TYPE_MISMATCH',
+          currentValue: '2',
+          expectedType: 'integer',
+          suggestedValue: 2,
+          autoMigratable: true,
+        },
+      ],
+    });
+
+    store.dispatch({
+      type: 'fix-field-change',
+      exampleId: 'example-1',
+      path: '/count',
+      value: '99',
+    });
+
+    const fixed = store.buildFixedExamples();
+    expect(fixed).toHaveLength(1);
+    expect(fixed?.[0]?.data.count).toBe(99);
+  });
+
+  it('validates fix screen fields against new schema', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'open-fix-screen',
+      newSchema: baseSchema,
+      migrations: [
+        {
+          exampleId: 'example-1',
+          exampleName: 'Example 1',
+          path: '/count',
+          issue: 'TYPE_MISMATCH',
+          currentValue: 'not-a-number',
+          expectedType: 'integer',
+          suggestedValue: 0,
+          autoMigratable: true,
+        },
+      ],
+    });
+
+    store.dispatch({
+      type: 'fix-field-change',
+      exampleId: 'example-1',
+      path: '/count',
+      value: 'still-not-a-number',
+    });
+
+    const isValid = store.validateFixScreenFields();
+    expect(isValid).toBe(false);
+    expect(store.state.fixScreen?.errors.get('example-1:/count')).toBeDefined();
+  });
+});
+
+describe('DataContractStore undo/redo', () => {
+  it('undo returns true when history exists', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'update-example-data',
+      exampleId: 'example-1',
+      path: 'count',
+      value: 99,
+    });
+
+    expect(store.exampleCanUndo).toBe(true);
+
+    store.dispatch({ type: 'undo-example' });
+
+    expect(store.state.examples[0]?.data.count).toBe(1);
+    expect(store.exampleCanUndo).toBe(false);
+  });
+
+  it('redo restores undone change', () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'update-example-data',
+      exampleId: 'example-1',
+      path: 'count',
+      value: 99,
+    });
+
+    store.dispatch({ type: 'undo-example' });
+    expect(store.state.examples[0]?.data.count).toBe(1);
+
+    store.dispatch({ type: 'redo-example' });
+    expect(store.state.examples[0]?.data.count).toBe(99);
+  });
+
+  it('undo is no-op when no selected example', () => {
+    const store = new DataContractStore();
+    store.init(baseSchema, [], {});
+
+    expect(store.exampleCanUndo).toBe(false);
+    store.dispatch({ type: 'undo-example' });
+    expect(store.state.examples).toEqual([]);
+  });
+
+  it('redo is no-op when no selected example', () => {
+    const store = new DataContractStore();
+    store.init(baseSchema, [], {});
+
+    expect(store.exampleCanRedo).toBe(false);
+    store.dispatch({ type: 'redo-example' });
+    expect(store.state.examples).toEqual([]);
+  });
+});
+
+describe('DataContractStore save callbacks', () => {
+  it('saveSchema commits locally when no callback provided', async () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'set-schema',
+      schema: {
+        ...baseSchema,
+        properties: {
+          ...baseSchema.properties,
+          extra: { type: 'boolean' },
+        },
+      },
+    });
+
+    expect(store.isSchemaDirty).toBe(true);
+
+    const result = await store.saveSchema();
+
+    expect(result.success).toBe(true);
+    expect(store.isSchemaDirty).toBe(false);
+  });
+
+  it('saveSchema propagates callback error', async () => {
+    const store = createStore({
+      onSaveSchema: vi.fn().mockRejectedValue(new Error('save failed')),
+    });
+
+    const result = await store.saveSchema();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('save failed');
+  });
+
+  it('saveExamples commits locally when no callback provided', async () => {
+    const store = createStore();
+
+    store.dispatch({
+      type: 'update-example-name',
+      exampleId: 'example-1',
+      name: 'Renamed',
+    });
+
+    expect(store.isExamplesDirty).toBe(true);
+
+    const result = await store.saveExamples();
+
+    expect(result.success).toBe(true);
+    expect(store.isExamplesDirty).toBe(false);
+  });
+
+  it('saveExamples propagates callback error', async () => {
+    const store = createStore({
+      onSaveDataExamples: vi.fn().mockRejectedValue(new Error('save failed')),
+    });
+
+    const result = await store.saveExamples();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('save failed');
+  });
+});
+
+describe('DataContractStore host management', () => {
+  it('attaches and detaches host controller', () => {
+    const store = new DataContractStore();
+    const host = {
+      requestUpdate: vi.fn(),
+      addController: vi.fn(),
+      removeController: vi.fn(),
+    };
+
+    store.setHost(host);
+
+    expect(host.addController).toHaveBeenCalledTimes(1);
+
+    store.setHost(host);
+
+    expect(host.addController).toHaveBeenCalledTimes(1);
+
+    const newHost = {
+      requestUpdate: vi.fn(),
+      addController: vi.fn(),
+      removeController: vi.fn(),
+    };
+
+    store.setHost(newHost);
+
+    expect(host.removeController).toHaveBeenCalledTimes(1);
+    expect(newHost.addController).toHaveBeenCalledTimes(1);
+  });
+
+  it('schedules update via host', async () => {
+    const store = new DataContractStore();
+    const host = {
+      requestUpdate: vi.fn(),
+      addController: vi.fn(),
+      removeController: vi.fn(),
+    };
+
+    store.setHost(host);
+    store.init(baseSchema, [], {});
+
+    await new Promise((resolve) => queueMicrotask(resolve));
+
+    expect(host.requestUpdate).toHaveBeenCalled();
+  });
+});
