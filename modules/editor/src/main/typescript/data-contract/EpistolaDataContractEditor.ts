@@ -208,37 +208,8 @@ export class EpistolaDataContractEditor extends LitElement {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`;
     }
 
-    const state = this.contractState!;
-
     return html`
       <div class="dc-editor-layout">
-        <!-- Save bar -->
-        <div class="dc-header-bar">
-          ${this._saveSuccess
-            ? html`<span class="dc-status-success">Saved successfully</span>`
-            : nothing}
-          ${this._saveError
-            ? html`<span class="dc-status-error">${this._saveError}</span>`
-            : nothing}
-          ${this._canForceSave
-            ? html`<button
-                class="ep-btn-outline btn-sm dc-force-save-btn"
-                ?disabled=${this._saving}
-                @click=${() => this._executeForceSave()}
-              >
-                Save Anyway
-              </button>`
-            : nothing}
-          <button
-            class="ep-btn-primary btn-sm dc-save-btn"
-            ?disabled=${this._readOnly || this._saving || !state.isDirty || this._hasExampleErrors}
-            @click=${() => this._saveAll()}
-            title=${this._hasExampleErrors ? 'Fix example validation errors before saving' : ''}
-          >
-            ${this._saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
-
         <!-- Breaking changes banner -->
         ${this._breakingChanges.length > 0
           ? html`
@@ -318,7 +289,7 @@ export class EpistolaDataContractEditor extends LitElement {
       );
     }
 
-    // Visual mode: schema editor + bottom bar + collapsible JSON panel
+    // Visual mode: schema editor + collapsible JSON panel
     const uiState: SchemaUiState = {
       warnings: this._schemaWarnings,
       canUndo: this._commandHistory.canUndo,
@@ -326,6 +297,12 @@ export class EpistolaDataContractEditor extends LitElement {
       selectedFieldId: this._selectedFieldId,
       readOnly: this._readOnly,
       jsonPanelOpen: this._jsonPanelOpen,
+      saving: this._saving,
+      canSave: state.isDirty && !this._hasExampleErrors,
+      saveSuccess: this._saveSuccess,
+      saveError: this._saveError,
+      canForceSave: this._canForceSave,
+      saveTooltip: this._hasExampleErrors ? 'Fix example validation errors before saving' : '',
     };
 
     const callbacks: SchemaSectionCallbacks = {
@@ -339,6 +316,8 @@ export class EpistolaDataContractEditor extends LitElement {
       onToggleJson: () => {
         this._jsonPanelOpen = !this._jsonPanelOpen;
       },
+      onSave: () => this._saveAll(),
+      onForceSave: () => this._executeForceSave(),
     };
 
     return html`

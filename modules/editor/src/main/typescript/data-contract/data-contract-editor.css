@@ -41,14 +41,7 @@
    * Header bar
    * ---------------------------------------------------------------------- */
 
-  .dc-header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--ep-space-2);
-    padding: var(--ep-space-2) 0;
-    border-bottom: 1px solid var(--ep-gray-200);
-  }
+  /* (header bar removed — save button lives in the schema toolbar) */
 
   .dc-page-content {
     display: flex;
@@ -362,7 +355,7 @@
    * ---------------------------------------------------------------------- */
 
   .dc-add-field-btn {
-    margin-bottom: var(--ep-space-4);
+    flex-shrink: 0;
   }
 
   /* --------------------------------------------------------------------------
