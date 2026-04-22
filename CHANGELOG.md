@@ -86,16 +86,19 @@
 - **BREAKING: Import/export moved to catalog module**: `ImportTemplates` and `ExportTemplates` moved from `epistola-core` to `epistola-catalog`. The catalog module is now the exchange boundary for all import/export operations. `TestTemplateBuilder` moved to the shared testing module.
 - **Helm chart release skill**: Added `/release-helm-chart` Claude Code skill for releasing new Helm chart versions, mirroring the app `/release` flow
 - **Separate Helm chart changelog**: Chart changes are now tracked in `charts/epistola/CHANGELOG.md`, independent of the app changelog
+- **Draft/publish data contract workflow**: Template data contracts now support explicit draft editing and publish. Schema and example changes are saved to draft fields first, while document generation and published previews continue validating against the active published contract until the draft is published. Added `POST /tenants/{tenantId}/templates/{templateId}/publish-contract`, Flyway migration `V22__template_contract_drafts.sql`, and recent-usage publish checks before activation.
 - **Editor block clipboard copy/paste**: The template editor can now copy the selected block subtree to a dedicated clipboard payload and paste it before, after, or inside another target block using a placement dialog with slot selection for multi-slot containers.
 
 ### Fixed
 
 - **Thymeleaf CVE-2026-40477 and CVE-2026-40478**: Override Thymeleaf to 3.1.4.RELEASE to fix critical expression injection vulnerabilities (pending Spring Boot 4.0.6)
+- **Recent usage compatibility diagnostics**: Type changes in recent generation request checks now report clear type mismatches (for example `expected object but found string`) instead of misleading `required property ... not found` errors when the field still exists but changed shape.
 
 ### Changed
 
 - **Helm chart workflow aligned with app release**: The Helm workflow now triggers on `release: published` (for `chart-*` tags) instead of `workflow_dispatch`, matching the app release pattern
 - **Vulnerability scan output in CI**: Trivy scan results are now printed to the workflow log when vulnerabilities are found, instead of silently failing with just an exit code
+- **Recent usage publish warning dialog**: The data contract publish warning dialog now returns a richer recent-usage response shape (`window`, `summary`, `samples`, `issues`) and supports local time-period filtering (`24h`, `3d`, `7d`, `30d`) with filtered counts and a styled select control.
 
 ## [0.14.0] - 2026-04-10
 

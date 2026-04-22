@@ -9,6 +9,8 @@
 import type { SchemaField, SchemaFieldUpdate, VisualSchema } from '../types.js';
 import { applyFieldUpdate, createEmptyField } from './schemaUtils.js';
 
+/* oxlint-disable eslint/no-use-before-define */
+
 // =============================================================================
 // Command types
 // =============================================================================
@@ -38,6 +40,10 @@ export function executeSchemaCommand(schema: VisualSchema, command: SchemaComman
       return { fields: deleteFieldFromTree(schema.fields, command.fieldId) };
     case 'updateField':
       return { fields: updateFieldInTree(schema.fields, command.fieldId, command.updates) };
+    default: {
+      const _exhaustive: never = command;
+      return _exhaustive;
+    }
   }
 }
 
@@ -133,13 +139,13 @@ export function addFieldToTree(
 function getNestedFields(field: SchemaField): SchemaField[] | undefined {
   if (field.type === 'object') return field.nestedFields;
   if (field.type === 'array') return field.nestedFields;
-  return undefined;
+  return;
 }
 
 function countAllFields(fields: SchemaField[]): number {
   let count = 0;
   for (const field of fields) {
-    count++;
+    count += 1;
     const nested = getNestedFields(field);
     if (nested) {
       count += countAllFields(nested);

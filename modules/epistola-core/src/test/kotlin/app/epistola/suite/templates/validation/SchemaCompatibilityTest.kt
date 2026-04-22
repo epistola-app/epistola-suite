@@ -66,7 +66,7 @@ class SchemaCompatibilityTest {
             assertThat(result.migrations[0].exampleId).isEqualTo("1")
             assertThat(result.migrations[0].exampleName).isEqualTo("Example 1")
             assertThat(result.migrations[0].issue).isEqualTo(ValidationIssueType.TYPE_MISMATCH)
-            assertThat(result.migrations[0].expectedType).isEqualTo("string")
+            assertThat(result.migrations[0].expectedType).isEqualTo(ExpectedType.STRING)
             assertThat(result.migrations[0].autoMigratable).isTrue()
             assertThat(result.migrations[0].suggestedValue?.asText()).isEqualTo("42")
         }
@@ -113,6 +113,100 @@ class SchemaCompatibilityTest {
             assertThat(result.compatible).isFalse()
             assertThat(result.migrations).hasSize(1)
             assertThat(result.migrations[0].autoMigratable).isFalse()
+        }
+
+        @Test
+        fun `missing required property with slash in name keeps escaped pointer path`() {
+            val schema = createSchema(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "a/b": { "type": "string" }
+                  },
+                  "required": ["a/b"]
+                }
+                """.trimIndent(),
+            )
+            val examples = listOf(createExample("1", "Example 1", "{}"))
+
+            val result = validator.analyzeCompatibility(schema, examples)
+
+            assertThat(result.compatible).isFalse()
+            assertThat(result.migrations).hasSize(1)
+            assertThat(result.migrations[0].issue).isEqualTo(ValidationIssueType.MISSING_REQUIRED)
+            assertThat(result.migrations[0].path).isEqualTo("/a~1b")
+            assertThat(result.migrations[0].expectedType).isEqualTo(ExpectedType.STRING)
+        }
+
+        @Test
+        fun `missing required property inside array object resolves item path`() {
+            val schema = createSchema(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {"type": "string"}
+                        },
+                        "required": ["name"]
+                      }
+                    }
+                  }
+                }
+                """.trimIndent(),
+            )
+            val examples = listOf(createExample("1", "Example 1", """{"items":[{}]}"""))
+
+            val result = validator.analyzeCompatibility(schema, examples)
+
+            assertThat(result.compatible).isFalse()
+            assertThat(result.migrations).hasSize(1)
+            assertThat(result.migrations[0].issue).isEqualTo(ValidationIssueType.MISSING_REQUIRED)
+            assertThat(result.migrations[0].path).isEqualTo("/items/0/name")
+            assertThat(result.migrations[0].expectedType).isEqualTo(ExpectedType.STRING)
+        }
+    }
+
+    @Nested
+    inner class ExpectedTypeResolutionTest {
+        @Test
+        fun `getExpectedType maps primitive and container schema types`() {
+            val schema = createSchema(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "s": {"type": "string"},
+                    "n": {"type": "number"},
+                    "i": {"type": "integer"},
+                    "b": {"type": "boolean"},
+                    "d": {"type": "date"},
+                    "a": {"type": "array", "items": {"type": "string"}},
+                    "o": {"type": "object", "properties": {"x": {"type": "string"}}}
+                  }
+                }
+                """.trimIndent(),
+            )
+
+            assertThat(invokeGetExpectedType(schema, "/s")).isEqualTo(ExpectedType.STRING)
+            assertThat(invokeGetExpectedType(schema, "/n")).isEqualTo(ExpectedType.NUMBER)
+            assertThat(invokeGetExpectedType(schema, "/i")).isEqualTo(ExpectedType.INTEGER)
+            assertThat(invokeGetExpectedType(schema, "/b")).isEqualTo(ExpectedType.BOOLEAN)
+            assertThat(invokeGetExpectedType(schema, "/d")).isEqualTo(ExpectedType.DATE)
+            assertThat(invokeGetExpectedType(schema, "/a")).isEqualTo(ExpectedType.ARRAY)
+            assertThat(invokeGetExpectedType(schema, "/o")).isEqualTo(ExpectedType.OBJECT)
+        }
+
+        @Test
+        fun `getExpectedType returns UNKNOWN when schema path is missing`() {
+            val schema = createSchema("""{"properties":{"name":{"type":"string"}}}""")
+
+            assertThat(invokeGetExpectedType(schema, "/missing")).isEqualTo(ExpectedType.UNKNOWN)
         }
     }
 
@@ -256,5 +350,15 @@ class SchemaCompatibilityTest {
             assertThat(result.errors).isEmpty()
             assertThat(result.migrations).isEmpty()
         }
+    }
+
+    private fun invokeGetExpectedType(schema: ObjectNode, path: String): ExpectedType {
+        val method = JsonSchemaValidator::class.java.getDeclaredMethod(
+            "getExpectedType",
+            ObjectNode::class.java,
+            String::class.java,
+        )
+        method.isAccessible = true
+        return method.invoke(validator, schema, path) as ExpectedType
     }
 }

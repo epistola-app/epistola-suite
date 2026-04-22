@@ -11,6 +11,8 @@
  * visual editor is disabled and a read-only JSON view is shown instead.
  */
 
+/* oxlint-disable eslint/no-use-before-define */
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -59,6 +61,43 @@ const SUPPORTED_PROPERTY_KEYS = new Set([
 /** Supported single-value types */
 const SUPPORTED_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'object', 'array']);
 
+const UNSUPPORTED_KEY_DESCRIPTIONS: readonly [string, string][] = [
+  ['enum', '"enum" constraints are not supported'],
+  ['const', '"const" constraints are not supported'],
+  ['default', '"default" values are not supported'],
+  ['$ref', 'Schema references ($ref) are not supported'],
+  ['$defs', 'Schema definitions ($defs) are not supported'],
+  ['definitions', 'Schema definitions are not supported'],
+  ['allOf', '"allOf" composition is not supported'],
+  ['anyOf', '"anyOf" composition is not supported'],
+  ['oneOf', '"oneOf" composition is not supported'],
+  ['not', '"not" composition is not supported'],
+  ['if', 'Conditional schemas (if/then/else) are not supported'],
+  ['then', 'Conditional schemas (if/then/else) are not supported'],
+  ['else', 'Conditional schemas (if/then/else) are not supported'],
+  ['pattern', '"pattern" validation is not supported'],
+  ['minLength', '"minLength" validation is not supported'],
+  ['maxLength', '"maxLength" validation is not supported'],
+  ['minimum', '"minimum" validation is not supported'],
+  ['maximum', '"maximum" validation is not supported'],
+  ['exclusiveMinimum', '"exclusiveMinimum" validation is not supported'],
+  ['exclusiveMaximum', '"exclusiveMaximum" validation is not supported'],
+  ['multipleOf', '"multipleOf" validation is not supported'],
+  ['minItems', '"minItems" validation is not supported'],
+  ['maxItems', '"maxItems" validation is not supported'],
+  ['uniqueItems', '"uniqueItems" validation is not supported'],
+  ['minProperties', '"minProperties" validation is not supported'],
+  ['maxProperties', '"maxProperties" validation is not supported'],
+  ['patternProperties', '"patternProperties" is not supported'],
+  ['title', '"title" is not supported (use "description" instead)'],
+  ['examples', '"examples" in schema are not supported'],
+  ['readOnly', '"readOnly" is not supported'],
+  ['writeOnly', '"writeOnly" is not supported'],
+  ['deprecated', '"deprecated" is not supported'],
+  ['contentMediaType', '"contentMediaType" is not supported'],
+  ['contentEncoding', '"contentEncoding" is not supported'],
+];
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -70,7 +109,7 @@ const SUPPORTED_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'obje
 export function checkSchemaCompatibility(schema: unknown): CompatibilityResult {
   const issues: CompatibilityIssue[] = [];
 
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+  if (!isRecord(schema) || Array.isArray(schema)) {
     issues.push({
       path: '$',
       feature: 'invalid-schema',
@@ -79,7 +118,7 @@ export function checkSchemaCompatibility(schema: unknown): CompatibilityResult {
     return { compatible: false, issues };
   }
 
-  const root = schema as Record<string, unknown>;
+  const root = schema;
 
   // Root type must be "object"
   if (root.type !== 'object') {
@@ -111,8 +150,8 @@ export function checkSchemaCompatibility(schema: unknown): CompatibilityResult {
   }
 
   // Recurse into properties
-  if (root.properties && typeof root.properties === 'object') {
-    checkProperties(root.properties as Record<string, unknown>, '$.properties', issues);
+  if (isRecord(root.properties)) {
+    checkProperties(root.properties, '$.properties', issues);
   }
 
   return { compatible: issues.length === 0, issues };
@@ -128,17 +167,33 @@ function checkProperties(
   issues: CompatibilityIssue[],
 ): void {
   for (const [name, prop] of Object.entries(properties)) {
-    if (typeof prop !== 'object' || prop === null || Array.isArray(prop)) continue;
-    checkProperty(prop as Record<string, unknown>, `${basePath}.${name}`, issues);
+    if (!isRecord(prop) || Array.isArray(prop)) {
+      continue;
+    }
+
+    checkProperty(prop, `${basePath}.${name}`, issues);
   }
 }
+
+const SUPPORTED_FORMATS = new Set(['date', 'date-time', 'email', 'uri']);
 
 function checkProperty(
   prop: Record<string, unknown>,
   path: string,
   issues: CompatibilityIssue[],
 ): void {
-  // Check for unsupported keys
+  checkUnsupportedPropertyKeys(prop, path, issues);
+  checkPropertyType(prop, path, issues);
+  checkPropertyFormat(prop, path, issues);
+  checkAdditionalProperties(prop, path, issues);
+  checkNestedDefinitions(prop, path, issues);
+}
+
+function checkUnsupportedPropertyKeys(
+  prop: Record<string, unknown>,
+  path: string,
+  issues: CompatibilityIssue[],
+): void {
   for (const key of Object.keys(prop)) {
     if (!SUPPORTED_PROPERTY_KEYS.has(key)) {
       issues.push({
@@ -148,58 +203,84 @@ function checkProperty(
       });
     }
   }
+}
 
-  // Check type
-  if ('type' in prop) {
-    if (Array.isArray(prop.type)) {
-      issues.push({
-        path: `${path}.type`,
-        feature: 'type-union',
-        description: 'Type unions (array of types) are not supported',
-      });
-    } else if (typeof prop.type === 'string' && !SUPPORTED_TYPES.has(prop.type)) {
-      issues.push({
-        path: `${path}.type`,
-        feature: `type-${prop.type}`,
-        description: `Type "${prop.type}" is not supported`,
-      });
-    }
+function checkPropertyType(
+  prop: Record<string, unknown>,
+  path: string,
+  issues: CompatibilityIssue[],
+): void {
+  const rawType = prop.type;
+  if (Array.isArray(rawType)) {
+    issues.push({
+      path: `${path}.type`,
+      feature: 'type-union',
+      description: 'Type unions (array of types) are not supported',
+    });
+    return;
   }
 
-  // Check format (only supported formats on strings)
-  if ('format' in prop && prop.format !== undefined) {
-    const type = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-    const supportedFormats = new Set(['date', 'date-time', 'email', 'uri']);
-    if (!supportedFormats.has(String(prop.format)) || type !== 'string') {
-      issues.push({
-        path: `${path}.format`,
-        feature: `format-${String(prop.format)}`,
-        description: `Format "${String(prop.format)}" is not supported (only "date", "date-time", "email", and "uri" on string type)`,
-      });
-    }
+  if (typeof rawType === 'string' && !SUPPORTED_TYPES.has(rawType)) {
+    issues.push({
+      path: `${path}.type`,
+      feature: `type-${rawType}`,
+      description: `Type "${rawType}" is not supported`,
+    });
+  }
+}
+
+function checkPropertyFormat(
+  prop: Record<string, unknown>,
+  path: string,
+  issues: CompatibilityIssue[],
+): void {
+  const rawFormat = prop.format;
+  if (typeof rawFormat === 'undefined') {
+    return;
   }
 
-  // Check additionalProperties value
-  if ('additionalProperties' in prop && prop.additionalProperties === false) {
+  const type = Array.isArray(prop.type) ? prop.type[0] : prop.type;
+  const formatValue = typeof rawFormat === 'string' ? rawFormat : JSON.stringify(rawFormat);
+  const isSupported = SUPPORTED_FORMATS.has(formatValue) && type === 'string';
+
+  if (!isSupported) {
+    issues.push({
+      path: `${path}.format`,
+      feature: `format-${formatValue}`,
+      description: `Format "${formatValue}" is not supported (only "date", "date-time", "email", and "uri" on string type)`,
+    });
+  }
+}
+
+function checkAdditionalProperties(
+  prop: Record<string, unknown>,
+  path: string,
+  issues: CompatibilityIssue[],
+): void {
+  if (prop.additionalProperties === false) {
     issues.push({
       path: `${path}.additionalProperties`,
       feature: 'additionalProperties-false',
       description: '"additionalProperties: false" is not supported',
     });
   }
+}
 
-  // Recurse into nested properties (for object type)
-  if (prop.properties && typeof prop.properties === 'object') {
-    checkProperties(prop.properties as Record<string, unknown>, `${path}.properties`, issues);
+function checkNestedDefinitions(
+  prop: Record<string, unknown>,
+  path: string,
+  issues: CompatibilityIssue[],
+): void {
+  if (isRecord(prop.properties)) {
+    checkProperties(prop.properties, `${path}.properties`, issues);
   }
 
-  // Recurse into items (for array type)
-  if (prop.items && typeof prop.items === 'object' && !Array.isArray(prop.items)) {
-    checkProperty(prop.items as Record<string, unknown>, `${path}.items`, issues);
+  if (isRecord(prop.items) && !Array.isArray(prop.items)) {
+    checkProperty(prop.items, `${path}.items`, issues);
+    return;
   }
 
-  // Array-form items (tuple validation) is not supported
-  if (prop.items && Array.isArray(prop.items)) {
+  if (Array.isArray(prop.items)) {
     issues.push({
       path: `${path}.items`,
       feature: 'tuple-items',
@@ -210,41 +291,15 @@ function checkProperty(
 
 /** Map well-known unsupported keys to human-readable descriptions. */
 function describeUnsupportedKey(key: string): string {
-  const descriptions: Record<string, string> = {
-    enum: '"enum" constraints are not supported',
-    const: '"const" constraints are not supported',
-    default: '"default" values are not supported',
-    $ref: 'Schema references ($ref) are not supported',
-    $defs: 'Schema definitions ($defs) are not supported',
-    definitions: 'Schema definitions are not supported',
-    allOf: '"allOf" composition is not supported',
-    anyOf: '"anyOf" composition is not supported',
-    oneOf: '"oneOf" composition is not supported',
-    not: '"not" composition is not supported',
-    if: 'Conditional schemas (if/then/else) are not supported',
-    then: 'Conditional schemas (if/then/else) are not supported',
-    else: 'Conditional schemas (if/then/else) are not supported',
-    pattern: '"pattern" validation is not supported',
-    minLength: '"minLength" validation is not supported',
-    maxLength: '"maxLength" validation is not supported',
-    minimum: '"minimum" validation is not supported',
-    maximum: '"maximum" validation is not supported',
-    exclusiveMinimum: '"exclusiveMinimum" validation is not supported',
-    exclusiveMaximum: '"exclusiveMaximum" validation is not supported',
-    multipleOf: '"multipleOf" validation is not supported',
-    minItems: '"minItems" validation is not supported',
-    maxItems: '"maxItems" validation is not supported',
-    uniqueItems: '"uniqueItems" validation is not supported',
-    minProperties: '"minProperties" validation is not supported',
-    maxProperties: '"maxProperties" validation is not supported',
-    patternProperties: '"patternProperties" is not supported',
-    title: '"title" is not supported (use "description" instead)',
-    examples: '"examples" in schema are not supported',
-    readOnly: '"readOnly" is not supported',
-    writeOnly: '"writeOnly" is not supported',
-    deprecated: '"deprecated" is not supported',
-    contentMediaType: '"contentMediaType" is not supported',
-    contentEncoding: '"contentEncoding" is not supported',
-  };
-  return descriptions[key] ?? `"${key}" is not supported`;
+  for (const [candidate, description] of UNSUPPORTED_KEY_DESCRIPTIONS) {
+    if (candidate === key) {
+      return description;
+    }
+  }
+
+  return `"${key}" is not supported`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

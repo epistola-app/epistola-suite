@@ -74,8 +74,9 @@ class PreviewVariantHandler(
             ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
 
         // 3. Validate data against schema
-        if (template.dataModel != null) {
-            val errors = schemaValidator.validate(template.dataModel, query.data)
+        val draftSchema = template.dataModel
+        if (draftSchema != null) {
+            val errors = schemaValidator.validate(draftSchema, query.data)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")

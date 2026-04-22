@@ -6,6 +6,8 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -23,6 +25,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.util.LinkedMultiValueMap
 import tools.jackson.databind.ObjectMapper
 
@@ -37,6 +40,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
     fun `GET templates returns list page with template data`() = fixture {
@@ -534,6 +540,145 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"compatible\":false")
                 assertThat(response.body).contains("\"exampleId\":\"provided\"")
                 assertThat(response.body).doesNotContain("\"exampleId\":\"stored\"")
+            }
+        }
+
+        @Test
+        fun `POST validate-schema returns recent usage unavailable when recent sample row is malformed`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+
+                mediator.send(
+                    GenerateDocument(
+                        tenantId = testTenant.id,
+                        templateId = template.id,
+                        variantId = VariantKey.of("${template.id}-default"),
+                        versionId = VersionKey.of(1),
+                        environmentId = null,
+                        data = objectMapper.createObjectNode().put("name", "John"),
+                        filename = "sample.pdf",
+                    ),
+                )
+
+                jdbcTemplate.update(
+                    """
+                    UPDATE document_generation_requests
+                    SET data = '"bad-shape"'::jsonb,
+                        status = 'FAILED'
+                    WHERE tenant_key = ?
+                      AND template_key = ?
+                    """.trimIndent(),
+                    testTenant.id.value,
+                    template.id.value,
+                )
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("\"compatible\":false")
+                assertThat(response.body).contains("\"recentUsage\"")
+                assertThat(response.body).contains("\"available\":false")
+                assertThat(response.body).contains("\"unavailableReason\":\"Recent usage compatibility check is temporarily unavailable.\"")
+            }
+        }
+    }
+
+    @Nested
+    inner class UpdateTemplateEndpointTest {
+        @Test
+        fun `PATCH template returns 400 with errors when update has validation issues`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val body = """
+                    {
+                      "name": "Updated Template",
+                      "dataModel": {"type": "object", "properties": {"count": {"type": "integer"}}},
+                      "dataExamples": [
+                        {"id": "ex-1", "name": "Bad Example", "data": {"count": "not-a-number"}}
+                      ]
+                    }
+                """.trimIndent()
+                val request = HttpEntity(body, headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}",
+                    HttpMethod.PATCH,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.body).contains("\"errors\"")
+                assertThat(response.body).contains("Bad Example")
+            }
+        }
+
+        @Test
+        fun `PATCH template with forceUpdate returns warnings and persists update`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val body = """
+                    {
+                      "name": "Updated With Warnings",
+                      "dataModel": {"type": "object", "properties": {"count": {"type": "integer"}}},
+                      "dataExamples": [
+                        {"id": "ex-1", "name": "Bad Example", "data": {"count": "not-a-number"}}
+                      ],
+                      "forceUpdate": true
+                    }
+                """.trimIndent()
+                val request = HttpEntity(body, headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}",
+                    HttpMethod.PATCH,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("\"name\":\"Updated With Warnings\"")
+                assertThat(response.body).contains("\"warnings\"")
+                assertThat(response.body).contains("Bad Example")
             }
         }
     }

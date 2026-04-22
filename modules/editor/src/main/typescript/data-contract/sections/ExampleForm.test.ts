@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { validationPathToFormPath, buildFieldErrorMap, hasChildErrors } from './ExampleForm.js';
+import {
+  buildFieldErrorMap,
+  canClearOptionalField,
+  deleteNestedValue,
+  getNestedValue,
+  hasFieldValue,
+  hasChildErrors,
+  normalizePath,
+  setNestedValue,
+  validationPathToFormPath,
+} from './ExampleForm.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
 
 describe('validationPathToFormPath', () => {
@@ -100,5 +110,97 @@ describe('hasChildErrors', () => {
   it('does not match partial path prefixes', () => {
     const errors = new Map([['addressExtra.street', 'is required']]);
     expect(hasChildErrors('address', errors)).toBe(false);
+  });
+});
+
+describe('normalizePath', () => {
+  it('converts slash paths to dot paths', () => {
+    expect(normalizePath('/customer/address/city')).toBe('customer.address.city');
+  });
+
+  it('keeps dot paths unchanged except slash cleanup', () => {
+    expect(normalizePath('customer.address.0')).toBe('customer.address.0');
+  });
+});
+
+describe('getNestedValue', () => {
+  it('reads nested object and array values', () => {
+    const data = {
+      user: {
+        profile: {
+          addresses: [{ city: 'Tokyo' }],
+        },
+      },
+    };
+
+    expect(getNestedValue(data, 'user.profile.addresses.0.city')).toBe('Tokyo');
+  });
+
+  it('returns undefined for invalid array segment', () => {
+    const data = { items: [{ name: 'A' }] };
+
+    expect(getNestedValue(data, 'items.one.name')).toBeUndefined();
+  });
+});
+
+describe('setNestedValue', () => {
+  it('creates missing intermediate objects and arrays immutably', () => {
+    const source = { user: {} };
+
+    const updated = setNestedValue(source, 'user.addresses.0.city', 'Berlin');
+
+    expect(updated).toEqual({ user: { addresses: [{ city: 'Berlin' }] } });
+    expect(source).toEqual({ user: {} });
+  });
+});
+
+describe('deleteNestedValue', () => {
+  it('removes object property when path exists', () => {
+    const source = { user: { name: 'Alice', age: 30 } };
+
+    const updated = deleteNestedValue(source, 'user.age');
+
+    expect(updated).toEqual({ user: { name: 'Alice' } });
+    expect(source).toEqual({ user: { name: 'Alice', age: 30 } });
+  });
+
+  it('removes array item when index path exists', () => {
+    const source = { items: [{ id: 1 }, { id: 2 }, { id: 3 }] };
+
+    const updated = deleteNestedValue(source, 'items.1');
+
+    expect(updated).toEqual({ items: [{ id: 1 }, { id: 3 }] });
+  });
+
+  it('returns unchanged clone when path does not exist', () => {
+    const source = { user: { name: 'Alice' } };
+
+    const updated = deleteNestedValue(source, 'user.address.city');
+
+    expect(updated).toEqual(source);
+    expect(updated).not.toBe(source);
+  });
+});
+
+describe('optional clear behavior', () => {
+  it('hasFieldValue treats only null and undefined as empty', () => {
+    const missingValue = ((): void => {
+      return;
+    })();
+
+    expect(hasFieldValue(missingValue)).toBe(false);
+    expect(hasFieldValue(null)).toBe(false);
+    expect(hasFieldValue('')).toBe(true);
+    expect(hasFieldValue(false)).toBe(true);
+    expect(hasFieldValue(0)).toBe(true);
+  });
+
+  it('canClearOptionalField respects required flag and value presence', () => {
+    expect(canClearOptionalField(false, '')).toBe(true);
+    expect(canClearOptionalField(false, false)).toBe(true);
+    expect(canClearOptionalField(false, 0)).toBe(true);
+    expect(canClearOptionalField(false)).toBe(false);
+    expect(canClearOptionalField(false, null)).toBe(false);
+    expect(canClearOptionalField(true, 'value')).toBe(false);
   });
 });

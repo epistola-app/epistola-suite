@@ -27,6 +27,10 @@ export interface DataContractEditorOptions {
   initialSchema: JsonSchema | null;
   /** Initial data examples from the backend */
   initialExamples: DataExample[];
+  /** Whether an unpublished draft contract already exists */
+  hasDraftContract?: boolean;
+  /** Max recent-usage issues to render in publish warnings */
+  recentUsageRenderLimit?: number;
   /** Callbacks for saving schema, examples, etc. */
   callbacks: SaveCallbacks;
   /** When true, all editing controls are disabled */
@@ -44,14 +48,29 @@ export interface DataContractEditorInstance {
 export function mountDataContractEditor(
   options: DataContractEditorOptions,
 ): DataContractEditorInstance {
-  const { container, initialSchema, initialExamples, callbacks, readonly = false } = options;
+  const {
+    container,
+    initialSchema,
+    initialExamples,
+    hasDraftContract,
+    recentUsageRenderLimit,
+    callbacks,
+    readonly = false,
+  } = options;
 
   const editorEl = document.createElement(
     'epistola-data-contract-editor',
   ) as EpistolaDataContractEditor;
   editorEl.style.display = 'block';
 
-  editorEl.init(initialSchema, initialExamples, callbacks, readonly);
+  editorEl.init(
+    initialSchema,
+    initialExamples,
+    callbacks,
+    hasDraftContract ?? false,
+    recentUsageRenderLimit,
+    readonly,
+  );
 
   container.innerHTML = '';
   container.appendChild(editorEl);

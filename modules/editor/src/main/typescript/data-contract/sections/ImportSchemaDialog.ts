@@ -53,8 +53,12 @@ export function renderImportSchemaDialog(
           class="dc-import-file-input"
           accept=".json,application/json"
           @change=${(e: Event) => {
-            const input = e.target as HTMLInputElement;
-            const file = input.files?.[0];
+            const input = e.currentTarget;
+            if (!(input instanceof HTMLInputElement)) {
+              return;
+            }
+            const files = input.files;
+            const file = files && files.length > 0 ? files[0] : null;
             if (file) {
               callbacks.onImportFromFile(file);
             }
@@ -68,8 +72,18 @@ export function renderImportSchemaDialog(
         <button
           class="ep-btn-primary btn-sm dc-btn-icon"
           @click=${(e: Event) => {
-            const dialog = (e.target as HTMLElement).closest('.dc-import-dialog')!;
-            const textarea = dialog.querySelector<HTMLTextAreaElement>('#dc-import-textarea')!;
+            const trigger = e.currentTarget;
+            if (!(trigger instanceof HTMLElement)) {
+              return;
+            }
+            const dialog = trigger.closest('.dc-import-dialog');
+            if (!dialog) {
+              return;
+            }
+            const textarea = dialog.querySelector('#dc-import-textarea');
+            if (!(textarea instanceof HTMLTextAreaElement)) {
+              return;
+            }
             const text = textarea.value.trim();
             if (text) {
               callbacks.onImportFromText(text);

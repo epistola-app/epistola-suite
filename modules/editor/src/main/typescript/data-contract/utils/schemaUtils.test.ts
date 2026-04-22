@@ -10,6 +10,9 @@ import {
 } from './schemaUtils.js';
 import type { JsonSchema, PrimitiveField, SchemaField, VisualSchema } from '../types.js';
 
+/* oxlint-disable eslint/no-undefined */
+/* oxlint-disable oxc/no-optional-chaining */
+
 describe('visualSchemaToJsonSchema', () => {
   it('converts empty visual schema', () => {
     const visual: VisualSchema = { fields: [] };
@@ -267,7 +270,7 @@ describe('generateSchemaFromData', () => {
     expect(result.fields.find((f) => f.name === 'age')?.type).toBe('integer');
     expect(result.fields.find((f) => f.name === 'active')?.type).toBe('boolean');
     // All fields should default to optional
-    expect(result.fields.every((f) => f.required === false)).toBe(true);
+    expect(result.fields.every((f) => !f.required)).toBe(true);
   });
 
   it('infers number vs integer correctly', () => {

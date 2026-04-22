@@ -1,6 +1,35 @@
 package app.epistola.suite.templates.validation
 
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonValue
 import tools.jackson.databind.JsonNode
+
+enum class ExpectedType(@get:JsonValue val value: String) {
+    STRING("string"),
+    NUMBER("number"),
+    INTEGER("integer"),
+    BOOLEAN("boolean"),
+    DATE("date"),
+    ARRAY("array"),
+    OBJECT("object"),
+    UNKNOWN("unknown"),
+    ;
+
+    companion object {
+        @JsonCreator
+        @JvmStatic
+        fun fromValue(value: String?): ExpectedType = when (value?.lowercase()) {
+            STRING.value -> STRING
+            NUMBER.value -> NUMBER
+            INTEGER.value -> INTEGER
+            BOOLEAN.value -> BOOLEAN
+            DATE.value -> DATE
+            ARRAY.value -> ARRAY
+            OBJECT.value -> OBJECT
+            else -> UNKNOWN
+        }
+    }
+}
 
 /**
  * A suggestion for migrating a data example to be compatible with a new schema.
@@ -20,7 +49,7 @@ data class MigrationSuggestion(
     val path: String,
     val issue: ValidationIssueType,
     val currentValue: JsonNode?,
-    val expectedType: String,
+    val expectedType: ExpectedType,
     val suggestedValue: JsonNode?,
     val autoMigratable: Boolean,
 )

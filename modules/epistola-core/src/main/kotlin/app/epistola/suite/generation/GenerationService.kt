@@ -172,12 +172,12 @@ class GenerationService(
         val template = GetDocumentTemplate(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
             ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
 
-        if (template.dataModel == null) {
+        if (template.publishedDataModel == null) {
             return PreviewValidationResult(valid = true) // No schema means no validation
         }
 
         val dataNode = objectMapper.valueToTree<ObjectNode>(data)
-        val errors = schemaValidator.validate(template.dataModel, dataNode)
+        val errors = schemaValidator.validate(template.publishedDataModel, dataNode)
 
         return PreviewValidationResult(
             valid = errors.isEmpty(),

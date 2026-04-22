@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
+import app.epistola.suite.templates.commands.PublishDocumentTemplateContractDraft
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
@@ -238,6 +239,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )
+                execute(PublishDocumentTemplateContractDraft(id = compositeTemplateId))
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 setup

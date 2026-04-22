@@ -104,7 +104,14 @@ class UpdateDataExampleHandler(
     private fun getExisting(templateId: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_key, catalog_key, name, data_model, data_examples, created_at, last_modified
+                SELECT id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema,
+                       data_model AS published_data_model,
+                       data_examples AS published_data_examples,
+                       draft_data_model,
+                       draft_data_examples,
+                       pdfa_enabled,
+                       created_at,
+                       last_modified
                 FROM document_templates
                 WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,
@@ -124,9 +131,16 @@ class UpdateDataExampleHandler(
         handle.createQuery(
             """
             UPDATE document_templates
-            SET data_examples = :dataExamples::jsonb, last_modified = NOW()
+            SET draft_data_examples = :dataExamples::jsonb, last_modified = NOW()
             WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
-            RETURNING id, tenant_key, catalog_key, name, data_model, data_examples, created_at, last_modified
+            RETURNING id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema,
+                      data_model AS published_data_model,
+                      data_examples AS published_data_examples,
+                      draft_data_model,
+                      draft_data_examples,
+                      pdfa_enabled,
+                      created_at,
+                      last_modified
             """,
         )
             .bind("id", templateId.key)

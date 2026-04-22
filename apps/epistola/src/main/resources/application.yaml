@@ -67,6 +67,18 @@ epistola:
       retention-days: 30 # Auto-delete documents after 30 days
       max-size-mb: 50 # Max document size
 
+  templates:
+    # Schema compatibility checks against recent generation requests.
+    # Statuses control which request lifecycle states are sampled.
+    schema-compatibility:
+      recent-usage-window-days: 7
+      recent-usage-sample-limit: 100
+      statuses:
+        - PENDING
+        - IN_PROGRESS
+        - COMPLETED
+        - FAILED
+
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
     feedback: true

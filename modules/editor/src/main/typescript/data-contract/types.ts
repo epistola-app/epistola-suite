@@ -177,11 +177,86 @@ export interface SaveExamplesResult {
   error?: string;
 }
 
+export type MigrationIssueType = 'TYPE_MISMATCH' | 'MISSING_REQUIRED' | 'UNKNOWN_FIELD';
+
+export interface CompatibilityMigrationSuggestion {
+  exampleId: string;
+  exampleName: string;
+  path: string;
+  issue: MigrationIssueType;
+  currentValue: JsonValue | null;
+  expectedType: string;
+  suggestedValue: JsonValue | null;
+  autoMigratable: boolean;
+}
+
+export interface RecentUsageCompatibilityIssue {
+  requestId: string;
+  sampleRank: number;
+  createdAt: string;
+  correlationKey: string | null;
+  status: string;
+  errors: ValidationError[];
+}
+
+export interface RecentUsageWindow {
+  maxDays: number;
+  sampleLimit: number;
+  checkedFrom: string;
+  checkedTo: string;
+}
+
+export interface RecentUsageSummary {
+  checkedCount: number;
+  compatibleCount: number;
+  incompatibleCount: number;
+}
+
+export interface RecentUsageSample {
+  requestId: string;
+  sampleRank: number;
+  createdAt: string;
+  correlationKey: string | null;
+  status: string;
+  compatible: boolean;
+  errorCount: number;
+}
+
+export interface RecentUsageCompatibilitySummary {
+  available: boolean;
+  window: RecentUsageWindow;
+  summary: RecentUsageSummary;
+  samples: RecentUsageSample[];
+  issues: RecentUsageCompatibilityIssue[];
+  unavailableReason?: string | null;
+}
+
+export interface PublishDraftResult {
+  success: boolean;
+  error?: string;
+  canForceSave?: boolean;
+  recentUsage?: RecentUsageCompatibilitySummary;
+}
+
+export interface SchemaCompatibilityPreviewResult {
+  compatible: boolean;
+  errors: ValidationError[];
+  migrations: CompatibilityMigrationSuggestion[];
+  recentUsage: RecentUsageCompatibilitySummary;
+  error?: string;
+}
+
 export interface SaveCallbacks {
   onSaveSchema?: (
     schema: JsonSchema | null,
     forceUpdate?: boolean,
+    examples?: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
+  onPublishDraft?: (forceUpdate?: boolean) => Promise<PublishDraftResult>;
+  onValidateSchemaCompatibility?: (
+    schema: JsonSchema | null,
+    examples: DataExample[],
+  ) => Promise<SchemaCompatibilityPreviewResult>;
   onSaveDataExamples?: (
     examples: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;

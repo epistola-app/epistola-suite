@@ -61,9 +61,16 @@ class CreateDocumentTemplateHandler(
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :name, NULL, :schema::jsonb, NULL, '[]'::jsonb, FALSE, NOW(), NOW())
-                RETURNING id, tenant_key, catalog_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema, data_model, data_examples, draft_data_model, draft_data_examples, pdfa_enabled, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :name, NULL, NULL, :schema::jsonb, NULL, '[]'::jsonb, NULL, NULL, FALSE, NOW(), NOW())
+                RETURNING id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema,
+                          data_model AS published_data_model,
+                          data_examples AS published_data_examples,
+                          draft_data_model,
+                          draft_data_examples,
+                          pdfa_enabled,
+                          created_at,
+                          last_modified
                 """,
                 )
                     .bind("id", command.id.key)

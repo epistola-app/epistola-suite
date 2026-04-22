@@ -1,3 +1,5 @@
+/* eslint-disable no-use-before-define, no-undefined */
+
 /**
  * SchemaSection — Two-panel visual schema builder.
  *
@@ -20,7 +22,7 @@ import type {
 import type { SchemaCommand } from '../utils/schemaCommands.js';
 import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
-import { renderValidationMessages } from './ValidationMessages.js';
+import { renderValidationSummary } from './ValidationMessages.js';
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>;
@@ -36,6 +38,7 @@ export interface SchemaSectionCallbacks {
   onSelectField: (fieldId: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onReviewWarnings: () => void;
 }
 
 // =============================================================================
@@ -53,6 +56,8 @@ export function renderSchemaSection(
   const selectedField = uiState.selectedFieldId
     ? findFieldById(fields, uiState.selectedFieldId)
     : null;
+  const isLastRootFieldSelected =
+    !!selectedField && fields.length === 1 && fields[0].id === selectedField.id;
 
   return html`
     <section class="dc-section">
@@ -88,14 +93,19 @@ export function renderSchemaSection(
       </div>
 
       <!-- Validation warnings -->
-      ${renderValidationMessages(uiState.warnings)}
+      ${renderValidationSummary(uiState.warnings, callbacks.onReviewWarnings)}
+
+      <div class="dc-schema-save-note" role="note">
+        Removing schema fields can leave template expressions unresolved if generation input data no
+        longer provides those values.
+      </div>
 
       <!-- Two-panel layout -->
       ${hasFields
         ? html`
             <div class="dc-schema-layout">
               ${renderFieldList(fields, uiState, callbacks, expandedFields)}
-              ${renderDetailPanel(selectedField, uiState, callbacks)}
+              ${renderDetailPanel(selectedField, uiState, callbacks, !isLastRootFieldSelected)}
             </div>
           `
         : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
@@ -176,10 +186,51 @@ const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
   { value: 'uri', label: 'URI' },
 ];
 
+function getInputValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function getInputChecked(event: Event): boolean {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return false;
+  }
+  return target.checked;
+}
+
+function getSelectValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLSelectElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function getTextareaValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLTextAreaElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function isSchemaFieldType(value: string): value is SchemaFieldType {
+  return FIELD_TYPES.some((type) => type === value);
+}
+
+function isStringFormat(value: string): value is StringFormat {
+  return value === 'date-time' || value === 'email' || value === 'uri';
+}
+
 function renderDetailPanel(
   field: SchemaField | null,
   uiState: SchemaUiState,
   callbacks: SchemaSectionCallbacks,
+  canDeleteField: boolean,
 ): unknown {
   if (!field) {
     return html`
@@ -189,12 +240,13 @@ function renderDetailPanel(
     `;
   }
 
-  const emitUpdate = (updates: SchemaFieldUpdate) => {
+  const emitUpdate = (updates: SchemaFieldUpdate): void => {
     callbacks.onCommand({ type: 'updateField', fieldId: field.id, updates });
   };
 
   const canHaveNested =
     field.type === 'object' || (field.type === 'array' && field.arrayItemType === 'object');
+  const deleteA11y = getDeleteFieldA11y(field.id, canDeleteField);
 
   return html`
     <div class="dc-detail-panel">
@@ -211,7 +263,7 @@ function renderDetailPanel(
             placeholder="Field name"
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
-              const value = (e.target as HTMLInputElement).value.trim();
+              const value = getInputValue(e).trim();
               if (value && value !== field.name) {
                 emitUpdate({ name: value });
               }
@@ -227,9 +279,13 @@ function renderDetailPanel(
             .value=${field.type}
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
-              const newType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+              const nextType = getSelectValue(e);
+              if (!isSchemaFieldType(nextType)) {
+                return;
+              }
+              const newType = nextType;
               const updates: SchemaFieldUpdate = { type: newType };
-              if (newType === 'array') {
+              if (nextType === 'array') {
                 updates.arrayItemType = 'string';
               }
               emitUpdate(updates);
@@ -254,7 +310,11 @@ function renderDetailPanel(
                   .value=${field.arrayItemType}
                   ?disabled=${uiState.readOnly}
                   @change=${(e: Event) => {
-                    const newItemType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+                    const nextItemType = getSelectValue(e);
+                    if (!isSchemaFieldType(nextItemType)) {
+                      return;
+                    }
+                    const newItemType = nextItemType;
                     emitUpdate({ arrayItemType: newItemType });
                   }}
                 >
@@ -279,7 +339,7 @@ function renderDetailPanel(
             .checked=${field.required}
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
-              emitUpdate({ required: (e.target as HTMLInputElement).checked });
+              emitUpdate({ required: getInputChecked(e) });
             }}
           />
           <label class="dc-detail-label" for="dc-detail-required">Required</label>
@@ -294,7 +354,7 @@ function renderDetailPanel(
             placeholder="Optional description"
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
-              const value = (e.target as HTMLTextAreaElement).value;
+              const value = getTextareaValue(e);
               emitUpdate({ description: value || undefined });
             }}
           ></textarea>
@@ -324,15 +384,57 @@ function renderDetailPanel(
 
           <button
             class="dc-detail-delete-btn"
+            ?disabled=${!canDeleteField}
+            title=${deleteA11y.title}
+            aria-describedby=${deleteA11y.ariaDescribedBy ?? nothing}
             @click=${() => callbacks.onCommand({ type: 'deleteField', fieldId: field.id })}
             ?disabled=${uiState.readOnly}
           >
             Delete Field
           </button>
+          ${deleteA11y.showHint
+            ? html`<span
+                id=${deleteA11y.hintId}
+                style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border:0;"
+              >
+                ${deleteA11y.hintText}
+              </span>`
+            : nothing}
         </div>
       </div>
     </div>
   `;
+}
+
+interface DeleteFieldA11yState {
+  title: string;
+  ariaDescribedBy: string | null;
+  showHint: boolean;
+  hintId: string;
+  hintText: string;
+}
+
+export function getDeleteFieldA11y(fieldId: string, canDeleteField: boolean): DeleteFieldA11yState {
+  const hintId = `dc-delete-hint-${fieldId}`;
+  const hintText = 'Delete is disabled. A schema must contain at least one field.';
+
+  if (canDeleteField) {
+    return {
+      title: 'Delete field',
+      ariaDescribedBy: null,
+      showHint: false,
+      hintId,
+      hintText,
+    };
+  }
+
+  return {
+    title: 'A schema must contain at least one field',
+    ariaDescribedBy: hintId,
+    showHint: true,
+    hintId,
+    hintText,
+  };
 }
 
 // =============================================================================
@@ -345,13 +447,13 @@ function renderTypeConstraints(
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
   if (field.type === 'string') {
-    return renderStringConstraints(field as PrimitiveField, uiState, emitUpdate);
+    return renderStringConstraints(field, uiState, emitUpdate);
   }
   if (field.type === 'number' || field.type === 'integer') {
-    return renderNumericConstraints(field as PrimitiveField, uiState, emitUpdate);
+    return renderNumericConstraints(field, uiState, emitUpdate);
   }
   if (field.type === 'array') {
-    return renderArrayConstraints(field as ArrayField, uiState, emitUpdate);
+    return renderArrayConstraints(field, uiState, emitUpdate);
   }
   return nothing;
 }
@@ -371,8 +473,15 @@ function renderStringConstraints(
         .value=${currentFormat}
         ?disabled=${uiState.readOnly}
         @change=${(e: Event) => {
-          const val = (e.target as HTMLSelectElement).value;
-          emitUpdate({ format: val ? (val as StringFormat) : undefined });
+          const val = getSelectValue(e);
+          if (!val) {
+            emitUpdate({ format: undefined });
+            return;
+          }
+          if (!isStringFormat(val)) {
+            return;
+          }
+          emitUpdate({ format: val });
         }}
       >
         ${STRING_FORMATS.map(
@@ -404,11 +513,11 @@ function renderNumericConstraints(
           type="number"
           class="ep-input dc-detail-input"
           step=${step}
-          .value=${min !== undefined ? String(min) : ''}
+          .value=${typeof min !== 'undefined' ? String(min) : ''}
           placeholder="—"
           ?disabled=${uiState.readOnly}
           @change=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
+            const val = getInputValue(e);
             emitUpdate({ minimum: val ? Number(val) : undefined });
           }}
         />
@@ -419,11 +528,11 @@ function renderNumericConstraints(
           type="number"
           class="ep-input dc-detail-input"
           step=${step}
-          .value=${max !== undefined ? String(max) : ''}
+          .value=${typeof max !== 'undefined' ? String(max) : ''}
           placeholder="—"
           ?disabled=${uiState.readOnly}
           @change=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
+            const val = getInputValue(e);
             emitUpdate({ maximum: val ? Number(val) : undefined });
           }}
         />
@@ -448,11 +557,11 @@ function renderArrayConstraints(
         class="ep-input dc-detail-input"
         min="0"
         step="1"
-        .value=${minItems !== undefined ? String(minItems) : ''}
+        .value=${typeof minItems !== 'undefined' ? String(minItems) : ''}
         placeholder="—"
         ?disabled=${uiState.readOnly}
         @change=${(e: Event) => {
-          const val = (e.target as HTMLInputElement).value;
+          const val = getInputValue(e);
           emitUpdate({ minItems: val ? Number(val) : undefined });
         }}
       />

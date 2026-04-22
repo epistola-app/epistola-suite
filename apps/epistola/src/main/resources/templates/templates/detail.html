@@ -29,7 +29,6 @@
 
         <!-- Active tab content (each tab is a separate template file) -->
         <div th:replace="~{'templates/detail/' + ${activeTab} :: tab-content}"></div>
-
         <!-- Version comparison (reusable component, available on all tabs) -->
         <th:block th:replace="~{fragments/version-comparison :: version-comparison}" />
     </th:block>

@@ -1,3 +1,6 @@
+/* eslint-disable no-use-before-define, no-undefined, complexity */
+/* oxlint-disable no-optional-chaining */
+
 /**
  * ExampleForm — Auto-generates form inputs from a JSON Schema.
  *
@@ -19,87 +22,15 @@
 import { html, nothing } from 'lit';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
+import { getNestedValue, validationPathToFormPath } from '../utils/nestedValue.js';
 
-// ---------------------------------------------------------------------------
-// Deep value helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Read a nested value from an object using a dot-separated path.
- * Supports array indices as numeric segments (e.g., "items.0.name").
- */
-export function getNestedValue(obj: JsonObject, path: string): JsonValue | undefined {
-  if (!path) return undefined;
-
-  const segments = path.split('.');
-  let current: unknown = obj;
-
-  for (const segment of segments) {
-    if (current === null || current === undefined) return undefined;
-
-    if (Array.isArray(current)) {
-      const index = parseInt(segment, 10);
-      if (isNaN(index)) return undefined;
-      current = current[index];
-    } else if (typeof current === 'object') {
-      current = (current as Record<string, unknown>)[segment];
-    } else {
-      return undefined;
-    }
-  }
-
-  return current as JsonValue | undefined;
-}
-
-/**
- * Immutably set a nested value in an object using a dot-separated path.
- * Creates intermediate objects/arrays as needed.
- */
-export function setNestedValue(obj: JsonObject, path: string, value: JsonValue): JsonObject {
-  if (!path) return obj;
-
-  const segments = path.split('.');
-  const result = structuredClone(obj);
-  let current: Record<string, unknown> = result;
-
-  for (let i = 0; i < segments.length - 1; i++) {
-    const segment = segments[i];
-    const nextSegment = segments[i + 1];
-    const isNextIndex = /^\d+$/.test(nextSegment);
-
-    if (!(segment in current) || current[segment] === null || current[segment] === undefined) {
-      current[segment] = isNextIndex ? [] : {};
-    }
-
-    if (Array.isArray(current[segment])) {
-      // Make a shallow copy of the array to preserve immutability along the path
-      current[segment] = [...(current[segment] as unknown[])];
-    } else if (typeof current[segment] === 'object') {
-      current[segment] = { ...(current[segment] as Record<string, unknown>) };
-    }
-
-    current = current[segment] as Record<string, unknown>;
-  }
-
-  const lastSegment = segments[segments.length - 1];
-  current[lastSegment] = value;
-
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Validation path utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a JSON Schema validation path (e.g., "$.users[0].email")
- * to the dot-separated form path used by the form renderer (e.g., "users.0.email").
- */
-export function validationPathToFormPath(path: string): string {
-  return path
-    .replace(/^\$\./, '') // strip leading "$."
-    .replace(/\[(\d+)\]/g, '.$1'); // convert [0] to .0
-}
+export {
+  deleteNestedValue,
+  getNestedValue,
+  normalizePath,
+  setNestedValue,
+  validationPathToFormPath,
+} from '../utils/nestedValue.js';
 
 /**
  * Build a Map<formPath, errorMessage> from validation errors.
@@ -135,6 +66,85 @@ export function hasChildErrors(parentPath: string, errors: Map<string, string>):
 
 const NO_ERRORS: Map<string, string> = new Map();
 
+function readInputValue(event: Event): string {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return '';
+  }
+  return target.value;
+}
+
+function readInputChecked(event: Event): boolean {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLInputElement)) {
+    return false;
+  }
+  return target.checked;
+}
+
+function toInputString(value: JsonValue | undefined): string {
+  if (typeof value === 'undefined' || value === null) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+export function hasFieldValue(value: JsonValue | undefined): boolean {
+  return value !== undefined && value !== null;
+}
+
+export function canClearOptionalField(
+  isRequired: boolean,
+  currentValue: JsonValue | undefined,
+): boolean {
+  return !isRequired && hasFieldValue(currentValue);
+}
+
+function renderOptionalClearButton(
+  path: string,
+  isRequired: boolean,
+  currentValue: JsonValue | undefined,
+  onClear: (path: string) => void,
+  label: string,
+  compact = false,
+): unknown {
+  if (isRequired) return nothing;
+
+  const canClear = canClearOptionalField(isRequired, currentValue);
+
+  return html`
+    <button
+      type="button"
+      class="dc-field-clear-btn ${compact ? 'dc-field-clear-btn-compact' : ''}"
+      title="Clear ${label}"
+      aria-label="Clear ${label}"
+      ?disabled=${!canClear}
+      @click=${(e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (canClear) {
+          onClear(path);
+        }
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M4 4l8 8M12 4l-8 8"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+      </svg>
+    </button>
+  `;
+}
+
 function pathToErrorId(path: string): string {
   return `error-${path.replace(/\./g, '-')}`;
 }
@@ -153,6 +163,7 @@ export function renderExampleForm(
   schema: JsonSchema | null,
   data: JsonObject,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   errors: Map<string, string> = NO_ERRORS,
   readOnly = false,
 ): unknown {
@@ -172,6 +183,7 @@ export function renderExampleForm(
           data,
           requiredSet.has(name),
           onChange,
+          onClear,
           0,
           errors,
           readOnly,
@@ -185,13 +197,14 @@ export function renderExampleForm(
  * Render a single form field based on its JSON Schema property type.
  * Uses compact inline rows: label and input side-by-side.
  */
-function renderFormField(
+export function renderFormField(
   name: string,
   propSchema: JsonSchemaProperty,
   path: string,
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
@@ -218,16 +231,19 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="text"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${String(value ?? '')}
-              placeholder="${name}"
-              ?disabled=${readOnly}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="text"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${toInputString(value)}
+                placeholder="${name}"
+                ?disabled=${readOnly}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => onChange(path, readInputValue(e))}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -240,20 +256,27 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="number"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              step="any"
-              id=${fieldId}
-              .value=${value != null ? String(value) : ''}
-              placeholder="${name}"
-              ?disabled=${readOnly}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value;
-                onChange(path, raw === '' ? null : parseFloat(raw));
-              }}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="number"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                step="any"
+                id=${fieldId}
+                .value=${toInputString(value)}
+                placeholder="${name}"
+                ?disabled=${readOnly}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => {
+                  const raw = readInputValue(e);
+                  if (raw === '') {
+                    onClear(path);
+                  } else {
+                    onChange(path, Number.parseFloat(raw));
+                  }
+                }}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -266,20 +289,27 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="number"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              step="1"
-              id=${fieldId}
-              .value=${value != null ? String(value) : ''}
-              placeholder="${name}"
-              ?disabled=${readOnly}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value;
-                onChange(path, raw === '' ? null : parseInt(raw, 10));
-              }}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="number"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                step="1"
+                id=${fieldId}
+                .value=${toInputString(value)}
+                placeholder="${name}"
+                ?disabled=${readOnly}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => {
+                  const raw = readInputValue(e);
+                  if (raw === '') {
+                    onClear(path);
+                  } else {
+                    onChange(path, Number.parseInt(raw, 10));
+                  }
+                }}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -292,18 +322,21 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <label class="dc-tree-checkbox">
-              <input
-                type="checkbox"
-                class="ep-checkbox"
-                id=${fieldId}
-                .checked=${value === true}
-                ?disabled=${readOnly}
-                aria-label="${name}"
-                aria-describedby=${fieldError ? errorId : nothing}
-                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
-              />
-            </label>
+            <div class="dc-tree-input-inline">
+              <label class="dc-tree-checkbox">
+                <input
+                  type="checkbox"
+                  class="ep-checkbox"
+                  id=${fieldId}
+                  .checked=${value === true}
+                  ?disabled=${readOnly}
+                  aria-label="${name}"
+                  aria-describedby=${fieldError ? errorId : nothing}
+                  @change=${(e: Event) => onChange(path, readInputChecked(e))}
+                />
+              </label>
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -316,15 +349,18 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="date"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${String(value ?? '')}
-              ?disabled=${readOnly}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="date"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${toInputString(value)}
+                ?disabled=${readOnly}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => onChange(path, readInputValue(e))}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -340,6 +376,7 @@ function renderFormField(
         rootData,
         isRequired,
         onChange,
+        onClear,
         depth,
         errors,
         readOnly,
@@ -353,6 +390,7 @@ function renderFormField(
         rootData,
         isRequired,
         onChange,
+        onClear,
         depth,
         errors,
         readOnly,
@@ -363,16 +401,19 @@ function renderFormField(
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
-            <input
-              type="text"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              id=${fieldId}
-              .value=${String(value ?? '')}
-              placeholder="${name}"
-              ?disabled=${readOnly}
-              aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-            />
+            <div class="dc-tree-input-inline">
+              <input
+                type="text"
+                class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+                id=${fieldId}
+                .value=${toInputString(value)}
+                placeholder="${name}"
+                ?disabled=${readOnly}
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) => onChange(path, readInputValue(e))}
+              />
+              ${renderOptionalClearButton(path, isRequired, value, onClear, name)}
+            </div>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -393,10 +434,13 @@ function renderObjectField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
 ): unknown {
+  const currentValue = getNestedValue(rootData, path);
+
   if (!propSchema.properties || Object.keys(propSchema.properties).length === 0) {
     return html`
       <div class="dc-tree-row">
@@ -405,7 +449,10 @@ function renderObjectField(
             ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
             : nothing}
         </span>
-        <span class="dc-tree-hint">No properties defined</span>
+        <div class="dc-tree-inline-controls">
+          <span class="dc-tree-hint">No properties defined</span>
+          ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name)}
+        </div>
       </div>
     `;
   }
@@ -429,6 +476,7 @@ function renderObjectField(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
+        ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name, true)}
         <span class="dc-tree-type-badge" data-type="object" aria-hidden="true">object</span>
       </summary>
       <div class="dc-tree-group-body">
@@ -440,6 +488,7 @@ function renderObjectField(
             rootData,
             nestedRequired.has(nestedName),
             onChange,
+            onClear,
             depth + 1,
             errors,
             readOnly,
@@ -460,6 +509,7 @@ function renderArrayField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
@@ -474,13 +524,13 @@ function renderArrayField(
     : 'string';
   const itemType = rawItemType === 'string' && itemSchema?.format === 'date' ? 'date' : rawItemType;
 
-  const addItem = () => {
+  const addItem = (): void => {
     const defaultValue = getDefaultValueForType(itemType, itemSchema);
     const newItems = [...items, defaultValue];
     onChange(path, newItems);
   };
 
-  const removeItem = (index: number) => {
+  const removeItem = (index: number): void => {
     const newItems = items.filter((_, i) => i !== index);
     onChange(path, newItems);
   };
@@ -491,9 +541,11 @@ function renderArrayField(
       itemSchema,
       path,
       items,
+      currentValue,
       rootData,
       isRequired,
       onChange,
+      onClear,
       addItem,
       removeItem,
       depth,
@@ -520,6 +572,7 @@ function renderArrayField(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
+        ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name, true)}
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">${itemType}[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
@@ -590,9 +643,11 @@ function renderArrayOfObjects(
   itemSchema: JsonSchemaProperty,
   path: string,
   items: JsonValue[],
+  currentValue: JsonValue | undefined,
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  onClear: (path: string) => void,
   addItem: () => void,
   removeItem: (index: number) => void,
   depth: number,
@@ -617,6 +672,7 @@ function renderArrayOfObjects(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
+        ${renderOptionalClearButton(path, isRequired, currentValue, onClear, name, true)}
         <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
         <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
       </summary>
@@ -669,6 +725,7 @@ function renderArrayOfObjects(
                         rootData,
                         nestedRequired.has(nestedName),
                         onChange,
+                        onClear,
                         depth + 1,
                         errors,
                         readOnly,
@@ -715,13 +772,13 @@ function renderPrimitiveInput(
           type="number"
           class="ep-input dc-array-item-input ${errorClass}"
           step="any"
-          .value=${value != null ? String(value) : ''}
+          .value=${toInputString(value)}
           placeholder="${label}"
           ?disabled=${readOnly}
           aria-label="${label}"
           @change=${(e: Event) => {
-            const raw = (e.target as HTMLInputElement).value;
-            onChange(raw === '' ? null : parseFloat(raw));
+            const raw = readInputValue(e);
+            onChange(raw === '' ? null : Number.parseFloat(raw));
           }}
         />
       `;
@@ -731,13 +788,13 @@ function renderPrimitiveInput(
           type="number"
           class="ep-input dc-array-item-input ${errorClass}"
           step="1"
-          .value=${value != null ? String(value) : ''}
+          .value=${toInputString(value)}
           placeholder="${label}"
           ?disabled=${readOnly}
           aria-label="${label}"
           @change=${(e: Event) => {
-            const raw = (e.target as HTMLInputElement).value;
-            onChange(raw === '' ? null : parseInt(raw, 10));
+            const raw = readInputValue(e);
+            onChange(raw === '' ? null : Number.parseInt(raw, 10));
           }}
         />
       `;
@@ -750,7 +807,7 @@ function renderPrimitiveInput(
             .checked=${value === true}
             ?disabled=${readOnly}
             aria-label="${label}"
-            @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
+            @change=${(e: Event) => onChange(readInputChecked(e))}
           />
         </label>
       `;
@@ -759,10 +816,10 @@ function renderPrimitiveInput(
         <input
           type="date"
           class="ep-input dc-array-item-input ${errorClass}"
-          .value=${String(value ?? '')}
+          .value=${toInputString(value)}
           ?disabled=${readOnly}
           aria-label="${label}"
-          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          @change=${(e: Event) => onChange(readInputValue(e))}
         />
       `;
     default:
@@ -770,11 +827,11 @@ function renderPrimitiveInput(
         <input
           type="text"
           class="ep-input dc-array-item-input ${errorClass}"
-          .value=${String(value ?? '')}
+          .value=${toInputString(value)}
           placeholder="${label}"
           ?disabled=${readOnly}
           aria-label="${label}"
-          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          @change=${(e: Event) => onChange(readInputValue(e))}
         />
       `;
   }

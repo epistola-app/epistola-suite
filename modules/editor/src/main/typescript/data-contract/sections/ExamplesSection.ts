@@ -7,9 +7,13 @@
  */
 
 import { html } from 'lit';
-import type { DataContractState } from '../DataContractState.js';
-import type { JsonValue } from '../types.js';
+import type { DataExample, JsonSchema, JsonValue } from '../types.js';
 import { renderExampleForm } from './ExampleForm.js';
+
+export interface ExamplesSectionState {
+  examples: DataExample[];
+  schema: JsonSchema | null;
+}
 
 export interface ExamplesUiState {
   editingId: string | null;
@@ -27,16 +31,17 @@ export interface ExamplesSectionCallbacks {
   onDeleteExample: (id: string) => void;
   onUpdateExampleName: (id: string, name: string) => void;
   onUpdateExampleData: (id: string, path: string, value: JsonValue) => void;
+  onClearExampleData: (id: string, path: string) => void;
   onUndo: () => void;
   onRedo: () => void;
 }
 
 export function renderExamplesSection(
-  state: DataContractState,
+  state: ExamplesSectionState,
   uiState: ExamplesUiState,
   callbacks: ExamplesSectionCallbacks,
 ): unknown {
-  const examples = state.dataExamples;
+  const examples = state.examples;
   const selectedExample = uiState.editingId
     ? examples.find((e) => e.id === uiState.editingId)
     : null;
@@ -106,7 +111,11 @@ export function renderExamplesSection(
                     ?disabled=${uiState.readOnly}
                     placeholder="Enter example name"
                     @change=${(e: Event) => {
-                      const name = (e.target as HTMLInputElement).value.trim();
+                      const target = e.currentTarget;
+                      if (!(target instanceof HTMLInputElement)) {
+                        return;
+                      }
+                      const name = target.value.trim();
                       if (name) {
                         callbacks.onUpdateExampleName(selectedExample.id, name);
                       }
@@ -231,6 +240,7 @@ export function renderExamplesSection(
                   state.schema,
                   selectedExample.data,
                   (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
+                  (path) => callbacks.onClearExampleData(selectedExample.id, path),
                   uiState.fieldErrorMap,
                   uiState.readOnly,
                 )}
