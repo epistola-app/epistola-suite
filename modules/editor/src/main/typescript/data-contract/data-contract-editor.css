@@ -1415,6 +1415,56 @@
   }
 
   /* --------------------------------------------------------------------------
+   * Breaking changes dialog
+   * ---------------------------------------------------------------------- */
+
+  .dc-breaking-changes-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--ep-space-3) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-2);
+  }
+
+  .dc-breaking-change {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    border-radius: var(--ep-radius-md);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-200);
+  }
+
+  .dc-breaking-change-badge {
+    display: inline-block;
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-radius: var(--ep-radius-sm);
+    white-space: nowrap;
+  }
+
+  .dc-breaking-change-removed .dc-breaking-change-badge {
+    background: var(--ep-red-100);
+    color: var(--ep-red-700);
+  }
+
+  .dc-breaking-change-renamed .dc-breaking-change-badge {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
+  .dc-breaking-change-type_changed .dc-breaking-change-badge {
+    background: var(--ep-blue-100);
+    color: var(--ep-blue-700);
+  }
+
+  /* --------------------------------------------------------------------------
    * Schema view toggle (Visual / JSON sub-tabs)
    * ---------------------------------------------------------------------- */
 

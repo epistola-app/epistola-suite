@@ -37,12 +37,12 @@ import { SnapshotHistory } from './utils/snapshotHistory.js';
 import {
   detectMigrations,
   applyAllMigrations,
-  stripOrphanedKeys,
   renameExampleKey,
   type MigrationSuggestion,
 } from './utils/schemaMigration.js';
 import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
 import { checkSchemaCompatibility, type CompatibilityIssue } from './utils/schemaCompatibility.js';
+import { detectBreakingChanges, type BreakingChange } from './utils/schemaBreakingChanges.js';
 import {
   renderSchemaSection,
   type SchemaUiState,
@@ -77,6 +77,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   @state() private _visualSchema: VisualSchema = { fields: [] };
+  private _committedVisualSchema: VisualSchema = { fields: [] };
   private _commandHistory = new SchemaCommandHistory();
 
   // ---------------------------------------------------------------------------
@@ -124,6 +125,10 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _pendingMigrations: MigrationSuggestion[] = [];
   @state() private _selectedMigrations = new Set<string>();
 
+  // Breaking changes dialog state
+  @state() private _showBreakingChangesDialog = false;
+  @state() private _pendingBreakingChanges: BreakingChange[] = [];
+
   // Timers
   private _successTimer?: ReturnType<typeof setTimeout>;
 
@@ -160,6 +165,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     // Convert initial JSON Schema to VisualSchema once — this is now the primary editing state
     this._visualSchema = jsonSchemaToVisualSchema(initialSchema);
+    this._committedVisualSchema = structuredClone(this._visualSchema);
     this._commandHistory.clear();
 
     // Pre-select first field if available
@@ -242,6 +248,44 @@ export class EpistolaDataContractEditor extends LitElement {
           ${this._activeTab === 'schema' ? this._renderSchemaTab() : this._renderExamplesTab()}
         </div>
       </div>
+
+      <!-- Breaking changes dialog -->
+      ${this._showBreakingChangesDialog
+        ? html`
+            <dialog class="dc-dialog" open @close=${() => this._cancelBreakingChanges()}>
+              <div class="dc-dialog-content">
+                <h3 class="dc-dialog-title">Breaking Changes</h3>
+                <p class="dc-dialog-description">
+                  The following changes may affect external systems consuming this data contract:
+                </p>
+                <ul class="dc-breaking-changes-list">
+                  ${this._pendingBreakingChanges.map(
+                    (c) => html`
+                      <li class="dc-breaking-change dc-breaking-change-${c.type}">
+                        <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
+                        ${c.description}
+                      </li>
+                    `,
+                  )}
+                </ul>
+                <div class="dc-dialog-actions">
+                  <button
+                    class="ep-btn-outline btn-sm"
+                    @click=${() => this._cancelBreakingChanges()}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="ep-btn-primary btn-sm"
+                    @click=${() => this._acknowledgeBreakingChanges()}
+                  >
+                    Save Anyway
+                  </button>
+                </div>
+              </div>
+            </dialog>
+          `
+        : nothing}
 
       <!-- Migration dialog -->
       ${this._showMigrationDialog
@@ -447,12 +491,10 @@ export class EpistolaDataContractEditor extends LitElement {
         this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
     }
 
-    // Auto-strip orphaned example data keys when a field is deleted
-    if (command.type === 'deleteField') {
-      this._stripOrphanedExampleKeys();
-    }
-
     // Auto-rename example data keys when a field is renamed
+    // (Non-destructive: the value moves to the new key. Deletions are NOT
+    // auto-stripped — the migration dialog surfaces orphaned keys at save
+    // time so the user sees which data will be removed.)
     if (command.type === 'updateField' && command.updates.name) {
       const oldFieldInfo = findFieldPath(prevSchema.fields, command.fieldId);
       if (oldFieldInfo && oldFieldInfo.field.name !== command.updates.name) {
@@ -462,22 +504,6 @@ export class EpistolaDataContractEditor extends LitElement {
 
     // Re-validate examples against the updated schema
     this._validateAllExamples();
-  }
-
-  /**
-   * Strip keys from all example data that no longer exist in the schema.
-   */
-  private _stripOrphanedExampleKeys(): void {
-    const state = this.contractState!;
-    const schema = state.schema;
-    if (!schema) return;
-
-    for (const example of state.dataExamples) {
-      const cleaned = stripOrphanedKeys(example.data, schema);
-      if (JSON.stringify(cleaned) !== JSON.stringify(example.data)) {
-        state.updateDraftExample(example.id, { data: cleaned });
-      }
-    }
   }
 
   /**
@@ -575,6 +601,26 @@ export class EpistolaDataContractEditor extends LitElement {
     const state = this.contractState!;
     if (this._saving) return;
 
+    // Check for breaking schema changes (renames, deletions, type changes)
+    if (state.isSchemaDirty && state.schemaEditMode !== 'json-only') {
+      const breakingChanges = detectBreakingChanges(
+        this._committedVisualSchema.fields,
+        this._visualSchema.fields,
+      );
+      if (breakingChanges.length > 0) {
+        this._pendingBreakingChanges = breakingChanges;
+        this._showBreakingChangesDialog = true;
+        return;
+      }
+    }
+
+    await this._continueSave();
+  }
+
+  /** Continue save after breaking changes have been acknowledged. */
+  private async _continueSave(): Promise<void> {
+    const state = this.contractState!;
+
     // Check for pending migrations before saving
     if (state.isSchemaDirty) {
       const schemaForMigration =
@@ -630,6 +676,7 @@ export class EpistolaDataContractEditor extends LitElement {
           return;
         }
         this._commandHistory.clear();
+        this._committedVisualSchema = structuredClone(this._visualSchema);
         this._validateAllExamples();
         if (schemaResult.warnings) {
           this._schemaWarnings = Object.values(schemaResult.warnings).flat();
@@ -686,6 +733,21 @@ export class EpistolaDataContractEditor extends LitElement {
       newSet.add(key);
     }
     this._selectedMigrations = newSet;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Breaking changes dialog operations
+  // ---------------------------------------------------------------------------
+
+  private async _acknowledgeBreakingChanges(): Promise<void> {
+    this._showBreakingChangesDialog = false;
+    this._pendingBreakingChanges = [];
+    await this._continueSave();
+  }
+
+  private _cancelBreakingChanges(): void {
+    this._showBreakingChangesDialog = false;
+    this._pendingBreakingChanges = [];
   }
 
   private _selectAllMigrations(): void {
