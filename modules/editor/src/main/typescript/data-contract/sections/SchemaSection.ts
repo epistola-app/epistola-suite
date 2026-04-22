@@ -19,11 +19,13 @@ import type {
 } from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
 import { FIELD_TYPE_LABELS, isValidFieldName } from '../utils/schemaUtils.js';
+import type { BreakingChange } from '../utils/schemaBreakingChanges.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>;
+  breakingChanges: BreakingChange[];
   canUndo: boolean;
   canRedo: boolean;
   selectedFieldId: string | null;
@@ -104,6 +106,25 @@ export function renderSchemaSection(
           Redo
         </button>
       </div>
+
+      <!-- Breaking changes banner -->
+      ${uiState.breakingChanges.length > 0
+        ? html`
+            <div class="dc-breaking-changes-banner">
+              <div class="dc-breaking-changes-banner-title">
+                ${uiState.breakingChanges.length} breaking
+                change${uiState.breakingChanges.length === 1 ? '' : 's'}
+              </div>
+              ${uiState.breakingChanges.map(
+                (c) => html`
+                  <span class="dc-breaking-change-chip dc-breaking-change-chip-${c.type}">
+                    ${c.description}
+                  </span>
+                `,
+              )}
+            </div>
+          `
+        : nothing}
 
       <!-- Validation warnings -->
       ${renderValidationMessages(uiState.warnings)}

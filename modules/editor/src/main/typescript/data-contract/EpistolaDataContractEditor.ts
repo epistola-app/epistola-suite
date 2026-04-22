@@ -125,9 +125,9 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _pendingMigrations: MigrationSuggestion[] = [];
   @state() private _selectedMigrations = new Set<string>();
 
-  // Breaking changes dialog state
+  // Breaking changes (live + dialog)
+  @state() private _breakingChanges: BreakingChange[] = [];
   @state() private _showBreakingChangesDialog = false;
-  @state() private _pendingBreakingChanges: BreakingChange[] = [];
 
   // Timers
   private _successTimer?: ReturnType<typeof setTimeout>;
@@ -259,7 +259,7 @@ export class EpistolaDataContractEditor extends LitElement {
                   The following changes may affect external systems consuming this data contract:
                 </p>
                 <ul class="dc-breaking-changes-list">
-                  ${this._pendingBreakingChanges.map(
+                  ${this._breakingChanges.map(
                     (c) => html`
                       <li class="dc-breaking-change dc-breaking-change-${c.type}">
                         <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
@@ -410,6 +410,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private _renderVisualSchemaSection(): unknown {
     const uiState: SchemaUiState = {
       warnings: this._schemaWarnings,
+      breakingChanges: this._breakingChanges,
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
       selectedFieldId: this._selectedFieldId,
@@ -502,8 +503,17 @@ export class EpistolaDataContractEditor extends LitElement {
       }
     }
 
-    // Re-validate examples against the updated schema
+    // Re-validate examples and recompute breaking changes
     this._validateAllExamples();
+    this._updateBreakingChanges();
+  }
+
+  /** Recompute live breaking changes by diffing committed vs current visual schema. */
+  private _updateBreakingChanges(): void {
+    this._breakingChanges = detectBreakingChanges(
+      this._committedVisualSchema.fields,
+      this._visualSchema.fields,
+    );
   }
 
   /**
@@ -559,6 +569,7 @@ export class EpistolaDataContractEditor extends LitElement {
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
       this._validateAllExamples();
+      this._updateBreakingChanges();
     }
   }
 
@@ -569,6 +580,7 @@ export class EpistolaDataContractEditor extends LitElement {
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
       this._validateAllExamples();
+      this._updateBreakingChanges();
     }
   }
 
@@ -608,7 +620,7 @@ export class EpistolaDataContractEditor extends LitElement {
         this._visualSchema.fields,
       );
       if (breakingChanges.length > 0) {
-        this._pendingBreakingChanges = breakingChanges;
+        this._breakingChanges = breakingChanges;
         this._showBreakingChangesDialog = true;
         return;
       }
@@ -741,13 +753,11 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private async _acknowledgeBreakingChanges(): Promise<void> {
     this._showBreakingChangesDialog = false;
-    this._pendingBreakingChanges = [];
     await this._continueSave();
   }
 
   private _cancelBreakingChanges(): void {
     this._showBreakingChangesDialog = false;
-    this._pendingBreakingChanges = [];
   }
 
   private _selectAllMigrations(): void {

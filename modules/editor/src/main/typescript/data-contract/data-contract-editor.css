@@ -1415,6 +1415,54 @@
   }
 
   /* --------------------------------------------------------------------------
+   * Breaking changes banner (live, in schema tab)
+   * ---------------------------------------------------------------------- */
+
+  .dc-breaking-changes-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+    background: var(--ep-amber-50);
+    border: 1px solid var(--ep-amber-200);
+    border-radius: var(--ep-radius-md);
+  }
+
+  .dc-breaking-changes-banner-title {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-amber-800);
+    margin-right: var(--ep-space-1);
+  }
+
+  .dc-breaking-change-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .dc-breaking-change-chip-removed {
+    background: var(--ep-red-100);
+    color: var(--ep-red-700);
+  }
+
+  .dc-breaking-change-chip-renamed {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-700);
+  }
+
+  .dc-breaking-change-chip-type_changed {
+    background: var(--ep-blue-100);
+    color: var(--ep-blue-700);
+  }
+
+  /* --------------------------------------------------------------------------
    * Breaking changes dialog
    * ---------------------------------------------------------------------- */
 
