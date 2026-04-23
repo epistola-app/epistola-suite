@@ -23,26 +23,9 @@
     cursor: default;
   }
 
-  /* Border variants */
-  .table-canvas-grid.border-all .table-canvas-cell {
-    border: 1px solid var(--ep-gray-300);
-  }
-
-  .table-canvas-grid.border-horizontal .table-canvas-cell {
-    border-top: 1px solid var(--ep-gray-300);
-    border-bottom: 1px solid var(--ep-gray-300);
-    border-left: none;
-    border-right: none;
-  }
-
-  .table-canvas-grid.border-vertical .table-canvas-cell {
-    border-top: none;
-    border-bottom: none;
-    border-left: 1px solid var(--ep-gray-300);
-    border-right: 1px solid var(--ep-gray-300);
-  }
-
-  .table-canvas-grid.border-none .table-canvas-cell {
+  /* Canvas-only placeholder grid. Real borders come from inline styles
+     (cellStyle['border-top'] etc.) which override this rule. */
+  .table-canvas-grid .table-canvas-cell {
     border: 1px dashed var(--ep-gray-200);
   }
 

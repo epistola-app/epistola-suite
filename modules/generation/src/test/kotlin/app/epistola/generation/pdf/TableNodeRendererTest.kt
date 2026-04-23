@@ -47,10 +47,10 @@ class TableNodeRendererTest {
         rows: Int,
         columns: Int,
         columnWidths: List<Int>? = null,
-        borderStyle: String = "all",
         headerRows: Int = 0,
         merges: List<Map<String, Any>> = emptyList(),
         cellStyles: Map<String, Map<String, Any>>? = null,
+        nodeStyles: Map<String, Any?>? = null,
     ): TemplateDocument {
         val tableNodeId = "table1"
         val rootNodeId = "root-1"
@@ -80,7 +80,6 @@ class TableNodeRendererTest {
         val tableProps = mutableMapOf<String, Any?>(
             "rows" to rows,
             "columns" to columns,
-            "borderStyle" to borderStyle,
             "headerRows" to headerRows,
         )
         if (columnWidths != null) {
@@ -98,6 +97,7 @@ class TableNodeRendererTest {
             type = "table",
             slots = tableSlotIds,
             props = tableProps,
+            styles = nodeStyles,
         )
 
         // Root
@@ -151,20 +151,24 @@ class TableNodeRendererTest {
     }
 
     @Test
-    fun `renders table with border style none`() {
-        val doc = tableDocument(rows = 2, columns = 2, borderStyle = "none")
+    fun `renders table without any border styles`() {
+        // No node styles, no cell styles: cells render borderless (iText defaults suppressed).
+        val doc = tableDocument(rows = 2, columns = 2)
         assertValidPdf(renderToBytes(doc))
     }
 
     @Test
-    fun `renders table with border style horizontal`() {
-        val doc = tableDocument(rows = 2, columns = 2, borderStyle = "horizontal")
-        assertValidPdf(renderToBytes(doc))
-    }
-
-    @Test
-    fun `renders table with border style vertical`() {
-        val doc = tableDocument(rows = 2, columns = 2, borderStyle = "vertical")
+    fun `renders table with outer border from node styles`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            nodeStyles = mapOf(
+                "borderTop" to "1pt solid #000000",
+                "borderRight" to "1pt solid #000000",
+                "borderBottom" to "1pt solid #000000",
+                "borderLeft" to "1pt solid #000000",
+            ),
+        )
         assertValidPdf(renderToBytes(doc))
     }
 
@@ -372,32 +376,15 @@ class TableNodeRendererTest {
     }
 
     @Test
-    fun `renders table with custom border color and width from props`() {
-        val rootSlotId = "slot-root"
-        val tableSlotId = "slot-cell-0-0"
-        val textId = "t-0-0"
-
-        val doc = TemplateDocument(
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
-                "table1" to Node(
-                    id = "table1",
-                    type = "table",
-                    slots = listOf(tableSlotId),
-                    props = mapOf(
-                        "rows" to 1,
-                        "columns" to 1,
-                        "borderStyle" to "all",
-                        "borderColor" to "#2563eb",
-                        "borderWidth" to 2.0,
-                    ),
-                ),
-                textId to textNode(textId, "Blue border"),
-            ),
-            slots = mapOf(
-                rootSlotId to Slot(id = rootSlotId, nodeId = "root", name = "children", children = listOf("table1")),
-                tableSlotId to Slot(id = tableSlotId, nodeId = "table1", name = "cell-0-0", children = listOf(textId)),
+    fun `renders table with custom border color and width from node styles`() {
+        val doc = tableDocument(
+            rows = 1,
+            columns = 1,
+            nodeStyles = mapOf(
+                "borderTop" to "2pt solid #2563eb",
+                "borderRight" to "2pt solid #2563eb",
+                "borderBottom" to "2pt solid #2563eb",
+                "borderLeft" to "2pt solid #2563eb",
             ),
         )
         assertValidPdf(renderToBytes(doc))

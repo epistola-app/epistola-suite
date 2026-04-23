@@ -32,7 +32,6 @@ export const TABLE_DEFAULT_PROPS = {
   rows: 2,
   columns: 2,
   columnWidths: [50, 50],
-  borderStyle: 'all',
   headerRows: 0,
   merges: [],
 };
@@ -58,20 +57,7 @@ export function createTableDefinition(): ComponentDefinition {
     allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
     defaultStyles: { marginBottom: '1.5sp' },
-    inspector: [
-      {
-        key: 'borderStyle',
-        label: 'Border Style',
-        type: 'select',
-        options: [
-          { label: 'None', value: 'none' },
-          { label: 'All', value: 'all' },
-          { label: 'Horizontal', value: 'horizontal' },
-          { label: 'Vertical', value: 'vertical' },
-        ],
-        defaultValue: 'all',
-      },
-    ],
+    inspector: [],
     defaultProps: { ...TABLE_DEFAULT_PROPS },
     createInitialSlots: (nodeId: NodeId, props?: Record<string, unknown>) => {
       const rows = (props?.rows as number | undefined) ?? TABLE_DEFAULT_PROPS.rows;
@@ -105,7 +91,6 @@ export function createTableDefinition(): ComponentDefinition {
       const columnWidths = (props.columnWidths as number[]) ?? [];
       const merges = (props.merges as CellMerge[]) ?? [];
       const headerRows = (props.headerRows as number) ?? 0;
-      const borderStyle = (props.borderStyle as string) ?? 'all';
 
       if (rows <= 0 || columns <= 0) return html`<div class="table-canvas-empty">Empty table</div>`;
 
@@ -212,7 +197,7 @@ export function createTableDefinition(): ComponentDefinition {
 
       return html`
         <div
-          class="table-canvas-grid border-${borderStyle}"
+          class="table-canvas-grid"
           style=${styleMap({ 'grid-template-columns': gridTemplateColumns })}
         >
           ${cells}

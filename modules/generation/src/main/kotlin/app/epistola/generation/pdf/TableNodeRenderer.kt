@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Table
@@ -12,11 +13,13 @@ import com.itextpdf.layout.properties.UnitValue
  *
  * Table uses cell slots named "cell-{row}-{col}" (e.g., "cell-0-0", "cell-0-1", "cell-1-0").
  *
+ * Borders: set via the CSS `border*` style properties on the node (outer table border)
+ * or via `cellStyles[row-col].border*` (per-cell override).
+ *
  * Props:
  * - `rows`: Int (number of rows)
  * - `columns`: Int (number of columns)
  * - `columnWidths`: List of Int (optional, relative column widths)
- * - `borderStyle`: String (optional, one of "all", "horizontal", "vertical", "none")
  * - `headerRows`: Int (optional, number of header rows, default 0)
  * - `merges`: List of `{ row, col, rowSpan, colSpan }` (optional, merged cell regions)
  */
@@ -60,13 +63,6 @@ class TableNodeRenderer : NodeRenderer {
             context.spacingUnit,
         )
 
-        // Border style — overridable from props, falls back to rendering defaults
-        val borderStyle = parseBorderStyle(node.props?.get("borderStyle") as? String)
-        val borderColor = (node.props?.get("borderColor") as? String)?.let { StyleApplicator.parseColor(it) }
-            ?: parseHexBorderColor(context.renderingDefaults.tableBorderColorHex)
-        val borderWidth = (node.props?.get("borderWidth") as? Number)?.toFloat()
-            ?: context.renderingDefaults.tableBorderWidth
-
         // Per-cell styles from props
         @Suppress("UNCHECKED_CAST")
         val cellStyles = node.props?.get("cellStyles") as? Map<String, Map<String, Any>>
@@ -100,6 +96,11 @@ class TableNodeRenderer : NodeRenderer {
 
                 val cell = Cell(rowSpan, colSpan)
 
+                // Suppress iText's default cell borders. Borders are opt-in:
+                // table-level `border*` styles draw the outer border on the Table itself,
+                // and per-cell overrides come from `cellStyles` below.
+                cell.setBorder(Border.NO_BORDER)
+
                 // Apply per-cell styles if defined, otherwise use defaults
                 val cellKey = "$row-$col"
                 val perCellStyles = cellStyles?.get(cellKey)
@@ -116,12 +117,6 @@ class TableNodeRenderer : NodeRenderer {
                 // Apply default padding only if no per-cell padding is set
                 if (perCellStyles?.keys?.none { it.startsWith("padding") } != false) {
                     cell.setPadding(context.renderingDefaults.tableCellPadding)
-                }
-
-                // Apply table-level border only if no per-cell borders are set
-                val hasCellBorders = perCellStyles?.keys?.any { it.startsWith("border") } == true
-                if (!hasCellBorders) {
-                    applyCellBorder(cell, borderStyle, borderColor, borderWidth)
                 }
 
                 // Bold for header rows

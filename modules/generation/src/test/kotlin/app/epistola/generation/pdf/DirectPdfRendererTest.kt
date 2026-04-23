@@ -497,7 +497,6 @@ class DirectPdfRendererTest {
                 "rows" to 2,
                 "columns" to 2,
                 "headerRows" to 1,
-                "borderStyle" to "all",
             ),
         )
 
