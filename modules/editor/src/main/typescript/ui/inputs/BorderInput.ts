@@ -20,7 +20,7 @@ import {
   DEFAULT_SPACING_UNIT,
 } from './style-inputs.js';
 
-const EMPTY_SIDE: BorderSideValue = { width: '', style: 'solid', color: '' };
+const EMPTY_SIDE: BorderSideValue = { width: '', style: 'none', color: '' };
 
 const BORDER_STYLES = [
   { label: 'None', value: 'none' },
@@ -73,7 +73,19 @@ export class BorderInput extends LitElement {
 
   private _handleSideChange(side: keyof BorderValue, field: keyof BorderSideValue, val: string) {
     const parsed = this._parsed;
-    const updated = { ...parsed[side], [field]: val };
+    let updated: BorderSideValue = { ...parsed[side], [field]: val };
+
+    // When the style is visible, width must be >= 0.5 in the current unit.
+    if (updated.style !== 'none') {
+      const w = parseValueWithUnit(updated.width, this._defaultUnit);
+      if (!updated.width || w.value < 0.5) {
+        updated = {
+          ...updated,
+          width: formatValueWithUnit(0.5, w.unit || this._defaultUnit),
+        };
+      }
+    }
+
     if (this._linked) {
       this._emitChange({
         top: { ...updated },
@@ -130,55 +142,6 @@ export class BorderInput extends LitElement {
       <div class="style-border-side-group">
         <div class="style-border-row">
           <span class="style-border-label">${label}</span>
-          <input
-            type="number"
-            class="ep-input style-border-width"
-            min="0"
-            step="0.5"
-            .value=${String(widthParsed.value || '')}
-            ?disabled=${this.readOnly}
-            @change=${(e: Event) => {
-              const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-              this._handleSideChange(
-                side,
-                'width',
-                num > 0 ? formatValueWithUnit(num, widthParsed.unit) : '',
-              );
-            }}
-          />
-          ${this.units.length > 1
-            ? html`
-                <select
-                  class="ep-select style-border-unit-select"
-                  ?disabled=${this.readOnly}
-                  @change=${(e: Event) => {
-                    const newUnit = (e.target as HTMLSelectElement).value;
-                    const oldUnit = widthParsed.unit;
-                    let newValue = widthParsed.value;
-                    if (oldUnit === 'pt' && newUnit === 'sp') {
-                      newValue = parseFloat(
-                        nearestSpacingStep(widthParsed.value, DEFAULT_SPACING_UNIT),
-                      );
-                    } else if (oldUnit === 'sp' && newUnit === 'pt') {
-                      newValue = widthParsed.value * DEFAULT_SPACING_UNIT;
-                    }
-                    this._handleSideChange(
-                      side,
-                      'width',
-                      newValue > 0 ? formatValueWithUnit(newValue, newUnit) : '',
-                    );
-                  }}
-                >
-                  ${this.units.map(
-                    (u) =>
-                      html`<option .value=${u} ?selected=${u === widthParsed.unit}>${u}</option>`,
-                  )}
-                </select>
-              `
-            : nothing}
-        </div>
-        <div class="style-border-row">
-          <span class="style-border-label"></span>
           <select
             class="ep-select style-border-style-select"
             ?disabled=${this.readOnly}
@@ -192,24 +155,79 @@ export class BorderInput extends LitElement {
                 </option>`,
             )}
           </select>
-          <input
-            type="text"
-            class="ep-input style-border-color-text"
-            .value=${s.color || ''}
-            placeholder="#000000"
-            ?disabled=${this.readOnly}
-            @change=${(e: Event) =>
-              this._handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
-          />
-          <input
-            type="color"
-            class="style-border-color-picker"
-            .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
-            ?disabled=${this.readOnly}
-            @input=${(e: Event) =>
-              this._handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
-          />
         </div>
+        ${s.style !== 'none'
+          ? html`
+              <div class="style-border-row">
+                <span class="style-border-label"></span>
+                <input
+                  type="number"
+                  class="ep-input style-border-width"
+                  min="0.5"
+                  step="0.5"
+                  .value=${String(widthParsed.value || '')}
+                  ?disabled=${this.readOnly}
+                  @change=${(e: Event) => {
+                    const num = parseFloat((e.target as HTMLInputElement).value) || 0;
+                    this._handleSideChange(
+                      side,
+                      'width',
+                      formatValueWithUnit(num, widthParsed.unit),
+                    );
+                  }}
+                />
+                ${this.units.length > 1
+                  ? html`
+                      <select
+                        class="ep-select style-border-unit-select"
+                        ?disabled=${this.readOnly}
+                        @change=${(e: Event) => {
+                          const newUnit = (e.target as HTMLSelectElement).value;
+                          const oldUnit = widthParsed.unit;
+                          let newValue = widthParsed.value;
+                          if (oldUnit === 'pt' && newUnit === 'sp') {
+                            newValue = parseFloat(
+                              nearestSpacingStep(widthParsed.value, DEFAULT_SPACING_UNIT),
+                            );
+                          } else if (oldUnit === 'sp' && newUnit === 'pt') {
+                            newValue = widthParsed.value * DEFAULT_SPACING_UNIT;
+                          }
+                          this._handleSideChange(
+                            side,
+                            'width',
+                            formatValueWithUnit(newValue, newUnit),
+                          );
+                        }}
+                      >
+                        ${this.units.map(
+                          (u) =>
+                            html`<option .value=${u} ?selected=${u === widthParsed.unit}>
+                              ${u}
+                            </option>`,
+                        )}
+                      </select>
+                    `
+                  : nothing}
+                <input
+                  type="text"
+                  class="ep-input style-border-color-text"
+                  .value=${s.color || ''}
+                  placeholder="#000000"
+                  ?disabled=${this.readOnly}
+                  @change=${(e: Event) =>
+                    this._handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
+                />
+                <input
+                  type="color"
+                  class="style-border-color-picker"
+                  .value=${s.color && s.color.startsWith('#') ? s.color : '#000000'}
+                  ?disabled=${this.readOnly}
+                  @input=${(e: Event) =>
+                    this._handleSideChange(side, 'color', (e.target as HTMLInputElement).value)}
+                />
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }
