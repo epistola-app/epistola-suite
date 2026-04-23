@@ -63,6 +63,16 @@ class UpdateDocumentTemplateHandler(
     override fun handle(command: UpdateDocumentTemplate): UpdateDocumentTemplateResult? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
+        // Validate property names in the schema
+        if (command.dataModel != null) {
+            val invalidNames = jsonSchemaValidator.validatePropertyNames(command.dataModel)
+            if (invalidNames.isNotEmpty()) {
+                throw DataModelValidationException(
+                    mapOf("_propertyNames" to invalidNames.map { ValidationError("Invalid property name at $it: must contain only letters, digits, and underscores", it) }),
+                )
+            }
+        }
+
         // Validate examples against schema and collect warnings
         val warnings = mutableMapOf<String, List<ValidationError>>()
         val schemaToValidate = command.dataModel

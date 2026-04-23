@@ -183,7 +183,7 @@ describe('DataContractState', () => {
       const result = await state.saveSchema();
 
       expect(result.success).toBe(true);
-      expect(onSaveSchema).toHaveBeenCalledWith(newSchema, false);
+      expect(onSaveSchema).toHaveBeenCalledWith(newSchema, false, undefined);
       expect(state.isSchemaDirty).toBe(false);
     });
 
@@ -194,7 +194,7 @@ describe('DataContractState', () => {
 
       await state.saveSchema(true);
 
-      expect(onSaveSchema).toHaveBeenCalledWith(null, true);
+      expect(onSaveSchema).toHaveBeenCalledWith(null, true, undefined);
     });
 
     it('does not commit on failure', async () => {

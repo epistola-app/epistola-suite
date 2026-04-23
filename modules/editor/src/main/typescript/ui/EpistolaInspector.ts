@@ -597,12 +597,13 @@ export class EpistolaInspector extends LitElement {
     if (!node) return;
 
     let newProps = structuredClone(node.props ?? {});
-    setNestedValue(newProps, key, value);
 
     const def = this.engine.registry.get(node.type);
     if (def?.onPropChange) {
       newProps = def.onPropChange(key, value, newProps);
     }
+
+    setNestedValue(newProps, key, value);
 
     // Validate scope conflicts if this component provides scoped variables
     if (def?.scopeProvider) {
