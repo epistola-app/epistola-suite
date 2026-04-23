@@ -74,13 +74,17 @@ export class TableInspector extends LitElement {
   }
 
   override render() {
+    // When a cell is selected, show cell-only controls. When only the table
+    // is selected (no cell selection), show table-only controls.
+    if (this._cellSelection) {
+      return html` ${this._renderMergeControls()} ${this._renderCellStyles()} `;
+    }
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Table Layout</div>
         ${this._renderRowCount()} ${this._renderColumnCount()} ${this._renderColumnWidths()}
-        ${this._renderHeaderRows()} ${this._renderMergeControls()}
+        ${this._renderHeaderRows()}
       </div>
-      ${this._renderCellStyles()}
     `;
   }
 
