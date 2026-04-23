@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Border input UX**: The per-side border input now shows the style dropdown (None/Solid/Dashed/Dotted) on top and the width/unit/color controls below. Width/unit/color are hidden when style is `None`. New borders default to `None` instead of `Solid`, and the width is clamped to at least 0.5 in the active unit whenever a visible style is chosen.
+- **Table borders via CSS only**: Removed the `borderStyle`/`borderColor`/`borderWidth` props on the `table` component and the "Border Style" inspector dropdown. Borders are now set exclusively via the CSS `border` property — on the node for the outer table border, or on selected cells for per-cell borders. Default cell borders are suppressed; new tables render borderless until the user opts in.
+- **Table inspector scoping**: Selecting a cell shows only cell-specific controls (merge actions and cell style). Selecting the table without a cell shows only table-level controls (rows, columns, widths, header rows, and node styles). Previously both sets were shown at once, which caused confusion about which properties applied where.
+
 ## [0.16.0] - 2026-04-23
 
 ### Added
@@ -37,19 +43,6 @@
 - **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
 - **Catalog delete dialog**: Delete errors (e.g. "catalog in use") now display in the confirm dialog instead of silently failing. Returns 422 with JSON error for HTMX requests.
 - **Address block positioning**: Replaced `left` prop with `align` (`left`/`right`) and `sideDistance` (distance from the aligned page edge). The `standard` select now acts as a preset that populates these properties. Previously, right-window positioning required manually computing the left offset from the page edge.
-
-### Added
-
-- **Catalog resource usage**: The catalog browse page shows per-resource usage counts from other catalogs. Clicking a count opens a dialog listing which templates reference that resource.
-- **`UpgradeCatalog` command**: Upgrades a subscribed catalog in place — re-fetches the manifest, updates metadata and version, upgrades previously installed resources, and removes installed resources no longer in the manifest. Replaces the old unregister/re-register approach which failed when other templates referenced the catalog's themes.
-- **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
-
-### Changed
-
-- **Demo templates**: Replaced `themeRef` overrides (which lock the theme at the variant level) with `themeId` at the resource level, allowing the theme to be changed from the template settings page.
-- **Border input UX**: The per-side border input now shows the style dropdown (None/Solid/Dashed/Dotted) on top and the width/unit/color controls below. Width/unit/color are hidden when style is `None`. New borders default to `None` instead of `Solid`, and the width is clamped to at least 0.5 in the active unit whenever a visible style is chosen.
-- **Table borders via CSS only**: Removed the `borderStyle`/`borderColor`/`borderWidth` props on the `table` component and the "Border Style" inspector dropdown. Borders are now set exclusively via the CSS `border` property — on the node for the outer table border, or on selected cells for per-cell borders. Default cell borders are suppressed; new tables render borderless until the user opts in.
-- **Table inspector scoping**: Selecting a cell shows only cell-specific controls (merge actions and cell style). Selecting the table without a cell shows only table-level controls (rows, columns, widths, header rows, and node styles). Previously both sets were shown at once, which caused confusion about which properties applied where.
 
 ## [0.15.0] - 2026-04-20
 
