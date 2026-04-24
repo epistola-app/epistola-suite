@@ -429,13 +429,17 @@ export class EpistolaEditor extends LitElement {
     // returns to table-level controls, without deselecting the table itself.
     // `EditorEngine.selectNode` is a no-op when re-selecting the already
     // selected table, so the normal `selection:change` path can't clear this.
+    // Guard: only intercept when the selected node is actually a table to avoid
+    // swallowing Escape for unrelated selections if state is ever set spuriously.
     if (
       e.key === 'Escape' &&
       !e.ctrlKey &&
       !e.metaKey &&
       !e.altKey &&
       !e.shiftKey &&
-      this._engine.getComponentState('table:cellSelection') != null
+      this._engine.getComponentState('table:cellSelection') != null &&
+      this._selectedNodeId != null &&
+      this._engine.getNode(this._selectedNodeId)?.type === 'table'
     ) {
       this._engine.setComponentState('table:cellSelection', null);
       e.preventDefault();
