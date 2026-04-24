@@ -141,6 +141,17 @@ export function createTableDefinition(): ComponentDefinition {
         engine.setComponentState('table:cellSelection', newSel);
       };
 
+      // Click on the grid wrapper outside any cell: clear the cell selection
+      // so the inspector returns to table-level controls. `selectNode` is a
+      // no-op when the table is already selected, so clearing the component
+      // state is the only reliable exit path that keeps the table selected.
+      const handleGridClick = (e: MouseEvent) => {
+        if (e.target !== e.currentTarget) return;
+        if (engine.getComponentState<CellSelection>('table:cellSelection') == null) return;
+        engine.setComponentState('table:cellSelection', null);
+        e.stopPropagation();
+      };
+
       // Build cells
       const cells: unknown[] = [];
       for (let r = 0; r < rows; r++) {
@@ -199,6 +210,7 @@ export function createTableDefinition(): ComponentDefinition {
         <div
           class="table-canvas-grid"
           style=${styleMap({ 'grid-template-columns': gridTemplateColumns })}
+          @click=${handleGridClick}
         >
           ${cells}
         </div>

@@ -425,6 +425,24 @@ export class EpistolaEditor extends LitElement {
       return;
     }
 
+    // Escape in table cell-mode: clear the cell selection so the inspector
+    // returns to table-level controls, without deselecting the table itself.
+    // `EditorEngine.selectNode` is a no-op when re-selecting the already
+    // selected table, so the normal `selection:change` path can't clear this.
+    if (
+      e.key === 'Escape' &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey &&
+      !e.shiftKey &&
+      this._engine.getComponentState('table:cellSelection') != null
+    ) {
+      this._engine.setComponentState('table:cellSelection', null);
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     const inInsertDialog = this._insertDialogOpen;
     const activeContexts = inInsertDialog
       ? (['insertDialog'] as const)

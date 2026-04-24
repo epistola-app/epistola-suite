@@ -638,3 +638,101 @@ describe('EpistolaEditor block clipboard', () => {
     expect(editorAny._pasteDialogOpen).toBe(false);
   });
 });
+
+describe('EpistolaEditor table cell-mode exit', () => {
+  type CellSelection = { startRow: number; startCol: number; endRow: number; endCol: number };
+
+  type EditorHandle = {
+    _handleKeydown: (event: KeyboardEvent) => void;
+    _engine: {
+      selectedNodeId: string | null;
+      selectNode: (id: string | null) => void;
+      getComponentState: <T>(key: string) => T | undefined;
+      setComponentState: (key: string, value: unknown) => void;
+    };
+  };
+
+  function escapeEvent(overrides: Partial<KeyboardEvent> = {}): {
+    event: KeyboardEvent;
+    wasPrevented: () => boolean;
+    wasStopped: () => boolean;
+  } {
+    let prevented = false;
+    let stopped = false;
+    const event = {
+      key: 'Escape',
+      code: 'Escape',
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      shiftKey: false,
+      preventDefault: () => {
+        prevented = true;
+      },
+      stopPropagation: () => {
+        stopped = true;
+      },
+      ...overrides,
+    } as unknown as KeyboardEvent;
+    return {
+      event,
+      wasPrevented: () => prevented,
+      wasStopped: () => stopped,
+    };
+  }
+
+  it('Escape clears an active cell selection without deselecting the table', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as EditorHandle;
+    editorAny._engine.selectNode(textNodeId);
+    const selection: CellSelection = { startRow: 0, startCol: 0, endRow: 0, endCol: 0 };
+    editorAny._engine.setComponentState('table:cellSelection', selection);
+
+    const { event, wasPrevented, wasStopped } = escapeEvent();
+    editorAny._handleKeydown(event);
+
+    expect(editorAny._engine.getComponentState('table:cellSelection')).toBeNull();
+    expect(editorAny._engine.selectedNodeId).toBe(textNodeId);
+    expect(wasPrevented()).toBe(true);
+    expect(wasStopped()).toBe(true);
+  });
+
+  it('Escape with no cell selection falls through to the existing deselect shortcut', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as EditorHandle;
+    editorAny._engine.selectNode(textNodeId);
+    expect(editorAny._engine.getComponentState('table:cellSelection')).toBeNull();
+
+    const { event } = escapeEvent();
+    editorAny._handleKeydown(event);
+
+    // My interceptor must skip (no cell selection), letting the existing
+    // 'deselectSelectedBlock' shortcut deselect to document level.
+    expect(editorAny._engine.selectedNodeId).toBeNull();
+  });
+
+  it('modified Escape (e.g. Shift+Escape) bypasses the cell-mode exit branch', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as EditorHandle;
+    editorAny._engine.selectNode(textNodeId);
+    const selection: CellSelection = { startRow: 1, startCol: 2, endRow: 1, endCol: 2 };
+    editorAny._engine.setComponentState('table:cellSelection', selection);
+
+    const { event } = escapeEvent({ shiftKey: true });
+    editorAny._handleKeydown(event);
+
+    // If the interceptor fired for Shift+Escape, the table would stay
+    // selected (it calls stopPropagation before the shortcut resolver runs).
+    // Skipping it lets the existing deselect shortcut clear the selection.
+    expect(editorAny._engine.selectedNodeId).toBeNull();
+  });
+});
