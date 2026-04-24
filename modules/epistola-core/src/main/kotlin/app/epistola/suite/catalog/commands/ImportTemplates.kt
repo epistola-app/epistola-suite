@@ -132,10 +132,10 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
+                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, pdfa_enabled, created_at, last_modified)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, FALSE, NOW(), NOW())
                     ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, last_modified = NOW()
                     """,
             )
                 .bind("id", templateId)
@@ -144,15 +144,13 @@ class ImportTemplatesHandler(
                 .bind("name", input.name)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
-                .bind("dataModel", dataModelJson)
-                .bind("dataExamples", dataExamplesJson)
                 .execute()
             ImportStatus.CREATED
         } else {
             handle.createUpdate(
                 """
                     UPDATE document_templates
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, last_modified = NOW()
                     WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
             )
@@ -162,10 +160,50 @@ class ImportTemplatesHandler(
                 .bind("name", input.name)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
+                .execute()
+            ImportStatus.UPDATED
+        }
+
+        // 2b. Upsert contract version (data model + examples) into contract_versions
+        if (dataModelJson != null || input.dataExamples.isNotEmpty()) {
+            // Delete existing draft contract — import supersedes local edits
+            handle.createUpdate(
+                """
+                    DELETE FROM contract_versions
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND status = 'draft'
+                    """,
+            )
+                .bind("tenantId", tenantId.key)
+                .bind("catalogKey", catalogKey)
+                .bind("templateId", templateId)
+                .execute()
+
+            val nextContractVersionId = handle.createQuery(
+                """
+                    SELECT COALESCE(MAX(id), 0) + 1
+                    FROM contract_versions
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
+                    """,
+            )
+                .bind("tenantId", tenantId.key)
+                .bind("catalogKey", catalogKey)
+                .bind("templateId", templateId)
+                .mapTo(Int::class.java)
+                .one()
+
+            handle.createUpdate(
+                """
+                    INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, published_at, created_at)
+                    VALUES (:id, :tenantId, :catalogKey, :templateId, :dataModel::jsonb, :dataExamples::jsonb, 'published', NOW(), NOW())
+                    """,
+            )
+                .bind("id", nextContractVersionId)
+                .bind("tenantId", tenantId.key)
+                .bind("catalogKey", catalogKey)
+                .bind("templateId", templateId)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
                 .execute()
-            ImportStatus.UPDATED
         }
 
         // 3. Clear existing default flag to avoid unique partial index conflict during upserts

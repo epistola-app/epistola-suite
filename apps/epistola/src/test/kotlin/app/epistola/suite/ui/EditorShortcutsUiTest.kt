@@ -8,17 +8,25 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.JsonNodeFactory
 
 class EditorShortcutsUiTest : BasePlaywrightTest() {
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
 
     companion object {
         // Leader idle timeout is 1600ms in EpistolaEditor; we wait slightly longer to avoid scheduler jitter.
@@ -246,16 +254,27 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
             attributes = emptyMap(),
         ).execute()
 
-        UpdateDocumentTemplate(
-            id = templateId,
-            dataExamples = listOf(
-                DataExample(
-                    id = "example-1",
-                    name = "Example 1",
-                    data = JsonNodeFactory.instance.objectNode().put("name", "Test"),
-                ),
+        // Insert data examples via contract version
+        val examples = listOf(
+            DataExample(
+                id = "example-1",
+                name = "Example 1",
+                data = JsonNodeFactory.instance.objectNode().put("name", "Test"),
             ),
-        ).execute()
+        )
+        jdbi.withHandle<Unit, Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at)
+                VALUES (1, :tenantKey, :catalogKey, :templateKey, :dataExamples::jsonb, 'draft', NOW())
+                """,
+            )
+                .bind("tenantKey", templateId.tenantKey)
+                .bind("catalogKey", templateId.catalogKey)
+                .bind("templateKey", templateId.key)
+                .bind("dataExamples", objectMapper.writeValueAsString(examples))
+                .execute()
+        }
 
         return Triple(tenant, template, variant!!.id.toString())
     }

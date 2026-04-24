@@ -13,9 +13,6 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
-import app.epistola.suite.templates.validation.JsonSchemaValidator
-import app.epistola.suite.templates.validation.SchemaValidationResult
-import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import app.epistola.template.model.ThemeRef
@@ -27,7 +24,6 @@ import tools.jackson.databind.ObjectMapper
 data class CreateDocumentTemplate(
     val id: TemplateId,
     val name: String,
-    val schema: String? = null,
 ) : Command<DocumentTemplate>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -43,34 +39,24 @@ data class CreateDocumentTemplate(
 class CreateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
-
-        // Validate schema if provided
-        command.schema?.let { schemaJson ->
-            when (val result = jsonSchemaValidator.validateSchema(schemaJson)) {
-                is SchemaValidationResult.Valid -> { /* Schema is valid */ }
-                is SchemaValidationResult.Invalid -> throw ValidationException("schema", result.message)
-            }
-        }
 
         return executeOrThrowDuplicate("template", command.id.key.value) {
             jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :name, NULL, :schema::jsonb, NULL, '[]'::jsonb, FALSE, NOW(), NOW())
-                RETURNING id, tenant_key, catalog_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, pdfa_enabled, created_at, last_modified)
+                VALUES (:id, :tenantId, :catalogKey, :name, NULL, FALSE, NOW(), NOW())
+                RETURNING id, tenant_key, catalog_key, name, theme_key, pdfa_enabled, created_at, last_modified
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("name", command.name)
-                    .bind("schema", command.schema)
                     .mapTo<DocumentTemplate>()
                     .one()
 

@@ -96,7 +96,7 @@
                         <button type="button" class="btn btn-sm btn-icon btn-ghost"
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
-                                th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                th:data-test-data="${contractDataExamples != null and !#lists.isEmpty(contractDataExamples) ? contractDataExamples[0].data : '{}'}"
                                 onclick="previewPdf(this)" title="Preview latest version">
                             <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </button>

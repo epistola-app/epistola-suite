@@ -7,22 +7,47 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
-import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 @Timeout(30)
 class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
     private val objectMapper = ObjectMapper()
+
+    /**
+     * Inserts a draft contract version with the given data model into contract_versions.
+     */
+    private fun insertDraftContract(templateId: TemplateId, dataModel: String) {
+        jdbi.withHandle<Unit, Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, created_at)
+                VALUES (1, :tenantKey, :catalogKey, :templateKey, :dataModel::jsonb, '[]'::jsonb, 'draft', NOW())
+                ON CONFLICT (tenant_key, catalog_key, template_key) WHERE status = 'draft'
+                DO UPDATE SET data_model = :dataModel::jsonb
+                """,
+            )
+                .bind("tenantKey", templateId.tenantKey)
+                .bind("catalogKey", templateId.catalogKey)
+                .bind("templateKey", templateId.key)
+                .bind("dataModel", dataModel)
+                .execute()
+        }
+    }
 
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
 
@@ -121,15 +146,10 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = version(compositeVariantId, templateModel)
 
-                // Add schema that requires 'name' field
-                val dataModel = objectMapper.readTree(
+                // Add schema that requires 'name' field via contract version
+                insertDraftContract(
+                    compositeTemplateId,
                     """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
-                )
-                execute(
-                    UpdateDocumentTemplate(
-                        id = compositeTemplateId,
-                        dataModel = objectMapper.valueToTree(dataModel),
-                    ),
                 )
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
@@ -229,14 +249,10 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = version(compositeVariantId, templateModel)
 
-                val dataModel = objectMapper.readTree(
+                // Add schema that requires 'name' field via contract version
+                insertDraftContract(
+                    compositeTemplateId,
                     """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
-                )
-                execute(
-                    UpdateDocumentTemplate(
-                        id = compositeTemplateId,
-                        dataModel = objectMapper.valueToTree(dataModel),
-                    ),
                 )
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->

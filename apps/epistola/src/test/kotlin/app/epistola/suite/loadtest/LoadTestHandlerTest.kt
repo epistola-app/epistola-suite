@@ -10,12 +10,12 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,6 +36,27 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
+    /**
+     * Inserts a draft contract version with the given data examples into contract_versions.
+     */
+    private fun insertDraftContractWithExamples(tenantKey: String, templateKey: String, dataExamplesJson: String) {
+        jdbi.withHandle<Unit, Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at)
+                VALUES (1, :tenantKey, 'default', :templateKey, :dataExamples::jsonb, 'draft', NOW())
+                """,
+            )
+                .bind("tenantKey", tenantKey)
+                .bind("templateKey", templateKey)
+                .bind("dataExamples", dataExamplesJson)
+                .execute()
+        }
+    }
 
     @Nested
     inner class NewForm {
@@ -269,14 +290,15 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val template = template(testTenant, "Invoice Template")
                 templateId = "default/${template.id.value}"
 
-                // Add data examples to the template
+                // Add data examples via contract version
                 val exampleData = objectMapper.createObjectNode().put("title", "Test Invoice")
                 val example = DataExample(id = "example-1", name = "Sample Invoice", data = exampleData)
                 exampleId = example.id
-                UpdateDocumentTemplate(
-                    id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                    dataExamples = listOf(example),
-                ).execute()
+                insertDraftContractWithExamples(
+                    testTenant.id.value,
+                    template.id.value,
+                    objectMapper.writeValueAsString(listOf(example)),
+                )
             }
 
             whenever {

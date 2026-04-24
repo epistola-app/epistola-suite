@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Contract data moved to `contract_versions` table**: Removed `schema`, `dataModel`, and `dataExamples` columns from `document_templates`. Contract data is now stored in `contract_versions` with draft/published lifecycle. All queries, handlers, tests, and catalog import/export updated to use the new table.
+
+### Added
+
+- **Contract schema versioning design**: Added design document (`docs/schema-versioning.md`) for versioning template data contracts with draft/published lifecycle, backwards-compatibility checking, auto-upgrade logic, and UI changes.
+
 ## [0.16.0] - 2026-04-23
 
 ### Added

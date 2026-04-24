@@ -25,9 +25,11 @@ import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
+import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -45,8 +47,8 @@ import tools.jackson.databind.node.ObjectNode
 /**
  * Request body for updating a document template's metadata.
  * Note: templateModel is now stored in TemplateVersion and updated separately.
+ * Note: dataModel and dataExamples are now managed via contract versions.
  *
- * @property forceUpdate When true, validation warnings don't block the update
  * @property themeId The default theme ID for this template (optional)
  * @property clearThemeId When true, removes the default theme assignment
  */
@@ -55,10 +57,7 @@ data class UpdateTemplateRequest(
     val themeId: String? = null,
     val themeCatalogKey: String? = null,
     val clearThemeId: Boolean = false,
-    val dataModel: ObjectNode? = null,
-    val dataExamples: List<DataExample>? = null,
     val pdfaEnabled: Boolean? = null,
-    val forceUpdate: Boolean = false,
 )
 
 /**
@@ -249,14 +248,16 @@ class DocumentTemplateHandler(
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
 
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 mapOf(
                     "id" to template.id,
                     "name" to template.name,
-                    "dataModel" to template.dataModel,
-                    "dataExamples" to template.dataExamples,
+                    "dataModel" to contractVersion?.dataModel,
+                    "dataExamples" to (contractVersion?.dataExamples ?: DataExamples.EMPTY),
                     "createdAt" to template.createdAt,
                     "lastModified" to template.lastModified,
                 ),
@@ -273,31 +274,20 @@ class DocumentTemplateHandler(
         val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
 
         return try {
-            val result = UpdateDocumentTemplate(
+            val updated = UpdateDocumentTemplate(
                 id = templateId,
                 name = updateRequest.name,
                 themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
                 clearThemeId = updateRequest.clearThemeId,
-                dataModel = updateRequest.dataModel,
-                dataExamples = updateRequest.dataExamples,
                 pdfaEnabled = updateRequest.pdfaEnabled,
-                forceUpdate = updateRequest.forceUpdate,
             ).execute() ?: return ServerResponse.notFound().build()
 
-            val updated = result.template
             val responseBody = mutableMapOf<String, Any?>(
                 "id" to updated.id,
                 "name" to updated.name,
-                "dataModel" to updated.dataModel,
-                "dataExamples" to updated.dataExamples,
                 "createdAt" to updated.createdAt,
                 "lastModified" to updated.lastModified,
             )
-
-            // Include warnings if present (when forceUpdate was used)
-            if (result.warnings.isNotEmpty()) {
-                responseBody["warnings"] = result.warnings
-            }
 
             ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -322,7 +312,7 @@ class DocumentTemplateHandler(
         val body = request.body(String::class.java)
         val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
 
-        val result = UpdateDocumentTemplate(
+        val updated = UpdateDocumentTemplate(
             id = templateId,
             themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
             themeCatalogKey = updateRequest.themeCatalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) },
@@ -337,10 +327,10 @@ class DocumentTemplateHandler(
             fragment("templates/detail/settings", "theme-section") {
                 "tenantId" to tenantId.key
                 "catalogId" to catalogId.value
-                "template" to result.template
+                "template" to updated
                 "themes" to themes
                 "themeCatalogs" to themeCatalogs
-                "editable" to (result.template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+                "editable" to (updated.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             onNonHtmx {
                 redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
@@ -361,11 +351,10 @@ class DocumentTemplateHandler(
         val body = request.body(String::class.java)
         val validateRequest = objectMapper.readValue(body, ValidateSchemaRequest::class.java)
 
-        // Get existing template to use its examples if not provided in request
-        val template = GetDocumentTemplate(id = templateId).query()
-            ?: return ServerResponse.notFound().build()
+        // Get existing contract version to use its examples if not provided in request
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
 
-        val examplesToValidate = validateRequest.examples ?: template.dataExamples
+        val examplesToValidate = validateRequest.examples ?: contractVersion?.dataExamples ?: DataExamples.EMPTY
 
         val result = jsonSchemaValidator.analyzeCompatibility(
             schema = validateRequest.schema,
@@ -447,11 +436,16 @@ class DocumentTemplateHandler(
 
         val variants = GetVariantSummaries(templateId = ctx.templateId).query()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
+        val contractVersion = GetLatestContractVersion(templateId = ctx.templateId).query()
 
         return detailHelper.renderDetailPage(
             ctx,
             "variants",
-            mapOf("variants" to variants, "attributeDefinitions" to attributeDefinitions),
+            mapOf(
+                "variants" to variants,
+                "attributeDefinitions" to attributeDefinitions,
+                "contractDataExamples" to contractVersion?.dataExamples,
+            ),
         )
     }
 

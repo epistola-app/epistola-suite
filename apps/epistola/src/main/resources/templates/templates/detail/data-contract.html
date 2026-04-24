@@ -4,8 +4,8 @@
     <th:block th:fragment="tab-content">
         <div id="data-contract-container"
              th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
-        <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
-        <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
+        <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
+        <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
 
         <script>
             (function() {

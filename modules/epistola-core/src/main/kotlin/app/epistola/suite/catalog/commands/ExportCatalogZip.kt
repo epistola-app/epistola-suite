@@ -152,7 +152,18 @@ class ExportCatalogZipHandler(
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id, name, theme_key, theme_catalog_key, data_model::text, data_examples::text FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+                """
+                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key,
+                       cv.data_model::text, cv.data_examples::text
+                FROM document_templates dt
+                LEFT JOIN LATERAL (
+                    SELECT data_model, data_examples FROM contract_versions
+                    WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
+                    ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
+                    LIMIT 1
+                ) cv ON TRUE
+                WHERE dt.tenant_key = :tenantKey AND dt.catalog_key = :catalogKey
+                """,
             )
                 .bind("tenantKey", tenantKey)
                 .bind("catalogKey", catalogKey)
