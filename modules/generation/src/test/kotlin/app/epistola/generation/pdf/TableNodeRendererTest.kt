@@ -151,13 +151,6 @@ class TableNodeRendererTest {
     }
 
     @Test
-    fun `renders table without any border styles`() {
-        // No node styles, no cell styles: cells render borderless (iText defaults suppressed).
-        val doc = tableDocument(rows = 2, columns = 2)
-        assertValidPdf(renderToBytes(doc))
-    }
-
-    @Test
     fun `renders table with outer border from node styles`() {
         val doc = tableDocument(
             rows = 2,
@@ -409,6 +402,98 @@ class TableNodeRendererTest {
             columns = 2,
             cellStyles = mapOf(
                 "0-0" to mapOf("backgroundColor" to "#f00"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    // -----------------------------------------------------------------------
+    // Per-cell border shorthand (borderTop/Right/Bottom/Left via cellStyles)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `renders table with per-cell top border shorthand`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("borderTop" to "1pt solid #ff0000"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with per-cell borders on all four sides`() {
+        val doc = tableDocument(
+            rows = 1,
+            columns = 1,
+            cellStyles = mapOf(
+                "0-0" to mapOf(
+                    "borderTop" to "1pt solid #ff0000",
+                    "borderRight" to "1pt solid #00ff00",
+                    "borderBottom" to "1pt solid #0000ff",
+                    "borderLeft" to "1pt solid #888888",
+                ),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with per-cell dashed and dotted border styles`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("borderBottom" to "1pt dashed #333333"),
+                "1-1" to mapOf("borderTop" to "1pt dotted #333333"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with outer node border and per-cell borders combined`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            nodeStyles = mapOf(
+                "borderTop" to "1pt solid #000000",
+                "borderRight" to "1pt solid #000000",
+                "borderBottom" to "1pt solid #000000",
+                "borderLeft" to "1pt solid #000000",
+            ),
+            cellStyles = mapOf(
+                "0-0" to mapOf("borderBottom" to "2pt solid #ff0000"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with per-cell border using sp width unit`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            cellStyles = mapOf(
+                "0-0" to mapOf("borderLeft" to "1sp solid #2563eb"),
+            ),
+        )
+        assertValidPdf(renderToBytes(doc))
+    }
+
+    @Test
+    fun `renders table with per-cell border on merged cell`() {
+        val doc = tableDocument(
+            rows = 2,
+            columns = 2,
+            merges = listOf(mapOf("row" to 0, "col" to 0, "rowSpan" to 2, "colSpan" to 2)),
+            cellStyles = mapOf(
+                "0-0" to mapOf(
+                    "borderTop" to "1pt solid #ff0000",
+                    "borderBottom" to "1pt solid #ff0000",
+                ),
             ),
         )
         assertValidPdf(renderToBytes(doc))
