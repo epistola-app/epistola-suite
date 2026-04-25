@@ -652,6 +652,35 @@ describe('EpistolaEditor table cell-mode exit', () => {
     };
   };
 
+  function createDocWithTable(): { doc: TemplateDocument; tableNodeId: NodeId } {
+    const rootId = nodeId('root');
+    const rootSlotId = slotId('root-slot');
+    const tableNodeId = nodeId('table1');
+    const doc: TemplateDocument = {
+      modelVersion: 1,
+      root: rootId,
+      nodes: {
+        [rootId]: { id: rootId, type: 'root', slots: [rootSlotId] },
+        [tableNodeId]: {
+          id: tableNodeId,
+          type: 'table',
+          slots: [],
+          props: { rows: 2, columns: 2 },
+        },
+      },
+      slots: {
+        [rootSlotId]: {
+          id: rootSlotId,
+          nodeId: rootId,
+          name: 'children',
+          children: [tableNodeId],
+        },
+      },
+      themeRef: { type: 'inherit' },
+    };
+    return { doc, tableNodeId };
+  }
+
   function escapeEvent(overrides: Partial<KeyboardEvent> = {}): {
     event: KeyboardEvent;
     wasPrevented: () => boolean;
@@ -682,12 +711,12 @@ describe('EpistolaEditor table cell-mode exit', () => {
   }
 
   it('Escape clears an active cell selection without deselecting the table', () => {
-    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const { doc, tableNodeId } = createDocWithTable();
     const editor = new EpistolaEditor();
     editor.initEngine(doc, testRegistry());
 
     const editorAny = editor as unknown as EditorHandle;
-    editorAny._engine.selectNode(textNodeId);
+    editorAny._engine.selectNode(tableNodeId);
     const selection: CellSelection = { startRow: 0, startCol: 0, endRow: 0, endCol: 0 };
     editorAny._engine.setComponentState('table:cellSelection', selection);
 
@@ -695,18 +724,18 @@ describe('EpistolaEditor table cell-mode exit', () => {
     editorAny._handleKeydown(event);
 
     expect(editorAny._engine.getComponentState('table:cellSelection')).toBeNull();
-    expect(editorAny._engine.selectedNodeId).toBe(textNodeId);
+    expect(editorAny._engine.selectedNodeId).toBe(tableNodeId);
     expect(wasPrevented()).toBe(true);
     expect(wasStopped()).toBe(true);
   });
 
   it('Escape with no cell selection falls through to the existing deselect shortcut', () => {
-    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const { doc, tableNodeId } = createDocWithTable();
     const editor = new EpistolaEditor();
     editor.initEngine(doc, testRegistry());
 
     const editorAny = editor as unknown as EditorHandle;
-    editorAny._engine.selectNode(textNodeId);
+    editorAny._engine.selectNode(tableNodeId);
     expect(editorAny._engine.getComponentState('table:cellSelection')).toBeNull();
 
     const { event } = escapeEvent();
@@ -718,12 +747,12 @@ describe('EpistolaEditor table cell-mode exit', () => {
   });
 
   it('modified Escape (e.g. Shift+Escape) bypasses the cell-mode exit branch', () => {
-    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const { doc, tableNodeId } = createDocWithTable();
     const editor = new EpistolaEditor();
     editor.initEngine(doc, testRegistry());
 
     const editorAny = editor as unknown as EditorHandle;
-    editorAny._engine.selectNode(textNodeId);
+    editorAny._engine.selectNode(tableNodeId);
     const selection: CellSelection = { startRow: 1, startCol: 2, endRow: 1, endCol: 2 };
     editorAny._engine.setComponentState('table:cellSelection', selection);
 
@@ -733,6 +762,28 @@ describe('EpistolaEditor table cell-mode exit', () => {
     // If the interceptor fired for Shift+Escape, the table would stay
     // selected (it calls stopPropagation before the shortcut resolver runs).
     // Skipping it lets the existing deselect shortcut clear the selection.
+    expect(editorAny._engine.selectedNodeId).toBeNull();
+  });
+
+  it('Escape on a non-table node with stale cell-selection state does not clear the selection', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as EditorHandle;
+    editorAny._engine.selectNode(textNodeId);
+    // Spurious cell-selection state on a non-table node — the interceptor
+    // must not act on this and must let the deselect shortcut run as usual.
+    editorAny._engine.setComponentState('table:cellSelection', {
+      startRow: 0,
+      startCol: 0,
+      endRow: 0,
+      endCol: 0,
+    } satisfies CellSelection);
+
+    const { event } = escapeEvent();
+    editorAny._handleKeydown(event);
+
     expect(editorAny._engine.selectedNodeId).toBeNull();
   });
 });
