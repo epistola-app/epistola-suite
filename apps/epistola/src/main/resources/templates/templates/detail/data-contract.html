@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="tab-content">
         <div id="data-contract-container"
-             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
+             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable},data-contract-version-id=${contractVersionId},data-contract-version-status=${contractVersionStatus},data-has-draft-contract=${hasDraftContract}"></div>
         <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
         <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
 
@@ -28,6 +28,10 @@
                     const initialExamples = parseJsonScript('data-contract-examples', []);
                     const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
 
+                    const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
+                    const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                    const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
+
                     mountDataContractEditor({
                         container: container,
                         templateId: templateId,
@@ -39,9 +43,9 @@
                                 try {
                                     const body = { dataModel: schema, forceUpdate };
                                     if (dataExamples) body.dataExamples = dataExamples;
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
+                                    const response = await fetch(`${contractBasePath}/draft`, {
                                         method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        headers: jsonHeaders,
                                         body: JSON.stringify(body)
                                     });
                                     if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
@@ -51,9 +55,9 @@
                             },
                             onSaveDataExamples: async (examples) => {
                                 try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
+                                    const response = await fetch(`${contractBasePath}/draft`, {
                                         method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        headers: jsonHeaders,
                                         body: JSON.stringify({ dataExamples: examples })
                                     });
                                     if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
@@ -65,7 +69,7 @@
                                 try {
                                     const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
                                         method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
+                                        headers: jsonHeaders,
                                         body: JSON.stringify({ ...updates, forceUpdate })
                                     });
                                     if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
@@ -77,7 +81,7 @@
                                 try {
                                     const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
                                         method: 'DELETE',
-                                        headers: { 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' }
+                                        headers: { 'X-XSRF-TOKEN': csrfToken }
                                     });
                                     return { success: response.ok };
                                 } catch (e) { return { success: false }; }

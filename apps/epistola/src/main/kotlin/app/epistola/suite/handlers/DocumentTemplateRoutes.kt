@@ -16,6 +16,7 @@ class DocumentTemplateRoutes(
     private val settingsTabHandler: SettingsTabHandler,
     private val dataContractTabHandler: DataContractTabHandler,
     private val versionComparisonHandler: VersionComparisonHandler,
+    private val contractVersionHandler: ContractVersionHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -38,6 +39,12 @@ class DocumentTemplateRoutes(
             PATCH("/{catalogId}/{id}/theme", handler::updateTheme)
             GET("/{catalogId}/{id}/api", handler::get)
             POST("/{catalogId}/{id}/validate-schema", handler::validateSchema)
+
+            // Contract version routes
+            POST("/{catalogId}/{id}/contract/draft", contractVersionHandler::createDraft)
+            PATCH("/{catalogId}/{id}/contract/draft", contractVersionHandler::updateDraft)
+            POST("/{catalogId}/{id}/contract/publish", contractVersionHandler::publish)
+            GET("/{catalogId}/{id}/contract/versions", contractVersionHandler::listVersions)
 
             // Data example routes
             PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)
