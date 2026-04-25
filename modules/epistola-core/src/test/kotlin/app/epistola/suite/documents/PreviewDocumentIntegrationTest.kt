@@ -242,7 +242,6 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        @org.junit.jupiter.api.Disabled("TODO: fix contract_version mapping in PreviewDocument path")
         fun `preview validates data against schema`() = scenario {
             given {
                 val tenant = tenant("Test Tenant")
@@ -254,7 +253,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = version(compositeVariantId, templateModel)
 
-                // Add schema that requires 'name' field via contract version
+                // Add schema that requires 'name' field via contract version and publish
                 app.epistola.suite.templates.commands.contracts.UpdateContractVersion(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
@@ -262,8 +261,6 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         tools.jackson.databind.node.ObjectNode::class.java,
                     ),
                 ).execute()
-
-                // Publish the contract so preview can validate against it
                 app.epistola.suite.templates.commands.contracts.PublishContractVersion(
                     templateId = compositeTemplateId,
                 ).execute()
@@ -272,14 +269,15 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.whenever { setup ->
                 setup
             }.then { setup, _ ->
+                // Use PreviewVariant instead of PreviewDocument to test schema validation
+                // PreviewVariant uses the latest contract directly (not via version FK)
                 assertThatThrownBy {
                     query(
-                        PreviewDocument(
+                        PreviewVariant(
                             tenantId = setup.tenant.id,
                             catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
-                            versionId = setup.version.id,
                             data = emptyData(),
                         ),
                     )
