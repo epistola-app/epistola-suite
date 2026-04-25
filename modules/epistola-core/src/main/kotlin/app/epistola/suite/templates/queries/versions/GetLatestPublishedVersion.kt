@@ -40,7 +40,8 @@ class GetLatestPublishedVersionHandler(
                     published_at,
                     archived_at,
                     rendering_defaults_version,
-                    resolved_theme
+                    resolved_theme,
+                    contract_version
                 FROM template_versions
                 WHERE tenant_key = :tenantId
                   AND catalog_key = :catalogKey

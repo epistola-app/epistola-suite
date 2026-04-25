@@ -94,10 +94,26 @@ class CreateVariantHandler(
                 val defaultModel = createDefaultTemplateModel(templateName, variant.id)
                 val templateModelJson = objectMapper.writeValueAsString(defaultModel)
 
+                // Resolve contract version (latest published, or draft if no published exists)
+                val contractVersionId = handle.createQuery(
+                    """
+                SELECT id FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+                """,
+                )
+                    .bind("tenantKey", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("templateKey", command.id.templateKey)
+                    .mapTo(Int::class.java)
+                    .findOne()
+                    .orElse(null)
+
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
                 """,
                 )
                     .bind("id", versionId)
@@ -106,6 +122,7 @@ class CreateVariantHandler(
                     .bind("templateId", command.id.templateKey)
                     .bind("variantId", command.id.key)
                     .bind("templateModel", templateModelJson)
+                    .bind("contractVersion", contractVersionId)
                     .execute()
 
                 variant
