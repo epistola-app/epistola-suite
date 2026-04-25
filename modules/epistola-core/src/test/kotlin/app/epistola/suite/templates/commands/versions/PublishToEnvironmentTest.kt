@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.activations.RemoveActivation
+import app.epistola.suite.templates.commands.contracts.PublishContractVersion
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.ListVariants
@@ -43,6 +44,10 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(draft.status).isEqualTo(VersionStatus.DRAFT)
 
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         val result = PublishToEnvironment(
             versionId = versionId,
             environmentId = environmentId,
@@ -78,6 +83,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val versions = ListVersions(variantId = variantId).query()
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
 
         // Publish to staging first (this transitions draft -> published)
         val firstResult = PublishToEnvironment(
@@ -120,6 +128,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
 
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         // Publish twice to same environment
         val first = PublishToEnvironment(
             versionId = versionId,
@@ -153,6 +164,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
 
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         val result = PublishToEnvironment(
             versionId = versionId,
             environmentId = EnvironmentId(EnvironmentKey.of("non-existent"), tenantId),
@@ -176,6 +190,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val versions = ListVersions(variantId = variantId).query()
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
 
         // Publish to staging, then remove activation, then archive
         PublishToEnvironment(
@@ -216,6 +233,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
 
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         // Publish to staging
         PublishToEnvironment(
             versionId = versionId,
@@ -247,6 +267,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val versions = ListVersions(variantId = variantId).query()
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
 
         // Publish, then remove activation, then archive
         PublishToEnvironment(

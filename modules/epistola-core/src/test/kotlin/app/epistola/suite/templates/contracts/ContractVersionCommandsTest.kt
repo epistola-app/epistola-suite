@@ -151,7 +151,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
 
             assertThat(result).isNotNull
-            assertThat(result!!.publishedVersion.status).isEqualTo(ContractVersionStatus.PUBLISHED)
+            assertThat(result!!.publishedVersion!!.status).isEqualTo(ContractVersionStatus.PUBLISHED)
             assertThat(result.publishedVersion.id).isEqualTo(VersionKey.of(1))
             assertThat(result.compatible).isTrue() // first version, no previous to compare
         }
@@ -315,14 +315,14 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 PublishContractVersion(templateId = templateId).execute()
             }
             assertThat(result).isNotNull
-            assertThat(result!!.publishedVersion.dataModel).isNull() // empty contract
+            assertThat(result!!.publishedVersion!!.dataModel).isNull() // empty contract
         }
     }
 
     @Nested
-    inner class ContractAutoPublishTest {
+    inner class PublishGuardTest {
         @Test
-        fun `PublishToEnvironment auto-publishes compatible draft contract`() {
+        fun `PublishToEnvironment rejects draft contract`() {
             // Create a draft contract (not published)
             withMediator {
                 UpdateContractVersion(
@@ -346,56 +346,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
 
             val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
 
-            // Should auto-publish the contract (first version, always compatible)
-            val result = withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(version.id, defaultVariantId),
-                    environmentId = EnvironmentId(env.id, tenantId),
-                ).execute()
-            }
-
-            assertThat(result).isNotNull
-
-            // Verify the contract was auto-published
-            val contractVersions = withMediator { ListContractVersions(templateId = templateId).query() }
-            assertThat(contractVersions.all { it.status == ContractVersionStatus.PUBLISHED }).isTrue()
-        }
-
-        @Test
-        fun `PublishToEnvironment rejects breaking draft contract`() {
-            // Publish contract v1 with two fields
-            withMediator {
-                UpdateContractVersion(
-                    templateId = templateId,
-                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}"""),
-                ).execute()
-            }
-            withMediator { PublishContractVersion(templateId = templateId).execute() }
-
-            // Create draft v2 with breaking change (remove field)
-            withMediator { CreateContractVersion(templateId = templateId).execute() }
-            withMediator {
-                UpdateContractVersion(
-                    templateId = templateId,
-                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}"""),
-                ).execute()
-            }
-
-            val tenantId = TenantId(tenantKey)
-            val env = withMediator {
-                CreateEnvironment(
-                    id = EnvironmentId(EnvironmentKey.of("break-test-env"), tenantId),
-                    name = "break-test-env",
-                ).execute()
-            }
-
-            val defaultVariantId = VariantId(
-                VariantKey.of("${templateId.key.value}-default"),
-                templateId,
-            )
-
-            val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
-
+            // Guard rejects because the contract is still a draft
             assertThatThrownBy {
                 withMediator {
                     PublishToEnvironment(
@@ -403,7 +354,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                         environmentId = EnvironmentId(env.id, tenantId),
                     ).execute()
                 }
-            }.hasMessageContaining("breaking changes detected")
+            }.hasMessageContaining("still a draft")
         }
     }
 

@@ -88,26 +88,45 @@ class ContractVersionHandler(
 
     /**
      * POST /{catalogId}/{id}/contract/publish — publish the draft contract.
+     * Pass {"confirmed": true} in the body for breaking changes.
+     * Without confirmation, breaking changes return a preview.
      */
     fun publish(request: ServerRequest): ServerResponse {
         val templateId = resolveTemplateId(request)
-        val result = PublishContractVersion(templateId = templateId).execute()
+        val confirmed = try {
+            val body = request.body(String::class.java)
+            if (body.isNotBlank()) {
+                objectMapper.readTree(body).get("confirmed")?.asBoolean() ?: false
+            } else {
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
+
+        val result = PublishContractVersion(templateId = templateId, confirmed = confirmed).execute()
             ?: return ServerResponse.notFound().build()
+
+        val response = mutableMapOf<String, Any?>(
+            "published" to result.published,
+            "compatible" to result.compatible,
+            "breakingChanges" to result.breakingChanges.map {
+                mapOf("type" to it.type.name, "path" to it.path, "description" to it.description)
+            },
+            "upgradedVersionCount" to result.upgradedVersionCount,
+            "incompatibleVersions" to result.incompatibleVersions.map {
+                mapOf(
+                    "variantKey" to it.variantKey.value,
+                    "versionId" to it.versionId.value,
+                    "activeEnvironments" to it.activeEnvironments,
+                )
+            },
+        )
+        result.publishedVersion?.let { response["id"] = it.id.value }
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(
-                objectMapper.writeValueAsString(
-                    mapOf(
-                        "id" to result.publishedVersion.id.value,
-                        "compatible" to result.compatible,
-                        "breakingChanges" to result.breakingChanges.map {
-                            mapOf("type" to it.type.name, "path" to it.path, "description" to it.description)
-                        },
-                        "upgradedVersionCount" to result.upgradedVersionCount,
-                    ),
-                ),
-            )
+            .body(objectMapper.writeValueAsString(response))
     }
 
     /**
