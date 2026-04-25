@@ -11,6 +11,11 @@
 ### Added
 
 - **Contract schema versioning design**: Added design document (`docs/schema-versioning.md`) for versioning template data contracts with draft/published lifecycle, backwards-compatibility checking, auto-upgrade logic, and UI changes.
+- **Contract version commands**: `CreateContractVersion`, `UpdateContractVersion`, `PublishContractVersion` commands with schema validation, backwards-compatibility checking, auto-upgrade of template versions, and auto-creation of next draft.
+- **Schema compatibility checker**: `SchemaCompatibilityChecker` detects breaking changes between schema versions (field removal, type changes, required field additions).
+- **Contract version queries**: `GetContractVersion`, `GetDraftContractVersion`, `GetLatestContractVersion`, `ListContractVersions`.
+- **Publish guard**: `PublishToEnvironment` rejects template version publish if its contract version is still a draft.
+- **Contract version on template versions**: `CreateVersion` and `PublishToEnvironment` propagate `contract_version` to new template version drafts.
 
 ## [0.16.0] - 2026-04-23
 
