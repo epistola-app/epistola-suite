@@ -32,12 +32,17 @@
                     const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
                     const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
 
+                    const contractVersionId = container.dataset.contractVersionId ? parseInt(container.dataset.contractVersionId) : undefined;
+                    const contractVersionStatus = container.dataset.contractVersionStatus || undefined;
+
                     mountDataContractEditor({
                         container: container,
                         templateId: templateId,
                         initialSchema: initialSchema,
                         initialExamples: initialExamples,
                         readonly: readonly,
+                        contractVersionId: contractVersionId,
+                        contractVersionStatus: contractVersionStatus,
                         callbacks: readonly ? {} : {
                             onSaveSchema: async (schema, forceUpdate, dataExamples) => {
                                 try {

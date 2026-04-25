@@ -125,6 +125,10 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _showBreakingChangesDialog = false;
   private _breakingChangesAcknowledged = false;
 
+  // Contract version info
+  @state() private _contractVersionId?: number;
+  @state() private _contractVersionStatus?: string;
+
   // Timers
   private _successTimer?: ReturnType<typeof setTimeout>;
 
@@ -141,8 +145,12 @@ export class EpistolaDataContractEditor extends LitElement {
     initialExamples: DataExample[],
     callbacks: SaveCallbacks,
     readOnly = false,
+    contractVersionId?: number,
+    contractVersionStatus?: string,
   ): void {
     this._readOnly = readOnly;
+    this._contractVersionId = contractVersionId;
+    this._contractVersionStatus = contractVersionStatus;
     this.contractState = new DataContractState(initialSchema, initialExamples, callbacks);
 
     this.contractState.addEventListener('change', () => {
@@ -227,6 +235,18 @@ export class EpistolaDataContractEditor extends LitElement {
                     </span>
                   `,
                 )}
+              </div>
+            `
+          : nothing}
+
+        <!-- Contract version info -->
+        ${this._contractVersionId != null
+          ? html`
+              <div class="dc-version-bar">
+                <span class="dc-version-badge">v${this._contractVersionId}</span>
+                <span class="dc-version-status dc-version-status-${this._contractVersionStatus}">
+                  ${this._contractVersionStatus}
+                </span>
               </div>
             `
           : nothing}

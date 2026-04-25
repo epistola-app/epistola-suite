@@ -45,6 +45,7 @@ class DocumentTemplateRoutes(
             PATCH("/{catalogId}/{id}/contract/draft", contractVersionHandler::updateDraft)
             POST("/{catalogId}/{id}/contract/publish", contractVersionHandler::publish)
             GET("/{catalogId}/{id}/contract/versions", contractVersionHandler::listVersions)
+            GET("/{catalogId}/{id}/contract/versions/history", contractVersionHandler::versionHistory)
 
             // Data example routes
             PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)

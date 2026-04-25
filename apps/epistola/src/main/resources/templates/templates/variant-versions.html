@@ -19,6 +19,7 @@
                     <tr>
                         <th>Version</th>
                         <th>Status</th>
+                        <th>Contract</th>
                         <th>Created</th>
                         <th>Published</th>
                         <th></th>
@@ -31,6 +32,10 @@
                             <span th:if="${version.status.name() == 'DRAFT'}" class="badge badge-primary">Draft</span>
                             <span th:if="${version.status.name() == 'PUBLISHED'}" class="badge badge-success">Published</span>
                             <span th:if="${version.status.name() == 'ARCHIVED'}" class="badge badge-outline">Archived</span>
+                        </td>
+                        <td>
+                            <span th:if="${version.contractVersion != null}" th:text="'v' + ${version.contractVersion}" class="text-muted"></span>
+                            <span th:unless="${version.contractVersion != null}" class="text-muted">-</span>
                         </td>
                         <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td>

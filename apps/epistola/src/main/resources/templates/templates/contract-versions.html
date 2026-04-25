@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Contract Version History</h3>
+            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                    onclick="document.getElementById('contract-versions-dialog').close()"
+                    title="Close">&times;</button>
+        </div>
+        <div class="ep-dialog-body">
+            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table" style="font-size: var(--ep-text-sm);">
+                <thead>
+                    <tr>
+                        <th>Version</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Published</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="version : ${versions}">
+                        <td><strong th:text="'v' + ${version.id}"></strong></td>
+                        <td>
+                            <span th:if="${version.status.name() == 'DRAFT'}" class="badge badge-primary">Draft</span>
+                            <span th:if="${version.status.name() == 'PUBLISHED'}" class="badge badge-success">Published</span>
+                        </td>
+                        <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td>
+                            <span th:if="${version.publishedAt != null}"
+                                  th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                            <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p th:if="${#lists.isEmpty(versions)}" class="text-muted" style="text-align: center; padding: var(--ep-space-4);">
+                No contract versions yet.
+            </p>
+        </div>
+    </th:block>
+</body>
+</html>

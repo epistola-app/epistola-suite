@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.contracts.CreateContractVersion
@@ -130,6 +131,21 @@ class ContractVersionHandler(
                     },
                 ),
             )
+    }
+
+    /**
+     * GET /{catalogId}/{id}/contract/versions/history — contract version history dialog (HTMX fragment).
+     */
+    fun versionHistory(request: ServerRequest): ServerResponse {
+        val templateId = resolveTemplateId(request)
+        val versions = ListContractVersions(templateId = templateId).query()
+
+        return request.htmx {
+            fragment("templates/contract-versions", "content") {
+                "versions" to versions
+            }
+            onNonHtmx { redirect("/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}") }
+        }
     }
 }
 
