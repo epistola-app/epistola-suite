@@ -37,6 +37,7 @@ data class CreateVersion(
 class CreateVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
 ) : CommandHandler<CreateVersion, TemplateVersion?> {
     override fun handle(command: CreateVersion): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
@@ -109,6 +110,8 @@ class CreateVersionHandler(
             // Use provided model or create default empty template structure
             val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId.key)
             val templateModelJson = objectMapper.writeValueAsString(modelToSave)
+            val referencedPaths = command.templateModel?.let { pathExtractor.extractReferencedPaths(it) } ?: emptySet()
+            val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
 
             // Resolve contract version: latest published, or draft if no published exists
             val contractVersionId = handle.createQuery(
@@ -128,8 +131,8 @@ class CreateVersionHandler(
 
             handle.createQuery(
                 """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW())
                 RETURNING *
                 """,
             )
@@ -140,6 +143,7 @@ class CreateVersionHandler(
                 .bind("variantId", command.variantId.key)
                 .bind("templateModel", templateModelJson)
                 .bind("contractVersion", contractVersionId)
+                .bind("referencedPaths", referencedPathsJson)
                 .mapTo<TemplateVersion>()
                 .one()
         }

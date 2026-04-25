@@ -62,6 +62,11 @@ ALTER TABLE template_versions
 
 COMMENT ON COLUMN template_versions.contract_version IS 'Contract version this template version is associated with. NULL if the template has no contract.';
 
+ALTER TABLE template_versions
+    ADD COLUMN referenced_paths JSONB;
+
+COMMENT ON COLUMN template_versions.referenced_paths IS 'Data contract paths referenced by expressions in the template model. Computed on save. Used for precise contract compatibility checking.';
+
 -- ============================================================================
 -- REMOVE CONTRACT COLUMNS FROM DOCUMENT_TEMPLATES
 -- ============================================================================

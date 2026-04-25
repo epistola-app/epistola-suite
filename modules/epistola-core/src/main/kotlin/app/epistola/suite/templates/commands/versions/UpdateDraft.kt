@@ -32,6 +32,7 @@ data class UpdateDraft(
 class UpdateDraftHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
@@ -56,12 +57,14 @@ class UpdateDraftHandler(
             }
 
             val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
+            val referencedPaths = pathExtractor.extractReferencedPaths(command.templateModel)
+            val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
 
             // Try to update existing draft first
             val updated = handle.createUpdate(
                 """
                 UPDATE template_versions
-                SET template_model = :templateModel::jsonb
+                SET template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
                   AND template_key = :templateId
                   AND status = 'draft'
@@ -72,6 +75,7 @@ class UpdateDraftHandler(
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
                 .bind("templateModel", templateModelJson)
+                .bind("referencedPaths", referencedPathsJson)
                 .execute()
 
             if (updated > 0) {
@@ -137,11 +141,11 @@ class UpdateDraftHandler(
 
             handle.createQuery(
                 """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW())
                 RETURNING id, tenant_key, catalog_key, variant_key, template_model, status,
                           created_at, published_at, archived_at,
-                          rendering_defaults_version, resolved_theme, contract_version
+                          rendering_defaults_version, resolved_theme, contract_version, referenced_paths
                 """,
             )
                 .bind("id", versionId)
@@ -151,6 +155,7 @@ class UpdateDraftHandler(
                 .bind("variantId", command.variantId.key)
                 .bind("templateModel", templateModelJson)
                 .bind("contractVersion", contractVersionId)
+                .bind("referencedPaths", referencedPathsJson)
                 .mapTo<TemplateVersion>()
                 .one()
         }

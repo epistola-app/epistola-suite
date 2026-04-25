@@ -38,6 +38,8 @@ data class TemplateVersion(
     @Json val resolvedTheme: ResolvedThemeSnapshot? = null,
     /** Contract version this template version is associated with. Null if the template has no contract. */
     val contractVersion: VersionKey? = null,
+    /** Data contract paths referenced by expressions in the template model. */
+    @Json val referencedPaths: List<String>? = null,
 )
 
 /**
