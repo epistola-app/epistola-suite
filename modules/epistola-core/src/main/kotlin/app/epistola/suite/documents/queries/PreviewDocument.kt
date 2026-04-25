@@ -68,7 +68,7 @@ data class PreviewDocument(
 }
 
 private data class ContractDataModelRow(
-    @Json val dataModel: ObjectNode?,
+    @Json val dataModel: ObjectNode? = null,
 )
 
 @Component
@@ -126,23 +126,12 @@ class PreviewDocumentHandler(
 
         // 4. Validate data against contract schema
         val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
-            jdbi.withHandle<ObjectNode?, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT data_model FROM contract_versions
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND id = :contractVersion
-                    """,
-                )
-                    .bind("tenantKey", query.tenantId)
-                    .bind("catalogKey", query.catalogKey)
-                    .bind("templateKey", query.templateId)
-                    .bind("contractVersion", cv.value)
-                    .mapTo<ContractDataModelRow>()
-                    .findOne()
-                    .map { it.dataModel }
-                    .orElse(null)
-            }
+            val contractVersion = mediator.query(
+                app.epistola.suite.templates.queries.contracts.GetContractVersion(
+                    id = app.epistola.suite.common.ids.ContractVersionId(cv, TemplateId(query.templateId, CatalogId(query.catalogKey, tenantId))),
+                ),
+            )
+            contractVersion?.dataModel
         }
         if (dataModel != null) {
             val errors = schemaValidator.validate(dataModel, query.data)
