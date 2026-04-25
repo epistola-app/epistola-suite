@@ -33,7 +33,7 @@ jobs:
         run: helm lint charts/epistola
 
       - name: Scan Helm chart for misconfigurations
-        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # master
         with:
           scan-type: "config"
           scan-ref: "charts/epistola"
