@@ -19,9 +19,11 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
+import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.ListActivations
+import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
 import org.springframework.stereotype.Component
@@ -121,8 +123,11 @@ class VersionRouteHandler(
     ): ServerResponse {
         val templateId = TemplateId(templateKey, CatalogId(catalogId, TenantId(tenantKey)))
 
-        val template = GetDocumentTemplate(id = templateId).query()
+        GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
+
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val dataExamples = contractVersion?.dataExamples ?: DataExamples.EMPTY
 
         val variant = GetVariant(variantId = variantId).query()
             ?: return ServerResponse.notFound().build()
@@ -149,7 +154,7 @@ class VersionRouteHandler(
                 "templateId" to templateKey
                 "variant" to variantSummary
                 "versions" to versions
-                "dataExamples" to template.dataExamples
+                "dataExamples" to dataExamples
                 "activationsByVersion" to activationsByVersion
                 if (error != null) {
                     "error" to error

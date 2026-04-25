@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.OffsetDateTime
@@ -186,9 +187,27 @@ class DocumentGenerationExecutor(
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
             ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
-        // 5. Validate data against template schema (if defined)
-        if (template.dataModel != null) {
-            val errors = schemaValidator.validate(template.dataModel, request.data)
+        // 5. Validate data against contract schema (if defined)
+        val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
+            jdbi.withHandle<ObjectNode?, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT data_model FROM contract_versions
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND id = :contractVersion
+                    """,
+                )
+                    .bind("tenantKey", request.tenantKey)
+                    .bind("catalogKey", request.catalogKey)
+                    .bind("templateKey", request.templateKey)
+                    .bind("contractVersion", cv.value)
+                    .mapTo(ObjectNode::class.java)
+                    .findOne()
+                    .orElse(null)
+            }
+        }
+        if (dataModel != null) {
+            val errors = schemaValidator.validate(dataModel, request.data)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")

@@ -4,19 +4,15 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.template.model.TemplateDocument
+import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -39,6 +35,7 @@ class GenerationService(
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
     private val themeStyleResolver: ThemeStyleResolver,
+    private val jdbi: Jdbi,
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
 ) {
     /**
@@ -169,15 +166,32 @@ class GenerationService(
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = GetDocumentTemplate(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
-            ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
+        // Load the latest contract version's data model for validation
+        val dataModel: ObjectNode? = jdbi.withHandle<ObjectNode?, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT data_model FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                  AND template_key = :templateKey
+                  AND status IN ('draft', 'published')
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+                """,
+            )
+                .bind("tenantKey", tenantId)
+                .bind("catalogKey", catalogKey)
+                .bind("templateKey", templateId)
+                .mapTo(ObjectNode::class.java)
+                .findOne()
+                .orElse(null)
+        }
 
-        if (template.dataModel == null) {
+        if (dataModel == null) {
             return PreviewValidationResult(valid = true) // No schema means no validation
         }
 
         val dataNode = objectMapper.valueToTree<ObjectNode>(data)
-        val errors = schemaValidator.validate(template.dataModel, dataNode)
+        val errors = schemaValidator.validate(dataModel, dataNode)
 
         return PreviewValidationResult(
             valid = errors.isEmpty(),

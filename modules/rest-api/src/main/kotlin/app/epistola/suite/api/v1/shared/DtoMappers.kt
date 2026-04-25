@@ -2,7 +2,6 @@ package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ActivationDto
 import app.epistola.api.model.AttributeDto
-import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateSummaryDto
@@ -54,15 +53,6 @@ internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
-    schema = schema?.let { objectMapper.valueToTree(it) },
-    dataModel = dataModel?.let { objectMapper.valueToTree(it) },
-    dataExamples = dataExamples.map { example ->
-        DataExampleDto(
-            id = example.id,
-            name = example.name,
-            data = objectMapper.valueToTree(example.data),
-        )
-    },
     variants = variantSummaries.map { it.toDto() },
     createdAt = createdAt,
     lastModified = lastModified,

@@ -119,9 +119,27 @@ class PreviewDocumentHandler(
         val tenant = mediator.query(GetTenant(id = query.tenantId))
             ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
 
-        // 4. Validate data against schema
-        if (template.dataModel != null) {
-            val errors = schemaValidator.validate(template.dataModel, query.data)
+        // 4. Validate data against contract schema
+        val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
+            jdbi.withHandle<ObjectNode?, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT data_model FROM contract_versions
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND id = :contractVersion
+                    """,
+                )
+                    .bind("tenantKey", query.tenantId)
+                    .bind("catalogKey", query.catalogKey)
+                    .bind("templateKey", query.templateId)
+                    .bind("contractVersion", cv.value)
+                    .mapTo(ObjectNode::class.java)
+                    .findOne()
+                    .orElse(null)
+            }
+        }
+        if (dataModel != null) {
+            val errors = schemaValidator.validate(dataModel, query.data)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")
