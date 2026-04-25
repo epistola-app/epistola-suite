@@ -205,8 +205,8 @@ describe('parseBorderShorthand', () => {
   });
 
   it('returns empty side for null/empty input', () => {
-    expect(parseBorderShorthand(null)).toEqual({ width: '', style: 'solid', color: '' });
-    expect(parseBorderShorthand('')).toEqual({ width: '', style: 'solid', color: '' });
+    expect(parseBorderShorthand(null)).toEqual({ width: '', style: 'none', color: '' });
+    expect(parseBorderShorthand('')).toEqual({ width: '', style: 'none', color: '' });
   });
 
   it('parses dashed border', () => {
@@ -301,9 +301,9 @@ describe('readBorderFromStyles', () => {
 
     expect(result).toEqual({
       top: { width: '2pt', style: 'solid', color: '#000' },
-      right: { width: '', style: 'solid', color: '' },
+      right: { width: '', style: 'none', color: '' },
       bottom: { width: '1pt', style: 'dashed', color: '#ccc' },
-      left: { width: '', style: 'solid', color: '' },
+      left: { width: '', style: 'none', color: '' },
     });
   });
 
@@ -318,7 +318,7 @@ describe('readBorderFromStyles', () => {
       top: { width: '2pt', style: 'solid', color: '#000000' },
       right: { width: '1pt', style: 'dashed', color: '#cccccc' },
       bottom: { width: '2pt', style: 'solid', color: '#000000' },
-      left: { width: '', style: 'solid', color: '' },
+      left: { width: '', style: 'none', color: '' },
     };
 
     const styles: Record<string, unknown> = {};

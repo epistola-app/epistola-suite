@@ -71,6 +71,24 @@ export interface ScopeDeclaration {
   evaluationData?: Record<string, unknown>;
 }
 
+/**
+ * Lets a component customise how the generic inspector renders for the current
+ * node — without the inspector needing any knowledge of the component's type
+ * or internal state. All fields are optional; `undefined` means "use defaults".
+ */
+export interface InspectorPresentation {
+  /** Override the node label rendered in the inspector header. */
+  label?: string;
+  /** Hide the generic Props section. */
+  suppressPropsSection?: boolean;
+  /** Hide the generic Style Preset section. */
+  suppressStylePresetSection?: boolean;
+  /** Hide the generic Styles section. */
+  suppressStylesSection?: boolean;
+  /** Hide the generic Delete section. */
+  suppressDeleteSection?: boolean;
+}
+
 export interface ComponentDefinition {
   type: string;
   label: string;
@@ -136,6 +154,13 @@ export interface ComponentDefinition {
 
   /** Custom inspector section rendered above generic props. */
   renderInspector?: (ctx: { node: Node; engine: unknown }) => unknown;
+
+  /**
+   * Lets a component customise the generic inspector's presentation (label
+   * override, hide standard sections) based on the current node and engine
+   * state. Return `undefined` to use the defaults.
+   */
+  getInspectorPresentation?: (node: Node, engine: unknown) => InspectorPresentation | undefined;
 
   /** Called before dispatching prop changes. Can transform props (e.g. lock aspect ratio). */
   onPropChange?: (
