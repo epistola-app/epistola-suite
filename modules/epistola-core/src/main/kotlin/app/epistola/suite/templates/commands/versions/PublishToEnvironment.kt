@@ -278,6 +278,8 @@ class PublishToEnvironmentHandler(
             templateDefaultThemeKey,
             tenantDefaultThemeKey,
             version.templateModel,
+            templateCatalogKey = template?.themeCatalogKey,
+            tenantDefaultThemeCatalogKey = tenant?.defaultThemeCatalogKey,
         )
 
         // Determine which theme key was actually used

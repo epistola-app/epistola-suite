@@ -263,6 +263,8 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                templateCatalogKey = template.themeCatalogKey,
+                tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )
         }
 
