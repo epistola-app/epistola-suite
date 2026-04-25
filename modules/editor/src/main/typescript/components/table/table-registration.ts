@@ -223,6 +223,23 @@ export function createTableDefinition(): ComponentDefinition {
       return html`<table-inspector .node=${node} .engine=${engine}></table-inspector>`;
     },
 
+    // When a cell is selected, replace the generic inspector header label
+    // and hide all node-level sections so only the table-inspector's
+    // cell-specific controls remain visible.
+    getInspectorPresentation: (_node, eng) => {
+      const engine = eng as EditorEngine;
+      if (engine.getComponentState<CellSelection>('table:cellSelection') == null) {
+        return undefined;
+      }
+      return {
+        label: 'Table Cell',
+        suppressPropsSection: true,
+        suppressStylePresetSection: true,
+        suppressStylesSection: true,
+        suppressDeleteSection: true,
+      };
+    },
+
     // ----- Palette pre-insert hook -----
     onBeforeInsert: async () => {
       const result = await openTableDialog();

@@ -1,8 +1,13 @@
 import { LitElement, html, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js';
 import type { EditorEngine } from '../engine/EditorEngine.js';
-import type { ComponentDefinition, InspectorField, ScopeDeclaration } from '../engine/registry.js';
+import type {
+  ComponentDefinition,
+  InspectorField,
+  InspectorPresentation,
+  ScopeDeclaration,
+} from '../engine/registry.js';
 import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
 import type { BlockStylePreset } from '@epistola.app/epistola-model/generated/theme';
 import { getNestedValue, setNestedValue } from '../engine/props.js';
@@ -32,13 +37,12 @@ export class EpistolaInspector extends LitElement {
   @property({ attribute: false }) doc?: TemplateDocument;
   @property({ attribute: false }) selectedNodeId: NodeId | null = null;
 
-  @state() private _tableCellSelectionActive = false;
   private _unsubState?: () => void;
   private _lastSubscribedEngine?: EditorEngine;
 
   override updated(changed: Map<string, unknown>): void {
     if (changed.has('engine')) {
-      this._resubscribeCellSelection();
+      this._resubscribeComponentState();
     }
   }
 
@@ -49,20 +53,19 @@ export class EpistolaInspector extends LitElement {
     super.disconnectedCallback();
   }
 
-  private _resubscribeCellSelection(): void {
+  /**
+   * Re-render whenever any component-state changes. The component definition's
+   * `getInspectorPresentation` hook (called from render) decides what to do
+   * with the current state — this inspector stays agnostic of which keys exist.
+   */
+  private _resubscribeComponentState(): void {
     if (this._lastSubscribedEngine === this.engine) return;
     this._unsubState?.();
     this._unsubState = undefined;
     this._lastSubscribedEngine = this.engine;
-    if (!this.engine) {
-      this._tableCellSelectionActive = false;
-      return;
-    }
-    this._tableCellSelectionActive = this.engine.getComponentState('table:cellSelection') != null;
-    this._unsubState = this.engine.events.on('component-state:change', ({ key, value }) => {
-      if (key === 'table:cellSelection') {
-        this._tableCellSelectionActive = value != null;
-      }
+    if (!this.engine) return;
+    this._unsubState = this.engine.events.on('component-state:change', () => {
+      this.requestUpdate();
     });
   }
 
@@ -80,46 +83,50 @@ export class EpistolaInspector extends LitElement {
 
     const def = this.engine.registry.get(node.type);
 
-    // Table cell-selection mode: hide node-level sections so the inspector
-    // only shows cell properties. Table-level controls reappear once the
-    // cell selection is cleared (by selecting the table or another node).
-    const cellMode = node.type === 'table' && this._tableCellSelectionActive;
+    // Components can customise the inspector header label and selectively
+    // hide generic sections via `getInspectorPresentation`. The inspector
+    // itself stays agnostic of any specific component type.
+    const presentation: InspectorPresentation | undefined = def?.getInspectorPresentation?.(
+      node,
+      this.engine,
+    );
+    const label =
+      presentation?.label ?? def?.getLabel?.(node, this.engine) ?? def?.label ?? node.type;
 
     return html`
       <div class="epistola-inspector">
         <!-- Node info -->
         <div class="inspector-node-info">
-          <div class="inspector-node-label">
-            ${cellMode ? 'Table Cell' : (def?.label ?? node.type)}
-          </div>
+          <div class="inspector-node-label">${label}</div>
           <div class="inspector-node-id">${node.id}</div>
         </div>
 
         <!-- Component-specific inspector (columns, table, etc.) -->
         ${def?.renderInspector ? def.renderInspector({ node, engine: this.engine! }) : nothing}
-        ${cellMode
-          ? nothing
-          : html`
-              <!-- Props -->
-              ${def?.inspector && def.inspector.length > 0
-                ? this._renderInspectorFields(node, def)
-                : nothing}
 
-              <!-- Style preset -->
-              ${this._hasStyles(def?.applicableStyles)
-                ? this._renderStylePresetSection(node)
-                : nothing}
+        <!-- Props -->
+        ${!presentation?.suppressPropsSection && def?.inspector && def.inspector.length > 0
+          ? this._renderInspectorFields(node, def)
+          : nothing}
 
-              <!-- Style properties -->
-              ${this._hasStyles(def?.applicableStyles)
-                ? this._renderNodeStyleGroups(node, def?.applicableStyles)
-                : nothing}
+        <!-- Style preset -->
+        ${!presentation?.suppressStylePresetSection && this._hasStyles(def?.applicableStyles)
+          ? this._renderStylePresetSection(node)
+          : nothing}
 
-              <!-- Delete -->
+        <!-- Style properties -->
+        ${!presentation?.suppressStylesSection && this._hasStyles(def?.applicableStyles)
+          ? this._renderNodeStyleGroups(node, def?.applicableStyles)
+          : nothing}
+
+        <!-- Delete -->
+        ${!presentation?.suppressDeleteSection
+          ? html`
               <div class="inspector-delete-section">
                 <button class="ep-btn-danger" @click=${this._handleDelete}>Delete Block</button>
               </div>
-            `}
+            `
+          : nothing}
       </div>
     `;
   }
