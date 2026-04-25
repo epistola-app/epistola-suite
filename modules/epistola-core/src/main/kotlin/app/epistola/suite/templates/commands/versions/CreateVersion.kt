@@ -110,10 +110,26 @@ class CreateVersionHandler(
             val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId.key)
             val templateModelJson = objectMapper.writeValueAsString(modelToSave)
 
+            // Resolve contract version: latest published, or draft if no published exists
+            val contractVersionId = handle.createQuery(
+                """
+                SELECT id FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+                """,
+            )
+                .bind("tenantKey", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
+                .bind("templateKey", command.variantId.templateKey)
+                .mapTo(Int::class.java)
+                .findOne()
+                .orElse(null)
+
             handle.createQuery(
                 """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
                 RETURNING *
                 """,
             )
@@ -123,6 +139,7 @@ class CreateVersionHandler(
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
                 .bind("templateModel", templateModelJson)
+                .bind("contractVersion", contractVersionId)
                 .mapTo<TemplateVersion>()
                 .one()
         }

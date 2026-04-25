@@ -101,6 +101,28 @@ class PublishToEnvironmentHandler(
                 return@inTransaction null
             }
 
+            // 3b. Guard: reject if template version references a draft contract
+            if (version.contractVersion != null) {
+                val contractStatus = handle.createQuery(
+                    """
+                    SELECT status FROM contract_versions
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND id = :contractVersion
+                    """,
+                )
+                    .bind("tenantKey", command.versionId.tenantKey)
+                    .bind("catalogKey", command.versionId.catalogKey)
+                    .bind("templateKey", command.versionId.templateKey)
+                    .bind("contractVersion", version.contractVersion.value)
+                    .mapTo<String>()
+                    .findOne()
+                    .orElse(null)
+
+                require(contractStatus != "draft") {
+                    "Cannot publish template version: contract version ${version.contractVersion.value} is still a draft. Publish the contract first."
+                }
+            }
+
             // 4. If draft, freeze it (update to published) with rendering snapshot
             val wasDraft = version.status.name == "DRAFT"
             if (wasDraft) {
@@ -184,10 +206,10 @@ class PublishToEnvironmentHandler(
 
                 handle.createQuery(
                     """
-                    INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
+                    INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
                     VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId,
                             (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
-                            'draft', NOW())
+                            'draft', :contractVersion, NOW())
                     RETURNING *
                     """,
                 )
@@ -197,6 +219,7 @@ class PublishToEnvironmentHandler(
                     .bind("templateId", command.versionId.templateKey)
                     .bind("variantId", command.versionId.variantKey)
                     .bind("publishedId", command.versionId.key)
+                    .bind("contractVersion", version.contractVersion?.value)
                     .mapTo<TemplateVersion>()
                     .one()
             } else {
