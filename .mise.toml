@@ -1,6 +1,6 @@
 [tools]
-java = "temurin-25.0.2+10.0.LTS"
+java = "temurin-25.0.3+9.0.LTS"
 gradle = "9.2.1"
-node = "24.14.0"
-pnpm = "10.32.1"
+node = "24.15.0"
+pnpm = "10.33.2"
 helm = "4.1.4"
