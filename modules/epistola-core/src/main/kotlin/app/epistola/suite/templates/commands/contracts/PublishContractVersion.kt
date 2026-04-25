@@ -3,7 +3,6 @@ package app.epistola.suite.templates.commands.contracts
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -28,7 +27,6 @@ import tools.jackson.databind.ObjectMapper
  * 4. Auto-upgrades template versions:
  *    - Compatible: all versions (draft, published, archived) from N-1 → N
  *    - Breaking: only draft versions from N-1 → N
- * 5. Auto-creates next draft (copies published contract)
  */
 data class PublishContractVersion(
     val templateId: TemplateId,
@@ -40,7 +38,6 @@ data class PublishContractVersion(
 
 data class PublishContractVersionResult(
     val publishedVersion: ContractVersion,
-    val newDraft: ContractVersion,
     val compatible: Boolean,
     val breakingChanges: List<SchemaCompatibilityChecker.BreakingChange>,
     val upgradedVersionCount: Int,
@@ -162,40 +159,12 @@ class PublishContractVersionHandler(
                     .execute()
             }
 
-            // 6. Auto-create next draft (copy from published)
-            val nextVersionId = draft.id.value + 1
-            require(nextVersionId <= VersionKey.MAX_VERSION) {
-                "Maximum contract version limit (${VersionKey.MAX_VERSION}) reached"
-            }
-
-            val schemaJson = draft.schema?.let { objectMapper.writeValueAsString(it) }
-            val dataModelJson = draft.dataModel?.let { objectMapper.writeValueAsString(it) }
-            val dataExamplesJson = objectMapper.writeValueAsString(draft.dataExamples)
-
-            val newDraft = handle.createQuery(
-                """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at)
-                VALUES (:id, :tenantKey, :catalogKey, :templateKey, :schema::jsonb, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
-                RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at, created_by
-                """,
-            )
-                .bind("id", VersionKey.of(nextVersionId))
-                .bind("tenantKey", command.templateId.tenantKey)
-                .bind("catalogKey", command.templateId.catalogKey)
-                .bind("templateKey", command.templateId.key)
-                .bind("schema", schemaJson)
-                .bind("dataModel", dataModelJson)
-                .bind("dataExamples", dataExamplesJson)
-                .mapTo<ContractVersion>()
-                .one()
-
             val publishedVersion = draft.copy(
                 status = ContractVersionStatus.PUBLISHED,
             )
 
             PublishContractVersionResult(
                 publishedVersion = publishedVersion,
-                newDraft = newDraft,
                 compatible = compatibilityResult.compatible,
                 breakingChanges = compatibilityResult.breakingChanges,
                 upgradedVersionCount = upgradedCount,

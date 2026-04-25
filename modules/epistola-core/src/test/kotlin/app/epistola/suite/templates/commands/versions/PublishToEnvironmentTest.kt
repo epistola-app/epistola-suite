@@ -54,15 +54,10 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(result.activation.environmentKey).isEqualTo(env.id)
         assertThat(result.activation.versionKey).isEqualTo(draft.id)
 
-        // Auto-created draft should exist
-        assertThat(result.newDraft).isNotNull
-        assertThat(result.newDraft!!.status).isEqualTo(VersionStatus.DRAFT)
-        assertThat(result.newDraft!!.id.value).isEqualTo(draft.id.value + 1)
-
-        // Variant should still have a draft
+        // No auto-created draft (on-demand lifecycle)
         val updatedVersions = ListVersions(variantId = variantId).query()
-        assertThat(updatedVersions).hasSize(2)
-        assertThat(updatedVersions.any { it.status == VersionStatus.DRAFT }).isTrue()
+        assertThat(updatedVersions).hasSize(1)
+        assertThat(updatedVersions.all { it.status == VersionStatus.PUBLISHED }).isTrue()
         Unit
     }
 
@@ -100,8 +95,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(secondResult).isNotNull
         assertThat(secondResult!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(secondResult.activation.environmentKey).isEqualTo(production.id)
-        // No new draft when re-deploying an already-published version
-        assertThat(secondResult.newDraft).isNull()
+        // No new draft (on-demand lifecycle)
 
         // Both activations should exist
         val activations = ListActivations(variantId = variantId).query()
@@ -139,10 +133,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(first).isNotNull
         assertThat(second).isNotNull
         assertThat(second!!.activation.versionKey).isEqualTo(first!!.activation.versionKey)
-        // First publish creates a new draft, second doesn't
-        assertThat(first.newDraft).isNotNull
-        assertThat(second.newDraft).isNull()
-
         // Only one activation should exist
         val activations = ListActivations(variantId = variantId).query()
         assertThat(activations).hasSize(1)

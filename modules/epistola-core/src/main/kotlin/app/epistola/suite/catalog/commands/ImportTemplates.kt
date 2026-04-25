@@ -262,8 +262,9 @@ class ImportTemplatesHandler(
             // Resolve latest contract version to link to new template versions
             val latestContractVersion = handle.createQuery(
                 """
-                    SELECT MAX(id) FROM contract_versions
+                    SELECT id FROM contract_versions
                     WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND status = 'published'
+                    ORDER BY id DESC LIMIT 1
                     """,
             )
                 .bind("tenantId", tenantId.key)

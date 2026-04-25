@@ -7,6 +7,9 @@
 ### Changed
 
 - **Contract data moved to `contract_versions` table**: Removed `schema`, `dataModel`, and `dataExamples` columns from `document_templates`. Contract data is now stored in `contract_versions` with draft/published lifecycle. All queries, handlers, tests, and catalog import/export updated to use the new table.
+- **Unified on-demand draft lifecycle**: Drafts are no longer auto-created after publish. `PublishToEnvironment` no longer creates a next draft template version. `PublishContractVersion` no longer creates a next draft contract version. Drafts are created on-demand via `CreateContractVersion` (which copies from the latest published version) and `CreateVersion`.
+- **Smart contract auto-publish**: `PublishToEnvironment` now auto-publishes a draft contract if it is backwards-compatible, instead of rejecting the publish. Breaking contract changes are still rejected with a descriptive error.
+- **CreateContractVersion copies from published**: When no draft exists but a published version does, the new draft copies the latest published contract's schema, dataModel, and dataExamples. Draft template versions are automatically linked to the new contract version.
 
 ### Fixed
 
@@ -18,11 +21,10 @@
 ### Added
 
 - **Contract schema versioning design**: Added design document (`docs/schema-versioning.md`) for versioning template data contracts with draft/published lifecycle, backwards-compatibility checking, auto-upgrade logic, and UI changes.
-- **Contract version commands**: `CreateContractVersion`, `UpdateContractVersion`, `PublishContractVersion` commands with schema validation, backwards-compatibility checking, auto-upgrade of template versions, and auto-creation of next draft.
+- **Contract version commands**: `CreateContractVersion`, `UpdateContractVersion`, `PublishContractVersion` commands with schema validation, backwards-compatibility checking, auto-upgrade of template versions.
 - **Schema compatibility checker**: `SchemaCompatibilityChecker` detects breaking changes between schema versions (field removal, type changes, required field additions).
 - **Contract version queries**: `GetContractVersion`, `GetDraftContractVersion`, `GetLatestContractVersion`, `ListContractVersions`.
-- **Publish guard**: `PublishToEnvironment` rejects template version publish if its contract version is still a draft.
-- **Contract version on template versions**: `CreateVersion` and `PublishToEnvironment` propagate `contract_version` to new template version drafts.
+- **Contract version on template versions**: `CreateVersion` propagates `contract_version` to new template version drafts.
 
 ## [0.16.0] - 2026-04-23
 

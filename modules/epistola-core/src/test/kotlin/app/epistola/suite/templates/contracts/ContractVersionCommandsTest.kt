@@ -138,7 +138,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
     @Nested
     inner class PublishContractVersionTest {
         @Test
-        fun `publishes draft and creates next draft`() {
+        fun `publishes draft`() {
             withMediator {
                 UpdateContractVersion(
                     templateId = templateId,
@@ -153,8 +153,6 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             assertThat(result).isNotNull
             assertThat(result!!.publishedVersion.status).isEqualTo(ContractVersionStatus.PUBLISHED)
             assertThat(result.publishedVersion.id).isEqualTo(VersionKey.of(1))
-            assertThat(result.newDraft.status).isEqualTo(ContractVersionStatus.DRAFT)
-            assertThat(result.newDraft.id).isEqualTo(VersionKey.of(2))
             assertThat(result.compatible).isTrue() // first version, no previous to compare
         }
 
@@ -169,7 +167,8 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
             withMediator { PublishContractVersion(templateId = templateId).execute() }
 
-            // Update draft with compatible change (add optional field)
+            // Create a new draft on-demand, then update with compatible change (add optional field)
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
             withMediator {
                 UpdateContractVersion(
                     templateId = templateId,
@@ -194,7 +193,8 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
             withMediator { PublishContractVersion(templateId = templateId).execute() }
 
-            // Update draft with breaking change (remove field)
+            // Create a new draft on-demand, then update with breaking change (remove field)
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
             withMediator {
                 UpdateContractVersion(
                     templateId = templateId,
@@ -225,10 +225,18 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 VariantKey.of("${templateId.key.value}-default"),
                 templateId,
             )
+            // Template version draft still points to contract v1 (published)
             val draftBefore = withMediator { GetDraft(defaultVariantId).query() }
             assertThat(draftBefore!!.contractVersion).isEqualTo(VersionKey.of(1))
 
-            // Add optional field (compatible) and publish v2
+            // Create a new contract draft on-demand — this links draft template versions to v2
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
+
+            // Draft template version should now point to contract v2 (draft)
+            val draftAfterCreate = withMediator { GetDraft(defaultVariantId).query() }
+            assertThat(draftAfterCreate!!.contractVersion).isEqualTo(VersionKey.of(2))
+
+            // Update and publish contract v2
             withMediator {
                 UpdateContractVersion(
                     templateId = templateId,
@@ -238,9 +246,10 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             val result = withMediator { PublishContractVersion(templateId = templateId).execute() }
 
             assertThat(result!!.compatible).isTrue()
-            assertThat(result.upgradedVersionCount).isGreaterThan(0)
+            // upgradedVersionCount is 0 because CreateContractVersion already linked drafts to v2
+            assertThat(result.upgradedVersionCount).isEqualTo(0)
 
-            // Verify template version was upgraded
+            // Verify template version still points to v2 (now published)
             val draftAfter = withMediator { GetDraft(defaultVariantId).query() }
             assertThat(draftAfter!!.contractVersion).isEqualTo(VersionKey.of(2))
         }
@@ -277,7 +286,13 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 ).execute()
             }
 
+            // Create a new draft template version on-demand (no auto-creation after publish)
+            val newDraft = withMediator { CreateVersion(defaultVariantId).execute()!! }
+
             // Now we have: published template version on contract v1, new draft on contract v1
+            // Create a new contract draft on-demand — this links the draft template version to v2
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
+
             // Make a breaking change and publish contract v2
             withMediator {
                 UpdateContractVersion(
@@ -288,8 +303,9 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             val result = withMediator { PublishContractVersion(templateId = templateId).execute() }
 
             assertThat(result!!.compatible).isFalse()
-            // Only the new draft should be upgraded, not the published version
-            assertThat(result.upgradedVersionCount).isEqualTo(1) // just the new draft
+            // 0 upgrades because CreateContractVersion already linked draft template versions to v2;
+            // the published template version stays on v1 (breaking change = don't upgrade non-drafts)
+            assertThat(result.upgradedVersionCount).isEqualTo(0)
         }
 
         @Test
@@ -300,14 +316,13 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
             assertThat(result).isNotNull
             assertThat(result!!.publishedVersion.dataModel).isNull() // empty contract
-            assertThat(result.newDraft.id).isEqualTo(VersionKey.of(2))
         }
     }
 
     @Nested
-    inner class PublishGuardTest {
+    inner class ContractAutoPublishTest {
         @Test
-        fun `PublishToEnvironment rejects template version with draft contract`() {
+        fun `PublishToEnvironment auto-publishes compatible draft contract`() {
             // Create a draft contract (not published)
             withMediator {
                 UpdateContractVersion(
@@ -316,8 +331,6 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 ).execute()
             }
 
-            // The default variant's draft should be linked to contract v1 (draft)
-            // Create an environment and try to publish
             val tenantId = TenantId(tenantKey)
             val env = withMediator {
                 CreateEnvironment(
@@ -331,7 +344,56 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 templateId,
             )
 
-            // Create a new version so it picks up the draft contract
+            val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
+
+            // Should auto-publish the contract (first version, always compatible)
+            val result = withMediator {
+                PublishToEnvironment(
+                    versionId = VersionId(version.id, defaultVariantId),
+                    environmentId = EnvironmentId(env.id, tenantId),
+                ).execute()
+            }
+
+            assertThat(result).isNotNull
+
+            // Verify the contract was auto-published
+            val contractVersions = withMediator { ListContractVersions(templateId = templateId).query() }
+            assertThat(contractVersions.all { it.status == ContractVersionStatus.PUBLISHED }).isTrue()
+        }
+
+        @Test
+        fun `PublishToEnvironment rejects breaking draft contract`() {
+            // Publish contract v1 with two fields
+            withMediator {
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}"""),
+                ).execute()
+            }
+            withMediator { PublishContractVersion(templateId = templateId).execute() }
+
+            // Create draft v2 with breaking change (remove field)
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
+            withMediator {
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}"""),
+                ).execute()
+            }
+
+            val tenantId = TenantId(tenantKey)
+            val env = withMediator {
+                CreateEnvironment(
+                    id = EnvironmentId(EnvironmentKey.of("break-test-env"), tenantId),
+                    name = "break-test-env",
+                ).execute()
+            }
+
+            val defaultVariantId = VariantId(
+                VariantKey.of("${templateId.key.value}-default"),
+                templateId,
+            )
+
             val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
 
             assertThatThrownBy {
@@ -341,8 +403,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                         environmentId = EnvironmentId(env.id, tenantId),
                     ).execute()
                 }
-            }.hasMessageContaining("contract version")
-                .hasMessageContaining("still a draft")
+            }.hasMessageContaining("breaking changes detected")
         }
     }
 
@@ -354,14 +415,12 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 CreateContractVersion(templateId = templateId, dataModel = schema("""{"type":"object"}""")).execute()
             }
             withMediator { PublishContractVersion(templateId = templateId).execute() }
-            // Now we have: v1 (published), v2 (draft)
+            // Now we have: v1 (published) — no auto-created draft
 
             val versions = withMediator { ListContractVersions(templateId = templateId).query() }
-            assertThat(versions).hasSize(2)
-            assertThat(versions[0].id).isEqualTo(VersionKey.of(2)) // descending order
-            assertThat(versions[0].status).isEqualTo(ContractVersionStatus.DRAFT)
-            assertThat(versions[1].id).isEqualTo(VersionKey.of(1))
-            assertThat(versions[1].status).isEqualTo(ContractVersionStatus.PUBLISHED)
+            assertThat(versions).hasSize(1)
+            assertThat(versions[0].id).isEqualTo(VersionKey.of(1))
+            assertThat(versions[0].status).isEqualTo(ContractVersionStatus.PUBLISHED)
         }
 
         @Test
@@ -373,7 +432,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `GetLatestContractVersion prefers draft`() {
+        fun `GetLatestContractVersion returns published when no draft exists`() {
             withMediator {
                 CreateContractVersion(templateId = templateId, dataModel = schema("""{"type":"object"}""")).execute()
             }
@@ -381,7 +440,19 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
 
             val latest = withMediator { GetLatestContractVersion(templateId = templateId).query() }
             assertThat(latest).isNotNull
-            assertThat(latest!!.status).isEqualTo(ContractVersionStatus.DRAFT) // draft preferred
+            assertThat(latest!!.status).isEqualTo(ContractVersionStatus.PUBLISHED)
+        }
+
+        @Test
+        fun `GetLatestContractVersion prefers draft when it exists`() {
+            // Publish v1
+            withMediator { PublishContractVersion(templateId = templateId).execute() }
+            // Create a new draft (v2) on-demand
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
+
+            val latest = withMediator { GetLatestContractVersion(templateId = templateId).query() }
+            assertThat(latest).isNotNull
+            assertThat(latest!!.status).isEqualTo(ContractVersionStatus.DRAFT)
         }
     }
 }

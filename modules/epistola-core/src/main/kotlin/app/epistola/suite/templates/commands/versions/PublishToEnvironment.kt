@@ -6,16 +6,17 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.model.ContractVersion
 import app.epistola.suite.templates.model.EnvironmentActivation
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.validation.SchemaCompatibilityChecker
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
@@ -49,7 +50,6 @@ data class PublishToEnvironment(
 data class PublishToEnvironmentResult(
     val version: TemplateVersion,
     val activation: EnvironmentActivation,
-    val newDraft: TemplateVersion? = null,
 )
 
 @Component
@@ -58,6 +58,7 @@ class PublishToEnvironmentHandler(
     private val themeStyleResolver: ThemeStyleResolver,
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
+    private val compatibilityChecker: SchemaCompatibilityChecker,
 ) : CommandHandler<PublishToEnvironment, PublishToEnvironmentResult?> {
     override fun handle(command: PublishToEnvironment): PublishToEnvironmentResult? {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
@@ -101,11 +102,13 @@ class PublishToEnvironmentHandler(
                 return@inTransaction null
             }
 
-            // 3b. Guard: reject if template version references a draft contract
+            // 3b. Auto-publish contract if it's a draft
             if (version.contractVersion != null) {
-                val contractStatus = handle.createQuery(
+                val contract = handle.createQuery(
                     """
-                    SELECT status FROM contract_versions
+                    SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                           status, created_at, published_at, created_by
+                    FROM contract_versions
                     WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                       AND template_key = :templateKey AND id = :contractVersion
                     """,
@@ -114,12 +117,72 @@ class PublishToEnvironmentHandler(
                     .bind("catalogKey", command.versionId.catalogKey)
                     .bind("templateKey", command.versionId.templateKey)
                     .bind("contractVersion", version.contractVersion.value)
-                    .mapTo<String>()
+                    .mapTo<ContractVersion>()
                     .findOne()
                     .orElse(null)
 
-                require(contractStatus != "draft") {
-                    "Cannot publish template version: contract version ${version.contractVersion.value} is still a draft. Publish the contract first."
+                if (contract != null && contract.status.name == "DRAFT") {
+                    // Check compatibility against previous published contract
+                    val previousPublished = handle.createQuery(
+                        """
+                        SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                               status, created_at, published_at, created_by
+                        FROM contract_versions
+                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                          AND template_key = :templateKey AND status = 'published'
+                        ORDER BY id DESC LIMIT 1
+                        """,
+                    )
+                        .bind("tenantKey", command.versionId.tenantKey)
+                        .bind("catalogKey", command.versionId.catalogKey)
+                        .bind("templateKey", command.versionId.templateKey)
+                        .mapTo<ContractVersion>()
+                        .findOne()
+                        .orElse(null)
+
+                    val compatibilityResult = if (previousPublished != null) {
+                        compatibilityChecker.checkCompatibility(previousPublished.dataModel, contract.dataModel)
+                    } else {
+                        SchemaCompatibilityChecker.CompatibilityResult(compatible = true, breakingChanges = emptyList())
+                    }
+
+                    require(compatibilityResult.compatible) {
+                        "Cannot auto-publish contract version ${version.contractVersion.value}: breaking changes detected. " +
+                            "Publish the contract separately first. Breaking changes: " +
+                            compatibilityResult.breakingChanges.joinToString { it.description }
+                    }
+
+                    // Auto-publish the contract
+                    handle.createUpdate(
+                        """
+                        UPDATE contract_versions SET status = 'published', published_at = NOW()
+                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                          AND template_key = :templateKey AND id = :contractVersion
+                        """,
+                    )
+                        .bind("tenantKey", command.versionId.tenantKey)
+                        .bind("catalogKey", command.versionId.catalogKey)
+                        .bind("templateKey", command.versionId.templateKey)
+                        .bind("contractVersion", version.contractVersion.value)
+                        .execute()
+
+                    // Auto-upgrade other template versions from previous contract version to new
+                    if (previousPublished != null) {
+                        handle.createUpdate(
+                            """
+                            UPDATE template_versions
+                            SET contract_version = :newVersion
+                            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                              AND template_key = :templateKey AND contract_version = :oldVersion
+                            """,
+                        )
+                            .bind("tenantKey", command.versionId.tenantKey)
+                            .bind("catalogKey", command.versionId.catalogKey)
+                            .bind("templateKey", command.versionId.templateKey)
+                            .bind("newVersion", version.contractVersion.value)
+                            .bind("oldVersion", previousPublished.id.value)
+                            .execute()
+                    }
                 }
             }
 
@@ -188,48 +251,9 @@ class PublishToEnvironmentHandler(
                 .mapTo<TemplateVersion>()
                 .one()
 
-            // 7. Auto-create a new draft if we just froze a draft, so the variant always has an editable version
-            val newDraft = if (wasDraft) {
-                val nextVersionId = handle.createQuery(
-                    """
-                    SELECT COALESCE(MAX(id), 0) + 1
-                    FROM template_versions
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
-                    """,
-                )
-                    .bind("tenantId", command.versionId.tenantKey)
-                    .bind("catalogKey", command.versionId.catalogKey)
-                    .bind("templateId", command.versionId.templateKey)
-                    .bind("variantId", command.versionId.variantKey)
-                    .mapTo(Int::class.java)
-                    .one()
-
-                handle.createQuery(
-                    """
-                    INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
-                    VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId,
-                            (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
-                            'draft', :contractVersion, NOW())
-                    RETURNING *
-                    """,
-                )
-                    .bind("id", VersionKey.of(nextVersionId))
-                    .bind("tenantId", command.versionId.tenantKey)
-                    .bind("catalogKey", command.versionId.catalogKey)
-                    .bind("templateId", command.versionId.templateKey)
-                    .bind("variantId", command.versionId.variantKey)
-                    .bind("publishedId", command.versionId.key)
-                    .bind("contractVersion", version.contractVersion?.value)
-                    .mapTo<TemplateVersion>()
-                    .one()
-            } else {
-                null
-            }
-
             PublishToEnvironmentResult(
                 version = updatedVersion,
                 activation = activation,
-                newDraft = newDraft,
             )
         }
     }
