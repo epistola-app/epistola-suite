@@ -24,7 +24,8 @@
 - **Contract version commands**: `CreateContractVersion`, `UpdateContractVersion`, `PublishContractVersion` commands with schema validation, backwards-compatibility checking, auto-upgrade of template versions.
 - **Schema compatibility checker**: `SchemaCompatibilityChecker` detects breaking changes between schema versions (field removal, type changes, required field additions).
 - **Contract version queries**: `GetContractVersion`, `GetDraftContractVersion`, `GetLatestContractVersion`, `ListContractVersions`.
-- **Contract version on template versions**: `CreateVersion` propagates `contract_version` to new template version drafts.
+- **Contract version on template versions**: `CreateVersion`, `CreateVariant`, `UpdateDraft`, and `CreateDocumentTemplate` all propagate `contract_version` to new template version drafts.
+- **Contract version UI handler routes**: `ContractVersionHandler` with routes for creating drafts, updating, publishing, and listing contract version history. Data contract editor save callbacks now route to contract version endpoints.
 
 ## [0.16.0] - 2026-04-23
 
