@@ -26,6 +26,9 @@
 - **Contract version queries**: `GetContractVersion`, `GetDraftContractVersion`, `GetLatestContractVersion`, `ListContractVersions`.
 - **Contract version on template versions**: `CreateVersion`, `CreateVariant`, `UpdateDraft`, and `CreateDocumentTemplate` all propagate `contract_version` to new template version drafts.
 - **Contract version UI handler routes**: `ContractVersionHandler` with routes for creating drafts, updating, publishing, and listing contract version history. Data contract editor save callbacks now route to contract version endpoints.
+- **Contract version badge in editor**: The data contract editor displays the current contract version number and status (draft/published) as a color-coded badge.
+- **Contract version history dialog**: New HTMX-powered dialog showing all contract versions with status, creation, and publish timestamps.
+- **Contract column in version history**: The variant version history dialog now shows which contract version each template version is linked to.
 
 ## [0.16.0] - 2026-04-23
 
