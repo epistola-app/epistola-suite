@@ -27,6 +27,7 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
+import org.jdbi.v3.json.Json
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
@@ -65,6 +66,10 @@ data class PreviewDocument(
         }
     }
 }
+
+private data class ContractDataModelRow(
+    @Json val dataModel: ObjectNode?,
+)
 
 @Component
 class PreviewDocumentHandler(
@@ -133,8 +138,9 @@ class PreviewDocumentHandler(
                     .bind("catalogKey", query.catalogKey)
                     .bind("templateKey", query.templateId)
                     .bind("contractVersion", cv.value)
-                    .mapTo(ObjectNode::class.java)
+                    .mapTo<ContractDataModelRow>()
                     .findOne()
+                    .map { it.dataModel }
                     .orElse(null)
             }
         }

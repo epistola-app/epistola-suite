@@ -348,6 +348,10 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        // Verify the template exists
+        GetDocumentTemplate(id = templateId).query()
+            ?: return ServerResponse.notFound().build()
+
         val body = request.body(String::class.java)
         val validateRequest = objectMapper.readValue(body, ValidateSchemaRequest::class.java)
 

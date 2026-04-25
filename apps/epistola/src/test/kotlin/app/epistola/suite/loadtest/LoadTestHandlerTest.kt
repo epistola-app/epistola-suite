@@ -49,6 +49,8 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 """
                 INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at)
                 VALUES (1, :tenantKey, 'default', :templateKey, :dataExamples::jsonb, 'draft', NOW())
+                ON CONFLICT (tenant_key, catalog_key, template_key) WHERE status = 'draft'
+                DO UPDATE SET data_examples = :dataExamples::jsonb
                 """,
             )
                 .bind("tenantKey", tenantKey)

@@ -49,6 +49,10 @@ private data class DraftRow(
     @Json val draftTemplateModel: TemplateDocument?,
 )
 
+private data class VariantContractRow(
+    @Json val dataModel: ObjectNode?,
+)
+
 @Component
 class PreviewVariantHandler(
     private val jdbi: Jdbi,
@@ -88,8 +92,9 @@ class PreviewVariantHandler(
                 .bind("tenantKey", query.tenantId)
                 .bind("catalogKey", query.catalogKey)
                 .bind("templateKey", query.templateId)
-                .mapTo(ObjectNode::class.java)
+                .mapTo<VariantContractRow>()
                 .findOne()
+                .map { it.dataModel }
                 .orElse(null)
         }
         if (dataModel != null) {

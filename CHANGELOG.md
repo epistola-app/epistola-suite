@@ -8,6 +8,13 @@
 
 - **Contract data moved to `contract_versions` table**: Removed `schema`, `dataModel`, and `dataExamples` columns from `document_templates`. Contract data is now stored in `contract_versions` with draft/published lifecycle. All queries, handlers, tests, and catalog import/export updated to use the new table.
 
+### Fixed
+
+- **JDBI ObjectNode mapper**: Fixed `NoSuchMapperException` in `PreviewVariantHandler` and `PreviewDocumentHandler` where `mapTo(ObjectNode::class.java)` failed because JDBI has no built-in mapper for Jackson `ObjectNode`. Replaced with wrapper data classes using `@Json` annotation.
+- **Validate-schema 404 for missing templates**: The `validateSchema` handler now checks template existence before proceeding, returning 404 instead of 200 for non-existent templates.
+- **Publish guard in tests**: Updated `VersionComparisonRoutesTest` to publish the contract version before publishing a template version to an environment.
+- **Duplicate contract version in tests**: Updated `LoadTestHandlerTest` to use `ON CONFLICT DO UPDATE` when inserting draft contract versions, avoiding primary key violations from auto-created contracts.
+
 ### Added
 
 - **Contract schema versioning design**: Added design document (`docs/schema-versioning.md`) for versioning template data contracts with draft/published lifecycle, backwards-compatibility checking, auto-upgrade logic, and UI changes.
