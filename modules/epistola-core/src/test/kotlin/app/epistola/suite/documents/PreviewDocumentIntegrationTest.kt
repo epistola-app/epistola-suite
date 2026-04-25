@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -51,6 +52,39 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
     }
 
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
+
+    @Nested
+    inner class FreshTemplatePreviewTests {
+        @Test
+        fun `preview works on freshly created template without any edits`() {
+            // Mimics: create template → open editor → click preview
+            val tenant = createTenant("Fresh Preview Tenant")
+            val tenantId = TenantId(tenant.id)
+            val catalogId = CatalogId.default(tenantId)
+            val templateId = TemplateId(app.epistola.suite.common.ids.TemplateKey.of("fresh-preview"), catalogId)
+
+            withMediator {
+                app.epistola.suite.templates.commands.CreateDocumentTemplate(
+                    id = templateId,
+                    name = "Fresh Template",
+                ).execute()
+            }
+
+            // Preview the default variant's draft — no contract edits, no version edits
+            val defaultVariantId = app.epistola.suite.common.ids.VariantKey.of("fresh-preview-default")
+            val pdfBytes = withMediator {
+                PreviewVariant(
+                    tenantId = tenant.id,
+                    catalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+                    templateId = templateId.key,
+                    variantId = defaultVariantId,
+                    data = emptyData(),
+                ).query()
+            }
+
+            assertThat(pdfBytes).isNotEmpty()
+        }
+    }
 
     @Nested
     inner class PreviewVariantTests {
