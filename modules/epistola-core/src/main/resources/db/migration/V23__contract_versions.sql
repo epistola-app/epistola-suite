@@ -30,6 +30,11 @@ CREATE UNIQUE INDEX idx_one_draft_contract_per_template
     ON contract_versions (tenant_key, catalog_key, template_key)
     WHERE status = 'draft';
 
+-- Index for published contract lookups (latest published version per template)
+CREATE INDEX idx_contract_versions_published
+    ON contract_versions (tenant_key, catalog_key, template_key, id DESC)
+    WHERE status = 'published';
+
 COMMENT ON TABLE contract_versions IS 'Versioned data contracts for templates. Each version holds a JSON Schema, data model, and examples. Lifecycle: draft -> published. At most one draft per template.';
 COMMENT ON COLUMN contract_versions.id IS 'Sequential version number (1-200) within the template';
 COMMENT ON COLUMN contract_versions.tenant_key IS 'Owning tenant';

@@ -40,27 +40,29 @@ class CreateContractVersionHandler(
     override fun handle(command: CreateContractVersion): ContractVersion? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
         return jdbi.inTransaction<ContractVersion?, Exception> { handle ->
-            // Verify template exists
-            val templateExists = handle.createQuery(
+            // Lock the template row to serialize contract version creation
+            val templateRow = handle.createQuery(
                 """
-                SELECT COUNT(*) > 0
+                SELECT id
                 FROM document_templates
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :templateKey
+                FOR UPDATE
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
                 .bind("catalogKey", command.templateId.catalogKey)
                 .bind("templateKey", command.templateId.key)
-                .mapTo<Boolean>()
-                .one()
+                .mapToMap()
+                .findOne()
+                .orElse(null)
 
-            if (!templateExists) return@inTransaction null
+            if (templateRow == null) return@inTransaction null
 
             // Check if a draft already exists (idempotent)
             val existingDraft = handle.createQuery(
                 """
                 SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
-                       status, created_at, published_at
+                       status, created_at, published_at, created_by
                 FROM contract_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND status = 'draft'
@@ -101,7 +103,7 @@ class CreateContractVersionHandler(
                 """
                 INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at)
                 VALUES (:id, :tenantKey, :catalogKey, :templateKey, :schema::jsonb, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
-                RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at
+                RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at, created_by
                 """,
             )
                 .bind("id", VersionKey.of(nextVersionId))

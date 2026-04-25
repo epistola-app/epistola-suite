@@ -21,9 +21,6 @@ import tools.jackson.databind.node.ObjectNode
 /**
  * Updates a single data example within a template's draft contract version.
  * Only validates the single example being updated against the schema.
- *
- * @property forceUpdate When true, validation warnings don't block the update.
- *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDataExample(
     val templateId: TemplateId,
@@ -37,12 +34,6 @@ data class UpdateDataExample(
     override val tenantKey: TenantKey get() = templateId.tenantKey
 }
 
-/**
- * Result of updating a data example.
- *
- * @property example The updated data example
- * @property warnings Validation warnings (only populated when forceUpdate=true)
- */
 data class UpdateDataExampleResult(
     val example: DataExample,
     val warnings: Map<String, List<ValidationError>> = emptyMap(),
@@ -57,67 +48,52 @@ class UpdateDataExampleHandler(
     override fun handle(command: UpdateDataExample): UpdateDataExampleResult? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
 
-        val draftContract = getDraftContractVersion(command.templateId) ?: return null
-
-        // Find the example to update
-        val existingExample = draftContract.dataExamples.find { it.id == command.exampleId }
-            ?: return null
-
-        // Build updated example
-        val updatedExample = DataExample(
-            id = existingExample.id,
-            name = command.name ?: existingExample.name,
-            data = command.data ?: existingExample.data,
-        )
-
-        // Validate only the updated example against schema
-        val warnings = mutableMapOf<String, List<ValidationError>>()
-        val schema = draftContract.dataModel
-
-        if (schema != null) {
-            val errors = jsonSchemaValidator.validateExamples(schema, listOf(updatedExample))
-            if (errors.isNotEmpty()) {
-                if (command.forceUpdate) {
-                    warnings.putAll(errors)
-                } else {
-                    throw DataModelValidationException(errors)
-                }
-            }
-        }
-
-        // Replace the example in the list
-        val updatedExamples = draftContract.dataExamples.map { example ->
-            if (example.id == command.exampleId) updatedExample else example
-        }
-
-        // Persist to contract_versions
-        updateContractDataExamples(command.templateId, updatedExamples)
-
-        return UpdateDataExampleResult(example = updatedExample, warnings = warnings)
-    }
-
-    private fun getDraftContractVersion(templateId: TemplateId): ContractVersion? = jdbi.withHandle<ContractVersion?, Exception> { handle ->
-        handle.createQuery(
-            """
+        return jdbi.inTransaction<UpdateDataExampleResult?, Exception> { handle ->
+            // Load and lock the draft contract version
+            val draftContract = handle.createQuery(
+                """
                 SELECT *
                 FROM contract_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND status = 'draft'
+                FOR UPDATE
                 """,
-        )
-            .bind("tenantKey", templateId.tenantKey)
-            .bind("catalogKey", templateId.catalogKey)
-            .bind("templateKey", templateId.key)
-            .mapTo<ContractVersion>()
-            .findOne()
-            .orElse(null)
-    }
+            )
+                .bind("tenantKey", command.templateId.tenantKey)
+                .bind("catalogKey", command.templateId.catalogKey)
+                .bind("templateKey", command.templateId.key)
+                .mapTo<ContractVersion>()
+                .findOne()
+                .orElse(null) ?: return@inTransaction null
 
-    private fun updateContractDataExamples(
-        templateId: TemplateId,
-        dataExamples: List<DataExample>,
-    ) {
-        jdbi.withHandle<Unit, Exception> { handle ->
+            val existingExample = draftContract.dataExamples.find { it.id == command.exampleId }
+                ?: return@inTransaction null
+
+            val updatedExample = DataExample(
+                id = existingExample.id,
+                name = command.name ?: existingExample.name,
+                data = command.data ?: existingExample.data,
+            )
+
+            // Validate only the updated example against schema
+            val warnings = mutableMapOf<String, List<ValidationError>>()
+            val schema = draftContract.dataModel
+
+            if (schema != null) {
+                val errors = jsonSchemaValidator.validateExamples(schema, listOf(updatedExample))
+                if (errors.isNotEmpty()) {
+                    if (command.forceUpdate) {
+                        warnings.putAll(errors)
+                    } else {
+                        throw DataModelValidationException(errors)
+                    }
+                }
+            }
+
+            val updatedExamples = draftContract.dataExamples.map { example ->
+                if (example.id == command.exampleId) updatedExample else example
+            }
+
             handle.createUpdate(
                 """
                 UPDATE contract_versions
@@ -126,11 +102,13 @@ class UpdateDataExampleHandler(
                   AND template_key = :templateKey AND status = 'draft'
                 """,
             )
-                .bind("tenantKey", templateId.tenantKey)
-                .bind("catalogKey", templateId.catalogKey)
-                .bind("templateKey", templateId.key)
-                .bind("dataExamples", objectMapper.writeValueAsString(dataExamples))
+                .bind("tenantKey", command.templateId.tenantKey)
+                .bind("catalogKey", command.templateId.catalogKey)
+                .bind("templateKey", command.templateId.key)
+                .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
                 .execute()
+
+            UpdateDataExampleResult(example = updatedExample, warnings = warnings)
         }
     }
 }

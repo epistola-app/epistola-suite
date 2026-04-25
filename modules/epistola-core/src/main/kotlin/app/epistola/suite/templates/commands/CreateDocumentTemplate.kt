@@ -74,7 +74,21 @@ class CreateDocumentTemplateHandler(
                     .bind("templateId", template.id)
                     .execute()
 
-                // 3. Create draft version with default TemplateDocument (version ID = 1)
+                // 3. Create empty draft contract version (v1)
+                val contractVersionId = VersionKey.of(1)
+                handle.createUpdate(
+                    """
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, '[]'::jsonb, 'draft', NOW())
+                """,
+                )
+                    .bind("id", contractVersionId)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("templateId", template.id)
+                    .execute()
+
+                // 4. Create draft version with default TemplateDocument (version ID = 1)
                 val rootId = "root-${variantId.value}"
                 val slotId = "slot-${variantId.value}"
                 val templateModel = TemplateDocument(
@@ -102,8 +116,8 @@ class CreateDocumentTemplateHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
                 """,
                 )
                     .bind("id", versionId)
@@ -112,6 +126,7 @@ class CreateDocumentTemplateHandler(
                     .bind("templateId", command.id.key)
                     .bind("variantId", variantId)
                     .bind("templateModel", templateModelJson)
+                    .bind("contractVersion", contractVersionId)
                     .execute()
 
                 template

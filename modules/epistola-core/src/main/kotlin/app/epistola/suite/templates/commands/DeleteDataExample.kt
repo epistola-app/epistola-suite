@@ -8,7 +8,6 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.ContractVersion
-import app.epistola.suite.templates.model.DataExample
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -26,11 +25,6 @@ data class DeleteDataExample(
     override val tenantKey: TenantKey get() = templateId.tenantKey
 }
 
-/**
- * Result of deleting a data example.
- *
- * @property deleted True if the example was found and deleted
- */
 data class DeleteDataExampleResult(
     val deleted: Boolean,
 )
@@ -43,45 +37,31 @@ class DeleteDataExampleHandler(
     override fun handle(command: DeleteDataExample): DeleteDataExampleResult? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
 
-        val draftContract = getDraftContractVersion(command.templateId) ?: return null
-
-        // Check if example exists
-        val exampleExists = draftContract.dataExamples.any { it.id == command.exampleId }
-        if (!exampleExists) {
-            return DeleteDataExampleResult(deleted = false)
-        }
-
-        // Remove the example from the list
-        val updatedExamples = draftContract.dataExamples.filter { it.id != command.exampleId }
-
-        // Persist to contract_versions
-        updateContractDataExamples(command.templateId, updatedExamples)
-
-        return DeleteDataExampleResult(deleted = true)
-    }
-
-    private fun getDraftContractVersion(templateId: TemplateId): ContractVersion? = jdbi.withHandle<ContractVersion?, Exception> { handle ->
-        handle.createQuery(
-            """
+        return jdbi.inTransaction<DeleteDataExampleResult?, Exception> { handle ->
+            // Load and lock the draft contract version
+            val draftContract = handle.createQuery(
+                """
                 SELECT *
                 FROM contract_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND status = 'draft'
+                FOR UPDATE
                 """,
-        )
-            .bind("tenantKey", templateId.tenantKey)
-            .bind("catalogKey", templateId.catalogKey)
-            .bind("templateKey", templateId.key)
-            .mapTo<ContractVersion>()
-            .findOne()
-            .orElse(null)
-    }
+            )
+                .bind("tenantKey", command.templateId.tenantKey)
+                .bind("catalogKey", command.templateId.catalogKey)
+                .bind("templateKey", command.templateId.key)
+                .mapTo<ContractVersion>()
+                .findOne()
+                .orElse(null) ?: return@inTransaction null
 
-    private fun updateContractDataExamples(
-        templateId: TemplateId,
-        dataExamples: List<DataExample>,
-    ) {
-        jdbi.withHandle<Unit, Exception> { handle ->
+            val exampleExists = draftContract.dataExamples.any { it.id == command.exampleId }
+            if (!exampleExists) {
+                return@inTransaction DeleteDataExampleResult(deleted = false)
+            }
+
+            val updatedExamples = draftContract.dataExamples.filter { it.id != command.exampleId }
+
             handle.createUpdate(
                 """
                 UPDATE contract_versions
@@ -90,11 +70,13 @@ class DeleteDataExampleHandler(
                   AND template_key = :templateKey AND status = 'draft'
                 """,
             )
-                .bind("tenantKey", templateId.tenantKey)
-                .bind("catalogKey", templateId.catalogKey)
-                .bind("templateKey", templateId.key)
-                .bind("dataExamples", objectMapper.writeValueAsString(dataExamples))
+                .bind("tenantKey", command.templateId.tenantKey)
+                .bind("catalogKey", command.templateId.catalogKey)
+                .bind("templateKey", command.templateId.key)
+                .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
                 .execute()
+
+            DeleteDataExampleResult(deleted = true)
         }
     }
 }

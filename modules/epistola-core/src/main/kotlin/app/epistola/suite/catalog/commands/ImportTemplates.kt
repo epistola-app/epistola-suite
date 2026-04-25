@@ -204,6 +204,20 @@ class ImportTemplatesHandler(
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
                 .execute()
+
+            // Link all existing template versions to the new contract version
+            handle.createUpdate(
+                """
+                    UPDATE template_versions
+                    SET contract_version = :contractVersion
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
+                    """,
+            )
+                .bind("tenantId", tenantId.key)
+                .bind("catalogKey", catalogKey)
+                .bind("templateId", templateId)
+                .bind("contractVersion", nextContractVersionId)
+                .execute()
         }
 
         // 3. Clear existing default flag to avoid unique partial index conflict during upserts
@@ -245,7 +259,20 @@ class ImportTemplatesHandler(
 
             // Upsert a published version with the variant-specific or top-level templateModel
             val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-            upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel)
+            // Resolve latest contract version to link to new template versions
+            val latestContractVersion = handle.createQuery(
+                """
+                    SELECT MAX(id) FROM contract_versions
+                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND status = 'published'
+                    """,
+            )
+                .bind("tenantId", tenantId.key)
+                .bind("catalogKey", catalogKey)
+                .bind("templateId", templateId)
+                .mapTo(Int::class.java)
+                .findOne()
+                .orElse(null)
+            upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel, latestContractVersion)
         }
 
         // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
@@ -304,7 +331,7 @@ class ImportTemplatesHandler(
      * Always creates a new version with the next available version ID and status 'published'.
      * Deletes any existing draft first — re-importing a catalog supersedes local edits.
      */
-    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
+    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument, contractVersionId: Int?) {
         // Delete existing draft — import supersedes local edits
         handle.createUpdate(
             """
@@ -336,8 +363,8 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, published_at, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', NOW(), NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, published_at, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', :contractVersion, NOW(), NOW())
                 """,
         )
             .bind("id", VersionKey.of(nextVersionId))
@@ -346,6 +373,7 @@ class ImportTemplatesHandler(
             .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
+            .bind("contractVersion", contractVersionId)
             .execute()
     }
 

@@ -32,24 +32,21 @@ class SchemaCompatibilityChecker {
     }
 
     fun checkCompatibility(oldSchema: ObjectNode?, newSchema: ObjectNode?): CompatibilityResult {
-        // Both null = compatible (no contract)
         if (oldSchema == null && newSchema == null) {
             return CompatibilityResult(compatible = true, breakingChanges = emptyList())
         }
-        // Old had schema, new doesn't = removing contract is breaking
         if (oldSchema != null && newSchema == null) {
             return CompatibilityResult(
                 compatible = false,
                 breakingChanges = listOf(BreakingChange(BreakingChangeType.FIELD_REMOVED, "", "Schema removed entirely")),
             )
         }
-        // Old had no schema, new adds one = compatible (no existing data to break)
-        if (oldSchema == null && newSchema != null) {
+        if (oldSchema == null) {
             return CompatibilityResult(compatible = true, breakingChanges = emptyList())
         }
 
         val changes = mutableListOf<BreakingChange>()
-        compareProperties(oldSchema!!, newSchema!!, "", changes)
+        compareProperties(oldSchema, newSchema!!, "", changes)
         return CompatibilityResult(compatible = changes.isEmpty(), breakingChanges = changes)
     }
 
@@ -60,10 +57,9 @@ class SchemaCompatibilityChecker {
         val oldRequired: Set<String> = extractRequired(oldSchema)
         val newRequired: Set<String> = extractRequired(newSchema)
 
-        // Check for removed fields and type changes
         if (oldProperties != null) {
-            val oldFields = oldProperties.properties().asSequence().map { it.key }.toSet()
-            val newFields = newProperties?.properties()?.asSequence()?.map { it.key }?.toSet() ?: emptySet()
+            val oldFields = fieldNames(oldProperties)
+            val newFields = if (newProperties != null) fieldNames(newProperties) else emptySet()
 
             for (fieldName in oldFields) {
                 val path = if (basePath.isEmpty()) fieldName else "$basePath.$fieldName"
@@ -73,8 +69,8 @@ class SchemaCompatibilityChecker {
                     continue
                 }
 
-                val oldField = oldProperties.get(fieldName)
-                val newField = newProperties!!.get(fieldName)
+                val oldField = oldProperties.get(fieldName) as? ObjectNode ?: continue
+                val newField = newProperties!!.get(fieldName) as? ObjectNode ?: continue
 
                 // Check type changes
                 val oldType = effectiveType(oldField)
@@ -88,18 +84,22 @@ class SchemaCompatibilityChecker {
                     changes.add(BreakingChange(BreakingChangeType.MADE_REQUIRED, path, "\"$fieldName\" is now required"))
                 }
 
+                // Check constraint narrowing
+                checkConstraintNarrowing(oldField, newField, path, changes)
+
                 // Recurse into nested objects
-                if (oldField is ObjectNode && newField is ObjectNode) {
-                    val oldFieldType = oldField.get("type")?.asText()
-                    val newFieldType = newField.get("type")?.asText()
-                    if (oldFieldType == "object" && newFieldType == "object") {
-                        compareProperties(oldField, newField, path, changes)
-                    } else if (oldFieldType == "array" && newFieldType == "array") {
-                        val oldItems = oldField.get("items") as? ObjectNode
-                        val newItems = newField.get("items") as? ObjectNode
-                        if (oldItems != null && newItems != null && oldItems.get("type")?.asText() == "object" && newItems.get("type")?.asText() == "object") {
+                val oldFieldType = oldField.get("type")?.asText()
+                val newFieldType = newField.get("type")?.asText()
+                if (oldFieldType == "object" && newFieldType == "object") {
+                    compareProperties(oldField, newField, path, changes)
+                } else if (oldFieldType == "array" && newFieldType == "array") {
+                    val oldItems = oldField.get("items") as? ObjectNode
+                    val newItems = newField.get("items") as? ObjectNode
+                    if (oldItems != null && newItems != null) {
+                        if (oldItems.get("type")?.asText() == "object" && newItems.get("type")?.asText() == "object") {
                             compareProperties(oldItems, newItems, "$path[]", changes)
                         }
+                        checkConstraintNarrowing(oldItems, newItems, "$path[]", changes)
                     }
                 }
             }
@@ -107,7 +107,7 @@ class SchemaCompatibilityChecker {
 
         // Check for new required fields (not in old schema at all)
         if (newProperties != null) {
-            val oldFields = oldProperties?.properties()?.asSequence()?.map { it.key }?.toSet() ?: emptySet()
+            val oldFields = if (oldProperties != null) fieldNames(oldProperties) else emptySet()
             for (fieldName in newRequired) {
                 if (!oldFields.contains(fieldName)) {
                     val path = if (basePath.isEmpty()) fieldName else "$basePath.$fieldName"
@@ -117,10 +117,88 @@ class SchemaCompatibilityChecker {
         }
     }
 
+    /**
+     * Detects constraint narrowing: when a new schema adds or tightens constraints
+     * that would reject data previously accepted by the old schema.
+     */
+    private fun checkConstraintNarrowing(oldField: ObjectNode, newField: ObjectNode, path: String, changes: MutableList<BreakingChange>) {
+        // Enum: values removed from allowed set
+        val oldEnum = extractStringSet(oldField.get("enum"))
+        val newEnum = extractStringSet(newField.get("enum"))
+        if (oldEnum != null && newEnum != null) {
+            val removed = oldEnum - newEnum
+            if (removed.isNotEmpty()) {
+                changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "enum values removed: ${removed.joinToString()}"))
+            }
+        } else if (oldEnum == null && newEnum != null) {
+            // Adding an enum constraint where there was none
+            changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "enum constraint added"))
+        }
+
+        // Numeric: minimum increased or maximum decreased
+        checkNumericNarrowing(oldField, newField, "minimum", path, changes, narrowsWhenNew = { old, new -> new > old })
+        checkNumericNarrowing(oldField, newField, "exclusiveMinimum", path, changes, narrowsWhenNew = { old, new -> new > old })
+        checkNumericNarrowing(oldField, newField, "maximum", path, changes, narrowsWhenNew = { old, new -> new < old })
+        checkNumericNarrowing(oldField, newField, "exclusiveMaximum", path, changes, narrowsWhenNew = { old, new -> new < old })
+
+        // String: minLength increased or maxLength decreased
+        checkNumericNarrowing(oldField, newField, "minLength", path, changes, narrowsWhenNew = { old, new -> new > old })
+        checkNumericNarrowing(oldField, newField, "maxLength", path, changes, narrowsWhenNew = { old, new -> new < old })
+
+        // Array: minItems increased or maxItems decreased
+        checkNumericNarrowing(oldField, newField, "minItems", path, changes, narrowsWhenNew = { old, new -> new > old })
+        checkNumericNarrowing(oldField, newField, "maxItems", path, changes, narrowsWhenNew = { old, new -> new < old })
+
+        // Pattern: added or changed
+        val oldPattern = oldField.get("pattern")?.asText()
+        val newPattern = newField.get("pattern")?.asText()
+        if (oldPattern == null && newPattern != null) {
+            changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "pattern constraint added: $newPattern"))
+        } else if (oldPattern != null && newPattern != null && oldPattern != newPattern) {
+            changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "pattern changed from $oldPattern to $newPattern"))
+        }
+    }
+
+    private fun checkNumericNarrowing(
+        oldField: ObjectNode,
+        newField: ObjectNode,
+        keyword: String,
+        path: String,
+        changes: MutableList<BreakingChange>,
+        narrowsWhenNew: (Double, Double) -> Boolean,
+    ) {
+        val oldVal = oldField.get(keyword)?.asDouble()
+        val newVal = newField.get(keyword)?.asDouble()
+
+        if (oldVal == null && newVal != null) {
+            // Adding a constraint where there was none
+            changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "$keyword constraint added: $newVal"))
+        } else if (oldVal != null && newVal != null && narrowsWhenNew(oldVal, newVal)) {
+            changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "$keyword narrowed from $oldVal to $newVal"))
+        }
+    }
+
     private fun extractRequired(schema: ObjectNode): Set<String> {
         val requiredNode = schema.get("required") ?: return emptySet()
         val result = mutableSetOf<String>()
         for (element in requiredNode) {
+            result.add(element.asText())
+        }
+        return result
+    }
+
+    private fun fieldNames(node: ObjectNode): Set<String> {
+        val result = mutableSetOf<String>()
+        for ((key, _) in node.properties()) {
+            result.add(key)
+        }
+        return result
+    }
+
+    private fun extractStringSet(node: JsonNode?): Set<String>? {
+        if (node == null || !node.isArray) return null
+        val result = mutableSetOf<String>()
+        for (element in node) {
             result.add(element.asText())
         }
         return result

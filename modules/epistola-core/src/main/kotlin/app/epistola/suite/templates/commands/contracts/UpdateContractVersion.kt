@@ -50,7 +50,7 @@ class UpdateContractVersionHandler(
             val draft = handle.createQuery(
                 """
                 SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
-                       status, created_at, published_at
+                       status, created_at, published_at, created_by
                 FROM contract_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND status = 'draft'
@@ -113,7 +113,7 @@ class UpdateContractVersionHandler(
                 SET ${updates.joinToString(", ")}
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                   AND template_key = :templateKey AND status = 'draft'
-                RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at
+                RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at, created_by
             """
 
             val updated = handle.createQuery(sql)
