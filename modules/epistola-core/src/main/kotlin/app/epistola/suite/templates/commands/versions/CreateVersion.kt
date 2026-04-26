@@ -113,12 +113,12 @@ class CreateVersionHandler(
             val referencedPaths = command.templateModel?.let { pathExtractor.extractReferencedPaths(it) } ?: emptySet()
             val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
 
-            // Resolve contract version: latest published, or draft if no published exists
+            // Resolve contract version: prefer draft (user is editing), fall back to published
             val contractVersionId = handle.createQuery(
                 """
                 SELECT id FROM contract_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
-                ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
                 """,
             )

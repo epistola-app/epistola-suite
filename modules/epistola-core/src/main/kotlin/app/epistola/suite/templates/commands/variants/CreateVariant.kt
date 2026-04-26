@@ -94,12 +94,12 @@ class CreateVariantHandler(
                 val defaultModel = createDefaultTemplateModel(templateName, variant.id)
                 val templateModelJson = objectMapper.writeValueAsString(defaultModel)
 
-                // Resolve contract version (latest published, or draft if no published exists)
+                // Resolve contract version: prefer draft (user may be editing), fall back to published
                 val contractVersionId = handle.createQuery(
                     """
                 SELECT id FROM contract_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
-                ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
                 """,
                 )
