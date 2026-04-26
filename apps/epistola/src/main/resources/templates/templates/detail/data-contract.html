@@ -33,6 +33,44 @@
             </div>
         </dialog>
 
+        <!-- Contract usage overview (shows which versions use which contract) -->
+        <th:block th:if="${latestPublishedContractId != null && !#lists.isEmpty(outdatedVersions)}">
+            <div class="detail-section" style="margin-bottom: var(--ep-space-4);">
+                <div style="padding: var(--ep-space-3); background: var(--ep-amber-50); border: 1px solid var(--ep-amber-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
+                    <div style="font-weight: 600; color: var(--ep-amber-800); margin-bottom: var(--ep-space-2);">
+                        Incompatible template versions
+                    </div>
+                    <p style="color: var(--ep-amber-700); margin-bottom: var(--ep-space-2);">
+                        The following published template versions were built against an older contract and may not be compatible with the current schema.
+                    </p>
+                    <table class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Variant</th>
+                                <th>Version</th>
+                                <th>Contract</th>
+                                <th>Deployed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="v : ${outdatedVersions}">
+                                <td th:text="${v.variantKey}"></td>
+                                <td><strong th:text="'v' + ${v.versionId}"></strong></td>
+                                <td>
+                                    <span class="badge badge-outline" th:text="${v.contractVersion != null ? 'v' + v.contractVersion : '-'}"></span>
+                                    <span class="text-muted" th:text="' (current: v' + ${latestPublishedContractId} + ')'"></span>
+                                </td>
+                                <td>
+                                    <span th:if="${!#lists.isEmpty(v.activeEnvironments)}" th:text="${#strings.listJoin(v.activeEnvironments, ', ')}"></span>
+                                    <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="text-muted">Not deployed</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </th:block>
+
         <div id="data-contract-container"
              th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable},data-contract-version-id=${contractVersionId},data-contract-version-status=${contractVersionStatus},data-has-draft-contract=${hasDraftContract}"></div>
         <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>

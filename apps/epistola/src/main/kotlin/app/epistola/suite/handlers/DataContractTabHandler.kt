@@ -1,8 +1,10 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.contracts.queries.GetContractUsageOverview
 import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -18,7 +20,14 @@ class DataContractTabHandler(
         val contractVersion = GetLatestContractVersion(templateId = ctx.templateId).query()
         val draftContract = GetDraftContractVersion(templateId = ctx.templateId).query()
         val contractVersions = ListContractVersions(templateId = ctx.templateId).query()
-        val latestPublishedId = contractVersions.firstOrNull { it.status.name == "PUBLISHED" }?.id?.value
+        val latestPublished = GetLatestPublishedContractVersion(templateId = ctx.templateId).query()
+        val latestPublishedId = latestPublished?.id?.value
+
+        // Contract usage: which template versions use which contract
+        val usage = GetContractUsageOverview(templateId = ctx.templateId).query()
+        val outdatedVersions = usage.versions.filter {
+            it.status == "published" && it.contractVersion != latestPublishedId && latestPublishedId != null
+        }
 
         return detailHelper.renderDetailPage(
             ctx,
@@ -31,6 +40,7 @@ class DataContractTabHandler(
                 "hasDraftContract" to (draftContract != null),
                 "latestPublishedContractId" to latestPublishedId,
                 "contractVersionCount" to contractVersions.size,
+                "outdatedVersions" to outdatedVersions,
             ),
         )
     }
