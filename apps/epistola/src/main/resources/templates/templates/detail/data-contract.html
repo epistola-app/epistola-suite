@@ -2,10 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="tab-content">
-        <!-- Status bar (refreshed via HTMX after save) -->
+        <!-- Status bar -->
         <th:block th:replace="~{templates/detail/contract-status-bar :: content}" />
 
-        <!-- Breaking changes confirmation dialog -->
+        <!-- Dialogs (shared between view and edit mode) -->
         <dialog id="contract-breaking-dialog" class="ep-dialog" style="max-width: 600px;">
             <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Breaking Contract Changes</h3>
@@ -15,7 +15,6 @@
             <div class="ep-dialog-body" id="contract-breaking-body"></div>
         </dialog>
 
-        <!-- Contract usage dialog -->
         <dialog id="contract-usage-dialog" class="ep-dialog" style="max-width: 700px;">
             <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Contract Usage</h3>
@@ -24,15 +23,7 @@
             </div>
             <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
                 <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
-                    <thead>
-                        <tr>
-                            <th>Variant</th>
-                            <th>Version</th>
-                            <th>Status</th>
-                            <th>Contract</th>
-                            <th>Deployed</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Variant</th><th>Version</th><th>Status</th><th>Contract</th><th>Deployed</th></tr></thead>
                     <tbody>
                         <tr th:each="v : ${allTemplateVersions}">
                             <td th:text="${v.variantKey}"></td>
@@ -60,7 +51,6 @@
             </div>
         </dialog>
 
-        <!-- Contract history dialog -->
         <dialog id="contract-history-dialog" class="ep-dialog" style="max-width: 600px;">
             <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Contract Version History</h3>
@@ -72,129 +62,191 @@
             </div>
         </dialog>
 
-        <!-- Open breaking dialog when HTMX swaps content into it -->
         <script>
-            document.getElementById('contract-breaking-body').addEventListener('htmx:afterSwap', function() {
+            document.getElementById('contract-breaking-body')?.addEventListener('htmx:afterSwap', function() {
                 document.getElementById('contract-breaking-dialog').showModal();
             });
         </script>
 
-        <!-- Editor -->
-        <div id="data-contract-container"
-             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
-        <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
-        <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
+        <!-- ================================================================ -->
+        <!-- VIEW MODE (default) -->
+        <!-- ================================================================ -->
+        <th:block th:if="${!editMode}">
+            <div class="detail-section">
+                <div class="detail-section-header">
+                    <h3 style="font-size: var(--ep-text-base); margin: 0;">Schema</h3>
+                    <th:block th:if="${editable}">
+                        <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
+                           class="btn btn-sm btn-outline" hx-boost="false">
+                            Edit Contract
+                        </a>
+                    </th:block>
+                </div>
+                <div class="detail-section-body">
+                    <th:block th:if="${!#lists.isEmpty(schemaFields)}">
+                        <table class="ep-table" style="font-size: var(--ep-text-sm); width: 100%;">
+                            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr th:each="field : ${schemaFields}">
+                                    <td>
+                                        <code th:style="'padding-left: ' + ${field.depth * 16} + 'px'" th:text="${field.name}"></code>
+                                    </td>
+                                    <td><span class="badge badge-outline" th:text="${field.type}"></span></td>
+                                    <td>
+                                        <span th:if="${field.required}" style="color: var(--ep-red-600);">Required</span>
+                                        <span th:unless="${field.required}" class="text-muted">Optional</span>
+                                    </td>
+                                    <td class="text-muted" th:text="${field.description ?: ''}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </th:block>
+                    <th:block th:if="${#lists.isEmpty(schemaFields)}">
+                        <p class="text-muted" style="text-align: center; padding: var(--ep-space-4);">
+                            No schema defined yet.
+                            <th:block th:if="${editable}">
+                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
+                                   hx-boost="false">Define one</a>.
+                            </th:block>
+                        </p>
+                    </th:block>
+                </div>
+            </div>
 
-        <script>
-            (function() {
-                function parseJsonScript(id, fallback) {
-                    const el = document.getElementById(id);
-                    if (!el) return fallback;
-                    try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
-                }
+            <!-- Examples section (read-only) -->
+            <th:block th:if="${contractDataExamples != null && !contractDataExamples.isEmpty()}">
+                <div class="detail-section">
+                    <div class="detail-section-header">
+                        <h3 style="font-size: var(--ep-text-base); margin: 0;">
+                            Examples
+                            <span class="text-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
+                        </h3>
+                    </div>
+                    <div class="detail-section-body">
+                        <div th:each="example : ${contractDataExamples}" style="margin-bottom: var(--ep-space-3);">
+                            <div style="font-weight: 500; margin-bottom: var(--ep-space-1);" th:text="${example.name}"></div>
+                            <pre style="background: var(--ep-gray-50); padding: var(--ep-space-2); border-radius: var(--ep-radius-sm); font-size: var(--ep-text-xs); overflow-x: auto; max-height: 200px;"
+                                 th:text="${example.data}"></pre>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </th:block>
 
-                const statusBarUrl = document.getElementById('contract-status-bar')?.dataset?.statusUrl;
+        <!-- ================================================================ -->
+        <!-- EDIT MODE -->
+        <!-- ================================================================ -->
+        <th:block th:if="${editMode}">
+            <div style="margin-bottom: var(--ep-space-3);">
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                   class="btn btn-sm btn-ghost" hx-boost="false">
+                    &larr; Done Editing
+                </a>
+            </div>
 
-                function refreshStatusBar() {
-                    if (statusBarUrl && typeof htmx !== 'undefined') {
-                        htmx.ajax('GET', statusBarUrl, { target: '#contract-status-bar', swap: 'outerHTML' });
+            <div id="data-contract-container"
+                 th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
+            <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
+            <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
+
+            <script>
+                (function() {
+                    function parseJsonScript(id, fallback) {
+                        const el = document.getElementById(id);
+                        if (!el) return fallback;
+                        try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
                     }
-                }
 
-                async function mount() {
-                    const container = document.getElementById('data-contract-container');
-                    if (!container || container.dataset.editorMounted === 'true') return;
-                    const tenantId = container.dataset.tenantId;
-                    const catalogId = container.dataset.catalogId;
-                    const templateId = container.dataset.templateId;
-                    const readonly = container.dataset.readonly === 'true';
-                    if (!tenantId || !catalogId || !templateId) return;
+                    const statusBarUrl = document.getElementById('contract-status-bar')?.dataset?.statusUrl;
 
-                    const initialSchema = parseJsonScript('data-contract-schema', null);
-                    const initialExamples = parseJsonScript('data-contract-examples', []);
-                    const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
-
-                    const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
-                    const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
-                    const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
-
-                    mountDataContractEditor({
-                        container: container,
-                        templateId: templateId,
-                        initialSchema: initialSchema,
-                        initialExamples: initialExamples,
-                        readonly: readonly,
-                        callbacks: readonly ? {} : {
-                            onSaveSchema: async (schema, forceUpdate, dataExamples) => {
-                                try {
-                                    const body = { dataModel: schema, forceUpdate };
-                                    if (dataExamples) body.dataExamples = dataExamples;
-                                    const response = await fetch(`${contractBasePath}/draft`, {
-                                        method: 'PATCH',
-                                        headers: jsonHeaders,
-                                        body: JSON.stringify(body)
-                                    });
-                                    if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
-                                    const result = await response.json();
-                                    refreshStatusBar();
-                                    return { success: true, warnings: result.warnings };
-                                } catch (e) { return { success: false, error: e.message }; }
-                            },
-                            onSaveDataExamples: async (examples) => {
-                                try {
-                                    const response = await fetch(`${contractBasePath}/draft`, {
-                                        method: 'PATCH',
-                                        headers: jsonHeaders,
-                                        body: JSON.stringify({ dataExamples: examples })
-                                    });
-                                    if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
-                                    const result = await response.json();
-                                    refreshStatusBar();
-                                    return { success: true, warnings: result.warnings };
-                                } catch (e) { return { success: false }; }
-                            },
-                            onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
-                                try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
-                                        method: 'PATCH',
-                                        headers: jsonHeaders,
-                                        body: JSON.stringify({ ...updates, forceUpdate })
-                                    });
-                                    if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
-                                    const result = await response.json();
-                                    return { success: true, example: result, warnings: result.warnings };
-                                } catch (e) { return { success: false }; }
-                            },
-                            onDeleteDataExample: async (exampleId) => {
-                                try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
-                                        method: 'DELETE',
-                                        headers: { 'X-XSRF-TOKEN': csrfToken }
-                                    });
-                                    return { success: response.ok };
-                                } catch (e) { return { success: false }; }
-                            }
+                    function refreshStatusBar() {
+                        if (statusBarUrl && typeof htmx !== 'undefined') {
+                            htmx.ajax('GET', statusBarUrl, { target: '#contract-status-bar', swap: 'outerHTML' });
                         }
-                    });
-                    container.dataset.editorMounted = 'true';
+                    }
 
-                    // Disable publish button when editor has unsaved changes
-                    const editorEl = container.querySelector('epistola-data-contract-editor');
-                    if (editorEl && editorEl.contractState) {
-                        editorEl.contractState.addEventListener('change', () => {
-                            const btn = document.getElementById('publish-contract-btn');
-                            if (btn) {
-                                const dirty = editorEl.contractState.isDirty;
-                                btn.disabled = dirty;
-                                btn.title = dirty ? 'Save your changes first' : 'Publish contract';
+                    async function mount() {
+                        const container = document.getElementById('data-contract-container');
+                        if (!container || container.dataset.editorMounted === 'true') return;
+                        const tenantId = container.dataset.tenantId;
+                        const catalogId = container.dataset.catalogId;
+                        const templateId = container.dataset.templateId;
+                        const readonly = container.dataset.readonly === 'true';
+                        if (!tenantId || !catalogId || !templateId) return;
+
+                        const initialSchema = parseJsonScript('data-contract-schema', null);
+                        const initialExamples = parseJsonScript('data-contract-examples', []);
+                        const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
+
+                        const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
+                        const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                        const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
+
+                        mountDataContractEditor({
+                            container: container,
+                            templateId: templateId,
+                            initialSchema: initialSchema,
+                            initialExamples: initialExamples,
+                            readonly: readonly,
+                            callbacks: readonly ? {} : {
+                                onSaveSchema: async (schema, forceUpdate, dataExamples) => {
+                                    try {
+                                        const body = { dataModel: schema, forceUpdate };
+                                        if (dataExamples) body.dataExamples = dataExamples;
+                                        const response = await fetch(`${contractBasePath}/draft`, {
+                                            method: 'PATCH',
+                                            headers: jsonHeaders,
+                                            body: JSON.stringify(body)
+                                        });
+                                        if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
+                                        const result = await response.json();
+                                        refreshStatusBar();
+                                        return { success: true, warnings: result.warnings };
+                                    } catch (e) { return { success: false, error: e.message }; }
+                                },
+                                onSaveDataExamples: async (examples) => {
+                                    try {
+                                        const response = await fetch(`${contractBasePath}/draft`, {
+                                            method: 'PATCH',
+                                            headers: jsonHeaders,
+                                            body: JSON.stringify({ dataExamples: examples })
+                                        });
+                                        if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
+                                        const result = await response.json();
+                                        refreshStatusBar();
+                                        return { success: true, warnings: result.warnings };
+                                    } catch (e) { return { success: false }; }
+                                },
+                                onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                                    try {
+                                        const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                            method: 'PATCH',
+                                            headers: jsonHeaders,
+                                            body: JSON.stringify({ ...updates, forceUpdate })
+                                        });
+                                        if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
+                                        const result = await response.json();
+                                        return { success: true, example: result, warnings: result.warnings };
+                                    } catch (e) { return { success: false }; }
+                                },
+                                onDeleteDataExample: async (exampleId) => {
+                                    try {
+                                        const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                            method: 'DELETE',
+                                            headers: { 'X-XSRF-TOKEN': csrfToken }
+                                        });
+                                        return { success: response.ok };
+                                    } catch (e) { return { success: false }; }
+                                }
                             }
                         });
+                        container.dataset.editorMounted = 'true';
                     }
-                }
 
-                mount();
-            })();
-        </script>
+                    mount();
+                })();
+            </script>
+        </th:block>
     </th:block>
 </body>
 </html>
