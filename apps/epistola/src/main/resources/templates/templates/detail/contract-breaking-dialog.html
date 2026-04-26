@@ -28,7 +28,7 @@
                 <button type="button" class="btn btn-sm btn-ghost"
                         onclick="document.getElementById('contract-breaking-dialog').close()">Cancel</button>
                 <button type="button" class="btn btn-sm btn-danger"
-                        th:attr="hx-post=${publishUrl},hx-vals='confirmed=true'"
+                        th:attr="hx-post=${publishUrl} + '?confirmed=true'"
                         hx-swap="none">
                     Publish Anyway
                 </button>
