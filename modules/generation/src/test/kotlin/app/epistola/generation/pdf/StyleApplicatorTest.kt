@@ -289,7 +289,8 @@ class StyleApplicatorTest {
     fun `parseSize handles mm`() {
         // 1mm ≈ 2.83465pt
         val result = StyleApplicator.parseSize("10mm")
-        assertEquals(28.3465f, result)
+        assertNotNull(result)
+        assertEquals(28.3465f, result, 0.0001f)
     }
 
     @Test

@@ -7,6 +7,7 @@ import {
   parseBorderShorthand,
   areBorderSidesEqual,
   convertSideValue,
+  migrateSpacingToAllowedUnits,
   DEFAULT_SPACING_UNIT,
   type SpacingValue,
   type BorderValue,
@@ -170,6 +171,51 @@ describe('convertSideValue', () => {
 
   it('returns value unchanged for unknown source unit', () => {
     expect(convertSideValue('5em', 'em', 'pt', baseUnit)).toBe('5em');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// migrateSpacingToAllowedUnits — handles legacy unit migration on inspector
+// open, including mixed-unit spacing objects (per-side detection).
+// ---------------------------------------------------------------------------
+
+describe('migrateSpacingToAllowedUnits', () => {
+  const baseUnit = DEFAULT_SPACING_UNIT;
+
+  it('returns the same reference when every side is already in an allowed unit', () => {
+    const input: SpacingValue = { top: '10pt', right: '0pt', bottom: '0pt', left: '5pt' };
+    expect(migrateSpacingToAllowedUnits(input, ['sp', 'pt'], baseUnit)).toBe(input);
+  });
+
+  it('converts all sides when all use a legacy unit (px → pt)', () => {
+    expect(
+      migrateSpacingToAllowedUnits(
+        { top: '11px', right: '0px', bottom: '13px', left: '16px' },
+        ['sp', 'pt'],
+        baseUnit,
+      ),
+    ).toEqual({ top: '8.25pt', right: '0pt', bottom: '9.75pt', left: '12pt' });
+  });
+
+  it('converts only legacy sides in a mixed-unit value (the per-side bug)', () => {
+    // Top is already pt — must NOT be reinterpreted as px and shrunk to 7.5pt.
+    expect(
+      migrateSpacingToAllowedUnits(
+        { top: '10pt', right: '0pt', bottom: '0pt', left: '16px' },
+        ['sp', 'pt'],
+        baseUnit,
+      ),
+    ).toEqual({ top: '10pt', right: '0pt', bottom: '0pt', left: '12pt' });
+  });
+
+  it('preserves sp sides untouched when sp is allowed', () => {
+    expect(
+      migrateSpacingToAllowedUnits(
+        { top: '2sp', right: '0pt', bottom: '0pt', left: '16px' },
+        ['sp', 'pt'],
+        baseUnit,
+      ),
+    ).toEqual({ top: '2sp', right: '0pt', bottom: '0pt', left: '12pt' });
   });
 });
 

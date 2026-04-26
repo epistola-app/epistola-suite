@@ -277,6 +277,36 @@ export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingVal
 }
 
 /**
+ * Convert any side whose unit isn't in `units` to the first allowed
+ * absolute unit (typically pt), leaving sides whose unit is already
+ * allowed untouched. Each side is detected on its own — a value like
+ * `{ top: '10pt', left: '16px' }` converts only the px side.
+ */
+export function migrateSpacingToAllowedUnits(
+  parsed: SpacingValue,
+  units: string[],
+  baseUnit: number,
+): SpacingValue {
+  const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
+  const sideUnitOf = (sideValue: string): string => {
+    if (parseSpacingToken(sideValue) != null) return 'sp';
+    return parseValueWithUnit(sideValue, firstAbsUnit).unit;
+  };
+  const migrateSide = (sideValue: string): string => {
+    const u = sideUnitOf(sideValue);
+    return units.includes(u) ? sideValue : convertSideValue(sideValue, u, firstAbsUnit, baseUnit);
+  };
+  const sides = ['top', 'right', 'bottom', 'left'] as const;
+  if (sides.every((s) => units.includes(sideUnitOf(parsed[s])))) return parsed;
+  return {
+    top: migrateSide(parsed.top),
+    right: migrateSide(parsed.right),
+    bottom: migrateSide(parsed.bottom),
+    left: migrateSide(parsed.left),
+  };
+}
+
+/**
  * Renders a spacing input with 4 side controls (T/R/B/L) + a shared unit selector.
  *
  * All units use number inputs — sp values are multipliers (e.g., 2 = 2sp = 8pt),
@@ -292,22 +322,14 @@ export function renderSpacingInput(
 ): unknown {
   const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
   const rawParsed = parseSpacingValue(value, firstAbsUnit);
-  const detectedUnit = detectSpacingUnit(rawParsed, firstAbsUnit);
-
-  // Migrate legacy units (e.g. px from before the sp/pt switch) so the
-  // dropdown's `currentUnit` always matches one of the offered options.
-  // Without this, `currentUnit` could be 'px' while the dropdown only
-  // offers ['sp', 'pt'], and any new edit would re-save as 'Npx'.
   const sides = ['top', 'right', 'bottom', 'left'] as const;
-  const currentUnit = units.includes(detectedUnit) ? detectedUnit : firstAbsUnit;
-  const parsed: SpacingValue = units.includes(detectedUnit)
-    ? rawParsed
-    : {
-        top: convertSideValue(rawParsed.top, detectedUnit, currentUnit, baseUnit),
-        right: convertSideValue(rawParsed.right, detectedUnit, currentUnit, baseUnit),
-        bottom: convertSideValue(rawParsed.bottom, detectedUnit, currentUnit, baseUnit),
-        left: convertSideValue(rawParsed.left, detectedUnit, currentUnit, baseUnit),
-      };
+
+  // Migrate legacy per-side units to one of the offered options so the
+  // dropdown's `currentUnit` always matches a real choice. Without this,
+  // `currentUnit` could be 'px' while the dropdown only offers ['sp', 'pt'],
+  // and any new edit would re-save as 'Npx'.
+  const parsed = migrateSpacingToAllowedUnits(rawParsed, units, baseUnit);
+  const currentUnit = detectSpacingUnit(parsed, firstAbsUnit);
   const topInputId = inputId ?? undefined;
 
   const handleSideChange = (side: string, newValue: string) => {

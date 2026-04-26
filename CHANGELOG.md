@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- **Margins not rendering in PDF**: `marginTop`/`Right`/`Bottom`/`Left` declared with `px` units (left over from before the `sp`/`pt` migration) were silently dropped during PDF generation because `StyleApplicator.parseSize` only recognized `pt`, `mm`, and `sp`. CSS pixels are now parsed at 96 DPI (`1px = 0.75pt`).
+- **Margins not rendering in PDF**: `marginTop`, `marginRight`, `marginBottom`, and `marginLeft` declared with `px` units (left over from before the `sp`/`pt` migration) were silently dropped during PDF generation because `StyleApplicator.parseSize` only recognized `pt`, `mm`, and `sp`. CSS pixels are now parsed at 96 DPI (`1px = 0.75pt`).
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
 - **Inspector kept legacy `px` units alive**: When a node's existing margin/padding used a unit no longer offered by the inspector (e.g. `px` after the `sp`/`pt` migration), the unit dropdown showed an allowed option but the spacing input internally still used the old unit, so any new value was re-saved as `Npx`. The inspector now migrates to the first allowed unit on read, converting the displayed values accordingly.
 
