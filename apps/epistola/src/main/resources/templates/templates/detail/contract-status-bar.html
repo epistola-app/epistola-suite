@@ -41,8 +41,9 @@
 
             <!-- History -->
             <button type="button" class="btn btn-sm btn-ghost"
-                    th:data-history-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/versions/history(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}"
-                    onclick="var d=document.getElementById('contract-history-dialog');var b=document.getElementById('contract-history-body');b.textContent='Loading...';d.showModal();fetch(this.dataset.historyUrl,{headers:{'HX-Request':'true'}}).then(function(r){return r.text()}).then(function(h){b.innerHTML=h})">
+                    th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/versions/history(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}"
+                    hx-target="#contract-history-body" hx-swap="innerHTML"
+                    onclick="document.getElementById('contract-history-dialog').showModal()">
                 History
             </button>
         </div>

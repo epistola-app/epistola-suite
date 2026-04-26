@@ -51,16 +51,7 @@
             </div>
         </dialog>
 
-        <dialog id="contract-history-dialog" class="ep-dialog" style="max-width: 600px;">
-            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h3>Contract Version History</h3>
-                <button type="button" class="btn btn-sm btn-icon btn-ghost"
-                        onclick="document.getElementById('contract-history-dialog').close()">&times;</button>
-            </div>
-            <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
-                <div id="contract-history-body">Loading...</div>
-            </div>
-        </dialog>
+        <dialog id="contract-history-dialog" class="ep-dialog ep-dialog-wide"><div id="contract-history-body"></div></dialog>
 
         <script>
             document.getElementById('contract-breaking-body')?.addEventListener('htmx:afterSwap', function() {
