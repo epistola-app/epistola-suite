@@ -2,8 +2,8 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="tab-content">
-        <!-- Status bar (view mode only) -->
-        <th:block th:if="${!editMode}" th:replace="~{templates/detail/contract-status-bar :: content}" />
+        <!-- Status bar (adapts to view/edit mode) -->
+        <th:block th:replace="~{templates/detail/contract-status-bar :: content}" />
 
         <!-- Dialogs -->
         <dialog id="contract-breaking-dialog" class="ep-dialog" style="max-width: 600px;">
@@ -66,12 +66,6 @@
             <div class="detail-section">
                 <div class="detail-section-header">
                     <h3 style="font-size: var(--ep-text-base); margin: 0;">Schema</h3>
-                    <th:block th:if="${editable}">
-                        <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
-                           class="btn btn-sm btn-outline" hx-boost="false">
-                            Edit Contract
-                        </a>
-                    </th:block>
                 </div>
                 <div class="detail-section-body">
                     <th:block th:if="${!#lists.isEmpty(schemaFields)}">
@@ -96,8 +90,7 @@
                         <p class="text-muted" style="text-align: center; padding: var(--ep-space-4);">
                             No schema defined yet.
                             <th:block th:if="${editable}">
-                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
-                                   hx-boost="false">Define one</a>.
+                                Click <strong>Edit</strong> above to define one.
                             </th:block>
                         </p>
                     </th:block>
@@ -128,13 +121,6 @@
         <!-- EDIT MODE -->
         <!-- ================================================================ -->
         <th:block th:if="${editMode}">
-            <div style="margin-bottom: var(--ep-space-3);">
-                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                   class="btn btn-sm btn-ghost" hx-boost="false">
-                    &larr; Done Editing
-                </a>
-            </div>
-
             <div id="data-contract-container"
                  th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
             <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>

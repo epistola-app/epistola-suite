@@ -192,15 +192,17 @@ class ContractVersionHandler(
         val usage = GetContractUsageOverview(templateId = templateId).query()
         val latestPublishedId = latestPublished?.id?.value
 
+        val templateMap = mapOf("id" to templateId.key.value)
         return request.htmx {
             fragment("templates/detail/contract-status-bar", "content") {
                 "tenantId" to templateId.tenantKey.value
                 "catalogId" to templateId.catalogKey.value
-                "templateId" to templateId.key.value
+                "template" to templateMap
                 "contractVersionId" to contractVersion?.id?.value
                 "contractVersionStatus" to contractVersion?.status?.name?.lowercase()
                 "hasDraftContract" to (draftContract != null)
                 "editable" to true
+                "editMode" to false
                 "hasOutdatedVersions" to usage.versions.any {
                     it.status == "published" && it.contractVersion != latestPublishedId && latestPublishedId != null
                 }
