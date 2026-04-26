@@ -11,9 +11,10 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
 import app.epistola.suite.templates.model.ContractVersion
 import app.epistola.suite.templates.model.ContractVersionStatus
+import app.epistola.suite.templates.queries.contracts.CheckContractPublishImpact
+import app.epistola.suite.templates.queries.contracts.ContractPublishImpact
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.SchemaCompatibilityChecker
 import app.epistola.suite.templates.validation.SchemaValidationResult
@@ -68,9 +69,11 @@ class PublishContractVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
-    private val compatibilityChecker: SchemaCompatibilityChecker,
     private val mediator: Mediator,
 ) : CommandHandler<PublishContractVersion, PublishContractVersionResult?> {
+
+    private val compatibilityChecker = SchemaCompatibilityChecker()
+
     override fun handle(command: PublishContractVersion): PublishContractVersionResult? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
         return jdbi.inTransaction<PublishContractVersionResult?, Exception> { handle ->
@@ -134,66 +137,11 @@ class PublishContractVersionHandler(
                 SchemaCompatibilityChecker.CompatibilityResult(compatible = true, breakingChanges = emptyList())
             }
 
-            // 4. For breaking changes, check each version's actual field usage for precise incompatibility
-            val incompatibleVersions = if (!compatibilityResult.compatible && previousPublished != null) {
-                val versionRows = handle.createQuery(
-                    """
-                    SELECT tv.variant_key, tv.id as version_id,
-                           COALESCE(
-                               (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
-                                FROM environment_activations ea
-                                WHERE ea.tenant_key = tv.tenant_key AND ea.catalog_key = tv.catalog_key
-                                  AND ea.template_key = tv.template_key AND ea.variant_key = tv.variant_key
-                                  AND ea.version_key = tv.id),
-                               '[]'::jsonb
-                           ) as active_environments
-                    FROM template_versions tv
-                    WHERE tv.tenant_key = :tenantKey AND tv.catalog_key = :catalogKey
-                      AND tv.template_key = :templateKey AND tv.contract_version = :oldVersion
-                      AND tv.status IN ('published', 'archived')
-                    """,
-                )
-                    .bind("tenantKey", command.templateId.tenantKey)
-                    .bind("catalogKey", command.templateId.catalogKey)
-                    .bind("templateKey", command.templateId.key)
-                    .bind("oldVersion", previousPublished.id.value)
-                    .mapToMap()
-                    .list()
-
-                versionRows.mapNotNull { row ->
-                    val variantKey = VariantKey.of(row["variant_key"] as String)
-                    val versionKey = VersionKey.of(row["version_id"] as Int)
-                    val versionId = app.epistola.suite.common.ids.VersionId(
-                        versionKey,
-                        app.epistola.suite.common.ids.VariantId(variantKey, command.templateId),
-                    )
-
-                    val templateCompat: TemplateCompatibilityResult = mediator.query(
-                        app.epistola.suite.templates.queries.contracts.CheckTemplateVersionCompatibility(
-                            versionId = versionId,
-                            newSchema = draft.dataModel,
-                        ),
-                    )
-
-                    if (!templateCompat.compatible) {
-                        val envJson = row["active_environments"]?.toString() ?: "[]"
-                        val envList: List<String> = try {
-                            objectMapper.readValue(envJson, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java))
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-                        IncompatibleVersion(
-                            variantKey = variantKey,
-                            versionId = versionKey,
-                            activeEnvironments = envList,
-                            incompatibilities = templateCompat.incompatibilities,
-                        )
-                    } else {
-                        null
-                    }
-                }
+            // 4. If breaking: get impact analysis via query
+            val impact: ContractPublishImpact? = if (!compatibilityResult.compatible) {
+                mediator.query(CheckContractPublishImpact(templateId = command.templateId))
             } else {
-                emptyList()
+                null
             }
 
             // 5. If breaking and not confirmed: return preview without publishing
@@ -204,9 +152,11 @@ class PublishContractVersionHandler(
                     compatible = false,
                     breakingChanges = compatibilityResult.breakingChanges,
                     upgradedVersionCount = 0,
-                    incompatibleVersions = incompatibleVersions,
+                    incompatibleVersions = impact?.incompatibleVersions ?: emptyList(),
                 )
             }
+
+            val incompatibleVersions = impact?.incompatibleVersions ?: emptyList()
 
             // 6. Publish the draft
             handle.createUpdate(

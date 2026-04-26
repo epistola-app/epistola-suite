@@ -37,8 +37,9 @@ data class CheckTemplateVersionCompatibility(
 class CheckTemplateVersionCompatibilityHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val navigator: SchemaPathNavigator,
 ) : QueryHandler<CheckTemplateVersionCompatibility, TemplateCompatibilityResult> {
+
+    private val navigator = SchemaPathNavigator()
 
     override fun handle(query: CheckTemplateVersionCompatibility): TemplateCompatibilityResult {
         // Load the version's referenced_paths and its contract's data_model in one query

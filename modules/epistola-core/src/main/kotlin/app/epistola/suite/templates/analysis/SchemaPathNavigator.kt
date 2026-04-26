@@ -1,13 +1,13 @@
 package app.epistola.suite.templates.analysis
 
-import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
 /**
  * Resolves dot-notation paths (e.g., `orders[*].items[*].price`) against a
  * JSON Schema tree to determine field type and existence.
+ *
+ * Stateless utility — instantiate directly, no Spring injection needed.
  */
-@Component
 class SchemaPathNavigator {
 
     data class ResolvedField(

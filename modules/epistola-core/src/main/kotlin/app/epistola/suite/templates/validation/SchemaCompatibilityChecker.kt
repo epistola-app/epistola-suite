@@ -1,6 +1,5 @@
 package app.epistola.suite.templates.validation
 
-import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
@@ -8,8 +7,9 @@ import tools.jackson.databind.node.ObjectNode
  * Checks backwards compatibility between two JSON Schema versions.
  * A new schema is backwards compatible when all data valid under the old schema
  * remains valid under the new schema.
+ *
+ * This is a stateless utility — instantiate directly, no Spring injection needed.
  */
-@Component
 class SchemaCompatibilityChecker {
 
     data class CompatibilityResult(
