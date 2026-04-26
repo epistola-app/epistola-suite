@@ -4,32 +4,29 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Contract schema versioning**: Template data contracts (schema + examples) are now versioned separately from the template's visual content. See `docs/schema-versioning.md` for the full design.
+  - `contract_versions` table with draft/published lifecycle (V23 migration)
+  - Each template version links to a specific contract version via FK
+  - On-demand draft pattern: drafts only exist when there are unpublished changes
+  - Compatible contract changes auto-publish when deploying template versions
+  - Breaking changes require explicit publish with two-step confirmation
+- **Schema compatibility checking**: Three-level checking — structural schema diff, template field usage extraction, and per-version compatibility analysis. Only template versions that actually reference removed/changed fields are flagged as incompatible.
+- **Referenced paths extraction**: `TemplatePathExtractor` extracts all data contract variable paths from template expressions (including loop alias resolution, nested loops, conditionals, QR codes, and TipTap inline expressions). Stored on each template version as `referenced_paths`.
+- **Data contract tab view/edit mode**: View mode shows schema fields table and example names in read-only format. Edit mode mounts the full Lit editor. Status bar adapts to each mode with version badge, publish/edit buttons, usage dialog, and history dialog.
+- **Contract publish impact preview**: Breaking contract publishes show a confirmation dialog listing breaking changes and affected template versions with their active environment deployments.
+- **Deployment matrix error handling**: Contract compatibility errors shown inline in the deployment matrix instead of generic "An error occurred" message.
+- **Contract usage overview**: Dialog showing all template versions with their contract version (color-coded: green=current, amber=outdated) and active deployments.
+
 ### Changed
 
-- **Contract code reorganized into `contracts` package**: Moved all contract-related commands, queries, model, and utilities from scattered locations (`templates/commands/contracts/`, `templates/queries/contracts/`, `templates/model/ContractVersion.kt`, etc.) into a dedicated `templates/contracts/` package with `commands/`, `queries/`, `model/` sub-packages. Renamed `TemplateContractCompatibilityService.kt` to `TemplateCompatibilityResult.kt` to match its primary type.
-- **Contract data moved to `contract_versions` table**: Removed `schema`, `dataModel`, and `dataExamples` columns from `document_templates`. Contract data is now stored in `contract_versions` with draft/published lifecycle. All queries, handlers, tests, and catalog import/export updated to use the new table.
-- **Unified on-demand draft lifecycle**: Drafts are no longer auto-created after publish. `PublishToEnvironment` no longer creates a next draft template version. `PublishContractVersion` no longer creates a next draft contract version. Drafts are created on-demand via `CreateContractVersion` (which copies from the latest published version) and `CreateVersion`.
-- **Publish guard rejects draft contracts**: `PublishToEnvironment` no longer auto-publishes draft contracts. It now rejects any publish attempt when the contract version is still a draft, requiring explicit contract publish first.
-- **CreateContractVersion copies from published**: When no draft exists but a published version does, the new draft copies the latest published contract's schema, dataModel, and dataExamples. Draft template versions are automatically linked to the new contract version.
+- **Contract data moved from `document_templates` to `contract_versions`**: Removed `schema`, `dataModel`, `dataExamples` columns. All queries, handlers, and catalog import/export updated.
+- **Contract code organized into `templates/contracts/` package**: Dedicated package with `commands/`, `queries/`, `model/` sub-packages plus `SchemaCompatibilityChecker` and `SchemaPathNavigator` utilities.
 
 ### Fixed
 
-- **JDBI ObjectNode mapper**: Fixed `NoSuchMapperException` in `PreviewVariantHandler` and `PreviewDocumentHandler` where `mapTo(ObjectNode::class.java)` failed because JDBI has no built-in mapper for Jackson `ObjectNode`. Replaced with wrapper data classes using `@Json` annotation.
-- **Validate-schema 404 for missing templates**: The `validateSchema` handler now checks template existence before proceeding, returning 404 instead of 200 for non-existent templates.
-- **Publish guard in tests**: Updated `VersionComparisonRoutesTest` to publish the contract version before publishing a template version to an environment.
-- **Duplicate contract version in tests**: Updated `LoadTestHandlerTest` to use `ON CONFLICT DO UPDATE` when inserting draft contract versions, avoiding primary key violations from auto-created contracts.
-
-### Added
-
-- **Contract schema versioning design**: Added design document (`docs/schema-versioning.md`) for versioning template data contracts with draft/published lifecycle, backwards-compatibility checking, auto-upgrade logic, and UI changes.
-- **Contract version commands**: `CreateContractVersion`, `UpdateContractVersion`, `PublishContractVersion` commands with schema validation, backwards-compatibility checking, auto-upgrade of template versions.
-- **Schema compatibility checker**: `SchemaCompatibilityChecker` detects breaking changes between schema versions (field removal, type changes, required field additions).
-- **Contract version queries**: `GetContractVersion`, `GetDraftContractVersion`, `GetLatestContractVersion`, `ListContractVersions`.
-- **Contract version on template versions**: `CreateVersion`, `CreateVariant`, `UpdateDraft`, and `CreateDocumentTemplate` all propagate `contract_version` to new template version drafts.
-- **Contract version UI handler routes**: `ContractVersionHandler` with routes for creating drafts, updating, publishing, and listing contract version history. Data contract editor save callbacks now route to contract version endpoints.
-- **Contract version badge in editor**: The data contract editor displays the current contract version number and status (draft/published) as a color-coded badge.
-- **Contract version history dialog**: New HTMX-powered dialog showing all contract versions with status, creation, and publish timestamps.
-- **Contract column in version history**: The variant version history dialog now shows which contract version each template version is linked to.
+- **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
 
 ## [0.16.0] - 2026-04-23
 
