@@ -1,6 +1,6 @@
-package app.epistola.suite.templates.validation
+package app.epistola.suite.templates.contracts
 
-import app.epistola.suite.templates.validation.SchemaCompatibilityChecker.BreakingChangeType
+import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker.BreakingChangeType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested

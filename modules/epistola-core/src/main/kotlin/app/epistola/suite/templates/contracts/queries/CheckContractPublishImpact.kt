@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.queries.contracts
+package app.epistola.suite.templates.contracts.queries
 
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -12,9 +12,9 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.commands.contracts.IncompatibleVersion
-import app.epistola.suite.templates.model.ContractVersion
-import app.epistola.suite.templates.validation.SchemaCompatibilityChecker
+import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
+import app.epistola.suite.templates.contracts.commands.IncompatibleVersion
+import app.epistola.suite.templates.contracts.model.ContractVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component

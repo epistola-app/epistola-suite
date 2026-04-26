@@ -25,10 +25,10 @@ import app.epistola.suite.loadtest.queries.GetLoadTestRun
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.tenants.queries.GetTenant

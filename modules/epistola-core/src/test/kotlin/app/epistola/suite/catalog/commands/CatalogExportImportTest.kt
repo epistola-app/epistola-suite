@@ -22,10 +22,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.contracts.PublishContractVersion
-import app.epistola.suite.templates.commands.contracts.UpdateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme

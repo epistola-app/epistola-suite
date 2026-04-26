@@ -48,13 +48,13 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.activations.ListActivations
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.queries.variants.ListVariants

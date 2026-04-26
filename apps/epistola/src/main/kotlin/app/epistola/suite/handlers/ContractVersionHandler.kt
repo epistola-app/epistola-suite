@@ -9,11 +9,11 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.contracts.CreateContractVersion
-import app.epistola.suite.templates.commands.contracts.PublishContractVersion
-import app.epistola.suite.templates.commands.contracts.UpdateContractVersion
+import app.epistola.suite.templates.contracts.commands.CreateContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.queries.contracts.ListContractVersions
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest

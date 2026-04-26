@@ -12,7 +12,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.activations.RemoveActivation
-import app.epistola.suite.templates.commands.contracts.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.ListVariants

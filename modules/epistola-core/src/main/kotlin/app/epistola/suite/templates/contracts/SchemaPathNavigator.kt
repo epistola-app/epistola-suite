@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.analysis
+package app.epistola.suite.templates.contracts
 
 import tools.jackson.databind.node.ObjectNode
 

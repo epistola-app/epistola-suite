@@ -6,6 +6,7 @@
 
 ### Changed
 
+- **Contract code reorganized into `contracts` package**: Moved all contract-related commands, queries, model, and utilities from scattered locations (`templates/commands/contracts/`, `templates/queries/contracts/`, `templates/model/ContractVersion.kt`, etc.) into a dedicated `templates/contracts/` package with `commands/`, `queries/`, `model/` sub-packages. Renamed `TemplateContractCompatibilityService.kt` to `TemplateCompatibilityResult.kt` to match its primary type.
 - **Contract data moved to `contract_versions` table**: Removed `schema`, `dataModel`, and `dataExamples` columns from `document_templates`. Contract data is now stored in `contract_versions` with draft/published lifecycle. All queries, handlers, tests, and catalog import/export updated to use the new table.
 - **Unified on-demand draft lifecycle**: Drafts are no longer auto-created after publish. `PublishToEnvironment` no longer creates a next draft template version. `PublishContractVersion` no longer creates a next draft contract version. Drafts are created on-demand via `CreateContractVersion` (which copies from the latest published version) and `CreateVersion`.
 - **Publish guard rejects draft contracts**: `PublishToEnvironment` no longer auto-publishes draft contracts. It now rejects any publish attempt when the contract version is still a draft, requiring explicit contract publish first.

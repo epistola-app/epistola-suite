@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.validation
+package app.epistola.suite.templates.contracts
 
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode

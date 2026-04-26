@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.analysis
+package app.epistola.suite.templates.contracts
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach

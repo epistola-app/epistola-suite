@@ -12,9 +12,9 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.templates.commands.contracts.PublishContractVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat

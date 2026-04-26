@@ -1,9 +1,9 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.queries.contracts.GetDraftContractVersion
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
-import app.epistola.suite.templates.queries.contracts.ListContractVersions
+import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse

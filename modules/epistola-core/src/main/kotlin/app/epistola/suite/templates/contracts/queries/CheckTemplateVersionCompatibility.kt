@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.queries.contracts
+package app.epistola.suite.templates.contracts.queries
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
@@ -8,8 +8,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.analysis.FieldIncompatibility
 import app.epistola.suite.templates.analysis.IncompatibilityReason
-import app.epistola.suite.templates.analysis.SchemaPathNavigator
 import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
+import app.epistola.suite.templates.contracts.SchemaPathNavigator
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper

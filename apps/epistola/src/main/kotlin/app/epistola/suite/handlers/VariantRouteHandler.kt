@@ -20,8 +20,8 @@ import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionExce
 import app.epistola.suite.templates.commands.variants.DeleteVariant
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.validation.DuplicateIdException

@@ -19,11 +19,11 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.ListActivations
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
 import org.springframework.stereotype.Component

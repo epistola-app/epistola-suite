@@ -1,9 +1,10 @@
-package app.epistola.suite.templates.model
+package app.epistola.suite.templates.contracts.model
 
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.templates.model.DataExamples
 import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime

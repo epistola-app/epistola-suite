@@ -182,7 +182,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
 
                 // Add schema that requires 'name' field via contract version
-                app.epistola.suite.templates.commands.contracts.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
@@ -288,14 +288,14 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
 
                 // Add schema that requires 'name' field via contract version and publish
-                app.epistola.suite.templates.commands.contracts.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
                         tools.jackson.databind.node.ObjectNode::class.java,
                     ),
                 ).execute()
-                app.epistola.suite.templates.commands.contracts.PublishContractVersion(
+                app.epistola.suite.templates.contracts.commands.PublishContractVersion(
                     templateId = compositeTemplateId,
                 ).execute()
 

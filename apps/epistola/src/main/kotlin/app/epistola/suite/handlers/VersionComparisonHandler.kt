@@ -6,8 +6,8 @@ import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExamples
-import app.epistola.suite.templates.queries.contracts.GetLatestContractVersion
 import app.epistola.suite.templates.queries.versions.ListPublishableVersionsByTemplate
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest

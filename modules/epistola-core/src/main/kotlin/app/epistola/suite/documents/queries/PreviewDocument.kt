@@ -127,7 +127,7 @@ class PreviewDocumentHandler(
         // 4. Validate data against contract schema
         val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
             val contractVersion = mediator.query(
-                app.epistola.suite.templates.queries.contracts.GetContractVersion(
+                app.epistola.suite.templates.contracts.queries.GetContractVersion(
                     id = app.epistola.suite.common.ids.ContractVersionId(cv, TemplateId(query.templateId, CatalogId(query.catalogKey, tenantId))),
                 ),
             )

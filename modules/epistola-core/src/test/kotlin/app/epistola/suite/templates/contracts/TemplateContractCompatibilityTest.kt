@@ -1,5 +1,8 @@
-package app.epistola.suite.templates.analysis
+package app.epistola.suite.templates.contracts
 
+import app.epistola.suite.templates.analysis.FieldIncompatibility
+import app.epistola.suite.templates.analysis.IncompatibilityReason
+import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested

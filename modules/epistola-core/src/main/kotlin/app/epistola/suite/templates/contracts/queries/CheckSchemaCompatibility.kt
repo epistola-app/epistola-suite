@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.queries.contracts
+package app.epistola.suite.templates.contracts.queries
 
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -6,7 +6,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.validation.SchemaCompatibilityChecker
+import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper

@@ -1,4 +1,4 @@
-package app.epistola.suite.templates.commands.contracts
+package app.epistola.suite.templates.contracts.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
@@ -11,12 +11,12 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.model.ContractVersion
-import app.epistola.suite.templates.model.ContractVersionStatus
-import app.epistola.suite.templates.queries.contracts.CheckContractPublishImpact
-import app.epistola.suite.templates.queries.contracts.ContractPublishImpact
+import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
+import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.contracts.model.ContractVersionStatus
+import app.epistola.suite.templates.contracts.queries.CheckContractPublishImpact
+import app.epistola.suite.templates.contracts.queries.ContractPublishImpact
 import app.epistola.suite.templates.validation.JsonSchemaValidator
-import app.epistola.suite.templates.validation.SchemaCompatibilityChecker
 import app.epistola.suite.templates.validation.SchemaValidationResult
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
