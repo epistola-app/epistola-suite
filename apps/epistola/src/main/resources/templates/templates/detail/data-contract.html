@@ -97,7 +97,7 @@
                 </div>
             </div>
 
-            <!-- Examples section (read-only) -->
+            <!-- Examples summary (names only, edit for full details) -->
             <th:block th:if="${contractDataExamples != null && !contractDataExamples.isEmpty()}">
                 <div class="detail-section">
                     <div class="detail-section-header">
@@ -106,11 +106,10 @@
                             <span class="text-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
                         </h3>
                     </div>
-                    <div class="detail-section-body">
-                        <div th:each="example : ${contractDataExamples}" style="margin-bottom: var(--ep-space-3);">
-                            <div style="font-weight: 500; margin-bottom: var(--ep-space-1);" th:text="${example.name}"></div>
-                            <pre style="background: var(--ep-gray-50); padding: var(--ep-space-2); border-radius: var(--ep-radius-sm); font-size: var(--ep-text-xs); overflow-x: auto; max-height: 200px;"
-                                 th:text="${example.data}"></pre>
+                    <div class="detail-section-body" style="padding: var(--ep-space-3);">
+                        <div style="display: flex; flex-wrap: wrap; gap: var(--ep-space-2);">
+                            <span th:each="example : ${contractDataExamples}"
+                                  class="badge badge-outline" th:text="${example.name}"></span>
                         </div>
                     </div>
                 </div>
