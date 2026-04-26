@@ -322,15 +322,8 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
     @Nested
     inner class PublishGuardTest {
         @Test
-        fun `PublishToEnvironment rejects draft contract`() {
-            // Create a draft contract (not published)
-            withMediator {
-                UpdateContractVersion(
-                    templateId = templateId,
-                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}"""),
-                ).execute()
-            }
-
+        fun `PublishToEnvironment auto-publishes compatible draft contract`() {
+            // The auto-created draft v1 (empty) is compatible — auto-publishes on deploy
             val tenantId = TenantId(tenantKey)
             val env = withMediator {
                 CreateEnvironment(
@@ -343,10 +336,53 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 VariantKey.of("${templateId.key.value}-default"),
                 templateId,
             )
-
             val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
 
-            // Guard rejects because the contract is still a draft
+            val result = withMediator {
+                PublishToEnvironment(
+                    versionId = VersionId(version.id, defaultVariantId),
+                    environmentId = EnvironmentId(env.id, tenantId),
+                ).execute()
+            }
+
+            assertThat(result).isNotNull
+            assertThat(result!!.version.status.name).isEqualTo("PUBLISHED")
+        }
+
+        @Test
+        fun `PublishToEnvironment rejects breaking draft contract`() {
+            // Publish contract v1 with a field, then create a breaking draft v2
+            withMediator {
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}}}"""),
+                ).execute()
+            }
+            withMediator { PublishContractVersion(templateId = templateId).execute() }
+
+            // Create draft v2 with breaking change (remove field)
+            withMediator { CreateContractVersion(templateId = templateId).execute() }
+            withMediator {
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}"""),
+                ).execute()
+            }
+
+            val tenantId = TenantId(tenantKey)
+            val env = withMediator {
+                CreateEnvironment(
+                    id = EnvironmentId(EnvironmentKey.of("break-test-env"), tenantId),
+                    name = "break-test-env",
+                ).execute()
+            }
+
+            val defaultVariantId = VariantId(
+                VariantKey.of("${templateId.key.value}-default"),
+                templateId,
+            )
+            val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
+
             assertThatThrownBy {
                 withMediator {
                     PublishToEnvironment(
@@ -354,7 +390,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                         environmentId = EnvironmentId(env.id, tenantId),
                     ).execute()
                 }
-            }.hasMessageContaining("still a draft")
+            }.hasMessageContaining("breaking changes")
         }
     }
 

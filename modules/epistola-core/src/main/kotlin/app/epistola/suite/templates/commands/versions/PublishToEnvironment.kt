@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
@@ -99,25 +100,38 @@ class PublishToEnvironmentHandler(
                 return@inTransaction null
             }
 
-            // 3b. Publish guard: reject if contract version is still a draft
+            // 3b. Auto-publish compatible contract drafts, block on breaking changes
             if (version.contractVersion != null) {
                 val contractStatus = handle.createQuery(
-                    """
-                    SELECT status FROM contract_versions
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND id = :contractVersion
-                    """,
+                    "SELECT status FROM contract_versions WHERE tenant_key = :tk AND catalog_key = :ck AND template_key = :tpk AND id = :cv",
                 )
-                    .bind("tenantKey", command.versionId.tenantKey)
-                    .bind("catalogKey", command.versionId.catalogKey)
-                    .bind("templateKey", command.versionId.templateKey)
-                    .bind("contractVersion", version.contractVersion.value)
+                    .bind("tk", command.versionId.tenantKey)
+                    .bind("ck", command.versionId.catalogKey)
+                    .bind("tpk", command.versionId.templateKey)
+                    .bind("cv", version.contractVersion.value)
                     .mapTo<String>()
                     .findOne()
                     .orElse(null)
 
-                require(contractStatus != "draft") {
-                    "Cannot publish template version: contract version ${version.contractVersion.value} is still a draft. Publish the contract first."
+                if (contractStatus == "draft") {
+                    val templateId = TemplateId(command.versionId.templateKey, command.versionId.catalogId)
+
+                    // Preview first — checks compatibility without publishing
+                    val preview = app.epistola.suite.templates.contracts.commands.PublishContractVersion(
+                        templateId = templateId,
+                        confirmed = false,
+                    ).execute()
+
+                    require(preview == null || preview.compatible) {
+                        "Cannot publish template version: contract has breaking changes. Publish the contract explicitly first. " +
+                            "Breaking changes: ${preview?.breakingChanges?.joinToString { it.description } ?: ""}"
+                    }
+
+                    // Compatible — publish for real
+                    app.epistola.suite.templates.contracts.commands.PublishContractVersion(
+                        templateId = templateId,
+                        confirmed = true,
+                    ).execute()
                 }
             }
 
