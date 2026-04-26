@@ -1,212 +1,156 @@
 # Contract Schema Versioning
 
-## Problem
+## Overview
 
-Template contracts (the data schema, data model, and data examples that define what data a template accepts) were previously unversioned — mutable JSONB columns on `document_templates`. All variant versions, including published ones, implicitly shared the latest contract. A schema change could silently invalidate published versions active in production.
+Template data contracts (the JSON Schema defining what data a template accepts) are versioned separately from the template's visual content. Each template has a history of contract versions with a draft/published lifecycle, and each template version is linked to a specific contract version.
 
-## Solution
+## Package Structure
 
-Versioned contracts with a draft/published lifecycle, explicit FK from template versions to contract versions, and automatic compatibility checking on publish.
+```
+templates/
+  contracts/                          # Contract versioning domain
+    commands/                         # State changes
+      CreateContractVersion.kt        # Create draft to start editing
+      UpdateContractVersion.kt        # Update draft schema/examples
+      PublishContractVersion.kt       # Publish draft with compatibility checks
+    queries/                          # Read operations
+      CheckSchemaCompatibility.kt     # Schema diff against published
+      CheckContractPublishImpact.kt   # Full publish impact analysis
+      CheckTemplateVersionCompatibility.kt  # Per-version field usage check
+      GetContractVersion.kt
+      GetDraftContractVersion.kt
+      GetLatestContractVersion.kt
+      GetLatestPublishedContractVersion.kt
+      ListContractVersions.kt
+    model/
+      ContractVersion.kt             # Entity + status enum + summary
+    SchemaCompatibilityChecker.kt    # Schema structural diff utility
+    SchemaPathNavigator.kt           # JSON Schema tree navigation utility
+  analysis/
+    TemplatePathExtractor.kt         # Extracts variable paths from expressions
+    TemplateCompatibilityResult.kt   # Result types for compatibility checks
+```
 
 ## Invariants
 
 1. **Every template has at least one contract version.** `CreateDocumentTemplate` auto-creates contract v1 (draft, empty).
-2. **At most one draft contract per template.** Enforced by unique partial index on `(tenant_key, catalog_key, template_key) WHERE status = 'draft'`.
-3. **At most one draft template version per variant.** Enforced by existing unique partial index.
-4. **Every template version has a `contract_version` FK.** Set on creation by all code paths: `CreateDocumentTemplate`, `CreateVersion`, `CreateVariant`, `UpdateDraft`, `ImportTemplates`.
-5. **A draft only exists when there are unpublished changes.** On-demand pattern — publishing does NOT auto-create the next draft. The user must save/edit to create one.
-6. **Compatible contract changes auto-publish transparently.** When publishing a template version, if the contract is a draft and backwards-compatible (or the first version), it is auto-published.
-7. **Breaking contract changes block template version publish.** The user must explicitly publish the contract (via `PublishContractVersion`) to acknowledge and accept breaking changes.
-8. **Contract versions are never deleted individually.** They are immutable history. Only template deletion cascades to contract deletion.
+2. **At most one draft contract per template.** Enforced by unique partial index.
+3. **Every template version has a `contract_version` FK.** Set on creation by all code paths.
+4. **A draft only exists when there are unpublished changes.** On-demand pattern — publishing does NOT auto-create the next draft.
+5. **Compatible contract changes auto-publish transparently.** `PublishToEnvironment` auto-publishes the contract if it's backwards-compatible or the first version.
+6. **Breaking contract changes require explicit publish.** The user must call `PublishContractVersion` with confirmation to accept breaking changes.
+7. **Incompatibility is derived, not stored.** A template version is incompatible when its `contract_version` doesn't match the latest published contract AND its `referenced_paths` include affected fields.
+8. **One "current" published contract.** The latest published contract is what downstream systems use. Template versions on older contracts are flagged in the UI.
 
 ## Lifecycle
 
 ### On-demand draft pattern
 
-All versioned entities (template versions, contract versions, stencil versions) follow the same pattern:
+All versioned entities (template versions, contract versions, stencil versions) follow this pattern:
 
 ```
 Created → v1 DRAFT
 Edit → update draft in place
 Publish → draft becomes published, NO auto-created next draft
-Edit again → new draft created on save (copy of published)
+Edit again → explicit CreateContractVersion copies from published → new draft
 ```
 
-### Template lifecycle flows
-
-#### Create template
-
-```
-CreateDocumentTemplate:
-  → document_templates row
-  → contract_versions: v1 DRAFT (empty, no schema)
-  → template_variants: default variant
-  → template_versions: v1 DRAFT, contract_version = 1
-```
-
-#### Create additional variant
-
-```
-CreateVariant:
-  → template_variants: new variant
-  → template_versions: v1 DRAFT, contract_version = latest (published preferred)
-```
-
-#### Edit layout
-
-```
-UpdateDraft (draft exists):
-  → updates template_model on existing draft
-  → contract_version unchanged
-
-UpdateDraft (no draft exists, e.g. after publish):
-  → creates new version N+1 DRAFT
-  → resolves contract_version (draft preferred, then published)
-```
-
-#### Publish to environment
+### Template version publish flow
 
 ```
 PublishToEnvironment:
   1. If contract_version points to PUBLISHED contract:
-     → just publish the template version (no contract interaction)
+     → just publish the template version
 
   2. If contract_version points to DRAFT contract:
-     → compare draft vs latest published contract
-     → no previous published: auto-publish (first time, always compatible)
-     → compatible: auto-publish + upgrade all versions from old→new contract
-     → breaking: BLOCK with error listing breaking changes
-
-  3. Freeze template version (status=published, snapshot theme+rendering)
-  4. Upsert environment activation
-  5. NO auto-draft created
+     → check compatibility against latest published contract
+     → compatible (or first version): auto-publish contract, publish template version
+     → breaking: BLOCK — user must publish contract explicitly first
 ```
 
-#### Archive version
+### Contract publish flow
 
 ```
-ArchiveVersion:
-  → status=archived, contract_version unchanged
-  → blocked if version is active in any environment
-```
+PublishContractVersion(confirmed=false):
+  → preview mode: returns breaking changes + affected template versions
+  → does not publish
 
-### Contract lifecycle flows
-
-#### Start editing contract
-
-```
-CreateContractVersion:
-  → if draft exists: return it (idempotent)
-  → if published exists: copy schema/dataModel/examples → new DRAFT
-  → if only initial draft exists: return it
-  → link all DRAFT template versions to new contract version
-```
-
-#### Save contract changes
-
-```
-UpdateContractVersion:
-  → requires existing draft (returns null if none)
-  → updates schema/dataModel/examples on the draft
-  → validates examples against schema
-```
-
-#### Publish contract explicitly
-
-```
-PublishContractVersion:
+PublishContractVersion(confirmed=true):
   → validates schema + examples
-  → checks compatibility vs previous published
-  → publishes draft (status=published)
-  → auto-upgrade template versions:
-    - compatible: ALL versions (draft+published+archived) from N-1→N
-    - breaking: only DRAFT versions from N-1→N
-  → NO auto-draft created
+  → publishes the draft
+  → auto-upgrades compatible template versions to new contract
+  → leaves truly incompatible versions on old contract
 ```
 
-#### Edit/delete individual example
+### Breaking change workflow (zero downtime)
 
 ```
-UpdateDataExample / DeleteDataExample:
-  → operates on DRAFT contract (FOR UPDATE lock)
-  → returns null if no draft exists
+1. User edits contract (CreateContractVersion → draft created from published)
+2. User edits template layouts to match new contract
+3. User publishes contract with confirmation:
+   → shows preview: which versions are incompatible, which are fine
+   → compatible versions upgraded, incompatible stay on old contract
+4. User deploys new template versions to replace incompatible ones
+5. Old versions can be archived when no longer active
 ```
 
-### Import/export flows
+## Compatibility Checking
 
-#### Export
+### Three levels
 
-```
-ExportCatalogZip:
-  → joins contract_versions (latest published preferred)
-  → includes dataModel + dataExamples in template resource
-```
+1. **Schema structural diff** (`SchemaCompatibilityChecker`): compares two schemas for field removal, type changes, required changes, constraint narrowing. Used for the breaking changes banner.
 
-#### Import
+2. **Template field usage** (`TemplatePathExtractor`): extracts which data paths a template's expressions actually reference. Stored as `referenced_paths` on `template_versions`.
 
-```
-ImportTemplates:
-  → upserts document_templates
-  → if contract data provided: creates PUBLISHED contract version
-  → links ALL template versions to new contract
-  → creates published template versions per variant
-```
+3. **Per-version compatibility** (`CheckTemplateVersionCompatibility`): cross-references a template version's `referenced_paths` against the new schema. Reports `FIELD_REMOVED` and `TYPE_CHANGED` only for fields the template actually uses.
 
-## Backwards Compatibility Rules
+### Breaking change rules (schema level)
 
-A new contract version is **backwards compatible** when all data valid under the old schema remains valid under the new schema.
+| Change                                      | Breaking? |
+| ------------------------------------------- | --------- |
+| Add optional field                          | No        |
+| Remove field                                | **Yes**   |
+| Change field type                           | **Yes**   |
+| Make optional field required                | **Yes**   |
+| Add new required field                      | **Yes**   |
+| Narrow constraints (enum, min/max, pattern) | **Yes**   |
+| Widen constraints                           | No        |
+| Change description                          | No        |
 
-| Change                                  | Compatible? |
-| --------------------------------------- | ----------- |
-| Add optional field                      | Yes         |
-| Add optional field with default         | Yes         |
-| Remove a field                          | **No**      |
-| Rename a field                          | **No**      |
-| Change field type                       | **No**      |
-| Make optional field required            | **No**      |
-| Add new required field                  | **No**      |
-| Widen type constraints (remove min/max) | Yes         |
-| Narrow type constraints (add min/max)   | **No**      |
-| Add enum constraint                     | **No**      |
-| Remove enum values                      | **No**      |
-| Add enum values                         | Yes         |
-| Add pattern constraint                  | **No**      |
-| Change field description                | Yes         |
-| Add nested optional fields to object    | Yes         |
-| Remove nested fields from object        | **No**      |
+### Template-level incompatibility
 
-## Auto-Upgrade Logic
+| Situation                                | Incompatible for this template? |
+| ---------------------------------------- | ------------------------------- |
+| Removed field that template uses         | **Yes**                         |
+| Changed type of field that template uses | **Yes**                         |
+| Removed field that template does NOT use | No                              |
+| Field made required                      | No (template provides it)       |
+| Constraint narrowed                      | No (doesn't affect rendering)   |
 
-### Compatible publish
+## Referenced Paths Extraction
 
-All template versions on the previous contract version are upgraded:
+`TemplatePathExtractor` walks the template's node/slot graph and extracts all data contract paths from expressions. Computed on every template version save.
 
-```sql
-UPDATE template_versions
-SET contract_version = :newVersion
-WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-  AND template_key = :templateKey AND contract_version = :previousVersion;
-```
+### Expression sources
 
-Safe because backwards compatibility guarantees no breakage.
+- Loop/datalist/datatable: `node.props["expression"]` with `itemAlias` scoping
+- Conditional: `node.props["condition"]`
+- QR code: `node.props["value"]`
+- Text content: inline TipTap expression nodes
 
-### Breaking publish
+### Loop alias resolution
 
-Only draft template versions are upgraded:
+Inside a loop on `orders` with `itemAlias: "order"`, the expression `order.name` resolves to the root path `orders[*].name`. Nested loops compound: `orders[*].items[*].price`.
 
-```sql
-UPDATE template_versions
-SET contract_version = :newVersion
-WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-  AND template_key = :templateKey AND contract_version = :previousVersion
-  AND status = 'draft';
+### Stored format
+
+`template_versions.referenced_paths` as JSONB:
+
+```json
+["customer.name", "orders", "orders[*].total", "orders[*].items[*].price"]
 ```
 
-Published/archived versions stay on the old contract version — "stranded" but functional.
-
-### Cascading
-
-Only upgrades from the immediately previous version (N-1 → N). Versions on older contracts are not auto-upgraded.
+Non-nullable, defaults to `[]`. `Set<String>` in Kotlin.
 
 ## Data Model
 
@@ -214,50 +158,50 @@ Only upgrades from the immediately previous version (N-1 → N). Versions on old
 
 ```sql
 CREATE TABLE contract_versions (
-    id INTEGER NOT NULL,                    -- Sequential 1-200
-    tenant_key TENANT_KEY NOT NULL,
-    catalog_key CATALOG_KEY NOT NULL DEFAULT 'default',
-    template_key TEMPLATE_KEY NOT NULL,
-    schema JSONB,                           -- JSON Schema for strict validation
-    data_model JSONB,                       -- JSON Schema for visual editor
-    data_examples JSONB DEFAULT '[]',       -- Named sample data sets
-    status VARCHAR(20) NOT NULL DEFAULT 'draft',  -- draft | published
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    published_at TIMESTAMPTZ,
-    created_by UUID REFERENCES users(id),
-    PRIMARY KEY (tenant_key, catalog_key, template_key, id),
-    FOREIGN KEY (...) REFERENCES document_templates ON DELETE CASCADE
+    id INTEGER NOT NULL,            -- Sequential 1-200
+    tenant_key, catalog_key, template_key,
+    schema JSONB,                   -- JSON Schema for strict validation
+    data_model JSONB,               -- JSON Schema for visual editor
+    data_examples JSONB DEFAULT '[]',
+    status VARCHAR(20) DEFAULT 'draft',  -- draft | published
+    created_at, published_at, created_by
 );
-
--- At most one draft per template
-CREATE UNIQUE INDEX idx_one_draft_contract_per_template
-    ON contract_versions (...) WHERE status = 'draft';
-
--- Fast published contract lookups
-CREATE INDEX idx_contract_versions_published
-    ON contract_versions (..., id DESC) WHERE status = 'published';
 ```
+
+One draft per template (unique partial index). Published contract index for fast lookups.
 
 ### `template_versions.contract_version` FK
 
 ```sql
 ALTER TABLE template_versions ADD COLUMN contract_version INTEGER;
-ALTER TABLE template_versions ADD CONSTRAINT fk_template_versions_contract_version
-    FOREIGN KEY (..., contract_version) REFERENCES contract_versions(..., id);
+-- FK to contract_versions, no ON DELETE CASCADE (contract versions are never deleted individually)
 ```
 
-No `ON DELETE CASCADE` — contract versions cannot be deleted individually (only via template CASCADE).
+### `template_versions.referenced_paths`
 
-## Prior Art
+```sql
+ALTER TABLE template_versions ADD COLUMN referenced_paths JSONB NOT NULL DEFAULT '[]';
+```
 
-### Already on `main` (PR #330)
+## UI Integration
 
-Breaking change detection, real-time banner, atomic save, example sync, single-page layout, migration utils, property name validation, `DataContractState`.
+### Data contract editor
 
-### `feature/280-schema-change-refactor` (unmerged)
+- Shows contract version badge (e.g., "v2 draft") with color-coded status
+- Save callbacks route to `PATCH /contract/draft` endpoint
+- Contract version history dialog via `GET /contract/versions/history`
 
-Draft/published via columns (different approach), `DataContractStore` rewrite, `SaveOrchestrator`, schema fix screen, recent usage compatibility (separate feature), enhanced validation. The store rewrite and fix screen are valuable follow-up improvements.
+### Variant version history
 
-### Scope boundary
+- "Contract" column shows which contract version each template version uses
+- Versions on an older contract than the latest published are visually flagged
 
-**Recent usage compatibility** is a separate feature. It validates schemas against real production data and complements the structural compatibility checking.
+### Routes
+
+```
+POST  /{catalogId}/{id}/contract/draft            — create draft
+PATCH /{catalogId}/{id}/contract/draft            — update draft
+POST  /{catalogId}/{id}/contract/publish          — publish (with confirmation)
+GET   /{catalogId}/{id}/contract/versions         — list versions (JSON)
+GET   /{catalogId}/{id}/contract/versions/history — version history dialog (HTMX)
+```
