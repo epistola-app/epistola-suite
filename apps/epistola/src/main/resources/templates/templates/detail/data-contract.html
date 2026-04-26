@@ -39,7 +39,7 @@
                 <summary style="padding: var(--ep-space-2) var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm); font-weight: 600; cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: var(--ep-space-2);">
                     <svg width="12" height="12" viewBox="0 0 12 12" style="transition: transform 0.15s; flex-shrink: 0;"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Contract Usage
-                    <span th:if="${allTemplateVersions.stream().anyMatch(v -> v.status == 'published' && v.contractVersion != latestPublishedContractId && latestPublishedContractId != null)}"
+                    <span th:if="${hasOutdatedVersions}"
                           class="badge badge-warning" style="font-weight: 500; font-size: var(--ep-text-xs);">Outdated versions</span>
                 </summary>
                 <div style="padding: var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-top: none; border-radius: 0 0 var(--ep-radius-md) var(--ep-radius-md); font-size: var(--ep-text-sm);">

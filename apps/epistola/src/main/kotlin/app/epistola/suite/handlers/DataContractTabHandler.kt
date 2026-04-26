@@ -38,6 +38,9 @@ class DataContractTabHandler(
                 "latestPublishedContractId" to latestPublishedId,
                 "contractVersionCount" to contractVersions.size,
                 "allTemplateVersions" to usage.versions,
+                "hasOutdatedVersions" to usage.versions.any {
+                    it.status == "published" && it.contractVersion != latestPublishedId && latestPublishedId != null
+                },
             ),
         )
     }
