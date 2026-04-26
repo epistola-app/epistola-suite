@@ -6,6 +6,8 @@ import {
   readBorderFromStyles,
   parseBorderShorthand,
   areBorderSidesEqual,
+  convertSideValue,
+  DEFAULT_SPACING_UNIT,
   type SpacingValue,
   type BorderValue,
 } from './style-inputs.js';
@@ -134,6 +136,40 @@ describe('readSpacingFromStyles', () => {
     const result = readSpacingFromStyles('margin', styles);
 
     expect(result).toEqual({ top: '10px', right: '5px', bottom: '10px', left: '5px' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// convertSideValue — used both for explicit unit-switch and for migrating
+// legacy units (e.g. px) to the units the inspector currently offers.
+// ---------------------------------------------------------------------------
+
+describe('convertSideValue', () => {
+  const baseUnit = DEFAULT_SPACING_UNIT;
+
+  it('returns value unchanged when fromUnit equals toUnit', () => {
+    expect(convertSideValue('16px', 'px', 'px', baseUnit)).toBe('16px');
+  });
+
+  it('converts pt to sp via the spacing scale', () => {
+    expect(convertSideValue('8pt', 'pt', 'sp', baseUnit)).toBe('2sp');
+  });
+
+  it('converts sp to pt by multiplying with base unit', () => {
+    expect(convertSideValue('2sp', 'sp', 'pt', baseUnit)).toBe('8pt');
+  });
+
+  it('converts legacy px to pt at 96dpi (1px = 0.75pt)', () => {
+    expect(convertSideValue('16px', 'px', 'pt', baseUnit)).toBe('12pt');
+  });
+
+  it('converts legacy px to sp via pt', () => {
+    // 16px → 12pt → nearest sp step at baseUnit=4 = 3sp
+    expect(convertSideValue('16px', 'px', 'sp', baseUnit)).toBe('3sp');
+  });
+
+  it('returns value unchanged for unknown source unit', () => {
+    expect(convertSideValue('5em', 'em', 'pt', baseUnit)).toBe('5em');
   });
 });
 
