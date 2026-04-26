@@ -7,9 +7,11 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.analysis.TemplateContractCompatibilityService
+import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
 import app.epistola.suite.templates.model.ContractVersion
 import app.epistola.suite.templates.model.ContractVersionStatus
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -67,7 +69,7 @@ class PublishContractVersionHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val compatibilityChecker: SchemaCompatibilityChecker,
-    private val templateCompatibilityService: TemplateContractCompatibilityService,
+    private val mediator: Mediator,
 ) : CommandHandler<PublishContractVersion, PublishContractVersionResult?> {
     override fun handle(command: PublishContractVersion): PublishContractVersionResult? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
@@ -136,7 +138,7 @@ class PublishContractVersionHandler(
             val incompatibleVersions = if (!compatibilityResult.compatible && previousPublished != null) {
                 val versionRows = handle.createQuery(
                     """
-                    SELECT tv.variant_key, tv.id as version_id, tv.referenced_paths,
+                    SELECT tv.variant_key, tv.id as version_id,
                            COALESCE(
                                (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
                                 FROM environment_activations ea
@@ -159,17 +161,18 @@ class PublishContractVersionHandler(
                     .list()
 
                 versionRows.mapNotNull { row ->
-                    val pathsJson = row["referenced_paths"]?.toString() ?: "[]"
-                    val paths: Set<String> = try {
-                        objectMapper.readValue<List<String>>(pathsJson, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java)).toSet()
-                    } catch (_: Exception) {
-                        emptySet()
-                    }
+                    val variantKey = VariantKey.of(row["variant_key"] as String)
+                    val versionKey = VersionKey.of(row["version_id"] as Int)
+                    val versionId = app.epistola.suite.common.ids.VersionId(
+                        versionKey,
+                        app.epistola.suite.common.ids.VariantId(variantKey, command.templateId),
+                    )
 
-                    val templateCompat = templateCompatibilityService.checkCompatibility(
-                        referencedPaths = paths,
-                        oldSchema = previousPublished.dataModel,
-                        newSchema = draft.dataModel,
+                    val templateCompat: TemplateCompatibilityResult = mediator.query(
+                        app.epistola.suite.templates.queries.contracts.CheckTemplateVersionCompatibility(
+                            versionId = versionId,
+                            newSchema = draft.dataModel,
+                        ),
                     )
 
                     if (!templateCompat.compatible) {
@@ -180,13 +183,13 @@ class PublishContractVersionHandler(
                             emptyList()
                         }
                         IncompatibleVersion(
-                            variantKey = VariantKey.of(row["variant_key"] as String),
-                            versionId = VersionKey.of(row["version_id"] as Int),
+                            variantKey = variantKey,
+                            versionId = versionKey,
                             activeEnvironments = envList,
                             incompatibilities = templateCompat.incompatibilities,
                         )
                     } else {
-                        null // This version is actually compatible — not included
+                        null
                     }
                 }
             } else {
