@@ -264,4 +264,36 @@ class StyleApplicatorTest {
         )
         assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))
     }
+
+    // -----------------------------------------------------------------------
+    // parseSize unit handling
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `parseSize handles pt`() {
+        assertEquals(12f, StyleApplicator.parseSize("12pt"))
+    }
+
+    @Test
+    fun `parseSize handles px as CSS pixels at 96dpi`() {
+        assertEquals(12f, StyleApplicator.parseSize("16px"))
+        assertEquals(30f, StyleApplicator.parseSize("40px"))
+    }
+
+    @Test
+    fun `parseSize handles sp via spacing scale`() {
+        assertEquals(8f, StyleApplicator.parseSize("2sp"))
+    }
+
+    @Test
+    fun `parseSize handles mm`() {
+        // 1mm ≈ 2.83465pt
+        val result = StyleApplicator.parseSize("10mm")
+        assertEquals(28.3465f, result)
+    }
+
+    @Test
+    fun `parseSize returns null for unknown unit`() {
+        assertEquals(null, StyleApplicator.parseSize("10rem"))
+    }
 }

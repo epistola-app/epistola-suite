@@ -295,6 +295,7 @@ object StyleApplicator {
 
         return when {
             size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
+            size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f } // CSS px @ 96dpi
             size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // page margins
             else -> size.toFloatOrNull() // unitless number treated as pt
         }
