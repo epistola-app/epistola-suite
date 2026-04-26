@@ -31,10 +31,6 @@ export interface DataContractEditorOptions {
   callbacks: SaveCallbacks;
   /** When true, all editing controls are disabled */
   readonly?: boolean;
-  /** Current contract version number (e.g. 1, 2, 3) */
-  contractVersionId?: number;
-  /** Current contract version status: 'draft' or 'published' */
-  contractVersionStatus?: string;
 }
 
 export interface DataContractEditorInstance {
@@ -48,29 +44,14 @@ export interface DataContractEditorInstance {
 export function mountDataContractEditor(
   options: DataContractEditorOptions,
 ): DataContractEditorInstance {
-  const {
-    container,
-    initialSchema,
-    initialExamples,
-    callbacks,
-    readonly = false,
-    contractVersionId,
-    contractVersionStatus,
-  } = options;
+  const { container, initialSchema, initialExamples, callbacks, readonly = false } = options;
 
   const editorEl = document.createElement(
     'epistola-data-contract-editor',
   ) as EpistolaDataContractEditor;
   editorEl.style.display = 'block';
 
-  editorEl.init(
-    initialSchema,
-    initialExamples,
-    callbacks,
-    readonly,
-    contractVersionId,
-    contractVersionStatus,
-  );
+  editorEl.init(initialSchema, initialExamples, callbacks, readonly);
 
   container.innerHTML = '';
   container.appendChild(editorEl);

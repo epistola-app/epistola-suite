@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div id="contract-breaking-content">
+            <p style="margin-bottom: var(--ep-space-3);">
+                This change is not backwards compatible. Publishing may affect existing template versions.
+            </p>
+            <div th:if="${!#lists.isEmpty(breakingChanges)}" style="margin-bottom: var(--ep-space-3);">
+                <strong>Breaking changes:</strong>
+                <ul style="margin-top: var(--ep-space-1);">
+                    <li th:each="c : ${breakingChanges}">
+                        <code th:text="${c.path}"></code> — <span th:text="${c.description}"></span>
+                    </li>
+                </ul>
+            </div>
+            <div th:if="${!#lists.isEmpty(incompatibleVersions)}">
+                <strong>Affected template versions:</strong>
+                <ul style="margin-top: var(--ep-space-1);">
+                    <li th:each="v : ${incompatibleVersions}">
+                        <span th:text="${v.variantKey.value}"></span> v<span th:text="${v.versionId.value}"></span>
+                        <span th:if="${!#lists.isEmpty(v.activeEnvironments)}"
+                              th:text="' (active in: ' + ${#strings.listJoin(v.activeEnvironments, ', ')} + ')'"></span>
+                    </li>
+                </ul>
+            </div>
+            <div style="display: flex; gap: var(--ep-space-2); justify-content: flex-end; margin-top: var(--ep-space-4);">
+                <button type="button" class="btn btn-sm btn-ghost"
+                        onclick="document.getElementById('contract-breaking-dialog').close()">Cancel</button>
+                <button type="button" class="btn btn-sm btn-danger"
+                        th:attr="hx-post=${publishUrl},hx-vals='confirmed=true'"
+                        hx-swap="none">
+                    Publish Anyway
+                </button>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

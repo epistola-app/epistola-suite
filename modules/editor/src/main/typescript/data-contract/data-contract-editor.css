@@ -1385,42 +1385,6 @@
    * Breaking changes banner (live, in schema tab)
    * ---------------------------------------------------------------------- */
 
-  /* Contract version bar */
-  .dc-version-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-2);
-    padding: var(--ep-space-1-5) var(--ep-space-3);
-    margin-bottom: var(--ep-space-3);
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-600);
-  }
-
-  .dc-version-badge {
-    font-weight: 600;
-    color: var(--ep-gray-800);
-  }
-
-  .dc-version-status {
-    display: inline-flex;
-    align-items: center;
-    padding: var(--ep-space-0-5) var(--ep-space-2);
-    font-size: var(--ep-text-xs);
-    font-weight: 500;
-    border-radius: 999px;
-    text-transform: capitalize;
-  }
-
-  .dc-version-status-draft {
-    background: var(--ep-blue-50);
-    color: var(--ep-blue-700);
-  }
-
-  .dc-version-status-published {
-    background: var(--ep-green-50);
-    color: var(--ep-green-700);
-  }
-
   .dc-breaking-changes-banner {
     display: flex;
     flex-wrap: wrap;

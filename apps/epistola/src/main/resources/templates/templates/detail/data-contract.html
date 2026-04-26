@@ -2,19 +2,8 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="tab-content">
-        <!-- Contract publish bar (shown when a draft exists and the user can edit) -->
-        <div th:if="${editable && hasDraftContract}" id="contract-publish-bar"
-             style="display: flex; align-items: center; gap: var(--ep-space-3); padding: var(--ep-space-2) var(--ep-space-3); margin-bottom: var(--ep-space-3); background: var(--ep-blue-50); border: 1px solid var(--ep-blue-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
-            <span style="color: var(--ep-blue-700);">Unpublished contract changes</span>
-            <span style="flex: 1;"></span>
-            <button type="button" class="btn btn-sm btn-primary" id="publish-contract-btn"
-                    th:data-contract-base-path="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}">
-                Publish Contract
-            </button>
-        </div>
-
-        <!-- Publish result/error banner -->
-        <div id="contract-publish-result" style="display: none; margin-bottom: var(--ep-space-3);"></div>
+        <!-- Status bar (refreshed via HTMX after save) -->
+        <th:block th:replace="~{templates/detail/contract-status-bar :: content}" />
 
         <!-- Breaking changes confirmation dialog -->
         <dialog id="contract-breaking-dialog" class="ep-dialog" style="max-width: 600px;">
@@ -24,77 +13,75 @@
                         onclick="document.getElementById('contract-breaking-dialog').close()">&times;</button>
             </div>
             <div class="ep-dialog-body" id="contract-breaking-body"></div>
-            <div class="ep-dialog-footer" style="display: flex; gap: var(--ep-space-2); justify-content: flex-end; padding: var(--ep-space-3);">
-                <button type="button" class="btn btn-sm btn-ghost"
-                        onclick="document.getElementById('contract-breaking-dialog').close()">Cancel</button>
-                <button type="button" class="btn btn-sm btn-danger" id="confirm-breaking-publish-btn">
-                    Publish Anyway
-                </button>
+        </dialog>
+
+        <!-- Contract usage dialog -->
+        <dialog id="contract-usage-dialog" class="ep-dialog" style="max-width: 700px;">
+            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Contract Usage</h3>
+                <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                        onclick="document.getElementById('contract-usage-dialog').close()">&times;</button>
+            </div>
+            <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
+                <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Variant</th>
+                            <th>Version</th>
+                            <th>Status</th>
+                            <th>Contract</th>
+                            <th>Deployed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="v : ${allTemplateVersions}">
+                            <td th:text="${v.variantKey}"></td>
+                            <td><strong th:text="'v' + ${v.versionId}"></strong></td>
+                            <td>
+                                <span th:if="${v.status == 'draft'}" class="badge badge-primary">Draft</span>
+                                <span th:if="${v.status == 'published'}" class="badge badge-success">Published</span>
+                            </td>
+                            <td>
+                                <th:block th:if="${v.contractVersion != null}">
+                                    <span th:if="${v.contractVersion == latestPublishedContractId}" class="badge badge-success" th:text="'v' + ${v.contractVersion}"></span>
+                                    <span th:if="${v.contractVersion != latestPublishedContractId && latestPublishedContractId != null}" class="badge badge-warning" th:text="'v' + ${v.contractVersion}"></span>
+                                    <span th:if="${latestPublishedContractId == null}" class="badge badge-outline" th:text="'v' + ${v.contractVersion}"></span>
+                                </th:block>
+                                <span th:if="${v.contractVersion == null}" class="text-muted">-</span>
+                            </td>
+                            <td>
+                                <span th:if="${!#lists.isEmpty(v.activeEnvironments)}" th:text="${#strings.listJoin(v.activeEnvironments, ', ')}"></span>
+                                <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="text-muted">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="text-muted" style="text-align: center;">No template versions yet.</p>
             </div>
         </dialog>
 
-        <!-- Contract usage overview — collapsible -->
-        <th:block th:if="${!#lists.isEmpty(allTemplateVersions)}">
-            <details class="detail-section" style="margin-bottom: var(--ep-space-4);">
-                <summary style="padding: var(--ep-space-2) var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm); font-weight: 600; cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: var(--ep-space-2);">
-                    <svg width="12" height="12" viewBox="0 0 12 12" style="transition: transform 0.15s; flex-shrink: 0;"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Contract Usage
-                    <span th:if="${hasOutdatedVersions}"
-                          class="badge badge-warning" style="font-weight: 500; font-size: var(--ep-text-xs);">Outdated versions</span>
-                </summary>
-                <div style="padding: var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-top: none; border-radius: 0 0 var(--ep-radius-md) var(--ep-radius-md); font-size: var(--ep-text-sm);">
-                    <table class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
-                        <thead>
-                            <tr>
-                                <th>Variant</th>
-                                <th>Version</th>
-                                <th>Status</th>
-                                <th>Contract</th>
-                                <th>Deployed</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="v : ${allTemplateVersions}">
-                                <td th:text="${v.variantKey}"></td>
-                                <td><strong th:text="'v' + ${v.versionId}"></strong></td>
-                                <td>
-                                    <span th:if="${v.status == 'draft'}" class="badge badge-primary">Draft</span>
-                                    <span th:if="${v.status == 'published'}" class="badge badge-success">Published</span>
-                                </td>
-                                <td>
-                                    <th:block th:if="${v.contractVersion != null}">
-                                        <!-- Current: on latest published contract -->
-                                        <span th:if="${v.contractVersion == latestPublishedContractId}"
-                                              class="badge badge-success"
-                                              th:text="'v' + ${v.contractVersion}"></span>
-                                        <!-- Outdated: on older contract -->
-                                        <span th:if="${v.contractVersion != latestPublishedContractId && latestPublishedContractId != null}"
-                                              class="badge badge-warning"
-                                              th:text="'v' + ${v.contractVersion}"
-                                              th:title="'Outdated — current contract is v' + ${latestPublishedContractId}"></span>
-                                        <!-- No published contract yet -->
-                                        <span th:if="${latestPublishedContractId == null}"
-                                              class="badge badge-outline"
-                                              th:text="'v' + ${v.contractVersion}"></span>
-                                    </th:block>
-                                    <span th:if="${v.contractVersion == null}" class="text-muted">-</span>
-                                </td>
-                                <td>
-                                    <span th:if="${!#lists.isEmpty(v.activeEnvironments)}" th:text="${#strings.listJoin(v.activeEnvironments, ', ')}"></span>
-                                    <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="text-muted">-</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </details>
-            <style>
-                details[open] > summary svg { transform: rotate(90deg); }
-            </style>
-        </th:block>
+        <!-- Contract history dialog -->
+        <dialog id="contract-history-dialog" class="ep-dialog" style="max-width: 600px;">
+            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Contract Version History</h3>
+                <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                        onclick="document.getElementById('contract-history-dialog').close()">&times;</button>
+            </div>
+            <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
+                <div id="contract-history-body">Loading...</div>
+            </div>
+        </dialog>
 
+        <!-- Open breaking dialog when HTMX swaps content into it -->
+        <script>
+            document.getElementById('contract-breaking-body').addEventListener('htmx:afterSwap', function() {
+                document.getElementById('contract-breaking-dialog').showModal();
+            });
+        </script>
+
+        <!-- Editor -->
         <div id="data-contract-container"
-             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable},data-contract-version-id=${contractVersionId},data-contract-version-status=${contractVersionStatus},data-has-draft-contract=${hasDraftContract}"></div>
+             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
         <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
         <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
 
@@ -106,98 +93,14 @@
                     try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
                 }
 
-                // --- Contract publish flow ---
-                const publishBtn = document.getElementById('publish-contract-btn');
-                const resultBanner = document.getElementById('contract-publish-result');
-                const breakingDialog = document.getElementById('contract-breaking-dialog');
-                const breakingBody = document.getElementById('contract-breaking-body');
-                const confirmBtn = document.getElementById('confirm-breaking-publish-btn');
+                const statusBarUrl = document.getElementById('contract-status-bar')?.dataset?.statusUrl;
 
-                if (publishBtn) {
-                    const contractBasePath = publishBtn.dataset.contractBasePath;
-                    const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
-                    const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
-
-                    function showResult(type, message) {
-                        resultBanner.className = `alert alert-${type}`;
-                        resultBanner.textContent = message;
-                        resultBanner.style.display = 'block';
-                        if (type === 'success') setTimeout(() => { resultBanner.style.display = 'none'; }, 5000);
+                function refreshStatusBar() {
+                    if (statusBarUrl && typeof htmx !== 'undefined') {
+                        htmx.ajax('GET', statusBarUrl, { target: '#contract-status-bar', swap: 'outerHTML' });
                     }
-
-                    async function publishContract(confirmed) {
-                        try {
-                            const response = await fetch(`${contractBasePath}/publish`, {
-                                method: 'POST',
-                                headers: jsonHeaders,
-                                body: JSON.stringify({ confirmed })
-                            });
-                            if (!response.ok) {
-                                showResult('error', 'Failed to publish contract.');
-                                return null;
-                            }
-                            return await response.json();
-                        } catch (e) {
-                            showResult('error', 'Failed to publish contract: ' + e.message);
-                            return null;
-                        }
-                    }
-
-                    publishBtn.addEventListener('click', async function() {
-                        publishBtn.disabled = true;
-                        resultBanner.style.display = 'none';
-
-                        // Step 1: Preview
-                        const preview = await publishContract(false);
-                        if (!preview) { publishBtn.disabled = false; return; }
-
-                        if (preview.compatible || preview.published) {
-                            // Compatible — publish directly
-                            const result = await publishContract(true);
-                            if (result && result.published) {
-                                showResult('success', 'Contract published successfully.');
-                                // Hide the publish bar and reload the tab
-                                document.getElementById('contract-publish-bar').style.display = 'none';
-                            }
-                            publishBtn.disabled = false;
-                        } else {
-                            // Breaking — show confirmation dialog
-                            let html = '<p style="margin-bottom: var(--ep-space-3);">This contract change is not backwards compatible. Publishing it may affect existing template versions.</p>';
-                            html += '<div style="margin-bottom: var(--ep-space-3);"><strong>Breaking changes:</strong><ul style="margin-top: var(--ep-space-1);">';
-                            for (const c of preview.breakingChanges || []) {
-                                html += `<li><code>${c.path || ''}</code> — ${c.description || c.type}</li>`;
-                            }
-                            html += '</ul></div>';
-                            if (preview.incompatibleVersions && preview.incompatibleVersions.length > 0) {
-                                html += '<div><strong>Affected template versions:</strong><ul style="margin-top: var(--ep-space-1);">';
-                                for (const v of preview.incompatibleVersions) {
-                                    const envs = v.activeEnvironments && v.activeEnvironments.length > 0
-                                        ? ` (active in: ${v.activeEnvironments.join(', ')})`
-                                        : '';
-                                    html += `<li>${v.variantKey} v${v.versionId}${envs}</li>`;
-                                }
-                                html += '</ul></div>';
-                            }
-                            breakingBody.innerHTML = html;
-
-                            confirmBtn.onclick = async function() {
-                                confirmBtn.disabled = true;
-                                const result = await publishContract(true);
-                                if (result && result.published) {
-                                    breakingDialog.close();
-                                    showResult('success', 'Contract published with breaking changes.');
-                                    document.getElementById('contract-publish-bar').style.display = 'none';
-                                }
-                                confirmBtn.disabled = false;
-                            };
-
-                            breakingDialog.showModal();
-                            publishBtn.disabled = false;
-                        }
-                    });
                 }
 
-                // --- Data contract editor mount ---
                 async function mount() {
                     const container = document.getElementById('data-contract-container');
                     if (!container || container.dataset.editorMounted === 'true') return;
@@ -215,17 +118,12 @@
                     const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
                     const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
 
-                    const contractVersionId = container.dataset.contractVersionId ? parseInt(container.dataset.contractVersionId) : undefined;
-                    const contractVersionStatus = container.dataset.contractVersionStatus || undefined;
-
                     mountDataContractEditor({
                         container: container,
                         templateId: templateId,
                         initialSchema: initialSchema,
                         initialExamples: initialExamples,
                         readonly: readonly,
-                        contractVersionId: contractVersionId,
-                        contractVersionStatus: contractVersionStatus,
                         callbacks: readonly ? {} : {
                             onSaveSchema: async (schema, forceUpdate, dataExamples) => {
                                 try {
@@ -238,6 +136,7 @@
                                     });
                                     if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
                                     const result = await response.json();
+                                    refreshStatusBar();
                                     return { success: true, warnings: result.warnings };
                                 } catch (e) { return { success: false, error: e.message }; }
                             },
@@ -250,6 +149,7 @@
                                     });
                                     if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
                                     const result = await response.json();
+                                    refreshStatusBar();
                                     return { success: true, warnings: result.warnings };
                                 } catch (e) { return { success: false }; }
                             },

@@ -12,6 +12,10 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.queries.GetContractUsageOverview
+import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import app.epistola.suite.templates.model.DataExample
 import org.springframework.http.MediaType
@@ -88,42 +92,67 @@ class ContractVersionHandler(
 
     /**
      * POST /{catalogId}/{id}/contract/publish — publish the draft contract.
-     * Pass {"confirmed": true} in the body for breaking changes.
-     * Without confirmation, breaking changes return a preview.
+     *
+     * HTMX flow:
+     * - First call (no confirmed param): preview. If compatible, publishes and redirects.
+     *   If breaking, returns a dialog fragment with the impact.
+     * - Second call (confirmed=true form param): publishes breaking changes and redirects.
+     *
+     * Non-HTMX: returns JSON response.
      */
     fun publish(request: ServerRequest): ServerResponse {
         val templateId = resolveTemplateId(request)
-        val confirmed = try {
-            val body = request.body(String::class.java)
-            if (body.isNotBlank()) {
-                objectMapper.readTree(body).get("confirmed")?.asBoolean() ?: false
-            } else {
+        val isHtmx = request.headers().firstHeader("HX-Request") == "true"
+        val confirmed = request.params().getFirst("confirmed")?.toBoolean()
+            ?: try {
+                val body = request.body(String::class.java)
+                if (body.isNotBlank()) objectMapper.readTree(body).get("confirmed")?.asBoolean() ?: false else false
+            } catch (_: Exception) {
                 false
             }
-        } catch (_: Exception) {
-            false
-        }
 
-        val result = PublishContractVersion(templateId = templateId, confirmed = confirmed).execute()
+        // First try without confirmation to check compatibility
+        val preview = PublishContractVersion(templateId = templateId, confirmed = false).execute()
             ?: return ServerResponse.notFound().build()
 
+        val tabUrl = "/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/data-contract"
+
+        if (preview.compatible || confirmed) {
+            // Publish for real
+            PublishContractVersion(templateId = templateId, confirmed = true).execute()
+
+            if (isHtmx) {
+                return ServerResponse.ok()
+                    .header("HX-Redirect", tabUrl)
+                    .build()
+            }
+            return ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(objectMapper.writeValueAsString(mapOf("published" to true, "compatible" to preview.compatible)))
+        }
+
+        // Breaking and not confirmed — return preview
+        if (isHtmx) {
+            return request.htmx {
+                fragment("templates/detail/contract-breaking-dialog", "content") {
+                    "breakingChanges" to preview.breakingChanges
+                    "incompatibleVersions" to preview.incompatibleVersions
+                    "publishUrl" to "/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/contract/publish"
+                }
+                onNonHtmx { redirect(tabUrl) }
+            }
+        }
+
         val response = mutableMapOf<String, Any?>(
-            "published" to result.published,
-            "compatible" to result.compatible,
-            "breakingChanges" to result.breakingChanges.map {
+            "published" to false,
+            "compatible" to false,
+            "breakingChanges" to preview.breakingChanges.map {
                 mapOf("type" to it.type.name, "path" to it.path, "description" to it.description)
             },
-            "upgradedVersionCount" to result.upgradedVersionCount,
-            "incompatibleVersions" to result.incompatibleVersions.map {
-                mapOf(
-                    "variantKey" to it.variantKey.value,
-                    "versionId" to it.versionId.value,
-                    "activeEnvironments" to it.activeEnvironments,
-                )
+            "incompatibleVersions" to preview.incompatibleVersions.map {
+                mapOf("variantKey" to it.variantKey.value, "versionId" to it.versionId.value, "activeEnvironments" to it.activeEnvironments)
             },
         )
-        result.publishedVersion?.let { response["id"] = it.id.value }
-
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(objectMapper.writeValueAsString(response))
@@ -150,6 +179,35 @@ class ContractVersionHandler(
                     },
                 ),
             )
+    }
+
+    /**
+     * GET /{catalogId}/{id}/contract/status-bar — status bar fragment (HTMX).
+     */
+    fun statusBar(request: ServerRequest): ServerResponse {
+        val templateId = resolveTemplateId(request)
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val draftContract = GetDraftContractVersion(templateId = templateId).query()
+        val latestPublished = GetLatestPublishedContractVersion(templateId = templateId).query()
+        val usage = GetContractUsageOverview(templateId = templateId).query()
+        val latestPublishedId = latestPublished?.id?.value
+
+        return request.htmx {
+            fragment("templates/detail/contract-status-bar", "content") {
+                "tenantId" to templateId.tenantKey.value
+                "catalogId" to templateId.catalogKey.value
+                "templateId" to templateId.key.value
+                "contractVersionId" to contractVersion?.id?.value
+                "contractVersionStatus" to contractVersion?.status?.name?.lowercase()
+                "hasDraftContract" to (draftContract != null)
+                "editable" to true
+                "hasOutdatedVersions" to usage.versions.any {
+                    it.status == "published" && it.contractVersion != latestPublishedId && latestPublishedId != null
+                }
+                "allTemplateVersions" to usage.versions
+            }
+            onNonHtmx { redirect("/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}") }
+        }
     }
 
     /**
