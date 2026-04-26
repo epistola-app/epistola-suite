@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.analysis.TemplateContractCompatibilityService
 import app.epistola.suite.templates.model.ContractVersion
 import app.epistola.suite.templates.model.ContractVersionStatus
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -57,6 +58,7 @@ data class IncompatibleVersion(
     val variantKey: VariantKey,
     val versionId: VersionKey,
     val activeEnvironments: List<String>,
+    val incompatibilities: List<app.epistola.suite.templates.analysis.FieldIncompatibility> = emptyList(),
 )
 
 @Component
@@ -65,6 +67,7 @@ class PublishContractVersionHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val compatibilityChecker: SchemaCompatibilityChecker,
+    private val templateCompatibilityService: TemplateContractCompatibilityService,
 ) : CommandHandler<PublishContractVersion, PublishContractVersionResult?> {
     override fun handle(command: PublishContractVersion): PublishContractVersionResult? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
@@ -129,11 +132,11 @@ class PublishContractVersionHandler(
                 SchemaCompatibilityChecker.CompatibilityResult(compatible = true, breakingChanges = emptyList())
             }
 
-            // 4. For breaking changes, find incompatible versions (published/archived on old contract)
+            // 4. For breaking changes, check each version's actual field usage for precise incompatibility
             val incompatibleVersions = if (!compatibilityResult.compatible && previousPublished != null) {
-                handle.createQuery(
+                val versionRows = handle.createQuery(
                     """
-                    SELECT tv.variant_key, tv.id as version_id,
+                    SELECT tv.variant_key, tv.id as version_id, tv.referenced_paths,
                            COALESCE(
                                (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
                                 FROM environment_activations ea
@@ -154,7 +157,22 @@ class PublishContractVersionHandler(
                     .bind("oldVersion", previousPublished.id.value)
                     .mapToMap()
                     .list()
-                    .map { row ->
+
+                versionRows.mapNotNull { row ->
+                    val pathsJson = row["referenced_paths"]?.toString() ?: "[]"
+                    val paths: Set<String> = try {
+                        objectMapper.readValue<List<String>>(pathsJson, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java)).toSet()
+                    } catch (_: Exception) {
+                        emptySet()
+                    }
+
+                    val templateCompat = templateCompatibilityService.checkCompatibility(
+                        referencedPaths = paths,
+                        oldSchema = previousPublished.dataModel,
+                        newSchema = draft.dataModel,
+                    )
+
+                    if (!templateCompat.compatible) {
                         val envJson = row["active_environments"]?.toString() ?: "[]"
                         val envList: List<String> = try {
                             objectMapper.readValue(envJson, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java))
@@ -165,8 +183,12 @@ class PublishContractVersionHandler(
                             variantKey = VariantKey.of(row["variant_key"] as String),
                             versionId = VersionKey.of(row["version_id"] as Int),
                             activeEnvironments = envList,
+                            incompatibilities = templateCompat.incompatibilities,
                         )
+                    } else {
+                        null // This version is actually compatible — not included
                     }
+                }
             } else {
                 emptyList()
             }
@@ -199,34 +221,45 @@ class PublishContractVersionHandler(
                 .execute()
 
             // 7. Auto-upgrade template versions from previous contract version
+            // Compatible: upgrade all. Breaking: upgrade all except truly incompatible.
             var upgradedCount = 0
             if (previousPublished != null) {
-                val upgradeQuery = if (compatibilityResult.compatible) {
-                    // Compatible: upgrade ALL versions (draft, published, archived)
-                    """
-                    UPDATE template_versions
-                    SET contract_version = :newVersion
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND contract_version = :oldVersion
-                    """
+                if (compatibilityResult.compatible || incompatibleVersions.isEmpty()) {
+                    // Upgrade all versions on the old contract
+                    upgradedCount = handle.createUpdate(
+                        """
+                        UPDATE template_versions
+                        SET contract_version = :newVersion
+                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                          AND template_key = :templateKey AND contract_version = :oldVersion
+                        """,
+                    )
+                        .bind("tenantKey", command.templateId.tenantKey)
+                        .bind("catalogKey", command.templateId.catalogKey)
+                        .bind("templateKey", command.templateId.key)
+                        .bind("newVersion", draft.id.value)
+                        .bind("oldVersion", previousPublished.id.value)
+                        .execute()
                 } else {
-                    // Breaking: upgrade only draft versions
-                    """
-                    UPDATE template_versions
-                    SET contract_version = :newVersion
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND contract_version = :oldVersion
-                      AND status = 'draft'
-                    """
+                    // Breaking with some incompatible: upgrade all EXCEPT the incompatible ones
+                    val incompatibleIds = incompatibleVersions.map { it.versionId.value }
+                    upgradedCount = handle.createUpdate(
+                        """
+                        UPDATE template_versions
+                        SET contract_version = :newVersion
+                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                          AND template_key = :templateKey AND contract_version = :oldVersion
+                          AND id NOT IN (<incompatibleIds>)
+                        """,
+                    )
+                        .bind("tenantKey", command.templateId.tenantKey)
+                        .bind("catalogKey", command.templateId.catalogKey)
+                        .bind("templateKey", command.templateId.key)
+                        .bind("newVersion", draft.id.value)
+                        .bind("oldVersion", previousPublished.id.value)
+                        .bindList("incompatibleIds", incompatibleIds)
+                        .execute()
                 }
-
-                upgradedCount = handle.createUpdate(upgradeQuery)
-                    .bind("tenantKey", command.templateId.tenantKey)
-                    .bind("catalogKey", command.templateId.catalogKey)
-                    .bind("templateKey", command.templateId.key)
-                    .bind("newVersion", draft.id.value)
-                    .bind("oldVersion", previousPublished.id.value)
-                    .execute()
             }
 
             PublishContractVersionResult(
