@@ -11,12 +11,13 @@
                 <span th:if="${contractVersionStatus == 'published'}" class="badge badge-success" style="margin-left: var(--ep-space-1);">Published</span>
             </span>
 
-            <!-- Publish button (HTMX) -->
+            <!-- Publish button (HTMX) — disabled when editor has unsaved changes -->
             <th:block th:if="${editable && hasDraftContract}">
-                <button type="button" class="btn btn-sm btn-primary"
+                <button type="button" class="btn btn-sm btn-primary" id="publish-contract-btn"
                         th:attr="hx-post=@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/publish(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}"
                         hx-target="#contract-breaking-body"
-                        hx-swap="innerHTML">
+                        hx-swap="innerHTML"
+                        title="Save your changes first">
                     Publish
                 </button>
             </th:block>

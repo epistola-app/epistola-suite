@@ -177,6 +177,19 @@
                         }
                     });
                     container.dataset.editorMounted = 'true';
+
+                    // Disable publish button when editor has unsaved changes
+                    const editorEl = container.querySelector('epistola-data-contract-editor');
+                    if (editorEl && editorEl.contractState) {
+                        editorEl.contractState.addEventListener('change', () => {
+                            const btn = document.getElementById('publish-contract-btn');
+                            if (btn) {
+                                const dirty = editorEl.contractState.isDirty;
+                                btn.disabled = dirty;
+                                btn.title = dirty ? 'Save your changes first' : 'Publish contract';
+                            }
+                        });
+                    }
                 }
 
                 mount();
