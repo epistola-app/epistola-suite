@@ -25,9 +25,6 @@ class DataContractTabHandler(
 
         // Contract usage: which template versions use which contract
         val usage = GetContractUsageOverview(templateId = ctx.templateId).query()
-        val outdatedVersions = usage.versions.filter {
-            it.status == "published" && it.contractVersion != latestPublishedId && latestPublishedId != null
-        }
 
         return detailHelper.renderDetailPage(
             ctx,
@@ -40,7 +37,7 @@ class DataContractTabHandler(
                 "hasDraftContract" to (draftContract != null),
                 "latestPublishedContractId" to latestPublishedId,
                 "contractVersionCount" to contractVersions.size,
-                "outdatedVersions" to outdatedVersions,
+                "allTemplateVersions" to usage.versions,
             ),
         )
     }
