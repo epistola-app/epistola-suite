@@ -65,6 +65,35 @@ class VersionRouteHandler(
         return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
 
+    fun publishDraft(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val variantId = request.variantId(templateId)
+            ?: return ServerResponse.badRequest().build()
+
+        val draft = app.epistola.suite.templates.queries.versions.GetDraft(variantId = variantId).query()
+            ?: return ServerResponse.badRequest().build()
+
+        try {
+            app.epistola.suite.templates.commands.versions.PublishVersion(
+                versionId = app.epistola.suite.common.ids.VersionId(draft.id, variantId),
+            ).execute()
+        } catch (e: IllegalArgumentException) {
+            return ServerResponse.badRequest()
+                .header("HX-Reswap", "none")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
+
+        // Redirect to reload the page with updated state
+        val redirectUrl = "/tenants/${tenantId.key.value}/templates/${catalogId.value}/${templateId.key.value}"
+        return ServerResponse.ok()
+            .header("HX-Redirect", redirectUrl)
+            .build()
+    }
+
     fun updateDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()

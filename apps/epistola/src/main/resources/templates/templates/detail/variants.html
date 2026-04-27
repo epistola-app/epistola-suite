@@ -93,6 +93,14 @@
                            class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
                             <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                         </a>
+                        <form th:if="${auth.has('TEMPLATE_PUBLISH') and editable and variant.hasDraft}"
+                              th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                              hx-swap="none"
+                              style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Publish draft">
+                                <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </form>
                         <button type="button" class="btn btn-sm btn-icon btn-ghost"
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
