@@ -13,6 +13,9 @@
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>
             </div>
+            <div style="flex-shrink: 0;">
+                <th:block th:replace="~{fragments/template-actions :: template-delete-form}" />
+            </div>
         </div>
 
         <!-- Tab Navigation -->
