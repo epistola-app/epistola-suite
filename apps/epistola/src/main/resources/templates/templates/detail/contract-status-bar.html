@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div id="contract-status-bar"
+             th:data-status-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/status-bar(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+             style="display: flex; align-items: center; gap: var(--ep-space-3); padding: var(--ep-space-2) var(--ep-space-3); margin-bottom: var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
+
+            <!-- Edit mode: Done button -->
+            <th:block th:if="${editMode}">
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                   class="btn btn-sm btn-ghost" hx-boost="false">
+                    &larr; Done Editing
+                </a>
+            </th:block>
+
+            <!-- Version + status -->
+            <span th:if="${contractVersionId != null}">
+                <strong th:text="'Contract v' + ${contractVersionId}"></strong>
+                <span th:if="${contractVersionStatus == 'draft'}" class="badge badge-primary" style="margin-left: var(--ep-space-1);">Draft</span>
+                <span th:if="${contractVersionStatus == 'published'}" class="badge badge-success" style="margin-left: var(--ep-space-1);">Published</span>
+            </span>
+
+            <!-- View mode actions -->
+            <th:block th:if="${!editMode}">
+                <!-- Publish button -->
+                <th:block th:if="${editable && hasDraftContract}">
+                    <button type="button" class="btn btn-sm btn-primary"
+                            th:attr="hx-post=@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                            hx-target="#contract-breaking-body"
+                            hx-swap="innerHTML">
+                        Publish
+                    </button>
+                </th:block>
+
+                <!-- Edit button -->
+                <th:block th:if="${editable}">
+                    <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
+                       class="btn btn-sm btn-outline" hx-boost="false">
+                        Edit
+                    </a>
+                </th:block>
+            </th:block>
+
+            <span style="flex: 1;"></span>
+
+            <!-- Usage + History (always visible) -->
+            <th:block th:if="${hasOutdatedVersions}">
+                <button type="button" class="btn btn-sm btn-ghost" style="color: var(--ep-amber-700);"
+                        onclick="document.getElementById('contract-usage-dialog').showModal()">
+                    <span class="badge badge-warning" style="margin-right: var(--ep-space-1);">!</span>
+                    Outdated versions
+                </button>
+            </th:block>
+            <th:block th:if="${!hasOutdatedVersions && !#lists.isEmpty(allTemplateVersions)}">
+                <button type="button" class="btn btn-sm btn-ghost"
+                        onclick="document.getElementById('contract-usage-dialog').showModal()">
+                    Usage
+                </button>
+            </th:block>
+
+            <button type="button" class="btn btn-sm btn-ghost"
+                    th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/versions/history(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                    hx-target="#contract-history-body" hx-swap="innerHTML"
+                    onclick="document.getElementById('contract-history-dialog').showModal()">
+                History
+            </button>
+        </div>
+    </th:block>
+</body>
+</html>

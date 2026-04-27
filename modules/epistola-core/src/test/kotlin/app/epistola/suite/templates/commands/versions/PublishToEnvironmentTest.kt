@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.activations.RemoveActivation
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.ListVariants
@@ -43,6 +44,10 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(draft.status).isEqualTo(VersionStatus.DRAFT)
 
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         val result = PublishToEnvironment(
             versionId = versionId,
             environmentId = environmentId,
@@ -54,15 +59,10 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(result.activation.environmentKey).isEqualTo(env.id)
         assertThat(result.activation.versionKey).isEqualTo(draft.id)
 
-        // Auto-created draft should exist
-        assertThat(result.newDraft).isNotNull
-        assertThat(result.newDraft!!.status).isEqualTo(VersionStatus.DRAFT)
-        assertThat(result.newDraft!!.id.value).isEqualTo(draft.id.value + 1)
-
-        // Variant should still have a draft
+        // No auto-created draft (on-demand lifecycle)
         val updatedVersions = ListVersions(variantId = variantId).query()
-        assertThat(updatedVersions).hasSize(2)
-        assertThat(updatedVersions.any { it.status == VersionStatus.DRAFT }).isTrue()
+        assertThat(updatedVersions).hasSize(1)
+        assertThat(updatedVersions.all { it.status == VersionStatus.PUBLISHED }).isTrue()
         Unit
     }
 
@@ -84,6 +84,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
 
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         // Publish to staging first (this transitions draft -> published)
         val firstResult = PublishToEnvironment(
             versionId = versionId,
@@ -100,8 +103,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(secondResult).isNotNull
         assertThat(secondResult!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(secondResult.activation.environmentKey).isEqualTo(production.id)
-        // No new draft when re-deploying an already-published version
-        assertThat(secondResult.newDraft).isNull()
+        // No new draft (on-demand lifecycle)
 
         // Both activations should exist
         val activations = ListActivations(variantId = variantId).query()
@@ -126,6 +128,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
 
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         // Publish twice to same environment
         val first = PublishToEnvironment(
             versionId = versionId,
@@ -139,10 +144,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(first).isNotNull
         assertThat(second).isNotNull
         assertThat(second!!.activation.versionKey).isEqualTo(first!!.activation.versionKey)
-        // First publish creates a new draft, second doesn't
-        assertThat(first.newDraft).isNotNull
-        assertThat(second.newDraft).isNull()
-
         // Only one activation should exist
         val activations = ListActivations(variantId = variantId).query()
         assertThat(activations).hasSize(1)
@@ -162,6 +163,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val versions = ListVersions(variantId = variantId).query()
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
 
         val result = PublishToEnvironment(
             versionId = versionId,
@@ -186,6 +190,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val versions = ListVersions(variantId = variantId).query()
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
 
         // Publish to staging, then remove activation, then archive
         PublishToEnvironment(
@@ -226,6 +233,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
 
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
+
         // Publish to staging
         PublishToEnvironment(
             versionId = versionId,
@@ -257,6 +267,9 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val versions = ListVersions(variantId = variantId).query()
         val draft = versions.first()
         val versionId = VersionId(draft.id, variantId)
+
+        // Publish the contract first (guard rejects draft contracts)
+        PublishContractVersion(templateId = templateId).execute()
 
         // Publish, then remove activation, then archive
         PublishToEnvironment(

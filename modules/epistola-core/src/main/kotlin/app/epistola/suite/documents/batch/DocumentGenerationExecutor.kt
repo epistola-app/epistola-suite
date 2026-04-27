@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.OffsetDateTime
@@ -186,9 +187,23 @@ class DocumentGenerationExecutor(
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
             ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
-        // 5. Validate data against template schema (if defined)
-        if (template.dataModel != null) {
-            val errors = schemaValidator.validate(template.dataModel, request.data)
+        // 5. Validate data against contract schema (if defined)
+        val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
+            val contractVersion = mediator.query(
+                app.epistola.suite.templates.contracts.queries.GetContractVersion(
+                    id = app.epistola.suite.common.ids.ContractVersionId(
+                        cv,
+                        app.epistola.suite.common.ids.TemplateId(
+                            request.templateKey,
+                            app.epistola.suite.common.ids.CatalogId(request.catalogKey, app.epistola.suite.common.ids.TenantId(request.tenantKey)),
+                        ),
+                    ),
+                ),
+            )
+            contractVersion?.dataModel
+        }
+        if (dataModel != null) {
+            val errors = schemaValidator.validate(dataModel, request.data)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")
@@ -244,6 +259,8 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                templateCatalogKey = template.themeCatalogKey,
+                tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )
         }
 

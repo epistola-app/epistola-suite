@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Contract schema versioning**: Template data contracts (schema + examples) are now versioned separately from the template's visual content. See `docs/schema-versioning.md` for the full design.
+  - `contract_versions` table with draft/published lifecycle (V23 migration)
+  - Each template version links to a specific contract version via FK
+  - On-demand draft pattern: drafts only exist when there are unpublished changes
+  - Compatible contract changes auto-publish when deploying template versions
+  - Breaking changes require explicit publish with two-step confirmation
+- **Schema compatibility checking**: Three-level checking — structural schema diff, template field usage extraction, and per-version compatibility analysis. Only template versions that actually reference removed/changed fields are flagged as incompatible.
+- **Referenced paths extraction**: `TemplatePathExtractor` extracts all data contract variable paths from template expressions (including loop alias resolution, nested loops, conditionals, QR codes, and TipTap inline expressions). Stored on each template version as `referenced_paths`.
+- **Data contract tab view/edit mode**: View mode shows schema fields table and example names in read-only format. Edit mode mounts the full Lit editor. Status bar adapts to each mode with version badge, publish/edit buttons, usage dialog, and history dialog.
+- **Contract publish impact preview**: Breaking contract publishes show a confirmation dialog listing breaking changes and affected template versions with their active environment deployments.
+- **Deployment matrix error handling**: Contract compatibility errors shown inline in the deployment matrix instead of generic "An error occurred" message.
+- **Contract usage overview**: Dialog showing all template versions with their contract version (color-coded: green=current, amber=outdated) and active deployments.
+
+### Changed
+
+- **Contract data moved from `document_templates` to `contract_versions`**: Removed `schema`, `dataModel`, `dataExamples` columns. All queries, handlers, and catalog import/export updated.
+- **Contract code organized into `templates/contracts/` package**: Dedicated package with `commands/`, `queries/`, `model/` sub-packages plus `SchemaCompatibilityChecker` and `SchemaPathNavigator` utilities.
+
+### Fixed
+
+- **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+
 ### Changed
 
 - **Border input UX**: The per-side border input now shows the style dropdown (None/Solid/Dashed/Dotted) on top and the width/unit/color controls below. Width/unit/color are hidden when style is `None`. New borders default to `None` instead of `Solid`, and the width is clamped to at least 0.5 in the active unit whenever a visible style is chosen.

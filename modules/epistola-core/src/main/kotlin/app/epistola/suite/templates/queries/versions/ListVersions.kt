@@ -26,7 +26,7 @@ class ListVersionsHandler(
     override fun handle(query: ListVersions): List<VersionSummary> = jdbi.withHandle<List<VersionSummary>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT ver.id, ver.tenant_key, ver.variant_key, ver.status, ver.created_at, ver.published_at, ver.archived_at
+                SELECT ver.id, ver.tenant_key, ver.variant_key, ver.status, ver.created_at, ver.published_at, ver.archived_at, ver.contract_version
                 FROM template_versions ver
                 JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.variant_key = :variantId

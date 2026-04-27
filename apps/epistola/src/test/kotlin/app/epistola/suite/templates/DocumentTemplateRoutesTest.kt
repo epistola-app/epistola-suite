@@ -6,12 +6,13 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,6 +38,35 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
+    /**
+     * Inserts a draft contract version with the given data model and/or examples.
+     */
+    private fun insertDraftContract(
+        tenantKey: String,
+        templateKey: String,
+        dataModel: String? = null,
+        dataExamples: String = "[]",
+    ) {
+        jdbi.withHandle<Unit, Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, created_at)
+                VALUES (1, :tenantKey, 'default', :templateKey, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
+                ON CONFLICT (tenant_key, catalog_key, template_key) WHERE status = 'draft'
+                DO UPDATE SET data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb
+                """,
+            )
+                .bind("tenantKey", tenantKey)
+                .bind("templateKey", templateKey)
+                .bind("dataModel", dataModel)
+                .bind("dataExamples", dataExamples)
+                .execute()
+        }
+    }
 
     @Test
     fun `GET templates returns list page with template data`() = fixture {
@@ -370,28 +400,19 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                // Add a data example to the template
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"name": {"type": "string"}}}""",
-                )
-                val dataExamples = listOf(
-                    mapOf(
-                        "id" to "1",
-                        "name" to "Example 1",
-                        "data" to mapOf("name" to "John"),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataModel = objectMapper.valueToTree(dataModel),
-                        dataExamples = dataExamples.map {
-                            app.epistola.suite.templates.model.DataExample(
-                                id = it["id"] as String,
-                                name = it["name"] as String,
-                                data = objectMapper.valueToTree(it["data"]),
-                            )
-                        },
+                // Add data model and example via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataModel = """{"type": "object", "properties": {"name": {"type": "string"}}}""",
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("name" to "John")),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -423,18 +444,18 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                // Add a data example with a number where string is expected
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "1",
-                        name = "Example 1",
-                        data = objectMapper.valueToTree(mapOf("count" to 42)),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataExamples = dataExamples,
+                // Add a data example with a number where string is expected via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("count" to 42)),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -496,18 +517,18 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                // Add a stored data example that matches the schema
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "stored",
-                        name = "Stored Example",
-                        data = objectMapper.valueToTree(mapOf("name" to "John")),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataExamples = dataExamples,
+                // Add a stored data example that matches the schema via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "stored",
+                                name = "Stored Example",
+                                data = objectMapper.valueToTree(mapOf("name" to "John")),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -549,23 +570,23 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                // Add initial data examples
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-1",
-                        name = "Example 1",
-                        data = objectMapper.valueToTree(mapOf("name" to "John")),
-                    ),
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-2",
-                        name = "Example 2",
-                        data = objectMapper.valueToTree(mapOf("name" to "Jane")),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataExamples = dataExamples,
+                // Add initial data examples via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("name" to "John")),
+                            ),
+                            DataExample(
+                                id = "example-2",
+                                name = "Example 2",
+                                data = objectMapper.valueToTree(mapOf("name" to "Jane")),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -590,11 +611,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"name\":\"Updated Example\"")
                 assertThat(response.body).contains("Updated John")
 
-                // Verify the other example is unchanged
-                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
-                assertThat(updated).isNotNull
-                assertThat(updated!!.dataExamples).hasSize(2)
-                assertThat(updated.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
+                // Verify the other example is unchanged via contract version
+                val contractVersion = mediator.query(GetLatestContractVersion(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                assertThat(contractVersion).isNotNull
+                assertThat(contractVersion!!.dataExamples).hasSize(2)
+                assertThat(contractVersion.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
             }
         }
 
@@ -606,17 +627,17 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-1",
-                        name = "Original Name",
-                        data = objectMapper.valueToTree(mapOf("field" to "original")),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataExamples = dataExamples,
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Original Name",
+                                data = objectMapper.valueToTree(mapOf("field" to "original")),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -708,22 +729,19 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                // Add schema and example
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
-                )
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-1",
-                        name = "Example 1",
-                        data = objectMapper.valueToTree(mapOf("count" to 42)),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataModel = objectMapper.valueToTree(dataModel),
-                        dataExamples = dataExamples,
+                // Add schema and example via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataModel = """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("count" to 42)),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -757,21 +775,18 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
-                )
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-1",
-                        name = "Example 1",
-                        data = objectMapper.valueToTree(mapOf("count" to 42)),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataModel = objectMapper.valueToTree(dataModel),
-                        dataExamples = dataExamples,
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataModel = """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("count" to 42)),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -805,22 +820,22 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-1",
-                        name = "Example 1",
-                        data = objectMapper.valueToTree(mapOf("name" to "John")),
-                    ),
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-2",
-                        name = "Example 2",
-                        data = objectMapper.valueToTree(mapOf("name" to "Jane")),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataExamples = dataExamples,
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("name" to "John")),
+                            ),
+                            DataExample(
+                                id = "example-2",
+                                name = "Example 2",
+                                data = objectMapper.valueToTree(mapOf("name" to "Jane")),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -839,10 +854,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
                 // Verify example-1 is gone, example-2 remains
-                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
-                assertThat(updated).isNotNull
-                assertThat(updated!!.dataExamples).hasSize(1)
-                assertThat(updated.dataExamples[0].id).isEqualTo("example-2")
+                val contractVersion = mediator.query(GetLatestContractVersion(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                assertThat(contractVersion).isNotNull
+                assertThat(contractVersion!!.dataExamples).hasSize(1)
+                assertThat(contractVersion.dataExamples[0].id).isEqualTo("example-2")
             }
         }
 
@@ -854,17 +869,17 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 template = template(testTenant, "Test Template")
-                val dataExamples = listOf(
-                    app.epistola.suite.templates.model.DataExample(
-                        id = "example-1",
-                        name = "Example 1",
-                        data = objectMapper.valueToTree(mapOf("name" to "John")),
-                    ),
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataExamples = dataExamples,
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataExamples = objectMapper.writeValueAsString(
+                        listOf(
+                            DataExample(
+                                id = "example-1",
+                                name = "Example 1",
+                                data = objectMapper.valueToTree(mapOf("name" to "John")),
+                            ),
+                        ),
                     ),
                 )
             }
@@ -969,15 +984,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 // Create a variant (which also creates a draft)
                 val createdVariant = variant(testTenant, template, "Default")
                 variantId = createdVariant.id
-                // Add schema that requires 'name' field
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataModel = objectMapper.valueToTree(dataModel),
-                    ),
+                // Add schema that requires 'name' field via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataModel = """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
                 )
             }
 
@@ -1014,15 +1025,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 template = template(testTenant, "Test Template")
                 val createdVariant = variant(testTenant, template, "Default")
                 variantId = createdVariant.id
-                // Add schema that expects 'count' to be integer
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataModel = objectMapper.valueToTree(dataModel),
-                    ),
+                // Add schema that expects 'count' to be integer via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataModel = """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
                 )
             }
 
@@ -1115,15 +1122,11 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 template = template(testTenant, "Test Template")
                 val createdVariant = variant(testTenant, template, "Default")
                 variantId = createdVariant.id
-                // Add schema that requires 'name' field
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
-                )
-                mediator.send(
-                    UpdateDocumentTemplate(
-                        id = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
-                        dataModel = objectMapper.valueToTree(dataModel),
-                    ),
+                // Add schema that requires 'name' field via contract version
+                insertDraftContract(
+                    tenantKey = testTenant.id.value,
+                    templateKey = template.id.value,
+                    dataModel = """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
                 )
             }
 

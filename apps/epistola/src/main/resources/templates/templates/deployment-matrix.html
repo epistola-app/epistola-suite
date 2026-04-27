@@ -4,6 +4,11 @@
     <th:block th:fragment="deployment-matrix">
         <div id="deployment-matrix">
 
+            <!-- Error banner (e.g., contract compatibility issues) -->
+            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                <span th:text="${error}"></span>
+            </div>
+
             <!-- No environments -->
             <th:block th:if="${#lists.isEmpty(environments)}">
                 <div class="detail-section">

@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionExce
 import app.epistola.suite.templates.commands.variants.DeleteVariant
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
@@ -112,6 +113,7 @@ class VariantRouteHandler {
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
         val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
 
         return request.htmx {
             fragment("templates/detail/variants", "variants-section") {
@@ -122,6 +124,7 @@ class VariantRouteHandler {
                 "attributeDefinitions" to attributeDefinitions
                 "editable" to editable
                 "auth" to auth
+                "contractDataExamples" to contractVersion?.dataExamples
             }
             trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
@@ -174,6 +177,7 @@ class VariantRouteHandler {
         val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
         logger.info("renderVariantsSection: variants={}, editable={}, catalogId={}, isHtmx={}", variants.size, editable, catalogId, request.isHtmx)
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
 
         return request.htmx {
             fragment("templates/detail/variants", "variants-section") {
@@ -184,6 +188,7 @@ class VariantRouteHandler {
                 "attributeDefinitions" to attributeDefinitions
                 "editable" to editable
                 "auth" to auth
+                "contractDataExamples" to contractVersion?.dataExamples
                 if (errorMessage != null) {
                     "error" to errorMessage
                 }

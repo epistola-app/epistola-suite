@@ -7,7 +7,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -19,11 +19,8 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Updates a single data example within a template.
+ * Updates a single data example within a template's draft contract version.
  * Only validates the single example being updated against the schema.
- *
- * @property forceUpdate When true, validation warnings don't block the update.
- *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDataExample(
     val templateId: TemplateId,
@@ -37,12 +34,6 @@ data class UpdateDataExample(
     override val tenantKey: TenantKey get() = templateId.tenantKey
 }
 
-/**
- * Result of updating a data example.
- *
- * @property example The updated data example
- * @property warnings Validation warnings (only populated when forceUpdate=true)
- */
 data class UpdateDataExampleResult(
     val example: DataExample,
     val warnings: Map<String, List<ValidationError>> = emptyMap(),
@@ -57,84 +48,67 @@ class UpdateDataExampleHandler(
     override fun handle(command: UpdateDataExample): UpdateDataExampleResult? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
 
-        val existing = getExisting(command.templateId) ?: return null
+        return jdbi.inTransaction<UpdateDataExampleResult?, Exception> { handle ->
+            // Load and lock the draft contract version
+            val draftContract = handle.createQuery(
+                """
+                SELECT *
+                FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                  AND template_key = :templateKey AND status = 'draft'
+                FOR UPDATE
+                """,
+            )
+                .bind("tenantKey", command.templateId.tenantKey)
+                .bind("catalogKey", command.templateId.catalogKey)
+                .bind("templateKey", command.templateId.key)
+                .mapTo<ContractVersion>()
+                .findOne()
+                .orElse(null) ?: return@inTransaction null
 
-        // Find the example to update
-        val existingExample = existing.dataExamples.find { it.id == command.exampleId }
-            ?: return null
+            val existingExample = draftContract.dataExamples.find { it.id == command.exampleId }
+                ?: return@inTransaction null
 
-        // Build updated example
-        val updatedExample = DataExample(
-            id = existingExample.id,
-            name = command.name ?: existingExample.name,
-            data = command.data ?: existingExample.data,
-        )
+            val updatedExample = DataExample(
+                id = existingExample.id,
+                name = command.name ?: existingExample.name,
+                data = command.data ?: existingExample.data,
+            )
 
-        // Validate only the updated example against schema
-        val warnings = mutableMapOf<String, List<ValidationError>>()
-        val schema = existing.dataModel
+            // Validate only the updated example against schema
+            val warnings = mutableMapOf<String, List<ValidationError>>()
+            val schema = draftContract.dataModel
 
-        if (schema != null) {
-            val errors = jsonSchemaValidator.validateExamples(schema, listOf(updatedExample))
-            if (errors.isNotEmpty()) {
-                if (command.forceUpdate) {
-                    warnings.putAll(errors)
-                } else {
-                    throw DataModelValidationException(errors)
+            if (schema != null) {
+                val errors = jsonSchemaValidator.validateExamples(schema, listOf(updatedExample))
+                if (errors.isNotEmpty()) {
+                    if (command.forceUpdate) {
+                        warnings.putAll(errors)
+                    } else {
+                        throw DataModelValidationException(errors)
+                    }
                 }
             }
-        }
 
-        // Replace the example in the list
-        val updatedExamples = existing.dataExamples.map { example ->
-            if (example.id == command.exampleId) updatedExample else example
-        }
+            val updatedExamples = draftContract.dataExamples.map { example ->
+                if (example.id == command.exampleId) updatedExample else example
+            }
 
-        // Persist
-        val updated = updateDataExamples(command.templateId, updatedExamples)
-            ?: return null
-
-        // Return the updated example from the persisted list
-        val persistedExample = updated.dataExamples.find { it.id == command.exampleId }
-            ?: return null
-
-        return UpdateDataExampleResult(example = persistedExample, warnings = warnings)
-    }
-
-    private fun getExisting(templateId: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
-        handle.createQuery(
-            """
-                SELECT id, tenant_key, catalog_key, name, data_model, data_examples, created_at, last_modified
-                FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+            handle.createUpdate(
+                """
+                UPDATE contract_versions
+                SET data_examples = :dataExamples::jsonb
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                  AND template_key = :templateKey AND status = 'draft'
                 """,
-        )
-            .bind("id", templateId.key)
-            .bind("tenantId", templateId.tenantKey)
-            .bind("catalogKey", templateId.catalogKey)
-            .mapTo<DocumentTemplate>()
-            .findOne()
-            .orElse(null)
-    }
+            )
+                .bind("tenantKey", command.templateId.tenantKey)
+                .bind("catalogKey", command.templateId.catalogKey)
+                .bind("templateKey", command.templateId.key)
+                .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
+                .execute()
 
-    private fun updateDataExamples(
-        templateId: TemplateId,
-        dataExamples: List<DataExample>,
-    ): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
-        handle.createQuery(
-            """
-            UPDATE document_templates
-            SET data_examples = :dataExamples::jsonb, last_modified = NOW()
-            WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
-            RETURNING id, tenant_key, catalog_key, name, data_model, data_examples, created_at, last_modified
-            """,
-        )
-            .bind("id", templateId.key)
-            .bind("tenantId", templateId.tenantKey)
-            .bind("catalogKey", templateId.catalogKey)
-            .bind("dataExamples", objectMapper.writeValueAsString(dataExamples))
-            .mapTo<DocumentTemplate>()
-            .findOne()
-            .orElse(null)
+            UpdateDataExampleResult(example = updatedExample, warnings = warnings)
+        }
     }
 }

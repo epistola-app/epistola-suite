@@ -36,6 +36,10 @@ data class TemplateVersion(
     val renderingDefaultsVersion: Int? = null,
     /** Theme snapshot frozen at publish time. Null for drafts and legacy published versions. */
     @Json val resolvedTheme: ResolvedThemeSnapshot? = null,
+    /** Contract version this template version is associated with. Null if the template has no contract. */
+    val contractVersion: VersionKey? = null,
+    /** Data contract paths referenced by expressions in the template model. */
+    @Json val referencedPaths: Set<String> = emptySet(),
 )
 
 /**
@@ -51,4 +55,5 @@ data class VersionSummary(
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,
     val archivedAt: OffsetDateTime?,
+    val contractVersion: VersionKey? = null,
 )
