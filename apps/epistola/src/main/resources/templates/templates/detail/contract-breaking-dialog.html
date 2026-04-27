@@ -18,7 +18,7 @@
                 <strong>Affected template versions:</strong>
                 <ul style="margin-top: var(--ep-space-1);">
                     <li th:each="v : ${incompatibleVersions}">
-                        <span th:text="${v.variantKey.value}"></span> v<span th:text="${v.versionId.value}"></span>
+                        <span th:text="${v.variantKey}"></span> v<span th:text="${v.versionId}"></span>
                         <span th:if="${!#lists.isEmpty(v.activeEnvironments)}"
                               th:text="' (active in: ' + ${#strings.listJoin(v.activeEnvironments, ', ')} + ')'"></span>
                     </li>
