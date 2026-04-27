@@ -107,10 +107,37 @@ class CreateVersionHandler(
 
             val versionId = VersionKey.of(nextVersionId)
 
-            // Use provided model or create default empty template structure
-            val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId.key)
-            val templateModelJson = objectMapper.writeValueAsString(modelToSave)
-            val referencedPaths = command.templateModel?.let { pathExtractor.extractReferencedPaths(it) } ?: emptySet()
+            // Use provided model, or copy from latest published, or create default empty structure
+            val latestPublishedModelJson = if (command.templateModel == null) {
+                handle.createQuery(
+                    """
+                    SELECT template_model::text FROM template_versions
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND variant_key = :variantKey
+                      AND status = 'published'
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                )
+                    .bind("tenantKey", command.variantId.tenantKey)
+                    .bind("catalogKey", command.variantId.catalogKey)
+                    .bind("templateKey", command.variantId.templateKey)
+                    .bind("variantKey", command.variantId.key)
+                    .mapTo(String::class.java)
+                    .findOne()
+                    .orElse(null)
+            } else {
+                null
+            }
+
+            val modelToSave = command.templateModel
+                ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
+                ?: createDefaultTemplateModel(templateName, command.variantId.key)
+            val templateModelJson = if (latestPublishedModelJson != null && command.templateModel == null) {
+                latestPublishedModelJson // Reuse the JSON string directly
+            } else {
+                objectMapper.writeValueAsString(modelToSave)
+            }
+            val referencedPaths = if (modelToSave is TemplateDocument) pathExtractor.extractReferencedPaths(modelToSave) else emptySet()
             val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
 
             // Resolve contract version: prefer draft (user is editing), fall back to published
