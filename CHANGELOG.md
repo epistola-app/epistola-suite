@@ -27,6 +27,7 @@
 ### Fixed
 
 - **Template deletion discoverability**: The "Delete Template" button now appears in the page header on all template detail tabs, not just buried in Settings > Danger Zone. Extracted the delete form into a reusable fragment (`fragments/template-actions.html`). Added `aria-label` with the template name for accessibility. Fixed a CSS bug where `button[type='submit']` globally overrode `.btn-destructive` styles — now scoped to buttons without an explicit `.btn-*` class.
+- **Negative sizing not enforced**: All size inputs in the editor now reject negative values (`min="0"` on number inputs, `Math.max(0, ...)` in change handlers). The backend `StyleApplicator.parseSize` and `ImageNodeRenderer.parseToPt` now clamp parsed values to `>= 0` via `coerceAtLeast(0f)`. `parseValueWithUnit` no longer accepts leading minus signs. This fixes a bug where copy/pasting or manually entering negative values broke layout or caused iText errors.
 
 ### Changed
 

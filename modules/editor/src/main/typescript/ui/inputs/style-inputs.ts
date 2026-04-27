@@ -20,7 +20,7 @@ export interface ParsedUnit {
 export function parseValueWithUnit(raw: unknown, defaultUnit: string): ParsedUnit {
   if (raw == null || raw === '') return { value: 0, unit: defaultUnit };
   const str = String(raw);
-  const match = str.match(/^(-?[\d.]+)\s*([a-z%]+)?$/i);
+  const match = str.match(/^([\d.]+)\s*([a-z%]+)?$/i);
   if (!match) return { value: 0, unit: defaultUnit };
   return { value: parseFloat(match[1]), unit: match[2] || defaultUnit };
 }
@@ -46,7 +46,7 @@ export function renderUnitInput(
   const parsed = parseValueWithUnit(value, defaultUnit);
 
   const handleNumberChange = (e: Event) => {
-    const num = parseFloat((e.target as HTMLInputElement).value) || 0;
+    const num = Math.max(0, parseFloat((e.target as HTMLInputElement).value) || 0);
     onChange(num === 0 ? '' : formatValueWithUnit(num, parsed.unit));
   };
 
@@ -70,6 +70,7 @@ export function renderUnitInput(
         class="ep-input style-unit-number"
         id=${inputId ?? nothing}
         step=${parsed.unit === 'sp' ? '0.5' : '1'}
+        min="0"
         .value=${String(parsed.value)}
         ?disabled=${readOnly}
         @change=${handleNumberChange}
@@ -319,7 +320,7 @@ export function renderSpacingInput(
               .value=${String(sideNumber(parsed[side]))}
               ?disabled=${readOnly}
               @change=${(e: Event) => {
-                const num = parseFloat((e.target as HTMLInputElement).value) || 0;
+                const num = Math.max(0, parseFloat((e.target as HTMLInputElement).value) || 0);
                 handleSideChange(side, formatSide(num));
               }}
             />

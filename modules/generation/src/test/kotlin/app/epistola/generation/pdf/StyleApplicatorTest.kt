@@ -264,4 +264,23 @@ class StyleApplicatorTest {
         )
         assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))
     }
+
+    // -----------------------------------------------------------------------
+    // parseSize clamping
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `parseSize clamps negative values to zero`() {
+        assertEquals(0f, StyleApplicator.parseSize("-10pt"))
+        assertEquals(0f, StyleApplicator.parseSize("-5"))
+        assertEquals(0f, StyleApplicator.parseSize("-2sp", spacingUnit = 4f))
+        assertEquals(0f, StyleApplicator.parseSize("-1mm"))
+    }
+
+    @Test
+    fun `parseSize preserves positive values`() {
+        assertEquals(10f, StyleApplicator.parseSize("10pt"))
+        assertEquals(5f, StyleApplicator.parseSize("5"))
+        assertEquals(8f, StyleApplicator.parseSize("2sp", spacingUnit = 4f))
+    }
 }
