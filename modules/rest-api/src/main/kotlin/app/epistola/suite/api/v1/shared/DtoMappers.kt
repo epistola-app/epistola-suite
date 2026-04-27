@@ -2,6 +2,7 @@ package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ActivationDto
 import app.epistola.api.model.AttributeDto
+import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateSummaryDto
@@ -13,6 +14,7 @@ import app.epistola.api.model.VersionSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.ActivationDetails
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
@@ -49,10 +51,19 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     lastModified = lastModified,
 )
 
-internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>) = TemplateDto(
+internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>, contractVersion: ContractVersion? = null) = TemplateDto(
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
+    schema = contractVersion?.schema?.let { objectMapper.valueToTree(it) },
+    dataModel = contractVersion?.dataModel?.let { objectMapper.valueToTree(it) },
+    dataExamples = contractVersion?.dataExamples?.map { example ->
+        DataExampleDto(
+            id = example.id,
+            name = example.name,
+            data = objectMapper.valueToTree(example.data),
+        )
+    },
     variants = variantSummaries.map { it.toDto() },
     createdAt = createdAt,
     lastModified = lastModified,

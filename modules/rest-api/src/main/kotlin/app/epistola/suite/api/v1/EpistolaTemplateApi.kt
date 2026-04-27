@@ -49,6 +49,7 @@ import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -118,7 +119,8 @@ class EpistolaTemplateApi(
         val template = GetDocumentTemplate(id = templateIdComposite).query()
             ?: return ResponseEntity.notFound().build()
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
-        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
+        val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
     }
 
     override fun updateTemplate(
@@ -134,7 +136,8 @@ class EpistolaTemplateApi(
             name = updateTemplateRequest.name,
         ).execute() ?: return ResponseEntity.notFound().build()
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
-        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
+        val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
     }
 
     override fun validateTemplateData(
