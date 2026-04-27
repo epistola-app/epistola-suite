@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Renovate PR consolidation**: GitHub Actions updates (digests + majors) grouped into a single PR; major dependency updates merged into the non-major PR; lock file maintenance merged into the non-major PR.
+
 ### Added
 
 - **Contract schema versioning**: Template data contracts (schema + examples) are now versioned separately from the template's visual content. See `docs/schema-versioning.md` for the full design.
