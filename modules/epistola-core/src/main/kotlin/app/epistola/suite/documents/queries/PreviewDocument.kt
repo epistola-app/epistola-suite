@@ -124,17 +124,26 @@ class PreviewDocumentHandler(
         val tenant = mediator.query(GetTenant(id = query.tenantId))
             ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
 
-        // 4. Validate data against contract schema
-        val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
-            val contractVersion = mediator.query(
+        // 4. Resolve data: use provided data, or fall back to first example from version's contract
+        val contractVersion = version.contractVersion?.let { cv ->
+            mediator.query(
                 app.epistola.suite.templates.contracts.queries.GetContractVersion(
                     id = app.epistola.suite.common.ids.ContractVersionId(cv, TemplateId(query.templateId, CatalogId(query.catalogKey, tenantId))),
                 ),
             )
-            contractVersion?.dataModel
         }
+
+        val effectiveData = if (query.data.isEmpty) {
+            // No data provided — use first example from the version's contract
+            contractVersion?.dataExamples?.firstOrNull()?.data ?: query.data
+        } else {
+            query.data
+        }
+
+        // Validate data against contract schema
+        val dataModel = contractVersion?.dataModel
         if (dataModel != null) {
-            val errors = schemaValidator.validate(dataModel, query.data)
+            val errors = schemaValidator.validate(dataModel, effectiveData)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")
@@ -148,7 +157,7 @@ class PreviewDocumentHandler(
             version = version,
             template = template,
             tenant = tenant,
-            data = query.data,
+            data = effectiveData,
         )
     }
 
