@@ -111,16 +111,13 @@ class ContractVersionHandler(
                 false
             }
 
-        // First try without confirmation to check compatibility
-        val preview = PublishContractVersion(templateId = templateId, confirmed = false).execute()
-            ?: return ServerResponse.notFound().build()
-
         val tabUrl = "/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/data-contract"
 
-        if (preview.compatible || confirmed) {
-            // Publish for real
-            PublishContractVersion(templateId = templateId, confirmed = true).execute()
+        // Publish directly with the confirmed flag
+        val result = PublishContractVersion(templateId = templateId, confirmed = confirmed).execute()
+            ?: return ServerResponse.notFound().build()
 
+        if (result.published) {
             if (isHtmx) {
                 return ServerResponse.ok()
                     .header("HX-Redirect", tabUrl)
@@ -128,15 +125,15 @@ class ContractVersionHandler(
             }
             return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(objectMapper.writeValueAsString(mapOf("published" to true, "compatible" to preview.compatible)))
+                .body(objectMapper.writeValueAsString(mapOf("published" to true, "compatible" to result.compatible)))
         }
 
         // Breaking and not confirmed — return preview
         if (isHtmx) {
             return request.htmx {
                 fragment("templates/detail/contract-breaking-dialog", "content") {
-                    "breakingChanges" to preview.breakingChanges
-                    "incompatibleVersions" to preview.incompatibleVersions
+                    "breakingChanges" to result.breakingChanges
+                    "incompatibleVersions" to result.incompatibleVersions
                     "publishUrl" to "/tenants/${templateId.tenantKey.value}/templates/${templateId.catalogKey.value}/${templateId.key.value}/contract/publish"
                 }
                 onNonHtmx { redirect(tabUrl) }
@@ -146,10 +143,10 @@ class ContractVersionHandler(
         val response = mutableMapOf<String, Any?>(
             "published" to false,
             "compatible" to false,
-            "breakingChanges" to preview.breakingChanges.map {
+            "breakingChanges" to result.breakingChanges.map {
                 mapOf("type" to it.type.name, "path" to it.path, "description" to it.description)
             },
-            "incompatibleVersions" to preview.incompatibleVersions.map {
+            "incompatibleVersions" to result.incompatibleVersions.map {
                 mapOf("variantKey" to it.variantKey.value, "versionId" to it.versionId.value, "activeEnvironments" to it.activeEnvironments)
             },
         )

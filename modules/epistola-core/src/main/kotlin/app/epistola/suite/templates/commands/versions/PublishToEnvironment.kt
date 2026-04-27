@@ -116,22 +116,16 @@ class PublishToEnvironmentHandler(
                 if (contractStatus == "draft") {
                     val templateId = TemplateId(command.versionId.templateKey, command.versionId.catalogId)
 
-                    // Preview first — checks compatibility without publishing
-                    val preview = app.epistola.suite.templates.contracts.commands.PublishContractVersion(
-                        templateId = templateId,
-                        confirmed = false,
-                    ).execute()
-
-                    require(preview == null || preview.compatible) {
-                        "Cannot publish template version: contract has breaking changes. Publish the contract explicitly first. " +
-                            "Breaking changes: ${preview?.breakingChanges?.joinToString { it.description } ?: ""}"
-                    }
-
-                    // Compatible — publish for real
-                    app.epistola.suite.templates.contracts.commands.PublishContractVersion(
+                    // Publish the contract directly (confirmed=true). If breaking, it returns published=false.
+                    val publishResult = app.epistola.suite.templates.contracts.commands.PublishContractVersion(
                         templateId = templateId,
                         confirmed = true,
                     ).execute()
+
+                    require(publishResult != null && publishResult.compatible) {
+                        "Cannot publish template version: contract has breaking changes. Publish the contract explicitly first. " +
+                            "Breaking changes: ${publishResult?.breakingChanges?.joinToString { it.description } ?: ""}"
+                    }
                 }
             }
 
