@@ -189,22 +189,18 @@ class DocumentGenerationExecutor(
 
         // 5. Validate data against contract schema (if defined)
         val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
-            jdbi.withHandle<ObjectNode?, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT data_model FROM contract_versions
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND id = :contractVersion
-                    """,
-                )
-                    .bind("tenantKey", request.tenantKey)
-                    .bind("catalogKey", request.catalogKey)
-                    .bind("templateKey", request.templateKey)
-                    .bind("contractVersion", cv.value)
-                    .mapTo(ObjectNode::class.java)
-                    .findOne()
-                    .orElse(null)
-            }
+            val contractVersion = mediator.query(
+                app.epistola.suite.templates.contracts.queries.GetContractVersion(
+                    id = app.epistola.suite.common.ids.ContractVersionId(
+                        cv,
+                        app.epistola.suite.common.ids.TemplateId(
+                            request.templateKey,
+                            app.epistola.suite.common.ids.CatalogId(request.catalogKey, app.epistola.suite.common.ids.TenantId(request.tenantKey)),
+                        ),
+                    ),
+                ),
+            )
+            contractVersion?.dataModel
         }
         if (dataModel != null) {
             val errors = schemaValidator.validate(dataModel, request.data)

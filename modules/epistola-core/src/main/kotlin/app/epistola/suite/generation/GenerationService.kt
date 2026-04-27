@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ResolvedThemeSnapshot
@@ -172,24 +173,13 @@ class GenerationService(
         data: Map<String, Any?>,
     ): PreviewValidationResult {
         // Load the latest contract version's data model for validation
-        val dataModel: ObjectNode? = jdbi.withHandle<ObjectNode?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT data_model FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey
-                  AND status IN ('draft', 'published')
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-                """,
-            )
-                .bind("tenantKey", tenantId)
-                .bind("catalogKey", catalogKey)
-                .bind("templateKey", templateId)
-                .mapTo(ObjectNode::class.java)
-                .findOne()
-                .orElse(null)
-        }
+        val contractVersion = app.epistola.suite.templates.contracts.queries.GetLatestContractVersion(
+            templateId = app.epistola.suite.common.ids.TemplateId(
+                templateId,
+                app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantId)),
+            ),
+        ).query()
+        val dataModel: ObjectNode? = contractVersion?.dataModel
 
         if (dataModel == null) {
             return PreviewValidationResult(valid = true) // No schema means no validation
