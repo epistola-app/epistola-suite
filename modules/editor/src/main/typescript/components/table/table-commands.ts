@@ -116,7 +116,6 @@ function getTableProps(node: Node) {
     columnWidths: (props.columnWidths as number[]) ?? [],
     merges: (props.merges as CellMerge[]) ?? [],
     headerRows: (props.headerRows as number) ?? 0,
-    borderStyle: (props.borderStyle as string) ?? 'all',
   };
 }
 

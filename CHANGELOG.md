@@ -27,6 +27,11 @@
 ### Fixed
 
 - **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+### Changed
+
+- **Border input UX**: The per-side border input now shows the style dropdown (None/Solid/Dashed/Dotted) on top and the width/unit/color controls below. Width/unit/color are hidden when style is `None`. New borders default to `None` instead of `Solid`, and the width is clamped to at least 0.5 in the active unit whenever a visible style is chosen.
+- **Table borders via CSS only**: Removed the `borderStyle`/`borderColor`/`borderWidth` props on the `table` component and the "Border Style" inspector dropdown. Borders are now set exclusively via the CSS `border` property — on the node for the outer table border, or on selected cells for per-cell borders. Default cell borders are suppressed; new tables render borderless until the user opts in.
+- **Table inspector scoping**: Selecting a cell shows only cell-specific controls (merge actions and cell style). Selecting the table without a cell shows only table-level controls (rows, columns, widths, header rows, and node styles). Previously both sets were shown at once, which caused confusion about which properties applied where.
 
 ## [0.16.0] - 2026-04-23
 
