@@ -7,7 +7,10 @@ import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.properties.UnitValue
+import com.itextpdf.svg.converter.SvgConverter
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayInputStream
+import javax.imageio.ImageIO
 
 /**
  * Renders an "image" node to an iText Image element.
@@ -45,28 +48,31 @@ class ImageNodeRenderer : NodeRenderer {
             return emptyList()
         }
 
-        val imageData = ImageDataFactory.create(resolution.content)
-        val image = Image(imageData)
+        val image = createImageElement(resolution, context)
 
         // Apply width/height from props
         val widthStr = props["width"] as? String
         val heightStr = props["height"] as? String
         val hasWidth = !widthStr.isNullOrBlank()
         val hasHeight = !heightStr.isNullOrBlank()
+        val width = widthStr?.takeIf { it.isNotBlank() }
+        val height = heightStr?.takeIf { it.isNotBlank() }
 
         val spacingUnit = context.spacingUnit
         when {
             hasWidth && hasHeight -> {
-                applyDimension(widthStr!!, isWidth = true, image, spacingUnit)
-                applyDimension(heightStr!!, isWidth = false, image, spacingUnit)
+                applyDimension(requireNotNull(width), isWidth = true, image, spacingUnit)
+                applyDimension(requireNotNull(height), isWidth = false, image, spacingUnit)
             }
             hasWidth -> {
-                applyDimension(widthStr!!, isWidth = true, image, spacingUnit)
-                scaleProportionally(widthStr, isWidthGiven = true, image, imageData, spacingUnit)
+                val widthValue = requireNotNull(width)
+                applyDimension(widthValue, isWidth = true, image, spacingUnit)
+                scaleProportionally(widthValue, isWidthGiven = true, image, spacingUnit)
             }
             hasHeight -> {
-                applyDimension(heightStr!!, isWidth = false, image, spacingUnit)
-                scaleProportionally(heightStr, isWidthGiven = false, image, imageData, spacingUnit)
+                val heightValue = requireNotNull(height)
+                applyDimension(heightValue, isWidth = false, image, spacingUnit)
+                scaleProportionally(heightValue, isWidthGiven = false, image, spacingUnit)
             }
             else -> {
                 // No dimensions specified: auto-scale to fit available width
@@ -119,14 +125,13 @@ class ImageNodeRenderer : NodeRenderer {
         value: String,
         isWidthGiven: Boolean,
         image: Image,
-        imageData: com.itextpdf.io.image.ImageData,
         spacingUnit: Float,
     ) {
         if (value.endsWith("%")) return // let iText handle percentage layout
 
         val pt = parseToPt(value, spacingUnit) ?: return
-        val intrinsicWidth = imageData.width // in points
-        val intrinsicHeight = imageData.height // in points
+        val intrinsicWidth = image.imageWidth
+        val intrinsicHeight = image.imageHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) return
 
         if (isWidthGiven) {
@@ -145,5 +150,27 @@ class ImageNodeRenderer : NodeRenderer {
             value.endsWith("pt") -> value.removeSuffix("pt").toFloatOrNull()
             else -> value.toFloatOrNull()
         }
+    }
+
+    private fun createImageElement(resolution: AssetResolution, context: RenderContext): Image = when (resolution.mimeType) {
+        "image/svg+xml" -> createSvgImage(resolution.content, context)
+        "image/webp" -> createWebpImage(resolution.content)
+        else -> Image(ImageDataFactory.create(resolution.content))
+    }
+
+    private fun createSvgImage(content: ByteArray, context: RenderContext): Image {
+        val pdfDocument = context.pdfDocument
+            ?: throw IllegalStateException("PDF document context is required for SVG conversion")
+        return ByteArrayInputStream(content).use { svgStream ->
+            SvgConverter.convertToImage(svgStream, pdfDocument)
+        }
+    }
+
+    private fun createWebpImage(content: ByteArray): Image {
+        val bufferedImage = ByteArrayInputStream(content).use { webpStream ->
+            ImageIO.read(webpStream)
+        } ?: throw IllegalArgumentException("Failed to decode WEBP image content")
+        val imageData = ImageDataFactory.create(bufferedImage, null)
+        return Image(imageData)
     }
 }

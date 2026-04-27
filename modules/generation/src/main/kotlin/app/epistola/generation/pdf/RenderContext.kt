@@ -6,6 +6,7 @@ import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.kernel.pdf.PdfDocument
 
 /**
  * Context passed to node renderers during PDF generation.
@@ -26,6 +27,8 @@ data class RenderContext(
     val document: TemplateDocument,
     /** Optional asset resolver for loading image content during rendering */
     val assetResolver: AssetResolver? = null,
+    /** Active PdfDocument for renderers that require document-bound conversion (e.g., SVG). */
+    val pdfDocument: PdfDocument? = null,
     /** Versioned rendering defaults (font sizes, spacing, borders, etc.) */
     val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     /** Theme-configurable spacing base unit in points (see [SpacingScale]). */

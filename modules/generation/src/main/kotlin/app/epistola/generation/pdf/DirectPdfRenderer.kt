@@ -350,7 +350,8 @@ class DirectPdfRenderer(
             )
         }
 
-        val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, context)
+        val documentContext = context.copy(pdfDocument = pdfDocument)
+        val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, documentContext)
         for (element in elements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> iTextDocument.add(element)

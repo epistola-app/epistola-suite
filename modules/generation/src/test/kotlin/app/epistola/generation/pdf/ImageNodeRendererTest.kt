@@ -3,7 +3,10 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
+import java.util.Base64
+import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -48,6 +51,14 @@ class ImageNodeRendererTest {
         header + ihdr + idat + iend
     }
 
+    private val testJpegBytes: ByteArray = run {
+        val image = BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB)
+        image.setRGB(0, 0, 0xFF0000)
+        val output = ByteArrayOutputStream()
+        ImageIO.write(image, "jpeg", output)
+        output.toByteArray()
+    }
+
     private fun documentWithImageNode(
         imageProps: Map<String, Any?>,
     ): TemplateDocument {
@@ -80,16 +91,32 @@ class ImageNodeRendererTest {
         }
     }
 
-    @Test
-    fun `renders image node with valid asset`() {
-        val document = documentWithImageNode(mapOf("assetId" to "asset-123"))
-
+    private fun assertRenderedPdf(document: TemplateDocument, resolver: AssetResolver?) {
         val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = resolverWithTestPng)
+        renderer.render(document, emptyMap(), output, assetResolver = resolver)
 
         val pdfBytes = output.toByteArray()
         assertTrue(pdfBytes.isNotEmpty())
         assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `renders PNG image asset`() {
+        val document = documentWithImageNode(mapOf("assetId" to "asset-123"))
+        assertRenderedPdf(document, resolverWithTestPng)
+    }
+
+    @Test
+    fun `renders JPEG image asset`() {
+        val resolver = AssetResolver { assetId ->
+            if (assetId == "asset-jpeg") {
+                AssetResolution(content = testJpegBytes, mimeType = "image/jpeg")
+            } else {
+                null
+            }
+        }
+        val document = documentWithImageNode(mapOf("assetId" to "asset-jpeg"))
+        assertRenderedPdf(document, resolver)
     }
 
     @Test
@@ -97,13 +124,7 @@ class ImageNodeRendererTest {
         val document = documentWithImageNode(
             mapOf("assetId" to "asset-123", "width" to "200px", "height" to "100px"),
         )
-
-        val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = resolverWithTestPng)
-
-        val pdfBytes = output.toByteArray()
-        assertTrue(pdfBytes.isNotEmpty())
-        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+        assertRenderedPdf(document, resolverWithTestPng)
     }
 
     @Test
@@ -111,48 +132,56 @@ class ImageNodeRendererTest {
         val document = documentWithImageNode(
             mapOf("assetId" to "asset-123", "width" to "50%"),
         )
-
-        val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = resolverWithTestPng)
-
-        val pdfBytes = output.toByteArray()
-        assertTrue(pdfBytes.isNotEmpty())
-        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+        assertRenderedPdf(document, resolverWithTestPng)
     }
 
     @Test
     fun `skips gracefully when no assetId`() {
         val document = documentWithImageNode(mapOf("alt" to "placeholder"))
-
-        val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = resolverWithTestPng)
-
-        val pdfBytes = output.toByteArray()
-        assertTrue(pdfBytes.isNotEmpty())
-        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+        assertRenderedPdf(document, resolverWithTestPng)
     }
 
     @Test
     fun `skips gracefully when asset not found`() {
         val document = documentWithImageNode(mapOf("assetId" to "non-existent"))
-
-        val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = resolverWithTestPng)
-
-        val pdfBytes = output.toByteArray()
-        assertTrue(pdfBytes.isNotEmpty())
-        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+        assertRenderedPdf(document, resolverWithTestPng)
     }
 
     @Test
     fun `skips gracefully when no resolver`() {
         val document = documentWithImageNode(mapOf("assetId" to "asset-123"))
+        assertRenderedPdf(document, null)
+    }
 
-        val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = null)
+    @Test
+    fun `renders SVG image asset`() {
+        val svgBytes = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+              <rect width="10" height="10" fill="red" />
+            </svg>
+        """.trimIndent().toByteArray()
+        val resolver = AssetResolver { assetId ->
+            if (assetId == "asset-svg") {
+                AssetResolution(content = svgBytes, mimeType = "image/svg+xml")
+            } else {
+                null
+            }
+        }
+        val document = documentWithImageNode(mapOf("assetId" to "asset-svg"))
+        assertRenderedPdf(document, resolver)
+    }
 
-        val pdfBytes = output.toByteArray()
-        assertTrue(pdfBytes.isNotEmpty())
-        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    @Test
+    fun `renders WEBP image asset`() {
+        val webpBytes = Base64.getDecoder().decode("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoIAAgAAkA4JaQAA3AA/vuUAAA=")
+        val resolver = AssetResolver { assetId ->
+            if (assetId == "asset-webp") {
+                AssetResolution(content = webpBytes, mimeType = "image/webp")
+            } else {
+                null
+            }
+        }
+        val document = documentWithImageNode(mapOf("assetId" to "asset-webp"))
+        assertRenderedPdf(document, resolver)
     }
 }
