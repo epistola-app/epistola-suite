@@ -57,16 +57,16 @@ class DataContractTabHandler(
         val required = mutableSetOf<String>()
         if (requiredNode != null) {
             for (el in requiredNode) {
-                required.add(el.asText())
+                required.add(el.asString())
             }
         }
         val fields = mutableListOf<SchemaFieldView>()
 
         for ((name, _) in properties.properties()) {
             val prop = properties.get(name) as? ObjectNode ?: continue
-            val type = prop.get("type")?.asText() ?: "unknown"
+            val type = prop.get("type")?.asString() ?: "unknown"
             val path = if (prefix.isEmpty()) name else "$prefix.$name"
-            val description = prop.get("description")?.asText()
+            val description = prop.get("description")?.asString()
 
             fields.add(SchemaFieldView(path = path, name = name, type = type, required = name in required, description = description, depth = depth))
 
@@ -74,7 +74,7 @@ class DataContractTabHandler(
                 fields.addAll(extractSchemaFields(prop, path, depth + 1))
             } else if (type == "array") {
                 val items = prop.get("items") as? ObjectNode
-                if (items != null && items.get("type")?.asText() == "object") {
+                if (items != null && items.get("type")?.asString() == "object") {
                     fields.addAll(extractSchemaFields(items, "$path[]", depth + 1))
                 }
             }

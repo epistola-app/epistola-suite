@@ -88,15 +88,15 @@ class SchemaCompatibilityChecker {
                 checkConstraintNarrowing(oldField, newField, path, changes)
 
                 // Recurse into nested objects
-                val oldFieldType = oldField.get("type")?.asText()
-                val newFieldType = newField.get("type")?.asText()
+                val oldFieldType = oldField.get("type")?.asString()
+                val newFieldType = newField.get("type")?.asString()
                 if (oldFieldType == "object" && newFieldType == "object") {
                     compareProperties(oldField, newField, path, changes)
                 } else if (oldFieldType == "array" && newFieldType == "array") {
                     val oldItems = oldField.get("items") as? ObjectNode
                     val newItems = newField.get("items") as? ObjectNode
                     if (oldItems != null && newItems != null) {
-                        if (oldItems.get("type")?.asText() == "object" && newItems.get("type")?.asText() == "object") {
+                        if (oldItems.get("type")?.asString() == "object" && newItems.get("type")?.asString() == "object") {
                             compareProperties(oldItems, newItems, "$path[]", changes)
                         }
                         checkConstraintNarrowing(oldItems, newItems, "$path[]", changes)
@@ -150,8 +150,8 @@ class SchemaCompatibilityChecker {
         checkNumericNarrowing(oldField, newField, "maxItems", path, changes, narrowsWhenNew = { old, new -> new < old })
 
         // Pattern: added or changed
-        val oldPattern = oldField.get("pattern")?.asText()
-        val newPattern = newField.get("pattern")?.asText()
+        val oldPattern = oldField.get("pattern")?.asString()
+        val newPattern = newField.get("pattern")?.asString()
         if (oldPattern == null && newPattern != null) {
             changes.add(BreakingChange(BreakingChangeType.CONSTRAINT_NARROWED, path, "pattern constraint added: $newPattern"))
         } else if (oldPattern != null && newPattern != null && oldPattern != newPattern) {
@@ -182,7 +182,7 @@ class SchemaCompatibilityChecker {
         val requiredNode = schema.get("required") ?: return emptySet()
         val result = mutableSetOf<String>()
         for (element in requiredNode) {
-            result.add(element.asText())
+            result.add(element.asString())
         }
         return result
     }
@@ -199,16 +199,16 @@ class SchemaCompatibilityChecker {
         if (node == null || !node.isArray) return null
         val result = mutableSetOf<String>()
         for (element in node) {
-            result.add(element.asText())
+            result.add(element.asString())
         }
         return result
     }
 
     private fun effectiveType(node: JsonNode?): String? {
         if (node == null) return null
-        val type = node.get("type")?.asText() ?: return null
+        val type = node.get("type")?.asString() ?: return null
         if (type == "array") {
-            val itemType = node.get("items")?.get("type")?.asText()
+            val itemType = node.get("items")?.get("type")?.asString()
             return if (itemType != null) "array<$itemType>" else "array"
         }
         return type

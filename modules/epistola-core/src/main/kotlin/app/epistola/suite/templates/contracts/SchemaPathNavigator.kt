@@ -52,7 +52,7 @@ class SchemaPathNavigator {
             }
         }
 
-        val type = current.get("type")?.asText() ?: "unknown"
+        val type = current.get("type")?.asString() ?: "unknown"
         return ResolvedField(type = type, found = true)
     }
 
