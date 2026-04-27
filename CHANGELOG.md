@@ -27,6 +27,7 @@
 ### Fixed
 
 - **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+
 ### Changed
 
 - **Border input UX**: The per-side border input now shows the style dropdown (None/Solid/Dashed/Dotted) on top and the width/unit/color controls below. Width/unit/color are hidden when style is `None`. New borders default to `None` instead of `Solid`, and the width is clamped to at least 0.5 in the active unit whenever a visible style is chosen.
