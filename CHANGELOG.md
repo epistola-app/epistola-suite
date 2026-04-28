@@ -33,6 +33,7 @@
 ### Fixed
 
 - **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+
 ### Added
 
 - **SVG and WEBP image support in PDF**: The PDF renderer now supports SVG (via iText SVG converter) and WEBP (via TwelveMonkeys ImageIO) image formats in addition to PNG and JPEG.
