@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Import always creates contract version**: Templates imported without a data model or data examples now always get a contract version (previously skipped, causing NPE when saving). Backfill migration (V24) creates missing contract versions for existing templates.
+- **Export only includes published template versions**: Catalog export now only includes templates with published versions, skipping draft-only templates.
+- **Clear error on missing contract version**: `UpdateDraft`, `CreateVariant`, and `CreateVersion` now throw a descriptive `IllegalStateException` instead of a raw `NullPointerException` when no contract version exists.
+
 ## [0.17.0] - 2026-04-28
 
 ### Added

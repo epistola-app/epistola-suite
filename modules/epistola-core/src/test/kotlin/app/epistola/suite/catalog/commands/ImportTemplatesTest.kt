@@ -6,6 +6,11 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -301,6 +306,46 @@ class ImportTemplatesTest : IntegrationTestBase() {
                 assertThat(result.status).isNotEqualTo(ImportStatus.FAILED)
                 assertThat(result.publishedTo).containsExactly(envKey.value)
             }
+        }
+    }
+
+    @Test
+    fun `import without data model creates contract version and allows creating variants`() {
+        val tenant = createTenant("Import Test")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val slug = TestIdHelpers.nextTemplateId().value
+            val results = ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug,
+                        name = "No DataModel Template",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = emptyList(),
+                    ),
+                ),
+            ).execute()
+
+            assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
+
+            // Creating a variant requires a contract version — this would NPE before the fix
+            val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
+            val variantId = VariantId(VariantKey.of("new-variant"), templateId)
+            val variant = CreateVariant(
+                id = variantId,
+                title = "New Variant",
+                description = null,
+            ).execute()
+
+            assertThat(variant).isNotNull
         }
     }
 

@@ -18,10 +18,15 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
@@ -100,6 +105,12 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 dataModel = contractSchema,
             ).execute()
             PublishContractVersion(templateId = templateId).execute()
+
+            // Publish the default template version so it gets included in the export
+            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantId = VariantId(defaultVariantKey, templateId)
+            val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
+            PublishVersion(versionId = defaultVersionId).execute()
 
             // Upload an asset (small PNG stub)
             val pngBytes = createMinimalPng()

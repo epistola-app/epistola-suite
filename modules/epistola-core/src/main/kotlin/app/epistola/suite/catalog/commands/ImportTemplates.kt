@@ -165,7 +165,8 @@ class ImportTemplatesHandler(
         }
 
         // 2b. Upsert contract version (data model + examples) into contract_versions
-        if (dataModelJson != null || input.dataExamples.isNotEmpty()) {
+        // Always create a contract version — every template must have one, even if empty
+        run {
             // Delete existing draft contract — import supersedes local edits
             handle.createUpdate(
                 """
@@ -272,7 +273,9 @@ class ImportTemplatesHandler(
                 .bind("templateId", templateId)
                 .mapTo(Int::class.java)
                 .findOne()
-                .orElse(null)
+                .orElseThrow {
+                    IllegalStateException("No published contract version found for template '$templateId' during import")
+                }
             upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel, latestContractVersion)
         }
 
@@ -332,7 +335,7 @@ class ImportTemplatesHandler(
      * Always creates a new version with the next available version ID and status 'published'.
      * Deletes any existing draft first — re-importing a catalog supersedes local edits.
      */
-    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument, contractVersionId: Int?) {
+    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument, contractVersionId: Int) {
         // Delete existing draft — import supersedes local edits
         handle.createUpdate(
             """

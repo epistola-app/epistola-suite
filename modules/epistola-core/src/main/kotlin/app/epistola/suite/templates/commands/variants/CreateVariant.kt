@@ -108,7 +108,9 @@ class CreateVariantHandler(
                     .bind("templateKey", command.id.templateKey)
                     .mapTo(Int::class.java)
                     .findOne()
-                    .orElse(null)
+                    .orElseThrow {
+                        IllegalStateException("No contract version found for template '${command.id.templateKey}'")
+                    }
 
                 handle.createUpdate(
                     """
