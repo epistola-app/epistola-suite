@@ -115,6 +115,23 @@
   font-size: var(--ep-text-xs);
 }
 
+.asset-picker-upload-error {
+  display: none;
+  text-align: left;
+  padding: var(--ep-space-2) var(--ep-space-3);
+  border-radius: var(--ep-radius-sm);
+  border: 1px solid var(--ep-red-500);
+  background: var(--ep-red-50);
+  color: var(--ep-red-700);
+  font-size: var(--ep-text-xs);
+  margin-top: var(--ep-space-1);
+  line-height: 1.4;
+}
+
+.asset-picker-upload-error:not(:empty) {
+  display: block;
+}
+
 .asset-picker-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

@@ -10,7 +10,7 @@
 
         <div class="card create-form-card">
             <div class="card-content">
-                <form th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-input" required>
@@ -38,7 +38,7 @@
                         <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
                             <span id="file-name" class="text-sm"></span>
                         </div>
-                        <span class="form-error" th:if="${error != null}" th:text="${error}"></span>
+                        <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Upload</button>
@@ -49,15 +49,37 @@
         </div>
 
         <script>
+            var uploadForm = document.getElementById('asset-upload-form');
+            var uploadError = document.getElementById('asset-upload-error');
+
             document.getElementById('asset-file-input').addEventListener('change', function() {
                 var preview = document.getElementById('file-preview');
                 var fileName = document.getElementById('file-name');
                 if (this.files.length > 0) {
                     fileName.textContent = this.files[0].name;
                     preview.style.display = 'block';
+                    uploadError.textContent = '';
                 } else {
                     preview.style.display = 'none';
                 }
+            });
+
+            uploadForm.addEventListener('htmx:responseError', function(event) {
+                var xhr = event.detail && event.detail.xhr;
+                if (!xhr || xhr.status < 400) {
+                    return;
+                }
+
+                try {
+                    var body = JSON.parse(xhr.responseText || '{}');
+                    uploadError.textContent = body.error || 'Failed to upload asset. Please try again.';
+                } catch (e) {
+                    uploadError.textContent = 'Failed to upload asset. Please try again.';
+                }
+            });
+
+            uploadForm.addEventListener('htmx:beforeRequest', function() {
+                uploadError.textContent = '';
             });
 
             function handleFileDrop(event) {
