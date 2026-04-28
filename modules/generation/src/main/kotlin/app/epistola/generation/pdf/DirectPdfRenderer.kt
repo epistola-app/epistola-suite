@@ -33,7 +33,6 @@ import java.io.OutputStream
  */
 class DirectPdfRenderer(
     private val expressionEvaluator: CompositeExpressionEvaluator = CompositeExpressionEvaluator(),
-    private val nodeRendererRegistry: NodeRendererRegistry = createDefaultRegistry(),
     private val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
 ) {
 
@@ -62,6 +61,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+        renderMode: RenderMode = RenderMode.STRICT,
     ) {
         TwoPassAnalyzer.validate(document)
 
@@ -79,6 +79,7 @@ class DirectPdfRenderer(
                 assetResolver = assetResolver,
                 renderingDefaults = renderingDefaults,
                 spacingUnit = spacingUnit,
+                renderMode = renderMode,
                 headerNode = headerNode,
                 footerNode = footerNode,
             )
@@ -94,6 +95,7 @@ class DirectPdfRenderer(
                 assetResolver = assetResolver,
                 renderingDefaults = renderingDefaults,
                 spacingUnit = spacingUnit,
+                renderMode = renderMode,
             )
         }
     }
@@ -107,6 +109,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
         spacingUnit: Float,
+        renderMode: RenderMode,
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant)
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
@@ -121,6 +124,7 @@ class DirectPdfRenderer(
             blockStylePresets = blockStylePresets,
             document = document,
             assetResolver = assetResolver,
+            renderMode = renderMode,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
             systemParams = SystemParameterRegistry.buildGlobalParams(),
@@ -138,6 +142,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
         spacingUnit: Float,
+        renderMode: RenderMode,
     ) {
         val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
         val margins = pageSettings.margins
@@ -153,6 +158,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            renderMode = renderMode,
         )
 
         val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
@@ -198,6 +204,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
         spacingUnit: Float,
+        renderMode: RenderMode,
         headerNode: Node?,
         footerNode: Node?,
     ) {
@@ -216,6 +223,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            renderMode = renderMode,
         )
 
         val headerHeight = headerNode?.let {
@@ -244,6 +252,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            renderMode = renderMode,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
@@ -273,6 +282,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
+            renderMode = renderMode,
         ).withTotalPages(totalPages)
 
         performRenderWithContext(
@@ -311,6 +321,8 @@ class DirectPdfRenderer(
         val writer = PdfWriter(outputStream)
         val pdfDocument = createPdfDocument(writer, enablePdfA)
         if (enableMetadata) applyMetadata(pdfDocument, metadata)
+
+        val nodeRendererRegistry = createDefaultRegistry(pdfDocument)
 
         val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
         val iTextDocument = Document(pdfDocument, pageSize)
@@ -418,29 +430,37 @@ class DirectPdfRenderer(
 
         /**
          * Creates the default node renderer registry with all built-in renderers.
+         * The [pdfDocument] is used to wire iText-specific SVG conversion into the image renderer.
          */
-        fun createDefaultRegistry(): NodeRendererRegistry = NodeRendererRegistry(
-            mapOf(
-                "root" to ContainerNodeRenderer(),
-                "text" to TextNodeRenderer(),
-                "container" to ContainerNodeRenderer(),
-                "stencil" to ContainerNodeRenderer(),
-                "columns" to ColumnsNodeRenderer(),
-                "table" to TableNodeRenderer(),
-                "conditional" to ConditionalNodeRenderer(),
-                "loop" to LoopNodeRenderer(),
-                "datalist" to DataListNodeRenderer(),
-                "datatable" to DatatableNodeRenderer(),
-                "datatable-column" to DatatableColumnNodeRenderer(),
-                "image" to ImageNodeRenderer(),
-                "qrcode" to QrCodeNodeRenderer(),
-                "separator" to SeparatorNodeRenderer(),
-                "pagebreak" to PageBreakNodeRenderer(),
-                "pageheader" to PageHeaderNodeRenderer(),
-                "pagefooter" to PageFooterNodeRenderer(),
-                "addressblock" to AddressBlockNodeRenderer(),
-            ),
-        )
+        fun createDefaultRegistry(pdfDocument: PdfDocument): NodeRendererRegistry {
+            val svgConverter = ImageNodeRenderer.SvgImageConverter { svgBytes ->
+                java.io.ByteArrayInputStream(svgBytes).use { svgStream ->
+                    com.itextpdf.svg.converter.SvgConverter.convertToImage(svgStream, pdfDocument)
+                }
+            }
+            return NodeRendererRegistry(
+                mapOf(
+                    "root" to ContainerNodeRenderer(),
+                    "text" to TextNodeRenderer(),
+                    "container" to ContainerNodeRenderer(),
+                    "stencil" to ContainerNodeRenderer(),
+                    "columns" to ColumnsNodeRenderer(),
+                    "table" to TableNodeRenderer(),
+                    "conditional" to ConditionalNodeRenderer(),
+                    "loop" to LoopNodeRenderer(),
+                    "datalist" to DataListNodeRenderer(),
+                    "datatable" to DatatableNodeRenderer(),
+                    "datatable-column" to DatatableColumnNodeRenderer(),
+                    "image" to ImageNodeRenderer(svgConverter),
+                    "qrcode" to QrCodeNodeRenderer(),
+                    "separator" to SeparatorNodeRenderer(),
+                    "pagebreak" to PageBreakNodeRenderer(),
+                    "pageheader" to PageHeaderNodeRenderer(),
+                    "pagefooter" to PageFooterNodeRenderer(),
+                    "addressblock" to AddressBlockNodeRenderer(),
+                ),
+            )
+        }
     }
 
     /**

@@ -35,6 +35,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         <div class="asset-picker-upload-zone" id="asset-picker-upload">
           <p>Drop image here or <label class="asset-picker-upload-link" for="asset-picker-file">browse</label></p>
           <p class="asset-picker-upload-hint">PNG, JPEG, WebP, SVG — max 5MB</p>
+          <p class="asset-picker-upload-error" id="asset-picker-upload-error" role="alert" aria-live="polite"></p>
           <input type="file" id="asset-picker-file"
                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
                  style="display: none;" />
@@ -54,6 +55,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     const grid = dialog.querySelector<HTMLElement>('#asset-picker-grid')!;
     const uploadZone = dialog.querySelector<HTMLElement>('#asset-picker-upload')!;
     const fileInput = dialog.querySelector<HTMLInputElement>('#asset-picker-file')!;
+    const uploadError = dialog.querySelector<HTMLElement>('#asset-picker-upload-error')!;
     const closeBtn = dialog.querySelector<HTMLElement>('.asset-picker-close')!;
     const cancelBtn = dialog.querySelector<HTMLElement>('.cancel')!;
     const insertBtn = dialog.querySelector<HTMLButtonElement>('.insert')!;
@@ -113,6 +115,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
     // Upload handling
     const handleUpload = async (file: File) => {
+      uploadError.textContent = '';
       uploadZone.classList.add('uploading');
       try {
         const asset = await callbacks.uploadAsset(file);
@@ -128,6 +131,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         }
       } catch (err) {
         console.error('Asset upload failed:', err);
+        uploadError.textContent = err instanceof Error ? err.message : 'Failed to upload asset.';
       } finally {
         uploadZone.classList.remove('uploading');
       }

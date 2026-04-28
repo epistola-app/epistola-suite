@@ -3,6 +3,7 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -92,6 +93,7 @@ class GenerationService(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = resolvedStyles.spacingUnit,
+            renderMode = RenderMode.PREVIEW,
         )
     }
 
