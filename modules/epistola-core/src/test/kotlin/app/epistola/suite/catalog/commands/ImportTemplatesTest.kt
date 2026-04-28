@@ -2,14 +2,14 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
