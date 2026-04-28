@@ -39,13 +39,6 @@ class TextNodeMarginRegressionTest {
         assertGapDeltaApprox(value = "5sp", expectedDeltaPt = 20f)
     }
 
-    @Test
-    fun `marginTop on second text node adds expected vertical gap (px)`() {
-        // CSS px @ 96dpi: 1px = 0.75pt
-        assertGapDeltaApprox(value = "16px", expectedDeltaPt = 12f)
-        assertGapDeltaApprox(value = "40px", expectedDeltaPt = 30f)
-    }
-
     private fun assertGapDeltaApprox(value: String, expectedDeltaPt: Float) {
         val baselineGap = renderAndMeasureGap(secondTextMarginTop = null)
         val withMarginGap = renderAndMeasureGap(secondTextMarginTop = value)

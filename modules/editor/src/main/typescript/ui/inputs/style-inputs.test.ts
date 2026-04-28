@@ -7,7 +7,6 @@ import {
   parseBorderShorthand,
   areBorderSidesEqual,
   convertSideValue,
-  migrateSpacingToAllowedUnits,
   DEFAULT_SPACING_UNIT,
   type SpacingValue,
   type BorderValue,
@@ -141,15 +140,14 @@ describe('readSpacingFromStyles', () => {
 });
 
 // ---------------------------------------------------------------------------
-// convertSideValue — used both for explicit unit-switch and for migrating
-// legacy units (e.g. px) to the units the inspector currently offers.
+// convertSideValue — explicit unit-switch between supported units (sp, pt).
 // ---------------------------------------------------------------------------
 
 describe('convertSideValue', () => {
   const baseUnit = DEFAULT_SPACING_UNIT;
 
   it('returns value unchanged when fromUnit equals toUnit', () => {
-    expect(convertSideValue('16px', 'px', 'px', baseUnit)).toBe('16px');
+    expect(convertSideValue('8pt', 'pt', 'pt', baseUnit)).toBe('8pt');
   });
 
   it('converts pt to sp via the spacing scale', () => {
@@ -160,62 +158,8 @@ describe('convertSideValue', () => {
     expect(convertSideValue('2sp', 'sp', 'pt', baseUnit)).toBe('8pt');
   });
 
-  it('converts legacy px to pt at 96dpi (1px = 0.75pt)', () => {
-    expect(convertSideValue('16px', 'px', 'pt', baseUnit)).toBe('12pt');
-  });
-
-  it('converts legacy px to sp via pt', () => {
-    // 16px → 12pt → nearest sp step at baseUnit=4 = 3sp
-    expect(convertSideValue('16px', 'px', 'sp', baseUnit)).toBe('3sp');
-  });
-
   it('returns value unchanged for unknown source unit', () => {
     expect(convertSideValue('5em', 'em', 'pt', baseUnit)).toBe('5em');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// migrateSpacingToAllowedUnits — handles legacy unit migration on inspector
-// open, including mixed-unit spacing objects (per-side detection).
-// ---------------------------------------------------------------------------
-
-describe('migrateSpacingToAllowedUnits', () => {
-  const baseUnit = DEFAULT_SPACING_UNIT;
-
-  it('returns the same reference when every side is already in an allowed unit', () => {
-    const input: SpacingValue = { top: '10pt', right: '0pt', bottom: '0pt', left: '5pt' };
-    expect(migrateSpacingToAllowedUnits(input, ['sp', 'pt'], baseUnit)).toBe(input);
-  });
-
-  it('converts all sides when all use a legacy unit (px → pt)', () => {
-    expect(
-      migrateSpacingToAllowedUnits(
-        { top: '11px', right: '0px', bottom: '13px', left: '16px' },
-        ['sp', 'pt'],
-        baseUnit,
-      ),
-    ).toEqual({ top: '8.25pt', right: '0pt', bottom: '9.75pt', left: '12pt' });
-  });
-
-  it('converts only legacy sides in a mixed-unit value (the per-side bug)', () => {
-    // Top is already pt — must NOT be reinterpreted as px and shrunk to 7.5pt.
-    expect(
-      migrateSpacingToAllowedUnits(
-        { top: '10pt', right: '0pt', bottom: '0pt', left: '16px' },
-        ['sp', 'pt'],
-        baseUnit,
-      ),
-    ).toEqual({ top: '10pt', right: '0pt', bottom: '0pt', left: '12pt' });
-  });
-
-  it('preserves sp sides untouched when sp is allowed', () => {
-    expect(
-      migrateSpacingToAllowedUnits(
-        { top: '2sp', right: '0pt', bottom: '0pt', left: '16px' },
-        ['sp', 'pt'],
-        baseUnit,
-      ),
-    ).toEqual({ top: '2sp', right: '0pt', bottom: '0pt', left: '12pt' });
   });
 });
 

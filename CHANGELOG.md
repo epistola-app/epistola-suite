@@ -4,11 +4,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Removed `px` unit support**: `StyleApplicator.parseSize` no longer recognizes `px` and the editor's spacing input no longer converts `px` values. Templates created before the `sp`/`pt` switch that still hold `Npx` values for margin/padding will not render those margins in the PDF, and the inspector will show the numeric portion in the fallback unit (`pt`) without scaling. Re-enter the value in `sp` or `pt` to fix.
+
 ### Fixed
 
-- **Margins not rendering in PDF**: `marginTop`, `marginRight`, `marginBottom`, and `marginLeft` declared with `px` units (left over from before the `sp`/`pt` migration) were silently dropped during PDF generation because `StyleApplicator.parseSize` only recognized `pt`, `mm`, and `sp`. CSS pixels are now parsed at 96 DPI (`1px = 0.75pt`).
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
-- **Inspector kept legacy `px` units alive**: When a node's existing margin/padding used a unit no longer offered by the inspector (e.g. `px` after the `sp`/`pt` migration), the unit dropdown showed an allowed option but the spacing input internally still used the old unit, so any new value was re-saved as `Npx`. The inspector now migrates to the first allowed unit on read, converting the displayed values accordingly.
+- **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
 
 ## [0.16.0] - 2026-04-23
 

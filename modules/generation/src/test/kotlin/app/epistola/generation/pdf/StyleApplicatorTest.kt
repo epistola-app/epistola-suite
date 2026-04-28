@@ -275,12 +275,6 @@ class StyleApplicatorTest {
     }
 
     @Test
-    fun `parseSize handles px as CSS pixels at 96dpi`() {
-        assertEquals(12f, StyleApplicator.parseSize("16px"))
-        assertEquals(30f, StyleApplicator.parseSize("40px"))
-    }
-
-    @Test
     fun `parseSize handles sp via spacing scale`() {
         assertEquals(8f, StyleApplicator.parseSize("2sp"))
     }
