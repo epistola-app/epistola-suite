@@ -165,7 +165,7 @@ class ImportTemplatesHandler(
         }
 
         // 2b. Upsert contract version (data model + examples) into contract_versions
-        // Always create a contract version — every template must have one, even if empty
+        // Every template must have a contract version — always create one on import.
         run {
             // Delete existing draft contract — import supersedes local edits
             handle.createUpdate(
