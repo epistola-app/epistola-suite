@@ -33,6 +33,14 @@
 ### Fixed
 
 - **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+### Added
+
+- **SVG and WEBP image support in PDF**: The PDF renderer now supports SVG (via iText SVG converter) and WEBP (via TwelveMonkeys ImageIO) image formats in addition to PNG and JPEG.
+- **Render mode (STRICT/PREVIEW)**: New `RenderMode` controls error handling during PDF generation. STRICT mode fails fast on corrupt assets (for production renders), PREVIEW mode renders a visible error placeholder (for editor previews). Live cascade renders default to PREVIEW; snapshot renders default to STRICT.
+
+### Changed
+
+- **SVG converter decoupled from RenderContext**: SVG image conversion is now injected into `ImageNodeRenderer` via a `SvgImageConverter` fun interface, keeping `RenderContext` library-agnostic for future non-iText PDF renderers.
 
 ## [0.16.0] - 2026-04-23
 
