@@ -180,7 +180,7 @@ class ExportCatalogZipHandler(
                 .list()
         }
 
-        return templates.map { template ->
+        return templates.mapNotNull { template ->
             val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
                 handle.createQuery(
                     """
@@ -189,7 +189,8 @@ class ExportCatalogZipHandler(
                     LEFT JOIN LATERAL (
                         SELECT template_model FROM template_versions
                         WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey AND variant_key = v.id
-                        ORDER BY CASE WHEN status = 'published' THEN 0 ELSE 1 END, id DESC
+                          AND status = 'published'
+                        ORDER BY id DESC
                         LIMIT 1
                     ) vv ON TRUE
                     WHERE v.tenant_key = :tenantKey AND v.catalog_key = :catalogKey AND v.template_key = :templateKey
@@ -211,7 +212,10 @@ class ExportCatalogZipHandler(
             }
 
             val defaultVariant = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()
-                ?: throw IllegalStateException("Template '${template.id}' has no variants")
+                ?: return@mapNotNull null // Skip templates without variants
+
+            // Skip templates without a published version
+            val defaultModel = defaultVariant.templateModel ?: return@mapNotNull null
 
             TemplateResource(
                 slug = template.id,
@@ -227,8 +231,7 @@ class ExportCatalogZipHandler(
                 dataExamples = template.dataExamples?.let {
                     objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, DataExampleEntry::class.java))
                 },
-                templateModel = defaultVariant.templateModel
-                    ?: throw IllegalStateException("Default variant of template '${template.id}' has no content"),
+                templateModel = defaultModel,
                 variants = variants.map { v ->
                     VariantEntry(
                         id = v.id,
