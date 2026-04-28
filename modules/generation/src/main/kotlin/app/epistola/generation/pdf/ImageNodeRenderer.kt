@@ -7,10 +7,12 @@ import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.properties.UnitValue
-import com.itextpdf.svg.converter.SvgConverter
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
+
+/** Thrown in [RenderMode.STRICT] when an image asset cannot be decoded. */
+class ImageRenderException(message: String, cause: Throwable) : RuntimeException(message, cause)
 
 /**
  * Renders an "image" node to an iText Image element.
@@ -19,7 +21,24 @@ import javax.imageio.ImageIO
  * [RenderContext] to load the image bytes. Gracefully skips if no resolver is
  * available, no assetId is specified, or the asset cannot be found.
  */
-class ImageNodeRenderer : NodeRenderer {
+class ImageNodeRenderer(
+    private val svgConverter: SvgImageConverter = SvgImageConverter.UNSUPPORTED,
+) : NodeRenderer {
+
+    /**
+     * Converts raw SVG bytes to an iText [Image]. The conversion strategy is
+     * injected so that [ImageNodeRenderer] stays independent of any specific
+     * PDF library's SVG support (e.g., iText's `SvgConverter` requires a
+     * `PdfDocument` that only the concrete renderer owns).
+     */
+    fun interface SvgImageConverter {
+        fun convert(svgBytes: ByteArray): Image
+
+        companion object {
+            /** Default no-op converter that rejects SVG input. */
+            val UNSUPPORTED = SvgImageConverter { throw UnsupportedOperationException("SVG rendering is not supported by this renderer") }
+        }
+    }
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -48,7 +67,18 @@ class ImageNodeRenderer : NodeRenderer {
             return emptyList()
         }
 
-        val image = createImageElement(resolution, context)
+        val image = try {
+            createImageElement(resolution)
+        } catch (e: Exception) {
+            logger.warn("Failed to decode image asset {} ({}): {}", assetId, resolution.mimeType, e.message)
+            return when (context.renderMode) {
+                RenderMode.STRICT -> throw ImageRenderException(
+                    "Failed to render image node '${node.id}' (asset=$assetId, type=${resolution.mimeType}): ${e.message}",
+                    e,
+                )
+                RenderMode.PREVIEW -> ErrorPlaceholder.render("Image failed: ${e.message}")
+            }
+        }
 
         // Apply width/height from props
         val widthStr = props["width"] as? String
@@ -152,18 +182,10 @@ class ImageNodeRenderer : NodeRenderer {
         }
     }
 
-    private fun createImageElement(resolution: AssetResolution, context: RenderContext): Image = when (resolution.mimeType) {
-        "image/svg+xml" -> createSvgImage(resolution.content, context)
+    private fun createImageElement(resolution: AssetResolution): Image = when (resolution.mimeType) {
+        "image/svg+xml" -> svgConverter.convert(resolution.content)
         "image/webp" -> createWebpImage(resolution.content)
         else -> Image(ImageDataFactory.create(resolution.content))
-    }
-
-    private fun createSvgImage(content: ByteArray, context: RenderContext): Image {
-        val pdfDocument = context.pdfDocument
-            ?: throw IllegalStateException("PDF document context is required for SVG conversion")
-        return ByteArrayInputStream(content).use { svgStream ->
-            SvgConverter.convertToImage(svgStream, pdfDocument)
-        }
     }
 
     private fun createWebpImage(content: ByteArray): Image {

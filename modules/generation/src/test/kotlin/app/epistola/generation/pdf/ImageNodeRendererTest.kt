@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream
 import java.util.Base64
 import javax.imageio.ImageIO
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ImageNodeRendererTest {
@@ -91,9 +92,13 @@ class ImageNodeRendererTest {
         }
     }
 
-    private fun assertRenderedPdf(document: TemplateDocument, resolver: AssetResolver?) {
+    private fun assertRenderedPdf(
+        document: TemplateDocument,
+        resolver: AssetResolver?,
+        renderMode: RenderMode = RenderMode.STRICT,
+    ) {
         val output = ByteArrayOutputStream()
-        renderer.render(document, emptyMap(), output, assetResolver = resolver)
+        renderer.render(document, emptyMap(), output, assetResolver = resolver, renderMode = renderMode)
 
         val pdfBytes = output.toByteArray()
         assertTrue(pdfBytes.isNotEmpty())
@@ -173,6 +178,7 @@ class ImageNodeRendererTest {
 
     @Test
     fun `renders WEBP image asset`() {
+        // 8x8 red pixel WEBP
         val webpBytes = Base64.getDecoder().decode("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoIAAgAAkA4JaQAA3AA/vuUAAA=")
         val resolver = AssetResolver { assetId ->
             if (assetId == "asset-webp") {
@@ -183,5 +189,57 @@ class ImageNodeRendererTest {
         }
         val document = documentWithImageNode(mapOf("assetId" to "asset-webp"))
         assertRenderedPdf(document, resolver)
+    }
+
+    // -- RenderMode.STRICT: corrupt assets throw --
+
+    @Test
+    fun `strict mode throws on corrupt PNG`() {
+        val resolver = AssetResolver { AssetResolution(content = byteArrayOf(0, 1, 2, 3), mimeType = "image/png") }
+        val document = documentWithImageNode(mapOf("assetId" to "bad"))
+        assertFailsWith<ImageRenderException> {
+            assertRenderedPdf(document, resolver, RenderMode.STRICT)
+        }
+    }
+
+    @Test
+    fun `strict mode throws on malformed SVG`() {
+        val resolver = AssetResolver { AssetResolution(content = "not svg".toByteArray(), mimeType = "image/svg+xml") }
+        val document = documentWithImageNode(mapOf("assetId" to "bad"))
+        assertFailsWith<ImageRenderException> {
+            assertRenderedPdf(document, resolver, RenderMode.STRICT)
+        }
+    }
+
+    @Test
+    fun `strict mode throws on corrupt WEBP`() {
+        val resolver = AssetResolver { AssetResolution(content = byteArrayOf(0, 1, 2, 3), mimeType = "image/webp") }
+        val document = documentWithImageNode(mapOf("assetId" to "bad"))
+        assertFailsWith<ImageRenderException> {
+            assertRenderedPdf(document, resolver, RenderMode.STRICT)
+        }
+    }
+
+    // -- RenderMode.PREVIEW: corrupt assets render placeholder --
+
+    @Test
+    fun `preview mode renders placeholder for corrupt PNG`() {
+        val resolver = AssetResolver { AssetResolution(content = byteArrayOf(0, 1, 2, 3), mimeType = "image/png") }
+        val document = documentWithImageNode(mapOf("assetId" to "bad"))
+        assertRenderedPdf(document, resolver, RenderMode.PREVIEW)
+    }
+
+    @Test
+    fun `preview mode renders placeholder for malformed SVG`() {
+        val resolver = AssetResolver { AssetResolution(content = "not svg".toByteArray(), mimeType = "image/svg+xml") }
+        val document = documentWithImageNode(mapOf("assetId" to "bad"))
+        assertRenderedPdf(document, resolver, RenderMode.PREVIEW)
+    }
+
+    @Test
+    fun `preview mode renders placeholder for corrupt WEBP`() {
+        val resolver = AssetResolver { AssetResolution(content = byteArrayOf(0, 1, 2, 3), mimeType = "image/webp") }
+        val document = documentWithImageNode(mapOf("assetId" to "bad"))
+        assertRenderedPdf(document, resolver, RenderMode.PREVIEW)
     }
 }
