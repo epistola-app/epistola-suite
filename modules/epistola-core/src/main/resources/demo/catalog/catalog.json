@@ -10,8 +10,8 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.1",
-    "releasedAt": "2026-04-21T00:00:00Z"
+    "version": "5.2",
+    "releasedAt": "2026-04-23T00:00:00Z"
   },
   "resources": [
     {
@@ -67,7 +67,7 @@
       "slug": "demo-invoice",
       "name": "Invoice Template",
       "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, and expressions.",
-      "updatedAt": "2026-04-14T00:00:00Z",
+      "updatedAt": "2026-04-23T00:00:00Z",
       "detailUrl": "./resources/templates/demo-invoice.json"
     }
   ]

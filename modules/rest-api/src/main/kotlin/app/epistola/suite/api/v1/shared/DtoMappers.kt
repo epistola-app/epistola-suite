@@ -14,6 +14,7 @@ import app.epistola.api.model.VersionSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.ActivationDetails
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
@@ -50,13 +51,13 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     lastModified = lastModified,
 )
 
-internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>) = TemplateDto(
+internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>, contractVersion: ContractVersion? = null) = TemplateDto(
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
-    schema = schema?.let { objectMapper.valueToTree(it) },
-    dataModel = dataModel?.let { objectMapper.valueToTree(it) },
-    dataExamples = dataExamples.map { example ->
+    schema = contractVersion?.schema?.let { objectMapper.valueToTree(it) },
+    dataModel = contractVersion?.dataModel?.let { objectMapper.valueToTree(it) },
+    dataExamples = contractVersion?.dataExamples?.map { example ->
         DataExampleDto(
             id = example.id,
             name = example.name,

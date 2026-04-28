@@ -16,6 +16,7 @@ class DocumentTemplateRoutes(
     private val settingsTabHandler: SettingsTabHandler,
     private val dataContractTabHandler: DataContractTabHandler,
     private val versionComparisonHandler: VersionComparisonHandler,
+    private val contractVersionHandler: ContractVersionHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -38,6 +39,14 @@ class DocumentTemplateRoutes(
             PATCH("/{catalogId}/{id}/theme", handler::updateTheme)
             GET("/{catalogId}/{id}/api", handler::get)
             POST("/{catalogId}/{id}/validate-schema", handler::validateSchema)
+
+            // Contract version routes
+            POST("/{catalogId}/{id}/contract/draft", contractVersionHandler::createDraft)
+            PATCH("/{catalogId}/{id}/contract/draft", contractVersionHandler::updateDraft)
+            POST("/{catalogId}/{id}/contract/publish", contractVersionHandler::publish)
+            GET("/{catalogId}/{id}/contract/versions", contractVersionHandler::listVersions)
+            GET("/{catalogId}/{id}/contract/versions/history", contractVersionHandler::versionHistory)
+            GET("/{catalogId}/{id}/contract/status-bar", contractVersionHandler::statusBar)
 
             // Data example routes
             PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)
@@ -65,9 +74,10 @@ class DocumentTemplateRoutes(
             // PDF preview
             POST("/{catalogId}/{id}/variants/{variantId}/preview", previewHandler::preview)
 
-            // Draft creation and updates
+            // Draft creation, updates, and publish
             POST("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::createDraft)
             PUT("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
+            POST("/{catalogId}/{id}/variants/{variantId}/draft/publish", versionHandler::publishDraft)
 
             // Version lifecycle
             POST("/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)

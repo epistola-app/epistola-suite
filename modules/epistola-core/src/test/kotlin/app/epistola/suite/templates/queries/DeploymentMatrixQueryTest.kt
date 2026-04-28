@@ -62,6 +62,9 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         val defaultVersions = ListVersions(variantId = defaultVariantId).query()
         val secondVersions = ListVersions(variantId = secondVariantId).query()
 
+        // Publish contract first (guard rejects draft contracts)
+        app.epistola.suite.templates.contracts.commands.PublishContractVersion(templateId = templateId).execute()
+
         // Publish default variant to staging
         PublishToEnvironment(
             versionId = VersionId(defaultVersions.first().id, defaultVariantId),
@@ -105,7 +108,8 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         val draft = versions.first()
         assertThat(draft.status).isEqualTo(VersionStatus.DRAFT)
 
-        // Publish the draft
+        // Publish contract and then the draft
+        app.epistola.suite.templates.contracts.commands.PublishContractVersion(templateId = templateId).execute()
         PublishToEnvironment(
             versionId = VersionId(draft.id, defaultVariantId),
             environmentId = environmentId,

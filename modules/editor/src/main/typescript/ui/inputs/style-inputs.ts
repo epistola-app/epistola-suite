@@ -457,7 +457,7 @@ export interface BorderValue {
   left: BorderSideValue;
 }
 
-const EMPTY_SIDE: BorderSideValue = { width: '', style: 'solid', color: '' };
+const EMPTY_SIDE: BorderSideValue = { width: '', style: 'none', color: '' };
 
 /** Check if all four border sides have equal values. */
 export function areBorderSidesEqual(border: BorderValue): boolean {

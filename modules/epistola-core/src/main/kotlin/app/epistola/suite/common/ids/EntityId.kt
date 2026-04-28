@@ -98,6 +98,15 @@ data class StencilId(
     val catalogKey get() = catalogId.key
 }
 
+class ContractVersionId(key: VersionKey, val templateId: TemplateId) : EntityId<VersionKey, Int, TemplateId>(key, templateId) {
+    override val type = "contract-version"
+    val catalogId get() = templateId.catalogId
+    val tenantId get() = catalogId.tenantId
+    val tenantKey get() = catalogId.tenantKey
+    val catalogKey get() = catalogId.key
+    val templateKey get() = templateId.key
+}
+
 class StencilVersionId(key: VersionKey, val stencilId: StencilId) : EntityId<VersionKey, Int, StencilId>(key, stencilId) {
     override val type = "stencil-version"
     val catalogId get() = stencilId.catalogId

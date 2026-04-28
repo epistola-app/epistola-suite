@@ -46,8 +46,8 @@ class GetEditorContextHandler(
             """
             SELECT
                 dt.name as template_name,
-                dt.data_model,
-                dt.data_examples,
+                cv.data_model,
+                cv.data_examples,
                 tv.attributes as variant_attributes,
                 COALESCE(draft.template_model, published.template_model) as draft_template_model
             FROM template_variants tv
@@ -58,6 +58,12 @@ class GetEditorContextHandler(
                 WHERE tenant_key = tv.tenant_key AND catalog_key = tv.catalog_key AND template_key = tv.template_key AND variant_key = tv.id AND status = 'published'
                 ORDER BY id DESC LIMIT 1
             ) published ON draft.template_model IS NULL
+            LEFT JOIN LATERAL (
+                SELECT data_model, data_examples FROM contract_versions
+                WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+            ) cv ON TRUE
             WHERE tv.template_key = :templateId
               AND tv.tenant_key = :tenantId
               AND tv.catalog_key = :catalogKey

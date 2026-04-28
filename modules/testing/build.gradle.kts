@@ -21,9 +21,9 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
-    // JDBI (needed by FakeDocumentGenerationExecutor)
-    implementation(libs.jdbi.core)
-    implementation(libs.jdbi.kotlin)
+    // JDBI (needed by FakeDocumentGenerationExecutor and test contract version helpers)
+    api(libs.jdbi.core)
+    api(libs.jdbi.kotlin)
 
     // Jackson (needed by FakeDocumentGenerationExecutor)
     implementation("tools.jackson.module:jackson-module-kotlin")

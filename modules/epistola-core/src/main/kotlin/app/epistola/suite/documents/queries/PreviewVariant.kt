@@ -49,6 +49,10 @@ private data class DraftRow(
     @Json val draftTemplateModel: TemplateDocument?,
 )
 
+private data class VariantContractRow(
+    @Json val dataModel: ObjectNode?,
+)
+
 @Component
 class PreviewVariantHandler(
     private val jdbi: Jdbi,
@@ -73,9 +77,28 @@ class PreviewVariantHandler(
         val tenant = mediator.query(GetTenant(id = query.tenantId))
             ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
 
-        // 3. Validate data against schema
-        if (template.dataModel != null) {
-            val errors = schemaValidator.validate(template.dataModel, query.data)
+        // 3. Validate data against contract schema (latest draft or published contract)
+        val dataModel: ObjectNode? = jdbi.withHandle<ObjectNode?, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT data_model FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                  AND template_key = :templateKey
+                  AND status IN ('draft', 'published')
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+                """,
+            )
+                .bind("tenantKey", query.tenantId)
+                .bind("catalogKey", query.catalogKey)
+                .bind("templateKey", query.templateId)
+                .mapTo<VariantContractRow>()
+                .findOne()
+                .map { it.dataModel }
+                .orElse(null)
+        }
+        if (dataModel != null) {
+            val errors = schemaValidator.validate(dataModel, query.data)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")

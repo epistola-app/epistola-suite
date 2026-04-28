@@ -92,6 +92,8 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                templateCatalogKey = template.themeCatalogKey,
+                tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )
         }
 

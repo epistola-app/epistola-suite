@@ -272,7 +272,7 @@ class PdfRenderingRegressionTest {
             id = tableNodeId,
             type = "table",
             slots = tableSlotIds,
-            props = mapOf("rows" to 3, "columns" to 3, "headerRows" to 1, "borderStyle" to "all"),
+            props = mapOf("rows" to 3, "columns" to 3, "headerRows" to 1),
         )
 
         return documentWithChildren(nodes, listOf(tableNodeId), slots)

@@ -19,6 +19,8 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.ListActivations
@@ -61,6 +63,35 @@ class VersionRouteHandler(
         CreateVersion(variantId = variantId).execute()
 
         return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
+    }
+
+    fun publishDraft(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val variantId = request.variantId(templateId)
+            ?: return ServerResponse.badRequest().build()
+
+        val draft = app.epistola.suite.templates.queries.versions.GetDraft(variantId = variantId).query()
+            ?: return ServerResponse.badRequest().build()
+
+        try {
+            app.epistola.suite.templates.commands.versions.PublishVersion(
+                versionId = app.epistola.suite.common.ids.VersionId(draft.id, variantId),
+            ).execute()
+        } catch (e: IllegalArgumentException) {
+            return ServerResponse.badRequest()
+                .header("HX-Reswap", "none")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
+
+        // Redirect to reload the page with updated state
+        val redirectUrl = "/tenants/${tenantId.key.value}/templates/${catalogId.value}/${templateId.key.value}"
+        return ServerResponse.ok()
+            .header("HX-Redirect", redirectUrl)
+            .build()
     }
 
     fun updateDraft(request: ServerRequest): ServerResponse {
@@ -121,8 +152,11 @@ class VersionRouteHandler(
     ): ServerResponse {
         val templateId = TemplateId(templateKey, CatalogId(catalogId, TenantId(tenantKey)))
 
-        val template = GetDocumentTemplate(id = templateId).query()
+        GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
+
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val dataExamples = contractVersion?.dataExamples ?: DataExamples.EMPTY
 
         val variant = GetVariant(variantId = variantId).query()
             ?: return ServerResponse.notFound().build()
@@ -149,7 +183,7 @@ class VersionRouteHandler(
                 "templateId" to templateKey
                 "variant" to variantSummary
                 "versions" to versions
-                "dataExamples" to template.dataExamples
+                "dataExamples" to dataExamples
                 "activationsByVersion" to activationsByVersion
                 if (error != null) {
                     "error" to error
