@@ -47,7 +47,6 @@ class PublishVersionHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<PublishVersion, TemplateVersion?> {
     override fun handle(command: PublishVersion): TemplateVersion? {
-        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // 1. Fetch the version
             val version = handle.createQuery(
@@ -100,6 +99,7 @@ class PublishVersionHandler(
 
             // 4. If draft, freeze it (update to published) with rendering snapshot
             if (version.status.name == "DRAFT") {
+                requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
                 val themeSnapshot = resolveThemeSnapshot(command.versionId, version)
                 val themeSnapshotJson = themeSnapshot?.let { objectMapper.writeValueAsString(it) }
 

@@ -1,7 +1,14 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -15,7 +22,9 @@ import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.model.VersionStatus
+import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
@@ -26,6 +35,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+
+private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
 
 @Timeout(30)
 class PublishVersionTest : IntegrationTestBase() {
@@ -170,6 +181,65 @@ class PublishVersionTest : IntegrationTestBase() {
             // No draft should exist after publish (on-demand lifecycle)
             val nextDraft = withMediator { GetDraft(defaultVariantId).query() }
             assertThat(nextDraft).isNull()
+        }
+    }
+
+    @Nested
+    inner class SubscribedCatalog {
+        @Test
+        fun `idempotent for already-published version in subscribed catalog`() {
+            val tenant = createTenant("Subscribed PublishVersion Test")
+            val tenantId = TenantId(tenant.id)
+            val catalogKey = CatalogKey.of("epistola-demo")
+
+            withMediator {
+                RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+
+                val catalogId = CatalogId(catalogKey, tenantId)
+                val subscribedTemplateId = TemplateId(TemplateKey.of("hello-world"), catalogId)
+                val variants = ListVariants(templateId = subscribedTemplateId).query()
+                val variant = variants.first()
+                val variantId = VariantId(variant.id, subscribedTemplateId)
+
+                val versions = ListVersions(variantId = variantId).query()
+                val published = versions.first()
+                assertThat(published.status).isEqualTo(VersionStatus.PUBLISHED)
+
+                // Should succeed without throwing CatalogReadOnlyException
+                val result = PublishVersion(versionId = VersionId(published.id, variantId)).execute()
+                assertThat(result).isNotNull
+                assertThat(result!!.status).isEqualTo(VersionStatus.PUBLISHED)
+            }
+        }
+
+        @Test
+        fun `blocks publishing draft in subscribed catalog`() {
+            val tenant = createTenant("Subscribed Draft Block Test")
+            val tenantId = TenantId(tenant.id)
+            val catalogKey = CatalogKey.of("epistola-demo")
+
+            withMediator {
+                RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+
+                val catalogId = CatalogId(catalogKey, tenantId)
+                val subscribedTemplateId = TemplateId(TemplateKey.of("hello-world"), catalogId)
+                val variants = ListVariants(templateId = subscribedTemplateId).query()
+                val variant = variants.first()
+                val variantId = VariantId(variant.id, subscribedTemplateId)
+
+                // Create a draft version using import context (simulating an inconsistent state)
+                val draftVersion = CatalogImportContext.runAsImport {
+                    CreateVersion(variantId).execute()
+                }
+
+                // Should throw because we can't mutate a draft in a subscribed catalog
+                assertThatThrownBy {
+                    PublishVersion(versionId = VersionId(draftVersion!!.id, variantId)).execute()
+                }.isInstanceOf(CatalogReadOnlyException::class.java)
+                    .hasMessageContaining("read-only")
+            }
         }
     }
 }

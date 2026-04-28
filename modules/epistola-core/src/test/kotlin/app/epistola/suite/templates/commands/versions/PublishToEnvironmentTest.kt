@@ -1,9 +1,14 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
@@ -22,6 +27,8 @@ import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+
+private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
 
 class PublishToEnvironmentTest : IntegrationTestBase() {
 
@@ -249,6 +256,45 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
             ).execute()
         }.isInstanceOf(VersionStillActiveException::class.java)
             .hasMessageContaining("still active in environments")
+        Unit
+    }
+
+    @Test
+    fun `publish subscribed catalog version to environment succeeds`(): Unit = withMediator {
+        val tenant = createTenant("Subscribed Publish Test")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("epistola-demo")
+
+        // Register and install the demo catalog (subscribed/read-only)
+        RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+        InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+
+        // Get a template from the subscribed catalog
+        val catalogId = CatalogId(catalogKey, tenantId)
+        val templateId = TemplateId(TemplateKey.of("hello-world"), catalogId)
+        val variants = ListVariants(templateId = templateId).query()
+        val variant = variants.first()
+        val variantId = VariantId(variant.id, templateId)
+
+        // Get the published version from the subscribed catalog
+        val versions = ListVersions(variantId = variantId).query()
+        val published = versions.first()
+        assertThat(published.status).isEqualTo(VersionStatus.PUBLISHED)
+        val versionId = VersionId(published.id, variantId)
+
+        // Create an environment and publish to it
+        val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
+        CreateEnvironment(id = environmentId, name = "Production").execute()
+
+        val result = PublishToEnvironment(
+            versionId = versionId,
+            environmentId = environmentId,
+        ).execute()
+
+        assertThat(result).isNotNull
+        assertThat(result!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
+        assertThat(result.activation.environmentKey).isEqualTo(environmentId.key)
+        assertThat(result.activation.versionKey).isEqualTo(published.id)
         Unit
     }
 

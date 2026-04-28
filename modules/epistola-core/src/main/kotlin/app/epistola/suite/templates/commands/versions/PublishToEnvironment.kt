@@ -1,6 +1,5 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
@@ -47,7 +46,6 @@ class PublishToEnvironmentHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<PublishToEnvironment, PublishToEnvironmentResult?> {
     override fun handle(command: PublishToEnvironment): PublishToEnvironmentResult? {
-        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
         return jdbi.inTransaction<PublishToEnvironmentResult?, Exception> { handle ->
             // 1. Verify environment belongs to tenant
             val environmentExists = handle.createQuery(
