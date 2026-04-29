@@ -9,7 +9,7 @@
 
 import './editor.css';
 import './ui/EpistolaEditor.js';
-import type { EpistolaEditor } from './ui/EpistolaEditor.js';
+import type { EpistolaEditor, EditorDataContractOptions } from './ui/EpistolaEditor.js';
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
 import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
@@ -48,6 +48,7 @@ export type {
   PluginContext,
   PluginDisposeFn,
 } from './plugins/types.js';
+export type { EditorDataContractOptions } from './ui/EpistolaEditor.js';
 export type { PluginShortcutContribution } from './shortcuts/plugin-registry.js';
 export {
   definePluginShortcutContribution,
@@ -74,6 +75,8 @@ export interface EditorOptions {
   onFetchPreview?: FetchPreviewFn;
   /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
   plugins?: EditorPlugin[];
+  /** Optional data contract editor integration shown in a toolbar modal. */
+  dataContractOptions?: EditorDataContractOptions;
   /** Optional image block support with asset management callbacks. */
   imageOptions?: {
     listAssets: () => Promise<AssetInfo[]>;
@@ -126,7 +129,16 @@ export function createEmptyDocument(): TemplateDocument {
  * Mount the editor into a DOM element.
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataModel, dataExamples, onFetchPreview, onSave, plugins } = options;
+  const {
+    container,
+    template,
+    dataModel,
+    dataExamples,
+    onFetchPreview,
+    onSave,
+    plugins,
+    dataContractOptions,
+  } = options;
   const doc = template ?? createEmptyDocument();
 
   // Create the custom element
@@ -145,6 +157,9 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   }
   if (plugins) {
     editorEl.plugins = plugins;
+  }
+  if (dataContractOptions) {
+    editorEl.dataContractOptions = dataContractOptions;
   }
 
   // Build registry with optional image support

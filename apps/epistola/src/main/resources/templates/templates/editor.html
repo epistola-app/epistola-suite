@@ -7,6 +7,7 @@
     <th:block th:replace="~{fragments/styles :: styles}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
+    <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
     <!-- AI plugin CSS — loaded conditionally when AI plugin is enabled -->
     <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins != null and enabledPlugins.contains('ai')}">
     <!-- TODO: Remove static fallback once backend provides enabledPlugins -->
@@ -121,6 +122,76 @@
             dataExamples: window.DATA_EXAMPLES,
             dataModel: window.DATA_MODEL,
             plugins: plugins,
+            dataContractOptions: {
+                initialSchema: window.DATA_MODEL,
+                initialExamples: window.DATA_EXAMPLES,
+                callbacks: {
+                    onSaveSchema: async (schema, forceUpdate, dataExamples) => {
+                        try {
+                            const body = { dataModel: schema, forceUpdate };
+                            if (dataExamples) body.dataExamples = dataExamples;
+                            const response = await fetch('/tenants/' + tenantId + '/templates/' + catalogId + '/' + templateId + '/contract/draft', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                                body: JSON.stringify(body),
+                            });
+                            if (!response.ok) {
+                                const err = await response.json().catch(() => ({}));
+                                return { success: false, error: err.message, warnings: err.warnings };
+                            }
+                            const result = await response.json();
+                            return { success: true, warnings: result.warnings };
+                        } catch (e) {
+                            return { success: false, error: e.message };
+                        }
+                    },
+                    onSaveDataExamples: async (examples) => {
+                        try {
+                            const response = await fetch('/tenants/' + tenantId + '/templates/' + catalogId + '/' + templateId + '/contract/draft', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                                body: JSON.stringify({ dataExamples: examples }),
+                            });
+                            if (!response.ok) {
+                                const err = await response.json().catch(() => ({}));
+                                return { success: false, error: err.message, warnings: err.warnings };
+                            }
+                            const result = await response.json();
+                            return { success: true, warnings: result.warnings };
+                        } catch (e) {
+                            return { success: false, error: e.message };
+                        }
+                    },
+                    onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                        try {
+                            const response = await fetch('/tenants/' + tenantId + '/templates/' + catalogId + '/' + templateId + '/data-examples/' + exampleId, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                                body: JSON.stringify({ ...updates, forceUpdate }),
+                            });
+                            if (!response.ok) {
+                                const err = await response.json().catch(() => ({}));
+                                return { success: false, errors: err.errors, warnings: err.warnings };
+                            }
+                            const result = await response.json();
+                            return { success: true, example: result, warnings: result.warnings };
+                        } catch (e) {
+                            return { success: false, error: e.message };
+                        }
+                    },
+                    onDeleteDataExample: async (exampleId) => {
+                        try {
+                            const response = await fetch('/tenants/' + tenantId + '/templates/' + catalogId + '/' + templateId + '/data-examples/' + exampleId, {
+                                method: 'DELETE',
+                                headers: { 'X-XSRF-TOKEN': window.getCsrfToken() },
+                            });
+                            return { success: response.ok };
+                        } catch (e) {
+                            return { success: false, error: e.message };
+                        }
+                    },
+                },
+            },
             imageOptions: {
                 contentUrlPattern: '/tenants/' + tenantId + '/assets/' + catalogId + '/{assetId}/content',
                 listAssets: async () => {

@@ -63,6 +63,34 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
     expect(markup).toContain('aria-haspopup="dialog"');
   });
 
+  it('emits open-data-contract from the toolbar action', () => {
+    const toolbar = new EpistolaToolbar();
+    const toolbarAny = toolbar as unknown as {
+      _handleOpenDataContract: () => void;
+    };
+    let opened = false;
+    toolbar.addEventListener('open-data-contract', () => {
+      opened = true;
+    });
+
+    toolbarAny._handleOpenDataContract();
+
+    expect(opened).toBe(true);
+  });
+
+  it('renders data contract toolbar action when enabled', () => {
+    const toolbar = new EpistolaToolbar();
+    toolbar.hasDataContract = true;
+
+    const rendered = toolbar.render() as unknown as {
+      values?: unknown[];
+    };
+    const nested = JSON.stringify(rendered.values ?? []);
+
+    expect(nested).toContain('toolbar-data-contract-trigger');
+    expect(nested).toContain('Data Contract');
+  });
+
   it('closes shortcut popover on Escape and prevents default', () => {
     const toolbar = new EpistolaToolbar();
     const toolbarAny = toolbar as unknown as {

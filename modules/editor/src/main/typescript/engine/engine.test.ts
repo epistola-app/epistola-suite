@@ -2007,6 +2007,98 @@ describe('Data examples', () => {
     expect(engine.dataExamples).toBeUndefined();
     expect(engine.currentExample).toBeUndefined();
   });
+
+  it('updates data examples and notifies the active example', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples });
+    const nextExamples = [{ name: 'Updated', value: 400 }];
+    const changes: { index: number; example: object | undefined }[] = [];
+
+    engine.setCurrentExample(2);
+    engine.onExampleChange((index, example) => changes.push({ index, example }));
+    engine.setDataExamples(nextExamples);
+
+    expect(engine.dataExamples).toEqual(nextExamples);
+    expect(engine.dataExamples).not.toBe(nextExamples);
+    expect(engine.currentExampleIndex).toBe(0);
+    expect(changes).toEqual([{ index: 0, example: nextExamples[0] }]);
+  });
+
+  it('updates data model and invalidates cached field paths', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry, {
+      dataModel: { type: 'object', properties: { oldName: { type: 'string' } } },
+    });
+
+    expect(engine.fieldPaths.find((p) => p.path === 'oldName')).toBeDefined();
+    engine.setDataModel({ type: 'object', properties: { newName: { type: 'string' } } });
+
+    expect(engine.fieldPaths.find((p) => p.path === 'oldName')).toBeUndefined();
+    expect(engine.fieldPaths.find((p) => p.path === 'newName')).toBeDefined();
+  });
+
+  it('setDataContext updates model/examples together and emits data-context change', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry, {
+      dataModel: { type: 'object', properties: { old: { type: 'string' } } },
+      dataExamples: examples,
+    });
+
+    const nextModel = { type: 'object', properties: { next: { type: 'number' } } };
+    const nextExamples = [{ name: 'Only', value: 999 }];
+    const events: Array<{ dataModel: object | undefined; dataExamples: object[] | undefined }> = [];
+
+    engine.events.on('data-context:change', (payload) => {
+      events.push(payload);
+    });
+    engine.setCurrentExample(2);
+
+    engine.setDataContext({ dataModel: nextModel, dataExamples: nextExamples });
+
+    expect(engine.dataModel).toEqual(nextModel);
+    expect(engine.dataExamples).toEqual(nextExamples);
+    expect(engine.currentExampleIndex).toBe(0);
+    expect(events.at(-1)).toEqual({
+      dataModel: nextModel,
+      dataExamples: nextExamples,
+    });
+  });
+
+  it('setDataContext can clear model with null while preserving examples when omitted', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry, {
+      dataModel: { type: 'object', properties: { old: { type: 'string' } } },
+      dataExamples: examples,
+    });
+
+    engine.setDataContext({ dataModel: null });
+
+    expect(engine.dataModel).toBeUndefined();
+    expect(engine.fieldPaths.find((p) => p.path === 'old')).toBeUndefined();
+    expect(engine.dataExamples).toEqual(examples);
+  });
+
+  it('setDataExamples with undefined clears examples and resets current index', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples });
+    const changes: { index: number; example: object | undefined }[] = [];
+
+    engine.onExampleChange((index, example) => {
+      changes.push({ index, example });
+    });
+    engine.setCurrentExample(1);
+
+    engine.setDataExamples(undefined);
+
+    expect(engine.dataExamples).toBeUndefined();
+    expect(engine.currentExampleIndex).toBe(0);
+    expect(changes.at(-1)).toEqual({ index: 0, example: undefined });
+  });
 });
 
 // ---------------------------------------------------------------------------

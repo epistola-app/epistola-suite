@@ -375,6 +375,99 @@
     margin-top: var(--ep-space-3);
   }
 
+  .editor-data-contract-modal {
+    display: none;
+  }
+
+  .editor-data-contract-modal.is-open {
+    display: block;
+  }
+
+  .editor-data-contract-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.36);
+    z-index: 50;
+    animation: ep-insert-backdrop-in 140ms ease-out;
+  }
+
+  .editor-data-contract-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    width: min(1200px, calc(100vw - 48px));
+    height: min(860px, calc(100vh - 48px));
+    border-radius: var(--ep-radius-lg, 12px);
+    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-white);
+    box-shadow: var(--ep-shadow-lg);
+    z-index: 51;
+    overflow: hidden;
+    animation: ep-insert-dialog-in 180ms ease-out;
+  }
+
+  .editor-data-contract-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ep-space-4);
+    padding: var(--ep-space-4) var(--ep-space-5);
+    border-bottom: 1px solid var(--ep-gray-200);
+    background: var(--ep-white);
+    flex-shrink: 0;
+  }
+
+  .editor-data-contract-title {
+    font-size: var(--ep-text-lg);
+    font-weight: 700;
+    color: var(--ep-gray-900);
+  }
+
+  .editor-data-contract-subtitle {
+    margin-top: var(--ep-space-1);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .editor-data-contract-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-white);
+    color: var(--ep-gray-600);
+    font-size: var(--ep-text-lg);
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .editor-data-contract-close:hover {
+    background: var(--ep-gray-50);
+    color: var(--ep-gray-900);
+  }
+
+  .editor-data-contract-close:focus-visible {
+    outline: 2px solid var(--ep-blue-300, #93c5fd);
+    outline-offset: 1px;
+  }
+
+  .editor-data-contract-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0 var(--ep-space-5) var(--ep-space-5);
+    background: var(--ep-white);
+  }
+
+  .editor-data-contract-host {
+    min-height: 100%;
+  }
+
   @keyframes ep-insert-backdrop-in {
     from {
       opacity: 0;
@@ -411,7 +504,9 @@
     .insert-dialog,
     .insert-dialog-stage,
     .paste-dialog-backdrop,
-    .paste-dialog {
+    .paste-dialog,
+    .editor-data-contract-backdrop,
+    .editor-data-contract-dialog {
       animation: none;
     }
 
@@ -425,6 +520,18 @@
   @media (max-width: 640px) {
     .paste-dialog-actions {
       grid-template-columns: 1fr;
+    }
+
+    .editor-data-contract-dialog {
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+    }
+
+    .editor-data-contract-header,
+    .editor-data-contract-body {
+      padding-left: var(--ep-space-3);
+      padding-right: var(--ep-space-3);
     }
   }
 

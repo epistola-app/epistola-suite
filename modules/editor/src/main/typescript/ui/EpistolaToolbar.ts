@@ -51,6 +51,7 @@ export class EpistolaToolbar extends LitElement {
   @property({ type: Boolean }) hasPreview = false;
   @property({ type: Boolean }) cleanMode = false;
   @property({ type: Boolean }) hasSave = false;
+  @property({ type: Boolean }) hasDataContract = false;
   @property({ attribute: false }) saveState?: SaveState;
   @property({ attribute: false }) pluginActions?: ToolbarAction[];
 
@@ -201,6 +202,10 @@ export class EpistolaToolbar extends LitElement {
 
   private _handleToggleCleanMode() {
     this.dispatchEvent(new CustomEvent('toggle-clean-mode', { bubbles: true, composed: true }));
+  }
+
+  private _handleOpenDataContract() {
+    this.dispatchEvent(new CustomEvent('open-data-contract', { bubbles: true, composed: true }));
   }
 
   private _handleExampleChange(e: Event) {
@@ -706,6 +711,18 @@ export class EpistolaToolbar extends LitElement {
         </button>
 
         ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
+        ${this.hasDataContract
+          ? html`
+              <div class="toolbar-separator"></div>
+              <button
+                class="btn btn-outline btn-sm toolbar-data-contract-trigger"
+                @click=${this._handleOpenDataContract}
+                title="Edit data contract schema and examples"
+              >
+                ${icon('braces')} Data Contract
+              </button>
+            `
+          : nothing}
         ${this._renderPluginActions()}
       </div>
     `;

@@ -286,6 +286,51 @@ export class EditorEngine {
     this._events.emit('example:change', { index, example });
   }
 
+  /** Replace the data model used by expressions and variable pickers. */
+  setDataModel(dataModel: object | undefined): void {
+    this._dataModel = dataModel ? structuredClone(dataModel) : undefined;
+    this._fieldPathsCache = undefined;
+    this._emitDataContextChange();
+  }
+
+  /** Replace available preview examples and keep the active example index valid. */
+  setDataExamples(dataExamples: object[] | undefined): void {
+    this._dataExamples = dataExamples ? structuredClone(dataExamples) : undefined;
+    const count = this._dataExamples?.length ?? 0;
+    const nextIndex = count === 0 ? 0 : Math.min(this._currentExampleIndex, count - 1);
+    this._currentExampleIndex = nextIndex;
+    this._emitDataContextChange();
+    this._events.emit('example:change', {
+      index: this._currentExampleIndex,
+      example: this.currentExample,
+    });
+  }
+
+  /** Replace schema and examples together after a contract save. */
+  setDataContext(options: { dataModel?: object | null; dataExamples?: object[] }): void {
+    if ('dataModel' in options) {
+      this._dataModel = options.dataModel ? structuredClone(options.dataModel) : undefined;
+      this._fieldPathsCache = undefined;
+    }
+    if ('dataExamples' in options) {
+      this._dataExamples = options.dataExamples ? structuredClone(options.dataExamples) : undefined;
+      const count = this._dataExamples?.length ?? 0;
+      this._currentExampleIndex = count === 0 ? 0 : Math.min(this._currentExampleIndex, count - 1);
+    }
+    this._emitDataContextChange();
+    this._events.emit('example:change', {
+      index: this._currentExampleIndex,
+      example: this.currentExample,
+    });
+  }
+
+  private _emitDataContextChange(): void {
+    this._events.emit('data-context:change', {
+      dataModel: this._dataModel,
+      dataExamples: this._dataExamples,
+    });
+  }
+
   /**
    * Subscribe to data example changes. Returns unsubscribe function.
    * @deprecated Use `engine.events.on('example:change', ...)` instead.

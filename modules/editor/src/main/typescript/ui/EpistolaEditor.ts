@@ -13,6 +13,8 @@ import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.
 import type { FetchPreviewFn } from './preview-service.js';
 import { SaveService, type SaveState, type SaveFn } from './save-service.js';
 import { EpistolaResizeHandle } from './EpistolaResizeHandle.js';
+import type { DataExample, JsonSchema, SaveCallbacks } from '../data-contract/types.js';
+import type { EpistolaDataContractEditor } from '../data-contract/EpistolaDataContractEditor.js';
 import type {
   EditorPlugin,
   PluginContext,
@@ -49,12 +51,14 @@ import {
   writeBlockClipboardData,
   type BlockSubtree,
 } from './block-clipboard.js';
+import { icon } from './icons.js';
 
 import './EpistolaSidebar.js';
 import './EpistolaCanvas.js';
 import './EpistolaToolbar.js';
 import './EpistolaPreview.js';
 import './EpistolaResizeHandle.js';
+import '../data-contract/EpistolaDataContractEditor.js';
 
 type InsertMode = 'after' | 'before' | 'inside' | 'start' | 'end';
 type PasteDialogMode = 'placement' | 'slot';
@@ -71,6 +75,13 @@ interface InsertTarget {
   slotId: SlotId;
   index: number;
   parentType: string;
+}
+
+export interface EditorDataContractOptions {
+  initialSchema: JsonSchema | null;
+  initialExamples: DataExample[];
+  callbacks: SaveCallbacks;
+  readonly?: boolean;
 }
 
 const INSERT_DIALOG_SHORTCUTS = INSERT_DIALOG_KEYS;
@@ -150,6 +161,7 @@ export class EpistolaEditor extends LitElement {
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn;
   @property({ attribute: false }) onSave?: SaveFn;
   @property({ attribute: false }) plugins?: EditorPlugin[];
+  @property({ attribute: false }) dataContractOptions?: EditorDataContractOptions;
   @state() private _doc?: TemplateDocument;
   @state() private _selectedNodeId: NodeId | null = null;
   @state() private _previewOpen = false;
@@ -169,9 +181,11 @@ export class EpistolaEditor extends LitElement {
   @state() private _pasteDialogMode: PasteDialogMode = 'placement';
   @state() private _pasteDialogSlotOptions: InsertSlotOption[] = [];
   @state() private _pasteDialogError = '';
+  @state() private _dataContractOpen = false;
 
   private _insertTarget: InsertTarget | null = null;
   private _pasteSubtree: BlockSubtree | null = null;
+  private _dataContractMounted = false;
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open';
   private static readonly CLEAN_MODE_KEY = 'ep:clean-mode';
@@ -274,6 +288,7 @@ export class EpistolaEditor extends LitElement {
     window.addEventListener('paste', this._onPaste);
     this.addEventListener('toggle-preview', this._handleTogglePreview);
     this.addEventListener('toggle-clean-mode', this._handleToggleCleanMode);
+    this.addEventListener('open-data-contract', this._handleOpenDataContract);
     this.addEventListener('force-save', this._handleForceSave);
     window.addEventListener('beforeunload', this._onBeforeUnload);
 
@@ -292,6 +307,7 @@ export class EpistolaEditor extends LitElement {
     window.removeEventListener('paste', this._onPaste);
     this.removeEventListener('toggle-preview', this._handleTogglePreview);
     this.removeEventListener('toggle-clean-mode', this._handleToggleCleanMode);
+    this.removeEventListener('open-data-contract', this._handleOpenDataContract);
     this.removeEventListener('force-save', this._handleForceSave);
     window.removeEventListener('beforeunload', this._onBeforeUnload);
     super.disconnectedCallback();
@@ -419,6 +435,13 @@ export class EpistolaEditor extends LitElement {
 
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return;
+
+    if (this._dataContractOpen && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      this._closeDataContract();
+      return;
+    }
 
     if (this._pasteDialogOpen) {
       this._handlePasteDialogKeydown(e);
@@ -1346,6 +1369,87 @@ export class EpistolaEditor extends LitElement {
     }
   };
 
+  private _handleOpenDataContract = () => {
+    if (!this.dataContractOptions) return;
+    this._dataContractOpen = true;
+    void this.updateComplete.then(() => this._mountDataContractEditor());
+  };
+
+  private _closeDataContract = () => {
+    this._dataContractOpen = false;
+  };
+
+  private _mountDataContractEditor(): void {
+    if (this._dataContractMounted || !this.dataContractOptions) return;
+    const host = this.querySelector<HTMLElement>('.editor-data-contract-host');
+    if (!host) return;
+
+    const editor = document.createElement(
+      'epistola-data-contract-editor',
+    ) as EpistolaDataContractEditor;
+    editor.style.display = 'block';
+    editor.init(
+      this.dataContractOptions.initialSchema,
+      this.dataContractOptions.initialExamples,
+      this._createDataContractCallbacks(),
+      this.dataContractOptions.readonly ?? false,
+    );
+
+    host.innerHTML = '';
+    host.appendChild(editor);
+    this._dataContractMounted = true;
+  }
+
+  private _createDataContractCallbacks(): SaveCallbacks {
+    const callbacks = this.dataContractOptions?.callbacks ?? {};
+
+    return {
+      onSaveSchema: callbacks.onSaveSchema
+        ? async (schema, forceUpdate, dataExamples) => {
+            const result = await callbacks.onSaveSchema!(schema, forceUpdate, dataExamples);
+            if (result.success) {
+              this._engine?.setDataContext({
+                dataModel: schema,
+                ...(dataExamples ? { dataExamples } : {}),
+              });
+            }
+            return result;
+          }
+        : undefined,
+      onSaveDataExamples: callbacks.onSaveDataExamples
+        ? async (examples) => {
+            const result = await callbacks.onSaveDataExamples!(examples);
+            if (result.success) {
+              this._engine?.setDataExamples(examples);
+            }
+            return result;
+          }
+        : undefined,
+      onUpdateDataExample: callbacks.onUpdateDataExample
+        ? async (exampleId, updates, forceUpdate) => {
+            const result = await callbacks.onUpdateDataExample!(exampleId, updates, forceUpdate);
+            if (result.success && result.example) {
+              const examples = (this._engine?.dataExamples ?? []) as DataExample[];
+              this._engine?.setDataExamples(
+                examples.map((example) => (example.id === exampleId ? result.example! : example)),
+              );
+            }
+            return result;
+          }
+        : undefined,
+      onDeleteDataExample: callbacks.onDeleteDataExample
+        ? async (exampleId) => {
+            const result = await callbacks.onDeleteDataExample!(exampleId);
+            if (result.success) {
+              const examples = (this._engine?.dataExamples ?? []) as DataExample[];
+              this._engine?.setDataExamples(examples.filter((example) => example.id !== exampleId));
+            }
+            return result;
+          }
+        : undefined,
+    };
+  }
+
   /**
    * Warn users about unsaved changes when closing/navigating away.
    */
@@ -1447,6 +1551,44 @@ export class EpistolaEditor extends LitElement {
     `;
   }
 
+  private _renderDataContractModal(): unknown {
+    if (!this.dataContractOptions) return nothing;
+
+    return html`
+      <div class="editor-data-contract-modal ${this._dataContractOpen ? 'is-open' : ''}">
+        <div class="editor-data-contract-backdrop" @click=${this._closeDataContract}></div>
+        <div
+          class="editor-data-contract-dialog"
+          data-testid="data-contract-modal"
+          role="dialog"
+          aria-modal=${this._dataContractOpen ? 'true' : 'false'}
+          aria-labelledby="editor-data-contract-title"
+          @click=${(event: Event) => event.stopPropagation()}
+        >
+          <div class="editor-data-contract-header">
+            <div>
+              <div id="editor-data-contract-title" class="editor-data-contract-title">
+                Data Contract
+              </div>
+              <div class="editor-data-contract-subtitle">Edit schema fields and example data.</div>
+            </div>
+            <button
+              type="button"
+              class="editor-data-contract-close"
+              @click=${this._closeDataContract}
+              aria-label="Close data contract"
+            >
+              ${icon('x', 16)}
+            </button>
+          </div>
+          <div class="editor-data-contract-body">
+            <div class="editor-data-contract-host"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
@@ -1488,6 +1630,7 @@ export class EpistolaEditor extends LitElement {
           .cleanMode=${this._cleanMode}
           .hasPreview=${hasPreview}
           .hasSave=${hasSave}
+          .hasDataContract=${!!this.dataContractOptions}
           .saveState=${this._saveState}
           .pluginActions=${this._pluginToolbarActions}
         ></epistola-toolbar>
@@ -1594,7 +1737,7 @@ export class EpistolaEditor extends LitElement {
               </div>
             `
           : nothing}
-        ${this._renderPasteDialog()}
+        ${this._renderPasteDialog()} ${this._renderDataContractModal()}
       </div>
     `;
   }

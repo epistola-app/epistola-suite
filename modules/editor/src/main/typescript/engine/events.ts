@@ -22,6 +22,7 @@ export type EngineEvents = {
   };
   'selection:change': { nodeId: NodeId | null };
   'example:change': { index: number; example: object | undefined };
+  'data-context:change': { dataModel: object | undefined; dataExamples: object[] | undefined };
   'component-state:change': { key: string; value: unknown };
 };
 

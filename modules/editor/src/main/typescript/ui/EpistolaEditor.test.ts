@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EpistolaEditor } from './EpistolaEditor.js';
 import {
   createTestDocumentWithChildren,
@@ -13,6 +13,7 @@ import {
   extractBlockSubtree,
   serializeBlockClipboard,
 } from './block-clipboard.js';
+import type { DataExample, JsonSchema } from '../data-contract/types.js';
 
 function createClipboardData(store = new Map<string, string>()): DataTransfer {
   return {
@@ -785,5 +786,409 @@ describe('EpistolaEditor table cell-mode exit', () => {
     editorAny._handleKeydown(event);
 
     expect(editorAny._engine.selectedNodeId).toBeNull();
+  });
+});
+
+describe('EpistolaEditor data contract integration', () => {
+  function createDataContractOptions() {
+    return {
+      initialSchema: { type: 'object', properties: { name: { type: 'string' } } } as JsonSchema,
+      initialExamples: [
+        { id: 'ex-1', name: 'Example 1', data: { name: 'Alice' } },
+        { id: 'ex-2', name: 'Example 2', data: { name: 'Bob' } },
+      ] as DataExample[],
+      callbacks: {
+        onSaveSchema: vi.fn(async () => ({ success: true })),
+        onSaveDataExamples: vi.fn(async () => ({ success: true })),
+        onUpdateDataExample: vi.fn(async () => ({ success: true })),
+        onDeleteDataExample: vi.fn(async () => ({ success: true })),
+      },
+    };
+  }
+
+  it('opens modal on toolbar event and closes it on Escape', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: unknown;
+      _dataContractOpen: boolean;
+      _mountDataContractEditor: () => void;
+      _handleOpenDataContract: () => void;
+      _handleKeydown: (event: KeyboardEvent) => void;
+    };
+    editorAny.dataContractOptions = createDataContractOptions();
+    editorAny._mountDataContractEditor = () => {};
+
+    editorAny._handleOpenDataContract();
+    expect(editorAny._dataContractOpen).toBe(true);
+
+    let prevented = false;
+    let stopped = false;
+    editorAny._handleKeydown({
+      key: 'Escape',
+      preventDefault: () => {
+        prevented = true;
+      },
+      stopPropagation: () => {
+        stopped = true;
+      },
+    } as KeyboardEvent);
+
+    expect(editorAny._dataContractOpen).toBe(false);
+    expect(prevented).toBe(true);
+    expect(stopped).toBe(true);
+  });
+
+  it('ignores open-data-contract when options are missing', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      _dataContractOpen: boolean;
+      _handleOpenDataContract: () => void;
+    };
+
+    editorAny._handleOpenDataContract();
+    expect(editorAny._dataContractOpen).toBe(false);
+  });
+
+  it('closes modal via explicit close handler', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      _dataContractOpen: boolean;
+      _closeDataContract: () => void;
+    };
+    editorAny._dataContractOpen = true;
+
+    editorAny._closeDataContract();
+    expect(editorAny._dataContractOpen).toBe(false);
+  });
+
+  it('does not mount editor host when options are missing', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      _dataContractMounted: boolean;
+      _mountDataContractEditor: () => void;
+    };
+
+    editorAny._mountDataContractEditor();
+    expect(editorAny._dataContractMounted).toBe(false);
+  });
+
+  it('does not remount when already mounted', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: unknown;
+      _dataContractMounted: boolean;
+      _mountDataContractEditor: () => void;
+      querySelector: (selector: string) => HTMLElement | null;
+    };
+    editorAny.dataContractOptions = createDataContractOptions();
+    editorAny._dataContractMounted = true;
+
+    const appendChild = vi.fn();
+    editorAny.querySelector = () => ({ appendChild }) as unknown as HTMLElement;
+
+    editorAny._mountDataContractEditor();
+    expect(appendChild).not.toHaveBeenCalled();
+  });
+
+  it('does not mount when host is missing', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: unknown;
+      _dataContractMounted: boolean;
+      _mountDataContractEditor: () => void;
+      querySelector: (selector: string) => HTMLElement | null;
+    };
+    editorAny.dataContractOptions = createDataContractOptions();
+    editorAny.querySelector = () => null;
+
+    editorAny._mountDataContractEditor();
+    expect(editorAny._dataContractMounted).toBe(false);
+  });
+
+  it('onSaveSchema callback updates engine data context on success', async () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const options = createDataContractOptions();
+    const editorAny = editor as unknown as {
+      dataContractOptions: typeof options;
+      _createDataContractCallbacks: () => {
+        onSaveSchema?: (
+          schema: JsonSchema | null,
+          forceUpdate?: boolean,
+          dataExamples?: DataExample[],
+        ) => Promise<{ success: boolean }>;
+      };
+      _engine: {
+        setDataContext: (options: { dataModel?: object | null; dataExamples?: object[] }) => void;
+      };
+    };
+
+    const setDataContext = vi.fn();
+    editorAny._engine.setDataContext = setDataContext;
+    editorAny.dataContractOptions = options;
+    const callbacks = editorAny._createDataContractCallbacks();
+    const nextSchema = { type: 'object', properties: { age: { type: 'number' } } } as JsonSchema;
+    const nextExamples: DataExample[] = [{ id: 'ex-3', name: 'Example 3', data: { age: 42 } }];
+
+    await callbacks.onSaveSchema?.(nextSchema, false, nextExamples);
+
+    expect(setDataContext).toHaveBeenCalledWith({
+      dataModel: nextSchema,
+      dataExamples: nextExamples,
+    });
+  });
+
+  it('onSaveSchema does not update engine data context on failure', async () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const options = createDataContractOptions();
+    options.callbacks.onSaveSchema = vi.fn(async () => ({ success: false, error: 'nope' }));
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: typeof options;
+      _createDataContractCallbacks: () => {
+        onSaveSchema?: (
+          schema: JsonSchema | null,
+          forceUpdate?: boolean,
+          dataExamples?: DataExample[],
+        ) => Promise<{ success: boolean }>;
+      };
+      _engine: {
+        setDataContext: (options: { dataModel?: object | null; dataExamples?: object[] }) => void;
+      };
+    };
+
+    const setDataContext = vi.fn();
+    editorAny._engine.setDataContext = setDataContext;
+    editorAny.dataContractOptions = options;
+    const callbacks = editorAny._createDataContractCallbacks();
+    const nextSchema = { type: 'object', properties: { age: { type: 'number' } } } as JsonSchema;
+
+    await callbacks.onSaveSchema?.(nextSchema, false, []);
+    expect(setDataContext).not.toHaveBeenCalled();
+  });
+
+  it('onSaveDataExamples updates engine examples on success only', async () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const options = createDataContractOptions();
+    const editorAny = editor as unknown as {
+      dataContractOptions: typeof options;
+      _createDataContractCallbacks: () => {
+        onSaveDataExamples?: (examples: DataExample[]) => Promise<{ success: boolean }>;
+      };
+      _engine: { setDataExamples: (examples: DataExample[]) => void };
+    };
+    const setDataExamples = vi.fn();
+    editorAny._engine.setDataExamples = setDataExamples;
+    editorAny.dataContractOptions = options;
+
+    const callbacks = editorAny._createDataContractCallbacks();
+    const nextExamples: DataExample[] = [{ id: 'ex-9', name: 'N', data: { n: 1 } }];
+
+    await callbacks.onSaveDataExamples?.(nextExamples);
+    expect(setDataExamples).toHaveBeenCalledWith(nextExamples);
+
+    setDataExamples.mockClear();
+    options.callbacks.onSaveDataExamples = vi.fn(async () => ({ success: false, error: 'bad' }));
+    editorAny.dataContractOptions = options;
+    const callbacksFail = editorAny._createDataContractCallbacks();
+    await callbacksFail.onSaveDataExamples?.(nextExamples);
+    expect(setDataExamples).not.toHaveBeenCalled();
+  });
+
+  it('onUpdateDataExample and onDeleteDataExample update engine examples on success', async () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    const options = createDataContractOptions();
+    editor.initEngine(doc, testRegistry(), { dataExamples: options.initialExamples });
+
+    options.callbacks.onUpdateDataExample = vi.fn(async () => ({
+      success: true,
+      example: { id: 'ex-2', name: 'Renamed', data: { name: 'Bobby' } },
+    }));
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: typeof options;
+      _createDataContractCallbacks: () => {
+        onUpdateDataExample?: (
+          exampleId: string,
+          updates: { name?: string; data?: Record<string, unknown> },
+          forceUpdate?: boolean,
+        ) => Promise<{ success: boolean; example?: DataExample }>;
+        onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
+      };
+      _engine: {
+        dataExamples?: DataExample[];
+        setDataExamples: (examples: DataExample[]) => void;
+      };
+    };
+
+    const setDataExamples = vi.fn();
+    editorAny._engine.setDataExamples = setDataExamples;
+    editorAny.dataContractOptions = options;
+    const callbacks = editorAny._createDataContractCallbacks();
+
+    await callbacks.onUpdateDataExample?.('ex-2', { name: 'Renamed' }, false);
+    expect(setDataExamples).toHaveBeenCalledWith([
+      options.initialExamples[0],
+      { id: 'ex-2', name: 'Renamed', data: { name: 'Bobby' } },
+    ]);
+
+    setDataExamples.mockClear();
+    await callbacks.onDeleteDataExample?.('ex-1');
+    expect(setDataExamples).toHaveBeenCalledWith([
+      { id: 'ex-2', name: 'Example 2', data: { name: 'Bob' } },
+    ]);
+  });
+
+  it('onUpdateDataExample does not update engine when callback fails or returns no example', async () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    const options = createDataContractOptions();
+    editor.initEngine(doc, testRegistry(), { dataExamples: options.initialExamples });
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: typeof options;
+      _createDataContractCallbacks: () => {
+        onUpdateDataExample?: (
+          exampleId: string,
+          updates: { name?: string; data?: Record<string, unknown> },
+          forceUpdate?: boolean,
+        ) => Promise<{ success: boolean; example?: DataExample }>;
+      };
+      _engine: { setDataExamples: (examples: DataExample[]) => void };
+    };
+
+    const setDataExamples = vi.fn();
+    editorAny._engine.setDataExamples = setDataExamples;
+
+    options.callbacks.onUpdateDataExample = vi.fn(async () => ({ success: false }));
+    editorAny.dataContractOptions = options;
+    const callbacksFail = editorAny._createDataContractCallbacks();
+    await callbacksFail.onUpdateDataExample?.('ex-2', { name: 'Renamed' }, false);
+    expect(setDataExamples).not.toHaveBeenCalled();
+
+    options.callbacks.onUpdateDataExample = vi.fn(async () => ({ success: true }));
+    editorAny.dataContractOptions = options;
+    const callbacksNoExample = editorAny._createDataContractCallbacks();
+    await callbacksNoExample.onUpdateDataExample?.('ex-2', { name: 'Renamed' }, false);
+    expect(setDataExamples).not.toHaveBeenCalled();
+  });
+
+  it('onDeleteDataExample does not update engine when callback fails', async () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    const options = createDataContractOptions();
+    editor.initEngine(doc, testRegistry(), { dataExamples: options.initialExamples });
+
+    options.callbacks.onDeleteDataExample = vi.fn(async () => ({ success: false }));
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: typeof options;
+      _createDataContractCallbacks: () => {
+        onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
+      };
+      _engine: { setDataExamples: (examples: DataExample[]) => void };
+    };
+
+    const setDataExamples = vi.fn();
+    editorAny._engine.setDataExamples = setDataExamples;
+    editorAny.dataContractOptions = options;
+
+    const callbacks = editorAny._createDataContractCallbacks();
+    await callbacks.onDeleteDataExample?.('ex-1');
+    expect(setDataExamples).not.toHaveBeenCalled();
+  });
+
+  it('creates empty callback object when data contract callbacks are omitted', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: {
+        initialSchema: JsonSchema;
+        initialExamples: DataExample[];
+        callbacks: Record<string, unknown>;
+      };
+      _createDataContractCallbacks: () => {
+        onSaveSchema?: unknown;
+        onSaveDataExamples?: unknown;
+        onUpdateDataExample?: unknown;
+        onDeleteDataExample?: unknown;
+      };
+    };
+
+    editorAny.dataContractOptions = {
+      initialSchema: { type: 'object', properties: {} },
+      initialExamples: [],
+      callbacks: {},
+    };
+
+    const callbacks = editorAny._createDataContractCallbacks();
+    expect(callbacks.onSaveSchema).toBeUndefined();
+    expect(callbacks.onSaveDataExamples).toBeUndefined();
+    expect(callbacks.onUpdateDataExample).toBeUndefined();
+    expect(callbacks.onDeleteDataExample).toBeUndefined();
+  });
+
+  it('returns a template result when options are absent', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      _renderDataContractModal: () => unknown;
+    };
+
+    const modal = editorAny._renderDataContractModal();
+    expect(modal).toBeDefined();
+  });
+
+  it('renders modal template with open state and accessibility attributes', () => {
+    const { doc } = createTestDocumentWithChildren();
+    const editor = new EpistolaEditor();
+    editor.initEngine(doc, testRegistry());
+
+    const editorAny = editor as unknown as {
+      dataContractOptions: unknown;
+      _dataContractOpen: boolean;
+      _renderDataContractModal: () => unknown;
+    };
+    editorAny.dataContractOptions = createDataContractOptions();
+    editorAny._dataContractOpen = true;
+
+    const modal = editorAny._renderDataContractModal();
+    expect(modal).toBeDefined();
+
+    const renderSource = String(editorAny._renderDataContractModal);
+    expect(renderSource).toContain('role="dialog"');
+    expect(renderSource).toContain('aria-modal');
+    expect(renderSource).toContain('aria-labelledby="editor-data-contract-title"');
   });
 });
