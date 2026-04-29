@@ -69,11 +69,7 @@
                 <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
                     Permanently delete this template and all its variants, versions, and data.
                 </p>
-                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                      method="post" hx-boost="false"
-                      onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.')">
-                    <button type="submit" class="btn btn-sm btn-destructive">Delete Template</button>
-                </form>
+                <th:block th:replace="~{fragments/template-actions :: template-delete-form}" />
             </div>
         </div>
 

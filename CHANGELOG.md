@@ -10,6 +10,7 @@
 - **Export only includes published template versions**: Catalog export now only includes templates with published versions, skipping draft-only templates.
 - **Clear error on missing contract version**: `UpdateDraft`, `CreateVariant`, and `CreateVersion` now throw a descriptive `IllegalStateException` instead of a raw `NullPointerException` when no contract version exists.
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
+- **Template deletion discoverability**: The "Delete Template" action now appears in the template page header across detail tabs (not only in Settings > Danger Zone), using a shared `fragments/template-actions.html` fragment. Also fixed submit-button CSS scoping so `.btn-destructive` styles are not overridden by the global submit rule.
 
 ## [0.17.0] - 2026-04-28
 
