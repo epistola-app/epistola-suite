@@ -12,8 +12,6 @@
 
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
 - **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
-### Fixed
-
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
 
 ## [0.17.0] - 2026-04-28
