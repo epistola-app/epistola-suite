@@ -204,7 +204,7 @@ export class EpistolaToolbar extends LitElement {
     this.dispatchEvent(new CustomEvent('toggle-clean-mode', { bubbles: true, composed: true }));
   }
 
-  private _handleOpenDataContract() {
+  private _handleOpenDataContract(): void {
     this.dispatchEvent(new CustomEvent('open-data-contract', { bubbles: true, composed: true }));
   }
 
@@ -716,7 +716,7 @@ export class EpistolaToolbar extends LitElement {
               <div class="toolbar-separator"></div>
               <button
                 class="btn btn-outline btn-sm toolbar-data-contract-trigger"
-                @click=${this._handleOpenDataContract}
+                @click=${(): void => this._handleOpenDataContract()}
                 title="Edit data contract schema and examples"
               >
                 ${icon('braces')} Data Contract

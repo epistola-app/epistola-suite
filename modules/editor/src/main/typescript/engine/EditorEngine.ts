@@ -296,7 +296,7 @@ export class EditorEngine {
   /** Replace available preview examples and keep the active example index valid. */
   setDataExamples(dataExamples: object[] | undefined): void {
     this._dataExamples = dataExamples ? structuredClone(dataExamples) : undefined;
-    const count = this._dataExamples?.length ?? 0;
+    const count = this._dataExamples ? this._dataExamples.length : 0;
     const nextIndex = count === 0 ? 0 : Math.min(this._currentExampleIndex, count - 1);
     this._currentExampleIndex = nextIndex;
     this._emitDataContextChange();
@@ -314,7 +314,7 @@ export class EditorEngine {
     }
     if ('dataExamples' in options) {
       this._dataExamples = options.dataExamples ? structuredClone(options.dataExamples) : undefined;
-      const count = this._dataExamples?.length ?? 0;
+      const count = this._dataExamples ? this._dataExamples.length : 0;
       this._currentExampleIndex = count === 0 ? 0 : Math.min(this._currentExampleIndex, count - 1);
     }
     this._emitDataContextChange();

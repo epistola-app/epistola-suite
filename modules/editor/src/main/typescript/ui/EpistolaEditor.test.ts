@@ -790,7 +790,16 @@ describe('EpistolaEditor table cell-mode exit', () => {
 });
 
 describe('EpistolaEditor data contract integration', () => {
-  function createDataContractOptions() {
+  function createDataContractOptions(): {
+    initialSchema: JsonSchema;
+    initialExamples: DataExample[];
+    callbacks: {
+      onSaveSchema: ReturnType<typeof vi.fn>;
+      onSaveDataExamples: ReturnType<typeof vi.fn>;
+      onUpdateDataExample: ReturnType<typeof vi.fn>;
+      onDeleteDataExample: ReturnType<typeof vi.fn>;
+    };
+  } {
     return {
       initialSchema: { type: 'object', properties: { name: { type: 'string' } } } as JsonSchema,
       initialExamples: [
@@ -819,7 +828,7 @@ describe('EpistolaEditor data contract integration', () => {
       _handleKeydown: (event: KeyboardEvent) => void;
     };
     editorAny.dataContractOptions = createDataContractOptions();
-    editorAny._mountDataContractEditor = () => {};
+    editorAny._mountDataContractEditor = (): void => {};
 
     editorAny._handleOpenDataContract();
     expect(editorAny._dataContractOpen).toBe(true);
@@ -899,7 +908,7 @@ describe('EpistolaEditor data contract integration', () => {
     editorAny._dataContractMounted = true;
 
     const appendChild = vi.fn();
-    editorAny.querySelector = () => ({ appendChild }) as unknown as HTMLElement;
+    editorAny.querySelector = (): HTMLElement => ({ appendChild }) as unknown as HTMLElement;
 
     editorAny._mountDataContractEditor();
     expect(appendChild).not.toHaveBeenCalled();
@@ -917,7 +926,7 @@ describe('EpistolaEditor data contract integration', () => {
       querySelector: (selector: string) => HTMLElement | null;
     };
     editorAny.dataContractOptions = createDataContractOptions();
-    editorAny.querySelector = () => null;
+    editorAny.querySelector = (): null => null;
 
     editorAny._mountDataContractEditor();
     expect(editorAny._dataContractMounted).toBe(false);
@@ -950,11 +959,15 @@ describe('EpistolaEditor data contract integration', () => {
     const nextSchema = { type: 'object', properties: { age: { type: 'number' } } } as JsonSchema;
     const nextExamples: DataExample[] = [{ id: 'ex-3', name: 'Example 3', data: { age: 42 } }];
 
-    await callbacks.onSaveSchema?.(nextSchema, false, nextExamples);
+    if (!callbacks.onSaveSchema) {
+      throw new Error('Expected onSaveSchema callback');
+    }
 
-    expect(setDataContext).toHaveBeenCalledWith({
-      dataModel: nextSchema,
-      dataExamples: nextExamples,
+    return callbacks.onSaveSchema(nextSchema, false, nextExamples).then(() => {
+      expect(setDataContext).toHaveBeenCalledWith({
+        dataModel: nextSchema,
+        dataExamples: nextExamples,
+      });
     });
   });
 
@@ -986,8 +999,12 @@ describe('EpistolaEditor data contract integration', () => {
     const callbacks = editorAny._createDataContractCallbacks();
     const nextSchema = { type: 'object', properties: { age: { type: 'number' } } } as JsonSchema;
 
-    await callbacks.onSaveSchema?.(nextSchema, false, []);
-    expect(setDataContext).not.toHaveBeenCalled();
+    if (!callbacks.onSaveSchema) {
+      throw new Error('Expected onSaveSchema callback');
+    }
+    return callbacks.onSaveSchema(nextSchema, false, []).then(() => {
+      expect(setDataContext).not.toHaveBeenCalled();
+    });
   });
 
   it('onSaveDataExamples updates engine examples on success only', async () => {
@@ -1010,15 +1027,30 @@ describe('EpistolaEditor data contract integration', () => {
     const callbacks = editorAny._createDataContractCallbacks();
     const nextExamples: DataExample[] = [{ id: 'ex-9', name: 'N', data: { n: 1 } }];
 
-    await callbacks.onSaveDataExamples?.(nextExamples);
-    expect(setDataExamples).toHaveBeenCalledWith(nextExamples);
+    if (!callbacks.onSaveDataExamples) {
+      throw new Error('Expected onSaveDataExamples callback');
+    }
 
-    setDataExamples.mockClear();
-    options.callbacks.onSaveDataExamples = vi.fn(async () => ({ success: false, error: 'bad' }));
-    editorAny.dataContractOptions = options;
-    const callbacksFail = editorAny._createDataContractCallbacks();
-    await callbacksFail.onSaveDataExamples?.(nextExamples);
-    expect(setDataExamples).not.toHaveBeenCalled();
+    return callbacks
+      .onSaveDataExamples(nextExamples)
+      .then(async () => {
+        expect(setDataExamples).toHaveBeenCalledWith(nextExamples);
+
+        setDataExamples.mockClear();
+        options.callbacks.onSaveDataExamples = vi.fn(async () => ({
+          success: false,
+          error: 'bad',
+        }));
+        editorAny.dataContractOptions = options;
+        const callbacksFail = editorAny._createDataContractCallbacks();
+        if (!callbacksFail.onSaveDataExamples) {
+          throw new Error('Expected onSaveDataExamples callback');
+        }
+        return callbacksFail.onSaveDataExamples(nextExamples);
+      })
+      .then(async () => {
+        expect(setDataExamples).not.toHaveBeenCalled();
+      });
   });
 
   it('onUpdateDataExample and onDeleteDataExample update engine examples on success', async () => {
@@ -1053,17 +1085,26 @@ describe('EpistolaEditor data contract integration', () => {
     editorAny.dataContractOptions = options;
     const callbacks = editorAny._createDataContractCallbacks();
 
-    await callbacks.onUpdateDataExample?.('ex-2', { name: 'Renamed' }, false);
-    expect(setDataExamples).toHaveBeenCalledWith([
-      options.initialExamples[0],
-      { id: 'ex-2', name: 'Renamed', data: { name: 'Bobby' } },
-    ]);
+    if (!callbacks.onUpdateDataExample || !callbacks.onDeleteDataExample) {
+      throw new Error('Expected data example callbacks');
+    }
 
-    setDataExamples.mockClear();
-    await callbacks.onDeleteDataExample?.('ex-1');
-    expect(setDataExamples).toHaveBeenCalledWith([
-      { id: 'ex-2', name: 'Example 2', data: { name: 'Bob' } },
-    ]);
+    return callbacks
+      .onUpdateDataExample('ex-2', { name: 'Renamed' }, false)
+      .then(async () => {
+        expect(setDataExamples).toHaveBeenCalledWith([
+          options.initialExamples[0],
+          { id: 'ex-2', name: 'Renamed', data: { name: 'Bobby' } },
+        ]);
+
+        setDataExamples.mockClear();
+        return callbacks.onDeleteDataExample?.('ex-1');
+      })
+      .then(() => {
+        expect(setDataExamples).toHaveBeenCalledWith([
+          { id: 'ex-2', name: 'Example 2', data: { name: 'Bob' } },
+        ]);
+      });
   });
 
   it('onUpdateDataExample does not update engine when callback fails or returns no example', async () => {
@@ -1090,14 +1131,26 @@ describe('EpistolaEditor data contract integration', () => {
     options.callbacks.onUpdateDataExample = vi.fn(async () => ({ success: false }));
     editorAny.dataContractOptions = options;
     const callbacksFail = editorAny._createDataContractCallbacks();
-    await callbacksFail.onUpdateDataExample?.('ex-2', { name: 'Renamed' }, false);
-    expect(setDataExamples).not.toHaveBeenCalled();
+    if (!callbacksFail.onUpdateDataExample) {
+      throw new Error('Expected onUpdateDataExample callback');
+    }
 
-    options.callbacks.onUpdateDataExample = vi.fn(async () => ({ success: true }));
-    editorAny.dataContractOptions = options;
-    const callbacksNoExample = editorAny._createDataContractCallbacks();
-    await callbacksNoExample.onUpdateDataExample?.('ex-2', { name: 'Renamed' }, false);
-    expect(setDataExamples).not.toHaveBeenCalled();
+    return callbacksFail
+      .onUpdateDataExample('ex-2', { name: 'Renamed' }, false)
+      .then(() => {
+        expect(setDataExamples).not.toHaveBeenCalled();
+
+        options.callbacks.onUpdateDataExample = vi.fn(async () => ({ success: true }));
+        editorAny.dataContractOptions = options;
+        const callbacksNoExample = editorAny._createDataContractCallbacks();
+        if (!callbacksNoExample.onUpdateDataExample) {
+          throw new Error('Expected onUpdateDataExample callback');
+        }
+        return callbacksNoExample.onUpdateDataExample('ex-2', { name: 'Renamed' }, false);
+      })
+      .then(() => {
+        expect(setDataExamples).not.toHaveBeenCalled();
+      });
   });
 
   it('onDeleteDataExample does not update engine when callback fails', async () => {
@@ -1121,8 +1174,12 @@ describe('EpistolaEditor data contract integration', () => {
     editorAny.dataContractOptions = options;
 
     const callbacks = editorAny._createDataContractCallbacks();
-    await callbacks.onDeleteDataExample?.('ex-1');
-    expect(setDataExamples).not.toHaveBeenCalled();
+    if (!callbacks.onDeleteDataExample) {
+      throw new Error('Expected onDeleteDataExample callback');
+    }
+    return callbacks.onDeleteDataExample('ex-1').then(() => {
+      expect(setDataExamples).not.toHaveBeenCalled();
+    });
   });
 
   it('creates empty callback object when data contract callbacks are omitted', () => {

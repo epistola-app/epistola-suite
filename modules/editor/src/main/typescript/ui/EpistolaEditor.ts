@@ -77,6 +77,11 @@ interface InsertTarget {
   parentType: string;
 }
 
+function isDataExampleArray(value: unknown): value is DataExample[] {
+  if (!Array.isArray(value)) return false;
+  return value.every((item) => typeof item === 'object' && item !== null && 'id' in item);
+}
+
 export interface EditorDataContractOptions {
   initialSchema: JsonSchema | null;
   initialExamples: DataExample[];
@@ -1369,13 +1374,17 @@ export class EpistolaEditor extends LitElement {
     }
   };
 
-  private _handleOpenDataContract = () => {
+  private _handleOpenDataContract = (): void => {
     if (!this.dataContractOptions) return;
     this._dataContractOpen = true;
-    void this.updateComplete.then(() => this._mountDataContractEditor());
+    this.updateComplete
+      .then(() => this._mountDataContractEditor())
+      .catch(() => {
+        // no-op
+      });
   };
 
-  private _closeDataContract = () => {
+  private _closeDataContract = (): void => {
     this._dataContractOpen = false;
   };
 
@@ -1384,9 +1393,9 @@ export class EpistolaEditor extends LitElement {
     const host = this.querySelector<HTMLElement>('.editor-data-contract-host');
     if (!host) return;
 
-    const editor = document.createElement(
+    const editor: EpistolaDataContractEditor = document.createElement(
       'epistola-data-contract-editor',
-    ) as EpistolaDataContractEditor;
+    );
     editor.style.display = 'block';
     editor.init(
       this.dataContractOptions.initialSchema,
@@ -1401,51 +1410,74 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _createDataContractCallbacks(): SaveCallbacks {
-    const callbacks = this.dataContractOptions?.callbacks ?? {};
+    const options = this.dataContractOptions;
+    if (!options) return {};
+    const callbacks = options.callbacks;
+    const onSaveSchemaCb = callbacks.onSaveSchema;
+    const onSaveDataExamplesCb = callbacks.onSaveDataExamples;
+    const onUpdateDataExampleCb = callbacks.onUpdateDataExample;
+    const onDeleteDataExampleCb = callbacks.onDeleteDataExample;
 
     return {
-      onSaveSchema: callbacks.onSaveSchema
-        ? async (schema, forceUpdate, dataExamples) => {
-            const result = await callbacks.onSaveSchema!(schema, forceUpdate, dataExamples);
-            if (result.success) {
-              this._engine?.setDataContext({
-                dataModel: schema,
-                ...(dataExamples ? { dataExamples } : {}),
-              });
-            }
-            return result;
-          }
+      onSaveSchema: onSaveSchemaCb
+        ? async (schema, forceUpdate, dataExamples) =>
+            onSaveSchemaCb(schema, forceUpdate, dataExamples).then((result) => {
+              if (result.success) {
+                const dataContext: { dataModel?: object | null; dataExamples?: object[] } = {
+                  dataModel: schema,
+                };
+                if (dataExamples) {
+                  dataContext.dataExamples = dataExamples;
+                }
+                if (this._engine) {
+                  this._engine.setDataContext(dataContext);
+                }
+              }
+              return result;
+            })
         : undefined,
-      onSaveDataExamples: callbacks.onSaveDataExamples
-        ? async (examples) => {
-            const result = await callbacks.onSaveDataExamples!(examples);
-            if (result.success) {
-              this._engine?.setDataExamples(examples);
-            }
-            return result;
-          }
+      onSaveDataExamples: onSaveDataExamplesCb
+        ? async (examples) =>
+            onSaveDataExamplesCb(examples).then((result) => {
+              if (result.success) {
+                if (this._engine) {
+                  this._engine.setDataExamples(examples);
+                }
+              }
+              return result;
+            })
         : undefined,
-      onUpdateDataExample: callbacks.onUpdateDataExample
-        ? async (exampleId, updates, forceUpdate) => {
-            const result = await callbacks.onUpdateDataExample!(exampleId, updates, forceUpdate);
-            if (result.success && result.example) {
-              const examples = (this._engine?.dataExamples ?? []) as DataExample[];
-              this._engine?.setDataExamples(
-                examples.map((example) => (example.id === exampleId ? result.example! : example)),
-              );
-            }
-            return result;
-          }
+      onUpdateDataExample: onUpdateDataExampleCb
+        ? async (exampleId, updates, forceUpdate) =>
+            onUpdateDataExampleCb(exampleId, updates, forceUpdate).then((result) => {
+              if (result.success && result.example) {
+                const updatedExample = result.example;
+                const engine = this._engine;
+                if (engine) {
+                  const sourceExamples = engine.dataExamples;
+                  const examples = isDataExampleArray(sourceExamples) ? sourceExamples : [];
+                  const nextExamples = examples.map((example) =>
+                    example.id === exampleId ? updatedExample : example,
+                  );
+                  engine.setDataExamples(nextExamples);
+                }
+              }
+              return result;
+            })
         : undefined,
-      onDeleteDataExample: callbacks.onDeleteDataExample
-        ? async (exampleId) => {
-            const result = await callbacks.onDeleteDataExample!(exampleId);
-            if (result.success) {
-              const examples = (this._engine?.dataExamples ?? []) as DataExample[];
-              this._engine?.setDataExamples(examples.filter((example) => example.id !== exampleId));
-            }
-            return result;
-          }
+      onDeleteDataExample: onDeleteDataExampleCb
+        ? async (exampleId) =>
+            onDeleteDataExampleCb(exampleId).then((result) => {
+              if (result.success) {
+                const engine = this._engine;
+                if (engine) {
+                  const sourceExamples = engine.dataExamples;
+                  const examples = isDataExampleArray(sourceExamples) ? sourceExamples : [];
+                  engine.setDataExamples(examples.filter((example) => example.id !== exampleId));
+                }
+              }
+              return result;
+            })
         : undefined,
     };
   }
