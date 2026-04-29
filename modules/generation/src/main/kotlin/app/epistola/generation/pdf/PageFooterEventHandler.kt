@@ -8,6 +8,7 @@ import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.layout.Canvas
 import com.itextpdf.layout.element.AreaBreak
+import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.Image
 
@@ -56,13 +57,28 @@ class PageFooterEventHandler(
             val totalPages = context.totalPages ?: pdfDoc.numberOfPages
             val pageContext = context.withInheritedStylesFrom(footerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(footerNode, document, pageContext)
+
+            // Wrap slot children in a Div so footer node styles (borders, background, padding) apply
+            val wrapper = Div()
+            StyleApplicator.applyStylesWithPreset(
+                wrapper,
+                footerNode.styles?.filterNonNullValues(),
+                footerNode.stylePreset,
+                context.blockStylePresets,
+                context.inheritedStyles,
+                context.fontCache,
+                context.renderingDefaults.componentDefaults("pagefooter"),
+                context.renderingDefaults.baseFontSizePt,
+                context.spacingUnit,
+            )
             for (element in elements) {
                 when (element) {
-                    is IBlockElement -> canvas.add(element)
-                    is Image -> canvas.add(element)
+                    is IBlockElement -> wrapper.add(element)
+                    is Image -> wrapper.add(element)
                     is AreaBreak -> Unit
                 }
             }
+            canvas.add(wrapper)
         }
 
         canvas.close()
