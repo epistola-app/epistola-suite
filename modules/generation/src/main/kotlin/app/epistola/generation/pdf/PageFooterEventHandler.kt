@@ -61,11 +61,14 @@ class PageFooterEventHandler(
             val pageContext = context.withInheritedStylesFrom(footerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(footerNode, document, pageContext)
 
-            // Wrap slot children in a Div so footer node styles (borders, background, padding) apply
+            // Wrap slot children in a Div so footer node styles (borders, background, padding) apply.
+            // marginBottom is consumed above as the rectangle's bottomPadding; strip it here so the
+            // user-set value isn't applied a second time inside the rectangle.
             val wrapper = Div()
+            val wrapperStyles = footerNode.styles?.filterNonNullValues()?.filterKeys { it != "marginBottom" }
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
-                footerNode.styles?.filterNonNullValues(),
+                wrapperStyles,
                 footerNode.stylePreset,
                 context.blockStylePresets,
                 context.inheritedStyles,

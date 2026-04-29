@@ -64,11 +64,14 @@ class PageHeaderEventHandler(
             val pageContext = context.withInheritedStylesFrom(headerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(headerNode, document, pageContext)
 
-            // Wrap slot children in a Div so header node styles (borders, background, padding) apply
+            // Wrap slot children in a Div so header node styles (borders, background, padding) apply.
+            // marginTop is consumed above as the rectangle's topPadding; strip it here so the
+            // user-set value isn't applied a second time inside the rectangle.
             val wrapper = Div()
+            val wrapperStyles = headerNode.styles?.filterNonNullValues()?.filterKeys { it != "marginTop" }
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
-                headerNode.styles?.filterNonNullValues(),
+                wrapperStyles,
                 headerNode.stylePreset,
                 context.blockStylePresets,
                 context.inheritedStyles,
