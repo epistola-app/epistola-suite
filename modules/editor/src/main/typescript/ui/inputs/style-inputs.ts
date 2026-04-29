@@ -20,7 +20,7 @@ export interface ParsedUnit {
 export function parseValueWithUnit(raw: unknown, defaultUnit: string): ParsedUnit {
   if (raw == null || raw === '') return { value: 0, unit: defaultUnit };
   const str = String(raw);
-  const match = str.match(/^(-?[\d.]+)\s*([a-z%]+)?$/i);
+  const match = str.match(/^([\d.]+)\s*([a-z%]+)?$/i);
   if (!match) return { value: 0, unit: defaultUnit };
   return { value: parseFloat(match[1]), unit: match[2] || defaultUnit };
 }
@@ -54,7 +54,7 @@ export function renderUnitInput(
       onChange(''); // signal nil → caller deletes the key
       return;
     }
-    const num = parseFloat(raw) || 0;
+    const num = Math.max(0, parseFloat(raw) || 0);
     onChange(formatValueWithUnit(num, parsed.unit));
   };
 
@@ -361,7 +361,7 @@ export function renderSpacingInput(
                 if (raw === '') {
                   handleSideChange(side, undefined);
                 } else {
-                  const num = parseFloat(raw) || 0;
+                  const num = Math.max(0, parseFloat(raw) || 0);
                   handleSideChange(side, formatSide(num));
                 }
               }}
