@@ -204,16 +204,16 @@ describe('ThemeEditorState', () => {
         'margin',
         {
           top: '10px',
-          right: '0px',
+          right: undefined,
           bottom: '16px',
-          left: '0px',
+          left: undefined,
         },
         'spacing',
       );
       const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>;
       expect(styles.marginTop).toBe('10px');
       expect(styles.marginBottom).toBe('16px');
-      expect(styles.marginRight).toBeUndefined(); // zero values removed
+      expect(styles.marginRight).toBeUndefined(); // undefined sides not stored
       expect(styles.marginLeft).toBeUndefined();
       expect(styles.margin).toBeUndefined(); // compound key removed
     });
