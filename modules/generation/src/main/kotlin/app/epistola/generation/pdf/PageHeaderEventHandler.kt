@@ -31,8 +31,11 @@ class PageHeaderEventHandler(
         // --- header band (top of page) ---
         val leftPadding = 36f
         val rightPadding = 36f
-        val topPadding = context.renderingDefaults.pageHeaderPadding
         val headerNode = document.nodes[headerNodeId]
+        // marginTop on the header node overrides the default page-header padding
+        // (= gap between the page edge and the header content).
+        val topPadding = parseNodeStyleSize(headerNode, "marginTop", context)
+            ?: context.renderingDefaults.pageHeaderPadding
         val headerHeight = parseNodeHeight(headerNode, context)
             ?: context.renderingDefaults.pageHeaderHeight
 

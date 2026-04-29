@@ -171,11 +171,19 @@ class DirectPdfRenderer(
             parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
+        // marginTop / marginBottom on the header / footer nodes override the
+        // page-padding defaults so the layout reservation matches the rectangle
+        // computed in the page-event handlers.
+        val headerTopPadding = parseNodeStyleSize(headerNode, "marginTop", context)
+            ?: renderingDefaults.pageHeaderPadding
+        val footerBottomPadding = parseNodeStyleSize(footerNode, "marginBottom", context)
+            ?: renderingDefaults.pageFooterPadding
+
         val mmToPt = 2.834645f
         val topMargin = margins.top.toFloat() * mmToPt +
-            if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
+            if (headerNode != null) headerTopPadding + headerHeight else 0f
         val bottomMargin = margins.bottom.toFloat() * mmToPt +
-            if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
+            if (footerNode != null) footerBottomPadding + footerHeight else 0f
 
         performRenderWithContext(
             outputStream = outputStream,

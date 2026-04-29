@@ -31,8 +31,11 @@ class PageFooterEventHandler(
         // --- footer band (bottom of page) ---
         val leftPadding = 36f
         val rightPadding = 36f
-        val bottomPadding = context.renderingDefaults.pageFooterPadding
         val footerNode = document.nodes[footerNodeId]
+        // marginBottom on the footer node overrides the default page-footer
+        // padding (= gap between the footer content and the page edge).
+        val bottomPadding = parseNodeStyleSize(footerNode, "marginBottom", context)
+            ?: context.renderingDefaults.pageFooterPadding
         val footerHeight = parseNodeHeight(footerNode, context)
             ?: context.renderingDefaults.pageFooterHeight
 

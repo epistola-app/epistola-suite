@@ -133,3 +133,17 @@ internal fun parseNodeHeight(node: Node?, context: RenderContext): Float? {
         else -> null
     }
 }
+
+/**
+ * Parses a margin/padding side from `node.styles[key]` to absolute points.
+ * Used by the header/footer page-event handlers to let an explicit
+ * `marginTop` / `marginBottom` on the node override the hardcoded
+ * page-padding default.
+ *
+ * Returns null when the key is absent (nil), when the value isn't a
+ * string, or when the unit isn't supported by [StyleApplicator.parseSize].
+ */
+internal fun parseNodeStyleSize(node: Node?, key: String, context: RenderContext): Float? {
+    val raw = node?.styles?.get(key) as? String ?: return null
+    return StyleApplicator.parseSize(raw, context.renderingDefaults.baseFontSizePt, context.spacingUnit)
+}
