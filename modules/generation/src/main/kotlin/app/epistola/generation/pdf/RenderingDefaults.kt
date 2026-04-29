@@ -113,7 +113,7 @@ data class RenderingDefaults(
             listItemMarginBottom = 2f, // 0.5sp
             tableBorderWidth = 0.5f,
             tableBorderColorHex = "#808080",
-            tableCellPadding = 0f, // 0sp — cells render flush; padding via per-cell styles
+            tableCellPadding = 0f, // 0pt (0sp) — cells render flush; padding via per-cell styles
             datatableDefaultColumnWidthPercent = 33f,
             columnGap = 8f, // 2sp
             baseFontSizePt = 12f,
