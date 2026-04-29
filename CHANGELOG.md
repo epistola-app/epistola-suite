@@ -7,6 +7,7 @@
 ### Changed
 
 - **Removed `px` unit support**: `StyleApplicator.parseSize` no longer recognizes `px` and the editor's spacing input no longer converts `px` values. Templates created before the `sp`/`pt` switch that still hold `Npx` values for margin/padding will not render those margins in the PDF, and the inspector will show the numeric portion in the fallback unit (`pt`) without scaling. Re-enter the value in `sp` or `pt` to fix.
+- **Default text and table-cell spacing zeroed**: Three `RenderingDefaults.V1` values that produced visible whitespace authors couldn't see in the inspector are now `0`: `componentSpacing["text"].marginBottom` (`1.5sp` → `0sp`), `paragraphMarginBottom` (`6pt` → `0pt`), and `tableCellPadding` (`8pt` → `0pt`). Default gap between two stacked text blocks drops from ~12pt to ~0pt; cells render flush. Set `marginTop`/`marginBottom`/`padding` explicitly via the inspector to restore previous spacing.
 
 ### Fixed
 
