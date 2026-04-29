@@ -26,10 +26,6 @@
 - **Deployment matrix error handling**: Contract compatibility errors shown inline in the deployment matrix instead of generic "An error occurred" message.
 - **Contract usage overview**: Dialog showing all template versions with their contract version (color-coded: green=current, amber=outdated) and active deployments.
 
-### Fixed
-
-- **Template deletion discoverability**: The "Delete Template" button now appears in the page header on all template detail tabs, not just buried in Settings > Danger Zone. Extracted the delete form into a reusable fragment (`fragments/template-actions.html`). Added `aria-label` with the template name for accessibility. Fixed a CSS bug where `button[type='submit']` globally overrode `.btn-destructive` styles — now scoped to buttons without an explicit `.btn-*` class.
-
 ### Changed
 
 - **Renovate PR consolidation**: GitHub Actions updates (digests + majors) grouped into a single PR; major dependency updates merged into the non-major PR; lock file maintenance merged into the non-major PR.
