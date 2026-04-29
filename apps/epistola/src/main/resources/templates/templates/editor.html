@@ -139,7 +139,10 @@
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
                         body: formData,
                     });
-                    if (!resp.ok) throw new Error('Failed to upload asset');
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        throw new Error(err.error || 'Failed to upload asset');
+                    }
                     return await resp.json();
                 },
             },

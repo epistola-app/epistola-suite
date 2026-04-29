@@ -12,6 +12,9 @@
 
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
 - **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
+- **Import always creates contract version**: Templates imported without a data model or data examples now always get a contract version (previously skipped, causing NPE when saving). Backfill migration (V24) creates missing contract versions for existing templates.
+- **Export only includes published template versions**: Catalog export now only includes templates with published versions, skipping draft-only templates.
+- **Clear error on missing contract version**: `UpdateDraft`, `CreateVariant`, and `CreateVersion` now throw a descriptive `IllegalStateException` instead of a raw `NullPointerException` when no contract version exists.
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
 
 ## [0.17.0] - 2026-04-28
@@ -43,6 +46,15 @@
 ### Fixed
 
 - **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+
+### Added
+
+- **SVG and WEBP image support in PDF**: The PDF renderer now supports SVG (via iText SVG converter) and WEBP (via TwelveMonkeys ImageIO) image formats in addition to PNG and JPEG.
+- **Render mode (STRICT/PREVIEW)**: New `RenderMode` controls error handling during PDF generation. STRICT mode fails fast on corrupt assets (for production renders), PREVIEW mode renders a visible error placeholder (for editor previews). Live cascade renders default to PREVIEW; snapshot renders default to STRICT.
+
+### Changed
+
+- **SVG converter decoupled from RenderContext**: SVG image conversion is now injected into `ImageNodeRenderer` via a `SvgImageConverter` fun interface, keeping `RenderContext` library-agnostic for future non-iText PDF renderers.
 
 ## [0.16.0] - 2026-04-23
 

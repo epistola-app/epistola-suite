@@ -137,7 +137,9 @@ class UpdateDraftHandler(
                 .bind("templateKey", command.variantId.templateKey)
                 .mapTo(Int::class.java)
                 .findOne()
-                .orElse(null)
+                .orElseThrow {
+                    IllegalStateException("No contract version found for template '${command.variantId.templateKey}'")
+                }
 
             handle.createQuery(
                 """

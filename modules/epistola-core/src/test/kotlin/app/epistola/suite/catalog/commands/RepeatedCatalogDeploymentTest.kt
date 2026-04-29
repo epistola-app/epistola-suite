@@ -152,7 +152,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `repeated import without schema preserves existing contract from first import`() {
+    fun `repeated import without schema creates empty contract replacing previous`() {
         val tenant = createTenant("No Schema Reimport Test")
         val tenantId = TenantId(tenant.id)
         val slug = TestIdHelpers.nextTemplateId().value
@@ -169,17 +169,16 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             val contract1 = GetLatestPublishedContractVersion(templateId).query()
             assertThat(contract1!!.dataModel).isNotNull
 
-            // Second import WITHOUT schema (null dataModel, empty examples)
+            // Second import WITHOUT schema — creates a new empty contract
             ImportTemplates(
                 tenantId = tenantId,
                 templates = listOf(buildImportInput(slug, dataModel = null)),
             ).execute()
 
-            // Contract should still be queryable from the template
+            // A new contract version exists but with null dataModel (the import had no schema)
             val contract2 = GetLatestPublishedContractVersion(templateId).query()
             assertThat(contract2).isNotNull
-            assertThat(contract2!!.dataModel).isNotNull
-            assertThat(contract2.dataModel.toString()).isEqualTo(dataModel.toString())
+            assertThat(contract2!!.dataModel).isNull()
         }
     }
 
@@ -372,9 +371,10 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
 
-            // Verify no contract exists (simulates post-V23 migration state)
+            // Import always creates a contract version, even without data — verify it exists but has no schema
             val contractBefore = GetLatestPublishedContractVersion(templateId).query()
-            assertThat(contractBefore).isNull()
+            assertThat(contractBefore).isNotNull
+            assertThat(contractBefore!!.dataModel).isNull()
 
             // Now deploy again WITH the schema (simulating external system sending full catalog)
             ImportTemplates(
