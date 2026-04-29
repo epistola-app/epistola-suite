@@ -6,6 +6,8 @@ import {
   readBorderFromStyles,
   parseBorderShorthand,
   areBorderSidesEqual,
+  convertSideValue,
+  DEFAULT_SPACING_UNIT,
   type SpacingValue,
   type BorderValue,
 } from './style-inputs.js';
@@ -134,6 +136,30 @@ describe('readSpacingFromStyles', () => {
     const result = readSpacingFromStyles('margin', styles);
 
     expect(result).toEqual({ top: '10px', right: '5px', bottom: '10px', left: '5px' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// convertSideValue — explicit unit-switch between supported units (sp, pt).
+// ---------------------------------------------------------------------------
+
+describe('convertSideValue', () => {
+  const baseUnit = DEFAULT_SPACING_UNIT;
+
+  it('returns value unchanged when fromUnit equals toUnit', () => {
+    expect(convertSideValue('8pt', 'pt', 'pt', baseUnit)).toBe('8pt');
+  });
+
+  it('converts pt to sp via the spacing scale', () => {
+    expect(convertSideValue('8pt', 'pt', 'sp', baseUnit)).toBe('2sp');
+  });
+
+  it('converts sp to pt by multiplying with base unit', () => {
+    expect(convertSideValue('2sp', 'sp', 'pt', baseUnit)).toBe('8pt');
+  });
+
+  it('returns value unchanged for unknown source unit', () => {
+    expect(convertSideValue('5em', 'em', 'pt', baseUnit)).toBe('5em');
   });
 });
 

@@ -181,10 +181,23 @@ function detectSpacingUnit(parsed: SpacingValue, defaultUnit: string): string {
   return defaultUnit;
 }
 
+/** Convert any supported unit to absolute pt. Returns null if unit is unknown. */
+function toPt(value: string, fromUnit: string, baseUnit: number): number | null {
+  if (fromUnit === 'sp') {
+    const step = parseSpacingToken(value);
+    const multiplier = step != null ? parseFloat(step) || 0 : 0;
+    return multiplier * baseUnit;
+  }
+  if (fromUnit === 'pt') return parseValueWithUnit(value, 'pt').value;
+  return null;
+}
+
 /**
- * Convert a single side value between sp and pt.
+ * Convert a single side value between supported units (sp, pt, px).
+ * Used both for explicit unit-switch and for migrating legacy values
+ * to a unit that's actually offered in the dropdown.
  */
-function convertSideValue(
+export function convertSideValue(
   value: string,
   fromUnit: string,
   toUnit: string,
@@ -192,16 +205,11 @@ function convertSideValue(
 ): string {
   if (fromUnit === toUnit) return value;
 
-  if (fromUnit === 'sp' && toUnit === 'pt') {
-    const step = parseSpacingToken(value);
-    const multiplier = step != null ? parseFloat(step) || 0 : 0;
-    return formatValueWithUnit(multiplier * baseUnit, 'pt');
-  }
+  const pt = toPt(value, fromUnit, baseUnit);
+  if (pt == null) return value;
 
-  if (fromUnit === 'pt' && toUnit === 'sp') {
-    const p = parseValueWithUnit(value, 'pt');
-    return formatSpacingToken(nearestSpacingStep(p.value, baseUnit));
-  }
+  if (toUnit === 'pt') return formatValueWithUnit(pt, 'pt');
+  if (toUnit === 'sp') return formatSpacingToken(nearestSpacingStep(pt, baseUnit));
 
   return value;
 }
@@ -282,8 +290,14 @@ export function renderSpacingInput(
 ): unknown {
   const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
   const parsed = parseSpacingValue(value, firstAbsUnit);
-  const currentUnit = detectSpacingUnit(parsed, firstAbsUnit);
   const sides = ['top', 'right', 'bottom', 'left'] as const;
+
+  // Clamp the detected unit to one that's offered in the dropdown.
+  // Stored values that use an unsupported unit (legacy data, hand-edited
+  // JSON) display their numeric portion in the fallback unit and are
+  // re-saved with the fallback unit on the next edit.
+  const detected = detectSpacingUnit(parsed, firstAbsUnit);
+  const currentUnit = units.includes(detected) ? detected : firstAbsUnit;
   const topInputId = inputId ?? undefined;
 
   const handleSideChange = (side: string, newValue: string) => {
