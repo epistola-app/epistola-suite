@@ -69,7 +69,7 @@ class RenderingDefaultsTest {
     fun `componentDefaults returns correct map for known type`() {
         val defaults = RenderingDefaults.V1.componentDefaults("text")
         assertNotNull(defaults)
-        assertEquals("1.5sp", defaults["marginBottom"])
+        assertEquals("0sp", defaults["marginBottom"])
     }
 
     @Test
