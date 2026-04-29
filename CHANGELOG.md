@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **In-editor Data Contract modal workflow**: The template editor toolbar now includes a Data Contract action that opens a modal for editing schema and data examples inline, and refreshes editor data context immediately after successful saves.
+
 ### Fixed
 
 - **Import always creates contract version**: Templates imported without a data model or data examples now always get a contract version (previously skipped, causing NPE when saving). Backfill migration (V24) creates missing contract versions for existing templates.
