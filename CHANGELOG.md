@@ -18,6 +18,7 @@
 - **Clear error on missing contract version**: `UpdateDraft`, `CreateVariant`, and `CreateVersion` now throw a descriptive `IllegalStateException` instead of a raw `NullPointerException` when no contract version exists.
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
 - **Header/footer style rendering in PDF**: Page header/footer event handlers now apply node-level styles by wrapping rendered slot content in a styled `Div`, restoring expected borders, background, and padding in generated PDFs.
+- **Expression editor discoverability**: Added a subtle inline hint in text block headers (`type {{ for expressions`) so users can discover inline expression insertion without leaving the editor flow.
 
 ## [0.17.0] - 2026-04-28
 
