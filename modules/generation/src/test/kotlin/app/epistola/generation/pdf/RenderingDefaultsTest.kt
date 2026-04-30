@@ -69,12 +69,18 @@ class RenderingDefaultsTest {
     fun `componentDefaults returns correct map for known type`() {
         val defaults = RenderingDefaults.V1.componentDefaults("text")
         assertNotNull(defaults)
-        assertEquals("1.5sp", defaults["marginBottom"])
+        assertEquals("0sp", defaults["marginBottom"])
     }
 
     @Test
     fun `componentDefaults returns null for unknown type`() {
         assertEquals(null, RenderingDefaults.V1.componentDefaults("unknown"))
+    }
+
+    @Test
+    fun `V1 paragraph and table-cell spacing default to zero`() {
+        assertEquals(0f, RenderingDefaults.V1.paragraphMarginBottom)
+        assertEquals(0f, RenderingDefaults.V1.tableCellPadding)
     }
 
     // -----------------------------------------------------------------------
