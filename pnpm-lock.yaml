@@ -117,6 +117,9 @@ importers:
       globals:
         specifier: ^17.0.0
         version: 17.4.0
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ~6.0.0
         version: 6.0.2
@@ -1191,6 +1194,9 @@ packages:
   jsonata@2.1.0:
     resolution: {integrity: sha512-OCzaRMK8HobtX8fp37uIVmL8CY1IGc/a6gLsDqz3quExFR09/U78HUzWYr7T31UEB6+Eu0/8dkVD5fFDOl9a8w==}
     engines: {node: '>= 8'}
+
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
 
   keytar@7.9.0:
     resolution: {integrity: sha512-VPD8mtVtm5JNtA2AErl6Chp06JBfy7diFQ7TQQhdpWOl6MrCRB+eRbvAZUsbGQS9kiMq0coJsy0W0vHpDCkWsQ==}
@@ -2566,6 +2572,8 @@ snapshots:
   json-schema-traverse@1.0.0: {}
 
   jsonata@2.1.0: {}
+
+  jsqr@1.4.0: {}
 
   keytar@7.9.0:
     dependencies:

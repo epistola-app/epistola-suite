@@ -10,6 +10,11 @@ const DEFAULT_SIZE_PT = 120;
 const PX_PER_PT = 96 / 72;
 const SPACING_UNIT_PT = 4;
 const MAX_VALUE_BYTES = 2500;
+const LOGO_SIZE_RATIO = 0.22;
+const LOGO_FRAME_PADDING_RATIO = 0.06;
+const LOGO_FRAME_RADIUS = 8;
+
+type QrCodeType = 'standard' | 'logo';
 
 function parseSizeToPt(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -68,8 +73,11 @@ export class EpistolaQrCodePreview extends LitElement {
   @property() nodeId = '';
   @property() expression = '';
   @property() size = `${DEFAULT_SIZE_PT}pt`;
+  @property() qrType: QrCodeType = 'standard';
+  @property() logoSrc: string | null = null;
 
   @state() private _svgMarkup: string | null = null;
+  @state() private _imageUrl: string | null = null;
   @state() private _status: 'idle' | 'loading' | 'ready' | 'empty' | 'invalid' | 'too-long' =
     'idle';
 
@@ -97,7 +105,9 @@ export class EpistolaQrCodePreview extends LitElement {
       changed.has('engine') ||
       changed.has('nodeId') ||
       changed.has('expression') ||
-      changed.has('size')
+      changed.has('size') ||
+      changed.has('qrType') ||
+      changed.has('logoSrc')
     ) {
       void this._refresh();
     }
@@ -106,15 +116,32 @@ export class EpistolaQrCodePreview extends LitElement {
   override render() {
     const size = resolveCssSize(this.size);
 
-    if (this._status === 'ready' && this._svgMarkup) {
-      return html`
-        <div
-          class="qrcode-preview qrcode-preview-ready"
-          style=${`width: ${size}; height: ${size};`}
-        >
-          ${unsafeSVG(this._svgMarkup)}
-        </div>
-      `;
+    if (this._status === 'ready') {
+      if (this._imageUrl) {
+        return html`
+          <div
+            class="qrcode-preview qrcode-preview-ready"
+            style=${`width: ${size}; height: ${size};`}
+          >
+            <img
+              src=${this._imageUrl}
+              alt="QR code"
+              style="display: block; width: 100%; height: 100%;"
+            />
+          </div>
+        `;
+      }
+
+      if (this._svgMarkup) {
+        return html`
+          <div
+            class="qrcode-preview qrcode-preview-ready"
+            style=${`width: ${size}; height: ${size};`}
+          >
+            ${unsafeSVG(this._svgMarkup)}
+          </div>
+        `;
+      }
     }
 
     const message =
@@ -151,6 +178,7 @@ export class EpistolaQrCodePreview extends LitElement {
     const expression = this.expression.trim();
     if (!this.engine || !this.nodeId || !expression) {
       this._svgMarkup = null;
+      this._imageUrl = null;
       this._status = 'empty';
       return;
     }
@@ -166,32 +194,110 @@ export class EpistolaQrCodePreview extends LitElement {
     const qrValue = toScalarString(resolved);
     if (!qrValue) {
       this._svgMarkup = null;
+      this._imageUrl = null;
       this._status = 'invalid';
       return;
     }
 
     if (new TextEncoder().encode(qrValue).byteLength > MAX_VALUE_BYTES) {
       this._svgMarkup = null;
+      this._imageUrl = null;
       this._status = 'too-long';
       return;
     }
 
     try {
-      this._svgMarkup = await QRCode.toString(qrValue, {
-        type: 'svg',
-        errorCorrectionLevel: 'M',
-        margin: 1,
-        width: resolveQrWidth(this.size),
-        color: {
-          dark: '#111827ff',
-          light: '#ffffffff',
-        },
-      });
+      if (this.qrType === 'logo') {
+        const canvas = document.createElement('canvas');
+        await QRCode.toCanvas(canvas, qrValue, {
+          errorCorrectionLevel: 'H',
+          margin: 1,
+          width: resolveQrWidth(this.size),
+          color: {
+            dark: '#111827ff',
+            light: '#ffffffff',
+          },
+        });
+
+        if (this.logoSrc) {
+          await this._drawLogoOnCanvas(canvas);
+        }
+
+        this._imageUrl = canvas.toDataURL('image/png');
+        this._svgMarkup = null;
+      } else {
+        this._svgMarkup = await QRCode.toString(qrValue, {
+          type: 'svg',
+          errorCorrectionLevel: 'L',
+          margin: 1,
+          width: resolveQrWidth(this.size),
+          color: {
+            dark: '#111827ff',
+            light: '#ffffffff',
+          },
+        });
+        this._imageUrl = null;
+      }
+
       this._status = 'ready';
     } catch {
       this._svgMarkup = null;
+      this._imageUrl = null;
       this._status = 'invalid';
     }
+  }
+
+  private async _drawLogoOnCanvas(canvas: HTMLCanvasElement): Promise<void> {
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.src = this.logoSrc!;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error('Logo load timeout')), 5000);
+        logoImg.onload = () => {
+          window.clearTimeout(timer);
+          resolve();
+        };
+        logoImg.onerror = () => {
+          window.clearTimeout(timer);
+          reject(new Error('Logo load failed'));
+        };
+      });
+    } catch {
+      // Logo failed to load (CORS or network) — QR code still renders without logo
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const logoSize = Math.max(16, Math.round(canvas.width * LOGO_SIZE_RATIO));
+    const x = Math.round((canvas.width - logoSize) / 2);
+    const y = Math.round((canvas.height - logoSize) / 2);
+    const framePadding = Math.max(2, Math.round(logoSize * LOGO_FRAME_PADDING_RATIO));
+
+    ctx.fillStyle = '#ffffff';
+    if (typeof (ctx as CanvasRenderingContext2D & { roundRect?: (...args: unknown[]) => void }).roundRect === 'function') {
+      ctx.beginPath();
+      (ctx as unknown as { roundRect(x: number, y: number, w: number, h: number, r: number): void }).roundRect(
+        x - framePadding,
+        y - framePadding,
+        logoSize + framePadding * 2,
+        logoSize + framePadding * 2,
+        LOGO_FRAME_RADIUS,
+      );
+      ctx.fill();
+    } else {
+      ctx.fillRect(
+        x - framePadding,
+        y - framePadding,
+        logoSize + framePadding * 2,
+        logoSize + framePadding * 2,
+      );
+    }
+
+    ctx.drawImage(logoImg, x, y, logoSize, logoSize);
   }
 }
 

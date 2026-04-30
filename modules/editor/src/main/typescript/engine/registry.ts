@@ -13,7 +13,6 @@ import { createTableDefinition } from '../components/table/table-registration.js
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';
 import { createDatatableDefinition } from '../components/datatable/datatable-registration.js';
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
-import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -154,6 +153,9 @@ export interface ComponentDefinition {
 
   /** Custom inspector section rendered above generic props. */
   renderInspector?: (ctx: { node: Node; engine: unknown }) => unknown;
+
+  /** Custom inspector section rendered below generic props. */
+  renderInspectorAfterProps?: (ctx: { node: Node; engine: unknown }) => unknown;
 
   /**
    * Lets a component customise the generic inspector's presentation (label
@@ -426,7 +428,6 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register(createTableDefinition());
   registry.register(createDatatableDefinition());
   registry.register(createDatatableColumnDefinition());
-  registry.register(createQrCodeDefinition());
 
   registry.register({
     type: 'conditional',

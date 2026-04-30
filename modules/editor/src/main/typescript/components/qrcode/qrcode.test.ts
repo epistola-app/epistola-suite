@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { EditorEngine } from '../../engine/EditorEngine.js';
 import { createDefaultRegistry } from '../../engine/registry.js';
 import { createTestDocument, resetCounter } from '../../engine/test-helpers.js';
+import { createQrCodeDefinition } from './qrcode-registration.js';
 import type { NodeId } from '../../types/index.js';
 
 beforeEach(() => {
@@ -10,6 +11,7 @@ beforeEach(() => {
 
 function setupQrCodeEngine(overrideProps?: Record<string, unknown>) {
   const registry = createDefaultRegistry();
+  registry.register(createQrCodeDefinition());
   const doc = createTestDocument();
   const engine = new EditorEngine(doc, registry);
   const rootSlotId = doc.nodes[doc.root].slots[0];
@@ -37,6 +39,7 @@ function getQrCodeNode(engine: EditorEngine, qrCodeNodeId: NodeId) {
 describe('QR code createNode', () => {
   it('produces a leaf node with QR defaults', () => {
     const registry = createDefaultRegistry();
+    registry.register(createQrCodeDefinition());
     const { node, slots } = registry.createNode('qrcode');
 
     expect(node.type).toBe('qrcode');
@@ -45,11 +48,14 @@ describe('QR code createNode', () => {
     expect(node.props).toEqual({
       value: { raw: '', language: 'jsonata' },
       size: '120pt',
+      qrType: 'standard',
+      logoAssetId: null,
     });
   });
 
   it('merges override props on top of defaults', () => {
     const registry = createDefaultRegistry();
+    registry.register(createQrCodeDefinition());
     const { node } = registry.createNode('qrcode', {
       value: { raw: 'customer.paymentLink', language: 'jsonata' },
       size: '96pt',
@@ -58,6 +64,8 @@ describe('QR code createNode', () => {
     expect(node.props).toEqual({
       value: { raw: 'customer.paymentLink', language: 'jsonata' },
       size: '96pt',
+      qrType: 'standard',
+      logoAssetId: null,
     });
   });
 });
@@ -100,6 +108,7 @@ describe('QR code InsertNode', () => {
 describe('QR code registry behavior', () => {
   it('is available in insertable()', () => {
     const registry = createDefaultRegistry();
+    registry.register(createQrCodeDefinition());
     const types = registry.insertable().map((def) => def.type);
 
     expect(types).toContain('qrcode');
@@ -107,6 +116,7 @@ describe('QR code registry behavior', () => {
 
   it('cannot contain child nodes', () => {
     const registry = createDefaultRegistry();
+    registry.register(createQrCodeDefinition());
 
     expect(registry.canContain('qrcode', 'text')).toBe(false);
     expect(registry.canContain('qrcode', 'container')).toBe(false);

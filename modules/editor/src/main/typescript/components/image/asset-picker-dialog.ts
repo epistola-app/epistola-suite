@@ -20,7 +20,22 @@ export interface AssetPickerCallbacks {
   uploadAsset: (file: File) => Promise<AssetInfo>;
 }
 
-export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<AssetInfo | null> {
+export interface AssetPickerOptions {
+  /** Restrict visible/selectable assets to these MIME types. */
+  acceptedMimeTypes?: string[];
+}
+
+export function openAssetPickerDialog(
+  callbacks: AssetPickerCallbacks,
+  options?: AssetPickerOptions,
+): Promise<AssetInfo | null> {
+  const acceptedMimeTypes = options?.acceptedMimeTypes;
+  const defaultAccept = 'image/png,image/jpeg,image/webp,image/svg+xml';
+  const acceptAttr = acceptedMimeTypes?.join(',') ?? defaultAccept;
+  const hintText = acceptedMimeTypes
+    ? acceptedMimeTypes.map((m) => m.replace('image/', '').toUpperCase()).join(', ') + ' — max 5MB'
+    : 'PNG, JPEG, WebP, SVG — max 5MB';
+
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'asset-picker-dialog';
@@ -34,10 +49,10 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
         <div class="asset-picker-upload-zone" id="asset-picker-upload">
           <p>Drop image here or <label class="asset-picker-upload-link" for="asset-picker-file">browse</label></p>
-          <p class="asset-picker-upload-hint">PNG, JPEG, WebP, SVG — max 5MB</p>
+          <p class="asset-picker-upload-hint">${hintText}</p>
           <p class="asset-picker-upload-error" id="asset-picker-upload-error" role="alert" aria-live="polite"></p>
           <input type="file" id="asset-picker-file"
-                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                 accept="${acceptAttr}"
                  style="display: none;" />
         </div>
 
@@ -107,7 +122,10 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     callbacks
       .listAssets()
       .then((assets) => {
-        renderGrid(assets);
+        const visibleAssets = acceptedMimeTypes
+          ? assets.filter((a) => acceptedMimeTypes.includes(a.mediaType))
+          : assets;
+        renderGrid(visibleAssets);
       })
       .catch(() => {
         grid.innerHTML = '<div class="asset-picker-empty">Failed to load assets.</div>';
@@ -116,6 +134,12 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     // Upload handling
     const handleUpload = async (file: File) => {
       uploadError.textContent = '';
+
+      if (acceptedMimeTypes && !acceptedMimeTypes.includes(file.type)) {
+        uploadError.textContent = `Unsupported file type. Please upload ${hintText.replace(' — max 5MB', '')}.`;
+        return;
+      }
+
       uploadZone.classList.add('uploading');
       try {
         const asset = await callbacks.uploadAsset(file);

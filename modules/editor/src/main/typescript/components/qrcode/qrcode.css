@@ -1,6 +1,13 @@
 .qrcode-canvas {
   display: flex;
   flex-direction: column;
+  gap: var(--ep-space-2);
+}
+
+.qrcode-logo-actions {
+  display: flex;
+  gap: var(--ep-space-2);
+  flex-wrap: wrap;
 }
 
 .qrcode-preview {
@@ -12,6 +19,12 @@
 }
 
 .qrcode-preview svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qrcode-preview img {
   display: block;
   width: 100%;
   height: 100%;
