@@ -230,9 +230,18 @@ export class EpistolaInspector extends LitElement {
                     type="number"
                     id=${`page-settings-margin-${side}`}
                     class="ep-input style-spacing-number"
+                    min="0"
                     .value=${String(settings.margins[side])}
-                    @change=${(e: Event) =>
-                      this._handleMarginChange(side, Number((e.target as HTMLInputElement).value))}
+                    @change=${(e: Event) => {
+                      const target = e.target as HTMLInputElement;
+                      let num = Number(target.value);
+                      if (!Number.isFinite(num) || num < 0) {
+                        // Clamp typed negatives — min="0" is only enforced on submit.
+                        num = 0;
+                        target.value = '0';
+                      }
+                      this._handleMarginChange(side, num);
+                    }}
                   />
                 </div>
               `,
