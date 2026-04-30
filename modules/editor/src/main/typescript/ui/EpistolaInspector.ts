@@ -109,6 +109,11 @@ export class EpistolaInspector extends LitElement {
           ? this._renderInspectorFields(node, def)
           : nothing}
 
+        <!-- Component-specific inspector after props -->
+        ${def?.renderInspectorAfterProps
+          ? def.renderInspectorAfterProps({ node, engine: this.engine! })
+          : nothing}
+
         <!-- Style preset -->
         ${!presentation?.suppressStylePresetSection && this._hasStyles(def?.applicableStyles)
           ? this._renderStylePresetSection(node)

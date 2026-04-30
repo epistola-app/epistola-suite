@@ -15,6 +15,7 @@ import type { FetchPreviewFn } from './ui/preview-service.js';
 import type { EditorPlugin } from './plugins/types.js';
 import { createDefaultRegistry } from './engine/registry.js';
 import { createImageDefinition } from './components/image/image-registration.js';
+import { createQrCodeDefinition } from './components/qrcode/qrcode-registration.js';
 import type { AssetInfo } from './components/image/asset-picker-dialog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
 import type { StencilCallbacks } from './components/stencil/types.js';
@@ -152,6 +153,16 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   if (options.imageOptions) {
     registry.register(
       createImageDefinition({
+        assetPicker: {
+          listAssets: options.imageOptions.listAssets,
+          uploadAsset: options.imageOptions.uploadAsset,
+        },
+        contentUrlPattern: options.imageOptions.contentUrlPattern,
+      }),
+    );
+
+    registry.register(
+      createQrCodeDefinition({
         assetPicker: {
           listAssets: options.imageOptions.listAssets,
           uploadAsset: options.imageOptions.uploadAsset,
