@@ -182,6 +182,10 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine) return nothing;
 
     const settings = this.engine.resolvedPageSettings;
+    // Margin inputs render the OVERRIDE value (so empty input = nil = falls
+    // through the cascade). The resolved value is shown as a placeholder so
+    // the user knows what will actually be used at render time.
+    const overrideMargins = this.doc?.pageSettingsOverride?.margins;
 
     return html`
       <div class="inspector-section">
@@ -222,21 +226,26 @@ export class EpistolaInspector extends LitElement {
         <div class="inspector-field">
           <label class="inspector-field-label" for="page-settings-margin-top">Margins (mm)</label>
           <div class="inspector-margins-grid">
-            ${(['top', 'right', 'bottom', 'left'] as const).map(
-              (side) => html`
+            ${(['top', 'right', 'bottom', 'left'] as const).map((side) => {
+              const overrideValue = overrideMargins?.[side];
+              return html`
                 <div class="inspector-margin-field">
                   <span class="style-spacing-label">${side[0].toUpperCase()}</span>
                   <input
                     type="number"
                     id=${`page-settings-margin-${side}`}
                     class="ep-input style-spacing-number"
-                    .value=${String(settings.margins[side])}
-                    @change=${(e: Event) =>
-                      this._handleMarginChange(side, Number((e.target as HTMLInputElement).value))}
+                    min="0"
+                    placeholder="—"
+                    .value=${overrideValue != null ? String(overrideValue) : ''}
+                    @change=${(e: Event) => {
+                      const raw = (e.target as HTMLInputElement).value;
+                      this._handleMarginChange(side, raw === '' ? undefined : Number(raw));
+                    }}
                   />
                 </div>
-              `,
-            )}
+              `;
+            })}
           </div>
         </div>
 
@@ -741,11 +750,25 @@ export class EpistolaInspector extends LitElement {
     });
   }
 
-  private _handleMarginChange(side: 'top' | 'right' | 'bottom' | 'left', value: number) {
+  private _handleMarginChange(
+    side: 'top' | 'right' | 'bottom' | 'left',
+    value: number | undefined,
+  ) {
     if (!this.engine || !this.doc) return;
 
-    const currentSettings = this.engine.resolvedPageSettings;
-    const newMargins = { ...currentSettings.margins, [side]: value };
+    // Only persist the side the user actually edited. Other sides remain nil
+    // and cascade through theme → engine defaults at render time. An undefined
+    // value (cleared input) drops the side from the override entirely so the
+    // backend's nullable Margins schema persists the absence as JSON-null.
+    const existing = (this.doc.pageSettingsOverride?.margins ?? {}) as Partial<
+      NonNullable<PageSettings['margins']>
+    >;
+    const newMargins: NonNullable<PageSettings['margins']> = { ...existing };
+    if (value !== undefined && Number.isFinite(value)) {
+      newMargins[side] = value;
+    } else {
+      delete newMargins[side];
+    }
     const newSettings = {
       ...(this.doc.pageSettingsOverride ?? {}),
       margins: newMargins,

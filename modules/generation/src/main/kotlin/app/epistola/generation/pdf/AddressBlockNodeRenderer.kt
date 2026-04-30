@@ -42,9 +42,11 @@ class AddressBlockNodeRenderer : NodeRenderer {
         val addressBottomPt = (topMm + heightMm) * MM_TO_PT
 
         val pageSettings = document.pageSettingsOverride ?: context.renderingDefaults.defaultPageSettings
-        val pageMargins = pageSettings.margins
-        val pageTopMarginPt = pageMargins.top.toFloat() * MM_TO_PT
-        val pageLeftMarginPt = pageMargins.left.toFloat() * MM_TO_PT
+        // Walk the per-side cascade (overrideNode → root → template → theme → defaults)
+        // so theme-level page margins propagate through correctly.
+        val pageTopMarginPt = effectivePageMarginPt(null, "marginTop", context, MM_TO_PT)
+        val pageLeftMarginPt = effectivePageMarginPt(null, "marginLeft", context, MM_TO_PT)
+        val pageRightMarginMm = effectivePageSettingsMarginMm("marginRight", context)
 
         val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
         val headerHeightPt = if (headerNode != null) {
@@ -71,7 +73,7 @@ class AddressBlockNodeRenderer : NodeRenderer {
             // sideDistance is from the right page edge; compute margin from content area right edge
             val pageWidthMm = pageWidthMm(pageSettings.format, pageSettings.orientation)
             val addressLeftEdgePt = (pageWidthMm - sideDistanceMm - addressWidthMm) * MM_TO_PT
-            val contentRightEdgePt = (pageWidthMm - pageMargins.right.toFloat()) * MM_TO_PT
+            val contentRightEdgePt = (pageWidthMm - pageRightMarginMm.toFloat()) * MM_TO_PT
             asideDiv.setMarginRight(maxOf(0f, contentRightEdgePt - addressLeftEdgePt + gapPt))
         } else {
             // sideDistance is from the left page edge

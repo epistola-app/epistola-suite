@@ -16,7 +16,7 @@ class PageSettingsDefaultsTest {
 
         assertEquals(PageFormat.A4, settings.format)
         assertEquals(Orientation.portrait, settings.orientation)
-        assertEquals(10, settings.margins.top)
+        assertEquals(10L, settings.margins?.top)
         assertNull(settings.backgroundColor)
     }
 
@@ -26,10 +26,9 @@ class PageSettingsDefaultsTest {
 
         assertEquals(PageFormat.A4, settings.format)
         assertEquals(Orientation.portrait, settings.orientation)
-        assertEquals(20, settings.margins.top)
-        assertEquals(20, settings.margins.right)
-        assertEquals(20, settings.margins.bottom)
-        assertEquals(20, settings.margins.left)
+        // margins is now nullable — engine defaults supply the actual values
+        // through the per-side cascade (see RenderingDefaults.V1).
+        assertNull(settings.margins)
         assertNull(settings.backgroundColor)
     }
 

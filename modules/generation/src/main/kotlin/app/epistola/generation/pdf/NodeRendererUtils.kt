@@ -147,3 +147,56 @@ internal fun parseNodeStyleSize(node: Node?, key: String, context: RenderContext
     val raw = node?.styles?.get(key) as? String ?: return null
     return StyleApplicator.parseSize(raw, context.renderingDefaults.baseFontSizePt, context.spacingUnit)
 }
+
+/**
+ * Resolves the effective page-edge margin for a given side, in absolute
+ * points, by walking the cascade:
+ *
+ *  1. The node's own `margin{Side}` style (when [overrideNode] is set)
+ *  2. The root node's `margin{Side}` style — applies to anything anchored
+ *     to the page (header, footer, body)
+ *  3. `document.pageSettingsOverride.margins.{side}` — template-level
+ *  4. `context.resolvedPageSettings.margins.{side}` — theme-level
+ *  5. `renderingDefaults.defaultPageSettings.margins.{side}` — engine fallback
+ *
+ * Steps 3-5 are walked per-side: if a layer has the side as null, the
+ * cascade continues. The engine defaults always provide a non-null value.
+ *
+ * `marginKey` is the camelCase property name to look up: `"marginTop"`,
+ * `"marginRight"`, `"marginBottom"`, or `"marginLeft"`.
+ */
+internal fun effectivePageMarginPt(
+    overrideNode: Node?,
+    marginKey: String,
+    context: RenderContext,
+    mmToPt: Float = 2.834645f,
+): Float {
+    // 1. Override node's own margin{Side}
+    parseNodeStyleSize(overrideNode, marginKey, context)?.let { return it }
+    // 2. Root node's margin{Side}
+    val rootNode = context.document.nodes[context.document.root]
+    parseNodeStyleSize(rootNode, marginKey, context)?.let { return it }
+    // 3-5. Page-settings cascade walked per side
+    return effectivePageSettingsMarginMm(marginKey, context).toFloat() * mmToPt
+}
+
+/**
+ * Resolves a single page-settings margin side (mm) by walking the
+ * template → theme → engine-defaults cascade per side. The engine
+ * defaults always supply a non-null value, so this is a total function.
+ */
+internal fun effectivePageSettingsMarginMm(marginKey: String, context: RenderContext): Long {
+    val sideSelector: (app.epistola.template.model.Margins) -> Long? = when (marginKey) {
+        "marginTop" -> { m -> m.top }
+        "marginRight" -> { m -> m.right }
+        "marginBottom" -> { m -> m.bottom }
+        "marginLeft" -> { m -> m.left }
+        else -> error("Unsupported margin key: $marginKey")
+    }
+    val template = context.document.pageSettingsOverride?.margins?.let(sideSelector)
+    if (template != null) return template
+    val theme = context.resolvedPageSettings?.margins?.let(sideSelector)
+    if (theme != null) return theme
+    val defaults = context.renderingDefaults.defaultPageSettings.margins?.let(sideSelector)
+    return defaults ?: 20L
+}

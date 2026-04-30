@@ -30,22 +30,22 @@ class PageHeaderEventHandler(
         val pageSize = page.pageSize
 
         // --- header band (top of page) ---
-        val leftPadding = 36f
-        val rightPadding = 36f
+        // The header rectangle's distance to each page edge follows the cascade:
+        // headerNode.margin{Top,Left,Right} → root.margin{Top,Left,Right} →
+        // pageSettings.margins.{top,left,right} (template > theme > engine defaults).
         val headerNode = document.nodes[headerNodeId]
-        // marginTop on the header node overrides the default page-header padding
-        // (= gap between the page edge and the header content).
-        val topPadding = parseNodeStyleSize(headerNode, "marginTop", context)
-            ?: context.renderingDefaults.pageHeaderPadding
+        val topMargin = effectivePageMarginPt(headerNode, "marginTop", context)
+        val leftMargin = effectivePageMarginPt(headerNode, "marginLeft", context)
+        val rightMargin = effectivePageMarginPt(headerNode, "marginRight", context)
         val headerHeight = parseNodeHeight(headerNode, context)
             ?: context.renderingDefaults.pageHeaderHeight
 
         // Rectangle y is measured from the bottom of the page.
-        // So for a header we place it at: top - topPadding - headerHeight
+        // For a header we place it at: pageTop - topMargin - headerHeight.
         val headerRect = Rectangle(
-            pageSize.left + leftPadding,
-            pageSize.top - topPadding - headerHeight,
-            pageSize.width - leftPadding - rightPadding,
+            pageSize.left + leftMargin,
+            pageSize.top - topMargin - headerHeight,
+            pageSize.width - leftMargin - rightMargin,
             headerHeight,
         )
 
@@ -65,10 +65,11 @@ class PageHeaderEventHandler(
             val elements = registry.renderSlots(headerNode, document, pageContext)
 
             // Wrap slot children in a Div so header node styles (borders, background, padding) apply.
-            // marginTop is consumed above as the rectangle's topPadding; strip it here so the
-            // user-set value isn't applied a second time inside the rectangle.
+            // The margin sides consumed above for rectangle positioning are stripped from the
+            // wrapper styles so the same values aren't applied again inside the rectangle.
             val wrapper = Div()
-            val wrapperStyles = headerNode.styles?.filterNonNullValues()?.filterKeys { it != "marginTop" }
+            val consumedMarginKeys = setOf("marginTop", "marginLeft", "marginRight")
+            val wrapperStyles = headerNode.styles?.filterNonNullValues()?.filterKeys { it !in consumedMarginKeys }
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
                 wrapperStyles,

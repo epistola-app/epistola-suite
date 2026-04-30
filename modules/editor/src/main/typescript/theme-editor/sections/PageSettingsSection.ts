@@ -8,13 +8,14 @@ import { html } from 'lit';
 import { renderColorInput, DEFAULT_SPACING_UNIT } from '../../ui/inputs/style-inputs.js';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 
-const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
-
 export function renderPageSettingsSection(state: ThemeEditorState, readOnly = false): unknown {
   const settings = state.theme.pageSettings;
   const format = settings?.format ?? 'A4';
   const orientation = settings?.orientation ?? 'portrait';
-  const margins = settings?.margins ?? DEFAULT_MARGINS;
+  // Inputs render only the values the theme actually overrides. Empty input
+  // = nil = the consuming template/document falls back to the engine
+  // default. The engine default is shown as a placeholder for context.
+  const themeMargins = settings?.margins;
   const backgroundColor =
     ((settings as Record<string, unknown> | undefined)?.backgroundColor as string | undefined) ??
     '';
@@ -60,22 +61,27 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
       <div class="inspector-field">
         <label class="inspector-field-label" for="theme-page-margin-top">Margins (mm)</label>
         <div class="inspector-margins-grid">
-          ${(['top', 'right', 'bottom', 'left'] as const).map(
-            (side) => html`
+          ${(['top', 'right', 'bottom', 'left'] as const).map((side) => {
+            const themeValue = themeMargins?.[side];
+            return html`
               <div class="inspector-margin-field">
                 <span class="style-spacing-label">${side[0].toUpperCase()}</span>
                 <input
                   type="number"
                   id=${`theme-page-margin-${side}`}
                   class="ep-input style-spacing-number"
-                  .value=${String(margins[side])}
+                  min="0"
+                  placeholder="—"
+                  .value=${themeValue != null ? String(themeValue) : ''}
                   ?disabled=${readOnly}
-                  @change=${(e: Event) =>
-                    state.updateMargin(side, Number((e.target as HTMLInputElement).value))}
+                  @change=${(e: Event) => {
+                    const raw = (e.target as HTMLInputElement).value;
+                    state.updateMargin(side, raw === '' ? undefined : Number(raw));
+                  }}
                 />
               </div>
-            `,
-          )}
+            `;
+          })}
         </div>
       </div>
 

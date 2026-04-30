@@ -30,20 +30,20 @@ class PageFooterEventHandler(
         val pageSize = page.pageSize
 
         // --- footer band (bottom of page) ---
-        val leftPadding = 36f
-        val rightPadding = 36f
+        // The footer rectangle's distance to each page edge follows the cascade:
+        // footerNode.margin{Bottom,Left,Right} → root.margin{Bottom,Left,Right} →
+        // pageSettings.margins.{bottom,left,right} (template > theme > engine defaults).
         val footerNode = document.nodes[footerNodeId]
-        // marginBottom on the footer node overrides the default page-footer
-        // padding (= gap between the footer content and the page edge).
-        val bottomPadding = parseNodeStyleSize(footerNode, "marginBottom", context)
-            ?: context.renderingDefaults.pageFooterPadding
+        val bottomMargin = effectivePageMarginPt(footerNode, "marginBottom", context)
+        val leftMargin = effectivePageMarginPt(footerNode, "marginLeft", context)
+        val rightMargin = effectivePageMarginPt(footerNode, "marginRight", context)
         val footerHeight = parseNodeHeight(footerNode, context)
             ?: context.renderingDefaults.pageFooterHeight
 
         val footerRect = Rectangle(
-            pageSize.left + leftPadding,
-            pageSize.bottom + bottomPadding,
-            pageSize.width - leftPadding - rightPadding,
+            pageSize.left + leftMargin,
+            pageSize.bottom + bottomMargin,
+            pageSize.width - leftMargin - rightMargin,
             footerHeight,
         )
 
@@ -62,10 +62,11 @@ class PageFooterEventHandler(
             val elements = registry.renderSlots(footerNode, document, pageContext)
 
             // Wrap slot children in a Div so footer node styles (borders, background, padding) apply.
-            // marginBottom is consumed above as the rectangle's bottomPadding; strip it here so the
-            // user-set value isn't applied a second time inside the rectangle.
+            // The margin sides consumed above for rectangle positioning are stripped from the
+            // wrapper styles so the same values aren't applied again inside the rectangle.
             val wrapper = Div()
-            val wrapperStyles = footerNode.styles?.filterNonNullValues()?.filterKeys { it != "marginBottom" }
+            val consumedMarginKeys = setOf("marginBottom", "marginLeft", "marginRight")
+            val wrapperStyles = footerNode.styles?.filterNonNullValues()?.filterKeys { it !in consumedMarginKeys }
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
                 wrapperStyles,

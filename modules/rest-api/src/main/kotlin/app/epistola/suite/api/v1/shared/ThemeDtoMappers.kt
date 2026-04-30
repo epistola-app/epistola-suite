@@ -37,7 +37,7 @@ internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
 internal fun PageSettings.toDto() = PageSettingsDto(
     format = format.toDto(),
     orientation = orientation.toDto(),
-    margins = margins.toDto(),
+    margins = margins?.toDto(),
 )
 
 internal fun PageFormat.toDto(): PageSettingsDto.Format = when (this) {
@@ -52,10 +52,10 @@ internal fun Orientation.toDto(): PageSettingsDto.Orientation = when (this) {
 }
 
 internal fun Margins.toDto() = MarginsDto(
-    top = top.toInt(),
-    right = right.toInt(),
-    bottom = bottom.toInt(),
-    left = left.toInt(),
+    top = top?.toInt(),
+    right = right?.toInt(),
+    bottom = bottom?.toInt(),
+    left = left?.toInt(),
 )
 
 // From DTO to domain

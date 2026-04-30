@@ -45,8 +45,8 @@ class DirectPdfRenderer(
      * @param document The template document containing the node/slot graph
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
-     * @param blockStylePresets Optional block style presets from theme (named style collections like CSS classes)
-     * @param resolvedDocumentStyles Optional pre-resolved document styles (merging theme + template styles)
+     * @param resolvedTheme Theme-derived bundle (documentStyles, pageSettings, presets, spacingUnit).
+     *   Defaults to an empty bundle, which falls through to engine defaults for everything.
      * @param metadata Optional document metadata (title, author, etc.)
      * @param pdfaCompliant Whether to produce PDF/A-2b compliant output (default: false)
      */
@@ -54,13 +54,11 @@ class DirectPdfRenderer(
         document: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
-        blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
-        resolvedDocumentStyles: DocumentStyles? = null,
+        resolvedTheme: ResolvedTheme = ResolvedTheme(),
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
-        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
         renderMode: RenderMode = RenderMode.STRICT,
     ) {
         TwoPassAnalyzer.validate(document)
@@ -72,13 +70,11 @@ class DirectPdfRenderer(
                 document = document,
                 data = data,
                 outputStream = outputStream,
-                blockStylePresets = blockStylePresets,
-                resolvedDocumentStyles = resolvedDocumentStyles,
+                resolvedTheme = resolvedTheme,
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
                 renderingDefaults = renderingDefaults,
-                spacingUnit = spacingUnit,
                 renderMode = renderMode,
                 headerNode = headerNode,
                 footerNode = footerNode,
@@ -88,13 +84,11 @@ class DirectPdfRenderer(
                 document = document,
                 data = data,
                 outputStream = outputStream,
-                blockStylePresets = blockStylePresets,
-                resolvedDocumentStyles = resolvedDocumentStyles,
+                resolvedTheme = resolvedTheme,
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
                 renderingDefaults = renderingDefaults,
-                spacingUnit = spacingUnit,
                 renderMode = renderMode,
             )
         }
@@ -104,11 +98,10 @@ class DirectPdfRenderer(
         data: Map<String, Any?>,
         effectiveDocumentStyles: DocumentStyles,
         document: TemplateDocument,
-        blockStylePresets: Map<String, Map<String, Any>>,
+        resolvedTheme: ResolvedTheme,
         pdfaCompliant: Boolean,
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
-        spacingUnit: Float,
         renderMode: RenderMode,
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant)
@@ -121,13 +114,14 @@ class DirectPdfRenderer(
             tipTapConverter = tipTapConverter,
             defaultExpressionLanguage = defaultExpressionLanguage,
             fontCache = fontCache,
-            blockStylePresets = blockStylePresets,
+            blockStylePresets = resolvedTheme.blockStylePresets,
             document = document,
             assetResolver = assetResolver,
             renderMode = renderMode,
             renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
+            spacingUnit = resolvedTheme.spacingUnit,
             systemParams = SystemParameterRegistry.buildGlobalParams(),
+            resolvedPageSettings = resolvedTheme.pageSettings,
         )
     }
 
@@ -135,29 +129,28 @@ class DirectPdfRenderer(
         document: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
-        blockStylePresets: Map<String, Map<String, Any>>,
-        resolvedDocumentStyles: DocumentStyles?,
+        resolvedTheme: ResolvedTheme,
         metadata: PdfMetadata,
         pdfaCompliant: Boolean,
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
-        spacingUnit: Float,
         renderMode: RenderMode,
     ) {
-        val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
-        val margins = pageSettings.margins
-        val effectiveDocumentStyles = resolvedDocumentStyles
+        // pageSettings cascade: template override > theme-resolved > engine defaults.
+        val pageSettings = document.pageSettingsOverride
+            ?: resolvedTheme.pageSettings
+            ?: renderingDefaults.defaultPageSettings
+        val effectiveDocumentStyles = resolvedTheme.documentStyles
             ?: document.documentStylesOverride
             ?: emptyMap()
         val context = createRenderContext(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
-            blockStylePresets = blockStylePresets,
+            resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
             renderMode = renderMode,
         )
 
@@ -171,19 +164,23 @@ class DirectPdfRenderer(
             parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
-        // marginTop / marginBottom on the header / footer nodes override the
-        // page-padding defaults so the layout reservation matches the rectangle
-        // computed in the page-event handlers.
-        val headerTopPadding = parseNodeStyleSize(headerNode, "marginTop", context)
-            ?: renderingDefaults.pageHeaderPadding
-        val footerBottomPadding = parseNodeStyleSize(footerNode, "marginBottom", context)
-            ?: renderingDefaults.pageFooterPadding
+        // The body's page-edge margins follow the same cascade as headers/footers:
+        // header/footer.margin{Side} → root.margin{Side} → pageSettings.margins.
+        val headerTopMargin = effectivePageMarginPt(headerNode, "marginTop", context)
+        val footerBottomMargin = effectivePageMarginPt(footerNode, "marginBottom", context)
+        val bodyLeftMargin = effectivePageMarginPt(null, "marginLeft", context)
+        val bodyRightMargin = effectivePageMarginPt(null, "marginRight", context)
 
-        val mmToPt = 2.834645f
-        val topMargin = margins.top.toFloat() * mmToPt +
-            if (headerNode != null) headerTopPadding + headerHeight else 0f
-        val bottomMargin = margins.bottom.toFloat() * mmToPt +
-            if (footerNode != null) footerBottomPadding + footerHeight else 0f
+        val topMargin = if (headerNode != null) {
+            headerTopMargin + headerHeight
+        } else {
+            effectivePageMarginPt(null, "marginTop", context)
+        }
+        val bottomMargin = if (footerNode != null) {
+            footerBottomMargin + footerHeight
+        } else {
+            effectivePageMarginPt(null, "marginBottom", context)
+        }
 
         performRenderWithContext(
             outputStream = outputStream,
@@ -196,8 +193,8 @@ class DirectPdfRenderer(
             pageSettings = pageSettings,
             topMargin = topMargin,
             bottomMargin = bottomMargin,
-            rightMargin = margins.right.toFloat() * mmToPt,
-            leftMargin = margins.left.toFloat() * mmToPt,
+            rightMargin = bodyRightMargin,
+            leftMargin = bodyLeftMargin,
         )
     }
 
@@ -205,20 +202,20 @@ class DirectPdfRenderer(
         document: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
-        blockStylePresets: Map<String, Map<String, Any>>,
-        resolvedDocumentStyles: DocumentStyles?,
+        resolvedTheme: ResolvedTheme,
         metadata: PdfMetadata,
         pdfaCompliant: Boolean,
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
-        spacingUnit: Float,
         renderMode: RenderMode,
         headerNode: Node?,
         footerNode: Node?,
     ) {
-        val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
-        val margins = pageSettings.margins
-        val effectiveDocumentStyles = resolvedDocumentStyles
+        // pageSettings cascade: template override > theme-resolved > engine defaults.
+        val pageSettings = document.pageSettingsOverride
+            ?: resolvedTheme.pageSettings
+            ?: renderingDefaults.defaultPageSettings
+        val effectiveDocumentStyles = resolvedTheme.documentStyles
             ?: document.documentStylesOverride
             ?: emptyMap()
 
@@ -226,11 +223,10 @@ class DirectPdfRenderer(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
-            blockStylePresets = blockStylePresets,
+            resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
             renderMode = renderMode,
         )
 
@@ -241,11 +237,21 @@ class DirectPdfRenderer(
             parseNodeHeight(it, heightContext) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
-        val mmToPt = 2.834645f
-        val topMargin = margins.top.toFloat() * mmToPt +
-            if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
-        val bottomMargin = margins.bottom.toFloat() * mmToPt +
-            if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
+        // Body page-edge margins: header/footer.margin → root.margin → pageMargins cascade.
+        val headerTopMargin = effectivePageMarginPt(headerNode, "marginTop", heightContext)
+        val footerBottomMargin = effectivePageMarginPt(footerNode, "marginBottom", heightContext)
+        val bodyLeftMargin = effectivePageMarginPt(null, "marginLeft", heightContext)
+        val bodyRightMargin = effectivePageMarginPt(null, "marginRight", heightContext)
+        val topMargin = if (headerNode != null) {
+            headerTopMargin + headerHeight
+        } else {
+            effectivePageMarginPt(null, "marginTop", heightContext)
+        }
+        val bottomMargin = if (footerNode != null) {
+            footerBottomMargin + footerHeight
+        } else {
+            effectivePageMarginPt(null, "marginBottom", heightContext)
+        }
 
         // First pass: render to count total pages (bytes are discarded).
         // Use a 2-digit placeholder (99) so body expressions reserve enough
@@ -255,11 +261,10 @@ class DirectPdfRenderer(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
-            blockStylePresets = blockStylePresets,
+            resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
             renderMode = renderMode,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
@@ -273,8 +278,8 @@ class DirectPdfRenderer(
             pageSettings = pageSettings,
             topMargin = topMargin,
             bottomMargin = bottomMargin,
-            rightMargin = margins.right.toFloat() * mmToPt,
-            leftMargin = margins.left.toFloat() * mmToPt,
+            rightMargin = bodyRightMargin,
+            leftMargin = bodyLeftMargin,
             enablePdfA = false,
             enableMetadata = false,
             enableHeaderFooter = false,
@@ -285,11 +290,10 @@ class DirectPdfRenderer(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
             document = document,
-            blockStylePresets = blockStylePresets,
+            resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
-            spacingUnit = spacingUnit,
             renderMode = renderMode,
         ).withTotalPages(totalPages)
 
@@ -304,8 +308,8 @@ class DirectPdfRenderer(
             pageSettings = pageSettings,
             topMargin = topMargin,
             bottomMargin = bottomMargin,
-            rightMargin = margins.right.toFloat() * mmToPt,
-            leftMargin = margins.left.toFloat() * mmToPt,
+            rightMargin = bodyRightMargin,
+            leftMargin = bodyLeftMargin,
         )
     }
 

@@ -44,6 +44,7 @@ class PageHeaderFooterTest {
         footerProps: Map<String, Any?> = emptyMap(),
         headerStyles: Map<String, Any?>? = null,
         footerStyles: Map<String, Any?>? = null,
+        rootStyles: Map<String, Any?>? = null,
     ): TemplateDocument {
         val rootSlotId = "slot-root"
         val headerSlotId = "slot-header"
@@ -60,7 +61,7 @@ class PageHeaderFooterTest {
         return TemplateDocument(
             root = "root",
             nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId), styles = rootStyles),
                 "header" to Node(
                     id = "header",
                     type = "pageheader",
@@ -149,60 +150,139 @@ class PageHeaderFooterTest {
     }
 
     // -----------------------------------------------------------------------
-    // marginTop / marginBottom override the page-padding defaults
+    // marginTop / marginBottom override the document page margin fallback
     // -----------------------------------------------------------------------
 
     @Test
-    fun `header marginTop overrides page-header padding default`() {
-        // Default pageHeaderPadding is 20pt (RenderingDefaults.V1).
-        // Setting marginTop on the header to 50pt should push the header DOWN
-        // by 30pt (50 - 20) compared to the default.
-        val baselineY = renderHeaderY()
-        val overrideY = renderHeaderY(headerStyles = mapOf("marginTop" to "50pt"))
+    fun `header marginTop override moves the header relative to a different override`() {
+        // Comparing two explicit overrides bypasses the default-fallback
+        // arithmetic: a header at 50pt sits 50pt closer to the page top than
+        // a header at 100pt, regardless of what the document margin is.
+        val nearY = renderHeaderY(headerStyles = mapOf("marginTop" to "50pt"))
+        val farY = renderHeaderY(headerStyles = mapOf("marginTop" to "100pt"))
 
-        val delta = baselineY - overrideY
+        val delta = nearY - farY
         assertTrue(
-            abs(delta - 30f) < 0.5f,
-            "Expected header to move down by ~30pt; baseline=$baselineY, override=$overrideY, delta=$delta",
+            abs(delta - 50f) < 0.5f,
+            "Expected header at 100pt to be ~50pt below header at 50pt; near=$nearY, far=$farY, delta=$delta",
         )
     }
 
     @Test
-    fun `footer marginBottom overrides page-footer padding default`() {
-        // Default pageFooterPadding is 20pt. Setting marginBottom to 50pt
-        // should push the footer UP by 30pt.
-        val baselineY = renderFooterY()
-        val overrideY = renderFooterY(footerStyles = mapOf("marginBottom" to "50pt"))
+    fun `footer marginBottom override moves the footer relative to a different override`() {
+        val nearY = renderFooterY(footerStyles = mapOf("marginBottom" to "50pt"))
+        val farY = renderFooterY(footerStyles = mapOf("marginBottom" to "100pt"))
 
-        val delta = overrideY - baselineY
+        val delta = farY - nearY
         assertTrue(
-            abs(delta - 30f) < 0.5f,
-            "Expected footer to move up by ~30pt; baseline=$baselineY, override=$overrideY, delta=$delta",
+            abs(delta - 50f) < 0.5f,
+            "Expected footer at 100pt to be ~50pt above footer at 50pt; near=$nearY, far=$farY, delta=$delta",
         )
     }
 
     @Test
-    fun `header marginTop in sp units is interpreted via spacing scale`() {
-        // 5sp at the default 4pt base unit = 20pt — same as the default
-        // pageHeaderPadding, so the header should sit at the same Y position
-        // as the no-override baseline.
-        val baselineY = renderHeaderY()
+    fun `header marginTop in sp units is interpreted via the spacing scale`() {
+        // 5sp at the default 4pt base unit = 20pt. So a header with marginTop="5sp"
+        // should sit at the same Y as one with marginTop="20pt".
+        val ptY = renderHeaderY(headerStyles = mapOf("marginTop" to "20pt"))
         val spY = renderHeaderY(headerStyles = mapOf("marginTop" to "5sp"))
 
         assertTrue(
-            abs(baselineY - spY) < 0.5f,
-            "Expected sp-unit override (5sp = 20pt) to match default pageHeaderPadding; baseline=$baselineY, with-sp=$spY",
+            abs(ptY - spY) < 0.5f,
+            "Expected sp-unit override (5sp = 20pt) to position header same as 20pt; pt=$ptY, sp=$spY",
         )
     }
 
-    private fun renderHeaderY(headerStyles: Map<String, Any?>? = null): Float {
-        val doc = buildDocument(headerStyles = headerStyles)
+    @Test
+    fun `header without marginTop falls back to the document page margin`() {
+        // Default page margin is 20mm ≈ 56.69pt. With no marginTop on the header
+        // the header sits at that distance from the page top — same Y as if we
+        // explicitly set marginTop to 56.69pt.
+        val fallbackY = renderHeaderY()
+        val explicitY = renderHeaderY(headerStyles = mapOf("marginTop" to "56.69pt"))
+
+        assertTrue(
+            abs(fallbackY - explicitY) < 0.5f,
+            "Expected nil marginTop to fall back to document margin (20mm = 56.69pt); fallback=$fallbackY, explicit=$explicitY",
+        )
+    }
+
+    @Test
+    fun `footer without marginBottom falls back to the document page margin`() {
+        val fallbackY = renderFooterY()
+        val explicitY = renderFooterY(footerStyles = mapOf("marginBottom" to "56.69pt"))
+
+        assertTrue(
+            abs(fallbackY - explicitY) < 0.5f,
+            "Expected nil marginBottom to fall back to document margin (20mm); fallback=$fallbackY, explicit=$explicitY",
+        )
+    }
+
+    @Test
+    fun `header without marginTop falls back to root marginTop before page margins`() {
+        // Root sets marginTop=80pt; header has no marginTop. Header should sit at
+        // 80pt (root override) not 56.69pt (the document page margin default).
+        val rootOverrideY = renderHeaderY(rootStyles = mapOf("marginTop" to "80pt"))
+        val explicitY = renderHeaderY(headerStyles = mapOf("marginTop" to "80pt"))
+
+        assertTrue(
+            abs(rootOverrideY - explicitY) < 0.5f,
+            "Expected root.marginTop to be used as the header's fallback; root=$rootOverrideY, explicit=$explicitY",
+        )
+    }
+
+    @Test
+    fun `header marginTop wins over root marginTop`() {
+        // Header sets marginTop=120pt; root sets marginTop=80pt. Header value wins.
+        val headerY = renderHeaderY(
+            headerStyles = mapOf("marginTop" to "120pt"),
+            rootStyles = mapOf("marginTop" to "80pt"),
+        )
+        val explicit120 = renderHeaderY(headerStyles = mapOf("marginTop" to "120pt"))
+
+        assertTrue(
+            abs(headerY - explicit120) < 0.5f,
+            "Expected header.marginTop to override root.marginTop; combined=$headerY, header-only=$explicit120",
+        )
+    }
+
+    @Test
+    fun `header without marginTop uses theme page margin when template has no override`() {
+        // Theme provides 50mm top margin; template has no pageSettingsOverride and
+        // the header has no marginTop. Header should sit 50mm (≈141.7pt) from
+        // the page top — not the engine default of 20mm.
+        val themeSettings = app.epistola.template.model.PageSettings(
+            format = app.epistola.template.model.PageFormat.A4,
+            orientation = app.epistola.template.model.Orientation.portrait,
+            margins = app.epistola.template.model.Margins(top = 50, right = 20, bottom = 20, left = 20),
+        )
+        val doc = buildDocument()
+        val pdfBytes = ByteArrayOutputStream()
+            .also { renderer.render(doc, emptyMap(), it, resolvedTheme = ResolvedTheme(pageSettings = themeSettings)) }
+            .toByteArray()
+        val themedY = extractFirstBaselineY(pdfBytes, "HEADER CONTENT")
+        // Compare to header rendered with explicit marginTop=141.732pt (50mm in pt).
+        val explicitY = renderHeaderY(headerStyles = mapOf("marginTop" to "141.732pt"))
+        assertTrue(
+            abs(themedY - explicitY) < 1.0f,
+            "Expected theme pageSettings.margins.top to be used as fallback; theme=$themedY, explicit=$explicitY",
+        )
+    }
+
+    private fun renderHeaderY(
+        headerStyles: Map<String, Any?>? = null,
+        rootStyles: Map<String, Any?>? = null,
+    ): Float {
+        val doc = buildDocument(headerStyles = headerStyles, rootStyles = rootStyles)
         val pdfBytes = ByteArrayOutputStream().also { renderer.render(doc, emptyMap(), it) }.toByteArray()
         return extractFirstBaselineY(pdfBytes, "HEADER CONTENT")
     }
 
-    private fun renderFooterY(footerStyles: Map<String, Any?>? = null): Float {
-        val doc = buildDocument(footerStyles = footerStyles)
+    private fun renderFooterY(
+        footerStyles: Map<String, Any?>? = null,
+        rootStyles: Map<String, Any?>? = null,
+    ): Float {
+        val doc = buildDocument(footerStyles = footerStyles, rootStyles = rootStyles)
         val pdfBytes = ByteArrayOutputStream().also { renderer.render(doc, emptyMap(), it) }.toByteArray()
         return extractFirstBaselineY(pdfBytes, "FOOTER CONTENT")
     }
