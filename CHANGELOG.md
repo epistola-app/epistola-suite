@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- **Renovate toolchain group now actually wins**: Reordered `renovate.json` package rules so the toolchain rule (Kotlin, Gradle, Kover, Java, Node, pnpm) is evaluated after the catch-all minor/patch rule. Renovate applies later matching rules on top of earlier ones, so the previous order let the non-major rule override the toolchain group, leaking toolchain bumps into the "all non-major dependencies" PR. Also added `java` to the toolchain matchers so mise Java bumps are grouped with the rest.
 - **Editor build with Vite 8.0.9+**: Switched minifier from `esbuild` to the built-in default (`oxc`). Vite 8 no longer bundles esbuild, so the explicit `minify: 'esbuild'` setting caused build failures.
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
 - **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
