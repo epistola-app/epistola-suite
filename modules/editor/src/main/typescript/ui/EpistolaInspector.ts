@@ -429,8 +429,12 @@ export class EpistolaInspector extends LitElement {
             type="number"
             class="ep-input"
             id=${inputId}
-            .value=${String(value ?? '')}
-            @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
+            placeholder="—"
+            .value=${value == null ? '' : String(value)}
+            @change=${(e: Event) => {
+              const raw = (e.target as HTMLInputElement).value;
+              onChange(raw === '' ? undefined : Number(raw));
+            }}
           />
         `;
       case 'boolean':
@@ -503,9 +507,12 @@ export class EpistolaInspector extends LitElement {
               type="number"
               class="ep-input"
               id=${fieldId}
-              .value=${String(value ?? 0)}
-              @change=${(e: Event) =>
-                this._handlePropChange(field.key, Number((e.target as HTMLInputElement).value))}
+              placeholder="—"
+              .value=${value == null ? '' : String(value)}
+              @change=${(e: Event) => {
+                const raw = (e.target as HTMLInputElement).value;
+                this._handlePropChange(field.key, raw === '' ? undefined : Number(raw));
+              }}
             />
           </div>
         `;

@@ -44,23 +44,35 @@ export function renderUnitInput(
 ): unknown {
   const defaultUnit = units[0] ?? 'pt';
   const parsed = parseValueWithUnit(value, defaultUnit);
+  // Whether the caller actually has a stored value. nil → empty input + placeholder;
+  // an explicit '0pt' / '0sp' is a stored override and renders as "0".
+  const isSet = value != null && value !== '';
 
   const handleNumberChange = (e: Event) => {
-    const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-    onChange(num === 0 ? '' : formatValueWithUnit(num, parsed.unit));
+    const raw = (e.target as HTMLInputElement).value;
+    if (raw === '') {
+      onChange(''); // signal nil → caller deletes the key
+      return;
+    }
+    const num = parseFloat(raw) || 0;
+    onChange(formatValueWithUnit(num, parsed.unit));
   };
 
   const handleUnitChange = (e: Event) => {
     const newUnit = (e.target as HTMLSelectElement).value;
+    if (!isSet) {
+      // No stored value: just propagate the unit choice without inventing a 0.
+      onChange('');
+      return;
+    }
     const oldUnit = parsed.unit;
     let newValue = parsed.value;
-    // Convert between sp and pt
     if (oldUnit === 'pt' && newUnit === 'sp') {
       newValue = parseFloat(nearestSpacingStep(parsed.value, baseUnit));
     } else if (oldUnit === 'sp' && newUnit === 'pt') {
       newValue = parsed.value * baseUnit;
     }
-    onChange(newValue === 0 ? '' : formatValueWithUnit(newValue, newUnit));
+    onChange(formatValueWithUnit(newValue, newUnit));
   };
 
   return html`
@@ -70,7 +82,9 @@ export function renderUnitInput(
         class="ep-input style-unit-number"
         id=${inputId ?? nothing}
         step=${parsed.unit === 'sp' ? '0.5' : '1'}
-        .value=${String(parsed.value)}
+        min="0"
+        placeholder="—"
+        .value=${isSet ? String(parsed.value) : ''}
         ?disabled=${readOnly}
         @change=${handleNumberChange}
       />
@@ -196,13 +210,16 @@ function toPt(value: string, fromUnit: string, baseUnit: number): number | null 
  * Convert a single side value between supported units (sp, pt, px).
  * Used both for explicit unit-switch and for migrating legacy values
  * to a unit that's actually offered in the dropdown.
+ *
+ * Passes through `undefined` (= nil) and unknown source units unchanged.
  */
 export function convertSideValue(
-  value: string,
+  value: string | undefined,
   fromUnit: string,
   toUnit: string,
   baseUnit: number,
-): string {
+): string | undefined {
+  if (value === undefined) return undefined;
   if (fromUnit === toUnit) return value;
 
   const pt = toPt(value, fromUnit, baseUnit);
@@ -234,31 +251,31 @@ export function formatSpacingToken(step: string): string {
 // Spacing input: 4-value (top/right/bottom/left)
 // ---------------------------------------------------------------------------
 
+/**
+ * Per-side spacing value. `undefined` means nil (no value set — falls back
+ * through the cascade to component defaults / preset). An explicit `'0pt'`
+ * or `'0sp'` is a stored override that forces 0, beating the cascade.
+ */
 export interface SpacingValue {
-  top: string;
-  right: string;
-  bottom: string;
-  left: string;
+  top: string | undefined;
+  right: string | undefined;
+  bottom: string | undefined;
+  left: string | undefined;
 }
 
 /** Parse a spacing value — can be a string shorthand or an object. */
-export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingValue {
+export function parseSpacingValue(raw: unknown): SpacingValue {
   if (raw == null) {
-    return {
-      top: `0${defaultUnit}`,
-      right: `0${defaultUnit}`,
-      bottom: `0${defaultUnit}`,
-      left: `0${defaultUnit}`,
-    };
+    return { top: undefined, right: undefined, bottom: undefined, left: undefined };
   }
 
   if (typeof raw === 'object' && raw !== null) {
     const obj = raw as Record<string, unknown>;
     return {
-      top: obj.top != null ? String(obj.top) : `0${defaultUnit}`,
-      right: obj.right != null ? String(obj.right) : `0${defaultUnit}`,
-      bottom: obj.bottom != null ? String(obj.bottom) : `0${defaultUnit}`,
-      left: obj.left != null ? String(obj.left) : `0${defaultUnit}`,
+      top: obj.top != null ? String(obj.top) : undefined,
+      right: obj.right != null ? String(obj.right) : undefined,
+      bottom: obj.bottom != null ? String(obj.bottom) : undefined,
+      left: obj.left != null ? String(obj.left) : undefined,
     };
   }
 
@@ -289,7 +306,7 @@ export function renderSpacingInput(
   readOnly = false,
 ): unknown {
   const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
-  const parsed = parseSpacingValue(value, firstAbsUnit);
+  const parsed = parseSpacingValue(value);
   const sides = ['top', 'right', 'bottom', 'left'] as const;
 
   // Clamp the detected unit to one that's offered in the dropdown.
@@ -300,12 +317,17 @@ export function renderSpacingInput(
   const currentUnit = units.includes(detected) ? detected : firstAbsUnit;
   const topInputId = inputId ?? undefined;
 
-  const handleSideChange = (side: string, newValue: string) => {
+  const handleSideChange = (side: string, newValue: string | undefined) => {
     onChange({ ...parsed, [side]: newValue });
   };
 
-  /** Extract numeric value from a side, whether sp or pt. */
-  const sideNumber = (sideValue: string): number => {
+  /**
+   * Numeric value for the input. Returns `undefined` when the side is nil
+   * so the input renders as empty (placeholder visible). An explicit '0pt'
+   * or '0sp' returns 0 — distinct from nil.
+   */
+  const sideNumber = (sideValue: string | undefined): number | undefined => {
+    if (sideValue === undefined) return undefined;
     if (currentUnit === 'sp') {
       return parseFloat(parseSpacingToken(sideValue) ?? '0') || 0;
     }
@@ -320,8 +342,9 @@ export function renderSpacingInput(
 
   return html`
     <div class="style-spacing-input">
-      ${sides.map(
-        (side) => html`
+      ${sides.map((side) => {
+        const n = sideNumber(parsed[side]);
+        return html`
           <div class="style-spacing-side">
             <span class="style-spacing-label">${side[0].toUpperCase()}</span>
             <input
@@ -330,16 +353,22 @@ export function renderSpacingInput(
               id=${side === 'top' && topInputId ? topInputId : nothing}
               step=${currentUnit === 'sp' ? '0.5' : '1'}
               min="0"
-              .value=${String(sideNumber(parsed[side]))}
+              placeholder="—"
+              .value=${n === undefined ? '' : String(n)}
               ?disabled=${readOnly}
               @change=${(e: Event) => {
-                const num = parseFloat((e.target as HTMLInputElement).value) || 0;
-                handleSideChange(side, formatSide(num));
+                const raw = (e.target as HTMLInputElement).value;
+                if (raw === '') {
+                  handleSideChange(side, undefined);
+                } else {
+                  const num = parseFloat(raw) || 0;
+                  handleSideChange(side, formatSide(num));
+                }
               }}
             />
           </div>
-        `,
-      )}
+        `;
+      })}
       ${units.length > 1
         ? html`
             <div class="style-spacing-side">
@@ -349,7 +378,12 @@ export function renderSpacingInput(
                 ?disabled=${readOnly}
                 @change=${(e: Event) => {
                   const newUnit = (e.target as HTMLSelectElement).value;
-                  const result: SpacingValue = { top: '', right: '', bottom: '', left: '' };
+                  const result: SpacingValue = {
+                    top: undefined,
+                    right: undefined,
+                    bottom: undefined,
+                    left: undefined,
+                  };
                   for (const side of sides) {
                     result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit);
                   }
@@ -383,7 +417,7 @@ export function expandSpacingToStyles(
   value: SpacingValue,
   styles: Record<string, unknown>,
 ): void {
-  const sides: Record<string, string> = {
+  const sides: Record<string, string | undefined> = {
     Top: value.top,
     Right: value.right,
     Bottom: value.bottom,
@@ -391,7 +425,9 @@ export function expandSpacingToStyles(
   };
   for (const [suffix, sideValue] of Object.entries(sides)) {
     const key = `${prefix}${suffix}`;
-    if (sideValue && !/^0(?:\.\d+)?[a-z]*$/.test(sideValue)) {
+    // undefined or empty string → nil → delete key (cascade applies)
+    // any other value (including '0pt' / '0sp') → store as explicit override
+    if (sideValue !== undefined && sideValue !== '') {
       styles[key] = sideValue;
     } else {
       delete styles[key];
@@ -404,15 +440,18 @@ export function expandSpacingToStyles(
 /**
  * Read individual style keys back into a compound SpacingValue.
  *
- * e.g. readSpacingFromStyles('margin', { marginTop: '10px', marginBottom: '5px' })
- * → { top: '10px', right: '0px', bottom: '5px', left: '0px' }
+ * Missing sides become `undefined` so the inspector can render them as
+ * "nil" (empty input + placeholder), distinct from an explicit '0pt'
+ * stored value.
+ *
+ * e.g. readSpacingFromStyles('margin', { marginTop: '10pt', marginBottom: '0pt' })
+ * → { top: '10pt', right: undefined, bottom: '0pt', left: undefined }
  *
  * Returns undefined if no individual keys are set.
  */
 export function readSpacingFromStyles(
   prefix: string,
   styles: Record<string, unknown>,
-  defaultUnit = 'px',
 ): SpacingValue | undefined {
   const top = styles[`${prefix}Top`];
   const right = styles[`${prefix}Right`];
@@ -428,15 +467,14 @@ export function readSpacingFromStyles(
 
   // If a legacy compound object is present, read from it
   if (compound != null && typeof compound === 'object') {
-    return parseSpacingValue(compound, defaultUnit);
+    return parseSpacingValue(compound);
   }
 
-  const zero = `0${defaultUnit}`;
   return {
-    top: top != null ? String(top) : zero,
-    right: right != null ? String(right) : zero,
-    bottom: bottom != null ? String(bottom) : zero,
-    left: left != null ? String(left) : zero,
+    top: top != null ? String(top) : undefined,
+    right: right != null ? String(right) : undefined,
+    bottom: bottom != null ? String(bottom) : undefined,
+    left: left != null ? String(left) : undefined,
   };
 }
 

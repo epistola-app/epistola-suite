@@ -45,9 +45,14 @@ describe('expandSpacingToStyles', () => {
     });
   });
 
-  it('removes the compound key if it existed', () => {
+  it('removes the legacy compound key when expanding individual sides', () => {
     const styles: Record<string, unknown> = { margin: { top: '10px' } };
-    const spacing: SpacingValue = { top: '10px', right: '0px', bottom: '0px', left: '0px' };
+    const spacing: SpacingValue = {
+      top: '10px',
+      right: undefined,
+      bottom: undefined,
+      left: undefined,
+    };
 
     expandSpacingToStyles('margin', spacing, styles);
 
@@ -55,27 +60,56 @@ describe('expandSpacingToStyles', () => {
     expect(styles.marginTop).toBe('10px');
   });
 
-  it('deletes zero-value keys instead of storing them', () => {
-    const styles: Record<string, unknown> = { marginTop: '10px', marginRight: '5px' };
-    const spacing: SpacingValue = { top: '10px', right: '0px', bottom: '0px', left: '0px' };
+  it('deletes only undefined sides (explicit "0pt" is stored as override)', () => {
+    const styles: Record<string, unknown> = { marginTop: '10pt', marginRight: '5pt' };
+    const spacing: SpacingValue = {
+      top: '10pt',
+      right: '0pt',
+      bottom: undefined,
+      left: undefined,
+    };
 
     expandSpacingToStyles('margin', spacing, styles);
 
-    expect(styles.marginTop).toBe('10px');
-    expect(styles.marginRight).toBeUndefined();
+    expect(styles.marginTop).toBe('10pt');
+    expect(styles.marginRight).toBe('0pt'); // explicit zero is preserved
     expect(styles.marginBottom).toBeUndefined();
     expect(styles.marginLeft).toBeUndefined();
   });
 
-  it('treats 0em and 0rem as zero values', () => {
+  it('preserves explicit "0sp" / "0pt" / "0px" as stored override values', () => {
     const styles: Record<string, unknown> = {};
-    const spacing: SpacingValue = { top: '0em', right: '0rem', bottom: '5px', left: '0px' };
+    const spacing: SpacingValue = { top: '0sp', right: '0pt', bottom: '0px', left: '5pt' };
+
+    expandSpacingToStyles('margin', spacing, styles);
+
+    expect(styles).toEqual({
+      marginTop: '0sp',
+      marginRight: '0pt',
+      marginBottom: '0px',
+      marginLeft: '5pt',
+    });
+  });
+
+  it('deletes pre-existing keys when the SpacingValue side is undefined', () => {
+    const styles: Record<string, unknown> = {
+      marginTop: '10pt',
+      marginRight: '5pt',
+      marginBottom: '8pt',
+      marginLeft: '5pt',
+    };
+    const spacing: SpacingValue = {
+      top: undefined,
+      right: undefined,
+      bottom: undefined,
+      left: undefined,
+    };
 
     expandSpacingToStyles('margin', spacing, styles);
 
     expect(styles.marginTop).toBeUndefined();
     expect(styles.marginRight).toBeUndefined();
-    expect(styles.marginBottom).toBe('5px');
+    expect(styles.marginBottom).toBeUndefined();
     expect(styles.marginLeft).toBeUndefined();
   });
 });
@@ -98,12 +132,17 @@ describe('readSpacingFromStyles', () => {
     expect(result).toEqual({ top: '10px', right: '5px', bottom: '8px', left: '5px' });
   });
 
-  it('defaults missing sides to 0px', () => {
+  it('returns undefined per side when the key is missing (nil)', () => {
     const styles = { marginBottom: '12px' };
 
     const result = readSpacingFromStyles('margin', styles);
 
-    expect(result).toEqual({ top: '0px', right: '0px', bottom: '12px', left: '0px' });
+    expect(result).toEqual({
+      top: undefined,
+      right: undefined,
+      bottom: '12px',
+      left: undefined,
+    });
   });
 
   it('returns undefined when no individual keys are set', () => {
@@ -114,12 +153,17 @@ describe('readSpacingFromStyles', () => {
     expect(result).toBeUndefined();
   });
 
-  it('uses the provided default unit', () => {
-    const styles = { paddingTop: '2em' };
+  it('preserves an explicit "0pt" stored value as an override (distinct from nil)', () => {
+    const styles = { marginTop: '0pt', marginBottom: '5pt' };
 
-    const result = readSpacingFromStyles('padding', styles, 'em');
+    const result = readSpacingFromStyles('margin', styles);
 
-    expect(result).toEqual({ top: '2em', right: '0em', bottom: '0em', left: '0em' });
+    expect(result).toEqual({
+      top: '0pt',
+      right: undefined,
+      bottom: '5pt',
+      left: undefined,
+    });
   });
 
   it('reads padding keys', () => {
@@ -127,7 +171,12 @@ describe('readSpacingFromStyles', () => {
 
     const result = readSpacingFromStyles('padding', styles);
 
-    expect(result).toEqual({ top: '5px', right: '0px', bottom: '10px', left: '0px' });
+    expect(result).toEqual({
+      top: '5px',
+      right: undefined,
+      bottom: '10px',
+      left: undefined,
+    });
   });
 
   it('handles legacy compound object as fallback', () => {
