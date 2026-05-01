@@ -414,6 +414,9 @@ export class EpistolaCanvas extends LitElement {
               `
             : nothing}
           <span class="canvas-block-label">${label}</span>
+          ${node.type === 'text'
+            ? html`<span class="canvas-block-hint">type <code>{{</code> for expressions</span>`
+            : nothing}
           ${collapsed
             ? html`<span class="canvas-block-child-count"
                 >${(() => {

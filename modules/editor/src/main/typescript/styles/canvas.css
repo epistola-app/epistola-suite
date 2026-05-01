@@ -77,6 +77,20 @@
     font-weight: 500;
   }
 
+  .canvas-block-hint {
+    font-size: 10px;
+    color: var(--ep-muted-foreground);
+    margin-left: var(--ep-space-1);
+  }
+
+  .canvas-block-hint code {
+    font-family: var(--ep-font-mono);
+    background: var(--ep-gray-100);
+    padding: 1px 3px;
+    border-radius: var(--ep-radius-sm);
+    font-size: 10px;
+  }
+
   .canvas-block-id {
     color: var(--ep-gray-300);
     margin-left: auto;

@@ -85,7 +85,7 @@ data class RenderingDefaults(
                 margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
             ),
             componentSpacing = mapOf(
-                "text" to mapOf("marginBottom" to "1.5sp"), // 6pt
+                "text" to mapOf("marginBottom" to "0sp"),
                 "container" to mapOf("marginBottom" to "1.5sp"),
                 "columns" to mapOf("marginBottom" to "1.5sp"),
                 "table" to mapOf("marginBottom" to "1.5sp"),
@@ -107,13 +107,13 @@ data class RenderingDefaults(
                 2 to 8f, // 2sp
                 3 to 4f, // 1sp
             ),
-            paragraphMarginBottom = 6f, // 1.5sp
+            paragraphMarginBottom = 0f,
             listMarginBottom = 4f, // 1sp
             listMarginLeft = 20f, // 5sp
             listItemMarginBottom = 2f, // 0.5sp
             tableBorderWidth = 0.5f,
             tableBorderColorHex = "#808080",
-            tableCellPadding = 8f, // 2sp
+            tableCellPadding = 0f, // 0pt (0sp) — cells render flush; padding via per-cell styles
             datatableDefaultColumnWidthPercent = 33f,
             columnGap = 8f, // 2sp
             baseFontSizePt = 12f,
