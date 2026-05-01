@@ -18,10 +18,18 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.contracts.commands.PublishContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -29,6 +37,8 @@ import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -85,6 +95,23 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 allowedValues = listOf("value-a", "value-b"),
             ).execute()
 
+            // Add a contract with schema and publish it
+            val contractSchema = ObjectMapper().readValue(
+                """{"type":"object","properties":{"name":{"type":"string"},"amount":{"type":"number"}},"required":["name"]}""",
+                ObjectNode::class.java,
+            )
+            UpdateContractVersion(
+                templateId = templateId,
+                dataModel = contractSchema,
+            ).execute()
+            PublishContractVersion(templateId = templateId).execute()
+
+            // Publish the default template version so it gets included in the export
+            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantId = VariantId(defaultVariantKey, templateId)
+            val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
+            PublishVersion(versionId = defaultVersionId).execute()
+
             // Upload an asset (small PNG stub)
             val pngBytes = createMinimalPng()
             UploadAsset(
@@ -137,6 +164,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(reimportedTemplate).isNotNull
             assertThat(reimportedTemplate!!.themeKey).isEqualTo(themeKey)
             assertThat(reimportedTemplate.themeCatalogKey).isEqualTo(catalogKey)
+
+            // Verify contract data survived the round-trip
+            val reimportedContract = GetLatestContractVersion(templateId = templateId).query()
+            assertThat(reimportedContract).isNotNull
+            assertThat(reimportedContract!!.dataModel).isNotNull
+            val properties = reimportedContract.dataModel!!.get("properties")
+            assertThat(properties.has("name")).isTrue()
+            assertThat(properties.has("amount")).isTrue()
         }
     }
 

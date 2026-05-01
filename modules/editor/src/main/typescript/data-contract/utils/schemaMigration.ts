@@ -162,6 +162,23 @@ function detectExampleMigrations(
     }
   }
 
+  // Check for unknown fields (keys in data that aren't in schema)
+  for (const key of Object.keys(data)) {
+    if (!schema.properties[key]) {
+      const path = `${basePath}.${key}`;
+      migrations.push({
+        exampleId,
+        exampleName,
+        path,
+        issue: 'UNKNOWN_FIELD',
+        currentValue: data[key] as JsonValue,
+        expectedType: 'none',
+        suggestedValue: null,
+        autoMigratable: true,
+      });
+    }
+  }
+
   return migrations;
 }
 
@@ -297,6 +314,22 @@ function tryConvertToBoolean(value: JsonValue): {
  * Only applies auto-migratable migrations.
  */
 export function applyMigration(data: JsonObject, migration: MigrationSuggestion): JsonObject {
+  // Handle UNKNOWN_FIELD by deleting the key
+  if (migration.issue === 'UNKNOWN_FIELD' && migration.autoMigratable) {
+    const segments = migration.path
+      .replace(/^\$\./, '')
+      .replace(/\[(\d+)\]/g, '.$1')
+      .split('.');
+    const newData = JSON.parse(JSON.stringify(data)) as JsonObject;
+    let current: Record<string, unknown> = newData;
+    for (let i = 0; i < segments.length - 1; i++) {
+      current = current[segments[i]] as Record<string, unknown>;
+      if (!current) return data;
+    }
+    delete current[segments[segments.length - 1]];
+    return newData;
+  }
+
   if (!migration.autoMigratable || migration.suggestedValue === null) {
     return data;
   }
@@ -344,4 +377,98 @@ export function applyAllMigrations(
     }
   }
   return result;
+}
+
+/**
+ * Remove keys from example data that are not defined in the schema.
+ * Recurses into nested objects and array items with object schemas.
+ * Returns a new object — does not mutate the input.
+ */
+export function stripOrphanedKeys(data: JsonObject, schema: JsonSchema): JsonObject {
+  if (!schema.properties) return data;
+
+  const result: JsonObject = {};
+  for (const [key, value] of Object.entries(data)) {
+    const propSchema = schema.properties[key];
+    if (!propSchema) continue;
+
+    if (
+      propSchema.type === 'object' &&
+      propSchema.properties &&
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value)
+    ) {
+      result[key] = stripOrphanedKeys(value as JsonObject, propSchema as JsonSchema);
+    } else if (
+      propSchema.type === 'array' &&
+      propSchema.items?.type === 'object' &&
+      propSchema.items?.properties &&
+      Array.isArray(value)
+    ) {
+      result[key] = value.map((item) =>
+        typeof item === 'object' && item !== null && !Array.isArray(item)
+          ? stripOrphanedKeys(item as JsonObject, propSchema.items as JsonSchema)
+          : item,
+      );
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Rename a key in example data at the given path context.
+ * pathSegments identifies the parent objects from root to the object containing the key.
+ * For array parents, applies the rename to all items.
+ * Returns a new object — does not mutate the input.
+ */
+export function renameExampleKey(
+  data: JsonObject,
+  pathSegments: string[],
+  oldName: string,
+  newName: string,
+): JsonObject {
+  const newData = JSON.parse(JSON.stringify(data)) as JsonObject;
+  renameKeyRecursive(newData, pathSegments, 0, oldName, newName);
+  return newData;
+}
+
+function renameKeyRecursive(
+  current: unknown,
+  pathSegments: string[],
+  depth: number,
+  oldName: string,
+  newName: string,
+): void {
+  if (current === null || current === undefined || typeof current !== 'object') return;
+
+  if (depth >= pathSegments.length) {
+    // We're at the target — rename the key in object(s)
+    if (Array.isArray(current)) {
+      for (const item of current) {
+        renameKeyRecursive(item, pathSegments, depth, oldName, newName);
+      }
+    } else {
+      const obj = current as Record<string, unknown>;
+      if (oldName in obj) {
+        obj[newName] = obj[oldName];
+        delete obj[oldName];
+      }
+    }
+    return;
+  }
+
+  const segment = pathSegments[depth];
+  if (Array.isArray(current)) {
+    for (const item of current) {
+      renameKeyRecursive(item, pathSegments, depth, oldName, newName);
+    }
+  } else {
+    const obj = current as Record<string, unknown>;
+    if (segment in obj) {
+      renameKeyRecursive(obj[segment], pathSegments, depth + 1, oldName, newName);
+    }
+  }
 }

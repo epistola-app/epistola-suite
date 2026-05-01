@@ -8,6 +8,11 @@ import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.properties.UnitValue
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayInputStream
+import javax.imageio.ImageIO
+
+/** Thrown in [RenderMode.STRICT] when an image asset cannot be decoded. */
+class ImageRenderException(message: String, cause: Throwable) : RuntimeException(message, cause)
 
 /**
  * Renders an "image" node to an iText Image element.
@@ -16,7 +21,24 @@ import org.slf4j.LoggerFactory
  * [RenderContext] to load the image bytes. Gracefully skips if no resolver is
  * available, no assetId is specified, or the asset cannot be found.
  */
-class ImageNodeRenderer : NodeRenderer {
+class ImageNodeRenderer(
+    private val svgConverter: SvgImageConverter = SvgImageConverter.UNSUPPORTED,
+) : NodeRenderer {
+
+    /**
+     * Converts raw SVG bytes to an iText [Image]. The conversion strategy is
+     * injected so that [ImageNodeRenderer] stays independent of any specific
+     * PDF library's SVG support (e.g., iText's `SvgConverter` requires a
+     * `PdfDocument` that only the concrete renderer owns).
+     */
+    fun interface SvgImageConverter {
+        fun convert(svgBytes: ByteArray): Image
+
+        companion object {
+            /** Default no-op converter that rejects SVG input. */
+            val UNSUPPORTED = SvgImageConverter { throw UnsupportedOperationException("SVG rendering is not supported by this renderer") }
+        }
+    }
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -45,28 +67,42 @@ class ImageNodeRenderer : NodeRenderer {
             return emptyList()
         }
 
-        val imageData = ImageDataFactory.create(resolution.content)
-        val image = Image(imageData)
+        val image = try {
+            createImageElement(resolution)
+        } catch (e: Exception) {
+            logger.warn("Failed to decode image asset {} ({}): {}", assetId, resolution.mimeType, e.message)
+            return when (context.renderMode) {
+                RenderMode.STRICT -> throw ImageRenderException(
+                    "Failed to render image node '${node.id}' (asset=$assetId, type=${resolution.mimeType}): ${e.message}",
+                    e,
+                )
+                RenderMode.PREVIEW -> ErrorPlaceholder.render("Image failed: ${e.message}")
+            }
+        }
 
         // Apply width/height from props
         val widthStr = props["width"] as? String
         val heightStr = props["height"] as? String
         val hasWidth = !widthStr.isNullOrBlank()
         val hasHeight = !heightStr.isNullOrBlank()
+        val width = widthStr?.takeIf { it.isNotBlank() }
+        val height = heightStr?.takeIf { it.isNotBlank() }
 
         val spacingUnit = context.spacingUnit
         when {
             hasWidth && hasHeight -> {
-                applyDimension(widthStr!!, isWidth = true, image, spacingUnit)
-                applyDimension(heightStr!!, isWidth = false, image, spacingUnit)
+                applyDimension(requireNotNull(width), isWidth = true, image, spacingUnit)
+                applyDimension(requireNotNull(height), isWidth = false, image, spacingUnit)
             }
             hasWidth -> {
-                applyDimension(widthStr!!, isWidth = true, image, spacingUnit)
-                scaleProportionally(widthStr, isWidthGiven = true, image, imageData, spacingUnit)
+                val widthValue = requireNotNull(width)
+                applyDimension(widthValue, isWidth = true, image, spacingUnit)
+                scaleProportionally(widthValue, isWidthGiven = true, image, spacingUnit)
             }
             hasHeight -> {
-                applyDimension(heightStr!!, isWidth = false, image, spacingUnit)
-                scaleProportionally(heightStr, isWidthGiven = false, image, imageData, spacingUnit)
+                val heightValue = requireNotNull(height)
+                applyDimension(heightValue, isWidth = false, image, spacingUnit)
+                scaleProportionally(heightValue, isWidthGiven = false, image, spacingUnit)
             }
             else -> {
                 // No dimensions specified: auto-scale to fit available width
@@ -81,7 +117,7 @@ class ImageNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("image"),
             context.renderingDefaults.baseFontSizePt,
@@ -119,14 +155,13 @@ class ImageNodeRenderer : NodeRenderer {
         value: String,
         isWidthGiven: Boolean,
         image: Image,
-        imageData: com.itextpdf.io.image.ImageData,
         spacingUnit: Float,
     ) {
         if (value.endsWith("%")) return // let iText handle percentage layout
 
         val pt = parseToPt(value, spacingUnit) ?: return
-        val intrinsicWidth = imageData.width // in points
-        val intrinsicHeight = imageData.height // in points
+        val intrinsicWidth = image.imageWidth
+        val intrinsicHeight = image.imageHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) return
 
         if (isWidthGiven) {
@@ -145,5 +180,19 @@ class ImageNodeRenderer : NodeRenderer {
             value.endsWith("pt") -> value.removeSuffix("pt").toFloatOrNull()
             else -> value.toFloatOrNull()
         }
+    }
+
+    private fun createImageElement(resolution: AssetResolution): Image = when (resolution.mimeType) {
+        "image/svg+xml" -> svgConverter.convert(resolution.content)
+        "image/webp" -> createWebpImage(resolution.content)
+        else -> Image(ImageDataFactory.create(resolution.content))
+    }
+
+    private fun createWebpImage(content: ByteArray): Image {
+        val bufferedImage = ByteArrayInputStream(content).use { webpStream ->
+            ImageIO.read(webpStream)
+        } ?: throw IllegalArgumentException("Failed to decode WEBP image content")
+        val imageData = ImageDataFactory.create(bufferedImage, null)
+        return Image(imageData)
     }
 }

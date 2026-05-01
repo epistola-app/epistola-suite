@@ -31,7 +31,7 @@ class GetDraftHandler(
             """
                 SELECT ver.id, ver.tenant_key, ver.variant_key, ver.template_model, ver.status,
                        ver.created_at, ver.published_at, ver.archived_at,
-                       ver.rendering_defaults_version, ver.resolved_theme
+                       ver.rendering_defaults_version, ver.resolved_theme, ver.contract_version
                 FROM template_versions ver
                 JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.variant_key = :variantId

@@ -37,6 +37,7 @@ data class CreateVersion(
 class CreateVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
 ) : CommandHandler<CreateVersion, TemplateVersion?> {
     override fun handle(command: CreateVersion): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
@@ -106,14 +107,61 @@ class CreateVersionHandler(
 
             val versionId = VersionKey.of(nextVersionId)
 
-            // Use provided model or create default empty template structure
-            val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId.key)
-            val templateModelJson = objectMapper.writeValueAsString(modelToSave)
+            // Use provided model, or copy from latest published, or create default empty structure
+            val latestPublishedModelJson = if (command.templateModel == null) {
+                handle.createQuery(
+                    """
+                    SELECT template_model::text FROM template_versions
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                      AND template_key = :templateKey AND variant_key = :variantKey
+                      AND status = 'published'
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                )
+                    .bind("tenantKey", command.variantId.tenantKey)
+                    .bind("catalogKey", command.variantId.catalogKey)
+                    .bind("templateKey", command.variantId.templateKey)
+                    .bind("variantKey", command.variantId.key)
+                    .mapTo(String::class.java)
+                    .findOne()
+                    .orElse(null)
+            } else {
+                null
+            }
+
+            val modelToSave = command.templateModel
+                ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
+                ?: createDefaultTemplateModel(templateName, command.variantId.key)
+            val templateModelJson = if (latestPublishedModelJson != null && command.templateModel == null) {
+                latestPublishedModelJson // Reuse the JSON string directly
+            } else {
+                objectMapper.writeValueAsString(modelToSave)
+            }
+            val referencedPaths = if (modelToSave is TemplateDocument) pathExtractor.extractReferencedPaths(modelToSave) else emptySet()
+            val referencedPathsJson = objectMapper.writeValueAsString(referencedPaths)
+
+            // Resolve contract version: prefer draft (user is editing), fall back to published
+            val contractVersionId = handle.createQuery(
+                """
+                SELECT id FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+                """,
+            )
+                .bind("tenantKey", command.variantId.tenantKey)
+                .bind("catalogKey", command.variantId.catalogKey)
+                .bind("templateKey", command.variantId.templateKey)
+                .mapTo(Int::class.java)
+                .findOne()
+                .orElseThrow {
+                    IllegalStateException("No contract version found for template '${command.variantId.templateKey}'")
+                }
 
             handle.createQuery(
                 """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW())
                 RETURNING *
                 """,
             )
@@ -123,6 +171,8 @@ class CreateVersionHandler(
                 .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
                 .bind("templateModel", templateModelJson)
+                .bind("contractVersion", contractVersionId)
+                .bind("referencedPaths", referencedPathsJson)
                 .mapTo<TemplateVersion>()
                 .one()
         }

@@ -6,7 +6,8 @@ import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.versions.ListPublishableVersionsByTemplate
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -29,9 +30,9 @@ class VersionComparisonHandler {
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
-        val template = GetDocumentTemplate(templateId).query()
-            ?: return ServerResponse.notFound().build()
         val publishableVersions = ListPublishableVersionsByTemplate(templateId = templateId).query()
+        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val dataExamples = contractVersion?.dataExamples ?: DataExamples.EMPTY
 
         // Filter versions for this specific variant
         val variantVersions = publishableVersions.filter { it.variantKey == variantId.key }
@@ -43,7 +44,7 @@ class VersionComparisonHandler {
                 "templateId" to templateId.key.value
                 "variantId" to variantId.key.value
                 "versions" to variantVersions
-                "dataExamples" to template.dataExamples.toList()
+                "dataExamples" to dataExamples.toList()
             }
             onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key.value}") }
         }

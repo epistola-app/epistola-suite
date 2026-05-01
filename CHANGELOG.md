@@ -4,9 +4,85 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Removed `px` unit support**: `StyleApplicator.parseSize` no longer recognizes `px` and the editor's spacing input no longer converts `px` values. Templates created before the `sp`/`pt` switch that still hold `Npx` values for margin/padding will not render those margins in the PDF, and the inspector will show the numeric portion in the fallback unit (`pt`) without scaling. Re-enter the value in `sp` or `pt` to fix.
+- **Default text and table-cell spacing zeroed (retroactive V1 change)**: Three `RenderingDefaults.V1` values that produced visible whitespace authors couldn't see in the inspector are now `0`: `componentSpacing["text"].marginBottom` (`1.5sp` → `0sp`), `paragraphMarginBottom` (`6pt` → `0pt`), and `tableCellPadding` (`8pt` → `0pt`). Because `RenderingDefaults` is versioned and published `template_versions` store `rendering_defaults_version`, this change applies retroactively to **all** existing published versions that resolved to V1 — they will now render with the new defaults. Pre-production project, so no V2 is introduced; set `marginTop`/`marginBottom`/`padding` explicitly via the inspector to restore previous spacing where needed.
+
 ### Fixed
 
 - **Editor build with Vite 8.0.9+**: Switched minifier from `esbuild` to the built-in default (`oxc`). Vite 8 no longer bundles esbuild, so the explicit `minify: 'esbuild'` setting caused build failures.
+- **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
+- **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
+- **Import always creates contract version**: Templates imported without a data model or data examples now always get a contract version (previously skipped, causing NPE when saving). Backfill migration (V24) creates missing contract versions for existing templates.
+- **Export only includes published template versions**: Catalog export now only includes templates with published versions, skipping draft-only templates.
+- **Clear error on missing contract version**: `UpdateDraft`, `CreateVariant`, and `CreateVersion` now throw a descriptive `IllegalStateException` instead of a raw `NullPointerException` when no contract version exists.
+- **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
+- **Header/footer style rendering in PDF**: Page header/footer event handlers now apply node-level styles by wrapping rendered slot content in a styled `Div`, restoring expected borders, background, and padding in generated PDFs.
+- **Expression editor discoverability**: Added a subtle inline hint in text block headers (`type {{ for expressions`) so users can discover inline expression insertion without leaving the editor flow.
+
+## [0.17.0] - 2026-04-28
+
+### Added
+
+- **Contract schema versioning**: Template data contracts (schema + examples) are now versioned separately from the template's visual content. See `docs/schema-versioning.md` for the full design.
+  - `contract_versions` table with draft/published lifecycle (V23 migration)
+  - Each template version links to a specific contract version via FK
+  - On-demand draft pattern: drafts only exist when there are unpublished changes
+  - Compatible contract changes auto-publish when deploying template versions
+  - Breaking changes require explicit publish with two-step confirmation
+- **Schema compatibility checking**: Three-level checking — structural schema diff, template field usage extraction, and per-version compatibility analysis. Only template versions that actually reference removed/changed fields are flagged as incompatible.
+- **Referenced paths extraction**: `TemplatePathExtractor` extracts all data contract variable paths from template expressions (including loop alias resolution, nested loops, conditionals, QR codes, and TipTap inline expressions). Stored on each template version as `referenced_paths`.
+- **Data contract tab view/edit mode**: View mode shows schema fields table and example names in read-only format. Edit mode mounts the full Lit editor. Status bar adapts to each mode with version badge, publish/edit buttons, usage dialog, and history dialog.
+- **Contract publish impact preview**: Breaking contract publishes show a confirmation dialog listing breaking changes and affected template versions with their active environment deployments.
+- **Deployment matrix error handling**: Contract compatibility errors shown inline in the deployment matrix instead of generic "An error occurred" message.
+- **Contract usage overview**: Dialog showing all template versions with their contract version (color-coded: green=current, amber=outdated) and active deployments.
+
+### Changed
+
+- **Renovate PR consolidation**: GitHub Actions updates (digests + majors) grouped into a single PR; major dependency updates merged into the non-major PR; lock file maintenance merged into the non-major PR.
+- **Contract data moved from `document_templates` to `contract_versions`**: Removed `schema`, `dataModel`, `dataExamples` columns. All queries, handlers, and catalog import/export updated.
+- **Contract code organized into `templates/contracts/` package**: Dedicated package with `commands/`, `queries/`, `model/` sub-packages plus `SchemaCompatibilityChecker` and `SchemaPathNavigator` utilities.
+- **Border input UX**: The per-side border input now shows the style dropdown (None/Solid/Dashed/Dotted) on top and the width/unit/color controls below. Width/unit/color are hidden when style is `None`. New borders default to `None` instead of `Solid`, and the width is clamped to at least 0.5 in the active unit whenever a visible style is chosen.
+- **Table borders via CSS only**: Removed the `borderStyle`/`borderColor`/`borderWidth` props on the `table` component and the "Border Style" inspector dropdown. Borders are now set exclusively via the CSS `border` property — on the node for the outer table border, or on selected cells for per-cell borders. Default cell borders are suppressed; new tables render borderless until the user opts in.
+- **Table inspector scoping**: Selecting a cell shows only cell-specific controls (merge actions and cell style). Selecting the table without a cell shows only table-level controls (rows, columns, widths, header rows, and node styles). Previously both sets were shown at once, which caused confusion about which properties applied where.
+
+### Fixed
+
+- **Theme cascade catalog key**: `ThemeStyleResolver` now passes `defaultThemeCatalogKey` through the cascade, preventing "Expected zero to one elements" errors when the same theme ID exists in multiple catalogs.
+
+### Added
+
+- **SVG and WEBP image support in PDF**: The PDF renderer now supports SVG (via iText SVG converter) and WEBP (via TwelveMonkeys ImageIO) image formats in addition to PNG and JPEG.
+- **Render mode (STRICT/PREVIEW)**: New `RenderMode` controls error handling during PDF generation. STRICT mode fails fast on corrupt assets (for production renders), PREVIEW mode renders a visible error placeholder (for editor previews). Live cascade renders default to PREVIEW; snapshot renders default to STRICT.
+
+### Changed
+
+- **SVG converter decoupled from RenderContext**: SVG image conversion is now injected into `ImageNodeRenderer` via a `SvgImageConverter` fun interface, keeping `RenderContext` library-agnostic for future non-iText PDF renderers.
+
+## [0.16.0] - 2026-04-23
+
+### Added
+
+- **Catalog resource usage**: The catalog browse page shows per-resource usage counts from other catalogs. Clicking a count opens a dialog listing which templates reference that resource.
+- **`UpgradeCatalog` command**: Upgrades a subscribed catalog in place — re-fetches the manifest, updates metadata and version, upgrades previously installed resources, and removes installed resources no longer in the manifest. Replaces the old unregister/re-register approach which failed when other templates referenced the catalog's themes.
+- **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
+
+### Changed
+
+- **Data contract editor: single-page layout**: Replaced the Schema/Test Data tab layout with a single scrollable page showing both sections. The Visual/JSON sub-tabs are replaced with a collapsible "View JSON" panel. Breaking changes display as a live banner between the header and schema section.
+- **Data contract editor: block save on invalid examples**: The Save button is now disabled when any example has validation errors. Examples must be valid before saving.
+- **Demo templates**: Replaced `themeRef` overrides (which lock the theme at the variant level) with `themeId` at the resource level, allowing the theme to be changed from the template settings page.
+- **Style inheritance in PDF**: Inheritable styles (font family, size, weight, color, line height, letter spacing, text align) now cascade from parent nodes to children in generated PDFs, matching the browser behavior in the editor. Previously each node resolved styles only from the document level, ignoring parent overrides.
+- **Editor unit input clearing**: Setting a unit-type style value (font size, letter spacing, border radius) to 0 now removes the property instead of storing an explicit "0pt", allowing inheritance from the parent or document level.
+
+### Fixed
+
+- **Image aspect ratio lock**: Changing width or height with "Lock Aspect Ratio" enabled now correctly adjusts the other dimension. Previously the ratio calculation always evaluated to 1 because the new value was applied before the `onPropChange` hook could read the old value.
+- **Data contract: save fails after field rename**: Renaming a schema property now automatically renames the key in all example data, and schema + examples are saved together so the backend validates consistently. Previously the stale key caused backend validation to reject the save.
+- **Data contract: property name validation**: Field names are now restricted to valid identifiers (letters, digits, underscores). Names with dashes or special characters broke JSONata expressions in the template editor. Validation is enforced in the editor UI, backend API, and catalog import.
+- **Data contract: unknown field detection**: The migration dialog now detects and offers to remove example data keys that are not defined in the schema.
+- **Data contract: breaking change review**: A confirmation dialog now shows before saving when schema changes include field renames, deletions, or type changes. Uses field IDs to distinguish renames from add/delete pairs, ensuring the user is aware of the impact on external systems.
 - **Bold, italic, and strikethrough in PDF**: Text marks now render correctly in generated PDFs. The PDF converter expected TipTap mark names (`bold`, `italic`, `strike`) but ProseMirror uses `strong`, `em`, and `strikethrough`.
 - **Stencil creation**: Fixed crash when saving a newly created stencil. The initial draft version was stored with an empty JSON object (`{}`), which failed deserialization because `TemplateDocument` requires a `root` node. Now stores a valid minimal document with an empty root node.
 - **API docs**: Fixed 404 on `/api-docs/epistola-contract.yaml` — the resource handler used an exact path instead of a wildcard pattern, preventing Spring from resolving the OpenAPI spec from the classpath.
@@ -17,16 +93,6 @@
 - **Catalog import dialog**: Import errors now display inline in the dialog instead of replacing the dialog content with the full catalog list page.
 - **Catalog delete dialog**: Delete errors (e.g. "catalog in use") now display in the confirm dialog instead of silently failing. Returns 422 with JSON error for HTMX requests.
 - **Address block positioning**: Replaced `left` prop with `align` (`left`/`right`) and `sideDistance` (distance from the aligned page edge). The `standard` select now acts as a preset that populates these properties. Previously, right-window positioning required manually computing the left offset from the page edge.
-
-### Added
-
-- **Catalog resource usage**: The catalog browse page shows per-resource usage counts from other catalogs. Clicking a count opens a dialog listing which templates reference that resource.
-- **`UpgradeCatalog` command**: Upgrades a subscribed catalog in place — re-fetches the manifest, updates metadata and version, upgrades previously installed resources, and removes installed resources no longer in the manifest. Replaces the old unregister/re-register approach which failed when other templates referenced the catalog's themes.
-- **Catalog theme references**: Templates imported from catalogs now carry a `themeId` that links them to a theme in the same catalog. Previously imported templates always had `theme_key = NULL`, requiring themeRef overrides in the templateModel. The theme reference is set on import, included in exports, and updated on reimport.
-
-### Changed
-
-- **Demo templates**: Replaced `themeRef` overrides (which lock the theme at the variant level) with `themeId` at the resource level, allowing the theme to be changed from the template settings page.
 
 ## [0.15.0] - 2026-04-20
 

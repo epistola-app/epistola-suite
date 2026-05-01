@@ -48,7 +48,8 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
-import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -98,12 +99,10 @@ class EpistolaTemplateApi(
         catalogId: String,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
-        val schemaJson = createTemplateRequest.schema?.let { objectMapper.writeValueAsString(it) }
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val template = CreateDocumentTemplate(
             id = TemplateId(TemplateKey.of(createTemplateRequest.id), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)),
             name = createTemplateRequest.name,
-            schema = schemaJson,
         ).execute()
         val templateIdComposite = TemplateId(template.id, CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
@@ -120,7 +119,8 @@ class EpistolaTemplateApi(
         val template = GetDocumentTemplate(id = templateIdComposite).query()
             ?: return ResponseEntity.notFound().build()
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
-        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
+        val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
     }
 
     override fun updateTemplate(
@@ -129,21 +129,15 @@ class EpistolaTemplateApi(
         templateId: String,
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
-        val dataExamples = updateTemplateRequest.dataExamples?.map {
-            DataExample(id = it.id, name = it.name, data = it.data)
-        }
-        val dataModel = updateTemplateRequest.dataModel
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val result = UpdateDocumentTemplate(
+        val template = UpdateDocumentTemplate(
             id = templateIdComposite,
             name = updateTemplateRequest.name,
-            dataModel = dataModel,
-            dataExamples = dataExamples,
-            forceUpdate = updateTemplateRequest.forceUpdate ?: false,
         ).execute() ?: return ResponseEntity.notFound().build()
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
-        return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
+        val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
     }
 
     override fun validateTemplateData(
@@ -154,10 +148,11 @@ class EpistolaTemplateApi(
     ): ResponseEntity<TemplateDataValidationResult> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val template = GetDocumentTemplate(id = templateIdComposite).query()
+        GetDocumentTemplate(id = templateIdComposite).query()
             ?: return ResponseEntity.notFound().build()
 
-        val dataModel = template.dataModel
+        val contractVersion = GetLatestContractVersion(templateId = templateIdComposite).query()
+        val dataModel = contractVersion?.dataModel
             ?: return ResponseEntity.ok(TemplateDataValidationResult(valid = true, errors = emptyList()))
 
         val dataNode = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data)

@@ -17,6 +17,7 @@ import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logi
 import { handleDrop } from '../dnd/drop-handler.js';
 import { icon } from './icons.js';
 import { isCollapsible, countChildren } from './collapse.js';
+import { toStyleMap, DEFAULT_SPACING_UNIT_PT } from './style-css.js';
 import '../ui/EpistolaTextEditor.js';
 
 @customElement('epistola-canvas')
@@ -35,6 +36,10 @@ export class EpistolaCanvas extends LitElement {
   private _dndCleanup: (() => void) | null = null;
   private _unsubComponentState?: () => void;
   private _subscribedEngine?: EditorEngine;
+
+  private get _spacingUnit(): number {
+    return this.engine?.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
+  }
 
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation();
@@ -383,7 +388,7 @@ export class EpistolaCanvas extends LitElement {
     const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
     const applicableStyles = def?.applicableStyles;
     const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles);
-    const contentStyle = toStyleMap(filteredStyles);
+    const contentStyle = toStyleMap(filteredStyles, this._spacingUnit);
 
     return html`
       <div
@@ -409,6 +414,9 @@ export class EpistolaCanvas extends LitElement {
               `
             : nothing}
           <span class="canvas-block-label">${label}</span>
+          ${node.type === 'text'
+            ? html`<span class="canvas-block-hint">type <code>{{</code> for expressions</span>`
+            : nothing}
           ${collapsed
             ? html`<span class="canvas-block-child-count"
                 >${(() => {
@@ -487,7 +495,7 @@ export class EpistolaCanvas extends LitElement {
         const def = this.engine!.registry.get(node.type);
         const applicableStyles = def?.applicableStyles;
         const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles);
-        const textStyles = toStyleMap(filteredStyles);
+        const textStyles = toStyleMap(filteredStyles, this._spacingUnit);
         return html`
           <epistola-text-editor
             .nodeId=${nodeId}
@@ -502,7 +510,7 @@ export class EpistolaCanvas extends LitElement {
         const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
         const def = this.engine!.registry.get(node.type);
         const filteredStyles = filterByApplicableStyles(resolvedStyles, def?.applicableStyles);
-        const wrapperStyle = toStyleMap(filteredStyles);
+        const wrapperStyle = toStyleMap(filteredStyles, this._spacingUnit);
         const props = node.props ?? {};
         const thickness = (props.thickness as string) || '1pt';
         const width = (props.width as string) || '100%';
@@ -555,24 +563,6 @@ function filterByApplicableStyles(
     } else if (applicableStyles.some((allowed) => key.startsWith(allowed))) {
       result[key] = value;
     }
-  }
-  return result;
-}
-
-/** Convert a camelCase key to kebab-case CSS property name. */
-function camelToKebab(key: string): string {
-  return key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-}
-
-/**
- * Convert a resolved styles object to a styleMap-compatible record.
- * All values are scalar strings (e.g. marginTop: '10px' → margin-top: 10px).
- */
-function toStyleMap(styles: Record<string, unknown>): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(styles)) {
-    if (value == null) continue;
-    result[camelToKebab(key)] = String(value);
   }
   return result;
 }

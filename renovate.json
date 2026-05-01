@@ -6,8 +6,19 @@
   "prConcurrentLimit": 10,
   "ignorePaths": ["**/test/resources/**"],
   "constraints": { "pnpm": "10.28.2", "node": "24.13.0" },
-  "lockFileMaintenance": { "enabled": true },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "groupName": "all non-major dependencies",
+    "groupSlug": "non-major"
+  },
   "packageRules": [
+    {
+      "description": "Group all GitHub Actions updates (minor, major, digests) into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "groupSlug": "github-actions",
+      "automerge": false
+    },
     {
       "description": "Group toolchain updates (Kotlin, Gradle, Kover, Node, pnpm) into a separate PR",
       "matchPackageNames": [
@@ -40,8 +51,8 @@
     {
       "description": "Group major updates separately",
       "matchUpdateTypes": ["major"],
-      "groupName": "major updates",
-      "groupSlug": "major"
+      "groupName": "all non-major dependencies",
+      "groupSlug": "non-major"
     }
   ],
   "gradle": {

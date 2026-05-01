@@ -5,6 +5,7 @@ import {
   FIELD_TYPE_LABELS,
   generateSchemaFromData,
   getSchemaFieldPaths,
+  isValidFieldName,
   jsonSchemaToVisualSchema,
   visualSchemaToJsonSchema,
 } from './schemaUtils.js';
@@ -928,5 +929,51 @@ describe('applyFieldUpdate with constraints', () => {
     const result = applyFieldUpdate(field, { type: 'string' });
     expect(result.type).toBe('string');
     expect('minItems' in result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidFieldName
+// ---------------------------------------------------------------------------
+
+describe('isValidFieldName', () => {
+  it('accepts camelCase names', () => {
+    expect(isValidFieldName('firstName')).toBe(true);
+  });
+
+  it('accepts snake_case names', () => {
+    expect(isValidFieldName('first_name')).toBe(true);
+  });
+
+  it('accepts names starting with underscore', () => {
+    expect(isValidFieldName('_private')).toBe(true);
+  });
+
+  it('accepts single letter', () => {
+    expect(isValidFieldName('x')).toBe(true);
+  });
+
+  it('accepts names with digits', () => {
+    expect(isValidFieldName('field1')).toBe(true);
+  });
+
+  it('rejects names with dashes', () => {
+    expect(isValidFieldName('Some-Property')).toBe(false);
+  });
+
+  it('rejects names with dots', () => {
+    expect(isValidFieldName('a.b')).toBe(false);
+  });
+
+  it('rejects names starting with digit', () => {
+    expect(isValidFieldName('1field')).toBe(false);
+  });
+
+  it('rejects empty string', () => {
+    expect(isValidFieldName('')).toBe(false);
+  });
+
+  it('rejects names with spaces', () => {
+    expect(isValidFieldName('my field')).toBe(false);
   });
 });

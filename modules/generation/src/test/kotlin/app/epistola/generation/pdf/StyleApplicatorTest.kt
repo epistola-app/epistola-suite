@@ -84,7 +84,7 @@ class StyleApplicatorTest {
             blockInlineStyles = null,
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
@@ -99,7 +99,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("color" to "#333"),
             blockStylePreset = "heading",
             blockStylePresets = presets,
-            documentStyles = mapOf("fontFamily" to "Arial"),
+            inheritedStyles = mapOf("fontFamily" to "Arial"),
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
@@ -113,22 +113,38 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("fontSize" to "14pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
     }
 
+    // -----------------------------------------------------------------------
+    // resolveInheritedStyles
+    // -----------------------------------------------------------------------
+
     @Test
-    fun `applyStylesWithPreset filters non-inheritable document styles`() {
-        val div = Div()
-        StyleApplicator.applyStylesWithPreset(
-            div,
-            blockInlineStyles = null,
-            blockStylePreset = null,
-            blockStylePresets = emptyMap(),
-            documentStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14pt"),
-            fontCache = fontCache,
-        )
+    fun `resolveInheritedStyles returns parent styles when no overrides`() {
+        val parent = mapOf("fontSize" to "12pt" as Any, "color" to "#000" as Any)
+        val result = StyleApplicator.resolveInheritedStyles(parent, null, emptyMap(), null)
+        assertEquals(parent, result)
+    }
+
+    @Test
+    fun `resolveInheritedStyles merges inline overrides filtered to inheritable keys`() {
+        val parent = mapOf("fontSize" to "12pt" as Any)
+        val inline = mapOf("fontSize" to "18pt" as Any, "marginBottom" to "8pt" as Any)
+        val result = StyleApplicator.resolveInheritedStyles(parent, null, emptyMap(), inline)
+        assertEquals("18pt", result["fontSize"]) // overridden
+        assert("marginBottom" !in result) // non-inheritable filtered out
+    }
+
+    @Test
+    fun `resolveInheritedStyles merges preset overrides filtered to inheritable keys`() {
+        val parent = mapOf("fontSize" to "12pt" as Any)
+        val presets = mapOf("heading" to mapOf("fontSize" to "24pt" as Any, "paddingTop" to "4pt" as Any))
+        val result = StyleApplicator.resolveInheritedStyles(parent, "heading", presets, null)
+        assertEquals("24pt", result["fontSize"]) // preset overrides parent
+        assert("paddingTop" !in result) // non-inheritable filtered out
     }
 
     // -----------------------------------------------------------------------
@@ -143,7 +159,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "2sp"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
     }
@@ -156,7 +172,7 @@ class StyleApplicatorTest {
             blockInlineStyles = null,
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
@@ -170,7 +186,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "2sp"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
             spacingUnit = 6f, // 2sp = 12pt
         )
@@ -184,7 +200,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "16pt", "paddingTop" to "8pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
     }
@@ -201,7 +217,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("keepTogether" to true),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
@@ -215,7 +231,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("keepTogether" to "true"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_TOGETHER) == true)
@@ -229,7 +245,7 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("keepWithNext" to true),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertTrue(div.getProperty<Boolean>(Property.KEEP_WITH_NEXT) == true)
@@ -243,9 +259,36 @@ class StyleApplicatorTest {
             blockInlineStyles = mapOf("marginBottom" to "4pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = null,
+            inheritedStyles = emptyMap(),
             fontCache = fontCache,
         )
         assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))
+    }
+
+    // -----------------------------------------------------------------------
+    // parseSize unit handling
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `parseSize handles pt`() {
+        assertEquals(12f, StyleApplicator.parseSize("12pt"))
+    }
+
+    @Test
+    fun `parseSize handles sp via spacing scale`() {
+        assertEquals(8f, StyleApplicator.parseSize("2sp"))
+    }
+
+    @Test
+    fun `parseSize handles mm`() {
+        // 1mm ≈ 2.83465pt
+        val result = StyleApplicator.parseSize("10mm")
+        assertNotNull(result)
+        assertEquals(28.3465f, result, 0.0001f)
+    }
+
+    @Test
+    fun `parseSize returns null for unknown unit`() {
+        assertEquals(null, StyleApplicator.parseSize("10rem"))
     }
 }

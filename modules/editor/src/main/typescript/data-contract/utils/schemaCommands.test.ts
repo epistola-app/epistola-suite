@@ -4,6 +4,7 @@ import {
   addFieldToTree,
   deleteFieldFromTree,
   executeSchemaCommand,
+  findFieldPath,
   updateFieldInTree,
 } from './schemaCommands.js';
 
@@ -301,5 +302,50 @@ describe('executeSchemaCommand', () => {
     executeSchemaCommand(schema, { type: 'deleteField', fieldId: 'field:name' });
 
     expect(schema).toEqual(original);
+  });
+});
+
+// =============================================================================
+// findFieldPath
+// =============================================================================
+
+describe('findFieldPath', () => {
+  it('finds root-level field with empty path', () => {
+    const schema = makeSchema();
+    const result = findFieldPath(schema.fields, 'field:name');
+
+    expect(result?.path).toEqual([]);
+    expect(result?.field.name).toBe('name');
+  });
+
+  it('finds nested field with parent path', () => {
+    const schema = makeSchema();
+    const result = findFieldPath(schema.fields, 'field:address.street');
+
+    expect(result?.path).toEqual(['address']);
+    expect(result?.field.name).toBe('street');
+  });
+
+  it('finds deeply nested field', () => {
+    const schema = makeDeeplyNestedSchema();
+    const result = findFieldPath(schema.fields, 'field:company.hq.address.zip');
+
+    expect(result?.path).toEqual(['company', 'hq', 'address']);
+    expect(result?.field.name).toBe('zip');
+  });
+
+  it('returns null for nonexistent field', () => {
+    const schema = makeSchema();
+    const result = findFieldPath(schema.fields, 'nonexistent');
+
+    expect(result).toBeNull();
+  });
+
+  it('finds the object field itself', () => {
+    const schema = makeSchema();
+    const result = findFieldPath(schema.fields, 'field:address');
+
+    expect(result?.path).toEqual([]);
+    expect(result?.field.name).toBe('address');
   });
 });

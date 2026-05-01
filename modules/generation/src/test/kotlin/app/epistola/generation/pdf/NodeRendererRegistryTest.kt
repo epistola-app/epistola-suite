@@ -12,7 +12,12 @@ import kotlin.test.assertFailsWith
 
 class NodeRendererRegistryTest {
 
-    private val registry = DirectPdfRenderer.createDefaultRegistry()
+    private val registry = NodeRendererRegistry(
+        mapOf(
+            "root" to ContainerNodeRenderer(),
+            "text" to TextNodeRenderer(),
+        ),
+    )
     private val evaluator = CompositeExpressionEvaluator()
     private val fontCache = FontCache(pdfaCompliant = false)
     private val tipTapConverter = TipTapConverter(evaluator)

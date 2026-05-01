@@ -152,7 +152,18 @@ class ExportCatalogZipHandler(
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id, name, theme_key, theme_catalog_key, data_model::text, data_examples::text FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+                """
+                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key,
+                       cv.data_model::text, cv.data_examples::text
+                FROM document_templates dt
+                LEFT JOIN LATERAL (
+                    SELECT data_model, data_examples FROM contract_versions
+                    WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
+                    ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
+                    LIMIT 1
+                ) cv ON TRUE
+                WHERE dt.tenant_key = :tenantKey AND dt.catalog_key = :catalogKey
+                """,
             )
                 .bind("tenantKey", tenantKey)
                 .bind("catalogKey", catalogKey)
@@ -169,7 +180,7 @@ class ExportCatalogZipHandler(
                 .list()
         }
 
-        return templates.map { template ->
+        return templates.mapNotNull { template ->
             val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
                 handle.createQuery(
                     """
@@ -178,7 +189,8 @@ class ExportCatalogZipHandler(
                     LEFT JOIN LATERAL (
                         SELECT template_model FROM template_versions
                         WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey AND variant_key = v.id
-                        ORDER BY CASE WHEN status = 'published' THEN 0 ELSE 1 END, id DESC
+                          AND status = 'published'
+                        ORDER BY id DESC
                         LIMIT 1
                     ) vv ON TRUE
                     WHERE v.tenant_key = :tenantKey AND v.catalog_key = :catalogKey AND v.template_key = :templateKey
@@ -200,7 +212,10 @@ class ExportCatalogZipHandler(
             }
 
             val defaultVariant = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()
-                ?: throw IllegalStateException("Template '${template.id}' has no variants")
+                ?: return@mapNotNull null // Skip templates without variants
+
+            // Skip templates without a published version
+            val defaultModel = defaultVariant.templateModel ?: return@mapNotNull null
 
             TemplateResource(
                 slug = template.id,
@@ -216,8 +231,7 @@ class ExportCatalogZipHandler(
                 dataExamples = template.dataExamples?.let {
                     objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, DataExampleEntry::class.java))
                 },
-                templateModel = defaultVariant.templateModel
-                    ?: throw IllegalStateException("Default variant of template '${template.id}' has no content"),
+                templateModel = defaultModel,
                 variants = variants.map { v ->
                     VariantEntry(
                         id = v.id,

@@ -2,92 +2,227 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="tab-content">
-        <div id="data-contract-container"
-             th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
-        <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${template.dataModel}]]*/ null</script>
-        <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${template.dataExamples}]]*/ []</script>
+        <!-- Status bar (adapts to view/edit mode) -->
+        <th:block th:replace="~{templates/detail/contract-status-bar :: content}" />
+
+        <!-- Dialogs -->
+        <dialog id="contract-breaking-dialog" class="ep-dialog" style="max-width: 600px;">
+            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Breaking Contract Changes</h3>
+                <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                        onclick="document.getElementById('contract-breaking-dialog').close()">&times;</button>
+            </div>
+            <div class="ep-dialog-body" id="contract-breaking-body"></div>
+        </dialog>
+
+        <dialog id="contract-usage-dialog" class="ep-dialog" style="max-width: 700px;">
+            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Contract Usage</h3>
+                <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                        onclick="document.getElementById('contract-usage-dialog').close()">&times;</button>
+            </div>
+            <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
+                <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
+                    <thead><tr><th>Variant</th><th>Version</th><th>Status</th><th>Contract</th><th>Deployed</th></tr></thead>
+                    <tbody>
+                        <tr th:each="v : ${allTemplateVersions}">
+                            <td th:text="${v.variantKey}"></td>
+                            <td><strong th:text="'v' + ${v.versionId}"></strong></td>
+                            <td>
+                                <span th:if="${v.status == 'draft'}" class="badge badge-primary">Draft</span>
+                                <span th:if="${v.status == 'published'}" class="badge badge-success">Published</span>
+                            </td>
+                            <td>
+                                <th:block th:if="${v.contractVersion != null}">
+                                    <span th:if="${v.contractVersion == latestPublishedContractId}" class="badge badge-success" th:text="'v' + ${v.contractVersion}"></span>
+                                    <span th:if="${v.contractVersion != latestPublishedContractId && latestPublishedContractId != null}" class="badge badge-warning" th:text="'v' + ${v.contractVersion}"></span>
+                                    <span th:if="${latestPublishedContractId == null}" class="badge badge-outline" th:text="'v' + ${v.contractVersion}"></span>
+                                </th:block>
+                                <span th:if="${v.contractVersion == null}" class="text-muted">-</span>
+                            </td>
+                            <td>
+                                <span th:if="${!#lists.isEmpty(v.activeEnvironments)}" th:text="${#strings.listJoin(v.activeEnvironments, ', ')}"></span>
+                                <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="text-muted">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="text-muted" style="text-align: center;">No template versions yet.</p>
+            </div>
+        </dialog>
+
+        <dialog id="contract-history-dialog" class="ep-dialog ep-dialog-wide"><div id="contract-history-body"></div></dialog>
 
         <script>
-            (function() {
-                function parseJsonScript(id, fallback) {
-                    const el = document.getElementById(id);
-                    if (!el) return fallback;
-                    try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
-                }
-
-                async function mount() {
-                    const container = document.getElementById('data-contract-container');
-                    if (!container || container.dataset.editorMounted === 'true') return;
-                    const tenantId = container.dataset.tenantId;
-                    const catalogId = container.dataset.catalogId;
-                    const templateId = container.dataset.templateId;
-                    const readonly = container.dataset.readonly === 'true';
-                    if (!tenantId || !catalogId || !templateId) return;
-
-                    const initialSchema = parseJsonScript('data-contract-schema', null);
-                    const initialExamples = parseJsonScript('data-contract-examples', []);
-                    const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
-
-                    mountDataContractEditor({
-                        container: container,
-                        templateId: templateId,
-                        initialSchema: initialSchema,
-                        initialExamples: initialExamples,
-                        readonly: readonly,
-                        callbacks: readonly ? {} : {
-                            onSaveSchema: async (schema, forceUpdate) => {
-                                try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
-                                        body: JSON.stringify({ dataModel: schema, forceUpdate })
-                                    });
-                                    if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
-                                    const result = await response.json();
-                                    return { success: true, warnings: result.warnings };
-                                } catch (e) { return { success: false, error: e.message }; }
-                            },
-                            onSaveDataExamples: async (examples) => {
-                                try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
-                                        body: JSON.stringify({ dataExamples: examples })
-                                    });
-                                    if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
-                                    const result = await response.json();
-                                    return { success: true, warnings: result.warnings };
-                                } catch (e) { return { success: false }; }
-                            },
-                            onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
-                                try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' },
-                                        body: JSON.stringify({ ...updates, forceUpdate })
-                                    });
-                                    if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
-                                    const result = await response.json();
-                                    return { success: true, example: result, warnings: result.warnings };
-                                } catch (e) { return { success: false }; }
-                            },
-                            onDeleteDataExample: async (exampleId) => {
-                                try {
-                                    const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
-                                        method: 'DELETE',
-                                        headers: { 'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '' }
-                                    });
-                                    return { success: response.ok };
-                                } catch (e) { return { success: false }; }
-                            }
-                        }
-                    });
-                    container.dataset.editorMounted = 'true';
-                }
-
-                mount();
-            })();
+            document.getElementById('contract-breaking-body')?.addEventListener('htmx:afterSwap', function() {
+                document.getElementById('contract-breaking-dialog').showModal();
+            });
         </script>
+
+        <!-- ================================================================ -->
+        <!-- VIEW MODE (default) -->
+        <!-- ================================================================ -->
+        <th:block th:if="${!editMode}">
+            <div class="detail-section">
+                <div class="detail-section-header">
+                    <h3 style="font-size: var(--ep-text-base); margin: 0;">Schema</h3>
+                </div>
+                <div class="detail-section-body">
+                    <th:block th:if="${!#lists.isEmpty(schemaFields)}">
+                        <table class="ep-table" style="font-size: var(--ep-text-sm); width: 100%;">
+                            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr th:each="field : ${schemaFields}">
+                                    <td>
+                                        <code th:style="'padding-left: ' + ${field.depth * 16} + 'px'" th:text="${field.name}"></code>
+                                    </td>
+                                    <td><span class="badge badge-outline" th:text="${field.type}"></span></td>
+                                    <td>
+                                        <span th:if="${field.required}" style="color: var(--ep-red-600);">Required</span>
+                                        <span th:unless="${field.required}" class="text-muted">Optional</span>
+                                    </td>
+                                    <td class="text-muted" th:text="${field.description ?: ''}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </th:block>
+                    <th:block th:if="${#lists.isEmpty(schemaFields)}">
+                        <p class="text-muted" style="text-align: center; padding: var(--ep-space-4);">
+                            No schema defined yet.
+                            <th:block th:if="${editable}">
+                                Click <strong>Edit</strong> above to define one.
+                            </th:block>
+                        </p>
+                    </th:block>
+                </div>
+            </div>
+
+            <!-- Examples summary (names only, edit for full details) -->
+            <th:block th:if="${contractDataExamples != null && !contractDataExamples.isEmpty()}">
+                <div class="detail-section">
+                    <div class="detail-section-header">
+                        <h3 style="font-size: var(--ep-text-base); margin: 0;">
+                            Examples
+                            <span class="text-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
+                        </h3>
+                    </div>
+                    <div class="detail-section-body" style="padding: var(--ep-space-3);">
+                        <div style="display: flex; flex-wrap: wrap; gap: var(--ep-space-2);">
+                            <span th:each="example : ${contractDataExamples}"
+                                  class="badge badge-outline" th:text="${example.name}"></span>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </th:block>
+
+        <!-- ================================================================ -->
+        <!-- EDIT MODE -->
+        <!-- ================================================================ -->
+        <th:block th:if="${editMode}">
+            <div id="data-contract-container"
+                 th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
+            <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
+            <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
+
+            <script>
+                (function() {
+                    function parseJsonScript(id, fallback) {
+                        const el = document.getElementById(id);
+                        if (!el) return fallback;
+                        try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
+                    }
+
+                    const statusBarUrl = document.getElementById('contract-status-bar')?.dataset?.statusUrl;
+
+                    function refreshStatusBar() {
+                        if (statusBarUrl && typeof htmx !== 'undefined') {
+                            htmx.ajax('GET', statusBarUrl, { target: '#contract-status-bar', swap: 'outerHTML' });
+                        }
+                    }
+
+                    async function mount() {
+                        const container = document.getElementById('data-contract-container');
+                        if (!container || container.dataset.editorMounted === 'true') return;
+                        const tenantId = container.dataset.tenantId;
+                        const catalogId = container.dataset.catalogId;
+                        const templateId = container.dataset.templateId;
+                        const readonly = container.dataset.readonly === 'true';
+                        if (!tenantId || !catalogId || !templateId) return;
+
+                        const initialSchema = parseJsonScript('data-contract-schema', null);
+                        const initialExamples = parseJsonScript('data-contract-examples', []);
+                        const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
+
+                        const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
+                        const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                        const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken };
+
+                        mountDataContractEditor({
+                            container: container,
+                            templateId: templateId,
+                            initialSchema: initialSchema,
+                            initialExamples: initialExamples,
+                            readonly: readonly,
+                            callbacks: readonly ? {} : {
+                                onSaveSchema: async (schema, forceUpdate, dataExamples) => {
+                                    try {
+                                        const body = { dataModel: schema, forceUpdate };
+                                        if (dataExamples) body.dataExamples = dataExamples;
+                                        const response = await fetch(`${contractBasePath}/draft`, {
+                                            method: 'PATCH',
+                                            headers: jsonHeaders,
+                                            body: JSON.stringify(body)
+                                        });
+                                        if (!response.ok) { const err = await response.json(); return { success: false, error: err.message, warnings: err.warnings }; }
+                                        const result = await response.json();
+                                        refreshStatusBar();
+                                        return { success: true, warnings: result.warnings };
+                                    } catch (e) { return { success: false, error: e.message }; }
+                                },
+                                onSaveDataExamples: async (examples) => {
+                                    try {
+                                        const response = await fetch(`${contractBasePath}/draft`, {
+                                            method: 'PATCH',
+                                            headers: jsonHeaders,
+                                            body: JSON.stringify({ dataExamples: examples })
+                                        });
+                                        if (!response.ok) { const err = await response.json(); return { success: false, warnings: err.warnings }; }
+                                        const result = await response.json();
+                                        refreshStatusBar();
+                                        return { success: true, warnings: result.warnings };
+                                    } catch (e) { return { success: false }; }
+                                },
+                                onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                                    try {
+                                        const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                            method: 'PATCH',
+                                            headers: jsonHeaders,
+                                            body: JSON.stringify({ ...updates, forceUpdate })
+                                        });
+                                        if (!response.ok) { const err = await response.json(); return { success: false, errors: err.errors, warnings: err.warnings }; }
+                                        const result = await response.json();
+                                        return { success: true, example: result, warnings: result.warnings };
+                                    } catch (e) { return { success: false }; }
+                                },
+                                onDeleteDataExample: async (exampleId) => {
+                                    try {
+                                        const response = await fetch(`/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`, {
+                                            method: 'DELETE',
+                                            headers: { 'X-XSRF-TOKEN': csrfToken }
+                                        });
+                                        return { success: response.ok };
+                                    } catch (e) { return { success: false }; }
+                                }
+                            }
+                        });
+                        container.dataset.editorMounted = 'true';
+                    }
+
+                    mount();
+                })();
+            </script>
+        </th:block>
     </th:block>
 </body>
 </html>

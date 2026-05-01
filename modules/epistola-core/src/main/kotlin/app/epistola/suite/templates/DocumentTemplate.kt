@@ -5,16 +5,13 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.VariantSummary
-import org.jdbi.v3.json.Json
-import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
 
 /**
  * Document template entity.
- * Defines the input contract (schema + examples) and groups related variants.
- * The visual content (templateModel) is now stored in TemplateVersion.
+ * Groups related variants. The data contract (schema + examples) is now
+ * versioned separately in ContractVersion.
  */
 data class DocumentTemplate(
     val id: TemplateKey,
@@ -24,9 +21,6 @@ data class DocumentTemplate(
     val name: String,
     val themeKey: ThemeKey? = null,
     val themeCatalogKey: CatalogKey? = null,
-    @Json val schema: ObjectNode? = null,
-    @Json val dataModel: ObjectNode? = null,
-    @Json val dataExamples: DataExamples = DataExamples.EMPTY,
     val pdfaEnabled: Boolean = false,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
@@ -41,9 +35,6 @@ data class DocumentTemplateWithVariants(
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val name: String,
     val themeKey: ThemeKey? = null,
-    @Json val schema: ObjectNode? = null,
-    @Json val dataModel: ObjectNode? = null,
-    @Json val dataExamples: DataExamples = DataExamples.EMPTY,
     val pdfaEnabled: Boolean = false,
     val variants: List<VariantSummary>,
     val createdAt: OffsetDateTime,

@@ -7,24 +7,84 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
-import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 @Timeout(30)
 class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
     private val objectMapper = ObjectMapper()
 
+    /**
+     * Inserts a draft contract version with the given data model into contract_versions.
+     */
+    private fun insertDraftContract(templateId: TemplateId, dataModel: String) {
+        jdbi.withHandle<Unit, Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, created_at)
+                VALUES (1, :tenantKey, :catalogKey, :templateKey, :dataModel::jsonb, '[]'::jsonb, 'draft', NOW())
+                ON CONFLICT (tenant_key, catalog_key, template_key, id)
+                DO UPDATE SET data_model = :dataModel::jsonb
+                """,
+            )
+                .bind("tenantKey", templateId.tenantKey)
+                .bind("catalogKey", templateId.catalogKey)
+                .bind("templateKey", templateId.key)
+                .bind("dataModel", dataModel)
+                .execute()
+        }
+    }
+
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
+
+    @Nested
+    inner class FreshTemplatePreviewTests {
+        @Test
+        fun `preview works on freshly created template without any edits`() {
+            // Mimics: create template → open editor → click preview
+            val tenant = createTenant("Fresh Preview Tenant")
+            val tenantId = TenantId(tenant.id)
+            val catalogId = CatalogId.default(tenantId)
+            val templateId = TemplateId(app.epistola.suite.common.ids.TemplateKey.of("fresh-preview"), catalogId)
+
+            withMediator {
+                app.epistola.suite.templates.commands.CreateDocumentTemplate(
+                    id = templateId,
+                    name = "Fresh Template",
+                ).execute()
+            }
+
+            // Preview the default variant's draft — no contract edits, no version edits
+            val defaultVariantId = app.epistola.suite.common.ids.VariantKey.of("fresh-preview-default")
+            val pdfBytes = withMediator {
+                PreviewVariant(
+                    tenantId = tenant.id,
+                    catalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+                    templateId = templateId.key,
+                    variantId = defaultVariantId,
+                    data = emptyData(),
+                ).query()
+            }
+
+            assertThat(pdfBytes).isNotEmpty()
+        }
+    }
 
     @Nested
     inner class PreviewVariantTests {
@@ -121,16 +181,14 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = version(compositeVariantId, templateModel)
 
-                // Add schema that requires 'name' field
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
-                )
-                execute(
-                    UpdateDocumentTemplate(
-                        id = compositeTemplateId,
-                        dataModel = objectMapper.valueToTree(dataModel),
+                // Add schema that requires 'name' field via contract version
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                    templateId = compositeTemplateId,
+                    dataModel = objectMapper.readValue(
+                        """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                        tools.jackson.databind.node.ObjectNode::class.java,
                     ),
-                )
+                ).execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 setup
@@ -229,27 +287,31 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = version(compositeVariantId, templateModel)
 
-                val dataModel = objectMapper.readTree(
-                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
-                )
-                execute(
-                    UpdateDocumentTemplate(
-                        id = compositeTemplateId,
-                        dataModel = objectMapper.valueToTree(dataModel),
+                // Add schema that requires 'name' field via contract version and publish
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                    templateId = compositeTemplateId,
+                    dataModel = objectMapper.readValue(
+                        """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                        tools.jackson.databind.node.ObjectNode::class.java,
                     ),
-                )
+                ).execute()
+                app.epistola.suite.templates.contracts.commands.PublishContractVersion(
+                    templateId = compositeTemplateId,
+                ).execute()
+
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 setup
             }.then { setup, _ ->
+                // Use PreviewVariant instead of PreviewDocument to test schema validation
+                // PreviewVariant uses the latest contract directly (not via version FK)
                 assertThatThrownBy {
                     query(
-                        PreviewDocument(
+                        PreviewVariant(
                             tenantId = setup.tenant.id,
                             catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
-                            versionId = setup.version.id,
                             data = emptyData(),
                         ),
                     )

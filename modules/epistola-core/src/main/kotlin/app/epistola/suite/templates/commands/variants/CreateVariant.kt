@@ -94,10 +94,28 @@ class CreateVariantHandler(
                 val defaultModel = createDefaultTemplateModel(templateName, variant.id)
                 val templateModelJson = objectMapper.writeValueAsString(defaultModel)
 
+                // Resolve contract version: prefer draft (user may be editing), fall back to published
+                val contractVersionId = handle.createQuery(
+                    """
+                SELECT id FROM contract_versions
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
+                LIMIT 1
+                """,
+                )
+                    .bind("tenantKey", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
+                    .bind("templateKey", command.id.templateKey)
+                    .mapTo(Int::class.java)
+                    .findOne()
+                    .orElseThrow {
+                        IllegalStateException("No contract version found for template '${command.id.templateKey}'")
+                    }
+
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
                 """,
                 )
                     .bind("id", versionId)
@@ -106,6 +124,7 @@ class CreateVariantHandler(
                     .bind("templateId", command.id.templateKey)
                     .bind("variantId", command.id.key)
                     .bind("templateModel", templateModelJson)
+                    .bind("contractVersion", contractVersionId)
                     .execute()
 
                 variant

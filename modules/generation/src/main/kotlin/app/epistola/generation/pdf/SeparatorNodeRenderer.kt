@@ -64,7 +64,7 @@ class SeparatorNodeRenderer : NodeRenderer {
             node.styles?.filterNonNullValues(),
             node.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
+            context.inheritedStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("separator"),
             context.renderingDefaults.baseFontSizePt,

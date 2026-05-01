@@ -8,6 +8,7 @@ import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.layout.Canvas
 import com.itextpdf.layout.element.AreaBreak
+import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.Image
 
@@ -57,15 +58,30 @@ class PageHeaderEventHandler(
             val hideOnFirstPage = headerNode.props?.get("hideOnFirstPage") == true
             if (hideOnFirstPage && pageNumber == 1) return
             val totalPages = context.totalPages ?: pdfDoc.numberOfPages
-            val pageContext = context.withPageParams(pageNumber, totalPages)
+            val pageContext = context.withInheritedStylesFrom(headerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(headerNode, document, pageContext)
+
+            // Wrap slot children in a Div so header node styles (borders, background, padding) apply
+            val wrapper = Div()
+            StyleApplicator.applyStylesWithPreset(
+                wrapper,
+                headerNode.styles?.filterNonNullValues(),
+                headerNode.stylePreset,
+                context.blockStylePresets,
+                context.inheritedStyles,
+                context.fontCache,
+                context.renderingDefaults.componentDefaults("pageheader"),
+                context.renderingDefaults.baseFontSizePt,
+                context.spacingUnit,
+            )
             for (element in elements) {
                 when (element) {
-                    is IBlockElement -> canvas.add(element)
-                    is Image -> canvas.add(element)
+                    is IBlockElement -> wrapper.add(element)
+                    is Image -> wrapper.add(element)
                     is AreaBreak -> Unit
                 }
             }
+            canvas.add(wrapper)
         }
 
         canvas.close()

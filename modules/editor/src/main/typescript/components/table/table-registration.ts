@@ -32,7 +32,6 @@ export const TABLE_DEFAULT_PROPS = {
   rows: 2,
   columns: 2,
   columnWidths: [50, 50],
-  borderStyle: 'all',
   headerRows: 0,
   merges: [],
 };
@@ -58,20 +57,7 @@ export function createTableDefinition(): ComponentDefinition {
     allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
     defaultStyles: { marginBottom: '1.5sp' },
-    inspector: [
-      {
-        key: 'borderStyle',
-        label: 'Border Style',
-        type: 'select',
-        options: [
-          { label: 'None', value: 'none' },
-          { label: 'All', value: 'all' },
-          { label: 'Horizontal', value: 'horizontal' },
-          { label: 'Vertical', value: 'vertical' },
-        ],
-        defaultValue: 'all',
-      },
-    ],
+    inspector: [],
     defaultProps: { ...TABLE_DEFAULT_PROPS },
     createInitialSlots: (nodeId: NodeId, props?: Record<string, unknown>) => {
       const rows = (props?.rows as number | undefined) ?? TABLE_DEFAULT_PROPS.rows;
@@ -105,7 +91,6 @@ export function createTableDefinition(): ComponentDefinition {
       const columnWidths = (props.columnWidths as number[]) ?? [];
       const merges = (props.merges as CellMerge[]) ?? [];
       const headerRows = (props.headerRows as number) ?? 0;
-      const borderStyle = (props.borderStyle as string) ?? 'all';
 
       if (rows <= 0 || columns <= 0) return html`<div class="table-canvas-empty">Empty table</div>`;
 
@@ -154,6 +139,17 @@ export function createTableDefinition(): ComponentDefinition {
           newSel = { startRow: row, startCol: col, endRow: row, endCol: col };
         }
         engine.setComponentState('table:cellSelection', newSel);
+      };
+
+      // Click on the grid wrapper outside any cell: clear the cell selection
+      // so the inspector returns to table-level controls. `selectNode` is a
+      // no-op when the table is already selected, so clearing the component
+      // state is the only reliable exit path that keeps the table selected.
+      const handleGridClick = (e: MouseEvent) => {
+        if (e.target !== e.currentTarget) return;
+        if (engine.getComponentState<CellSelection>('table:cellSelection') == null) return;
+        engine.setComponentState('table:cellSelection', null);
+        e.stopPropagation();
       };
 
       // Build cells
@@ -212,8 +208,9 @@ export function createTableDefinition(): ComponentDefinition {
 
       return html`
         <div
-          class="table-canvas-grid border-${borderStyle}"
+          class="table-canvas-grid"
           style=${styleMap({ 'grid-template-columns': gridTemplateColumns })}
+          @click=${handleGridClick}
         >
           ${cells}
         </div>
@@ -224,6 +221,23 @@ export function createTableDefinition(): ComponentDefinition {
     renderInspector: ({ node, engine: eng }) => {
       const engine = eng as EditorEngine;
       return html`<table-inspector .node=${node} .engine=${engine}></table-inspector>`;
+    },
+
+    // When a cell is selected, replace the generic inspector header label
+    // and hide all node-level sections so only the table-inspector's
+    // cell-specific controls remain visible.
+    getInspectorPresentation: (_node, eng) => {
+      const engine = eng as EditorEngine;
+      if (engine.getComponentState<CellSelection>('table:cellSelection') == null) {
+        return undefined;
+      }
+      return {
+        label: 'Table Cell',
+        suppressPropsSection: true,
+        suppressStylePresetSection: true,
+        suppressStylesSection: true,
+        suppressDeleteSection: true,
+      };
     },
 
     // ----- Palette pre-insert hook -----

@@ -85,17 +85,23 @@ class ThemeStyleResolver(
         tenantDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
         templateCatalogKey: CatalogKey? = null,
+        tenantDefaultThemeCatalogKey: CatalogKey? = null,
     ): ResolvedStyles {
         // Theme cascade: variant-level > template-level > tenant-level
-        val effectiveThemeId = when (val ref = templateModel.themeRef) {
-            is ThemeRefOverride -> ThemeKey.of(ref.themeId)
-            else -> null
-        } ?: templateDefaultThemeId ?: tenantDefaultThemeId
-
-        // Resolve catalog for theme lookup: explicit from override > template's catalog > null (tenant-wide)
-        val effectiveCatalogKey = when (val ref = templateModel.themeRef) {
-            is ThemeRefOverride -> ref.catalogKey?.let { CatalogKey.of(it) } ?: templateCatalogKey
-            else -> templateCatalogKey
+        // The catalog key must follow the theme key through the cascade
+        val (effectiveThemeId, effectiveCatalogKey) = when (val ref = templateModel.themeRef) {
+            is ThemeRefOverride -> ThemeKey.of(ref.themeId) to (ref.catalogKey?.let { CatalogKey.of(it) } ?: templateCatalogKey)
+            else -> null to null
+        }.let { (themeId, catalogKey) ->
+            if (themeId != null) {
+                themeId to catalogKey
+            } else if (templateDefaultThemeId != null) {
+                templateDefaultThemeId to templateCatalogKey
+            } else if (tenantDefaultThemeId != null) {
+                tenantDefaultThemeId to tenantDefaultThemeCatalogKey
+            } else {
+                null to null
+            }
         }
 
         val theme = effectiveThemeId?.let { getTheme(tenantId, effectiveCatalogKey, it) }

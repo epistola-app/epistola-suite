@@ -72,10 +72,14 @@ class DeploymentMatrixHandler(
                 return ServerResponse.badRequest().build()
             }
 
-            PublishToEnvironment(
-                versionId = VersionId(VersionKey.of(versionIdInt), variantId),
-                environmentId = environmentId,
-            ).execute()
+            try {
+                PublishToEnvironment(
+                    versionId = VersionId(VersionKey.of(versionIdInt), variantId),
+                    environmentId = environmentId,
+                ).execute()
+            } catch (e: IllegalArgumentException) {
+                return renderMatrixFragment(request, tenantId.key, catalogId, templateId.key, templateId, error = e.message)
+            }
         }
 
         return renderMatrixFragment(request, tenantId.key, catalogId, templateId.key, templateId)
@@ -93,6 +97,7 @@ class DeploymentMatrixHandler(
         catalogId: CatalogKey,
         templateKey: TemplateKey,
         templateId: TemplateId,
+        error: String? = null,
     ): ServerResponse {
         val tabModel = loadDeploymentData(templateId)
 
@@ -103,6 +108,9 @@ class DeploymentMatrixHandler(
                 "templateId" to templateKey.value
                 for ((k, v) in tabModel) {
                     k to v
+                }
+                if (error != null) {
+                    "error" to error
                 }
             }
             onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/${catalogId.value}/${templateKey.value}/deployments") }

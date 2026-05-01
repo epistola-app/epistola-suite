@@ -175,7 +175,7 @@ jobs:
           pnpm --filter @epistola/editor sbom
 
       - name: Scan backend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # master
         with:
           scan-type: "sbom"
           scan-ref: "apps/epistola/build/sbom/bom.json"
@@ -185,7 +185,7 @@ jobs:
           output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@1994662b5555670344cd84d29ed3cad4bd26f31c # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # master
         with:
           scan-type: "sbom"
           scan-ref: "modules/editor/build/sbom.json"
@@ -314,7 +314,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ matrix.enabled }}
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: Extract version from release tag
         if: ${{ matrix.enabled && github.event_name == 'release' }}

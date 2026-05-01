@@ -3,15 +3,13 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ResolvedThemeSnapshot
@@ -71,6 +69,8 @@ class GenerationService(
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+        templateCatalogKey: CatalogKey? = null,
+        tenantDefaultThemeCatalogKey: CatalogKey? = null,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -78,6 +78,8 @@ class GenerationService(
             templateDefaultThemeId,
             tenantDefaultThemeId,
             templateModel,
+            templateCatalogKey = templateCatalogKey,
+            tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
         )
 
         pdfRenderer.render(
@@ -91,6 +93,7 @@ class GenerationService(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = resolvedStyles.spacingUnit,
+            renderMode = RenderMode.PREVIEW,
         )
     }
 
@@ -169,15 +172,21 @@ class GenerationService(
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = GetDocumentTemplate(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
-            ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
+        // Load the latest contract version's data model for validation
+        val contractVersion = app.epistola.suite.templates.contracts.queries.GetLatestContractVersion(
+            templateId = app.epistola.suite.common.ids.TemplateId(
+                templateId,
+                app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantId)),
+            ),
+        ).query()
+        val dataModel: ObjectNode? = contractVersion?.dataModel
 
-        if (template.dataModel == null) {
+        if (dataModel == null) {
             return PreviewValidationResult(valid = true) // No schema means no validation
         }
 
         val dataNode = objectMapper.valueToTree<ObjectNode>(data)
-        val errors = schemaValidator.validate(template.dataModel, dataNode)
+        val errors = schemaValidator.validate(dataModel, dataNode)
 
         return PreviewValidationResult(
             valid = errors.isEmpty(),

@@ -6,6 +6,8 @@ import {
   readBorderFromStyles,
   parseBorderShorthand,
   areBorderSidesEqual,
+  convertSideValue,
+  DEFAULT_SPACING_UNIT,
   type SpacingValue,
   type BorderValue,
 } from './style-inputs.js';
@@ -138,6 +140,30 @@ describe('readSpacingFromStyles', () => {
 });
 
 // ---------------------------------------------------------------------------
+// convertSideValue — explicit unit-switch between supported units (sp, pt).
+// ---------------------------------------------------------------------------
+
+describe('convertSideValue', () => {
+  const baseUnit = DEFAULT_SPACING_UNIT;
+
+  it('returns value unchanged when fromUnit equals toUnit', () => {
+    expect(convertSideValue('8pt', 'pt', 'pt', baseUnit)).toBe('8pt');
+  });
+
+  it('converts pt to sp via the spacing scale', () => {
+    expect(convertSideValue('8pt', 'pt', 'sp', baseUnit)).toBe('2sp');
+  });
+
+  it('converts sp to pt by multiplying with base unit', () => {
+    expect(convertSideValue('2sp', 'sp', 'pt', baseUnit)).toBe('8pt');
+  });
+
+  it('returns value unchanged for unknown source unit', () => {
+    expect(convertSideValue('5em', 'em', 'pt', baseUnit)).toBe('5em');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // areBorderSidesEqual
 // ---------------------------------------------------------------------------
 
@@ -205,8 +231,8 @@ describe('parseBorderShorthand', () => {
   });
 
   it('returns empty side for null/empty input', () => {
-    expect(parseBorderShorthand(null)).toEqual({ width: '', style: 'solid', color: '' });
-    expect(parseBorderShorthand('')).toEqual({ width: '', style: 'solid', color: '' });
+    expect(parseBorderShorthand(null)).toEqual({ width: '', style: 'none', color: '' });
+    expect(parseBorderShorthand('')).toEqual({ width: '', style: 'none', color: '' });
   });
 
   it('parses dashed border', () => {
@@ -301,9 +327,9 @@ describe('readBorderFromStyles', () => {
 
     expect(result).toEqual({
       top: { width: '2pt', style: 'solid', color: '#000' },
-      right: { width: '', style: 'solid', color: '' },
+      right: { width: '', style: 'none', color: '' },
       bottom: { width: '1pt', style: 'dashed', color: '#ccc' },
-      left: { width: '', style: 'solid', color: '' },
+      left: { width: '', style: 'none', color: '' },
     });
   });
 
@@ -318,7 +344,7 @@ describe('readBorderFromStyles', () => {
       top: { width: '2pt', style: 'solid', color: '#000000' },
       right: { width: '1pt', style: 'dashed', color: '#cccccc' },
       bottom: { width: '2pt', style: 'solid', color: '#000000' },
-      left: { width: '', style: 'solid', color: '' },
+      left: { width: '', style: 'none', color: '' },
     };
 
     const styles: Record<string, unknown> = {};

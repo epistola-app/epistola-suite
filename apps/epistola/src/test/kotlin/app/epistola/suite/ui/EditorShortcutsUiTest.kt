@@ -8,7 +8,6 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
@@ -246,15 +245,17 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
             attributes = emptyMap(),
         ).execute()
 
-        UpdateDocumentTemplate(
-            id = templateId,
-            dataExamples = listOf(
-                DataExample(
-                    id = "example-1",
-                    name = "Example 1",
-                    data = JsonNodeFactory.instance.objectNode().put("name", "Test"),
-                ),
+        // Add data examples via contract version command
+        val examples = listOf(
+            DataExample(
+                id = "example-1",
+                name = "Example 1",
+                data = JsonNodeFactory.instance.objectNode().put("name", "Test"),
             ),
+        )
+        app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+            templateId = templateId,
+            dataExamples = examples,
         ).execute()
 
         return Triple(tenant, template, variant!!.id.toString())
