@@ -239,8 +239,19 @@ export class EpistolaInspector extends LitElement {
                     placeholder="—"
                     .value=${overrideValue != null ? String(overrideValue) : ''}
                     @change=${(e: Event) => {
-                      const raw = (e.target as HTMLInputElement).value;
-                      this._handleMarginChange(side, raw === '' ? undefined : Number(raw));
+                      const target = e.target as HTMLInputElement;
+                      const raw = target.value;
+                      if (raw === '') {
+                        this._handleMarginChange(side, undefined);
+                        return;
+                      }
+                      let num = Number(raw);
+                      if (!Number.isFinite(num) || num < 0) {
+                        // Clamp typed negatives — min="0" is only enforced on submit.
+                        num = 0;
+                        target.value = '0';
+                      }
+                      this._handleMarginChange(side, num);
                     }}
                   />
                 </div>

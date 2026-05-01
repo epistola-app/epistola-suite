@@ -49,12 +49,20 @@ export function renderUnitInput(
   const isSet = value != null && value !== '';
 
   const handleNumberChange = (e: Event) => {
-    const raw = (e.target as HTMLInputElement).value;
+    const target = e.target as HTMLInputElement;
+    const raw = target.value;
     if (raw === '') {
       onChange(''); // signal nil → caller deletes the key
       return;
     }
-    const num = parseFloat(raw) || 0;
+    let num = parseFloat(raw) || 0;
+    if (num < 0) {
+      // min="0" only blocks on form submit; clamp here so a typed
+      // negative value never reaches storage. Reflect the clamp in the
+      // input so the user sees the correction immediately.
+      num = 0;
+      target.value = '0';
+    }
     onChange(formatValueWithUnit(num, parsed.unit));
   };
 
@@ -92,7 +100,7 @@ export function renderUnitInput(
         ? html`
             <select
               class="ep-select style-unit-select"
-              ?disabled=${readOnly}
+              ?disabled=${readOnly || !isSet}
               @change=${handleUnitChange}
             >
               ${units.map(
@@ -207,11 +215,11 @@ function toPt(value: string, fromUnit: string, baseUnit: number): number | null 
 }
 
 /**
- * Convert a single side value between supported units (sp, pt, px).
- * Used both for explicit unit-switch and for migrating legacy values
- * to a unit that's actually offered in the dropdown.
+ * Convert a single side value between the supported units (sp, pt).
+ * Used for explicit unit-switches in the spacing input.
  *
- * Passes through `undefined` (= nil) and unknown source units unchanged.
+ * Passes through `undefined` (= nil) and any unknown source unit
+ * (e.g. legacy `px`, `em`, `rem`) unchanged.
  */
 export function convertSideValue(
   value: string | undefined,
@@ -357,11 +365,18 @@ export function renderSpacingInput(
               .value=${n === undefined ? '' : String(n)}
               ?disabled=${readOnly}
               @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value;
+                const target = e.target as HTMLInputElement;
+                const raw = target.value;
                 if (raw === '') {
                   handleSideChange(side, undefined);
                 } else {
-                  const num = parseFloat(raw) || 0;
+                  let num = parseFloat(raw) || 0;
+                  if (num < 0) {
+                    // min="0" is only enforced on form submit — clamp typed
+                    // negatives so they never reach storage.
+                    num = 0;
+                    target.value = '0';
+                  }
                   handleSideChange(side, formatSide(num));
                 }
               }}

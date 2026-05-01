@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Nil vs explicit 0 in numeric style inputs**: Inspector inputs for spacing (margin/padding sides), unit-style props (font-size, border-radius, line-height, etc.), and component-specific number props now distinguish "no value set" from "explicit 0". A cleared field shows a grey `—` placeholder and stores nothing — the cascade falls back to the preset / component default. Typing `0` stores it as an explicit override that beats the cascade. Spacing storage refactor: `SpacingValue` sides are `string | undefined`; `expandSpacingToStyles` preserves `'0pt'`/`'0sp'` while only deleting `undefined` sides. Number inputs that should remain non-negative (margins, padding, page-settings margins) clamp typed negative values to `0` at change time so `min="0"` is enforced beyond just form submission.
+
 ### Changed
 
 - **Removed `px` unit support**: `StyleApplicator.parseSize` no longer recognizes `px` and the editor's spacing input no longer converts `px` values. Templates created before the `sp`/`pt` switch that still hold `Npx` values for margin/padding will not render those margins in the PDF, and the inspector will show the numeric portion in the fallback unit (`pt`) without scaling. Re-enter the value in `sp` or `pt` to fix.
