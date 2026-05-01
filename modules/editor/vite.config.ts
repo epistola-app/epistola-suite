@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
     origin: 'http://localhost:5174',
   },
   build: {
-    minify: 'esbuild',
+    minify: true,
     lib: {
       entry: {
         'template-editor': resolve(__dirname, 'src/main/typescript/lib.ts'),

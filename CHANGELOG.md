@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- **Editor build with Vite 8.0.9+**: Switched minifier from `esbuild` to the built-in default (`oxc`). Vite 8 no longer bundles esbuild, so the explicit `minify: 'esbuild'` setting caused build failures.
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
 - **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
 - **Import always creates contract version**: Templates imported without a data model or data examples now always get a contract version (previously skipped, causing NPE when saving). Backfill migration (V24) creates missing contract versions for existing templates.
