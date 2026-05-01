@@ -16,9 +16,6 @@ if (buildNativeImage) {
     apply(plugin = "org.graalvm.buildtools.native")
 }
 
-// Override Thymeleaf to 3.1.4 for CVE-2026-40477 and CVE-2026-40478 (fixed in Spring Boot 4.0.6)
-extra["thymeleaf.version"] = "3.1.4.RELEASE"
-
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
