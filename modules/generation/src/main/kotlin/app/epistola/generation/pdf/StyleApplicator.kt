@@ -291,13 +291,15 @@ object StyleApplicator {
 
     internal fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
         // Try spacing token first (e.g., "2sp" → 8pt with default base unit)
-        SpacingScale.parseSp(size, spacingUnit)?.let { return it }
+        SpacingScale.parseSp(size, spacingUnit)?.let { return it.coerceAtLeast(0f) }
 
-        return when {
+        val parsed = when {
             size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
             size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // page margins
+            size.endsWith("sp") -> size.removeSuffix("sp").toFloatOrNull()?.let { it * spacingUnit }
             else -> size.toFloatOrNull() // unitless number treated as pt
         }
+        return parsed?.coerceAtLeast(0f)
     }
 
     internal fun parseColor(color: String): DeviceRgb? = try {

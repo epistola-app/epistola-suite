@@ -20,6 +20,7 @@
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
 - **Header/footer style rendering in PDF**: Page header/footer event handlers now apply node-level styles by wrapping rendered slot content in a styled `Div`, restoring expected borders, background, and padding in generated PDFs.
 - **Expression editor discoverability**: Added a subtle inline hint in text block headers (`type {{ for expressions`) so users can discover inline expression insertion without leaving the editor flow.
+- **Negative sizing enforcement**: Editor size inputs now prevent negative values and clamp on change; backend parsers (`StyleApplicator.parseSize`, `ImageNodeRenderer.parseToPt`) also clamp to `>= 0` to prevent malformed layout and iText failures when invalid values slip through.
 
 ## [0.17.0] - 2026-04-28
 

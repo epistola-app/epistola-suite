@@ -175,11 +175,12 @@ class ImageNodeRenderer(
 
     /** Parse a size value (pt, sp, or unitless) to points. */
     private fun parseToPt(value: String, spacingUnit: Float): Float? {
-        SpacingScale.parseSp(value, spacingUnit)?.let { return it }
-        return when {
+        SpacingScale.parseSp(value, spacingUnit)?.let { return it.coerceAtLeast(0f) }
+        val parsed = when {
             value.endsWith("pt") -> value.removeSuffix("pt").toFloatOrNull()
             else -> value.toFloatOrNull()
         }
+        return parsed?.coerceAtLeast(0f)
     }
 
     private fun createImageElement(resolution: AssetResolution): Image = when (resolution.mimeType) {
