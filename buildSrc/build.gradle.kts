@@ -11,9 +11,8 @@ repositories {
     gradlePluginPortal()
 }
 
-// These versions must be kept in sync with gradle/libs.versions.toml
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")
-    implementation("org.jlleitschuh.gradle:ktlint-gradle:14.2.0")
-    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.8")
+    implementation(libs.kotlin.gradle.plugin)
+    implementation(libs.ktlint.gradle.plugin)
+    implementation(libs.kover.gradle.plugin)
 }
