@@ -19,6 +19,8 @@ import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.generation.collect.commands.EmitGenerationResult
+import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
@@ -112,7 +114,24 @@ class DocumentGenerationExecutor(
                 .record(document.sizeBytes.toDouble())
 
             // Save document metadata and mark request as completed
-            saveDocumentAndMarkCompleted(request.id, document)
+            val transitioned = saveDocumentAndMarkCompleted(request.id, document)
+
+            // Emit a row to generation_results so /generation/collect can deliver it.
+            // Only emit when we actually transitioned the request — a CANCELLED
+            // request that was processed in parallel must not produce a phantom result.
+            // Note: separate transaction from the UPDATE; an emit failure here logs
+            // an error but doesn't roll back the UPDATE. Acceptable for v0.3 (project
+            // is pre-production, loss is detectable, recovery is operator-driven).
+            if (transitioned) {
+                emitTerminalResult(
+                    request = request,
+                    status = ResultStatus.COMPLETED,
+                    documentId = document.id,
+                    sizeBytes = document.sizeBytes,
+                    contentType = document.contentType,
+                    error = null,
+                )
+            }
 
             // Check if batch is complete and finalize if so
             request.batchId?.let { batchId ->
@@ -123,7 +142,18 @@ class DocumentGenerationExecutor(
         } catch (e: Exception) {
             outcome = "failure"
             logger.error("Failed to process request {}: {}", request.id.value, e.message, e)
-            markRequestFailed(request.id, e.message ?: "Unknown error")
+            val transitioned = markRequestFailed(request.id, e.message ?: "Unknown error")
+
+            if (transitioned) {
+                emitTerminalResult(
+                    request = request,
+                    status = ResultStatus.FAILED,
+                    documentId = null,
+                    sizeBytes = null,
+                    contentType = null,
+                    error = e.message ?: "Unknown error",
+                )
+            }
 
             // Check if batch is complete even on failure
             request.batchId?.let { batchId ->
@@ -296,9 +326,12 @@ class DocumentGenerationExecutor(
 
     /**
      * Save the generated document and mark the request as completed.
+     *
+     * @return true when the request transitioned from IN_PROGRESS to COMPLETED;
+     *         false when the request had already been CANCELLED and no update was made.
      */
-    private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestKey, document: Document) {
-        jdbi.useTransaction<Exception> { handle ->
+    private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestKey, document: Document): Boolean {
+        return jdbi.inTransaction<Boolean, Exception> { handle ->
             // 1. Claim completion — skip if the request was cancelled during processing
             val expiresAtInterval = "$retentionDays days"
             val updated = handle.createUpdate(
@@ -319,7 +352,7 @@ class DocumentGenerationExecutor(
 
             if (updated == 0) {
                 logger.info("Request {} was cancelled during processing, skipping document storage", requestId)
-                return@useTransaction
+                return@inTransaction false
             }
 
             // 2. Insert document metadata into database (content stored in ContentStore)
@@ -352,15 +385,19 @@ class DocumentGenerationExecutor(
                 .execute()
 
             logger.debug("Created document {} for tenant {}", document.id.value, document.tenantKey.value)
+            true
         }
     }
 
     /**
      * Mark a request as failed with an error message.
+     *
+     * @return true when the request transitioned to FAILED;
+     *         false when the request had already been CANCELLED.
      */
-    private fun markRequestFailed(requestId: GenerationRequestKey, errorMessage: String) {
+    private fun markRequestFailed(requestId: GenerationRequestKey, errorMessage: String): Boolean {
         val expiresAtInterval = "$retentionDays days"
-        jdbi.useHandle<Exception> { handle ->
+        return jdbi.withHandle<Boolean, Exception> { handle ->
             val updated = handle.createUpdate(
                 """
                 UPDATE document_generation_requests
@@ -379,7 +416,49 @@ class DocumentGenerationExecutor(
 
             if (updated == 0) {
                 logger.info("Request {} was cancelled during processing, not marking as failed", requestId)
+                false
+            } else {
+                true
             }
+        }
+    }
+
+    /**
+     * Dispatch [EmitGenerationResult] for a request that just transitioned to a
+     * terminal state. Failures are logged but do not propagate — the
+     * `document_generation_requests` UPDATE has already committed and we don't
+     * want to rollback that. Lost emits show up as `COMPLETED`/`FAILED` rows
+     * with no matching `generation_results` sequence; recoverable by an
+     * operator.
+     */
+    private fun emitTerminalResult(
+        request: DocumentGenerationRequest,
+        status: ResultStatus,
+        documentId: DocumentKey?,
+        sizeBytes: Long?,
+        contentType: String?,
+        error: String?,
+    ) {
+        try {
+            mediator.send(
+                EmitGenerationResult(
+                    request = request,
+                    status = status,
+                    documentId = documentId,
+                    sizeBytes = sizeBytes,
+                    contentType = contentType,
+                    error = error,
+                    completedAt = OffsetDateTime.now(),
+                ),
+            )
+        } catch (e: Exception) {
+            logger.error(
+                "Failed to emit generation result for request {} (status {}): {}",
+                request.id.value,
+                status,
+                e.message,
+                e,
+            )
         }
     }
 

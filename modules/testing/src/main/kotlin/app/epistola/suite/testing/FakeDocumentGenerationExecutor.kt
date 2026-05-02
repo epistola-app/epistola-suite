@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.generation.collect.commands.EmitGenerationResult
+import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -46,6 +48,7 @@ class FakeDocumentGenerationExecutor(
     private val localJdbi = jdbi
     private val localContentStore = contentStore
     private val localRetentionDays = retentionDays
+    private val localMediator = mediator
 
     /**
      * Minimal valid PDF file (just magic bytes + basic structure).
@@ -102,6 +105,14 @@ class FakeDocumentGenerationExecutor(
                     logger.debug("Request {} was cancelled during processing, skipping", request.id.value)
                     return@useTransaction
                 }
+                emitTerminalResult(
+                    request = request,
+                    status = ResultStatus.COMPLETED,
+                    documentId = documentId,
+                    sizeBytes = fakePdfBytes.size.toLong(),
+                    contentType = "application/pdf",
+                    error = null,
+                )
 
                 // 2. Insert document metadata (content stored in ContentStore)
                 handle.createUpdate(
@@ -137,14 +148,14 @@ class FakeDocumentGenerationExecutor(
             logger.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
         } catch (e: Exception) {
             logger.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
-            markRequestFailed(request.id, e.message)
+            markRequestFailed(request, e.message)
             request.batchId?.let { finalizeBatchIfComplete(it) }
         }
     }
 
-    private fun markRequestFailed(requestId: app.epistola.suite.common.ids.GenerationRequestKey, errorMessage: String?) {
+    private fun markRequestFailed(request: DocumentGenerationRequest, errorMessage: String?) {
         val expiresAtInterval = "$localRetentionDays days"
-        localJdbi.useHandle<Exception> { handle ->
+        val updated = localJdbi.withHandle<Int, Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE document_generation_requests
@@ -156,10 +167,56 @@ class FakeDocumentGenerationExecutor(
                   AND status != 'CANCELLED'
                 """,
             )
-                .bind("requestId", requestId)
+                .bind("requestId", request.id)
                 .bind("errorMessage", errorMessage?.take(1000))
                 .bind("expiresAt", expiresAtInterval)
                 .execute()
+        }
+        if (updated > 0) {
+            emitTerminalResult(
+                request = request,
+                status = ResultStatus.FAILED,
+                documentId = null,
+                sizeBytes = null,
+                contentType = null,
+                error = errorMessage ?: "Unknown error",
+            )
+        }
+    }
+
+    /**
+     * Mirror of [DocumentGenerationExecutor.emitTerminalResult] — kept here so
+     * tests using this fake executor exercise the same emit path as production.
+     * Failures are swallowed, same rationale.
+     */
+    private fun emitTerminalResult(
+        request: DocumentGenerationRequest,
+        status: ResultStatus,
+        documentId: DocumentKey?,
+        sizeBytes: Long?,
+        contentType: String?,
+        error: String?,
+    ) {
+        try {
+            localMediator.send(
+                EmitGenerationResult(
+                    request = request,
+                    status = status,
+                    documentId = documentId,
+                    sizeBytes = sizeBytes,
+                    contentType = contentType,
+                    error = error,
+                    completedAt = java.time.OffsetDateTime.now(),
+                ),
+            )
+        } catch (e: Exception) {
+            logger.error(
+                "FAKE: failed to emit generation result for request {} (status {}): {}",
+                request.id.value,
+                status,
+                e.message,
+                e,
+            )
         }
     }
 
