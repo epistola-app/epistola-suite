@@ -1,6 +1,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.GenerationApi
+import app.epistola.api.model.CollectRequest
 import app.epistola.api.model.DocumentListResponse
 import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
@@ -186,6 +187,20 @@ class EpistolaDocumentGenerationApi(
             ResponseEntity.notFound().build()
         }
     }
+
+    // ================== Generation Result Collection (v0.3) ==================
+
+    /**
+     * Stub for the v0.3 result-collection endpoint. Real implementation lands in
+     * [Step 10 of plan-suite.md](../../../../../../../../workspaces/tracking/plan-suite.md);
+     * see also `EpistolaGenerationCollectApi` once it exists. Until then this stub keeps
+     * the suite spec-conformant against contract v0.3 by returning 501.
+     */
+    override fun collectGenerationResults(
+        tenantId: String,
+        acceptEncoding: String,
+        collectRequest: CollectRequest?,
+    ): ResponseEntity<String> = ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
 
     // ================== Document Listing ==================
 

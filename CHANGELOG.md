@@ -6,6 +6,8 @@
 
 ### Changed
 
+- **Bumped epistola-contract to 0.3.0** (server stubs) for the new generation-result-collection mechanism. `epistola-model` stays at 0.2.6 for now — it is on a separate version cycle and was not touched on the v0.3 contract branch; both bump together at coordinated release time. `routing_key` column added to `document_generation_requests` (V25) and threaded through `GenerateDocument` / `GenerateDocumentBatch` commands and DTO mappers. The new contract `collectGenerationResults` operation is stubbed (501) until the full collect endpoint lands later in the v0.3 work.
+
 - **Removed `px` unit support**: `StyleApplicator.parseSize` no longer recognizes `px` and the editor's spacing input no longer converts `px` values. Templates created before the `sp`/`pt` switch that still hold `Npx` values for margin/padding will not render those margins in the PDF, and the inspector will show the numeric portion in the fallback unit (`pt`) without scaling. Re-enter the value in `sp` or `pt` to fix.
 - **Default text and table-cell spacing zeroed (retroactive V1 change)**: Three `RenderingDefaults.V1` values that produced visible whitespace authors couldn't see in the inspector are now `0`: `componentSpacing["text"].marginBottom` (`1.5sp` → `0sp`), `paragraphMarginBottom` (`6pt` → `0pt`), and `tableCellPadding` (`8pt` → `0pt`). Because `RenderingDefaults` is versioned and published `template_versions` store `rendering_defaults_version`, this change applies retroactively to **all** existing published versions that resolved to V1 — they will now render with the new defaults. Pre-production project, so no V2 is introduced; set `marginTop`/`marginBottom`/`padding` explicitly via the inspector to restore previous spacing where needed.
 

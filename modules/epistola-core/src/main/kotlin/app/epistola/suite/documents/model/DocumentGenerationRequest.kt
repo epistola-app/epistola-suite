@@ -34,6 +34,10 @@ import java.time.OffsetDateTime
  * @property data JSON data to populate the template
  * @property filename Requested filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
+ * @property routingKey Optional routing key for the v0.3 result-collection mechanism;
+ *   determines which consumer node receives the result (via `murmur3(routingKey) % 64`).
+ *   Null means "let the emitter default to the request id" — the row in `generation_results`
+ *   always gets a non-null partition computed from this field or its fallback.
  * @property documentId ID of the generated document (set when completed successfully)
  * @property status Current status of the request
  * @property claimedBy Instance identifier (hostname-pid) that claimed this job
@@ -56,6 +60,12 @@ data class DocumentGenerationRequest(
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationKey: String?,
+    /**
+     * Default null so existing SELECT statements that don't yet ask for `routing_key`
+     * continue to map cleanly. Queries that need the value should add it to their
+     * column list explicitly.
+     */
+    val routingKey: String? = null,
     val documentKey: DocumentKey?,
     val status: RequestStatus,
     val claimedBy: String?,

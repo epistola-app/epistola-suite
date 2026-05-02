@@ -309,6 +309,7 @@ class JobPoller(
                           document_generation_requests.data,
                           document_generation_requests.filename,
                           document_generation_requests.correlation_key,
+                          document_generation_requests.routing_key,
                           document_generation_requests.document_key,
                           document_generation_requests.status,
                           document_generation_requests.claimed_by,

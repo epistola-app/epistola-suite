@@ -53,6 +53,7 @@ data class GenerateDocument(
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
+    val routingKey: String? = null,
 ) : Command<DocumentGenerationRequest>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -179,12 +180,12 @@ class GenerateDocumentHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                    data, filename, correlation_key, document_key, status
+                    data, filename, correlation_key, routing_key, document_key, status
                 )
                 VALUES (:id, NULL, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :correlationId, NULL, :status)
+                        :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                          data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
+                          data, filename, correlation_key, routing_key, document_key, status, claimed_by, claimed_at,
                           error_message, created_at, started_at, completed_at, expires_at
                 """,
             )
@@ -198,6 +199,7 @@ class GenerateDocumentHandler(
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)
+                .bind("routingKey", command.routingKey)
                 .bind("status", RequestStatus.PENDING.name)
                 .mapTo<DocumentGenerationRequest>()
                 .one()
