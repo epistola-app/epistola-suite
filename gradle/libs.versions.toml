@@ -15,6 +15,7 @@ playwright = "1.59.0"
 epistola-contract = "0.3.0"
 epistola-model = "0.2.6"
 aws-sdk = "2.44.0"
+guava = "33.4.8-jre"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -32,6 +33,7 @@ epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-spring
 epistola-model = { module = "app.epistola.contract:epistola-model", version.ref = "epistola-model" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
 
 # Gradle plugins consumed by buildSrc as regular dependencies
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
