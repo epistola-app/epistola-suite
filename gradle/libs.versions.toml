@@ -1,20 +1,20 @@
 [versions]
 kotlin = "2.3.10"
-spring-boot = "4.0.5"
+spring-boot = "4.0.6"
 spring-dependency-management = "1.1.7"
-graalvm-native = "1.0.0"
+graalvm-native = "1.1.0"
 ktlint = "14.2.0"
 htmx-spring-boot = "5.1.0"
 cyclonedx = "3.2.2"
 kover = "0.9.7"
-jdbi = "3.52.0"
-json-schema-validator = "3.0.1"
+jdbi = "3.53.0"
+json-schema-validator = "3.0.2"
 uuid-creator = "6.1.1"
-spring-web = "7.0.6"
-playwright = "1.58.0"
-epistola-contract = "0.2.1"
-epistola-model = "0.2.5"
-aws-sdk = "2.42.23"
+spring-web = "7.0.7"
+playwright = "1.59.0"
+epistola-contract = "0.2.6"
+epistola-model = "0.2.6"
+aws-sdk = "2.44.0"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -32,6 +32,11 @@ epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-spring
 epistola-model = { module = "app.epistola.contract:epistola-model", version.ref = "epistola-model" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
+
+# Gradle plugins consumed by buildSrc as regular dependencies
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+ktlint-gradle-plugin = { module = "org.jlleitschuh.gradle:ktlint-gradle", version.ref = "ktlint" }
+kover-gradle-plugin = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

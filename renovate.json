@@ -13,25 +13,18 @@
   },
   "packageRules": [
     {
-      "description": "Group all GitHub Actions updates (minor, major, digests) into a single PR",
-      "matchManagers": ["github-actions"],
-      "groupName": "github-actions",
-      "groupSlug": "github-actions",
-      "automerge": false
+      "description": "Default group for major updates (specific groups below override)",
+      "matchUpdateTypes": ["major"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "non-major"
     },
     {
-      "description": "Group toolchain updates (Kotlin, Gradle, Kover, Node, pnpm) into a separate PR",
-      "matchPackageNames": [
-        "org.jetbrains.kotlin*",
-        "org.jetbrains.kotlinx.kover*",
-        "org.jetbrains.kotlinx:kover-gradle-plugin",
-        "gradle",
-        "node",
-        "pnpm"
-      ],
-      "groupName": "toolchain",
-      "groupSlug": "toolchain",
-      "automerge": false
+      "description": "Default group for minor/patch updates (specific groups below override)",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "non-major",
+      "automerge": true,
+      "automergeType": "pr"
     },
     {
       "description": "Group epistola-contract packages (server SDK + editor model) together",
@@ -41,18 +34,26 @@
       "automerge": false
     },
     {
-      "description": "Group all non-major dependency updates into a single PR",
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "all non-major dependencies",
-      "groupSlug": "non-major",
-      "automerge": true,
-      "automergeType": "pr"
+      "description": "Group toolchain updates (Kotlin, Gradle, Kover, Java, Node, pnpm) into a separate PR",
+      "matchPackageNames": [
+        "org.jetbrains.kotlin*",
+        "org.jetbrains.kotlinx.kover*",
+        "org.jetbrains.kotlinx:kover-gradle-plugin",
+        "gradle",
+        "java",
+        "node",
+        "pnpm"
+      ],
+      "groupName": "toolchain",
+      "groupSlug": "toolchain",
+      "automerge": false
     },
     {
-      "description": "Group major updates separately",
-      "matchUpdateTypes": ["major"],
-      "groupName": "all non-major dependencies",
-      "groupSlug": "non-major"
+      "description": "Group all GitHub Actions updates (minor, major, digests) into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "groupSlug": "github-actions",
+      "automerge": false
     }
   ],
   "gradle": {
