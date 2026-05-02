@@ -56,6 +56,7 @@ private fun sanitizedLimit(size: Int): Int = size.coerceIn(1, MAX_PAGE_SIZE)
 class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
     private val contentStore: ContentStore,
+    private val ndjsonResultStream: app.epistola.suite.generation.collect.ndjson.NdjsonResultStream,
 ) : GenerationApi {
 
     // ================== Document Preview ==================
@@ -191,16 +192,111 @@ class EpistolaDocumentGenerationApi(
     // ================== Generation Result Collection (v0.3) ==================
 
     /**
-     * Stub for the v0.3 result-collection endpoint. Real implementation lands in
-     * [Step 10 of plan-suite.md](../../../../../../../../workspaces/tracking/plan-suite.md);
-     * see also `EpistolaGenerationCollectApi` once it exists. Until then this stub keeps
-     * the suite spec-conformant against contract v0.3 by returning 501.
+     * Stream pending generation results to the caller as NDJSON. Thin
+     * orchestration around the commands/queries from
+     * `app.epistola.suite.generation.collect`:
+     *
+     *   1. Resolve `consumerId` from the authenticated principal (api-key id)
+     *      and `nodeId` from the `X-EP-Node-Id` request header.
+     *   2. [TouchConsumerNode] — bumps `last_seen_at` and computes the
+     *      caller's current partition assignment (consistent hash ring).
+     *   3. [AcknowledgeGenerationResults] — when the request body carries
+     *      `acknowledgeUpTo`, advances the per-(consumer, partition) cursor.
+     *   4. [FetchGenerationResults] — reads the next page using the
+     *      now-advanced cursors.
+     *   5. [NdjsonResultStream] — writes the rows + `_meta` line directly
+     *      to the response output stream, gzip-encoded by default.
+     *
+     * Returns `ResponseEntity.ok()` with no body — the body has already been
+     * written to the response by the time we return.
      */
     override fun collectGenerationResults(
         tenantId: String,
         acceptEncoding: String,
         collectRequest: CollectRequest?,
-    ): ResponseEntity<String> = ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+    ): ResponseEntity<String> {
+        val tenantKey = TenantKey.of(tenantId)
+        val principal = app.epistola.suite.security.SecurityContext.current()
+        if (principal.currentTenantId != null && principal.currentTenantId != tenantKey) {
+            // Defense-in-depth: the api-key auth filter sets currentTenantId from
+            // api_keys.tenantKey. The path tenant must match.
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+        }
+        val consumerId = principal.userId.value.toString()
+        val nodeId = currentRequest()?.getHeader(HEADER_NODE_ID)?.takeIf { it.isNotBlank() }
+            ?: return ResponseEntity.badRequest().build()
+
+        // Touch returns this node's PartitionAssignment from the consistent hash ring.
+        val assignment = app.epistola.suite.generation.collect.commands.TouchConsumerNode(
+            tenantId = tenantKey,
+            consumerId = consumerId,
+            nodeId = nodeId,
+        ).execute()
+        val partitions: Set<Int> = assignment.mine.toSet()
+
+        // Apply ack cursor advance, if present.
+        val ackUpTo = collectRequest?.acknowledgeUpTo
+        if (ackUpTo != null && ackUpTo > 0L && partitions.isNotEmpty()) {
+            app.epistola.suite.generation.collect.commands.AcknowledgeGenerationResults(
+                tenantId = tenantKey,
+                consumerId = consumerId,
+                partitions = partitions,
+                acknowledgeUpTo = ackUpTo,
+            ).execute()
+        }
+
+        // Fetch the next page (limit clamped to FetchGenerationResults.MAX_LIMIT).
+        val limit = (collectRequest?.limit ?: DEFAULT_COLLECT_LIMIT)
+            .coerceIn(1, app.epistola.suite.generation.collect.queries.FetchGenerationResults.MAX_LIMIT)
+        val page = if (partitions.isEmpty()) {
+            // No partitions assigned — nothing to fetch, but still emit a meta
+            // line so the client knows its (empty) assignment.
+            app.epistola.suite.generation.collect.queries.FetchResultsPage(emptyList(), hasMore = false, lastSequence = null)
+        } else {
+            app.epistola.suite.generation.collect.queries.FetchGenerationResults(
+                tenantId = tenantKey,
+                consumerId = consumerId,
+                partitions = partitions,
+                limit = limit,
+            ).query()
+        }
+
+        val encoding = ndjsonResultStream.negotiateEncoding(acceptEncoding)
+        val response = currentResponse()
+            ?: return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+        response.status = HttpStatus.OK.value()
+        response.contentType = NDJSON_CONTENT_TYPE
+        if (encoding == app.epistola.suite.generation.collect.ndjson.NdjsonResultStream.Encoding.GZIP) {
+            response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip")
+        }
+
+        val meta = app.epistola.suite.generation.collect.ndjson.NdjsonResultStream.MetaLine(
+            hasMore = page.hasMore,
+            count = page.rows.size,
+            lastSequence = page.lastSequence,
+            partitions = assignment,
+        )
+        ndjsonResultStream.writeTo(response.outputStream, page.rows, meta, encoding)
+        // Body is already on the wire — return null body, the framework won't
+        // serialize anything because we've already committed the response.
+        return ResponseEntity.status(HttpStatus.OK).build()
+    }
+
+    private fun currentRequest(): jakarta.servlet.http.HttpServletRequest? = (
+        org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+            as? org.springframework.web.context.request.ServletRequestAttributes
+        )?.request
+
+    private fun currentResponse(): jakarta.servlet.http.HttpServletResponse? = (
+        org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+            as? org.springframework.web.context.request.ServletRequestAttributes
+        )?.response
+
+    private companion object {
+        const val HEADER_NODE_ID = "X-EP-Node-Id"
+        const val NDJSON_CONTENT_TYPE = "application/vnd.epistola.v1+ndjson"
+        const val DEFAULT_COLLECT_LIMIT = 100
+    }
 
     // ================== Document Listing ==================
 
