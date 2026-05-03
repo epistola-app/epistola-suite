@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Operations page: per-tenant consumer & node status** at `/tenants/{tenantId}/consumers`. Read-only view of every API-key consumer and the nodes currently polling under each key — label + key prefix + auth method + active/total node count + cursor summary (min/max acked sequence, partitions tracked, last-advanced timestamp) + per-node table (node id, last-seen, active/stale badge, owned partitions). Auto-refreshes via HTMX every 10 s. Gated by `DOCUMENT_VIEW`. New CQRS query `ListConsumerStatus` joins `api_keys` (LEFT JOIN — keys with no nodes still surface as "not yet connected"), `consumer_node_assignments`, and an aggregated read of `consumer_partition_cursors` in one transaction, classifying nodes as active vs stale against `epistola.collect.idle-timeout-ms`. Added under the Operations dropdown nav.
+
 ### Changed
 
 - **Bumped epistola-contract to 0.3.0** (server stubs) for the v0.3 generation-result-collection mechanism. `epistola-model` stays at 0.2.6 — it is on a separate version cycle and bumps together at coordinated release time.

@@ -72,7 +72,7 @@
 
                     <!-- Operations dropdown -->
                     <div class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'generation-history','load-tests','feedback'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'generation-history','load-tests','consumers','feedback'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Operations
@@ -90,6 +90,12 @@
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
                                 Load Tests
+                            </a>
+                            <a th:if="${auth.has('DOCUMENT_VIEW')}"
+                               th:href="@{/tenants/{id}/consumers(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'consumers'} ? ' active' : ''">
+                                Consumers
                             </a>
                             <a th:if="${feedbackEnabled}"
                                th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
@@ -175,6 +181,9 @@
                     <a th:if="${auth.has('DOCUMENT_GENERATE')}"
                        th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''" role="menuitem">Load Tests</a>
+                    <a th:if="${auth.has('DOCUMENT_VIEW')}"
+                       th:href="@{/tenants/{id}/consumers(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'consumers'} ? ' active' : ''" role="menuitem">Consumers</a>
                     <a th:if="${feedbackEnabled}"
                        th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>

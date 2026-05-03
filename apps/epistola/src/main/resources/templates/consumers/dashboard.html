@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <style>
+            .consumer-card {
+                margin-bottom: var(--ep-space-4);
+                padding: var(--ep-space-4);
+                border: 1px solid var(--ep-border);
+                border-radius: var(--ep-radius);
+                background: var(--ep-surface);
+            }
+            .consumer-card-header {
+                display: flex;
+                align-items: center;
+                gap: var(--ep-space-3);
+                flex-wrap: wrap;
+            }
+            .consumer-card-title { margin: 0; font-size: var(--ep-font-size-lg); }
+            .consumer-card-title.is-disabled { text-decoration: line-through; opacity: 0.6; }
+            .consumer-card-meta { margin-left: auto; }
+            .consumer-card-tracking { margin-top: var(--ep-space-2); }
+            .consumer-card-empty {
+                margin-top: var(--ep-space-3);
+                padding: var(--ep-space-3);
+                text-align: center;
+                border: 1px dashed var(--ep-border);
+                border-radius: var(--ep-radius);
+            }
+            .consumer-status-dot {
+                display: inline-block;
+                width: 0.6rem;
+                height: 0.6rem;
+                border-radius: 50%;
+                background: var(--ep-muted, #9ca3af);
+            }
+            .consumer-status-dot.is-active {
+                background: var(--ep-success, #16a34a);
+            }
+        </style>
+
+        <div class="page-header">
+            <h1>Consumers</h1>
+        </div>
+
+        <div th:fragment="results"
+             id="consumer-results"
+             th:hx-get="@{/tenants/{tenantId}/consumers/refresh(tenantId=${tenantId})}"
+             hx-trigger="every 10s"
+             hx-swap="outerHTML">
+
+            <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">
+                <div class="stat-card">
+                    <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
+                    <div class="stat-card-label">Consumers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value">
+                        <span th:text="${report.totals.activeNodeCount}">0</span><span
+                            class="ep-text-muted"
+                            th:text="' / ' + ${report.totals.totalNodeCount}"> / 0</span>
+                    </div>
+                    <div class="stat-card-label">Active nodes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" style="font-size: var(--ep-font-size-xl);"
+                         th:text="${report.totals.mostRecentNodeActivity != null
+                                   ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
+                                   : '—'}">—</div>
+                    <div class="stat-card-label">Most recent activity</div>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(report.consumers)}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No consumers yet</div>
+                <div class="empty-state-description">
+                    No API keys have been issued for this tenant. Once an API key is issued and
+                    a client starts polling, it will appear here.
+                </div>
+            </div>
+
+            <section th:each="consumer : ${report.consumers}"
+                     th:id="'consumer-' + ${consumer.consumerId}"
+                     class="consumer-card">
+
+                <header class="consumer-card-header">
+                    <span class="consumer-status-dot"
+                          th:classappend="${consumer.activeNodeCount > 0} ? ' is-active' : ''"
+                          th:title="${consumer.activeNodeCount > 0 ? 'At least one node is active' : 'No active nodes'}"></span>
+
+                    <h2 class="consumer-card-title"
+                        th:classappend="${!consumer.enabled} ? ' is-disabled' : ''"
+                        th:text="${consumer.label}">Consumer</h2>
+
+                    <code class="ep-text-sm ep-text-muted" th:text="${consumer.keyPrefix}">epk_xxxx</code>
+
+                    <span class="badge badge-outline ep-text-sm" th:text="${consumer.authMethod}">API key</span>
+
+                    <span th:if="${!consumer.enabled}" class="badge badge-warning ep-text-sm">Disabled</span>
+
+                    <span class="consumer-card-meta ep-text-sm ep-text-muted">
+                        <span th:text="${consumer.activeNodeCount}">0</span> active /
+                        <span th:text="${#lists.size(consumer.nodes)}">0</span> nodes
+                    </span>
+                </header>
+
+                <div class="consumer-card-tracking ep-text-sm ep-text-muted">
+                    <th:block th:if="${consumer.cursorSummary.partitionsTracked > 0}">
+                        Tracking
+                        <strong th:text="${consumer.cursorSummary.partitionsTracked}">0</strong>
+                        partition<th:block th:if="${consumer.cursorSummary.partitionsTracked != 1}">s</th:block>,
+                        cursor
+                        <strong th:text="${consumer.cursorSummary.minAckedSequence}">0</strong>..<strong
+                            th:text="${consumer.cursorSummary.maxAckedSequence}">0</strong>
+                        <th:block th:if="${consumer.cursorSummary.lastAdvancedAt != null}">
+                            · last advanced
+                            <span th:title="${#temporals.format(consumer.cursorSummary.lastAdvancedAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                  th:text="${#temporals.format(consumer.cursorSummary.lastAdvancedAt, 'HH:mm:ss')}">—</span>
+                        </th:block>
+                    </th:block>
+                    <th:block th:if="${consumer.cursorSummary.partitionsTracked == 0}">
+                        No cursors yet — nothing has been delivered to this consumer.
+                    </th:block>
+                </div>
+
+                <div th:if="${#lists.isEmpty(consumer.nodes)}"
+                     class="consumer-card-empty ep-text-sm ep-text-muted">
+                    No nodes have polled yet for this consumer.
+                </div>
+
+                <table th:if="${!#lists.isEmpty(consumer.nodes)}"
+                       class="ep-table"
+                       style="margin-top: var(--ep-space-3);">
+                    <thead>
+                        <tr>
+                            <th>Node ID</th>
+                            <th>Last seen</th>
+                            <th>Status</th>
+                            <th>Partitions owned</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="node : ${consumer.nodes}">
+                            <td><code th:text="${node.nodeId}">node-id</code></td>
+                            <td>
+                                <span th:title="${#temporals.format(node.lastSeenAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                      th:text="${#temporals.format(node.lastSeenAt, 'HH:mm:ss')}">--</span>
+                            </td>
+                            <td>
+                                <span th:if="${node.isActive}" class="badge badge-success">active</span>
+                                <span th:if="${!node.isActive}" class="badge badge-outline">stale</span>
+                            </td>
+                            <td>
+                                <th:block th:if="${#lists.size(node.assignedPartitions) &lt;= 6}">
+                                    <code class="ep-text-sm"
+                                          th:text="${#strings.listJoin(node.assignedPartitions, ', ')}">0, 3, 7</code>
+                                </th:block>
+                                <th:block th:if="${#lists.size(node.assignedPartitions) &gt; 6}">
+                                    <code class="ep-text-sm"
+                                          th:title="${#strings.listJoin(node.assignedPartitions, ', ')}"
+                                          th:text="${#strings.listJoin(#lists.subList(node.assignedPartitions, 0, 6), ', ')
+                                                    + ' (+' + (${#lists.size(node.assignedPartitions) - 6}) + ' more)'}">0, 3, 7, ...</code>
+                                </th:block>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </th:block>
+</body>
+</html>
