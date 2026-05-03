@@ -138,7 +138,7 @@ In `epistola-contract`:
 
 In `epistola-suite`:
 
-- `modules/epistola-core/src/main/resources/db/migration/V28__consumer_node_assignments_joined_at.sql`
+- `modules/epistola-core/src/main/resources/db/migration/V27__consumer_node_assignments_joined_at.sql`
   — add the `joined_at` column with `DEFAULT NOW()` so existing rows
   backfill.
 - `modules/epistola-core/src/main/kotlin/app/epistola/suite/generation/collect/commands/TouchConsumerNode.kt`

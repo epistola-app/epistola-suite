@@ -245,10 +245,12 @@ In `epistola-contract`:
 
 In `epistola-suite`:
 
-- `modules/epistola-core/src/main/resources/db/migration/V28__consumers.sql`
+- `modules/epistola-core/src/main/resources/db/migration/V27__consumers.sql`
   — new tables + backfill from `api_keys` + alter
   `consumer_node_assignments.consumer_id` (uuid → slug). Pre-flight
-  backfill so the alter is safe.
+  backfill so the alter is safe. _Renumber to the next available slot
+  at implementation time (V28 if the v0.4 rebalance migration lands
+  first, etc.)._
 - `modules/epistola-core/src/main/kotlin/app/epistola/suite/consumers/`
   — new package (`Consumer`, `ConsumerNode`, `ConsumerStatus`,
   `ConsumerAuthMethod`, `ConsumerPermissions`).

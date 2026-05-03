@@ -9,12 +9,12 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 /**
- * Smoke coverage for the simplified single-level RANGE-partition maintenance
- * across all three managed tables. After the v0.3 flatten (V27) the scheduler
- * treats every partitioned table the same way; this test pins the behavior on
- * `generation_results` because it's the new addition and has its own retention
- * setting (`generation-results-retention-months`, default 1) distinct from the
- * default `retention-months` (3) used by documents/document_generation_requests.
+ * Smoke coverage for RANGE-partition maintenance across all three managed
+ * tables. The scheduler treats every partitioned table the same way; this test
+ * pins the behavior on `generation_results` because it's the new addition and
+ * has its own retention setting (`generation-results-retention-months`,
+ * default 1) distinct from the default `retention-months` (3) used by
+ * documents/document_generation_requests.
  */
 class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
 
