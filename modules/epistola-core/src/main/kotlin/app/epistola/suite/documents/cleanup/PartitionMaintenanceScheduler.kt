@@ -14,24 +14,20 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 /**
- * Scheduled maintenance for partitioned tables.
+ * Scheduled maintenance for RANGE-partitioned tables.
  *
- * This component runs periodic maintenance tasks to:
- * - Create current month and next month partitions after Flyway migrations complete (bootstrap)
- * - Create next month's partition daily (1 month ahead)
- * - Drop old partitions (older than retention period)
+ * For each configured table, this component:
+ *   - Creates current + next month's partition at startup, so cross-month
+ *     inserts at month boundaries always have a home (30-day buffer to detect
+ *     and fix any creation failures).
+ *   - Re-runs the same create/drop logic daily on a configurable cron.
+ *   - Drops monthly partitions older than the table's retention window.
  *
- * Runs daily at 2 AM for early failure detection (provides 30-day buffer to catch and fix issues).
- *
- * This enables instant TTL enforcement via partition dropping instead of slow DELETE operations.
- *
- * Two table shapes are supported:
- * - **Single-level** (RANGE by `created_at` only): documents,
- *   document_generation_requests. Sub-partitions are named `<table>_<YYYY>_<MM>`.
- * - **Multi-level** (LIST by partition → RANGE by `created_at`):
- *   generation_results. Sub-partitions are named `<table>_p<N>_<YYYY>_<MM>` where
- *   `N` enumerates the LIST children created in the migration. Each child has
- *   its own monthly RANGE sub-partitions and its own independent retention.
+ * Retention is per-table because the data has different value over time:
+ * `documents` and `document_generation_requests` get the longer
+ * `epistola.partitions.retention-months` (default 3); `generation_results`
+ * is consumer-driven ephemera that gets the shorter
+ * `epistola.partitions.generation-results-retention-months` (default 1).
  */
 @Component
 @EnableScheduling
@@ -58,18 +54,11 @@ class PartitionMaintenanceScheduler(
         shuttingDown = true
     }
 
-    private val partitionConfigs = listOf(
-        PartitionConfig("documents", "created_at"),
-        PartitionConfig("document_generation_requests", "created_at"),
-    )
-
-    private val multiLevelConfigs by lazy {
+    private val partitionConfigs by lazy {
         listOf(
-            MultiLevelPartitionConfig(
-                tableName = "generation_results",
-                partitionCount = 64, // matches Partition.TOTAL_PARTITIONS — see V26
-                retentionMonths = generationResultsRetentionMonths,
-            ),
+            PartitionConfig("documents", retentionMonths),
+            PartitionConfig("document_generation_requests", retentionMonths),
+            PartitionConfig("generation_results", generationResultsRetentionMonths),
         )
     }
 
@@ -85,18 +74,11 @@ class PartitionMaintenanceScheduler(
 
     /**
      * Run partition maintenance daily at 2 AM.
-     *
-     * Creates current and next month's partitions and drops old partitions for all configured tables.
-     * Daily execution provides early failure detection (30-day buffer to fix issues).
      */
     @Scheduled(cron = "\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
     fun maintainPartitions() {
         if (shuttingDown) return
-        logger.info(
-            "Starting partition maintenance (retention: {} months for documents/requests, {} months for generation_results)",
-            retentionMonths,
-            generationResultsRetentionMonths,
-        )
+        logger.info("Starting partition maintenance")
 
         partitionConfigs.forEach { config ->
             try {
@@ -107,31 +89,15 @@ class PartitionMaintenanceScheduler(
             }
         }
 
-        multiLevelConfigs.forEach { config ->
-            try {
-                createRequiredMultiLevelPartitions(config)
-                dropOldMultiLevelPartitions(config)
-            } catch (e: Exception) {
-                logger.error("Failed to maintain multi-level partitions for table {}: {}", config.tableName, e.message, e)
-            }
-        }
-
         logger.info("Partition maintenance completed")
     }
 
     /**
-     * Create required partitions (current month + next month) if they don't exist.
-     *
-     * This is called at startup and daily to ensure we always have the necessary partitions.
-     * Provides 30-day buffer to detect and fix partition creation failures.
+     * Ensure the current and next month partitions exist for [config]. Idempotent.
      */
     private fun createRequiredPartitions(config: PartitionConfig) {
         val now = YearMonth.now()
-
-        // Create current month partition (needed immediately)
         createPartitionForMonth(config, now)
-
-        // Create next month partition (buffer for month boundary)
         createPartitionForMonth(config, now.plusMonths(1))
     }
 
@@ -183,10 +149,10 @@ class PartitionMaintenanceScheduler(
     }
 
     /**
-     * Drop partitions older than the retention period.
+     * Drop partitions older than the config's retention period.
      */
     private fun dropOldPartitions(config: PartitionConfig) {
-        val cutoffMonth = YearMonth.now().minusMonths(retentionMonths.toLong())
+        val cutoffMonth = YearMonth.now().minusMonths(config.retentionMonths.toLong())
         val cutoffPartition = "${config.tableName}_${cutoffMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
 
         // Query for partitions older than retention period
@@ -216,7 +182,7 @@ class PartitionMaintenanceScheduler(
                         .execute()
                 }
                 droppedCount++
-                logger.info("Dropped old partition: {} (older than {} months)", partitionName, retentionMonths)
+                logger.info("Dropped old partition: {} (older than {} months)", partitionName, config.retentionMonths)
             } catch (e: Exception) {
                 logger.error("Failed to drop partition {}: {}", partitionName, e.message, e)
             }
@@ -229,139 +195,8 @@ class PartitionMaintenanceScheduler(
         }
     }
 
-    // ---- Multi-level (LIST → RANGE) maintenance ----
-
-    /**
-     * For each LIST partition number 0..(partitionCount-1), ensure its current and
-     * next-month RANGE sub-partitions exist.
-     */
-    private fun createRequiredMultiLevelPartitions(config: MultiLevelPartitionConfig) {
-        val now = YearMonth.now()
-        for (p in 0 until config.partitionCount) {
-            val parent = "${config.tableName}_p$p"
-            createSubPartitionForMonth(parent, now)
-            createSubPartitionForMonth(parent, now.plusMonths(1))
-        }
-    }
-
-    /**
-     * Drop monthly sub-partitions older than the multi-level config's retention,
-     * across all LIST children. We over-fetch with a coarse LIKE prefix and
-     * filter in Kotlin via the structural regex in [parseMonthSuffix] — using
-     * LIKE alone for the full structure is fragile because `_` in LIKE matches
-     * any character.
-     */
-    private fun dropOldMultiLevelPartitions(config: MultiLevelPartitionConfig) {
-        val cutoffMonth = YearMonth.now().minusMonths(config.retentionMonths.toLong())
-        val candidates = jdbi.withHandle<List<String>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT tablename
-                FROM pg_tables
-                WHERE schemaname = 'public'
-                  AND tablename LIKE :prefix
-                ORDER BY tablename
-                """,
-            )
-                .bind("prefix", "${config.tableName}_p%")
-                .mapTo(String::class.java)
-                .list()
-        }
-
-        // Only consider names that look like `<table>_p<N>_<YYYY>_<MM>`. This
-        // skips the bare LIST-child rows (`generation_results_p0`) and any
-        // non-conforming junk so we never drop a structural partition.
-        val subPartitionRegex = Regex("^${Regex.escape(config.tableName)}_p\\d+_\\d{4}_\\d{2}$")
-
-        var droppedCount = 0
-        for (name in candidates) {
-            if (!subPartitionRegex.matches(name)) continue
-            val month = parseMonthSuffix(name) ?: continue
-            if (month < cutoffMonth) {
-                try {
-                    jdbi.useHandle<Exception> { handle ->
-                        handle.createUpdate("DROP TABLE IF EXISTS $name CASCADE").execute()
-                    }
-                    droppedCount++
-                    logger.info(
-                        "Dropped old sub-partition: {} (older than {} months)",
-                        name,
-                        config.retentionMonths,
-                    )
-                } catch (e: Exception) {
-                    logger.error("Failed to drop sub-partition {}: {}", name, e.message, e)
-                }
-            }
-        }
-
-        if (droppedCount > 0) {
-            logger.info("Dropped {} old sub-partition(s) for table {}", droppedCount, config.tableName)
-        } else {
-            logger.debug("No old sub-partitions to drop for table {}", config.tableName)
-        }
-    }
-
-    /**
-     * Create a single `<parent>_<YYYY>_<MM>` sub-partition if it doesn't exist.
-     * `parent` is a LIST child like `generation_results_p3` (already itself
-     * partitioned BY RANGE per V26).
-     */
-    private fun createSubPartitionForMonth(parent: String, month: YearMonth) {
-        val name = "${parent}_${month.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
-        val startDate = month.atDay(1)
-        val endDate = month.plusMonths(1).atDay(1)
-
-        try {
-            val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1 FROM pg_tables
-                        WHERE schemaname = 'public' AND tablename = :name
-                    )
-                    """,
-                )
-                    .bind("name", name)
-                    .mapTo(Boolean::class.java)
-                    .one()
-            }
-            if (!exists) {
-                jdbi.useHandle<Exception> { handle ->
-                    handle.execute(
-                        """
-                        CREATE TABLE $name PARTITION OF $parent
-                        FOR VALUES FROM ('$startDate') TO ('$endDate')
-                        """,
-                    )
-                }
-                logger.info("Created sub-partition: {}", name)
-            } else {
-                logger.debug("Sub-partition already exists: {}", name)
-            }
-        } catch (e: Exception) {
-            logger.error("CRITICAL: Failed to create sub-partition: {}", name, e)
-            throw e
-        }
-    }
-
-    /**
-     * Parse the trailing `_YYYY_MM` from a sub-partition name. Returns null if
-     * the name doesn't match the pattern (defensive — pg_tables shouldn't return
-     * non-matches given our LIKE filter, but the regex is the source of truth).
-     */
-    private fun parseMonthSuffix(tableName: String): YearMonth? {
-        val match = Regex(".*_(\\d{4})_(\\d{2})$").find(tableName) ?: return null
-        return runCatching { YearMonth.of(match.groupValues[1].toInt(), match.groupValues[2].toInt()) }.getOrNull()
-    }
-
     private data class PartitionConfig(
         val tableName: String,
-        val partitionColumn: String,
-    )
-
-    private data class MultiLevelPartitionConfig(
-        val tableName: String,
-        val partitionCount: Int,
         val retentionMonths: Int,
     )
 }

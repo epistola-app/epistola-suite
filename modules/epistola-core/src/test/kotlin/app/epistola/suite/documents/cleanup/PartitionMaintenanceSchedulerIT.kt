@@ -9,14 +9,14 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 /**
- * Integration coverage for the multi-level partition maintenance path on
- * `generation_results` (LIST(partition) → RANGE(created_at)).
- *
- * Single-level partitioning of documents/document_generation_requests is
- * covered by the existing PartitionMaintenanceScheduler tests; we only verify
- * the new multi-level shape here.
+ * Smoke coverage for the simplified single-level RANGE-partition maintenance
+ * across all three managed tables. After the v0.3 flatten (V27) the scheduler
+ * treats every partitioned table the same way; this test pins the behavior on
+ * `generation_results` because it's the new addition and has its own retention
+ * setting (`generation-results-retention-months`, default 1) distinct from the
+ * default `retention-months` (3) used by documents/document_generation_requests.
  */
-class PartitionMaintenanceSchedulerMultiLevelIT : IntegrationTestBase() {
+class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -25,21 +25,19 @@ class PartitionMaintenanceSchedulerMultiLevelIT : IntegrationTestBase() {
     private lateinit var scheduler: PartitionMaintenanceScheduler
 
     @Test
-    fun `bootstraps current and next month sub-partitions for every LIST child of generation_results`() {
+    fun `bootstraps current and next month partitions for generation_results`() {
         scheduler.maintainPartitions()
 
         val now = YearMonth.now()
         val curSuffix = now.format(DateTimeFormatter.ofPattern("yyyy_MM"))
         val nextSuffix = now.plusMonths(1).format(DateTimeFormatter.ofPattern("yyyy_MM"))
 
-        for (p in 0 until 64) {
-            assertThat(tableExists("generation_results_p${p}_$curSuffix"))
-                .`as`("current-month sub-partition for partition %d", p)
-                .isTrue
-            assertThat(tableExists("generation_results_p${p}_$nextSuffix"))
-                .`as`("next-month sub-partition for partition %d", p)
-                .isTrue
-        }
+        assertThat(tableExists("generation_results_$curSuffix"))
+            .`as`("current-month partition")
+            .isTrue
+        assertThat(tableExists("generation_results_$nextSuffix"))
+            .`as`("next-month partition")
+            .isTrue
     }
 
     @Test
@@ -47,26 +45,25 @@ class PartitionMaintenanceSchedulerMultiLevelIT : IntegrationTestBase() {
         scheduler.maintainPartitions()
         scheduler.maintainPartitions()
 
-        // Re-running counts: still exactly current + next per LIST child = 128.
-        // (The migration also created these initially, so the scheduler should
-        //  detect "already exists" and skip cleanly.)
         val now = YearMonth.now()
         val curSuffix = now.format(DateTimeFormatter.ofPattern("yyyy_MM"))
-        val count = countTablesLike("generation_results_p%_$curSuffix")
-        assertThat(count).isEqualTo(64)
+        // Exactly one current-month partition for each managed table.
+        assertThat(countTablesLike("generation_results_$curSuffix")).isEqualTo(1)
+        assertThat(countTablesLike("documents_$curSuffix")).isEqualTo(1)
+        assertThat(countTablesLike("document_generation_requests_$curSuffix")).isEqualTo(1)
     }
 
     @Test
-    fun `drops a manually-created old sub-partition past the retention window`() {
-        // Create a fake old sub-partition outside the retention window for partition 0.
+    fun `drops a manually-created old partition past the retention window`() {
+        // generation_results uses the 1-month default; create a 2-year-old partition
+        // so it's well past the cutoff and must be swept.
         val ancient = YearMonth.now().minusYears(2)
         val ancientSuffix = ancient.format(DateTimeFormatter.ofPattern("yyyy_MM"))
-        val parent = "generation_results_p0"
-        val name = "${parent}_$ancientSuffix"
+        val name = "generation_results_$ancientSuffix"
         jdbi.useHandle<Exception> { handle ->
             handle.execute(
                 """
-                CREATE TABLE IF NOT EXISTS $name PARTITION OF $parent
+                CREATE TABLE IF NOT EXISTS $name PARTITION OF generation_results
                 FOR VALUES FROM ('${ancient.atDay(1)}') TO ('${ancient.plusMonths(1).atDay(1)}')
                 """,
             )
@@ -76,22 +73,8 @@ class PartitionMaintenanceSchedulerMultiLevelIT : IntegrationTestBase() {
         scheduler.maintainPartitions()
 
         assertThat(tableExists(name))
-            .`as`("ancient sub-partition %s should have been dropped", name)
+            .`as`("ancient partition %s should have been dropped", name)
             .isFalse
-    }
-
-    @Test
-    fun `keeps current and next month sub-partitions intact after maintenance`() {
-        scheduler.maintainPartitions()
-        scheduler.maintainPartitions() // run twice to confirm drop pass doesn't sweep them away
-
-        val now = YearMonth.now()
-        val curSuffix = now.format(DateTimeFormatter.ofPattern("yyyy_MM"))
-        val nextSuffix = now.plusMonths(1).format(DateTimeFormatter.ofPattern("yyyy_MM"))
-        for (p in 0 until 64) {
-            assertThat(tableExists("generation_results_p${p}_$curSuffix")).isTrue
-            assertThat(tableExists("generation_results_p${p}_$nextSuffix")).isTrue
-        }
     }
 
     private fun tableExists(name: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
