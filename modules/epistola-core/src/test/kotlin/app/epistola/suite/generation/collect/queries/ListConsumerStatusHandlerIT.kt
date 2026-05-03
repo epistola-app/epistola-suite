@@ -206,6 +206,23 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `hides nodes whose last_seen_at is older than the show-stale window`() {
+        // Default show-stale-window-hours = 1. A node older than that should not appear
+        // in the report (it remains in the DB until the reaper sweeps it).
+        val tenant = createTenant("Hide Window Tenant")
+        val consumerId = seedApiKey(tenant.id, "Mixed Plugin")
+        val now = OffsetDateTime.now()
+        seedNode(tenant.id, consumerId, "fresh-stale", listOf(1), now.minusMinutes(15))
+        seedNode(tenant.id, consumerId, "long-gone", listOf(2), now.minusHours(3))
+
+        val report = withMediator { ListConsumerStatus(tenant.id).query() }
+
+        val consumer = report.consumers.single()
+        assertThat(consumer.nodes.map { it.nodeId }).containsExactly("fresh-stale")
+        assertThat(report.totals.totalNodeCount).isEqualTo(1)
+    }
+
+    @Test
     fun `mostRecentNodeActivity reflects the freshest heartbeat across all consumers`() {
         val tenant = createTenant("Activity Tenant")
         val a = seedApiKey(tenant.id, "Plugin A")

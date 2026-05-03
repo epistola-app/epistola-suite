@@ -344,9 +344,11 @@
                                           th:text="${node.isActive ? 'active' : 'stale'}">active</span>
                                 </td>
                                 <td>
-                                    <code class="ep-text-sm"
+                                    <code th:if="${node.isActive}" class="ep-text-sm"
                                           th:title="${node.partitionsTitle}"
                                           th:text="${node.partitionsLabel}">0, 3, 7</code>
+                                    <span th:if="${!node.isActive}" class="ep-text-sm ep-text-muted"
+                                          th:title="${'Was assigned: ' + node.partitionsTitle}">— stale, not on ring</span>
                                 </td>
                             </tr>
                         </tbody>

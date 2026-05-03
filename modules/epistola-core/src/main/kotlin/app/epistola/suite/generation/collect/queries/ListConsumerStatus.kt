@@ -135,11 +135,18 @@ class ListConsumerStatusHandler(
     private val objectMapper: ObjectMapper,
     @Value("\${epistola.collect.idle-timeout-ms:60000}")
     private val idleTimeoutMs: Long,
+    @Value("\${epistola.collect.show-stale-window-hours:1}")
+    private val showStaleWindowHours: Long,
 ) : QueryHandler<ListConsumerStatus, ConsumerStatusReport> {
 
     override fun handle(query: ListConsumerStatus): ConsumerStatusReport {
         val now = OffsetDateTime.now()
         val activeSince = now.minusNanos(idleTimeoutMs * 1_000_000)
+        // Nodes whose last heartbeat is older than this disappear from the report
+        // entirely (not just from the totals). The page is for "what's currently
+        // happening"; the durable record is the database itself, swept by the
+        // separate StaleConsumerNodeReaper at a longer horizon.
+        val visibleSince = now.minusHours(showStaleWindowHours)
 
         return jdbi.inTransaction<ConsumerStatusReport, Exception> { handle ->
             val tenantName = handle.createQuery("SELECT name FROM tenants WHERE id = :tenantKey")
@@ -162,11 +169,13 @@ class ListConsumerStatusHandler(
                 LEFT JOIN consumer_node_assignments cna
                        ON cna.tenant_key = ak.tenant_key
                       AND cna.consumer_id = ak.id::text
+                      AND cna.last_seen_at > :visibleSince
                 WHERE ak.tenant_key = :tenantKey
                 ORDER BY ak.name, cna.last_seen_at DESC NULLS LAST
                 """,
             )
                 .bind("tenantKey", query.tenantId)
+                .bind("visibleSince", visibleSince)
                 .map { rs, _ ->
                     ConsumerNodeRow(
                         consumerId = rs.getString("consumer_id"),
