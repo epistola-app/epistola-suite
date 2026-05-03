@@ -113,6 +113,85 @@ Observations:
   In production with sustained traffic this evens out; the per-batch
   unfairness here is artifactual to the bulk-pre-seed setup.
 
+## Idle polling cost
+
+**What this measures**: empty polls — when N consumer nodes are
+polling but no rows are ever emitted. This is the dominant
+production load: most of the time most consumers are idle. Each
+poll dispatches Touch + Ack + Fetch via the mediator (same path
+as the real `/api/tenants/{tid}/generation/collect` endpoint),
+but Ack is a no-op (no `lastSequence` ever materializes) and
+Fetch returns empty.
+
+**Test class**:
+`modules/epistola-core/src/test/.../perf/CollectIdlePollPerfTest.kt`
+
+The point of the measurement: decide whether a server-side cache
+of "last emit per (tenant, partition)" would meaningfully cut
+polling cost. Decision rule from the plan that commissioned the
+test:
+
+| If measured p99 per poll is… | Then…                                                        |
+| ---------------------------- | ------------------------------------------------------------ |
+| < 1 ms                       | Cache not worth it.                                          |
+| 1–5 ms                       | Marginal. Defer cache, revisit if production shows pressure. |
+| > 5 ms                       | Cache is worth pursuing.                                     |
+
+### Results
+
+#### `mac-m4-pro` — 2026-05-03 — JVM Temurin 25
+
+Tight-loop polling (no inter-poll sleep) for 30 s per scenario.
+Same Postgres + Hikari setup as the throughput test
+(podman PG 17, pool tuned to 64).
+
+| consumers | polls/sec aggregate | polls/sec per consumer | p50 (ms) | p95 (ms) | p99 (ms) | p99.9 (ms) |
+| --------- | ------------------- | ---------------------- | -------- | -------- | -------- | ---------- |
+| 1         | 256                 | 256.4                  | 3        | 4        | 5        | 10         |
+| 16        | 730                 | 45.6                   | 21       | 29       | 36       | 63         |
+| 64        | 535                 | 8.4                    | 113      | 179      | 233      | 628        |
+| 256       | 113                 | 0.44                   | 610      | 12 043   | 25 918   | 30 323     |
+
+**Decision: pursue the cache.** Even at 1 idle consumer p99 is
+5 ms. At 64 concurrent it's 233 ms. At 256 it's 26 seconds —
+the system is queueing on connections (Hikari pool size 64; 256
+tight-looping consumers fight for connections).
+
+What the data tells us:
+
+- **Empty polls are not free.** ~5 ms each (1 consumer), driven
+  by Touch UPSERT + Fetch index probe + mediator dispatch +
+  connection acquisition + transaction overhead. Per poll
+  cost dominates over per-row cost — a row of work is roughly
+  the same wall-clock as zero rows of work.
+- **Latency degrades super-linearly with concurrency** because
+  Postgres connection pool waits stack up. With Hikari pool at
+  64 and 256 hot consumers, the queue depth blows past what's
+  serviceable.
+- **In production with 16k consumers** (per the v0.5 push-collect
+  doc): at default 1 s `minInterval` the aggregate poll rate
+  hits 16 k/sec across the cluster. With 4 suite instances that's
+  4 k polls/sec/instance, ~20 cpu-seconds/sec at the measured
+  5 ms/poll baseline — saturates 5 cores per instance for
+  _empty_ polls. Untenable.
+
+This validates two follow-on directions, both worth doing:
+
+1. **Phase 2 (this PR)** — client-side `kick()` + 3× backoff +
+   modest `maxInterval` increase. Reduces idle poll rate per
+   consumer in the steady state. Doesn't address per-poll cost.
+2. **Phase 3 (separate work)** — server-side cache or `last_emit`
+   sentinel table to short-circuit empty polls at sub-ms cost.
+   Addresses per-poll cost directly. Sketched in the plan file
+   that commissioned this test; will get its own design doc when
+   we commit to it.
+
+Re-running this test on real hardware (RDS, dedicated PG box) is
+likely to improve the absolute numbers 2-3×, but the relative
+shape — empty polls cost ~ms each, scaling badly with
+concurrency — won't change. The optimization is independently
+worth it.
+
 ## Out of scope (planned follow-on perf work)
 
 These are tracked in
