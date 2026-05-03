@@ -98,7 +98,15 @@ class SecurityConfig(
 
         http
             .securityMatcher("/api/**")
-            .authorizeHttpRequests { it.anyRequest().authenticated() }
+            .authorizeHttpRequests {
+                // /api/ping is intentionally dual-mode per the v0.3 contract: anonymous
+                // probes get a basic pong (status + timestamp); authenticated callers
+                // additionally receive serverVersion/apiVersion/nodeId/partition info.
+                // Permit anonymous through Spring Security; the controller itself
+                // decides what payload to return based on whether a principal exists.
+                it.requestMatchers(org.springframework.http.HttpMethod.POST, "/api/ping").permitAll()
+                it.anyRequest().authenticated()
+            }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .csrf { it.disable() }
             // Client-identity validation runs BEFORE auth so v0.3 clients calling
