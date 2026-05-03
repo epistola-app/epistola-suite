@@ -1,16 +1,15 @@
 package app.epistola.suite.generation.collect.queries
 
-import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.generation.collect.commands.AcknowledgeGenerationResults
-import app.epistola.suite.generation.collect.domain.GenerationResultRow
 import app.epistola.suite.generation.collect.domain.ResultStatus
-import app.epistola.suite.generation.collect.persistence.GenerationResultRepository
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.mapTo
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.OffsetDateTime
@@ -19,10 +18,38 @@ import java.util.UUID
 class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
 
     @Autowired
-    private lateinit var repository: GenerationResultRepository
+    private lateinit var jdbi: Jdbi
 
     private fun tenant() = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
     private fun consumerId() = "cons-${UUID.randomUUID()}"
+
+    /**
+     * Seed a generation_results row for a specific tenant + partition. Returns
+     * the auto-assigned `sequence`. Bypasses the `EmitGenerationResult` command
+     * because tests want fine-grained control over partition assignment without
+     * synthesizing a full DocumentGenerationRequest each time.
+     */
+    private fun appendRow(tenantKey: TenantKey, partition: Int): Long = jdbi.withHandle<Long, Exception> { h ->
+        h.createQuery(
+            """
+            INSERT INTO generation_results (
+                partition, request_id, tenant_key, routing_key, status, completed_at
+            )
+            VALUES (
+                :partition, :requestId, :tenantKey, :routingKey, :status, :completedAt
+            )
+            RETURNING sequence
+            """,
+        )
+            .bind("partition", partition)
+            .bind("requestId", UUID.randomUUID())
+            .bind("tenantKey", tenantKey)
+            .bind("routingKey", "rk-${UUID.randomUUID()}")
+            .bind("status", ResultStatus.COMPLETED.name)
+            .bind("completedAt", OffsetDateTime.now())
+            .mapTo<Long>()
+            .one()
+    }
 
     @Test
     fun `returns empty page when no results exist`() {
@@ -48,44 +75,44 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
         val tenant = tenant()
         val consumer = consumerId()
 
-        val a = repository.append(sample(tenant, partition = 3))
-        val b = repository.append(sample(tenant, partition = 7))
-        repository.append(sample(tenant, partition = 11)) // not in our assignment
+        val a = appendRow(tenant, partition = 3)
+        val b = appendRow(tenant, partition = 7)
+        appendRow(tenant, partition = 11) // not in our assignment
 
         val page = withMediator {
             FetchGenerationResults(tenant, consumer, setOf(3, 7), limit = 100).query()
         }
 
-        assertThat(page.rows.map { it.sequence }).containsExactlyInAnyOrder(a.sequence, b.sequence)
+        assertThat(page.rows.map { it.sequence }).containsExactlyInAnyOrder(a, b)
         assertThat(page.hasMore).isFalse
-        assertThat(page.lastSequence).isEqualTo(maxOf(a.sequence, b.sequence))
+        assertThat(page.lastSequence).isEqualTo(maxOf(a, b))
     }
 
     @Test
     fun `respects per-partition cursor advanced via Acknowledge command`() {
         val tenant = tenant()
         val consumer = consumerId()
-        val a = repository.append(sample(tenant, partition = 3))
-        val b = repository.append(sample(tenant, partition = 3))
-        val c = repository.append(sample(tenant, partition = 3))
+        val a = appendRow(tenant, partition = 3)
+        val b = appendRow(tenant, partition = 3)
+        val c = appendRow(tenant, partition = 3)
 
-        // Ack through `a.sequence` for partition 3 — only b and c remain.
+        // Ack through `a` for partition 3 — only b and c remain.
         withMediator {
-            AcknowledgeGenerationResults(tenant, consumer, setOf(3), a.sequence).execute()
+            AcknowledgeGenerationResults(tenant, consumer, setOf(3), a).execute()
         }
 
         val page = withMediator {
             FetchGenerationResults(tenant, consumer, setOf(3), limit = 100).query()
         }
 
-        assertThat(page.rows.map { it.sequence }).containsExactly(b.sequence, c.sequence)
-        assertThat(page.lastSequence).isEqualTo(c.sequence)
+        assertThat(page.rows.map { it.sequence }).containsExactly(b, c)
+        assertThat(page.lastSequence).isEqualTo(c)
     }
 
     @Test
     fun `hasMore is true when more rows exist than the limit allows`() {
         val tenant = tenant()
-        val seqs = (1..5).map { repository.append(sample(tenant, partition = 0)).sequence }
+        val seqs = (1..5).map { appendRow(tenant, partition = 0) }
 
         val page = withMediator {
             FetchGenerationResults(tenant, consumerId(), setOf(0), limit = 3).query()
@@ -100,7 +127,7 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
     @Test
     fun `hasMore is false when results exactly fill the page`() {
         val tenant = tenant()
-        repeat(3) { repository.append(sample(tenant, partition = 0)) }
+        repeat(3) { appendRow(tenant, partition = 0) }
 
         val page = withMediator {
             FetchGenerationResults(tenant, consumerId(), setOf(0), limit = 3).query()
@@ -118,7 +145,7 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
         val tenant = tenant()
         val ca = consumerId()
         val cb = consumerId()
-        val emitted = (1..3).map { repository.append(sample(tenant, partition = 0)).sequence }
+        val emitted = (1..3).map { appendRow(tenant, partition = 0) }
 
         val pageA = withMediator { FetchGenerationResults(tenant, ca, setOf(0), 100).query() }
         val pageB = withMediator { FetchGenerationResults(tenant, cb, setOf(0), 100).query() }
@@ -138,8 +165,8 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
     fun `cross-tenant isolation - consumer in tenant A sees no results from tenant B`() {
         val ta = tenant()
         val tb = tenant()
-        repository.append(sample(ta, partition = 0))
-        repository.append(sample(tb, partition = 0))
+        appendRow(ta, partition = 0)
+        appendRow(tb, partition = 0)
 
         val pageA = withMediator { FetchGenerationResults(ta, consumerId(), setOf(0), 100).query() }
         val pageB = withMediator { FetchGenerationResults(tb, consumerId(), setOf(0), 100).query() }
@@ -157,7 +184,7 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
         // confirms a fresh Fetch after Ack respects it without any in-memory state.
         val tenant = tenant()
         val consumer = consumerId()
-        val emitted = (1..5).map { repository.append(sample(tenant, partition = 0)).sequence }
+        val emitted = (1..5).map { appendRow(tenant, partition = 0) }
 
         withMediator { AcknowledgeGenerationResults(tenant, consumer, setOf(0), emitted.last()).execute() }
         // Simulate a "restart" by issuing a fresh query with the same arguments.
@@ -174,25 +201,4 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
         assertThatThrownBy { FetchGenerationResults(tenant(), consumerId(), setOf(0), limit = 10001) }
             .isInstanceOf(IllegalArgumentException::class.java)
     }
-
-    private fun sample(tenantKey: TenantKey, partition: Int) = GenerationResultRow(
-        sequence = 0L,
-        partition = partition,
-        createdAt = OffsetDateTime.now(),
-        requestId = GenerationRequestKey.of(UUID.randomUUID()),
-        batchId = null,
-        tenantKey = tenantKey,
-        routingKey = "rk-${UUID.randomUUID()}",
-        status = ResultStatus.COMPLETED,
-        documentId = null,
-        correlationId = null,
-        templateId = null,
-        variantId = null,
-        versionId = null,
-        filename = null,
-        contentType = null,
-        sizeBytes = null,
-        error = null,
-        completedAt = OffsetDateTime.now(),
-    )
 }

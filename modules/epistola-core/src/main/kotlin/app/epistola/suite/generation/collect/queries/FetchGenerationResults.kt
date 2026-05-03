@@ -2,23 +2,22 @@ package app.epistola.suite.generation.collect.queries
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.generation.collect.domain.GenerationResultRow
-import app.epistola.suite.generation.collect.persistence.ConsumerPartitionCursorRepository
-import app.epistola.suite.generation.collect.persistence.GenerationResultRepository
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
  * Fetch a page of pending generation results for a consumer.
  *
- * The query reads the per-(tenant, consumer, partition) cursors via
- * [ConsumerPartitionCursorRepository], then asks
- * [GenerationResultRepository.findFor] for rows after each cursor in the
- * supplied [partitions] set. Returns up to [limit] rows ordered by ascending
- * sequence — callers use the largest sequence as `acknowledgeUpTo` on the
- * next poll.
+ * The handler reads the per-(tenant, consumer, partition) cursors from
+ * `consumer_partition_cursors`, then asks `generation_results` for rows after
+ * each cursor in the supplied [partitions] set. Returns up to [limit] rows
+ * ordered by ascending sequence — callers use the largest sequence as
+ * `acknowledgeUpTo` on the next poll.
  *
  * The collect endpoint orchestrates the call sequence:
  *   1. [TouchConsumerNode][app.epistola.suite.generation.collect.commands.TouchConsumerNode]
@@ -65,22 +64,60 @@ data class FetchResultsPage(
 
 @Component
 class FetchGenerationResultsHandler(
-    private val cursors: ConsumerPartitionCursorRepository,
-    private val results: GenerationResultRepository,
+    private val jdbi: Jdbi,
 ) : QueryHandler<FetchGenerationResults, FetchResultsPage> {
 
     override fun handle(query: FetchGenerationResults): FetchResultsPage {
         if (query.partitions.isEmpty()) return FetchResultsPage(emptyList(), hasMore = false, lastSequence = null)
 
-        val cursorMap = cursors.cursorsFor(query.tenantId, query.consumerId, query.partitions)
-        // Read limit + 1 so we can compute hasMore cheaply: if the over-read
-        // returned an extra row, we know more exist; trim it before returning.
-        val rawRows = results.findFor(
-            tenantKey = query.tenantId,
-            partitions = query.partitions,
-            cursorByPartition = cursorMap,
-            limit = query.limit + 1,
-        )
+        val partitionList = query.partitions.toIntArray()
+        // Read cursors and fetch rows in one transaction so a concurrent ack
+        // doesn't move the cursor between the two reads (would skip rows).
+        val rawRows = jdbi.inTransaction<List<GenerationResultRow>, Exception> { handle ->
+            val cursorMap = handle.createQuery(
+                """
+                SELECT partition, last_acked_sequence
+                FROM consumer_partition_cursors
+                WHERE tenant_key = :tenantKey
+                  AND consumer_id = :consumerId
+                  AND partition = ANY(:partitions::int[])
+                """,
+            )
+                .bind("tenantKey", query.tenantId)
+                .bind("consumerId", query.consumerId)
+                .bindArray("partitions", Int::class.javaObjectType, *partitionList.toTypedArray())
+                .map { rs, _ -> rs.getInt("partition") to rs.getLong("last_acked_sequence") }
+                .toMap()
+
+            // UNNEST joins per-partition cursors so PG can prune on `r.partition = c.p`.
+            // Cursor defaults to 0 for any partition we haven't acked anything from yet.
+            val cursorList = LongArray(partitionList.size) { cursorMap[partitionList[it]] ?: 0L }
+            handle.createQuery(
+                """
+                WITH cursors(p, cur) AS (
+                    SELECT unnest(:partitions::int[]), unnest(:cursors::bigint[])
+                )
+                SELECT r.sequence, r.partition, r.created_at, r.request_id, r.batch_id,
+                       r.tenant_key, r.routing_key, r.status, r.document_id,
+                       r.correlation_id, r.template_id, r.variant_id, r.version_id,
+                       r.filename, r.content_type, r.size_bytes, r.error, r.completed_at
+                FROM generation_results r
+                JOIN cursors c ON r.partition = c.p
+                WHERE r.tenant_key = :tenantKey
+                  AND r.sequence > c.cur
+                ORDER BY r.sequence
+                LIMIT :limit
+                """,
+            )
+                .bind("tenantKey", query.tenantId)
+                .bindArray("partitions", Int::class.javaObjectType, *partitionList.toTypedArray())
+                .bindArray("cursors", Long::class.javaObjectType, *cursorList.toTypedArray())
+                // Read limit + 1 so we can compute hasMore cheaply: if the over-read
+                // returned an extra row, we know more exist; trim it before returning.
+                .bind("limit", query.limit + 1)
+                .mapTo<GenerationResultRow>()
+                .list()
+        }
         val hasMore = rawRows.size > query.limit
         val rows = if (hasMore) rawRows.dropLast(1) else rawRows
         val lastSequence = rows.lastOrNull()?.sequence

@@ -12,11 +12,11 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.ResultStatus
-import app.epistola.suite.generation.collect.persistence.GenerationResultRepository
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.node.JsonNodeFactory
@@ -26,7 +26,7 @@ import java.util.UUID
 class EmitGenerationResultHandlerIT : IntegrationTestBase() {
 
     @Autowired
-    private lateinit var repository: GenerationResultRepository
+    private lateinit var jdbi: Jdbi
 
     @Test
     fun `emits a row at the partition computed from routingKey`() {
@@ -130,7 +130,7 @@ class EmitGenerationResultHandlerIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `emitted row is readable through the repository at the same partition`() {
+    fun `emitted row is persisted to generation_results at the same partition`() {
         // Sanity check that the round-trip through emit + storage is consistent.
         val tenant = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
         val req = sampleRequest(tenant, routingKey = "round-trip-key")
@@ -148,16 +148,20 @@ class EmitGenerationResultHandlerIT : IntegrationTestBase() {
             ).execute()
         }
 
-        val read = repository.findFor(
-            tenantKey = tenant,
-            partitions = setOf(partition),
-            cursorByPartition = mapOf(partition to emitted.sequence - 1),
-            limit = 100,
-        )
-
-        assertThat(read).hasSize(1)
-        assertThat(read.first().sequence).isEqualTo(emitted.sequence)
-        assertThat(read.first().requestId).isEqualTo(req.id)
+        val rowCount = jdbi.withHandle<Int, Exception> { h ->
+            h.createQuery(
+                """
+                SELECT COUNT(*) FROM generation_results
+                WHERE tenant_key = :tenant AND partition = :partition AND sequence = :seq
+                """,
+            )
+                .bind("tenant", tenant)
+                .bind("partition", partition)
+                .bind("seq", emitted.sequence)
+                .mapTo(Int::class.java)
+                .one()
+        }
+        assertThat(rowCount).isEqualTo(1)
     }
 
     private fun sampleRequest(

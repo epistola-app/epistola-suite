@@ -1,11 +1,11 @@
 package app.epistola.suite.generation.collect.commands
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.generation.collect.persistence.ConsumerPartitionCursorRepository
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
@@ -33,14 +33,32 @@ data class AcknowledgeGenerationResults(
 
 @Component
 class AcknowledgeGenerationResultsHandler(
-    private val cursors: ConsumerPartitionCursorRepository,
+    private val jdbi: Jdbi,
 ) : CommandHandler<AcknowledgeGenerationResults, Unit> {
 
     override fun handle(command: AcknowledgeGenerationResults) {
         if (command.partitions.isEmpty() || command.acknowledgeUpTo <= 0L) return
-        // Same target sequence for every partition we own. The repository's
-        // GREATEST semantics ensure no cursor moves backwards.
-        val advances = command.partitions.associateWith { command.acknowledgeUpTo }
-        cursors.advance(command.tenantId, command.consumerId, advances)
+        // GREATEST guarantees we never go backwards even if two callers race.
+        // ON CONFLICT keeps the operation idempotent with respect to first-time
+        // inserts vs subsequent updates.
+        jdbi.useHandle<Exception> { handle ->
+            val batch = handle.prepareBatch(
+                """
+                INSERT INTO consumer_partition_cursors (tenant_key, consumer_id, partition, last_acked_sequence, updated_at)
+                VALUES (:tenantKey, :consumerId, :partition, :seq, NOW())
+                ON CONFLICT (tenant_key, consumer_id, partition) DO UPDATE
+                SET last_acked_sequence = GREATEST(consumer_partition_cursors.last_acked_sequence, EXCLUDED.last_acked_sequence),
+                    updated_at = NOW()
+                """,
+            )
+            for (partition in command.partitions) {
+                batch.bind("tenantKey", command.tenantId)
+                    .bind("consumerId", command.consumerId)
+                    .bind("partition", partition)
+                    .bind("seq", command.acknowledgeUpTo)
+                    .add()
+            }
+            batch.execute()
+        }
     }
 }

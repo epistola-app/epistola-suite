@@ -9,7 +9,8 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.ResultStatus
-import app.epistola.suite.generation.collect.persistence.GenerationResultRepository
+import app.epistola.suite.generation.collect.queries.FetchGenerationResults
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
@@ -18,9 +19,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
-import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
@@ -29,13 +30,10 @@ import java.util.concurrent.TimeUnit
  * routingKey (or its requestId fallback). Exercises the full path:
  * `GenerateDocument` command → request inserted → executor (fake) picks it up
  * and renders → `EmitGenerationResult` dispatched → row visible via the
- * repository.
+ * `FetchGenerationResults` query.
  */
 @Timeout(30)
 class EmitOnExecutorIT : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var generationResults: GenerationResultRepository
 
     private val objectMapper = ObjectMapper()
 
@@ -78,13 +76,15 @@ class EmitOnExecutorIT : IntegrationTestBase() {
             }
 
             val expectedPartition = Partition.partitionFor("order-9999")
-            val rows = generationResults.findFor(
-                tenantKey = setup.tenant.id,
-                partitions = setOf(expectedPartition),
-                cursorByPartition = emptyMap(),
-                limit = 100,
-            )
-            val row = rows.firstOrNull { it.requestId == request.id }
+            val page = withMediator {
+                FetchGenerationResults(
+                    tenantId = setup.tenant.id,
+                    consumerId = "test-consumer-${UUID.randomUUID()}",
+                    partitions = setOf(expectedPartition),
+                    limit = 100,
+                ).query()
+            }
+            val row = page.rows.firstOrNull { it.requestId == request.id }
             assertThat(row).`as`("a generation_results row should exist for request %s", request.id.value).isNotNull
             assertThat(row!!.partition).isEqualTo(expectedPartition)
             assertThat(row.routingKey).isEqualTo("order-9999")
@@ -130,13 +130,15 @@ class EmitOnExecutorIT : IntegrationTestBase() {
             }
 
             val expectedPartition = Partition.partitionFor(request.id.value.toString())
-            val rows = generationResults.findFor(
-                tenantKey = setup.tenant.id,
-                partitions = setOf(expectedPartition),
-                cursorByPartition = emptyMap(),
-                limit = 100,
-            )
-            val row = rows.firstOrNull { it.requestId == request.id }
+            val page = withMediator {
+                FetchGenerationResults(
+                    tenantId = setup.tenant.id,
+                    consumerId = "test-consumer-${UUID.randomUUID()}",
+                    partitions = setOf(expectedPartition),
+                    limit = 100,
+                ).query()
+            }
+            val row = page.rows.firstOrNull { it.requestId == request.id }
             assertThat(row).isNotNull
             assertThat(row!!.routingKey).isEqualTo(request.id.value.toString())
             assertThat(row.partition).isEqualTo(expectedPartition)
