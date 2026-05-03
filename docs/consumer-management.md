@@ -147,7 +147,12 @@ phase still leaves a useful product.
 
 #### Contract
 
-- Add `api-key` to `ConsumerDto.authMethod` enum.
+- ~~Add `api-key` to `ConsumerDto.authMethod` enum.~~ **Already done**
+  in epistola-contract `4394e86` (pulled forward into v0.3 since
+  v0.3.0 is not yet released). Generated client + server expose
+  `API_KEY("api-key")`. The `POST /consumers/register` description
+  also calls out that api-key consumers don't go through self-service
+  registration.
 - Resolve `ConsumerDto.id` pattern (recommend: keep slug pattern,
   rely on backfill).
 - Add new operation `GET /tenants/{tid}/consumers/me`.
