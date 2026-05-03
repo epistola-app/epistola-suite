@@ -53,7 +53,44 @@ data class ConsumerStatus(
     val cursorSummary: CursorSummary,
 ) {
     val activeNodeCount: Int get() = nodes.count { it.isActive }
-    val hasAnyNodeEverConnected: Boolean get() = nodes.isNotEmpty()
+    val totalNodeCount: Int get() = nodes.size
+
+    /**
+     * Five mutually-exclusive states the UI cares about. Computed once here so
+     * the template can consume a single string instead of nesting three ternaries.
+     */
+    val state: String get() = when {
+        !enabled -> STATE_DISABLED
+        nodes.isEmpty() -> STATE_NOT_CONNECTED
+        activeNodeCount == 0 -> STATE_STALE
+        activeNodeCount == nodes.size -> STATE_HEALTHY
+        else -> STATE_MIXED
+    }
+
+    /** Human-readable hover-tip describing [state]. */
+    val stateTitle: String get() = when (state) {
+        STATE_DISABLED -> "Disabled"
+        STATE_NOT_CONNECTED -> "No nodes have polled yet"
+        STATE_STALE -> "All nodes stale"
+        STATE_HEALTHY -> "All nodes active"
+        STATE_MIXED -> "Some nodes stale"
+        else -> ""
+    }
+
+    /** What goes inside the activity pill. */
+    val activityLabel: String get() = when (state) {
+        STATE_DISABLED -> "Disabled"
+        STATE_NOT_CONNECTED -> "Not connected"
+        else -> "$activeNodeCount / ${nodes.size}"
+    }
+
+    companion object {
+        const val STATE_DISABLED = "DISABLED"
+        const val STATE_NOT_CONNECTED = "NOT_CONNECTED"
+        const val STATE_STALE = "STALE"
+        const val STATE_HEALTHY = "HEALTHY"
+        const val STATE_MIXED = "MIXED"
+    }
 }
 
 data class NodeStatus(
@@ -61,7 +98,25 @@ data class NodeStatus(
     val lastSeenAt: OffsetDateTime,
     val isActive: Boolean,
     val assignedPartitions: List<Int>,
-)
+) {
+    /** Full partition list as a comma-separated string, e.g. "0, 3, 7". Used as a tooltip. */
+    val partitionsTitle: String get() = assignedPartitions.joinToString(", ")
+
+    /**
+     * Display label: full list when ≤ [PARTITIONS_LABEL_HEAD], otherwise the first
+     * [PARTITIONS_LABEL_HEAD] + " (+N more)". Computed in the data layer because
+     * Thymeleaf's `#lists` utility has no slice/sub-list helper.
+     */
+    val partitionsLabel: String get() = when {
+        assignedPartitions.size <= PARTITIONS_LABEL_HEAD -> assignedPartitions.joinToString(", ")
+        else -> assignedPartitions.take(PARTITIONS_LABEL_HEAD).joinToString(", ") +
+            " (+${assignedPartitions.size - PARTITIONS_LABEL_HEAD} more)"
+    }
+
+    companion object {
+        private const val PARTITIONS_LABEL_HEAD = 6
+    }
+}
 
 data class CursorSummary(
     val partitionsTracked: Int,
