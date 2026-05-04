@@ -15,6 +15,9 @@
 
 ### Fixed
 
+- **Renovate toolchain group now actually wins**: Reordered `renovate.json` package rules so the toolchain rule (Kotlin, Gradle, Kover, Java, Node, pnpm) is evaluated after the catch-all minor/patch rule. Renovate applies later matching rules on top of earlier ones, so the previous order let the non-major rule override the toolchain group, leaking toolchain bumps into the "all non-major dependencies" PR. Also added `java` to the toolchain matchers so mise Java bumps are grouped with the rest.
+- **Kotlin pinned at 2.3.10 (and Kover at 0.9.7)**: KGP 2.3.20 and 2.3.21 ship a stale `BuildUtilKt.class` shaded into `kotlin-gradle-plugin.jar` that lacks `clearJarCaches()`, while `kotlin-build-tools-impl` of the same version calls that method at build-session shutdown. Standard parent-first class loading picks up the stale copy, the call fails with `NoSuchMethodError`, and every `ClasspathEntrySnapshotTransform` aborts. Spring Boot 4.0.6 only requires Kotlin >= 2.2.x, so we stay on 2.3.10 until JetBrains ships a refreshed plugin.
+- **Editor build with Vite 8.0.9+**: Switched minifier from `esbuild` to the built-in default (`oxc`). Vite 8 no longer bundles esbuild, so the explicit `minify: 'esbuild'` setting caused build failures.
 - **Editor canvas didn't show `sp` margins**: Spacing values like `2sp` were emitted as raw CSS, which browsers don't understand, so the editor preview silently ignored them. The canvas now rewrites `Nsp` tokens to absolute `pt` so the preview matches the PDF output.
 - **Inspector dropdown could go out of sync with stored unit**: If a node's stored margin/padding used a unit no longer offered by the inspector, `currentUnit` could fall outside the dropdown options and any new value would be saved with the unsupported unit. The dropdown is now clamped to one of the offered options.
 - **Import always creates contract version**: Templates imported without a data model or data examples now always get a contract version (previously skipped, causing NPE when saving). Backfill migration (V24) creates missing contract versions for existing templates.
@@ -23,6 +26,7 @@
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
 - **Header/footer style rendering in PDF**: Page header/footer event handlers now apply node-level styles by wrapping rendered slot content in a styled `Div`, restoring expected borders, background, and padding in generated PDFs.
 - **Expression editor discoverability**: Added a subtle inline hint in text block headers (`type {{ for expressions`) so users can discover inline expression insertion without leaving the editor flow.
+- **Negative sizing enforcement**: Editor size inputs now prevent negative values and clamp on change; backend parsers (`StyleApplicator.parseSize`, `ImageNodeRenderer.parseToPt`) also clamp to `>= 0` to prevent malformed layout and iText failures when invalid values slip through.
 
 ## [0.17.0] - 2026-04-28
 

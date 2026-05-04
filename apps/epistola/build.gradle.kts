@@ -16,9 +16,6 @@ if (buildNativeImage) {
     apply(plugin = "org.graalvm.buildtools.native")
 }
 
-// Override Thymeleaf to 3.1.4 for CVE-2026-40477 and CVE-2026-40478 (fixed in Spring Boot 4.0.6)
-extra["thymeleaf.version"] = "3.1.4.RELEASE"
-
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
@@ -49,7 +46,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-session-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.commonmark:commonmark:0.22.0")
+    implementation("org.commonmark:commonmark:0.28.0")
 
     // HTMX for dynamic UI
     implementation(libs.htmx.spring.boot.thymeleaf)
