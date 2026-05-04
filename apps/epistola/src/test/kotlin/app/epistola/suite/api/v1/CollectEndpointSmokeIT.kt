@@ -11,6 +11,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,7 +25,6 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
-import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.util.UUID
 
@@ -74,8 +74,6 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     @Autowired
     private lateinit var apiKeyRepository: ApiKeyRepository
 
-    private val objectMapper = ObjectMapper()
-
     @Test
     fun `ping without auth returns UP without partition info`() {
         val headers = baseHeaders()
@@ -87,10 +85,11 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        val body = objectMapper.readTree(response.body!!)
-        assertThat(body["status"].asString()).isEqualTo("UP")
-        assertThat(body["timestamp"].isString).isTrue
-        assertThat(body["details"].isNull).isTrue
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("UP")
+        assertThat(JsonPath.read<String>(body, "$.timestamp")).isNotBlank
+        // Anonymous ping omits the details block entirely.
+        assertThat(JsonPath.read<Any?>(body, "$.details")).isNull()
     }
 
     @Test
@@ -105,18 +104,17 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        val body = objectMapper.readTree(response.body!!)
-        assertThat(body["status"].asString()).isEqualTo("UP")
-        val details = body["details"]
-        assertThat(details.isNull).isFalse
-        assertThat(details["serverVersion"].isString).isTrue
-        assertThat(details["apiVersion"].asString()).isEqualTo("0.3.0")
-        assertThat(details["nodeId"].isString).isTrue
-        val partitions = details["partitions"]
-        assertThat(partitions["total"].asInt()).isEqualTo(64)
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("UP")
+        assertThat(JsonPath.read<String>(body, "$.details.serverVersion")).isNotBlank
+        // apiVersion is read from the contract JAR's Implementation-Version manifest
+        // entry; assert non-blank to keep the test stable across contract bumps.
+        assertThat(JsonPath.read<String>(body, "$.details.apiVersion")).isNotBlank
+        assertThat(JsonPath.read<String>(body, "$.details.nodeId")).isNotBlank
+        assertThat(JsonPath.read<Int>(body, "$.details.partitions.total")).isEqualTo(64)
         // First touch with this node — owns ALL partitions until another node
         // joins (no other heartbeats exist for this fresh consumer).
-        assertThat(partitions["mine"].size()).isEqualTo(64)
+        assertThat(JsonPath.read<List<*>>(body, "$.details.partitions.mine")).hasSize(64)
     }
 
     @Test
@@ -137,9 +135,9 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-        val body = objectMapper.readTree(response.body!!)
-        assertThat(body["code"].asString()).isEqualTo("BAD_REQUEST")
-        assertThat(body["message"].asString()).contains("X-EP-Node-Id")
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
+        assertThat(JsonPath.read<String>(body, "$.message")).contains("X-EP-Node-Id")
     }
 
     @Test
@@ -157,8 +155,8 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-        val body = objectMapper.readTree(response.body!!)
-        assertThat(body["message"].asString()).contains("User-Agent")
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.message")).contains("User-Agent")
     }
 
     @Test
@@ -192,18 +190,16 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         val lines = ndjson.trimEnd('\n').split("\n")
         assertThat(lines).`as`("at minimum the trailing _meta line should be present").hasSizeGreaterThanOrEqualTo(1)
 
-        val metaLine = objectMapper.readTree(lines.last())
-        assertThat(metaLine["_meta"].asBoolean())
+        val metaLine = lines.last()
+        assertThat(JsonPath.read<Boolean>(metaLine, "$._meta"))
             .`as`("last line must be the meta envelope")
             .isTrue
-        assertThat(metaLine["count"].asInt()).isEqualTo(0) // empty tenant, no results yet
-        assertThat(metaLine["hasMore"].asBoolean()).isFalse
-        assertThat(metaLine["lastSequence"].isNull).isTrue
-
-        val partitions = metaLine["partitions"]
-        assertThat(partitions["total"].asInt()).isEqualTo(64)
-        assertThat(partitions["mine"].size()).isEqualTo(64) // first touch, owns all
-        assertThat(partitions["hash"].asString().lowercase()).isEqualTo("murmur3")
+        assertThat(JsonPath.read<Int>(metaLine, "$.count")).isEqualTo(0) // empty tenant, no results yet
+        assertThat(JsonPath.read<Boolean>(metaLine, "$.hasMore")).isFalse
+        assertThat(JsonPath.read<Any?>(metaLine, "$.lastSequence")).isNull()
+        assertThat(JsonPath.read<Int>(metaLine, "$.partitions.total")).isEqualTo(64)
+        assertThat(JsonPath.read<List<*>>(metaLine, "$.partitions.mine")).hasSize(64) // first touch, owns all
+        assertThat(JsonPath.read<String>(metaLine, "$.partitions.hash").lowercase()).isEqualTo("murmur3")
     }
 
     @Test
@@ -235,8 +231,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
 
         // Body is uncompressed NDJSON, ending with the _meta line.
         val lines = response.body!!.trimEnd('\n').split("\n")
-        val metaLine = objectMapper.readTree(lines.last())
-        assertThat(metaLine["_meta"].asBoolean()).isTrue
+        assertThat(JsonPath.read<Boolean>(lines.last(), "$._meta")).isTrue
     }
 
     @Test

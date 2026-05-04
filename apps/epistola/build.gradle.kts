@@ -92,6 +92,11 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation(libs.playwright)
+    // JsonPath for readable JSON assertions in smoke / wire tests where Jackson
+    // tree navigation (body["a"]["b"]["c"].asInt()) gets noisy. Used by
+    // CollectEndpointSmokeIT; preferred over JSONata (which lives in :modules:generation
+    // for runtime template expressions, not assertions).
+    testImplementation("com.jayway.jsonpath:json-path:2.9.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
