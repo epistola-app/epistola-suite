@@ -327,6 +327,22 @@ class DocumentGenerationExecutor(
     /**
      * Save the generated document and mark the request as completed.
      *
+     * Marking `document_generation_requests.status='COMPLETED'` looks redundant
+     * alongside the [emitTerminalResult] row that lands in `generation_results`,
+     * but the two records serve different audiences and aren't interchangeable:
+     *
+     *  - The status field on the request is read by the originating tenant's
+     *    `/api/tenants/{id}/generation/jobs?status=COMPLETED` filter, the
+     *    `GetGenerationStats` count query, the `JobPoller`'s PENDING claim
+     *    (`WHERE status='PENDING'`), the cancellation branch in this same
+     *    executor (`status==CANCELLED`), and a number of integration tests.
+     *  - The `generation_results` row is consumer-facing — it's what the
+     *    streaming `/generation/collect` endpoint delivers to API-key clients.
+     *
+     * Unifying the two (event-source the request status from the result rows)
+     * is a real architectural option but a large change with audit-volume
+     * implications and is out of scope for v0.3.
+     *
      * @return true when the request transitioned from IN_PROGRESS to COMPLETED;
      *         false when the request had already been CANCELLED and no update was made.
      */
