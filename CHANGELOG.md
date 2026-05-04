@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Changed (PR #362 review feedback)
+
+- **`apiVersion` on `/ping` is derived from the contract JAR's manifest** instead of the `epistola.collect.api-version` configuration property, which is now removed. The contract is the source of truth — hardcoding the version in the suite would be one place to forget on every contract bump. `GetServerInfoHandler` reads `Implementation-Version` via `Class.forName("app.epistola.api.SystemApi").package.implementationVersion` (with a JAR-manifest fallback and a final `"unknown"` if the contract is loaded from an exploded class dir without a manifest).
+- **`PartitionMaintenanceScheduler` is now multi-instance safe** via `pg_try_advisory_xact_lock`. Without it, every Suite pod would race on raw `CREATE TABLE` statements and N-1 of them would fail with `relation already exists`. The lock auto-releases on transaction end so it can't leak. Belt-and-suspenders: partition `CREATE TABLE` switched to `CREATE TABLE IF NOT EXISTS`.
+- **V26 generation_results uses domain types**: `GENERATION_PARTITION` (INTEGER 0..63) and `GENERATION_RESULT_STATUS` (TEXT 'COMPLETED'|'FAILED'). Same idiom as `TENANT_KEY` / `TEMPLATE_KEY` — push the constraint into PG so a misbehaving inserter can't corrupt the table. The Kotlin side stays the source of truth at the application boundary.
+- **`CollectEndpointSmokeIT` switched to JsonPath** for JSON assertions — `JsonPath.read<String>(body, "$.details.partitions.total")` is much easier to scan than `body["details"]["partitions"]["total"].asInt()`. `com.jayway.jsonpath:json-path:2.9.0` added as a `testImplementation` on `apps/epistola`.
+
 ### Added
 
 - **Hide and reap stale consumer nodes** — the consumers page now only shows nodes whose last heartbeat is within `epistola.collect.show-stale-window-hours` (default 1h); older rows are hidden from the report (and from totals). For nodes that are stale-but-still-shown (older than the idle timeout but within the show-stale window) the partitions column now displays "— stale, not on ring" with the historical assignment in a tooltip — the previously-stored `partitions` JSONB is the assignment from the node's last touch, not its current ownership. A new daily reaper (`StaleConsumerNodeReaper`, default cron `0 0 3 * * *`) deletes rows older than `epistola.collect.stale-node-retention-hours` (default 24) so `consumer_node_assignments` doesn't grow unbounded as pods come and go. Disable with `epistola.collect.reaper.enabled=false`.

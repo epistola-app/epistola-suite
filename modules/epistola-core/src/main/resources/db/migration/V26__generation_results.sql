@@ -17,16 +17,27 @@
 -- partitions group rows by consumer-affinity; Postgres partitions group rows
 -- by month for retention.
 
+-- Domain types: same idiom as TENANT_KEY / TEMPLATE_KEY (V4 onward) — push the
+-- range/enum constraint into PG so a misbehaving inserter can't corrupt the
+-- table. The Kotlin side (`Partition.TOTAL_PARTITIONS = 64`, `ResultStatus`
+-- enum) stays the source of truth at the application boundary; the domains
+-- are the safety net.
+CREATE DOMAIN GENERATION_PARTITION AS INTEGER
+    CHECK (VALUE >= 0 AND VALUE < 64);
+
+CREATE DOMAIN GENERATION_RESULT_STATUS AS TEXT
+    CHECK (VALUE IN ('COMPLETED', 'FAILED'));
+
 CREATE TABLE generation_results (
     sequence       BIGSERIAL,
-    partition      INTEGER     NOT NULL,            -- routing-partition (0..63)
+    partition      GENERATION_PARTITION NOT NULL,    -- routing-partition (0..63)
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     request_id     UUID        NOT NULL,
     batch_id       UUID,
     tenant_key     TEXT        NOT NULL,
     routing_key    TEXT        NOT NULL,
-    status         TEXT        NOT NULL,            -- 'COMPLETED' | 'FAILED'
+    status         GENERATION_RESULT_STATUS NOT NULL,
 
     document_id    UUID,
     correlation_id TEXT,
@@ -87,11 +98,11 @@ $$;
 -- if the auth filter ever returns a wrong tenant, queries cannot cross
 -- tenant boundaries.
 CREATE TABLE consumer_partition_cursors (
-    tenant_key           TEXT        NOT NULL,
-    consumer_id          TEXT        NOT NULL,
-    partition            INTEGER     NOT NULL,
-    last_acked_sequence  BIGINT      NOT NULL DEFAULT 0,
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tenant_key           TEXT                 NOT NULL,
+    consumer_id          TEXT                 NOT NULL,
+    partition            GENERATION_PARTITION NOT NULL,
+    last_acked_sequence  BIGINT               NOT NULL DEFAULT 0,
+    updated_at           TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, consumer_id, partition)
 );
 
