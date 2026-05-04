@@ -74,22 +74,42 @@ class PartitionMaintenanceScheduler(
 
     /**
      * Run partition maintenance daily at 2 AM.
+     *
+     * Multi-instance safe: every Suite pod runs `@Scheduled`, but only one
+     * acquires the Postgres advisory lock at a time. The others log a debug
+     * message and skip — the partition CREATE/DROP statements are not
+     * idempotent on collision (raw `CREATE TABLE` would fail with "relation
+     * already exists" if two pods raced past the existence probe).
+     *
+     * `pg_try_advisory_xact_lock` auto-releases when the wrapping transaction
+     * commits or rolls back, so we cannot leak the lock if this call dies
+     * mid-flight.
      */
     @Scheduled(cron = "\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
     fun maintainPartitions() {
         if (shuttingDown) return
-        logger.info("Starting partition maintenance")
 
-        partitionConfigs.forEach { config ->
-            try {
-                createRequiredPartitions(config)
-                dropOldPartitions(config)
-            } catch (e: Exception) {
-                logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+        jdbi.useTransaction<Exception> { handle ->
+            val acquired = handle.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
+                .bind("key", PARTITION_MAINTENANCE_LOCK_KEY)
+                .mapTo(Boolean::class.java)
+                .one()
+            if (!acquired) {
+                logger.debug("Partition maintenance skipped — another instance holds the lock")
+                return@useTransaction
             }
-        }
 
-        logger.info("Partition maintenance completed")
+            logger.info("Starting partition maintenance")
+            partitionConfigs.forEach { config ->
+                try {
+                    createRequiredPartitions(config)
+                    dropOldPartitions(config)
+                } catch (e: Exception) {
+                    logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+                }
+            }
+            logger.info("Partition maintenance completed")
+        }
     }
 
     /**
@@ -129,9 +149,13 @@ class PartitionMaintenanceScheduler(
 
             if (!exists) {
                 jdbi.useHandle<Exception> { handle ->
+                    // IF NOT EXISTS belt-and-suspenders: even though we hold the
+                    // advisory lock, a misconfigured deploy that bypasses it
+                    // (or a race during the first deploy) shouldn't crash the
+                    // scheduler.
                     handle.execute(
                         """
-                        CREATE TABLE $partitionName
+                        CREATE TABLE IF NOT EXISTS $partitionName
                         PARTITION OF ${config.tableName}
                         FOR VALUES FROM ('$startDate') TO ('$endDate')
                         """,
@@ -199,4 +223,14 @@ class PartitionMaintenanceScheduler(
         val tableName: String,
         val retentionMonths: Int,
     )
+
+    private companion object {
+        // Stable bigint key for `pg_try_advisory_xact_lock`. Application-defined,
+        // not derived from anything dynamic, so all instances try to acquire the
+        // same lock. Picked from the high range to avoid collision with any
+        // other advisory locks the project might add later — increment the suffix
+        // (`_v2`) if the semantics of partition maintenance ever change in a way
+        // that should release a still-running v1 lock holder mid-restart.
+        private const val PARTITION_MAINTENANCE_LOCK_KEY: Long = 0x4570_5061_7274_4D31L // "EpPartM1"
+    }
 }

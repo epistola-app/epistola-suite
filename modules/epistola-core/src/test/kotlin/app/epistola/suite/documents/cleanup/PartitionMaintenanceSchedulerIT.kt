@@ -77,6 +77,54 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
             .isFalse
     }
 
+    @Test
+    fun `skips quietly when another instance holds the advisory lock`() {
+        // Simulate "another Suite instance is currently running maintenance" by
+        // grabbing the same advisory lock on a held connection. The scheduler's
+        // call MUST short-circuit (no exception, no work) and the call after
+        // we release MUST proceed normally.
+        //
+        // Use the *next month* partition as the sentinel — current-month is hot
+        // (other parallel ITs in this suite insert into it), so dropping it would
+        // destroy their rows. Next-month exists (created by prior maintainPartitions
+        // calls in other tests) but is empty.
+        val nextMonth = YearMonth.now().plusMonths(1)
+        val nextSuffix = nextMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))
+        val sentinelTable = "generation_results_$nextSuffix"
+
+        // Drop the sentinel so we can detect whether maintainPartitions() actually
+        // ran (it would re-create this partition).
+        jdbi.useHandle<Exception> { handle ->
+            handle.execute("DROP TABLE IF EXISTS $sentinelTable CASCADE")
+        }
+        assertThat(tableExists(sentinelTable)).isFalse
+
+        jdbi.open().use { holder ->
+            holder.begin()
+            // Same numeric key as PartitionMaintenanceScheduler.PARTITION_MAINTENANCE_LOCK_KEY.
+            val acquired = holder.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
+                .bind("key", 0x4570_5061_7274_4D31L)
+                .mapTo(Boolean::class.java)
+                .one()
+            assertThat(acquired).isTrue
+
+            scheduler.maintainPartitions()
+
+            // Lock contention path: no work happened; sentinel still missing.
+            assertThat(tableExists(sentinelTable))
+                .`as`("scheduler must not have created partitions while another holder is on the lock")
+                .isFalse
+
+            holder.rollback() // releases the advisory lock
+        }
+
+        // Now that the lock is free, the scheduler should proceed.
+        scheduler.maintainPartitions()
+        assertThat(tableExists(sentinelTable))
+            .`as`("scheduler must create partitions once the lock is available")
+            .isTrue
+    }
+
     private fun tableExists(name: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createQuery(
             """
