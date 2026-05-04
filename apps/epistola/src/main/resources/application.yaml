@@ -70,7 +70,9 @@ epistola:
   # v0.3 generation result collection — see modules/epistola-core/.../generation/collect/
   collect:
     idle-timeout-ms: 60000 # Consumer node considered dead after this many ms of no polling
-    api-version: "0.3.0" # Spec version this build implements (echoed by /ping)
+    # apiVersion (spec version echoed by /ping) is derived from the contract JAR's
+    # Implementation-Version manifest entry — see GetServerInfoHandler. Don't add
+    # it here as a property; the contract is the source of truth.
 
   # Postgres declarative-partitioning maintenance.
   # `retention-months` applies to documents + document_generation_requests.

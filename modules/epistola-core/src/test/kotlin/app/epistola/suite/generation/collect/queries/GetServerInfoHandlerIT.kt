@@ -13,8 +13,11 @@ class GetServerInfoHandlerIT : IntegrationTestBase() {
 
         // serverVersion comes from BuildProperties when available, else "dev".
         assertThat(info.serverVersion).isNotBlank
-        // apiVersion is the contract version this build targets — defaults to 0.3.0.
-        assertThat(info.apiVersion).isEqualTo("0.3.0")
+        // apiVersion is read from the contract JAR's Implementation-Version manifest
+        // entry. Asserting only that it's non-blank — the exact version is owned by
+        // the contract module, not this test, and bumps shouldn't ripple here.
+        assertThat(info.apiVersion).isNotBlank
+        assertThat(info.apiVersion).doesNotContain(" ")
         // nodeId always resolves to *something* (env override → HOSTNAME → hostname).
         assertThat(info.nodeId).isNotBlank
     }
