@@ -7,6 +7,15 @@ server:
       enabled: false
 
 spring:
+  ai:
+    mcp:
+      server:
+        protocol: STREAMABLE
+        type: SYNC
+        name: epistola
+        version: 1.0.0
+        streamable-http:
+          mcp-endpoint: /api/mcp
   application:
     name: epistola-suite
   servlet:
