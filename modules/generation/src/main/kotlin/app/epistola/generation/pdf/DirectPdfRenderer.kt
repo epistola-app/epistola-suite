@@ -42,13 +42,27 @@ class DirectPdfRenderer(
      * When [pdfaCompliant] is true, produces PDF/A-2b with embedded fonts and ICC profile.
      * When false (default), produces standard PDF with non-embedded Helvetica fonts.
      *
-     * @param document The template document containing the node/slot graph
+     * Page settings, document styles and block-style presets follow the cascade:
+     * template-level overrides on [document] take precedence, then the
+     * [resolvedTheme] bundle, then the engine defaults from [renderingDefaults].
+     * For `pageSettings.margins` the cascade is walked per side (a layer with
+     * a null side falls through to the next layer).
+     *
+     * @param document The template document containing the node/slot graph,
+     *   including any `pageSettingsOverride` / `documentStylesOverride`.
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
-     * @param resolvedTheme Theme-derived bundle (documentStyles, pageSettings, presets, spacingUnit).
-     *   Defaults to an empty bundle, which falls through to engine defaults for everything.
+     * @param resolvedTheme Theme-derived bundle (documentStyles, pageSettings,
+     *   blockStylePresets, spacingUnit). Defaults to an empty bundle, which
+     *   falls through to engine defaults for everything.
      * @param metadata Optional document metadata (title, author, etc.)
      * @param pdfaCompliant Whether to produce PDF/A-2b compliant output (default: false)
+     * @param assetResolver Optional resolver for image/SVG assets referenced
+     *   from the document.
+     * @param renderingDefaults Engine defaults that supply the final fallback
+     *   for page settings, document styles, font sizes and component defaults.
+     * @param renderMode STRICT to fail on missing resources; tolerant modes
+     *   degrade gracefully — see [RenderMode].
      */
     fun render(
         document: TemplateDocument,

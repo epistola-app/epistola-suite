@@ -65,8 +65,7 @@ class PageFooterEventHandler(
             // The margin sides consumed above for rectangle positioning are stripped from the
             // wrapper styles so the same values aren't applied again inside the rectangle.
             val wrapper = Div()
-            val consumedMarginKeys = setOf("marginBottom", "marginLeft", "marginRight")
-            val wrapperStyles = footerNode.styles?.filterNonNullValues()?.filterKeys { it !in consumedMarginKeys }
+            val wrapperStyles = footerNode.styleMapExcluding(setOf("marginBottom", "marginLeft", "marginRight"))
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
                 wrapperStyles,

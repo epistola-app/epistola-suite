@@ -68,8 +68,7 @@ class PageHeaderEventHandler(
             // The margin sides consumed above for rectangle positioning are stripped from the
             // wrapper styles so the same values aren't applied again inside the rectangle.
             val wrapper = Div()
-            val consumedMarginKeys = setOf("marginTop", "marginLeft", "marginRight")
-            val wrapperStyles = headerNode.styles?.filterNonNullValues()?.filterKeys { it !in consumedMarginKeys }
+            val wrapperStyles = headerNode.styleMapExcluding(setOf("marginTop", "marginLeft", "marginRight"))
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
                 wrapperStyles,

@@ -51,6 +51,16 @@ internal fun Map<String, Any?>.filterNonNullValues(): Map<String, Any> {
 }
 
 /**
+ * Returns this node's non-null styles with the given keys removed.
+ *
+ * Used by the page header/footer event handlers: certain margin sides are
+ * already consumed when positioning the header/footer rectangle on the page,
+ * so they must not be applied a second time as wrapper-Div styles inside the
+ * rectangle.
+ */
+internal fun Node.styleMapExcluding(consumedKeys: Set<String>): Map<String, Any>? = styles?.filterNonNullValues()?.filterKeys { it !in consumedKeys }
+
+/**
  * Parses a border style string prop into a [BorderStyle] enum value.
  * Returns [BorderStyle.all] if the value is null or unrecognized.
  */
@@ -197,6 +207,7 @@ internal fun effectivePageSettingsMarginMm(marginKey: String, context: RenderCon
     if (template != null) return template
     val theme = context.resolvedPageSettings?.margins?.let(sideSelector)
     if (theme != null) return theme
-    val defaults = context.renderingDefaults.defaultPageSettings.margins?.let(sideSelector)
-    return defaults ?: 20L
+    return requireNotNull(context.renderingDefaults.defaultPageSettings.margins?.let(sideSelector)) {
+        "RenderingDefaults.defaultPageSettings.margins must supply a non-null value for $marginKey"
+    }
 }

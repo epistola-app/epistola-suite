@@ -139,6 +139,19 @@ describe('ThemeEditorState', () => {
       state.updateMargin('left', 15);
       expect(state.theme.pageSettings?.margins.left).toBe(15);
     });
+
+    it('updateMargin with undefined deletes the side and leaves other sides untouched', () => {
+      const state = new ThemeEditorState(createTestTheme());
+      state.updateMargin('top', undefined);
+      const margins = state.theme.pageSettings?.margins;
+      expect(margins).toBeDefined();
+      expect(margins?.top).toBeUndefined();
+      expect('top' in (margins as object)).toBe(false);
+      expect(margins?.right).toBe(20);
+      expect(margins?.bottom).toBe(20);
+      expect(margins?.left).toBe(20);
+      expect(state.isDirty).toBe(true);
+    });
   });
 
   describe('presets', () => {

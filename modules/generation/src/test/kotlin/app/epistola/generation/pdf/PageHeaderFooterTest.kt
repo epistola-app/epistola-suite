@@ -269,6 +269,33 @@ class PageHeaderFooterTest {
         )
     }
 
+    @Test
+    fun `theme with only top margin set falls through to engine defaults for unset sides`() {
+        // Per-side cascade: theme provides only top; left/right/bottom are null and must
+        // fall through to the engine defaults (20mm). The header top should sit at the
+        // theme value (50mm ≈ 141.7pt) without any NullPointerException from the
+        // partial Margins object.
+        val themeSettings = app.epistola.template.model.PageSettings(
+            format = app.epistola.template.model.PageFormat.A4,
+            orientation = app.epistola.template.model.Orientation.portrait,
+            margins = app.epistola.template.model.Margins(top = 50, right = null, bottom = null, left = null),
+        )
+        val doc = buildDocument()
+        val pdfBytes = ByteArrayOutputStream()
+            .also { renderer.render(doc, emptyMap(), it, resolvedTheme = ResolvedTheme(pageSettings = themeSettings)) }
+            .toByteArray()
+        val themedY = extractFirstBaselineY(pdfBytes, "HEADER CONTENT")
+        // Theme top (50mm) wins.
+        val explicitTopY = renderHeaderY(headerStyles = mapOf("marginTop" to "141.732pt"))
+        assertTrue(
+            abs(themedY - explicitTopY) < 1.0f,
+            "Expected theme top (50mm) to apply even when other sides are null; theme=$themedY, explicit=$explicitTopY",
+        )
+        // Sanity: footer (which would consume bottom from defaults) still renders.
+        val footerY = extractFirstBaselineY(pdfBytes, "FOOTER CONTENT")
+        assertTrue(footerY > 0f, "Footer should still render with partial theme margins")
+    }
+
     private fun renderHeaderY(
         headerStyles: Map<String, Any?>? = null,
         rootStyles: Map<String, Any?>? = null,
