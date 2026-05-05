@@ -1,32 +1,41 @@
 package app.epistola.suite.security
 
+import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.api.security.ApiKeyAuthenticationToken
-import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.common.ids.ApiKeyKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.apikeys.commands.RevokeApiKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.tenants.Tenant
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
 import java.time.Instant
-import java.util.UUID
 
-@Tag("unit")
-class ApiKeyAuthenticationFilterTest {
+/**
+ * Integration test for [ApiKeyAuthenticationFilter].
+ *
+ * The filter dispatches its persistence operations through the mediator
+ * (`LookupApiKeyByHash`, `RecordApiKeyUsage` — both `SystemInternal`), so it
+ * needs a real `MediatorContext` and database. We bind both via [withMediator]
+ * and seed keys with the [CreateApiKey] / [RevokeApiKey] commands.
+ */
+class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
-    private val apiKeyService = ApiKeyService()
-    private val storedKeys = mutableMapOf<String, ApiKey>()
-    private val repository = TestApiKeyRepository(storedKeys)
+    @Autowired
+    private lateinit var apiKeyService: ApiKeyService
+
     private val meterRegistry = SimpleMeterRegistry()
-    private val filter = ApiKeyAuthenticationFilter(repository, apiKeyService, meterRegistry)
+    private val filter by lazy { ApiKeyAuthenticationFilter(apiKeyService, meterRegistry) }
+
     private lateinit var request: MockHttpServletRequest
     private lateinit var response: MockHttpServletResponse
     private var filterChainCalled = false
@@ -37,14 +46,13 @@ class ApiKeyAuthenticationFilterTest {
         request = MockHttpServletRequest()
         response = MockHttpServletResponse()
         filterChainCalled = false
-        storedKeys.clear()
         SecurityContextHolder.clearContext()
     }
 
     @Nested
     inner class NoApiKeyHeader {
         @Test
-        fun `passes through when no X-API-Key header`() {
+        fun `passes through when no X-API-Key header`() = withMediator {
             filter.doFilter(request, response, filterChain)
 
             assertThat(filterChainCalled).isTrue()
@@ -52,7 +60,7 @@ class ApiKeyAuthenticationFilterTest {
         }
 
         @Test
-        fun `passes through when header is blank`() {
+        fun `passes through when header is blank`() = withMediator {
             request.addHeader("X-API-Key", "  ")
 
             filter.doFilter(request, response, filterChain)
@@ -64,7 +72,7 @@ class ApiKeyAuthenticationFilterTest {
     @Nested
     inner class InvalidApiKey {
         @Test
-        fun `returns 401 for key without epk_ prefix`() {
+        fun `returns 401 for key without epk_ prefix`() = withMediator {
             request.addHeader("X-API-Key", "invalid_key_format")
 
             filter.doFilter(request, response, filterChain)
@@ -75,7 +83,7 @@ class ApiKeyAuthenticationFilterTest {
         }
 
         @Test
-        fun `returns 401 for unknown key hash`() {
+        fun `returns 401 for unknown key hash`() = withMediator {
             request.addHeader("X-API-Key", "epk_unknown_key_that_doesnt_exist")
 
             filter.doFilter(request, response, filterChain)
@@ -86,109 +94,153 @@ class ApiKeyAuthenticationFilterTest {
         }
 
         @Test
-        fun `returns 401 for disabled key`() {
-            val key = createApiKey(enabled = false)
-            request.addHeader("X-API-Key", key)
+        fun `returns 401 for revoked key`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
 
-            filter.doFilter(request, response, filterChain)
+            given {
+                tenant = tenant("Filter Revoked")
+                val created = CreateApiKey(tenantId = tenant.id, name = "Will Revoke").execute()
+                plaintextKey = created.plaintextKey
+                RevokeApiKey(tenantId = tenant.id, id = created.apiKey.id).execute()
+            }
 
-            assertThat(response.status).isEqualTo(401)
-            assertThat(filterChainCalled).isFalse()
-            assertThat(response.contentAsString).contains("disabled")
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(response.status).isEqualTo(401)
+                assertThat(filterChainCalled).isFalse()
+                assertThat(response.contentAsString).contains("disabled")
+            }
         }
 
         @Test
-        fun `returns 401 for expired key`() {
-            val key = createApiKey(expiresAt = Instant.now().minusSeconds(3600))
-            request.addHeader("X-API-Key", key)
+        fun `returns 401 for expired key`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
 
-            filter.doFilter(request, response, filterChain)
+            given {
+                tenant = tenant("Filter Expired")
+                val created = CreateApiKey(
+                    tenantId = tenant.id,
+                    name = "Already Expired",
+                    expiresAt = Instant.now().minusSeconds(3600),
+                ).execute()
+                plaintextKey = created.plaintextKey
+            }
 
-            assertThat(response.status).isEqualTo(401)
-            assertThat(filterChainCalled).isFalse()
-            assertThat(response.contentAsString).contains("expired")
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(response.status).isEqualTo(401)
+                assertThat(filterChainCalled).isFalse()
+                assertThat(response.contentAsString).contains("expired")
+            }
         }
     }
 
     @Nested
     inner class ValidApiKey {
         @Test
-        fun `authenticates and passes through for valid key`() {
-            val key = createApiKey()
-            request.addHeader("X-API-Key", key)
+        fun `authenticates and passes through for valid key`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
 
-            filter.doFilter(request, response, filterChain)
+            given {
+                tenant = tenant("Filter Valid")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Valid Key").execute().plaintextKey
+            }
 
-            assertThat(filterChainCalled).isTrue()
-            val auth = SecurityContextHolder.getContext().authentication
-            assertThat(auth).isNotNull()
-            assertThat(auth).isInstanceOf(ApiKeyAuthenticationToken::class.java)
-            assertThat(auth!!.isAuthenticated).isTrue()
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(filterChainCalled).isTrue()
+                val auth = SecurityContextHolder.getContext().authentication
+                assertThat(auth).isNotNull
+                assertThat(auth).isInstanceOf(ApiKeyAuthenticationToken::class.java)
+                assertThat(auth!!.isAuthenticated).isTrue()
+            }
         }
 
         @Test
-        fun `creates principal with correct tenant membership`() {
-            val tenantId = TenantKey.of("test-tenant")
-            val key = createApiKey(tenantId = tenantId)
-            request.addHeader("X-API-Key", key)
+        fun `creates principal with correct tenant membership`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
 
-            filter.doFilter(request, response, filterChain)
+            given {
+                tenant = tenant("Filter Tenant Membership")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Membership").execute().plaintextKey
+            }
 
-            val auth = SecurityContextHolder.getContext().authentication as ApiKeyAuthenticationToken
-            val principal = auth.principal
-            assertThat(principal.tenantMemberships.keys).containsExactly(tenantId)
-            assertThat(principal.currentTenantId).isEqualTo(tenantId)
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                val auth = SecurityContextHolder.getContext().authentication as ApiKeyAuthenticationToken
+                val principal = auth.principal
+                assertThat(principal.tenantMemberships.keys).containsExactly(tenant.id)
+                assertThat(principal.currentTenantId).isEqualTo(tenant.id)
+            }
         }
 
         @Test
-        fun `creates NPA identity from API key`() {
-            val key = createApiKey(name = "My Integration")
-            request.addHeader("X-API-Key", key)
+        fun `creates NPA identity from API key`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
 
-            filter.doFilter(request, response, filterChain)
+            given {
+                tenant = tenant("Filter NPA")
+                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "My Integration").execute().plaintextKey
+            }
 
-            val auth = SecurityContextHolder.getContext().authentication as ApiKeyAuthenticationToken
-            val principal = auth.principal
-            assertThat(principal.displayName).isEqualTo("My Integration")
-            assertThat(principal.externalId).startsWith("apikey:")
-            assertThat(principal.email).contains("@npa.epistola")
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                val auth = SecurityContextHolder.getContext().authentication as ApiKeyAuthenticationToken
+                val principal = auth.principal
+                assertThat(principal.displayName).isEqualTo("My Integration")
+                assertThat(principal.externalId).startsWith("apikey:")
+                assertThat(principal.email).contains("@npa.epistola")
+            }
         }
 
         @Test
-        fun `key with future expiry is accepted`() {
-            val key = createApiKey(expiresAt = Instant.now().plusSeconds(86400))
-            request.addHeader("X-API-Key", key)
+        fun `key with future expiry is accepted`() = fixture {
+            lateinit var plaintextKey: String
+            lateinit var tenant: Tenant
 
-            filter.doFilter(request, response, filterChain)
+            given {
+                tenant = tenant("Filter Future Expiry")
+                plaintextKey = CreateApiKey(
+                    tenantId = tenant.id,
+                    name = "Future",
+                    expiresAt = Instant.now().plusSeconds(86400),
+                ).execute().plaintextKey
+            }
 
-            assertThat(filterChainCalled).isTrue()
-            assertThat(SecurityContextHolder.getContext().authentication).isNotNull()
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(filterChainCalled).isTrue()
+                assertThat(SecurityContextHolder.getContext().authentication).isNotNull
+            }
         }
-    }
-
-    private fun createApiKey(
-        tenantId: TenantKey = TenantKey.of("test-tenant"),
-        name: String = "Test Key",
-        enabled: Boolean = true,
-        expiresAt: Instant? = null,
-    ): String {
-        val plaintextKey = apiKeyService.generateKey()
-        val keyHash = apiKeyService.hashKey(plaintextKey)
-        val keyPrefix = apiKeyService.extractPrefix(plaintextKey)
-
-        val apiKey = ApiKey(
-            id = ApiKeyKey.of(UUID.randomUUID()),
-            tenantKey = tenantId,
-            name = name,
-            keyPrefix = keyPrefix,
-            enabled = enabled,
-            createdAt = Instant.now(),
-            lastUsedAt = null,
-            expiresAt = expiresAt,
-            createdBy = null,
-        )
-
-        storedKeys[keyHash] = apiKey
-        return plaintextKey
     }
 }

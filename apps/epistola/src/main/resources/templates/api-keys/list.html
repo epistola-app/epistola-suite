@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>API Keys</h1>
+            <div class="page-actions">
+                <a th:if="${auth.has('TENANT_USERS')}"
+                   th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New API key
+                </a>
+            </div>
+        </div>
+
+        <p class="text-muted" style="margin-bottom: var(--ep-space-4);">
+            API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.
+        </p>
+
+        <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No API keys</div>
+            <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
+            <a th:if="${auth.has('TENANT_USERS')}"
+               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                New API key
+            </a>
+        </div>
+
+        <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Prefix</th>
+                    <th>Created by</th>
+                    <th>Created</th>
+                    <th>Last used</th>
+                    <th>Expires</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="api-key-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="apiKey : ${apiKeys}">
+                        <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
+                        <td>
+                            <code th:text="${apiKey.keyPrefix} + '…'"></code>
+                        </td>
+                        <td>
+                            <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
+                            <span th:if="${apiKey.createdByDisplayName == null}" class="text-muted">—</span>
+                        </td>
+                        <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td>
+                            <span th:if="${apiKey.lastUsedAt != null}"
+                                  th:text="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                            <span th:if="${apiKey.lastUsedAt == null}" class="text-muted">Never</span>
+                        </td>
+                        <td>
+                            <span th:if="${apiKey.expiresAt != null}"
+                                  th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></span>
+                            <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
+                        </td>
+                        <td class="actions">
+                            <button th:if="${auth.has('TENANT_USERS')}"
+                                    type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete API key"
+                                    data-confirm-title="Delete API key"
+                                    th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
+                                    data-confirm-target="#api-key-rows"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+</body>
+</html>
