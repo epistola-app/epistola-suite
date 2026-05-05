@@ -54,7 +54,11 @@ function bitMatrixToImageData(matrix: { size: number; get(row: number, col: numb
 /**
  * Simulates a logo overlay by clearing a white square in the center.
  */
-function applyLogoHole(imageData: { data: Uint8ClampedArray; width: number; height: number }): void {
+function applyLogoHole(imageData: {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+}): void {
   const { data, width, height } = imageData;
   const logoSize = Math.max(16, Math.round(width * LOGO_SIZE_RATIO));
   const startX = Math.round((width - logoSize) / 2);

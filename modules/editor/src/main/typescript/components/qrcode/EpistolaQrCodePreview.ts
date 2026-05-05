@@ -278,9 +278,14 @@ export class EpistolaQrCodePreview extends LitElement {
     const framePadding = Math.max(2, Math.round(logoSize * LOGO_FRAME_PADDING_RATIO));
 
     ctx.fillStyle = '#ffffff';
-    if (typeof (ctx as CanvasRenderingContext2D & { roundRect?: (...args: unknown[]) => void }).roundRect === 'function') {
+    if (
+      typeof (ctx as CanvasRenderingContext2D & { roundRect?: (...args: unknown[]) => void })
+        .roundRect === 'function'
+    ) {
       ctx.beginPath();
-      (ctx as unknown as { roundRect(x: number, y: number, w: number, h: number, r: number): void }).roundRect(
+      (
+        ctx as unknown as { roundRect(x: number, y: number, w: number, h: number, r: number): void }
+      ).roundRect(
         x - framePadding,
         y - framePadding,
         logoSize + framePadding * 2,
