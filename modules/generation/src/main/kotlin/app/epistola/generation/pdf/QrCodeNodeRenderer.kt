@@ -15,6 +15,7 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /** Thrown in [RenderMode.STRICT] when a QR code node cannot be rendered. */
@@ -141,7 +142,10 @@ class QrCodeNodeRenderer : NodeRenderer {
     }
 
     internal fun generateQrCodePng(value: String, sizePt: Float, qrType: String, logoImage: BufferedImage?): ByteArray {
-        val targetPixelSize = maxOf(MIN_PIXEL_SIZE, sizePt.roundToInt())
+        val targetPixelSize = maxOf(
+            MIN_PIXEL_SIZE,
+            ((sizePt / POINTS_PER_INCH) * RENDER_DPI).roundToInt(),
+        )
         val errorCorrection = if (qrType == QR_TYPE_LOGO) ErrorCorrectionLevel.H else ErrorCorrectionLevel.L
 
         // Build deterministic QR modules first, then rasterize with a fixed quiet-zone size in modules.
@@ -153,7 +157,7 @@ class QrCodeNodeRenderer : NodeRenderer {
         val modules = qr.matrix
         val moduleCount = modules.width
         val totalModules = moduleCount + (QUIET_ZONE_MODULES * 2)
-        val modulePixelSize = maxOf(1, targetPixelSize / totalModules)
+        val modulePixelSize = maxOf(1, ceil(targetPixelSize.toDouble() / totalModules).toInt())
         val rasterSize = totalModules * modulePixelSize
 
         val image = BufferedImage(rasterSize, rasterSize, BufferedImage.TYPE_INT_RGB)
@@ -208,6 +212,8 @@ class QrCodeNodeRenderer : NodeRenderer {
         private const val MAX_VALUE_BYTES = 2500
         private const val BLACK = -0x1000000
         private const val WHITE = -0x1
+        private const val POINTS_PER_INCH = 72f
+        private const val RENDER_DPI = 300f
         private const val QR_TYPE_STANDARD = "standard"
         private const val QR_TYPE_LOGO = "logo"
         private const val LOGO_SIZE_RATIO = 0.22f
