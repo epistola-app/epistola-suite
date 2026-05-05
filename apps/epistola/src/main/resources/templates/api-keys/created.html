@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}">API Keys</a> &raquo; <span>Key created</span>
+        </nav>
+
+        <h1>API key created</h1>
+
+        <th:block th:replace="~{::created-panel}" />
+    </th:block>
+
+    <div th:fragment="created-panel" id="api-key-form-area" class="card create-form-card">
+        <div class="card-content">
+            <div class="alert alert-warning" style="margin-bottom: var(--ep-space-4);">
+                <strong>Copy this key now.</strong>
+                It will not be shown again, and there is no way to recover it later.
+            </div>
+
+            <div class="form-group">
+                <label class="ep-label" for="api-key-secret">Key</label>
+                <div style="display: flex; gap: var(--ep-space-2);">
+                    <input type="text" id="api-key-secret" class="ep-input"
+                           th:value="${plaintextKey}"
+                           readonly
+                           style="font-family: var(--ep-font-mono, monospace); flex: 1;">
+                    <button type="button" id="api-key-copy-btn" class="btn btn-outline">
+                        <th:block th:replace="~{fragments/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
+                        Copy
+                    </button>
+                </div>
+                <span id="api-key-copy-status" class="form-hint" aria-live="polite"></span>
+            </div>
+
+            <dl class="ep-dl" style="margin-top: var(--ep-space-4);">
+                <dt>Name</dt>
+                <dd th:text="${apiKey.name}"></dd>
+                <dt>Created</dt>
+                <dd th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                <dt th:if="${apiKey.expiresAt != null}">Expires</dt>
+                <dd th:if="${apiKey.expiresAt != null}"
+                    th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></dd>
+            </dl>
+
+            <div class="form-actions" style="margin-top: var(--ep-space-4);">
+                <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="btn btn-primary">Done</a>
+            </div>
+        </div>
+        <script th:inline="none">
+        (function() {
+            var input = document.getElementById('api-key-secret');
+            var btn = document.getElementById('api-key-copy-btn');
+            var status = document.getElementById('api-key-copy-status');
+            if (!input || !btn) return;
+            btn.addEventListener('click', function() {
+                var value = input.value;
+                var done = function(ok) {
+                    status.textContent = ok ? 'Copied to clipboard.' : 'Copy failed — select the key and copy it manually.';
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(value).then(function() { done(true); }, function() { done(false); });
+                } else {
+                    input.removeAttribute('readonly');
+                    input.select();
+                    var ok = false;
+                    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                    input.setAttribute('readonly', 'readonly');
+                    done(ok);
+                }
+            });
+        })();
+        </script>
+    </div>
+</body>
+</html>

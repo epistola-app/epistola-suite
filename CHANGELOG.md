@@ -4,8 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **API key management UI**: New page under **Operations → API Keys** for tenant managers (`TENANT_USERS` permission). Lists active keys with name, prefix, created-by, created/last-used/expires timestamps; supports creating a key (name + optional expiration) and revoking via a confirm dialog. The plaintext key is shown once on creation in an in-place success panel with a copy button — it is never persisted or shown again.
+- **API key revoke audit**: New `revoked_at` and `revoked_by` columns on `api_keys` (V25). The UI delete action now records who revoked the key and when.
+
 ### Changed
 
+- **API key persistence aligned with the rest of the codebase**: Removed the bespoke `ApiKeyRepository` / `JdbiApiKeyRepository` abstraction. The three CQRS handlers (`CreateApiKey`, `RevokeApiKey`, `ListApiKeys`) now use `Jdbi` directly, matching the pattern used by themes, environments, attributes, etc. The X-API-Key auth filter dispatches via two new `SystemInternal` mediator messages (`LookupApiKeyByHash` query, `RecordApiKeyUsage` command) — the original "filter runs before MediatorContext is bound" justification was incorrect (`MediatorFilter` is `Ordered.HIGHEST_PRECEDENCE`).
 - **Removed `px` unit support**: `StyleApplicator.parseSize` no longer recognizes `px` and the editor's spacing input no longer converts `px` values. Templates created before the `sp`/`pt` switch that still hold `Npx` values for margin/padding will not render those margins in the PDF, and the inspector will show the numeric portion in the fallback unit (`pt`) without scaling. Re-enter the value in `sp` or `pt` to fix.
 - **Default text and table-cell spacing zeroed (retroactive V1 change)**: Three `RenderingDefaults.V1` values that produced visible whitespace authors couldn't see in the inspector are now `0`: `componentSpacing["text"].marginBottom` (`1.5sp` → `0sp`), `paragraphMarginBottom` (`6pt` → `0pt`), and `tableCellPadding` (`8pt` → `0pt`). Because `RenderingDefaults` is versioned and published `template_versions` store `rendering_defaults_version`, this change applies retroactively to **all** existing published versions that resolved to V1 — they will now render with the new defaults. Pre-production project, so no V2 is introduced; set `marginTop`/`marginBottom`/`padding` explicitly via the inspector to restore previous spacing where needed.
 
