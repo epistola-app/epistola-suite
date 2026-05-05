@@ -8,16 +8,21 @@ plugins {
 dependencyManagement {
     imports {
         mavenBom(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
-        mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
     }
 }
+
+// Pin spring-ai versions explicitly: the spring-ai BOM does not propagate through
+// Gradle module boundaries (consumers of this module would otherwise see an
+// unresolved version when transitively pulling in the MCP starter), so we don't
+// import the BOM and instead pin the coordinates we use.
+val springAiVersion = libs.versions.spring.ai.get()
 
 dependencies {
     // Business logic — provides mediator, queries, commands, security context
     implementation(project(":modules:epistola-core"))
 
     // Spring AI MCP server (streamable HTTP transport, served via Spring MVC)
-    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc")
+    implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc:$springAiVersion")
 
     // Spring Web for the MVC dispatcher — required for the MCP HTTP endpoint
     implementation("org.springframework.boot:spring-boot-starter-web")
