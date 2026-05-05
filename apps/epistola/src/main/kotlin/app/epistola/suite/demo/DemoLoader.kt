@@ -1,7 +1,5 @@
 package app.epistola.suite.demo
 
-import app.epistola.suite.apikeys.ApiKey
-import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
@@ -10,7 +8,6 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -47,7 +44,6 @@ class DemoLoader(
     private val catalogClient: CatalogClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
-    private val apiKeyRepository: ApiKeyRepository,
     private val apiKeyService: ApiKeyService,
     private val jdbcClient: org.springframework.jdbc.core.simple.JdbcClient,
     private val authProperties: AuthProperties,
@@ -216,22 +212,25 @@ class DemoLoader(
      * Creates a well-known demo API key for testing external API access.
      */
     private fun createDemoApiKey(tenantId: TenantId) {
+        // Demo seeding uses a deterministic key + ID so devs can hard-code the key
+        // in local config across restarts. The CQRS CreateApiKey command always
+        // generates a random key, so we INSERT directly here instead.
         val keyHash = apiKeyService.hashKey(DEMO_API_KEY)
         val keyPrefix = apiKeyService.extractPrefix(DEMO_API_KEY)
 
-        val apiKey = ApiKey(
-            id = ApiKeyKey.of(DEMO_API_KEY_ID),
-            tenantKey = tenantId.key,
-            name = "Demo API Key",
-            keyPrefix = keyPrefix,
-            enabled = true,
-            createdAt = java.time.Instant.now(),
-            lastUsedAt = null,
-            expiresAt = null,
-            createdBy = null,
+        jdbcClient.sql(
+            """
+            INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled, created_at)
+            VALUES (?, ?, ?, ?, ?, true, NOW())
+            ON CONFLICT (id) DO NOTHING
+            """,
         )
-
-        apiKeyRepository.insert(apiKey, keyHash)
+            .param(java.util.UUID.fromString(DEMO_API_KEY_ID))
+            .param(tenantId.key.value)
+            .param("Demo API Key")
+            .param(keyHash)
+            .param(keyPrefix)
+            .update()
         log.info("Created demo API key: {}", DEMO_API_KEY)
     }
 

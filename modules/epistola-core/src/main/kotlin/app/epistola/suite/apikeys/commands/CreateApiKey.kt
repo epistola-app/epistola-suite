@@ -1,7 +1,6 @@
 package app.epistola.suite.apikeys.commands
 
 import app.epistola.suite.apikeys.ApiKey
-import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.apikeys.ApiKeyWithSecret
 import app.epistola.suite.common.ids.ApiKeyKey
@@ -12,6 +11,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.Instant
 
@@ -33,7 +33,7 @@ data class CreateApiKey(
 
 @Component
 class CreateApiKeyHandler(
-    private val apiKeyRepository: ApiKeyRepository,
+    private val jdbi: Jdbi,
     private val apiKeyService: ApiKeyService,
 ) : CommandHandler<CreateApiKey, ApiKeyWithSecret> {
 
@@ -54,7 +54,26 @@ class CreateApiKeyHandler(
             createdBy = command.createdBy,
         )
 
-        apiKeyRepository.insert(apiKey, keyHash)
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled,
+                                      created_at, expires_at, created_by)
+                VALUES (:id, :tenantId, :name, :keyHash, :keyPrefix, :enabled,
+                        :createdAt, :expiresAt, :createdBy)
+                """,
+            )
+                .bind("id", apiKey.id)
+                .bind("tenantId", apiKey.tenantKey)
+                .bind("name", apiKey.name)
+                .bind("keyHash", keyHash)
+                .bind("keyPrefix", apiKey.keyPrefix)
+                .bind("enabled", apiKey.enabled)
+                .bind("createdAt", apiKey.createdAt)
+                .bind("expiresAt", apiKey.expiresAt)
+                .bind("createdBy", apiKey.createdBy?.value)
+                .execute()
+        }
 
         return ApiKeyWithSecret(
             apiKey = apiKey,
