@@ -54,10 +54,10 @@ class ClientIdentityFilter : OncePerRequestFilter() {
         } else {
             // Soft validation on other endpoints — warn but don't break v0.2 clients.
             if (client.nodeId.isNullOrBlank()) {
-                logger.debug("{} called without {} header", path, ClientInfo.HEADER_NODE_ID)
+                logger.debug("{} called without {} header", sanitizeForLog(path), ClientInfo.HEADER_NODE_ID)
             }
             if (client.contractVersion.isNullOrBlank()) {
-                logger.debug("{} called without epistola-contract/* User-Agent", path)
+                logger.debug("{} called without epistola-contract/* User-Agent", sanitizeForLog(path))
             }
         }
 
@@ -78,8 +78,14 @@ class ClientIdentityFilter : OncePerRequestFilter() {
         response.writer.write("""{"code":"BAD_REQUEST","message":"$message"}""")
     }
 
+    // Strip control characters before interpolating user-influenced values into log
+    // messages — without this, a crafted requestURI could inject CR/LF and forge
+    // log lines (CodeQL: java/log-injection).
+    private fun sanitizeForLog(value: String): String = value.replace(CONTROL_CHARS, "_")
+
     private companion object {
         // Matches /api/tenants/<tenantId>/generation/collect — see contract spec/paths/generation-collect.yaml.
         private val COLLECT_PATH_REGEX = Regex("^/api/tenants/[^/]+/generation/collect/?$")
+        private val CONTROL_CHARS = Regex("[\\p{Cntrl}]")
     }
 }
