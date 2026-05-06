@@ -47,19 +47,22 @@ class AddressBlockNodeRenderer : NodeRenderer {
             ?: context.renderingDefaults.defaultPageSettings
         // Walk the per-side cascade (overrideNode → root → template → theme → defaults)
         // so theme-level page margins propagate through correctly.
-        val pageTopMarginPt = effectivePageMarginPt(null, "marginTop", context, MM_TO_PT)
         val pageLeftMarginPt = effectivePageMarginPt(null, "marginLeft", context, MM_TO_PT)
         val pageRightMarginMm = effectivePageSettingsMarginMm("marginRight", context)
 
         val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
-        val headerHeightPt = if (headerNode != null) {
-            val h = parseNodeHeight(headerNode, context) ?: context.renderingDefaults.pageHeaderHeight
-            h + context.renderingDefaults.pageHeaderPadding
-        } else {
-            0f
-        }
+        val headerHeightPt = headerNode?.let {
+            parseNodeHeight(it, context) ?: context.renderingDefaults.pageHeaderHeight
+        } ?: 0f
 
-        val contentAreaTopPt = pageTopMarginPt + headerHeightPt
+        // Mirror DirectPdfRenderer so the body-top Y matches the actual layout: when a
+        // header exists its own marginTop drives the page-edge offset (header sits at
+        // pageTop − headerMarginTop − headerHeight, body starts directly below).
+        val contentAreaTopPt = if (headerNode != null) {
+            effectivePageMarginPt(headerNode, "marginTop", context, MM_TO_PT) + headerHeightPt
+        } else {
+            effectivePageMarginPt(null, "marginTop", context, MM_TO_PT)
+        }
         val isRight = align == "right"
 
         // Render aside slot
