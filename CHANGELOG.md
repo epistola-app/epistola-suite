@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-05-06
+
 ### Changed (PR #362 review feedback)
 
 - **`apiVersion` on `/ping` is derived from the contract JAR's manifest** instead of the `epistola.collect.api-version` configuration property, which is now removed. The contract is the source of truth — hardcoding the version in the suite would be one place to forget on every contract bump. `GetServerInfoHandler` reads `Implementation-Version` via `Class.forName("app.epistola.api.SystemApi").package.implementationVersion` (with a JAR-manifest fallback and a final `"unknown"` if the contract is loaded from an exploded class dir without a manifest).
