@@ -42,6 +42,7 @@ data class BatchGenerationItem(
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
+    val routingKey: String? = null,
 ) {
     init {
         require(variantId == null || variantSelectionCriteria == null) {
@@ -85,6 +86,12 @@ class BatchValidationException(
 data class GenerateDocumentBatch(
     val tenantId: TenantKey,
     val items: List<BatchGenerationItem>,
+    /**
+     * Default routing key applied to items that don't specify their own. Per the v0.3 spec:
+     * item-level wins; this is the batch-level fallback; if both are absent the emitter
+     * uses the request id at terminal-state time.
+     */
+    val batchRoutingKey: String? = null,
 ) : Command<BatchKey>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -258,10 +265,10 @@ class GenerateDocumentBatchHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                    data, filename, correlation_key, document_key, status
+                    data, filename, correlation_key, routing_key, document_key, status
                 )
                 VALUES (:id, :batchId, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :correlationId, NULL, :status)
+                        :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )
 
@@ -274,6 +281,9 @@ class GenerateDocumentBatchHandler(
                     null
                 }
                 val requestId = GenerationRequestKey.generate()
+                // Routing-key precedence: item-level wins, then batch-level default,
+                // then null (emitter falls back to request id at terminal state).
+                val effectiveRoutingKey = item.routingKey ?: command.batchRoutingKey
                 batch.bind("id", requestId)
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
@@ -285,6 +295,7 @@ class GenerateDocumentBatchHandler(
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)
+                    .bind("routingKey", effectiveRoutingKey)
                     .bind("status", RequestStatus.PENDING.name)
                     .add()
             }

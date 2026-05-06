@@ -122,7 +122,41 @@ class JobPoller(
 
         drainExecutor.shutdownNow()
         jobThreadExecutor.shutdownNow()
+
+        try {
+            val released = releaseOwnInProgressClaims()
+            if (released > 0) {
+                logger.info("Released {} in-progress claims back to PENDING on shutdown", released)
+            }
+        } catch (e: Exception) {
+            // Datasource may already be closing during shutdown. Don't fail the shutdown
+            // path on this — StaleJobRecovery is the safety net.
+            logger.warn("Failed to release in-progress claims on shutdown: {}", e.message)
+        }
+
         logger.info("Job poller shut down (remaining active jobs: {})", activeJobs.get())
+    }
+
+    /**
+     * Release any IN_PROGRESS rows still claimed by THIS instance back to PENDING.
+     * Called on graceful shutdown so dev restarts and rolling pod deploys don't
+     * leave orphaned claims that [StaleJobRecovery] only frees after
+     * `epistola.generation.polling.stale-timeout-minutes` (default 10 min).
+     * Crashes still rely on that fallback; this only handles the orderly-exit path.
+     */
+    private fun releaseOwnInProgressClaims(): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE document_generation_requests
+            SET status = 'PENDING',
+                claimed_by = NULL,
+                claimed_at = NULL,
+                started_at = NULL
+            WHERE status = 'IN_PROGRESS' AND claimed_by = :instanceId
+            """,
+        )
+            .bind("instanceId", instanceId)
+            .execute()
     }
 
     /**
@@ -309,6 +343,7 @@ class JobPoller(
                           document_generation_requests.data,
                           document_generation_requests.filename,
                           document_generation_requests.correlation_key,
+                          document_generation_requests.routing_key,
                           document_generation_requests.document_key,
                           document_generation_requests.status,
                           document_generation_requests.claimed_by,

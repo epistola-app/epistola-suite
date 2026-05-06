@@ -122,6 +122,7 @@ internal fun GenerateDocumentRequest.toCommand(
         data = data,
         filename = filename,
         correlationId = correlationId,
+        routingKey = routingKey,
     )
 }
 
@@ -141,6 +142,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
         data = data,
         filename = filename,
         correlationId = correlationId,
+        routingKey = routingKey,
     )
 }
 
@@ -166,6 +168,7 @@ internal fun GenerateBatchRequest.toCommand(
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
     items = items.map { it.toBatchItem(objectMapper) },
+    batchRoutingKey = routingKey,
 )
 
 // ==================== Preview ====================

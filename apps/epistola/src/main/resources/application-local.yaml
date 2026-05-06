@@ -24,7 +24,14 @@ spring:
           max-age: 0
   devtools:
     restart:
-      enabled: true
+      # Disabled to avoid the classpath-jar race: when a Gradle build rewrites
+      # an upstream module's `build/libs/<module>-dev.jar` while the watcher is
+      # mid-restart, the restart fails with `ZipException: invalid LOC header`
+      # and the app dies. The other DevTools defaults (Thymeleaf cache off,
+      # static resource cache off, LiveReload server) keep working without the
+      # auto-restart watcher. For Kotlin/Java edits, stop the app and re-run
+      # `./gradlew :apps:epistola:bootRun` — one consistent classpath, no race.
+      enabled: false
       poll-interval: 2000ms
       quiet-period: 1000ms
   session:

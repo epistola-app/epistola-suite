@@ -1,6 +1,7 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
+import app.epistola.suite.api.security.ClientIdentityFilter
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
@@ -94,9 +95,21 @@ class SecurityConfig(
 
         http
             .securityMatcher("/api/**")
-            .authorizeHttpRequests { it.anyRequest().authenticated() }
+            .authorizeHttpRequests {
+                // /api/ping is intentionally dual-mode per the v0.3 contract: anonymous
+                // probes get a basic pong (status + timestamp); authenticated callers
+                // additionally receive serverVersion/apiVersion/nodeId/partition info.
+                // Permit anonymous through Spring Security; the controller itself
+                // decides what payload to return based on whether a principal exists.
+                it.requestMatchers(org.springframework.http.HttpMethod.POST, "/api/ping").permitAll()
+                it.anyRequest().authenticated()
+            }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .csrf { it.disable() }
+            // Client-identity validation runs BEFORE auth so v0.3 clients calling
+            // /ping or /generation/collect without X-EP-Node-Id get a clean 400
+            // rather than a misleading 401. Other paths warn-only.
+            .addFilterBefore(ClientIdentityFilter(), UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         // Add JWT resource server support when OAuth2/OIDC is configured

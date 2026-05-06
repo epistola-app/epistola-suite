@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <style>
+            /* ── Toolbar ──────────────────────────────────────────────── */
+            .consumer-toolbar {
+                display: flex;
+                gap: var(--ep-space-2);
+                margin-bottom: var(--ep-space-3);
+            }
+            .consumer-toolbar-btn {
+                background: transparent;
+                border: 1px solid var(--ep-border-color);
+                border-radius: var(--ep-radius-md);
+                padding: var(--ep-space-1-5) var(--ep-space-3);
+                font-size: var(--ep-text-sm);
+                color: var(--ep-gray-600);
+                cursor: pointer;
+            }
+            .consumer-toolbar-btn:hover {
+                background: var(--ep-gray-50);
+                color: var(--ep-gray-900);
+            }
+
+            /* ── Card ─────────────────────────────────────────────────── */
+            .consumer-card {
+                background: var(--ep-card);
+                border: 1px solid var(--ep-border-color);
+                border-radius: var(--ep-radius-lg);
+                box-shadow: var(--ep-shadow-xs);
+                margin-bottom: var(--ep-space-3);
+                overflow: hidden;
+                transition: box-shadow 0.15s ease;
+            }
+            .consumer-card:hover { box-shadow: var(--ep-shadow-sm); }
+            .consumer-card.is-disabled {
+                background: var(--ep-gray-50);
+                box-shadow: none;
+            }
+
+            /* ── Summary (collapsed header row) ───────────────────────── */
+            .consumer-card > summary {
+                list-style: none;
+                cursor: pointer;
+                padding: var(--ep-space-4) var(--ep-space-5);
+                display: grid;
+                grid-template-columns: auto 1fr auto auto;
+                align-items: center;
+                gap: var(--ep-space-4);
+            }
+            .consumer-card > summary::-webkit-details-marker { display: none; }
+            .consumer-card > summary:hover { background: var(--ep-gray-50); }
+            .consumer-card.is-disabled > summary:hover { background: var(--ep-gray-100); }
+
+            /* Status dot */
+            .consumer-status-dot {
+                width: 0.625rem;
+                height: 0.625rem;
+                border-radius: var(--ep-radius-full);
+                background: var(--ep-gray-300);
+                flex-shrink: 0;
+                box-shadow: 0 0 0 3px var(--ep-gray-100);
+            }
+            .consumer-status-dot--HEALTHY {
+                background: var(--ep-green-500);
+                box-shadow: 0 0 0 3px var(--ep-green-100);
+            }
+            .consumer-status-dot--MIXED {
+                background: var(--ep-amber-500);
+                box-shadow: 0 0 0 3px var(--ep-amber-100);
+            }
+            .consumer-status-dot--DISABLED {
+                background: var(--ep-red-500);
+                box-shadow: 0 0 0 3px var(--ep-red-100);
+            }
+
+            /* Identity block (label + key + auth method) */
+            .consumer-identity { min-width: 0; }
+            .consumer-name {
+                font-size: var(--ep-text-base);
+                font-weight: 600;
+                color: var(--ep-gray-900);
+                line-height: 1.3;
+                margin: 0 0 var(--ep-space-1) 0;
+            }
+            .consumer-card.is-disabled .consumer-name {
+                text-decoration: line-through;
+                color: var(--ep-gray-500);
+            }
+            .consumer-meta-line {
+                display: flex;
+                align-items: center;
+                gap: var(--ep-space-2);
+                font-size: var(--ep-text-sm);
+                color: var(--ep-gray-500);
+                flex-wrap: wrap;
+            }
+            .consumer-key {
+                font-family: var(--ep-font-mono);
+                color: var(--ep-gray-600);
+            }
+            .consumer-meta-sep { color: var(--ep-gray-300); }
+
+            /* Activity pill on the right */
+            .consumer-activity-pill {
+                display: flex;
+                align-items: baseline;
+                gap: var(--ep-space-1-5);
+                padding: var(--ep-space-1) var(--ep-space-3);
+                border-radius: var(--ep-radius-full);
+                font-size: var(--ep-text-sm);
+                font-variant-numeric: tabular-nums;
+                background: var(--ep-gray-100);
+                color: var(--ep-gray-600);
+                white-space: nowrap;
+            }
+            .consumer-activity-pill--HEALTHY {
+                background: var(--ep-green-50);
+                color: var(--ep-green-800);
+            }
+            .consumer-activity-pill--MIXED {
+                background: var(--ep-amber-50);
+                color: var(--ep-amber-800);
+            }
+            .consumer-activity-pill--DISABLED {
+                background: var(--ep-red-50);
+                color: var(--ep-red-700);
+            }
+            .consumer-activity-pill > .pill-num { font-weight: 600; }
+            .consumer-activity-pill > .pill-label {
+                font-size: var(--ep-text-xs);
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+
+            /* Chevron */
+            .consumer-chevron { color: var(--ep-gray-400); transition: transform 0.15s ease; flex-shrink: 0; }
+            .consumer-card[open] > summary > .consumer-chevron { transform: rotate(90deg); }
+
+            /* ── Expanded body ────────────────────────────────────────── */
+            .consumer-body {
+                padding: var(--ep-space-4) var(--ep-space-5) var(--ep-space-5);
+                border-top: 1px solid var(--ep-border-color);
+                background: linear-gradient(180deg, var(--ep-gray-50) 0%, transparent 60px);
+            }
+
+            /* Stats strip — three labelled tiles */
+            .consumer-stats-strip {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: var(--ep-space-3);
+                margin: var(--ep-space-1) 0 var(--ep-space-4);
+            }
+            .consumer-stat {
+                background: var(--ep-card);
+                border: 1px solid var(--ep-border-color);
+                border-radius: var(--ep-radius-md);
+                padding: var(--ep-space-3) var(--ep-space-4);
+            }
+            .consumer-stat-label {
+                font-size: var(--ep-text-xs);
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: var(--ep-gray-500);
+                margin-bottom: var(--ep-space-1);
+            }
+            .consumer-stat-value {
+                font-family: var(--ep-font-mono);
+                font-size: var(--ep-text-base);
+                color: var(--ep-gray-900);
+                font-variant-numeric: tabular-nums;
+            }
+            .consumer-stat-value.is-empty { color: var(--ep-gray-400); font-family: var(--ep-font-sans); font-style: italic; font-size: var(--ep-text-sm); }
+
+            /* Nodes table — slightly tighter */
+            .consumer-body .ep-table { margin-top: var(--ep-space-2); }
+            .consumer-body .ep-table th {
+                font-size: var(--ep-text-xs);
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: var(--ep-gray-500);
+            }
+            .node-row-status {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--ep-space-1-5);
+                font-size: var(--ep-text-sm);
+            }
+            .node-row-status::before {
+                content: "";
+                display: inline-block;
+                width: 0.5rem;
+                height: 0.5rem;
+                border-radius: var(--ep-radius-full);
+                background: var(--ep-gray-300);
+            }
+            .node-row-status.is-active { color: var(--ep-green-700); }
+            .node-row-status.is-active::before { background: var(--ep-green-500); }
+            .node-row-status.is-stale { color: var(--ep-gray-500); }
+
+            .consumer-body-empty {
+                margin-top: var(--ep-space-3);
+                padding: var(--ep-space-4);
+                text-align: center;
+                color: var(--ep-gray-500);
+                font-size: var(--ep-text-sm);
+                background: var(--ep-card);
+                border: 1px dashed var(--ep-border-color);
+                border-radius: var(--ep-radius-md);
+            }
+        </style>
+
+        <div class="page-header">
+            <h1>Consumers</h1>
+        </div>
+
+        <div th:fragment="results"
+             id="consumer-results"
+             th:hx-get="@{/tenants/{tenantId}/consumers/refresh(tenantId=${tenantId})}"
+             hx-trigger="every 10s"
+             hx-swap="outerHTML">
+
+            <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">
+                <div class="stat-card">
+                    <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
+                    <div class="stat-card-label">Consumers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value">
+                        <span th:text="${report.totals.activeNodeCount}">0</span><span
+                            class="ep-text-muted"
+                            th:text="' / ' + ${report.totals.totalNodeCount}"> / 0</span>
+                    </div>
+                    <div class="stat-card-label">Active nodes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" style="font-size: var(--ep-text-xl);"
+                         th:text="${report.totals.mostRecentNodeActivity != null
+                                   ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
+                                   : '—'}">—</div>
+                    <div class="stat-card-label">Most recent activity</div>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(report.consumers)}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No consumers yet</div>
+                <div class="empty-state-description">
+                    No API keys have been issued for this tenant. Once an API key is issued and
+                    a client starts polling, it will appear here.
+                </div>
+            </div>
+
+            <div th:if="${!#lists.isEmpty(report.consumers)}" class="consumer-toolbar">
+                <button type="button" class="consumer-toolbar-btn" id="consumer-expand-all">Expand all</button>
+                <button type="button" class="consumer-toolbar-btn" id="consumer-collapse-all">Collapse all</button>
+            </div>
+
+            <details th:each="consumer : ${report.consumers}"
+                     th:id="'consumer-' + ${consumer.consumerId}"
+                     th:attr="data-consumer-id=${consumer.consumerId}"
+                     th:classappend="${!consumer.enabled} ? ' is-disabled' : ''"
+                     class="consumer-card">
+
+                <summary>
+                    <span class="consumer-status-dot"
+                          th:classappend="|consumer-status-dot--${consumer.state}|"
+                          th:title="${consumer.stateTitle}"></span>
+
+                    <div class="consumer-identity">
+                        <div class="consumer-name" th:text="${consumer.label}">Consumer</div>
+                        <div class="consumer-meta-line">
+                            <code class="consumer-key" th:text="${consumer.keyPrefix}">epk_xxxx</code>
+                            <span class="consumer-meta-sep">·</span>
+                            <span th:text="${consumer.authMethod}">API key</span>
+                        </div>
+                    </div>
+
+                    <span class="consumer-activity-pill"
+                          th:classappend="|consumer-activity-pill--${consumer.state}|">
+                        <span class="pill-num"
+                              th:if="${consumer.state == 'HEALTHY' or consumer.state == 'MIXED' or consumer.state == 'STALE'}"
+                              th:text="${consumer.activityLabel}">0 / 0</span>
+                        <span class="pill-label"
+                              th:text="${consumer.state == 'DISABLED' or consumer.state == 'NOT_CONNECTED' ? consumer.activityLabel : 'active'}">active</span>
+                    </span>
+
+                    <th:block th:replace="~{fragments/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm consumer-chevron')}" />
+                </summary>
+
+                <div class="consumer-body">
+                    <div class="consumer-stats-strip">
+                        <div class="consumer-stat">
+                            <div class="consumer-stat-label">Cursor range</div>
+                            <div class="consumer-stat-value"
+                                 th:if="${consumer.cursorSummary.partitionsTracked > 0}"
+                                 th:text="${consumer.cursorSummary.minAckedSequence + ' – ' + consumer.cursorSummary.maxAckedSequence}">0 – 0</div>
+                            <div class="consumer-stat-value is-empty"
+                                 th:if="${consumer.cursorSummary.partitionsTracked == 0}">no cursors yet</div>
+                        </div>
+                        <div class="consumer-stat">
+                            <div class="consumer-stat-label">Partitions tracked</div>
+                            <div class="consumer-stat-value"
+                                 th:text="${consumer.cursorSummary.partitionsTracked}">0</div>
+                        </div>
+                        <div class="consumer-stat">
+                            <div class="consumer-stat-label">Last advanced</div>
+                            <div class="consumer-stat-value"
+                                 th:if="${consumer.cursorSummary.lastAdvancedAt != null}"
+                                 th:title="${#temporals.format(consumer.cursorSummary.lastAdvancedAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                 th:text="${#temporals.format(consumer.cursorSummary.lastAdvancedAt, 'HH:mm:ss')}">—</div>
+                            <div class="consumer-stat-value is-empty"
+                                 th:if="${consumer.cursorSummary.lastAdvancedAt == null}">never</div>
+                        </div>
+                    </div>
+
+                    <div th:if="${#lists.isEmpty(consumer.nodes)}" class="consumer-body-empty">
+                        No nodes have polled for this consumer yet. Make sure a client is configured to
+                        use this API key and that it can reach the suite.
+                    </div>
+
+                    <table th:if="${!#lists.isEmpty(consumer.nodes)}" class="ep-table">
+                        <thead>
+                            <tr>
+                                <th>Node ID</th>
+                                <th>Last seen</th>
+                                <th>Status</th>
+                                <th>Partitions owned</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="node : ${consumer.nodes}">
+                                <td><code th:text="${node.nodeId}">node-id</code></td>
+                                <td>
+                                    <span th:title="${#temporals.format(node.lastSeenAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                          th:text="${#temporals.format(node.lastSeenAt, 'HH:mm:ss')}">--</span>
+                                </td>
+                                <td>
+                                    <span class="node-row-status"
+                                          th:classappend="${node.isActive} ? ' is-active' : ' is-stale'"
+                                          th:text="${node.isActive ? 'active' : 'stale'}">active</span>
+                                </td>
+                                <td>
+                                    <code th:if="${node.isActive}" class="ep-text-sm"
+                                          th:title="${node.partitionsTitle}"
+                                          th:text="${node.partitionsLabel}">0, 3, 7</code>
+                                    <span th:if="${!node.isActive}" class="ep-text-sm ep-text-muted"
+                                          th:title="${'Was assigned: ' + node.partitionsTitle}">— stale, not on ring</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+
+            <script>
+            (function () {
+                var root = document.getElementById('consumer-results');
+                if (!root) return;
+
+                var STORAGE_PREFIX = 'consumer-open:';
+                function key(id) { return STORAGE_PREFIX + id; }
+
+                root.querySelectorAll('details[data-consumer-id]').forEach(function (d) {
+                    var id = d.getAttribute('data-consumer-id');
+                    try {
+                        if (localStorage.getItem(key(id)) === '1') {
+                            d.open = true;
+                        }
+                    } catch (e) { /* localStorage may be blocked; ignore */ }
+                    d.addEventListener('toggle', function () {
+                        try {
+                            if (d.open) localStorage.setItem(key(id), '1');
+                            else localStorage.removeItem(key(id));
+                        } catch (e) { /* ignore */ }
+                    });
+                });
+
+                var expand = document.getElementById('consumer-expand-all');
+                if (expand) expand.addEventListener('click', function () {
+                    root.querySelectorAll('details[data-consumer-id]').forEach(function (d) { d.open = true; });
+                });
+
+                var collapse = document.getElementById('consumer-collapse-all');
+                if (collapse) collapse.addEventListener('click', function () {
+                    root.querySelectorAll('details[data-consumer-id]').forEach(function (d) { d.open = false; });
+                });
+            })();
+            </script>
+        </div>
+    </th:block>
+</body>
+</html>

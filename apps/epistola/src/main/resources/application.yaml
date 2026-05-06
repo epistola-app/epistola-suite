@@ -86,6 +86,24 @@ epistola:
       retention-days: 30 # Auto-delete documents after 30 days
       max-size-mb: 50 # Max document size
 
+  # v0.3 generation result collection — see modules/epistola-core/.../generation/collect/
+  collect:
+    idle-timeout-ms: 60000 # Consumer node considered dead after this many ms of no polling
+    # apiVersion (spec version echoed by /ping) is derived from the contract JAR's
+    # Implementation-Version manifest entry — see GetServerInfoHandler. Don't add
+    # it here as a property; the contract is the source of truth.
+
+  # Postgres declarative-partitioning maintenance.
+  # `retention-months` applies to documents + document_generation_requests.
+  # `generation-results-retention-months` applies to generation_results — kept
+  # separate because consumer-driven result rows have a much shorter useful
+  # lifetime than the underlying request/document records.
+  partitions:
+    enabled: true
+    retention-months: 3
+    generation-results-retention-months: 1
+    maintenance-cron: "0 0 2 * * ?" # daily at 02:00
+
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
     feedback: true
