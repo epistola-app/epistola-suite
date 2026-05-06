@@ -80,6 +80,7 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
 - **Data contract auto-creation.** Creating a template auto-creates an empty draft contract (v1). `get_data_contract` returns it even before the contract has been authored.
 - **No write tools yet.** The MCP server cannot create or modify templates, drafts, themes, stencils, or contracts in this MVP. Switch to the UI for authoring; the AI can still inspect what it has access to.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.
+- **Spring AI 2.0-M5 cleanup-noise demoter in place.** Every successful MCP request would otherwise produce two ERROR logs (`Missing result context` + an auth-denied dispatch on the same `/error` include) because Spring AI's SSE writer ends the chunked stream ungracefully and Tomcat fires its catch-all `/error` page. We demote both to a single WARN line each in [`SpringAiMcpNoiseRewriter`](../apps/epistola/src/main/kotlin/app/epistola/suite/config/SpringAiMcpNoiseRewriter.kt). Remove that filter when Spring AI 2.0 GAs and verify the smoke test stays clean.
 
 ## Troubleshooting
 
@@ -91,4 +92,6 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
 
 - [`modules/epistola-mcp/`](../modules/epistola-mcp) — module source
 - [`apps/epistola/src/main/resources/application.yaml`](../apps/epistola/src/main/resources/application.yaml) — `spring.ai.mcp.server.*` settings
+- [`apps/epistola/src/main/kotlin/app/epistola/suite/config/SpringAiMcpNoiseRewriter.kt`](../apps/epistola/src/main/kotlin/app/epistola/suite/config/SpringAiMcpNoiseRewriter.kt) — Spring AI 2.0-M5 noise-demotion workaround
+- [`scripts/mcp-smoke.sh`](../scripts/mcp-smoke.sh) — end-to-end smoke test against a running instance
 - [`docs/api-keys.md`](api-keys.md) — API key provisioning (if present)
