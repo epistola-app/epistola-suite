@@ -183,8 +183,7 @@ export class EpistolaInspector extends LitElement {
 
     const settings = this.engine.resolvedPageSettings;
     // Margin inputs render the OVERRIDE value (so empty input = nil = falls
-    // through the cascade). The resolved value is shown as a placeholder so
-    // the user knows what will actually be used at render time.
+    // through the cascade).
     const overrideMargins = this.doc?.pageSettingsOverride?.margins;
 
     return html`
