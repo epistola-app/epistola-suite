@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilContentReplacer
+import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -19,28 +20,44 @@ import tools.jackson.databind.ObjectMapper
 /**
  * Upgrades all instances of a stencil within a template variant's draft.
  *
- * Finds the variant's current draft, locates all stencil nodes matching
- * the given stencilId, replaces their content with the new version's content
- * (re-keyed with fresh IDs), and saves the modified draft.
+ * Finds the variant's current draft, locates all stencil nodes matching the
+ * given stencilId, replaces their content with the new version's content
+ * (re-keyed with fresh IDs), preserves user-authored placeholder fills by
+ * name, and saves the modified draft.
  *
- * Returns the number of stencil instances upgraded, or null if the draft doesn't exist.
+ * Returns the result (count + dropped fills), or null if the draft doesn't
+ * exist.
  */
 data class UpdateStencilInTemplate(
     val variantId: VariantId,
     val stencilId: StencilId,
     val newVersion: Int,
-) : Command<Int?>,
+) : Command<UpdateStencilInTemplateResult?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = variantId.tenantKey
 }
 
+/**
+ * Result of an `UpdateStencilInTemplate` command.
+ *
+ * @property upgradedCount number of stencil instances replaced.
+ * @property droppedFills per stencil-instance node id, the fills that could
+ *   not be preserved because the new stencil version no longer declares the
+ *   matching placeholder name. Empty when every fill survived.
+ */
+data class UpdateStencilInTemplateResult(
+    val upgradedCount: Int,
+    val droppedFills: Map<String, List<StencilContentReplacer.DroppedFill>> = emptyMap(),
+)
+
 @Component
 class UpdateStencilInTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-) : CommandHandler<UpdateStencilInTemplate, Int?> {
-    override fun handle(command: UpdateStencilInTemplate): Int? = jdbi.inTransaction<Int?, Exception> { handle ->
+    private val placeholderValidator: PlaceholderValidator,
+) : CommandHandler<UpdateStencilInTemplate, UpdateStencilInTemplateResult?> {
+    override fun handle(command: UpdateStencilInTemplate): UpdateStencilInTemplateResult? = jdbi.inTransaction<UpdateStencilInTemplateResult?, Exception> { handle ->
         // 1. Load the draft's template_model
         val draftRow = handle.createQuery(
             """
@@ -71,7 +88,7 @@ class UpdateStencilInTemplateHandler(
                 (node.props?.get("stencilId") as? String) == command.stencilId.key.value
         }
 
-        if (stencilNodes.isEmpty()) return@inTransaction 0
+        if (stencilNodes.isEmpty()) return@inTransaction UpdateStencilInTemplateResult(upgradedCount = 0)
 
         // 3. Fetch the new stencil version's content
         val newStencilVersionId = StencilVersionId(VersionKey.of(command.newVersion), command.stencilId)
@@ -96,15 +113,18 @@ class UpdateStencilInTemplateHandler(
         )
 
         // 4. Upgrade all instances
-        val upgradedModel = StencilContentReplacer.upgradeStencilInstances(
+        val upgrade = StencilContentReplacer.upgradeStencilInstances(
             document = templateModel,
             stencilId = command.stencilId.key.value,
             newVersion = command.newVersion,
             newContent = newContent,
         )
 
+        // 4b. Validate the upgraded document — recursion guard, placeholder scope, etc.
+        placeholderValidator.validateAsTemplate(upgrade.document)
+
         // 5. Save the modified draft
-        val upgradedJson = objectMapper.writeValueAsString(upgradedModel)
+        val upgradedJson = objectMapper.writeValueAsString(upgrade.document)
         handle.createUpdate(
             """
             UPDATE template_versions SET template_model = :templateModel::jsonb
@@ -120,6 +140,9 @@ class UpdateStencilInTemplateHandler(
             .bind("templateModel", upgradedJson)
             .execute()
 
-        stencilNodes.size
+        UpdateStencilInTemplateResult(
+            upgradedCount = stencilNodes.size,
+            droppedFills = upgrade.droppedFills,
+        )
     }
 }

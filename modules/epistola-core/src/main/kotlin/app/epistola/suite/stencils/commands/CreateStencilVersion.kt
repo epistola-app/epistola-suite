@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
@@ -35,9 +36,11 @@ data class CreateStencilVersion(
 class CreateStencilVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val placeholderValidator: PlaceholderValidator,
 ) : CommandHandler<CreateStencilVersion, StencilVersion?> {
     override fun handle(command: CreateStencilVersion): StencilVersion? {
         requireCatalogEditable(command.stencilId.tenantKey, command.stencilId.catalogKey)
+        if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
             // Verify stencil exists
             val stencilExists = handle.createQuery(

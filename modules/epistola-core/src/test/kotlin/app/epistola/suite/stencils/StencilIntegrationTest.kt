@@ -313,12 +313,12 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val variantKey = VariantKey.of("${templateKey.value}-default")
         val variantId = VariantId(variantKey, templateId)
 
-        val count = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
+        val result = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
             variantId = variantId,
             stencilId = stencilId,
             newVersion = 1,
         ).execute()
 
-        assertThat(count).isEqualTo(0)
+        assertThat(result?.upgradedCount).isEqualTo(0)
     }
 }

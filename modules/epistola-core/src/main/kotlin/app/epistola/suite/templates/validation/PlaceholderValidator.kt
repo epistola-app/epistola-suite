@@ -1,0 +1,200 @@
+package app.epistola.suite.templates.validation
+
+import app.epistola.suite.validation.ValidationException
+import app.epistola.template.model.Node
+import app.epistola.template.model.TemplateDocument
+import org.springframework.stereotype.Component
+
+/**
+ * Structural validator for placeholder and stencil invariants in a TemplateDocument.
+ *
+ * Independent of [JsonSchemaValidator] — this validates the slot-graph shape, not data.
+ * Both classes are wired into the same command handlers.
+ *
+ * Some checks apply only when validating a stencil-version document; others apply only
+ * when validating a template document. The caller chooses by invoking
+ * [validateAsStencilDefinition] or [validateAsTemplate] (or the lower-level helpers).
+ */
+@Component
+class PlaceholderValidator {
+
+    private val slugRegex = Regex("^[a-z][a-z0-9-]{0,63}$")
+
+    /**
+     * Run all checks that apply to a stencil-version document. Throws [ValidationException]
+     * on first violation. Use this from `CreateStencilVersion` and `UpdateStencilDraft`.
+     */
+    fun validateAsStencilDefinition(doc: TemplateDocument) {
+        validatePlaceholderNamesUnique(doc)
+        validatePlaceholderNameSlug(doc)
+        validateNoNestedPlaceholderDefinition(doc)
+        validateForwardCompatReservations(doc)
+    }
+
+    /**
+     * Run all checks that apply to a template document. Throws [ValidationException]
+     * on first violation. Use this from `UpdateDraft` and `UpdateStencilInTemplate`.
+     */
+    fun validateAsTemplate(doc: TemplateDocument) {
+        validatePlaceholderNamesUnique(doc)
+        validatePlaceholderNameSlug(doc)
+        validatePlaceholdersHaveStencilAncestor(doc)
+        validateNoStencilRecursion(doc)
+        validateForwardCompatReservations(doc)
+    }
+
+    /**
+     * `PLACEHOLDER_NAME_DUPLICATE` — within a single document, every placeholder's
+     * `props.name` must be unique. Empty/missing names are allowed (caught by slug check).
+     */
+    fun validatePlaceholderNamesUnique(doc: TemplateDocument) {
+        val seen = mutableSetOf<String>()
+        for (node in doc.nodes.values) {
+            if (node.type != PLACEHOLDER) continue
+            val name = node.props?.get("name") as? String ?: continue
+            if (name.isEmpty()) continue
+            if (!seen.add(name)) {
+                throw ValidationException(
+                    "content.placeholder.name",
+                    "PLACEHOLDER_NAME_DUPLICATE: placeholder name '$name' is used more than once",
+                )
+            }
+        }
+    }
+
+    /**
+     * `PLACEHOLDER_NAME_INVALID` — placeholder names are kebab-case slugs:
+     * `^[a-z][a-z0-9-]{0,63}$`. The name must be present.
+     */
+    fun validatePlaceholderNameSlug(doc: TemplateDocument) {
+        for (node in doc.nodes.values) {
+            if (node.type != PLACEHOLDER) continue
+            val name = node.props?.get("name") as? String
+            if (name == null || !slugRegex.matches(name)) {
+                throw ValidationException(
+                    "content.placeholder.name",
+                    "PLACEHOLDER_NAME_INVALID: placeholder name must be a kebab-case slug " +
+                        "(^[a-z][a-z0-9-]{0,63}\$); got '${name ?: "<missing>"}'",
+                )
+            }
+        }
+    }
+
+    /**
+     * `PLACEHOLDER_NESTED_DEFINITION` — at the stencil-definition level, a placeholder
+     * may not appear inside another placeholder's `fill` slot. (At the template level
+     * the same shape is allowed: a fill containing a stencil that itself has placeholders.)
+     */
+    fun validateNoNestedPlaceholderDefinition(doc: TemplateDocument) {
+        for (node in doc.nodes.values) {
+            if (node.type != PLACEHOLDER) continue
+            val ancestors = ancestorNodes(doc, node.id)
+            for (ancestor in ancestors) {
+                if (ancestor.type == PLACEHOLDER) {
+                    val outerName = ancestor.props?.get("name") as? String ?: "<unnamed>"
+                    val innerName = node.props?.get("name") as? String ?: "<unnamed>"
+                    throw ValidationException(
+                        "content.placeholder",
+                        "PLACEHOLDER_NESTED_DEFINITION: placeholder '$innerName' is nested " +
+                            "inside placeholder '$outerName' at the stencil-definition level",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * `PLACEHOLDER_OUTSIDE_STENCIL` — at the template level, every placeholder must have
+     * a `stencil` node somewhere in its slot-graph ancestor chain. Bare placeholders in
+     * a template root or an outer container are illegal.
+     */
+    fun validatePlaceholdersHaveStencilAncestor(doc: TemplateDocument) {
+        for (node in doc.nodes.values) {
+            if (node.type != PLACEHOLDER) continue
+            val ancestors = ancestorNodes(doc, node.id)
+            if (ancestors.none { it.type == STENCIL }) {
+                val name = node.props?.get("name") as? String ?: "<unnamed>"
+                throw ValidationException(
+                    "content.placeholder",
+                    "PLACEHOLDER_OUTSIDE_STENCIL: placeholder '$name' must be a descendant " +
+                        "of a stencil node",
+                )
+            }
+        }
+    }
+
+    /**
+     * `STENCIL_RECURSION` — DFS from the root; no stencil node may appear in its own
+     * ancestor chain (matched by `props.stencilId`).
+     */
+    fun validateNoStencilRecursion(doc: TemplateDocument) {
+        recurse(doc, doc.root, emptySet())
+    }
+
+    private fun recurse(doc: TemplateDocument, nodeId: String, ancestorStencilIds: Set<String>) {
+        val node = doc.nodes[nodeId] ?: return
+        var ancestors = ancestorStencilIds
+        if (node.type == STENCIL) {
+            val sid = node.props?.get("stencilId") as? String
+            if (sid != null) {
+                if (ancestors.contains(sid)) {
+                    throw ValidationException(
+                        "content.stencil.stencilId",
+                        "STENCIL_RECURSION: stencil '$sid' would contain itself transitively",
+                    )
+                }
+                ancestors = ancestors + sid
+            }
+        }
+        for (slotId in node.slots) {
+            val slot = doc.slots[slotId] ?: continue
+            for (childId in slot.children) {
+                recurse(doc, childId, ancestors)
+            }
+        }
+    }
+
+    /**
+     * `STENCIL_DATAMODEL_RESERVED` / `STENCIL_PARAMETERBINDINGS_RESERVED` — reserve the
+     * keys earmarked for the future stencil-parameters feature. Documents that use them
+     * are rejected so the v1 surface stays clean.
+     */
+    fun validateForwardCompatReservations(doc: TemplateDocument) {
+        for (node in doc.nodes.values) {
+            if (node.type == STENCIL && node.props?.containsKey("parameterBindings") == true) {
+                throw ValidationException(
+                    "content.stencil.props.parameterBindings",
+                    "STENCIL_PARAMETERBINDINGS_RESERVED: 'parameterBindings' is reserved for a " +
+                        "future stencil-parameters feature; do not set it in v1",
+                )
+            }
+        }
+    }
+
+    /**
+     * Walks slot-graph ancestors of [nodeId] (excluding [nodeId] itself) by scanning every
+     * slot that contains the node, then its parent node, and so on. Returns nodes in
+     * order from immediate parent up to the root.
+     *
+     * Costs O(slots) per call which is acceptable for documents with hundreds of nodes;
+     * if profiling shows it dominates we can build an index once per validation.
+     */
+    private fun ancestorNodes(doc: TemplateDocument, nodeId: String): List<Node> {
+        val result = mutableListOf<Node>()
+        val visited = mutableSetOf<String>()
+        var current = nodeId
+        while (true) {
+            if (!visited.add(current)) break // defensive cycle guard
+            val parentSlot = doc.slots.values.firstOrNull { current in it.children } ?: break
+            val parent = doc.nodes[parentSlot.nodeId] ?: break
+            result.add(parent)
+            current = parent.id
+        }
+        return result
+    }
+
+    companion object {
+        private const val PLACEHOLDER = "placeholder"
+        private const val STENCIL = "stencil"
+    }
+}
