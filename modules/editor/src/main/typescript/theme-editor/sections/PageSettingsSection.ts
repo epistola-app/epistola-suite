@@ -76,8 +76,16 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
                   .value=${themeValue != null ? String(themeValue) : ''}
                   ?disabled=${readOnly}
                   @change=${(e: Event) => {
-                    const raw = (e.target as HTMLInputElement).value;
-                    state.updateMargin(side, raw === '' ? undefined : Number(raw));
+                    const input = e.target as HTMLInputElement;
+                    const raw = input.value;
+                    if (raw === '') {
+                      state.updateMargin(side, undefined);
+                      return;
+                    }
+                    const parsed = Number(raw);
+                    const normalized = Number.isFinite(parsed) ? Math.max(0, parsed) : undefined;
+                    input.value = normalized == null ? '' : String(normalized);
+                    state.updateMargin(side, normalized);
                   }}
                 />
               </div>
