@@ -14,7 +14,8 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
   const orientation = settings?.orientation ?? 'portrait';
   // Inputs render only the values the theme actually overrides. Empty input
   // = nil = the consuming template/document falls back to the engine
-  // default. The engine default is shown as a placeholder for context.
+  // default. The UI indicates an unset value, but does not display the
+  // resolved engine default as the input placeholder.
   const themeMargins = settings?.margins;
   const backgroundColor =
     ((settings as Record<string, unknown> | undefined)?.backgroundColor as string | undefined) ??
