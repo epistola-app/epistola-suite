@@ -9,11 +9,12 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Node } from '../../types/index.js';
+import type { Node, NodeId, Slot, SlotId } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
 import { extractSubtree } from './extract-subtree.js';
 import { reKeyContent } from './rekey-content.js';
+import { captureFillsByName, reKeyCapturedFill, type CapturedFill } from './preserve-fills.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -29,6 +30,13 @@ export class StencilInspector extends LitElement {
   @state() private _message = '';
   @state() private _draftVersion: number | null = null;
   @state() private _latestVersion: number | null = null;
+
+  /**
+   * Snapshot of placeholder fills (template overrides) captured before the
+   * local content was swapped to the stencil's draft on Start Editing. Used
+   * to restore the user's overrides on Publish or Discard.
+   */
+  private _capturedFillsBeforeEdit: Map<string, CapturedFill> | null = null;
 
   private _unsubState?: () => void;
 
@@ -140,24 +148,31 @@ export class StencilInspector extends LitElement {
 
         ${this._hasUpgrade
           ? html`<button
-              class="btn btn-sm btn-primary"
-              style="width: 100%; margin-bottom: var(--ep-space-2);"
-              ?disabled=${this._busy}
-              @click=${this._handleUpgrade}
-            >
-              ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
-            </button>`
-          : nothing}
-        ${this.callbacks?.startEditing
-          ? html`<button
-              class="btn btn-sm ${this._hasUpgrade ? 'btn-outline' : 'btn-primary'}"
-              style="width: 100%; margin-bottom: var(--ep-space-2);"
-              ?disabled=${this._busy}
-              @click=${this._handleStartEditing}
-            >
-              ${this._busy ? 'Loading...' : 'Start Editing'}
-            </button>`
-          : nothing}
+                class="btn btn-sm btn-primary"
+                style="width: 100%; margin-bottom: var(--ep-space-2);"
+                ?disabled=${this._busy}
+                @click=${this._handleUpgrade}
+              >
+                ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
+              </button>
+              <div
+                class="inspector-field-hint"
+                style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-bottom: var(--ep-space-2);"
+              >
+                Upgrade to v${this._latestVersion} before editing — editing the stale
+                v${this._version} content here would overwrite the newer published version when you
+                save.
+              </div>`
+          : this.callbacks?.startEditing
+            ? html`<button
+                class="btn btn-sm btn-primary"
+                style="width: 100%; margin-bottom: var(--ep-space-2);"
+                ?disabled=${this._busy}
+                @click=${this._handleStartEditing}
+              >
+                ${this._busy ? 'Loading...' : 'Start Editing'}
+              </button>`
+            : nothing}
 
         <button class="btn btn-sm btn-ghost" style="width: 100%;" @click=${this._handleDetach}>
           Detach from Stencil
@@ -222,8 +237,28 @@ export class StencilInspector extends LitElement {
     this._message = '';
 
     try {
+      // Capture any template overrides (placeholder fill content) before
+      // swapping the local view to the stencil's draft. We restore them on
+      // Publish or Discard so the user doesn't lose their fills by editing.
+      const localContent = extractSubtree(this.engine.doc, this.node.id);
+      // extractSubtree strips fills; capture from a non-stripping copy.
+      this._capturedFillsBeforeEdit = captureFillsByName({
+        ...localContent,
+        slots: this._collectLocalFillSlotsAsMap(),
+        nodes: this._collectLocalDescendantNodesAsMap(),
+      });
+
       const result = await this.callbacks.startEditing(this._ref!);
       this._draftVersion = result.draftVersion;
+
+      // Swap the local view to the stencil's draft content, so the user is
+      // editing the stencil's defaults — not the template's overrides.
+      if (this.callbacks.getStencilVersion) {
+        const draftInfo = await this.callbacks.getStencilVersion(this._ref!, result.draftVersion);
+        if (draftInfo) {
+          this._replaceContent(draftInfo.content);
+        }
+      }
 
       this.engine.dispatch({
         type: 'UpdateNodeProps',
@@ -234,11 +269,137 @@ export class StencilInspector extends LitElement {
         },
       });
 
-      this._message = 'Editing mode — changes are local until you save to draft';
+      this._message = 'Editing the stencil — your template overrides are preserved';
     } catch (e) {
       this._message = `Error: ${(e as Error).message}`;
     } finally {
       this._busy = false;
+    }
+  }
+
+  /**
+   * Walks the live doc from this stencil's children, returning a `slots` map
+   * that *includes* fill slot children (unlike extractSubtree, which strips
+   * them). Used by the Start Editing capture path so we don't lose overrides.
+   */
+  private _collectLocalFillSlotsAsMap(): Record<string, Slot> {
+    const result: Record<string, Slot> = {};
+    const stack: NodeId[] = [...(this.engine.doc.slots[this.node.slots[0]]?.children ?? [])];
+    const visited = new Set<NodeId>();
+    while (stack.length > 0) {
+      const id = stack.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      const node = this.engine.doc.nodes[id];
+      if (!node) continue;
+      for (const sid of node.slots) {
+        const slot = this.engine.doc.slots[sid];
+        if (!slot) continue;
+        result[sid as string] = slot;
+        for (const childId of slot.children) stack.push(childId);
+      }
+    }
+    return result;
+  }
+
+  private _collectLocalDescendantNodesAsMap(): Record<string, Node> {
+    const result: Record<string, Node> = {};
+    const stack: NodeId[] = [...(this.engine.doc.slots[this.node.slots[0]]?.children ?? [])];
+    const visited = new Set<NodeId>();
+    while (stack.length > 0) {
+      const id = stack.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      const node = this.engine.doc.nodes[id];
+      if (!node) continue;
+      result[id as string] = node;
+      for (const sid of node.slots) {
+        const slot = this.engine.doc.slots[sid];
+        if (!slot) continue;
+        for (const childId of slot.children) stack.push(childId);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Splice captured fills (template overrides) into the placeholders of this
+   * stencil's children, matched by `props.name`. Each splice re-keys with
+   * fresh IDs and dispatches one `InsertNode` per top-level fill child.
+   *
+   * Used after Publish, Discard, or Upgrade to preserve user-authored overrides.
+   */
+  private _applyCapturedFills(captured: Map<string, CapturedFill>) {
+    if (captured.size === 0) return;
+    const doc = this.engine.doc;
+    const stencilSlotId = this.node.slots[0];
+    if (!stencilSlotId) return;
+
+    const stack: NodeId[] = [...(doc.slots[stencilSlotId]?.children ?? [])];
+    const visited = new Set<NodeId>();
+    while (stack.length > 0) {
+      const nodeId = stack.shift()!;
+      if (visited.has(nodeId)) continue;
+      visited.add(nodeId);
+      const node = doc.nodes[nodeId];
+      if (!node) continue;
+
+      if (node.type === 'placeholder') {
+        const name = node.props?.name as string | undefined;
+        if (name && captured.has(name)) {
+          const fillSlotId = node.slots.find((sid) => doc.slots[sid]?.name === 'fill');
+          if (fillSlotId) {
+            this._spliceFillIntoSlot(fillSlotId, captured.get(name)!);
+          }
+        }
+        // Don't descend into placeholder slots — overrides are one-level only.
+        continue;
+      }
+
+      for (const sid of node.slots) {
+        const slot = doc.slots[sid];
+        if (slot) for (const childId of slot.children) stack.push(childId);
+      }
+    }
+  }
+
+  private _spliceFillIntoSlot(fillSlotId: SlotId, capture: CapturedFill) {
+    const reKeyed = reKeyCapturedFill(capture);
+    const nodeById = new Map(reKeyed.nodes.map((n) => [n.id as string, n]));
+    const slotById = new Map(reKeyed.slots.map((s) => [s.id as string, s]));
+
+    for (const rootId of reKeyed.rootChildIds) {
+      const topNode = nodeById.get(rootId as string);
+      if (!topNode) continue;
+
+      const ownSlots: Slot[] = [];
+      const descNodes: Node[] = [];
+      const descSlots: Slot[] = [];
+      const seen = new Set<string>();
+      const collect = (id: string, isRoot: boolean) => {
+        if (seen.has(id)) return;
+        seen.add(id);
+        const n = nodeById.get(id);
+        if (!n) return;
+        if (!isRoot) descNodes.push(n);
+        for (const sid of n.slots) {
+          const slot = slotById.get(sid as string);
+          if (!slot) continue;
+          if (isRoot) ownSlots.push(slot);
+          else descSlots.push(slot);
+          for (const c of slot.children) collect(c as string, false);
+        }
+      };
+      collect(rootId as string, true);
+
+      this.engine.dispatch({
+        type: 'InsertNode',
+        node: topNode,
+        slots: [...ownSlots, ...descSlots],
+        targetSlotId: fillSlotId,
+        index: -1,
+        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
+      });
     }
   }
 
@@ -254,8 +415,20 @@ export class StencilInspector extends LitElement {
         return;
       }
 
+      // Capture template overrides before swapping; the new published
+      // content has empty fills by definition, so we re-splice afterwards.
+      const captured = captureFillsByName({
+        ...extractSubtree(this.engine.doc, this.node.id),
+        slots: this._collectLocalFillSlotsAsMap(),
+        nodes: this._collectLocalDescendantNodesAsMap(),
+      });
+
       // Replace current content with the new version
       this._replaceContent(versionInfo.content);
+
+      // Re-apply overrides by placeholder name (matching the server-side
+      // UpdateStencilInTemplate behaviour).
+      this._applyCapturedFills(captured);
 
       // Update version prop
       this.engine.dispatch({
@@ -321,6 +494,14 @@ export class StencilInspector extends LitElement {
         },
       });
 
+      // Restore the user's template overrides (captured at Start Editing).
+      // The published content has empty fills by definition; this re-applies
+      // the overrides by placeholder name.
+      if (this._capturedFillsBeforeEdit) {
+        this._applyCapturedFills(this._capturedFillsBeforeEdit);
+        this._capturedFillsBeforeEdit = null;
+      }
+
       this._message = `Published v${result.version}`;
     } catch (e) {
       this._message = `Error: ${(e as Error).message}`;
@@ -354,6 +535,12 @@ export class StencilInspector extends LitElement {
           isDraft: false,
         },
       });
+
+      // Restore the user's template overrides captured before Start Editing.
+      if (this._capturedFillsBeforeEdit) {
+        this._applyCapturedFills(this._capturedFillsBeforeEdit);
+        this._capturedFillsBeforeEdit = null;
+      }
 
       this._message = 'Changes discarded — reverted to published version';
     } catch (e) {

@@ -36,6 +36,9 @@ export class EpistolaPalette extends LitElement {
     // Delegate to component's onBeforeInsert hook if present
     const def = this.engine.registry.get(type);
     if (def?.onBeforeInsert) {
+      // Palette inserts at the document root, so there is no "deeper" target
+      // slot to compute an ancestor scope from. The picker treats the
+      // missing context as "no recursion possible" and shows everything.
       const overrideProps = await def.onBeforeInsert(this.engine);
       if (!overrideProps) return; // cancelled
       this._insertNode(type, overrideProps);

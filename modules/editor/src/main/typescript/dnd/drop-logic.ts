@@ -7,6 +7,7 @@
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 import type { DocumentIndexes } from '../engine/indexes.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js';
+import { computeAncestorScope, isInLockedStencilLayout } from '../components/stencil/ancestry.js';
 import type { DragData } from './types.js';
 
 export type Edge = 'top' | 'bottom';
@@ -117,6 +118,13 @@ export function canDropHere(
     return false;
   }
 
+  // A published stencil's layout is frozen — drops are only allowed inside
+  // placeholder fills. The CSS lock (`pointer-events: none`) is just a hint;
+  // this is the authoritative check.
+  if (isInLockedStencilLayout(doc, targetSlotId, indexes)) {
+    return false;
+  }
+
   // For block drags: prevent cycle (can't move into own descendant)
   if (dragData.source === 'block') {
     // Can't drop into itself
@@ -124,6 +132,31 @@ export function canDropHere(
 
     // Can't drop into a descendant of itself
     if (isDescendant(targetSlot.nodeId, dragData.nodeId, indexes)) return false;
+  }
+
+  // Stencil/placeholder structural rules. The same ancestor walk powers
+  // three checks; computed once here.
+  if (dragData.blockType === 'stencil' || dragData.blockType === 'placeholder') {
+    const scope = computeAncestorScope(doc, targetSlotId, indexes);
+
+    // Rule 2: a placeholder may only be dropped where a stencil is in the
+    // ancestor chain, and never inside another placeholder's fill slot
+    // (rule 3 — at the stencil-definition level, which is the only level
+    // a bare placeholder can be dropped from the palette).
+    if (dragData.blockType === 'placeholder') {
+      if (!scope.hasStencilAncestor) return false;
+      if (scope.hasPlaceholderAncestor) return false;
+    }
+
+    // Rule 1: a stencil cannot be dropped where its own stencilId is already
+    // in the ancestor chain. For palette drags the stencilId is chosen later
+    // in the picker dialog (which has its own recursion guard); for block
+    // drags we have the dragged node, so we can check now.
+    if (dragData.blockType === 'stencil' && dragData.source === 'block') {
+      const dragged = doc.nodes[dragData.nodeId];
+      const sid = dragged?.props?.stencilId as string | undefined;
+      if (sid && scope.stencilIds.has(sid)) return false;
+    }
   }
 
   return true;

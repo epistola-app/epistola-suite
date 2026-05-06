@@ -4,6 +4,13 @@
  * Given a stencil node in a document, collects the node's slot → children →
  * all descendant nodes/slots recursively, and wraps them in a new
  * TemplateDocument with a root container.
+ *
+ * **Placeholder fill slots are stripped on extract.** A stencil definition
+ * never ships with template overrides; the `fill` slot of every placeholder
+ * is included structurally but with `children: []`, and the override's
+ * descendants are not collected. This is the boundary between "I am editing
+ * the stencil definition" and "I am editing a template's override of this
+ * stencil."
  */
 
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../../types/index.js';
@@ -28,7 +35,9 @@ export function extractSubtree(doc: TemplateDocument, stencilNodeId: NodeId): Te
     return createEmptyDocument();
   }
 
-  // Collect all descendant nodes and slots recursively
+  // Collect all descendant nodes and slots recursively. When a placeholder is
+  // encountered, descend only into its `default` slot — its `fill` slot is
+  // template-side state and must not round-trip into the stencil definition.
   const collectedNodes = new Map<string, Node>();
   const collectedSlots = new Map<string, Slot>();
 
@@ -37,9 +46,15 @@ export function extractSubtree(doc: TemplateDocument, stencilNodeId: NodeId): Te
     if (!node) return;
     collectedNodes.set(nodeId as string, node);
 
+    const isPlaceholder = node.type === 'placeholder';
     for (const sid of node.slots) {
       const s = (doc.slots as Record<string, Slot>)[sid as string];
       if (!s) continue;
+      if (isPlaceholder && s.name === 'fill') {
+        // Keep the fill slot structurally, but empty — and skip descending.
+        collectedSlots.set(sid as string, { ...s, children: [] });
+        continue;
+      }
       collectedSlots.set(sid as string, s);
       for (const childId of s.children) {
         collectDescendants(childId);

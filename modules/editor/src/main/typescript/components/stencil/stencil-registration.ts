@@ -17,6 +17,7 @@ import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/i
 import type { StencilCallbacks } from './types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
+import { computeAncestorScope } from './ancestry.js';
 import './StencilInspector.js';
 import { nanoid } from 'nanoid';
 import { html } from 'lit';
@@ -85,13 +86,23 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       ></stencil-inspector>`;
     },
 
-    onBeforeInsert: async () => {
+    onBeforeInsert: async (engineUnknown, context) => {
       if (!options.callbacks) {
         // No callbacks — create empty stencil container
         return {};
       }
 
-      const result = await openStencilPickerDialog(options.callbacks);
+      // If we know the target slot, compute the ancestor stencil set so the
+      // picker can disable recursive choices.
+      let disabledStencilIds: Set<string> | undefined;
+      const targetSlotId = context?.targetSlotId;
+      if (targetSlotId) {
+        const engine = engineUnknown as EditorEngine;
+        const scope = computeAncestorScope(engine.doc, targetSlotId, engine.indexes);
+        if (scope.stencilIds.size > 0) disabledStencilIds = scope.stencilIds;
+      }
+
+      const result = await openStencilPickerDialog(options.callbacks, { disabledStencilIds });
       if (!result) return null; // Cancelled
 
       if (result.action === 'create-new') {

@@ -158,6 +158,83 @@ describe('extractSubtree for inspector actions', () => {
       }
     }
   });
+
+  it('strips placeholder fill slot children but keeps the slot record', () => {
+    // Build a doc directly: stencil → placeholder(default + fill, both populated).
+    // The user override (fill content) must not round-trip into the stencil
+    // definition — extractSubtree returns the fill slot empty.
+    const doc = {
+      modelVersion: 1,
+      root: 'root',
+      nodes: {
+        root: { id: 'root', type: 'root', slots: ['rs'] },
+        stencil: {
+          id: 'stencil',
+          type: 'stencil',
+          slots: ['stencil-slot'],
+          props: { stencilId: 'A', version: 1, isDraft: true },
+        },
+        ph: {
+          id: 'ph',
+          type: 'placeholder',
+          slots: ['ph-default', 'ph-fill'],
+          props: { name: 'body' },
+        },
+        defaultText: {
+          id: 'defaultText',
+          type: 'text',
+          slots: [],
+          props: { content: 'default content' },
+        },
+        fillText: {
+          id: 'fillText',
+          type: 'text',
+          slots: [],
+          props: { content: 'override content' },
+        },
+      },
+      slots: {
+        rs: { id: 'rs', nodeId: 'root', name: 'children', children: ['stencil'] },
+        'stencil-slot': {
+          id: 'stencil-slot',
+          nodeId: 'stencil',
+          name: 'children',
+          children: ['ph'],
+        },
+        'ph-default': {
+          id: 'ph-default',
+          nodeId: 'ph',
+          name: 'default',
+          children: ['defaultText'],
+        },
+        'ph-fill': {
+          id: 'ph-fill',
+          nodeId: 'ph',
+          name: 'fill',
+          children: ['fillText'],
+        },
+      },
+      themeRef: { type: 'inherit' },
+    } as unknown as TemplateDocument;
+
+    const extracted = extractSubtree(doc, 'stencil' as NodeId);
+
+    // The placeholder is included.
+    const ph = Object.values(extracted.nodes).find((n) => n.type === 'placeholder');
+    expect(ph).toBeDefined();
+
+    // Default content survives.
+    const texts = Object.values(extracted.nodes).filter((n) => n.type === 'text');
+    expect(texts.some((n) => n.props?.content === 'default content')).toBe(true);
+
+    // Fill content was stripped.
+    expect(texts.some((n) => n.props?.content === 'override content')).toBe(false);
+
+    // Fill slot is still present (structurally) but empty.
+    const fillSlot = Object.values(extracted.slots).find((s) => s.name === 'fill');
+    expect(fillSlot).toBeDefined();
+    expect(fillSlot!.children).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

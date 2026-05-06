@@ -1,0 +1,104 @@
+/* ── Placeholder block canvas styles ──────────────────────────────────── */
+
+.canvas-placeholder {
+  border: 1px dashed var(--ep-primary, #2563eb);
+  border-radius: var(--ep-radius-md, 6px);
+  background: var(--ep-primary-soft, rgb(37 99 235 / 0.04));
+  padding: var(--ep-space-2, 8px);
+  margin: var(--ep-space-1, 4px) 0;
+}
+
+.canvas-placeholder-header {
+  display: flex;
+  gap: var(--ep-space-2, 8px);
+  align-items: center;
+  font-size: var(--ep-text-xs, 11px);
+  margin-bottom: var(--ep-space-2, 8px);
+  color: var(--ep-primary, #2563eb);
+}
+
+.canvas-placeholder-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.canvas-placeholder-name {
+  font-family: var(--ep-font-mono, monospace);
+  background: var(--ep-white, #fff);
+  padding: 0 var(--ep-space-1-5, 6px);
+  border-radius: var(--ep-radius-sm, 3px);
+  border: 1px solid var(--ep-primary, #2563eb);
+}
+
+.canvas-placeholder-name--unset {
+  font-style: italic;
+  color: var(--ep-color-destructive, #dc2626);
+  border-color: var(--ep-color-destructive, #dc2626);
+}
+
+.canvas-placeholder-description {
+  color: var(--ep-muted-foreground, #6b7280);
+}
+
+.canvas-placeholder-fill,
+.canvas-placeholder-default {
+  /* The slot's children render here directly — no border so they look natural. */
+  min-height: 1.5em;
+}
+
+.canvas-placeholder-fill--empty {
+  position: relative;
+  min-height: 2.5em;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    rgb(37 99 235 / 0.03) 6px,
+    rgb(37 99 235 / 0.03) 12px
+  );
+}
+
+.canvas-placeholder-fill-hint {
+  font-size: var(--ep-text-xs, 11px);
+  color: var(--ep-muted-foreground, #6b7280);
+  font-style: italic;
+  padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
+}
+
+.canvas-placeholder--default-edit {
+  border-style: solid;
+  border-color: var(--ep-amber-500, #f59e0b);
+  background: var(--ep-amber-soft, rgb(245 158 11 / 0.05));
+}
+
+.canvas-placeholder--default-edit .canvas-placeholder-header {
+  color: var(--ep-amber-700, #b45309);
+}
+
+.canvas-placeholder--default-edit .canvas-placeholder-name {
+  border-color: var(--ep-amber-700, #b45309);
+}
+
+/* Read-only preview of the stencil's default content, shown only when the
+   embedding template's fill is empty. Users see what would render without
+   any override. The wrapper disables pointer-events so the content cannot
+   be selected, edited, or used as a drop target — drops fall through to the
+   adjacent fill slot. */
+.canvas-placeholder-default-preview {
+  pointer-events: none;
+  opacity: 0.45;
+  filter: grayscale(0.4);
+  user-select: none;
+  border-bottom: 1px dashed var(--ep-primary, #2563eb);
+  margin-bottom: var(--ep-space-1, 4px);
+  padding-bottom: var(--ep-space-1, 4px);
+}
+
+/* Placeholder fills inside a locked stencil remain editable.
+   The locked stencil sets pointer-events: none on its subtree;
+   re-enable pointer events on the placeholder so users can fill it. */
+.canvas-stencil-locked .canvas-placeholder {
+  pointer-events: auto;
+  opacity: 1;
+}

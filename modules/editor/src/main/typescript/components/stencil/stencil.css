@@ -100,6 +100,16 @@
   box-shadow: 0 0 0 1px var(--ep-primary);
 }
 
+.stencil-picker-card--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--ep-gray-50, #f9fafb);
+}
+
+.stencil-picker-card--disabled:hover {
+  border-color: var(--ep-border-color);
+}
+
 .stencil-picker-card-name {
   font-weight: 500;
   font-size: var(--ep-text-sm);
