@@ -252,5 +252,116 @@ export function createTableDefinition(): ComponentDefinition {
         columnWidths,
       };
     },
+
+    examples: [
+      {
+        name: '2x2-with-header',
+        description:
+          'A 2x2 table with the first row as a header. Cells live in slots named cell-<row>-<col>.',
+        fragment: {
+          rootNodeId: 'n-table-2x2',
+          nodes: {
+            'n-table-2x2': {
+              id: 'n-table-2x2',
+              type: 'table',
+              slots: [
+                's-table-2x2-cell-0-0',
+                's-table-2x2-cell-0-1',
+                's-table-2x2-cell-1-0',
+                's-table-2x2-cell-1-1',
+              ],
+              props: {
+                rows: 2,
+                columns: 2,
+                columnWidths: [50, 50],
+                headerRows: 1,
+                merges: [],
+              },
+            },
+            'n-table-2x2-h0': {
+              id: 'n-table-2x2-h0',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    { type: 'paragraph', content: [{ type: 'text', text: 'Name' }] },
+                  ],
+                },
+              },
+            },
+            'n-table-2x2-h1': {
+              id: 'n-table-2x2-h1',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    { type: 'paragraph', content: [{ type: 'text', text: 'Total' }] },
+                  ],
+                },
+              },
+            },
+            'n-table-2x2-c00': {
+              id: 'n-table-2x2-c00',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    { type: 'paragraph', content: [{ type: 'text', text: 'Subtotal' }] },
+                  ],
+                },
+              },
+            },
+            'n-table-2x2-c01': {
+              id: 'n-table-2x2-c01',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'subtotal' } }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-table-2x2-cell-0-0': {
+              id: 's-table-2x2-cell-0-0',
+              nodeId: 'n-table-2x2',
+              name: 'cell-0-0',
+              children: ['n-table-2x2-h0'],
+            },
+            's-table-2x2-cell-0-1': {
+              id: 's-table-2x2-cell-0-1',
+              nodeId: 'n-table-2x2',
+              name: 'cell-0-1',
+              children: ['n-table-2x2-h1'],
+            },
+            's-table-2x2-cell-1-0': {
+              id: 's-table-2x2-cell-1-0',
+              nodeId: 'n-table-2x2',
+              name: 'cell-1-0',
+              children: ['n-table-2x2-c00'],
+            },
+            's-table-2x2-cell-1-1': {
+              id: 's-table-2x2-cell-1-1',
+              nodeId: 'n-table-2x2',
+              name: 'cell-1-1',
+              children: ['n-table-2x2-c01'],
+            },
+          },
+        },
+      },
+    ],
   };
 }
