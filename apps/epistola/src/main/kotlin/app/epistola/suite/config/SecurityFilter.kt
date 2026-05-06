@@ -27,6 +27,16 @@ import org.springframework.web.filter.OncePerRequestFilter
  *
  * The principal is automatically unbound when the request completes due to
  * ScopedValue's automatic scope management.
+ *
+ * ## Async dispatches
+ *
+ * `OncePerRequestFilter` defaults to skipping ASYNC re-dispatches. We override
+ * that and cache the principal as a request attribute on the original REQUEST
+ * dispatch — Spring Security's propagation of the auth across async dispatches
+ * isn't fully reliable with our STATELESS API chain, and re-extracting the
+ * principal from `SecurityContextHolder` on the async thread depends on
+ * `ApiKeyAuthenticationFilter` running and re-setting it. Reading from the
+ * cached attribute is safer and free of dependencies on filter order.
  */
 @Component
 @Order(-99) // Run after Spring Security (-100) but before other filters
@@ -34,15 +44,37 @@ class SecurityFilter : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    /** Run on async re-dispatches too — see class KDoc. */
+    override fun shouldNotFilterAsyncDispatch(): Boolean = false
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
+        val principal = resolvePrincipal(request)
+
+        if (principal != null) {
+            // Cache so the async re-dispatch (different thread, ScopedValue
+            // not inherited) can see the same principal even if Spring
+            // Security hasn't propagated `SecurityContextHolder` to it.
+            request.setAttribute(REQUEST_ATTR_PRINCIPAL, principal)
+            SecurityContext.runWithPrincipal(principal) {
+                filterChain.doFilter(request, response)
+            }
+        } else {
+            filterChain.doFilter(request, response)
+        }
+    }
+
+    private fun resolvePrincipal(request: HttpServletRequest): EpistolaPrincipal? {
+        // On async re-dispatches, prefer the cached principal — see class KDoc.
+        (request.getAttribute(REQUEST_ATTR_PRINCIPAL) as? EpistolaPrincipal)?.let { return it }
+
         val authentication = SecurityContextHolder.getContext().authentication
         val authPrincipal = authentication?.principal
 
-        val principal = when {
+        return when {
             authentication == null || !authentication.isAuthenticated -> null
             authPrincipal is String -> null // AnonymousAuthenticationToken
             authPrincipal is EpistolaPrincipal -> authPrincipal
@@ -65,13 +97,10 @@ class SecurityFilter : OncePerRequestFilter() {
                 null
             }
         }
+    }
 
-        if (principal != null) {
-            SecurityContext.runWithPrincipal(principal) {
-                filterChain.doFilter(request, response)
-            }
-        } else {
-            filterChain.doFilter(request, response)
-        }
+    companion object {
+        /** Request attribute key for the cached principal — package-private so tests can poke it. */
+        internal const val REQUEST_ATTR_PRINCIPAL = "app.epistola.suite.config.SecurityFilter.PRINCIPAL"
     }
 }

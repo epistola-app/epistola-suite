@@ -35,6 +35,18 @@ import org.springframework.web.filter.OncePerRequestFilter
  * messages ([LookupApiKeyByHash], [RecordApiKeyUsage]) — `MediatorFilter` runs
  * at `Ordered.HIGHEST_PRECEDENCE`, so `MediatorContext` is bound by the time
  * this filter executes inside the Spring Security chain.
+ *
+ * ## Async dispatches
+ *
+ * `OncePerRequestFilter` defaults to skipping ASYNC re-dispatches. We override
+ * that because async-using endpoints (currently the Spring AI MCP server's
+ * `/api/mcp` SSE transport) re-run the entire filter chain when the deferred
+ * result completes; without re-establishing `SecurityContextHolder` on the
+ * async thread, Spring Security's `AuthorizationFilter` denies. To avoid
+ * a second DB lookup and double counting, the validated principal is cached
+ * in a request attribute on the original REQUEST dispatch and restored on
+ * the async re-dispatch — `RecordApiKeyUsage` and the success counter run
+ * exactly once per request.
  */
 class ApiKeyAuthenticationFilter(
     private val apiKeyService: ApiKeyService,
@@ -48,11 +60,24 @@ class ApiKeyAuthenticationFilter(
         .tag("result", result)
         .register(meterRegistry)
 
+    /** Run on async re-dispatches too — see class KDoc. */
+    override fun shouldNotFilterAsyncDispatch(): Boolean = false
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
+        // On async re-dispatches, restore the principal we cached on REQUEST.
+        // Skips the DB lookup, the usage record, and the metric counter — this
+        // is the same logical request, the side effects already happened.
+        val cachedPrincipal = request.getAttribute(REQUEST_ATTR_PRINCIPAL) as? EpistolaPrincipal
+        if (cachedPrincipal != null) {
+            SecurityContextHolder.getContext().authentication = ApiKeyAuthenticationToken(cachedPrincipal)
+            filterChain.doFilter(request, response)
+            return
+        }
+
         val apiKeyHeader = request.getHeader(headerName)
 
         if (apiKeyHeader.isNullOrBlank()) {
@@ -105,6 +130,8 @@ class ApiKeyAuthenticationFilter(
         )
 
         SecurityContextHolder.getContext().authentication = ApiKeyAuthenticationToken(principal)
+        // Cache for the async re-dispatch — see class KDoc.
+        request.setAttribute(REQUEST_ATTR_PRINCIPAL, principal)
         authCounter("success").increment()
 
         filterChain.doFilter(request, response)
@@ -119,5 +146,8 @@ class ApiKeyAuthenticationFilter(
 
     companion object {
         const val DEFAULT_HEADER_NAME = "X-API-Key"
+
+        /** Request attribute key for the validated principal. */
+        const val REQUEST_ATTR_PRINCIPAL = "app.epistola.suite.api.security.ApiKeyAuthenticationFilter.PRINCIPAL"
     }
 }

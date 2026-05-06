@@ -16,6 +16,7 @@ epistola-contract = "0.3.0"
 epistola-model = "0.3.0"
 aws-sdk = "2.44.0"
 guava = "33.4.8-jre"
+spring-ai = "2.0.0-M5"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }

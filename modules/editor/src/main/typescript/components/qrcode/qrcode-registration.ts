@@ -37,5 +37,48 @@ export function createQrCodeDefinition(): ComponentDefinition {
         </div>
       `;
     },
+
+    examples: [
+      {
+        name: 'data-bound-link',
+        description:
+          'QR code whose value is taken from a data field — e.g. a payment URL. The value prop is an expression, not a literal string.',
+        fragment: {
+          rootNodeId: 'n-qr-link',
+          nodes: {
+            'n-qr-link': {
+              id: 'n-qr-link',
+              type: 'qrcode',
+              slots: [],
+              props: {
+                value: { raw: 'paymentLink', language: 'jsonata' },
+                size: '80pt',
+              },
+            },
+          },
+          slots: {},
+        },
+      },
+      {
+        name: 'static-string',
+        description:
+          'QR code with a literal value. Use a JSONata string literal (single quotes) inside the raw expression.',
+        fragment: {
+          rootNodeId: 'n-qr-static',
+          nodes: {
+            'n-qr-static': {
+              id: 'n-qr-static',
+              type: 'qrcode',
+              slots: [],
+              props: {
+                value: { raw: "'https://epistola.app'", language: 'jsonata' },
+                size: '120pt',
+              },
+            },
+          },
+          slots: {},
+        },
+      },
+    ],
   };
 }

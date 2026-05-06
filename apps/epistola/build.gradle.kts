@@ -31,6 +31,9 @@ dependencies {
     // REST API module (controllers for external systems)
     implementation(project(":modules:rest-api"))
 
+    // MCP module (Model Context Protocol server for AI assistants)
+    implementation(project(":modules:epistola-mcp"))
+
     // UI/Frontend modules
     implementation(project(":modules:editor"))
 

@@ -45,6 +45,100 @@ export function createColumnsDefinition(): ComponentDefinition {
       }));
     },
 
+    examples: [
+      {
+        name: 'two-equal',
+        description: 'A 50/50 split — two equal-width columns, no gap.',
+        fragment: {
+          rootNodeId: 'n-columns-equal',
+          nodes: {
+            'n-columns-equal': {
+              id: 'n-columns-equal',
+              type: 'columns',
+              slots: ['s-columns-equal-0', 's-columns-equal-1'],
+              props: { columnSizes: [1, 1], gap: 0 },
+            },
+            'n-columns-equal-left': {
+              id: 'n-columns-equal-left',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Left column' }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-columns-equal-right': {
+              id: 'n-columns-equal-right',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Right column' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-columns-equal-0': {
+              id: 's-columns-equal-0',
+              nodeId: 'n-columns-equal',
+              name: 'column-0',
+              children: ['n-columns-equal-left'],
+            },
+            's-columns-equal-1': {
+              id: 's-columns-equal-1',
+              nodeId: 'n-columns-equal',
+              name: 'column-1',
+              children: ['n-columns-equal-right'],
+            },
+          },
+        },
+      },
+      {
+        name: 'one-third-two-thirds',
+        description:
+          'A 1/3 + 2/3 split with a 12pt gap. columnSizes are flex weights, not absolute widths.',
+        fragment: {
+          rootNodeId: 'n-columns-uneven',
+          nodes: {
+            'n-columns-uneven': {
+              id: 'n-columns-uneven',
+              type: 'columns',
+              slots: ['s-columns-uneven-0', 's-columns-uneven-1'],
+              props: { columnSizes: [1, 2], gap: 12 },
+            },
+          },
+          slots: {
+            's-columns-uneven-0': {
+              id: 's-columns-uneven-0',
+              nodeId: 'n-columns-uneven',
+              name: 'column-0',
+              children: [],
+            },
+            's-columns-uneven-1': {
+              id: 's-columns-uneven-1',
+              nodeId: 'n-columns-uneven',
+              name: 'column-1',
+              children: [],
+            },
+          },
+        },
+      },
+    ],
+
     // ----- Canvas hook -----
     renderCanvas: ({ node, renderSlot }) => {
       const props = node.props ?? {};
