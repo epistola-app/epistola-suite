@@ -4,6 +4,35 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Locked stencil layouts now actually reject drops.** Previously the lock was purely visual (`pointer-events: none` on `.canvas-stencil-locked`) and the DnD path still routed drops to slots inside published stencils, letting users mutate frozen layouts. `canDropHere` now consults `isInLockedStencilLayout` (in `components/stencil/ancestry.ts`) which walks ancestors of the target slot and returns `true` when the first stencil ancestor is published (`stencilId != null && !isDraft`) and no placeholder fill was crossed first. Drops inside placeholder fills of published stencils stay allowed — that's the editable surface by design.
+- **Editing a stencil with an available upgrade is now blocked in the UI.** Previously, "Start Editing" appeared alongside "Upgrade" when a newer published version existed; clicking Edit would open the stale local content for editing and a subsequent Publish would create a new version based on stale content, effectively rolling back the newer version. The inspector now hides "Start Editing" when an upgrade is available and shows a hint instructing the user to upgrade first.
+- **Auto-named placeholders.** Dropping a placeholder no longer requires manually naming it before save — the editor's `onBeforeInsert` hook auto-fills `placeholder-N` (incrementing to stay unique within the document). Users can rename via the inspector. Resolves the "PLACEHOLDER_NAME_INVALID got ''" error that hit users who hadn't typed a name.
+- **`PublishStencilVersion` now runs `PlaceholderValidator`.** Belt-and-suspenders: any stencil version content that slipped past draft-time validation (e.g. data created before validation was wired in) is rejected at publish time.
+- **Validator error message cosmetic:** `(^[a-z][a-z0-9-]{0,63}$$)` → `(^[a-z][a-z0-9-]{0,63}$)` — was a Kotlin string-template artifact.
+
+### Changed (BREAKING)
+
+- **Placeholder split into two slots: `default` and `fill`.** Previously a placeholder had a single `fill` slot that conflated the stencil's default content with the embedding template's override. Now:
+  - The `default` slot stores the stencil author's default content (set in stencil-edit mode, copied to inserted instances).
+  - The `fill` slot stores the embedding template's override (defaults empty; takes precedence when non-empty).
+  - The PDF renderer (`PlaceholderNodeRenderer`) renders fill if non-empty, otherwise falls back to default. Clearing all overrides therefore reverts to the default — no more "I overrode the default and now the default is gone" footgun.
+  - Editor canvas renders the appropriate slot per context (`placeholderContext` in `ancestry.ts`): stencil-author/draft mode shows the `default` slot for editing; template-fill mode shows the `fill` slot with a drop-zone hint when empty.
+  - Server-side `StencilContentReplacer.upgradeStencilInstances` captures the `fill` slot specifically (not the placeholder's first slot, which is now `default`).
+  - `extractSubtree` (used on stencil draft save) strips the `fill` slot's children — keeps the slot record structurally so the placeholder shape stays consistent, but ensures template overrides never round-trip into the stencil definition.
+  - Pre-prod, no migration: existing single-slot placeholders need to be re-created with two slots. The validator and renderer fall back gracefully when only one slot is present, but the new lock check (`isInLockedStencilLayout`) and canvas behaviour assume two slots.
+- **"Start Editing" now fetches the stencil's draft content.** Previously, clicking Start Editing on a stencil instance with template overrides left the user editing their own overrides as if they were the stencil's defaults; saving the draft promoted those overrides to the new stencil version. The inspector now captures the user's overrides, fetches the freshly-created draft (= a copy of the published version's defaults), and swaps the local view. On Publish/Discard, the captured overrides are spliced back by placeholder name. The same capture/restore now also happens around the Upgrade button so the client matches the server's preservation behaviour.
+- **Empty placeholder fills now preview the stencil's default in the canvas.** Previously the empty-fill state showed only a hatched drop zone with a hint. The canvas now also renders the `default` slot's children greyed out (`opacity: 0.45`, light grayscale, `pointer-events: none`) so the user can see exactly what would render if they don't override. The drop zone underneath remains the editable target.
+
+### Added
+
+- **Stencil placeholders** (v1, block-content only): stencils can now declare named placeholders that templates fill in place. A new editor component "Placeholder" (`modules/editor/.../components/placeholder/`) is droppable inside a stencil; in a template, a stencil's placeholders remain editable inside the otherwise-locked stencil subtree. Recursion is forbidden and enforced at three layers: a new `PlaceholderValidator` in the backend (`PLACEHOLDER_NAME_DUPLICATE`, `PLACEHOLDER_NAME_INVALID`, `PLACEHOLDER_NESTED_DEFINITION`, `PLACEHOLDER_OUTSIDE_STENCIL`, `STENCIL_RECURSION`, `STENCIL_PARAMETERBINDINGS_RESERVED`) wired into `CreateStencilVersion`, `UpdateStencilDraft`, `UpdateDraft`, and `UpdateStencilInTemplate`; a shared `computeAncestorScope` helper in the editor wired into `dnd/drop-logic.ts:canDropHere` and the stencil picker dialog; and a defensive `ancestorStencilIds` stack in the PDF renderer's `RenderContext` via `StencilNodeRenderer`. Stencil version upgrades preserve fills by name across renames/removals: `StencilContentReplacer.upgradeStencilInstances` now returns `UpgradeResult(document, droppedFills)` and the `UpdateStencilInTemplate` command returns `UpdateStencilInTemplateResult(upgradedCount, droppedFills)`. The keys `props.parameterBindings` (on stencil nodes) and stencil-version `dataModel` are reserved for the future stencil-parameters feature and rejected if used in v1. See [`docs/stencil-placeholders.md`](docs/stencil-placeholders.md) and [`docs/adr/0001-stencil-placeholders.md`](docs/adr/0001-stencil-placeholders.md).
+
+### Changed
+
+- **`UpdateStencilInTemplate` return type**: the command now returns `UpdateStencilInTemplateResult` (was `Int?`). Carries `upgradedCount` and `droppedFills` so callers can surface which user fills were discarded by an upgrade. The HTTP handler (`StencilHandler.upgradeStencil`) returns `{ "upgraded": count, "droppedFills": { ... } }`. Pre-prod, no migration path for the old shape.
+
 ## [0.18.0] - 2026-05-06
 
 ### Changed (PR #362 review feedback)

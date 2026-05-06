@@ -96,6 +96,10 @@ A strict CSP is enforced on all UI responses (`SecurityConfig.kt`). Key restrict
 
 - **Thymeleaf also mangles `hx-on::*`** — the `::` is interpreted as a fragment expression separator and stripped during template processing. This is a second reason to avoid these attributes.
 
+### Editor component registrations
+
+Every editor component registration (`ComponentDefinition` in `modules/editor/src/main/typescript/engine/registry.ts`) must include at least one entry in `examples[]`. Backend tools (the MCP server's `list_component_types` / `get_component_type`) and design docs surface these as canonical usage. Each example is a self-contained `{ rootNodeId, nodes, slots }` `TemplateDocument` fragment showing one realistic way the component is used. Treat missing examples as a PR blocker.
+
 ## Backend Architecture: UI Handlers vs REST API
 
 The backend has **two distinct endpoint layers** that must NEVER be mixed:
