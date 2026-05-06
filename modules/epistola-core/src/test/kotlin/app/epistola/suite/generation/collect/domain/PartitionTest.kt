@@ -123,7 +123,7 @@ class PartitionTest {
     @Test
     fun `TOTAL_PARTITIONS is the hard-coded constant the migration assumes`() {
         // Drift detection: if anyone bumps TOTAL_PARTITIONS without also updating the
-        // V26__generation_results.sql migration (which declares 64 LIST children),
+        // V27__generation_results.sql migration (which declares 64 LIST children),
         // production will silently misroute. Keep this assertion as the canary.
         assertThat(Partition.TOTAL_PARTITIONS).isEqualTo(64)
     }

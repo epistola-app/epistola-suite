@@ -1,10 +1,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
-import app.epistola.suite.apikeys.ApiKey
-import app.epistola.suite.apikeys.ApiKeyRepository
-import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -25,7 +22,6 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
-import java.time.Instant
 import java.util.UUID
 
 /**
@@ -67,12 +63,6 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
-
-    @Autowired
-    private lateinit var apiKeyService: ApiKeyService
-
-    @Autowired
-    private lateinit var apiKeyRepository: ApiKeyRepository
 
     @Test
     fun `ping without auth returns UP without partition info`() {
@@ -273,23 +263,8 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("smoke-${UUID.randomUUID().toString().take(8)}")
         CreateTenant(id = tenantKey, name = "Smoke Tenant").execute()
-
-        val plaintext = apiKeyService.generateKey()
-        val keyHash = apiKeyService.hashKey(plaintext)
-        val keyPrefix = apiKeyService.extractPrefix(plaintext)
-        val apiKey = ApiKey(
-            id = ApiKeyKey.of(UUID.randomUUID()),
-            tenantKey = tenantKey,
-            name = "smoke",
-            keyPrefix = keyPrefix,
-            enabled = true,
-            createdAt = Instant.now(),
-            lastUsedAt = null,
-            expiresAt = null,
-            createdBy = null,
-        )
-        apiKeyRepository.insert(apiKey, keyHash)
-        tenantKey to plaintext
+        val created = CreateApiKey(tenantId = tenantKey, name = "smoke").execute()
+        tenantKey to created.plaintextKey
     }
 
     private companion object {

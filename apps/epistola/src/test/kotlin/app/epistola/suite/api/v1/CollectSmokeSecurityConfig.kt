@@ -2,7 +2,6 @@ package app.epistola.suite.api.v1
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.api.security.ClientIdentityFilter
-import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.boot.test.context.TestConfiguration
@@ -37,11 +36,10 @@ class CollectSmokeSecurityConfig {
     @Order(1)
     fun smokeApiSecurityFilterChain(
         http: HttpSecurity,
-        apiKeyRepository: ApiKeyRepository,
         apiKeyService: ApiKeyService,
         meterRegistry: MeterRegistry,
     ): SecurityFilterChain {
-        val apiKeyFilter = ApiKeyAuthenticationFilter(apiKeyRepository, apiKeyService, meterRegistry)
+        val apiKeyFilter = ApiKeyAuthenticationFilter(apiKeyService, meterRegistry)
         http
             .securityMatcher("/api/**")
             .authorizeHttpRequests {
