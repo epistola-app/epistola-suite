@@ -169,7 +169,7 @@ curl -sS -o /dev/null -X POST "$URL" \
 record "initialized" "${green}ok${reset}"
 
 # ---------------------------------------------------------------------------
-# 3. tools/list — should return all 16 MCP tools we expose
+# 3. tools/list — should return all 15 MCP tools we expose
 # ---------------------------------------------------------------------------
 step "tools/list"
 tools_response=$(

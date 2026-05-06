@@ -11,6 +11,16 @@ dependencyManagement {
     }
 }
 
+// Spring AI's tool-schema generator reads parameter names via Java reflection.
+// Without -java-parameters the bytecode carries only synthetic arg0/arg1 names,
+// so MCP clients see arg0 instead of `catalogId`. Enable parameter-name
+// retention so the @McpToolParam-annotated kotlin args show up properly.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        javaParameters.set(true)
+    }
+}
+
 // Pin spring-ai versions explicitly: the spring-ai BOM does not propagate through
 // Gradle module boundaries (consumers of this module would otherwise see an
 // unresolved version when transitively pulling in the MCP starter), so we don't
