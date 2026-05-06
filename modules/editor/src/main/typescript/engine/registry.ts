@@ -442,6 +442,92 @@ export function createDefaultRegistry(): ComponentRegistry {
     inspector: [],
     defaultStyles: { marginBottom: '1.5sp' },
     defaultProps: { content: null },
+    examples: [
+      {
+        name: 'minimal',
+        description: 'Plain paragraph with literal text content.',
+        fragment: {
+          rootNodeId: 'n-text-minimal',
+          nodes: {
+            'n-text-minimal': {
+              id: 'n-text-minimal',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Hello, world!' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {},
+        },
+      },
+      {
+        name: 'with-expression',
+        description:
+          'Text with an inline data expression — references a field on the input data via {{ ... }}.',
+        fragment: {
+          rootNodeId: 'n-text-with-expression',
+          nodes: {
+            'n-text-with-expression': {
+              id: 'n-text-with-expression',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'text', text: 'Dear ' },
+                        { type: 'expression', attrs: { expression: 'recipient.name' } },
+                        { type: 'text', text: ',' },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {},
+        },
+      },
+      {
+        name: 'heading',
+        description: 'A level-1 heading. Use the heading node type within content for h1..h6.',
+        fragment: {
+          rootNodeId: 'n-text-heading',
+          nodes: {
+            'n-text-heading': {
+              id: 'n-text-heading',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'heading',
+                      attrs: { level: 1 },
+                      content: [{ type: 'text', text: 'Invoice' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {},
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -454,6 +540,94 @@ export function createDefaultRegistry(): ComponentRegistry {
     applicableStyles: 'all',
     inspector: [],
     defaultStyles: { marginBottom: '1.5sp' },
+    examples: [
+      {
+        name: 'with-children',
+        description:
+          'Container holding a heading followed by a paragraph — typical for grouping a section.',
+        fragment: {
+          rootNodeId: 'n-container-with-children',
+          nodes: {
+            'n-container-with-children': {
+              id: 'n-container-with-children',
+              type: 'container',
+              slots: ['s-container-with-children'],
+            },
+            'n-container-with-children-heading': {
+              id: 'n-container-with-children-heading',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'heading',
+                      attrs: { level: 2 },
+                      content: [{ type: 'text', text: 'Section title' }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-container-with-children-body': {
+              id: 'n-container-with-children-body',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Section body content goes here.' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-container-with-children': {
+              id: 's-container-with-children',
+              nodeId: 'n-container-with-children',
+              name: 'children',
+              children: [
+                'n-container-with-children-heading',
+                'n-container-with-children-body',
+              ],
+            },
+          },
+        },
+      },
+      {
+        name: 'styled-box',
+        description: 'Container used purely as a styled box — bordered + padded with no children.',
+        fragment: {
+          rootNodeId: 'n-container-styled',
+          nodes: {
+            'n-container-styled': {
+              id: 'n-container-styled',
+              type: 'container',
+              slots: ['s-container-styled-children'],
+              styles: {
+                border: '1pt solid #cbd5e1',
+                padding: '8pt',
+                borderRadius: '4pt',
+              },
+            },
+          },
+          slots: {
+            's-container-styled-children': {
+              id: 's-container-styled-children',
+              nodeId: 'n-container-styled',
+              name: 'children',
+              children: [],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register(createColumnsDefinition());
@@ -478,6 +652,97 @@ export function createDefaultRegistry(): ComponentRegistry {
       condition: { raw: '', language: 'jsonata' },
       inverse: false,
     },
+    examples: [
+      {
+        name: 'show-when-present',
+        description:
+          'Render the body only when the data field exists. Uses the JSONata $exists() helper.',
+        fragment: {
+          rootNodeId: 'n-cond-show',
+          nodes: {
+            'n-cond-show': {
+              id: 'n-cond-show',
+              type: 'conditional',
+              slots: ['s-cond-show-body'],
+              props: {
+                condition: { raw: '$exists(notes)', language: 'jsonata' },
+                inverse: false,
+              },
+            },
+            'n-cond-show-text': {
+              id: 'n-cond-show-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'text', text: 'Notes: ' },
+                        { type: 'expression', attrs: { expression: 'notes' } },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-cond-show-body': {
+              id: 's-cond-show-body',
+              nodeId: 'n-cond-show',
+              name: 'body',
+              children: ['n-cond-show-text'],
+            },
+          },
+        },
+      },
+      {
+        name: 'inverse-else',
+        description:
+          'Inverted condition — body renders only when the expression is FALSEY. Useful as the "else" branch.',
+        fragment: {
+          rootNodeId: 'n-cond-else',
+          nodes: {
+            'n-cond-else': {
+              id: 'n-cond-else',
+              type: 'conditional',
+              slots: ['s-cond-else-body'],
+              props: {
+                condition: { raw: 'paid', language: 'jsonata' },
+                inverse: true,
+              },
+            },
+            'n-cond-else-text': {
+              id: 'n-cond-else-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Payment is due.' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-cond-else-body': {
+              id: 's-cond-else-body',
+              nodeId: 'n-cond-else',
+              name: 'body',
+              children: ['n-cond-else-text'],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -499,6 +764,55 @@ export function createDefaultRegistry(): ComponentRegistry {
       indexAlias: undefined,
     },
     scopeProvider: buildIterationScope,
+    examples: [
+      {
+        name: 'over-array',
+        description:
+          'Iterate over an array on the input data. Each iteration introduces "item" as a scoped variable referenceable inside the body slot.',
+        fragment: {
+          rootNodeId: 'n-loop-items',
+          nodes: {
+            'n-loop-items': {
+              id: 'n-loop-items',
+              type: 'loop',
+              slots: ['s-loop-items-body'],
+              props: {
+                expression: { raw: 'attendees', language: 'jsonata' },
+                itemAlias: 'item',
+              },
+            },
+            'n-loop-items-line': {
+              id: 'n-loop-items-line',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'expression', attrs: { expression: 'item.name' } },
+                        { type: 'text', text: ' — ' },
+                        { type: 'expression', attrs: { expression: 'item.email' } },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-loop-items-body': {
+              id: 's-loop-items-body',
+              nodeId: 'n-loop-items',
+              name: 'body',
+              children: ['n-loop-items-line'],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -535,6 +849,96 @@ export function createDefaultRegistry(): ComponentRegistry {
       listType: 'bullet',
     },
     scopeProvider: buildIterationScope,
+    examples: [
+      {
+        name: 'bulleted-list',
+        description:
+          'Render an array as a bulleted list. The item-template slot holds one example item; the list expands at render time.',
+        fragment: {
+          rootNodeId: 'n-datalist-bullet',
+          nodes: {
+            'n-datalist-bullet': {
+              id: 'n-datalist-bullet',
+              type: 'datalist',
+              slots: ['s-datalist-bullet-template'],
+              props: {
+                expression: { raw: 'features', language: 'jsonata' },
+                itemAlias: 'item',
+                listType: 'bullet',
+              },
+            },
+            'n-datalist-bullet-item': {
+              id: 'n-datalist-bullet-item',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'item' } }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-datalist-bullet-template': {
+              id: 's-datalist-bullet-template',
+              nodeId: 'n-datalist-bullet',
+              name: 'item-template',
+              children: ['n-datalist-bullet-item'],
+            },
+          },
+        },
+      },
+      {
+        name: 'numbered-list',
+        description:
+          'Same as bulleted-list but using a decimal (1., 2., 3.) marker via listType="decimal".',
+        fragment: {
+          rootNodeId: 'n-datalist-numbered',
+          nodes: {
+            'n-datalist-numbered': {
+              id: 'n-datalist-numbered',
+              type: 'datalist',
+              slots: ['s-datalist-numbered-template'],
+              props: {
+                expression: { raw: 'steps', language: 'jsonata' },
+                itemAlias: 'step',
+                listType: 'decimal',
+              },
+            },
+            'n-datalist-numbered-item': {
+              id: 'n-datalist-numbered-item',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'step.title' } }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-datalist-numbered-template': {
+              id: 's-datalist-numbered-template',
+              nodeId: 'n-datalist-numbered',
+              name: 'item-template',
+              children: ['n-datalist-numbered-item'],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -576,6 +980,29 @@ export function createDefaultRegistry(): ComponentRegistry {
       color: '#d1d5db',
       style: 'solid',
     },
+    examples: [
+      {
+        name: 'thin-line',
+        description: 'A 1pt solid horizontal rule, full-width — the typical visual section break.',
+        fragment: {
+          rootNodeId: 'n-separator-thin',
+          nodes: {
+            'n-separator-thin': {
+              id: 'n-separator-thin',
+              type: 'separator',
+              slots: [],
+              props: {
+                thickness: '1pt',
+                width: '100%',
+                color: '#d1d5db',
+                style: 'solid',
+              },
+            },
+          },
+          slots: {},
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -654,6 +1081,23 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'none' },
     applicableStyles: [],
     inspector: [],
+    examples: [
+      {
+        name: 'minimal',
+        description: 'A hard page break — forces a new page in the rendered document.',
+        fragment: {
+          rootNodeId: 'n-pagebreak',
+          nodes: {
+            'n-pagebreak': {
+              id: 'n-pagebreak',
+              type: 'pagebreak',
+              slots: [],
+            },
+          },
+          slots: {},
+        },
+      },
+    ],
   });
 
   registry.register({
