@@ -768,8 +768,8 @@ export class EpistolaInspector extends LitElement {
 
     // Only persist the side the user actually edited. Other sides remain nil
     // and cascade through theme → engine defaults at render time. An undefined
-    // value (cleared input) drops the side from the override entirely so the
-    // backend's nullable Margins schema persists the absence as JSON-null.
+    // value (cleared input) removes the side from the override entirely, leaving
+    // it absent so theme/engine defaults apply at render time.
     const existing = (this.doc.pageSettingsOverride?.margins ?? {}) as Partial<
       NonNullable<PageSettings['margins']>
     >;
