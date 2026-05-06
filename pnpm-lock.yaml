@@ -59,9 +59,6 @@ importers:
       jsonata:
         specifier: ^2.0.5
         version: 2.1.0
-      jsqr:
-        specifier: ^1.4.0
-        version: 1.4.0
       lit:
         specifier: ^3.3.0
         version: 3.3.2
@@ -123,6 +120,9 @@ importers:
       happy-dom:
         specifier: ^20.0.0
         version: 20.9.0
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ~6.0.0
         version: 6.0.3
