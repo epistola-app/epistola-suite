@@ -44,6 +44,14 @@ data class RenderContext(
     /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
     val totalPages: Int? = null,
     /**
+     * Stencil IDs of every stencil node we are currently inside. Pushed by
+     * [StencilNodeRenderer] when entering a stencil. A duplicate is the
+     * defence-in-depth recursion catch; the editor and server-side validator
+     * already reject documents that would recurse, so this should never trigger
+     * in normal flow.
+     */
+    val ancestorStencilIds: Set<String> = emptySet(),
+    /**
      * Inherited styles from the parent node, used for CSS-like style inheritance.
      * Initialized from document styles (inheritable keys only) and updated as we
      * traverse the node tree — each node's resolved inheritable styles become the
