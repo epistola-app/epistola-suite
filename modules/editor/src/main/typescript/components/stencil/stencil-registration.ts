@@ -61,6 +61,151 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       isDraft: false,
     },
 
+    examples: [
+      {
+        name: 'with-placeholder',
+        description:
+          'A published stencil instance (as it appears inside a template) containing one placeholder named "body". The placeholder owns two slots: `default` (set by the stencil author at publish time) and `fill` (the template override; empty here, so the renderer falls back to the default). Replacing or adding to `fill` overrides the default; clearing `fill` reverts to the default.',
+        fragment: {
+          rootNodeId: 'n-stencil-letter',
+          nodes: {
+            'n-stencil-letter': {
+              id: 'n-stencil-letter',
+              type: 'stencil',
+              slots: ['s-stencil-letter-children'],
+              props: {
+                stencilId: 'letter-shell',
+                catalogKey: 'epistola-demo',
+                version: 1,
+                isDraft: false,
+              },
+            },
+            'n-stencil-letter-ph': {
+              id: 'n-stencil-letter-ph',
+              type: 'placeholder',
+              slots: ['s-stencil-letter-ph-default', 's-stencil-letter-ph-fill'],
+              props: { name: 'body', description: 'Body content', kind: 'block' },
+            },
+            'n-stencil-letter-default-text': {
+              id: 'n-stencil-letter-default-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Default body text' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-stencil-letter-children': {
+              id: 's-stencil-letter-children',
+              nodeId: 'n-stencil-letter',
+              name: 'children',
+              children: ['n-stencil-letter-ph'],
+            },
+            's-stencil-letter-ph-default': {
+              id: 's-stencil-letter-ph-default',
+              nodeId: 'n-stencil-letter-ph',
+              name: 'default',
+              children: ['n-stencil-letter-default-text'],
+            },
+            's-stencil-letter-ph-fill': {
+              id: 's-stencil-letter-ph-fill',
+              nodeId: 'n-stencil-letter-ph',
+              name: 'fill',
+              children: [],
+            },
+          },
+        },
+      },
+      {
+        name: 'with-overridden-placeholder',
+        description:
+          'Same stencil as `with-placeholder`, but the template has overridden the placeholder by populating its `fill` slot. The renderer prefers `fill` over `default` when fill is non-empty, so this stencil instance renders "Custom body — overridden" instead of the default. Clearing `fill` would revert to the default.',
+        fragment: {
+          rootNodeId: 'n-stencil-letter-ov',
+          nodes: {
+            'n-stencil-letter-ov': {
+              id: 'n-stencil-letter-ov',
+              type: 'stencil',
+              slots: ['s-stencil-letter-ov-children'],
+              props: {
+                stencilId: 'letter-shell',
+                catalogKey: 'epistola-demo',
+                version: 1,
+                isDraft: false,
+              },
+            },
+            'n-stencil-letter-ov-ph': {
+              id: 'n-stencil-letter-ov-ph',
+              type: 'placeholder',
+              slots: ['s-stencil-letter-ov-ph-default', 's-stencil-letter-ov-ph-fill'],
+              props: { name: 'body', description: 'Body content', kind: 'block' },
+            },
+            'n-stencil-letter-ov-default-text': {
+              id: 'n-stencil-letter-ov-default-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Default body text' }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-stencil-letter-ov-fill-text': {
+              id: 'n-stencil-letter-ov-fill-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Custom body — overridden' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-stencil-letter-ov-children': {
+              id: 's-stencil-letter-ov-children',
+              nodeId: 'n-stencil-letter-ov',
+              name: 'children',
+              children: ['n-stencil-letter-ov-ph'],
+            },
+            's-stencil-letter-ov-ph-default': {
+              id: 's-stencil-letter-ov-ph-default',
+              nodeId: 'n-stencil-letter-ov-ph',
+              name: 'default',
+              children: ['n-stencil-letter-ov-default-text'],
+            },
+            's-stencil-letter-ov-ph-fill': {
+              id: 's-stencil-letter-ov-ph-fill',
+              nodeId: 'n-stencil-letter-ov-ph',
+              name: 'fill',
+              children: ['n-stencil-letter-ov-fill-text'],
+            },
+          },
+        },
+      },
+    ],
+
     renderCanvas: ({ node, renderSlot }) => {
       const stencilId = node.props?.stencilId as string | null;
       const isDraft = node.props?.isDraft as boolean | undefined;
