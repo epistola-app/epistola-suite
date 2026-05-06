@@ -9,6 +9,7 @@ import app.epistola.suite.mcp.dto.InspectorFieldInfo
 import app.epistola.suite.mcp.dto.InspectorOptionInfo
 import app.epistola.suite.mcp.dto.SlotTemplateInfo
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.io.Resource
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -25,6 +26,7 @@ import tools.jackson.databind.node.ArrayNode
  * classpath because `:modules:epistola-mcp` depends on `:modules:editor`.
  */
 @Component
+@ConditionalOnProperty(name = ["epistola.mcp.enabled"], havingValue = "true", matchIfMissing = true)
 class ComponentRegistryProvider(
     @Value("classpath:META-INF/resources/editor/component-registry.json")
     private val resource: Resource,

@@ -7,6 +7,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 - **MVP is read-only.** Tools cover discovery, inspection, and document preview. Authoring (drafts, themes, stencils, contract edits, publishing) is a planned follow-up.
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
 - **Auth: X-API-Key.** Reuses the existing per-tenant API-key mechanism — no new credential type.
+- **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
 
 ## Connecting an MCP client
 

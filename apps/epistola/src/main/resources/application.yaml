@@ -10,6 +10,11 @@ spring:
   ai:
     mcp:
       server:
+        # Bound to epistola.mcp.enabled so the whole MCP endpoint can be
+        # toggled with one Epistola-flavoured property (matches our other
+        # feature flags). Default-on; set epistola.mcp.enabled=false to
+        # disable the /api/mcp endpoint and the Spring AI MCP server entirely.
+        enabled: ${epistola.mcp.enabled:true}
         protocol: STREAMABLE
         type: SYNC
         name: epistola
@@ -56,6 +61,11 @@ epistola:
     auto-provision: false
   demo:
     enabled: false # Opt-in: activate via 'demo' or 'local' profile
+  mcp:
+    # Server-wide toggle for the Model Context Protocol endpoint at /api/mcp.
+    # When false, the whole Spring AI MCP server is disabled (see
+    # spring.ai.mcp.server.enabled above) and the endpoint returns 404.
+    enabled: true
   generation:
     polling:
       enabled: true # Enable polling-based job execution
