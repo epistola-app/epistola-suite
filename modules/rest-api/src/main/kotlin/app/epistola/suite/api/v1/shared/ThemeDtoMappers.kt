@@ -68,7 +68,7 @@ internal fun ObjectNode?.toDomainDocumentStyles(objectMapper: ObjectMapper): Doc
 internal fun PageSettingsDto.toDomain() = PageSettings(
     format = format?.toDomain() ?: PageFormat.A4,
     orientation = orientation?.toDomain() ?: Orientation.portrait,
-    margins = margins?.toDomain() ?: Margins(top = 20, right = 20, bottom = 20, left = 20),
+    margins = margins?.toDomain(),
 )
 
 internal fun PageSettingsDto.Format.toDomain(): PageFormat = when (this) {
@@ -83,10 +83,10 @@ internal fun PageSettingsDto.Orientation.toDomain(): Orientation = when (this) {
 }
 
 internal fun MarginsDto.toDomain() = Margins(
-    top = top?.toLong() ?: 20L,
-    right = right?.toLong() ?: 20L,
-    bottom = bottom?.toLong() ?: 20L,
-    left = left?.toLong() ?: 20L,
+    top = top?.toLong(),
+    right = right?.toLong(),
+    bottom = bottom?.toLong(),
+    left = left?.toLong(),
 )
 
 // Helper to convert BlockStylePresetDto map to domain BlockStylePresets
