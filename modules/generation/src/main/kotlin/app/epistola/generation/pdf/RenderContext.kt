@@ -5,6 +5,7 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
+import app.epistola.template.model.PageSettings
 import app.epistola.template.model.TemplateDocument
 /**
  * Context passed to node renderers during PDF generation.
@@ -31,6 +32,13 @@ data class RenderContext(
     val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     /** Theme-configurable spacing base unit in points (see [SpacingScale]). */
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+    /**
+     * Theme-resolved page settings, used as the middle layer of the
+     * pageSettings cascade between the template's `pageSettingsOverride`
+     * (highest priority) and `renderingDefaults.defaultPageSettings`
+     * (lowest). Null when no theme is in play.
+     */
+    val resolvedPageSettings: PageSettings? = null,
     /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
     val systemParams: Map<String, Any?> = emptyMap(),
     /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
@@ -69,6 +77,11 @@ data class RenderContext(
      */
     val effectiveData: Map<String, Any?>
         get() = if (systemParams.isEmpty()) data else data + mapOf("sys" to systemParams)
+
+    // The "effective page margins" cascade is per-side and walks
+    // overrideNode → root → template override → theme → engine defaults.
+    // Use `effectivePageMarginPt` / `effectivePageSettingsMarginMm` in
+    // NodeRendererUtils which handles nullable individual sides correctly.
 
     /**
      * Returns a copy of this context with page-scoped system parameters injected.

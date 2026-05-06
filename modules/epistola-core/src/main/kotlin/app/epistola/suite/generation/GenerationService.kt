@@ -5,6 +5,7 @@ import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -86,13 +87,16 @@ class GenerationService(
             document = templateModel,
             data = data,
             outputStream = outputStream,
-            blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
-            resolvedDocumentStyles = resolvedStyles.documentStyles,
+            resolvedTheme = ResolvedTheme(
+                documentStyles = resolvedStyles.documentStyles,
+                pageSettings = resolvedStyles.pageSettings,
+                blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
+                spacingUnit = resolvedStyles.spacingUnit,
+            ),
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
-            spacingUnit = resolvedStyles.spacingUnit,
             renderMode = RenderMode.PREVIEW,
         )
     }
@@ -121,13 +125,16 @@ class GenerationService(
             document = templateModel,
             data = data,
             outputStream = outputStream,
-            blockStylePresets = themeSnapshot.blockStylePresets,
-            resolvedDocumentStyles = themeSnapshot.documentStyles,
+            resolvedTheme = ResolvedTheme(
+                documentStyles = themeSnapshot.documentStyles,
+                pageSettings = themeSnapshot.pageSettings,
+                blockStylePresets = themeSnapshot.blockStylePresets,
+                spacingUnit = themeSnapshot.spacingUnit,
+            ),
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
-            spacingUnit = themeSnapshot.spacingUnit,
         )
     }
 

@@ -6,6 +6,7 @@
 
 ### Added
 
+- **Nil vs explicit 0 in numeric style inputs**: Inspector inputs for spacing (margin/padding sides), unit-style props (font-size, border-radius, line-height, etc.), and component-specific number props now distinguish "no value set" from "explicit 0". A cleared field shows a grey `—` placeholder and stores nothing — the cascade falls back to the preset / component default. Typing `0` stores it as an explicit override that beats the cascade. Spacing storage refactor: `SpacingValue` sides are `string | undefined`; `expandSpacingToStyles` preserves `'0pt'`/`'0sp'` while only deleting `undefined` sides. Number inputs that should remain non-negative (margins, padding, page-settings margins) clamp typed negative values to `0` at change time so `min="0"` is enforced beyond just form submission.
 - **API key management UI**: New page under **Operations → API Keys** for tenant managers (`TENANT_USERS` permission). Lists active keys with name, prefix, created-by, created/last-used/expires timestamps; supports creating a key (name + optional expiration) and revoking via a confirm dialog. The plaintext key is shown once on creation in an in-place success panel with a copy button — it is never persisted or shown again.
 - **API key revoke audit**: New `revoked_at` and `revoked_by` columns on `api_keys` (V25). The UI delete action now records who revoked the key and when.
 
@@ -27,6 +28,7 @@
 - **Clear error on missing contract version**: `UpdateDraft`, `CreateVariant`, and `CreateVersion` now throw a descriptive `IllegalStateException` instead of a raw `NullPointerException` when no contract version exists.
 - **Publishing subscribed catalog resources to environments**: Removed incorrect read-only catalog check from `PublishToEnvironment` and `PublishVersion` (for already-published versions). Environment activations are tenant-scoped operations, not catalog modifications.
 - **Header/footer style rendering in PDF**: Page header/footer event handlers now apply node-level styles by wrapping rendered slot content in a styled `Div`, restoring expected borders, background, and padding in generated PDFs.
+- **Theme page-margin cascade preserved through DTO→domain mapping**: `PageSettingsDto.toDomain()` and `MarginsDto.toDomain()` no longer default missing margins/sides to `20`. Null sides now stay null in the domain, so the per-side cascade (template override → theme → engine defaults) walks correctly. Previously a theme that set only `top` implicitly wrote `20mm` into the other three sides, collapsing the cascade and freezing the engine V1 default into the theme.
 - **Expression editor discoverability**: Added a subtle inline hint in text block headers (`type {{ for expressions`) so users can discover inline expression insertion without leaving the editor flow.
 - **Negative sizing enforcement**: Editor size inputs now prevent negative values and clamp on change; backend parsers (`StyleApplicator.parseSize`, `ImageNodeRenderer.parseToPt`) also clamp to `>= 0` to prevent malformed layout and iText failures when invalid values slip through.
 
