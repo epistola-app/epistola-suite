@@ -30,17 +30,20 @@ class PageFooterEventHandler(
         val pageSize = page.pageSize
 
         // --- footer band (bottom of page) ---
-        val leftPadding = 36f
-        val rightPadding = 36f
-        val bottomPadding = context.renderingDefaults.pageFooterPadding
+        // The footer rectangle's distance to each page edge follows the cascade:
+        // footerNode.margin{Bottom,Left,Right} → root.margin{Bottom,Left,Right} →
+        // pageSettings.margins.{bottom,left,right} (template > theme > engine defaults).
         val footerNode = document.nodes[footerNodeId]
+        val bottomMargin = effectivePageMarginPt(footerNode, "marginBottom", context)
+        val leftMargin = effectivePageMarginPt(footerNode, "marginLeft", context)
+        val rightMargin = effectivePageMarginPt(footerNode, "marginRight", context)
         val footerHeight = parseNodeHeight(footerNode, context)
             ?: context.renderingDefaults.pageFooterHeight
 
         val footerRect = Rectangle(
-            pageSize.left + leftPadding,
-            pageSize.bottom + bottomPadding,
-            pageSize.width - leftPadding - rightPadding,
+            pageSize.left + leftMargin,
+            pageSize.bottom + bottomMargin,
+            pageSize.width - leftMargin - rightMargin,
             footerHeight,
         )
 
@@ -58,11 +61,14 @@ class PageFooterEventHandler(
             val pageContext = context.withInheritedStylesFrom(footerNode).withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(footerNode, document, pageContext)
 
-            // Wrap slot children in a Div so footer node styles (borders, background, padding) apply
+            // Wrap slot children in a Div so footer node styles (borders, background, padding) apply.
+            // The margin sides consumed above for rectangle positioning are stripped from the
+            // wrapper styles so the same values aren't applied again inside the rectangle.
             val wrapper = Div()
+            val wrapperStyles = footerNode.styleMapExcluding(setOf("marginBottom", "marginLeft", "marginRight"))
             StyleApplicator.applyStylesWithPreset(
                 wrapper,
-                footerNode.styles?.filterNonNullValues(),
+                wrapperStyles,
                 footerNode.stylePreset,
                 context.blockStylePresets,
                 context.inheritedStyles,

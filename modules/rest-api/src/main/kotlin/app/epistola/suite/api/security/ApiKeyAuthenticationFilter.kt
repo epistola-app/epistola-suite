@@ -1,8 +1,11 @@
 package app.epistola.suite.api.security
 
-import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
+import app.epistola.suite.apikeys.commands.RecordApiKeyUsage
+import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.Counter
@@ -27,9 +30,13 @@ import org.springframework.web.filter.OncePerRequestFilter
  *
  * If no X-API-Key header is present, the request passes through to the
  * next filter (e.g., OAuth2 resource server or form login fallback).
+ *
+ * Persistence operations are dispatched via the mediator using `SystemInternal`
+ * messages ([LookupApiKeyByHash], [RecordApiKeyUsage]) — `MediatorFilter` runs
+ * at `Ordered.HIGHEST_PRECEDENCE`, so `MediatorContext` is bound by the time
+ * this filter executes inside the Spring Security chain.
  */
 class ApiKeyAuthenticationFilter(
-    private val apiKeyRepository: ApiKeyRepository,
     private val apiKeyService: ApiKeyService,
     private val meterRegistry: MeterRegistry,
     private val headerName: String = DEFAULT_HEADER_NAME,
@@ -61,7 +68,7 @@ class ApiKeyAuthenticationFilter(
         }
 
         val keyHash = apiKeyService.hashKey(apiKeyHeader)
-        val apiKey = apiKeyRepository.findByKeyHash(keyHash)
+        val apiKey = LookupApiKeyByHash(keyHash).query()
 
         if (apiKey == null) {
             authCounter("invalid_key").increment()
@@ -83,7 +90,7 @@ class ApiKeyAuthenticationFilter(
 
         // Update last used timestamp asynchronously (best-effort)
         try {
-            apiKeyRepository.updateLastUsed(apiKey.id)
+            RecordApiKeyUsage(apiKey.id).execute()
         } catch (e: Exception) {
             log.debug("Failed to update API key last_used_at: {}", e.message)
         }

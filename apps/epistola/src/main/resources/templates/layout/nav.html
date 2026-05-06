@@ -72,7 +72,7 @@
 
                     <!-- Operations dropdown -->
                     <div class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'generation-history','load-tests','consumers','feedback'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'generation-history','load-tests','consumers','feedback','api-keys'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Operations
@@ -102,6 +102,12 @@
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
                                 Feedback
+                            </a>
+                            <a th:if="${auth.has('TENANT_USERS')}"
+                               th:href="@{/tenants/{id}/api-keys(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'api-keys'} ? ' active' : ''">
+                                API Keys
                             </a>
                         </div>
                     </div>
@@ -187,6 +193,9 @@
                     <a th:if="${feedbackEnabled}"
                        th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>
+                    <a th:if="${auth.has('TENANT_USERS')}"
+                       th:href="@{/tenants/{id}/api-keys(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'api-keys'} ? ' active' : ''" role="menuitem">API Keys</a>
                 </div>
                 <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Settings</div>

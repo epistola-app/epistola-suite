@@ -86,6 +86,7 @@ class ShellModelInterceptor(
         "/assets" in path -> "assets"
         "/settings" in path -> "settings"
         "/feedback" in path -> "feedback"
+        "/api-keys" in path -> "api-keys"
         "/features" in path -> "features"
         "/catalogs" in path -> "catalogs"
         "/admin" in path -> "admin"

@@ -40,10 +40,11 @@ class RenderingDefaultsTest {
         val ps = RenderingDefaults.V1.defaultPageSettings
         assertEquals(PageFormat.A4, ps.format)
         assertEquals(Orientation.portrait, ps.orientation)
-        assertEquals(20, ps.margins.top)
-        assertEquals(20, ps.margins.right)
-        assertEquals(20, ps.margins.bottom)
-        assertEquals(20, ps.margins.left)
+        // V1 default explicitly supplies all four sides (engine fallback for the cascade).
+        assertEquals(20L, ps.margins?.top)
+        assertEquals(20L, ps.margins?.right)
+        assertEquals(20L, ps.margins?.bottom)
+        assertEquals(20L, ps.margins?.left)
     }
 
     // -----------------------------------------------------------------------
