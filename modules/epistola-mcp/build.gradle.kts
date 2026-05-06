@@ -21,6 +21,10 @@ dependencies {
     // Business logic — provides mediator, queries, commands, security context
     implementation(project(":modules:epistola-core"))
 
+    // Editor module ships dist/component-registry.json into
+    // META-INF/resources/editor/ — read at runtime to power list_component_types.
+    implementation(project(":modules:editor"))
+
     // Spring AI MCP server (streamable HTTP transport, served via Spring MVC)
     implementation("org.springframework.ai:spring-ai-starter-mcp-server-webmvc:$springAiVersion")
 
