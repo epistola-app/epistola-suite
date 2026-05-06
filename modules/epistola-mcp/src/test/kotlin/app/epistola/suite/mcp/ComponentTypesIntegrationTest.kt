@@ -34,7 +34,6 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
             "columns",
             "table",
             "datatable",
-            "qrcode",
             "conditional",
             "loop",
             "datalist",
