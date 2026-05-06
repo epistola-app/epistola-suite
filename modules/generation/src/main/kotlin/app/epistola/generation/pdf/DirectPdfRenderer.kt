@@ -154,9 +154,10 @@ class DirectPdfRenderer(
         val pageSettings = document.pageSettingsOverride
             ?: resolvedTheme.pageSettings
             ?: renderingDefaults.defaultPageSettings
-        val effectiveDocumentStyles = resolvedTheme.documentStyles
-            ?: document.documentStylesOverride
-            ?: emptyMap()
+        // documentStyles cascade: theme is the base; template override wins per key.
+        val effectiveDocumentStyles: DocumentStyles =
+            (resolvedTheme.documentStyles ?: emptyMap()) +
+                (document.documentStylesOverride ?: emptyMap())
         val context = createRenderContext(
             data = data,
             effectiveDocumentStyles = effectiveDocumentStyles,
@@ -229,9 +230,10 @@ class DirectPdfRenderer(
         val pageSettings = document.pageSettingsOverride
             ?: resolvedTheme.pageSettings
             ?: renderingDefaults.defaultPageSettings
-        val effectiveDocumentStyles = resolvedTheme.documentStyles
-            ?: document.documentStylesOverride
-            ?: emptyMap()
+        // documentStyles cascade: theme is the base; template override wins per key.
+        val effectiveDocumentStyles: DocumentStyles =
+            (resolvedTheme.documentStyles ?: emptyMap()) +
+                (document.documentStylesOverride ?: emptyMap())
 
         val heightContext = createRenderContext(
             data = data,

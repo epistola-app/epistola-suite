@@ -41,7 +41,10 @@ class AddressBlockNodeRenderer : NodeRenderer {
 
         val addressBottomPt = (topMm + heightMm) * MM_TO_PT
 
-        val pageSettings = document.pageSettingsOverride ?: context.renderingDefaults.defaultPageSettings
+        // pageSettings cascade: template override > theme-resolved > engine defaults.
+        val pageSettings = document.pageSettingsOverride
+            ?: context.resolvedPageSettings
+            ?: context.renderingDefaults.defaultPageSettings
         // Walk the per-side cascade (overrideNode → root → template → theme → defaults)
         // so theme-level page margins propagate through correctly.
         val pageTopMarginPt = effectivePageMarginPt(null, "marginTop", context, MM_TO_PT)
