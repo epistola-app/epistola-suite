@@ -78,14 +78,16 @@ class ClientIdentityFilter : OncePerRequestFilter() {
         response.writer.write("""{"code":"BAD_REQUEST","message":"$message"}""")
     }
 
-    // Strip control characters before interpolating user-influenced values into log
-    // messages — without this, a crafted requestURI could inject CR/LF and forge
-    // log lines (CodeQL: java/log-injection).
-    private fun sanitizeForLog(value: String): String = value.replace(CONTROL_CHARS, "_")
+    // Strip control characters before interpolating user-influenced values into
+    // log messages — a crafted requestURI could otherwise inject newlines and
+    // forge log lines, or inject terminal escape sequences. The explicit
+    // \r / \n replacements come first because that's the literal pattern
+    // CodeQL's java/log-injection sanitizer model recognizes; the regex pass
+    // then sweeps remaining control chars (ESC, NUL, BEL, …).
+    private fun sanitizeForLog(value: String): String = value.replace("\r", "_").replace("\n", "_").replace(Regex("\\p{Cntrl}"), "_")
 
     private companion object {
         // Matches /api/tenants/<tenantId>/generation/collect — see contract spec/paths/generation-collect.yaml.
         private val COLLECT_PATH_REGEX = Regex("^/api/tenants/[^/]+/generation/collect/?$")
-        private val CONTROL_CHARS = Regex("[\\p{Cntrl}]")
     }
 }
