@@ -55,6 +55,31 @@ export interface InspectorField {
   units?: string[];
 }
 
+/**
+ * A copy-pasteable usage example for a component type. The fragment is a
+ * partial TemplateDocument — backend consumers (e.g. the MCP server) can
+ * surface it to AI clients designing templates.
+ *
+ * The fragment's `nodes` and `slots` maps can be merged into a real
+ * TemplateDocument and `rootNodeId` referenced as the insertion handle.
+ */
+export interface ComponentExample {
+  /** Stable identifier within the component, e.g. "minimal", "with-expression". */
+  name: string;
+  /** One-line description of what this example demonstrates. */
+  description: string;
+  fragment: ComponentExampleFragment;
+}
+
+export interface ComponentExampleFragment {
+  /** Node id where the example starts (typically the component instance itself). */
+  rootNodeId: NodeId;
+  /** All nodes referenced by this fragment, including descendants. */
+  nodes: Record<NodeId, Node>;
+  /** All slots referenced by nodes in this fragment. */
+  slots: Record<SlotId, Slot>;
+}
+
 /** Context passed to a scope provider for resolving scoped variables. */
 export interface ScopeProviderContext {
   /** Schema-derived field paths for resolving array item types. */
@@ -183,6 +208,15 @@ export interface ComponentDefinition {
 
   /** Optional singleton-style guard (e.g. allow only one page header per document). */
   maxInstancesPerDocument?: number;
+
+  /**
+   * Hand-curated usage examples surfaced by backend tools (e.g. the MCP
+   * server's `list_component_types`). Each example is a self-contained
+   * TemplateDocument fragment showing one realistic way the component is
+   * used in practice. Drawn for inspiration from the demo catalog at
+   * `modules/epistola-core/src/main/resources/demo/catalog/`.
+   */
+  examples?: ComponentExample[];
 
   /**
    * Declare scoped variables this component introduces for its descendants.

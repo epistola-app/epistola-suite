@@ -13,7 +13,8 @@
  *     allowedChildren: { mode: 'all' | 'none' | 'allowlist' | 'denylist', types? },
  *     applicableStyles: 'all' | string[],
  *     inspector: [{ key, label, type, options?, defaultValue?, units? }],
- *     defaultStyles?, defaultProps?, maxInstancesPerDocument?
+ *     defaultStyles?, defaultProps?, maxInstancesPerDocument?,
+ *     examples?: [{ name, description, fragment: { rootNodeId, nodes, slots } }]
  *   }
  *
  * Non-serializable hooks (renderCanvas, renderInspector, callbacks) are
@@ -62,6 +63,7 @@ interface SerializedComponent {
   defaultStyles?: Record<string, unknown>;
   defaultProps?: Record<string, unknown>;
   maxInstancesPerDocument?: number;
+  examples?: ComponentDefinition['examples'];
 }
 
 function describe(def: ComponentDefinition): SerializedComponent {
@@ -78,6 +80,7 @@ function describe(def: ComponentDefinition): SerializedComponent {
     defaultStyles: def.defaultStyles,
     defaultProps: def.defaultProps,
     maxInstancesPerDocument: def.maxInstancesPerDocument,
+    examples: def.examples,
   };
 }
 

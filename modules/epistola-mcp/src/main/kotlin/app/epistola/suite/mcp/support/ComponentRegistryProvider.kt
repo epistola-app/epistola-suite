@@ -2,6 +2,8 @@ package app.epistola.suite.mcp.support
 
 import app.epistola.suite.mcp.dto.AllowedChildrenInfo
 import app.epistola.suite.mcp.dto.ApplicableStyles
+import app.epistola.suite.mcp.dto.ComponentExampleFragmentInfo
+import app.epistola.suite.mcp.dto.ComponentExampleInfo
 import app.epistola.suite.mcp.dto.ComponentTypeInfo
 import app.epistola.suite.mcp.dto.InspectorFieldInfo
 import app.epistola.suite.mcp.dto.InspectorOptionInfo
@@ -59,7 +61,33 @@ class ComponentRegistryProvider(
         defaultStyles = node.get("defaultStyles")?.let { jsonToMap(it) },
         defaultProps = node.get("defaultProps")?.let { jsonToMap(it) },
         maxInstancesPerDocument = node.get("maxInstancesPerDocument")?.asInt(),
+        examples = node.get("examples")?.values()?.map { parseExample(it) } ?: emptyList(),
     )
+
+    private fun parseExample(node: JsonNode) = ComponentExampleInfo(
+        name = node.requireText("name"),
+        description = node.requireText("description"),
+        fragment = parseExampleFragment(
+            node.get("fragment") ?: error("example missing 'fragment' on '${node.requireText("name")}'"),
+        ),
+    )
+
+    private fun parseExampleFragment(node: JsonNode) = ComponentExampleFragmentInfo(
+        rootNodeId = node.requireText("rootNodeId"),
+        nodes = parseObjectMap(node.get("nodes")),
+        slots = parseObjectMap(node.get("slots")),
+    )
+
+    /**
+     * Parses an `Object<string, Object>` JSON value into a typed map. Used for the
+     * untyped `nodes` and `slots` records inside example fragments — backend
+     * passes them through unchanged.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun parseObjectMap(node: JsonNode?): Map<String, Map<String, Any?>> {
+        if (node == null || !node.isObject) return emptyMap()
+        return node.propertyNames().associateWith { (jsonToValue(node.get(it)) as? Map<String, Any?>) ?: emptyMap() }
+    }
 
     private fun parseSlot(node: JsonNode) = SlotTemplateInfo(
         name = node.requireText("name"),

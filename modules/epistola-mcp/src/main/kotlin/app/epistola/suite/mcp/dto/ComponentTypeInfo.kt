@@ -27,6 +27,30 @@ data class ComponentTypeInfo(
     val defaultProps: Map<String, Any?>?,
     /** Singleton-style guard (e.g. `pageheader` allows max 1 instance). */
     val maxInstancesPerDocument: Int?,
+    /** Hand-curated TemplateDocument fragments showing realistic usage patterns. */
+    val examples: List<ComponentExampleInfo> = emptyList(),
+)
+
+/**
+ * One concrete usage example for a component type. The fragment is a partial
+ * TemplateDocument — its `nodes` and `slots` can be merged into a real document
+ * and `rootNodeId` referenced as the insertion handle.
+ */
+data class ComponentExampleInfo(
+    /** Stable identifier within the parent component, e.g. "minimal", "with-expression". */
+    val name: String,
+    /** One-line description of what this example demonstrates. */
+    val description: String,
+    val fragment: ComponentExampleFragmentInfo,
+)
+
+data class ComponentExampleFragmentInfo(
+    /** Node id where the example starts (typically the component instance itself). */
+    val rootNodeId: String,
+    /** All nodes referenced by this fragment, including descendants. Untyped JSON. */
+    val nodes: Map<String, Map<String, Any?>>,
+    /** All slots referenced by nodes in this fragment. Untyped JSON. */
+    val slots: Map<String, Map<String, Any?>>,
 )
 
 data class SlotTemplateInfo(
