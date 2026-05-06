@@ -60,8 +60,10 @@ export interface InspectorField {
  * partial TemplateDocument — backend consumers (e.g. the MCP server) can
  * surface it to AI clients designing templates.
  *
- * The fragment's `nodes` and `slots` maps can be merged into a real
- * TemplateDocument and `rootNodeId` referenced as the insertion handle.
+ * The fragment uses plain string IDs (see [ComponentExampleFragment]) for
+ * authoring ergonomics; consumers that need the branded `NodeId`/`SlotId`
+ * forms (e.g. the structural test that builds a TemplateDocument) lift via
+ * [liftExampleFragment].
  */
 export interface ComponentExample {
   /** Stable identifier within the component, e.g. "minimal", "with-expression". */
@@ -71,13 +73,57 @@ export interface ComponentExample {
   fragment: ComponentExampleFragment;
 }
 
+/**
+ * Authoring shape for example fragments. Mirrors [TemplateDocumentFragment]
+ * structurally but uses plain `string` for IDs — examples are static
+ * documentation snapshots and the brand on `NodeId`/`SlotId` would only add
+ * cast noise at every literal. Brands are structural, so promotion at the
+ * consumer boundary (see [liftExampleFragment]) is a no-op at runtime.
+ */
 export interface ComponentExampleFragment {
   /** Node id where the example starts (typically the component instance itself). */
-  rootNodeId: NodeId;
+  rootNodeId: string;
   /** All nodes referenced by this fragment, including descendants. */
-  nodes: Record<NodeId, Node>;
+  nodes: Record<string, ExampleNode>;
   /** All slots referenced by nodes in this fragment. */
+  slots: Record<string, ExampleSlot>;
+}
+
+/** Mirror of [Node] with plain string IDs — see [ComponentExampleFragment]. */
+export interface ExampleNode {
+  id: string;
+  type: string;
+  slots: string[];
+  styles?: Record<string, unknown>;
+  stylePreset?: string;
+  props?: Record<string, unknown>;
+}
+
+/** Mirror of [Slot] with plain string IDs — see [ComponentExampleFragment]. */
+export interface ExampleSlot {
+  id: string;
+  nodeId: string;
+  name: string;
+  children: string[];
+}
+
+/** Strictly-branded form of an example fragment — what consumers like the
+ *  structural test get after [liftExampleFragment]. */
+export interface BrandedExampleFragment {
+  rootNodeId: NodeId;
+  nodes: Record<NodeId, Node>;
   slots: Record<SlotId, Slot>;
+}
+
+/**
+ * Promote a plain-string example fragment into the branded form. `NodeId` and
+ * `SlotId` are `string & { __brand: ... }` — the brand is structural and the
+ * runtime representation is identical, so this is a single boundary cast that
+ * moves the unsafety into one place. Use it at consumer boundaries (e.g.
+ * the structural test that wraps fragments in a TemplateDocument).
+ */
+export function liftExampleFragment(fragment: ComponentExampleFragment): BrandedExampleFragment {
+  return fragment as unknown as BrandedExampleFragment;
 }
 
 /** Context passed to a scope provider for resolving scoped variables. */

@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { buildIndexes } from './indexes.js';
-import { createDefaultRegistry, type ComponentExample } from './registry.js';
+import { createDefaultRegistry, liftExampleFragment, type ComponentExample } from './registry.js';
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 
 const registry = createDefaultRegistry();
@@ -24,6 +24,7 @@ const registry = createDefaultRegistry();
 function wrapInRoot(example: ComponentExample): TemplateDocument {
   const rootNodeId = 'n-test-wrap-root' as NodeId;
   const rootSlotId = 's-test-wrap-children' as SlotId;
+  const fragment = liftExampleFragment(example.fragment);
   return {
     modelVersion: 1,
     root: rootNodeId,
@@ -34,16 +35,16 @@ function wrapInRoot(example: ComponentExample): TemplateDocument {
         type: 'root',
         slots: [rootSlotId],
       },
-      ...example.fragment.nodes,
+      ...fragment.nodes,
     },
     slots: {
       [rootSlotId]: {
         id: rootSlotId,
         nodeId: rootNodeId,
         name: 'children',
-        children: [example.fragment.rootNodeId],
+        children: [fragment.rootNodeId],
       },
-      ...example.fragment.slots,
+      ...fragment.slots,
     },
   };
 }
