@@ -1,6 +1,11 @@
 package app.epistola.generation.pdf
 
-import com.google.zxing.*
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.LuminanceSource
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.NotFoundException
 import com.google.zxing.common.HybridBinarizer
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
