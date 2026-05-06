@@ -19,7 +19,7 @@ http://<your-epistola-host>:<port>/api/mcp
 with the header
 
 ```
-X-API-Key: epi_<your-key>
+X-API-Key: epk_<your-key>
 ```
 
 The API key must:
@@ -39,7 +39,7 @@ Claude Desktop's MCP configuration uses an HTTP transport entry. In `~/Library/A
     "epistola": {
       "url": "https://your-epistola.example.com/api/mcp",
       "headers": {
-        "X-API-Key": "epi_...",
+        "X-API-Key": "epk_...",
       },
     },
   },
@@ -83,7 +83,7 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
 
 ## Troubleshooting
 
-- **`401 Unauthorized`**: The `X-API-Key` header is missing, the key is malformed (must start with `epi_`), or the key has been revoked/disabled/expired.
+- **`401 Unauthorized`**: The `X-API-Key` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired.
 - **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools) or `DOCUMENT_GENERATE` (for preview).
 - **`MCP request has no tenant scope`**: The principal has no `currentTenantId`. With API-key auth, this should not happen — the key is always tenant-scoped. If you see it, the key may have been provisioned without a tenant binding.
 
