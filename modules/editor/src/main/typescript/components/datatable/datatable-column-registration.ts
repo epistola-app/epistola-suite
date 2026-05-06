@@ -24,5 +24,32 @@ export function createDatatableColumnDefinition(): ComponentDefinition {
       { key: 'width', label: 'Width', type: 'number', defaultValue: 33 },
     ],
     defaultProps: { header: '', width: 33 },
+
+    examples: [
+      {
+        name: 'minimal',
+        description:
+          'A single datatable-column with a literal header and an empty body slot. Standalone fragment — embed inside a datatable\'s "columns" slot for it to render.',
+        fragment: {
+          rootNodeId: 'n-dtcol-minimal',
+          nodes: {
+            'n-dtcol-minimal': {
+              id: 'n-dtcol-minimal',
+              type: 'datatable-column',
+              slots: ['s-dtcol-minimal-body'],
+              props: { header: 'Description', width: 50 },
+            },
+          },
+          slots: {
+            's-dtcol-minimal-body': {
+              id: 's-dtcol-minimal-body',
+              nodeId: 'n-dtcol-minimal',
+              name: 'body',
+              children: [],
+            },
+          },
+        },
+      },
+    ],
   };
 }

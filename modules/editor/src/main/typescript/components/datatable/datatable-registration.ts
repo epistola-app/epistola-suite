@@ -280,5 +280,121 @@ export function createDatatableDefinition(): ComponentDefinition {
         </div>
       `;
     },
+
+    examples: [
+      {
+        name: 'invoice-line-items',
+        description:
+          'Iterate over an "items" array and render one row per item, with description / quantity / amount columns. Each datatable-column owns a body slot whose children are evaluated once per iteration with the item alias in scope.',
+        fragment: {
+          rootNodeId: 'n-dt-items',
+          nodes: {
+            'n-dt-items': {
+              id: 'n-dt-items',
+              type: 'datatable',
+              slots: ['s-dt-items-columns'],
+              props: {
+                expression: { raw: 'items', language: 'jsonata' },
+                itemAlias: 'item',
+                borderStyle: 'all',
+                headerEnabled: true,
+              },
+            },
+            'n-dt-items-col-desc': {
+              id: 'n-dt-items-col-desc',
+              type: 'datatable-column',
+              slots: ['s-dt-items-col-desc-body'],
+              props: { header: 'Description', width: 60 },
+            },
+            'n-dt-items-col-qty': {
+              id: 'n-dt-items-col-qty',
+              type: 'datatable-column',
+              slots: ['s-dt-items-col-qty-body'],
+              props: { header: 'Qty', width: 15 },
+            },
+            'n-dt-items-col-amt': {
+              id: 'n-dt-items-col-amt',
+              type: 'datatable-column',
+              slots: ['s-dt-items-col-amt-body'],
+              props: { header: 'Amount', width: 25 },
+            },
+            'n-dt-items-desc-text': {
+              id: 'n-dt-items-desc-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'item.description' } }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-dt-items-qty-text': {
+              id: 'n-dt-items-qty-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'item.quantity' } }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-dt-items-amt-text': {
+              id: 'n-dt-items-amt-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'item.amount' } }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-dt-items-columns': {
+              id: 's-dt-items-columns',
+              nodeId: 'n-dt-items',
+              name: 'columns',
+              children: ['n-dt-items-col-desc', 'n-dt-items-col-qty', 'n-dt-items-col-amt'],
+            },
+            's-dt-items-col-desc-body': {
+              id: 's-dt-items-col-desc-body',
+              nodeId: 'n-dt-items-col-desc',
+              name: 'body',
+              children: ['n-dt-items-desc-text'],
+            },
+            's-dt-items-col-qty-body': {
+              id: 's-dt-items-col-qty-body',
+              nodeId: 'n-dt-items-col-qty',
+              name: 'body',
+              children: ['n-dt-items-qty-text'],
+            },
+            's-dt-items-col-amt-body': {
+              id: 's-dt-items-col-amt-body',
+              nodeId: 'n-dt-items-col-amt',
+              name: 'body',
+              children: ['n-dt-items-amt-text'],
+            },
+          },
+        },
+      },
+    ],
   };
 }
