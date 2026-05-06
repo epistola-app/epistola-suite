@@ -7,7 +7,6 @@ import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 /**
  * Custom LuminanceSource that wraps a BufferedImage for ZXing decoding.
@@ -59,7 +58,7 @@ private class BufferedImageLuminanceSource(private val image: BufferedImage) : L
  */
 private fun decodeQrCodePng(pngBytes: ByteArray): String? {
     val image = ByteArrayInputStream(pngBytes).use { ImageIO.read(it) }
-    assertNotNull(image, "Failed to decode PNG bytes into BufferedImage")
+        ?: return null
 
     val source = BufferedImageLuminanceSource(image)
     val bitmap = BinaryBitmap(HybridBinarizer(source))
@@ -94,70 +93,54 @@ class QrCodeNodeRendererRoundTripTest {
 
     @Test
     fun `standard QR decodes short string correctly`() {
-        val value = "Hello QR"
-        val pngBytes = renderer.generateQrCodePng(value, 400f, "standard", null)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
+        assertRoundTrip("Hello QR", "standard", SMOKE_SIZE_PT, null)
     }
 
     @Test
-    fun `standard QR decodes 50 character string correctly`() {
-        val value = "a".repeat(50)
-        val pngBytes = renderer.generateQrCodePng(value, 400f, "standard", null)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
+    fun `standard QR decodes medium string correctly`() {
+        assertRoundTrip("a".repeat(100), "standard", SMOKE_SIZE_PT, null)
     }
 
     @Test
-    fun `standard QR decodes 100 character string correctly`() {
-        val value = "b".repeat(100)
-        val pngBytes = renderer.generateQrCodePng(value, 400f, "standard", null)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
-    }
-
-    @Test
-    fun `standard QR decodes near-max length string correctly`() {
-        val value = "c".repeat(2500)
-        val pngBytes = renderer.generateQrCodePng(value, 600f, "standard", null)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
+    fun `standard QR decodes near max string correctly`() {
+        assertRoundTrip("c".repeat(2500), "standard", BOUNDARY_SIZE_PT, null)
     }
 
     @Test
     fun `logo QR decodes short string correctly`() {
-        val value = "Logo QR"
-        val logo = createTestLogo()
-        val pngBytes = renderer.generateQrCodePng(value, 400f, "logo", logo)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
+        assertRoundTrip("Logo QR", "logo", SMOKE_SIZE_PT, createTestLogo())
     }
 
     @Test
-    fun `logo QR decodes 50 character string correctly`() {
-        val value = "x".repeat(50)
-        val logo = createTestLogo()
-        val pngBytes = renderer.generateQrCodePng(value, 400f, "logo", logo)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
+    fun `logo QR decodes medium string correctly`() {
+        assertRoundTrip("y".repeat(100), "logo", SMOKE_SIZE_PT, createTestLogo())
     }
 
     @Test
-    fun `logo QR decodes 100 character string correctly`() {
-        val value = "y".repeat(100)
-        val logo = createTestLogo()
-        val pngBytes = renderer.generateQrCodePng(value, 400f, "logo", logo)
-        val decoded = decodeQrCodePng(pngBytes)
-        assertEquals(value, decoded)
-    }
-
-    @Test
-    fun `logo QR decodes near-max length string correctly`() {
+    fun `logo QR decodes near max string correctly`() {
         // Level H has lower capacity than L; ~1273 bytes is the practical byte-mode limit.
-        val value = "z".repeat(1200)
-        val logo = createTestLogo()
-        val pngBytes = renderer.generateQrCodePng(value, 600f, "logo", logo)
+        assertRoundTrip("z".repeat(1200), "logo", BOUNDARY_SIZE_PT, createTestLogo())
+    }
+
+    @Test
+    fun `decode returns null for invalid png`() {
+        assertEquals(null, decodeQrCodePng(byteArrayOf(1, 2, 3, 4, 5)))
+    }
+
+    private fun assertRoundTrip(
+        value: String,
+        mode: String,
+        sizePt: Float,
+        logo: BufferedImage?,
+    ) {
+        val pngBytes = renderer.generateQrCodePng(value, sizePt, mode, logo)
         val decoded = decodeQrCodePng(pngBytes)
+
         assertEquals(value, decoded)
+    }
+
+    private companion object {
+        private const val SMOKE_SIZE_PT = 120f
+        private const val BOUNDARY_SIZE_PT = 300f
     }
 }

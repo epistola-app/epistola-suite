@@ -1,6 +1,7 @@
 import { html } from 'lit';
 import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
+import type { Node } from '../../types/index.js';
 import { openAssetPickerDialog, type AssetPickerCallbacks } from '../image/asset-picker-dialog.js';
 import './EpistolaQrCodePreview.js';
 
@@ -15,6 +16,46 @@ export interface QrCodeOptions {
 
 function resolveContentUrl(pattern: string, assetId: string): string {
   return pattern.replace('{assetId}', assetId);
+}
+
+export function resolveQrCodeLogoSrc(
+  qrType: QrCodeType,
+  logoAssetId: string | null,
+  contentUrlPattern?: string,
+): string | null {
+  return qrType === 'logo' && logoAssetId && contentUrlPattern
+    ? resolveContentUrl(contentUrlPattern, logoAssetId)
+    : null;
+}
+
+export function createQrCodeLogoActions(node: Node, engine: EditorEngine, options?: QrCodeOptions) {
+  return {
+    pickLogo: async () => {
+      if (!options?.assetPicker) return;
+      const asset = await openAssetPickerDialog(options.assetPicker, {
+        acceptedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+      });
+      if (!asset) return;
+      engine.dispatch({
+        type: 'UpdateNodeProps',
+        nodeId: node.id,
+        props: {
+          ...node.props,
+          logoAssetId: asset.id,
+        },
+      });
+    },
+    removeLogo: () => {
+      engine.dispatch({
+        type: 'UpdateNodeProps',
+        nodeId: node.id,
+        props: {
+          ...node.props,
+          logoAssetId: null,
+        },
+      });
+    },
+  };
 }
 
 export function createQrCodeDefinition(options?: QrCodeOptions): ComponentDefinition {
@@ -54,32 +95,7 @@ export function createQrCodeDefinition(options?: QrCodeOptions): ComponentDefini
 
       if (qrType !== 'logo') return null;
 
-      const pickLogo = async () => {
-        if (!options?.assetPicker) return;
-        const asset = await openAssetPickerDialog(options.assetPicker, {
-          acceptedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
-        });
-        if (!asset) return;
-        engine.dispatch({
-          type: 'UpdateNodeProps',
-          nodeId: node.id,
-          props: {
-            ...node.props,
-            logoAssetId: asset.id,
-          },
-        });
-      };
-
-      const removeLogo = () => {
-        engine.dispatch({
-          type: 'UpdateNodeProps',
-          nodeId: node.id,
-          props: {
-            ...node.props,
-            logoAssetId: null,
-          },
-        });
-      };
+      const { pickLogo, removeLogo } = createQrCodeLogoActions(node, engine, options);
 
       return html`
         <div class="inspector-field">
@@ -102,10 +118,7 @@ export function createQrCodeDefinition(options?: QrCodeOptions): ComponentDefini
       const size = (node.props?.size as string | undefined) ?? '120pt';
       const qrType = ((node.props?.qrType as string | undefined) ?? 'standard') as QrCodeType;
       const logoAssetId = (node.props?.logoAssetId as string | null | undefined) ?? null;
-      const logoSrc =
-        qrType === 'logo' && logoAssetId && options?.contentUrlPattern
-          ? resolveContentUrl(options.contentUrlPattern, logoAssetId)
-          : null;
+      const logoSrc = resolveQrCodeLogoSrc(qrType, logoAssetId, options?.contentUrlPattern);
 
       return html`
         <div class="qrcode-canvas">
