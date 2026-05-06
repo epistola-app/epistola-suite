@@ -210,6 +210,40 @@ describe('convertSideValue', () => {
   it('returns value unchanged for unknown source unit', () => {
     expect(convertSideValue('5em', 'em', 'pt', baseUnit)).toBe('5em');
   });
+
+  it('passes undefined sides through unchanged regardless of unit switch', () => {
+    expect(convertSideValue(undefined, 'sp', 'pt', baseUnit)).toBeUndefined();
+    expect(convertSideValue(undefined, 'pt', 'sp', baseUnit)).toBeUndefined();
+  });
+
+  it('converts mixed-unit sides per side using a single fromUnit', () => {
+    // Mirrors how renderSpacingInput handles a unit-switch when the stored
+    // SpacingValue has mixed units: it picks `currentUnit` once (via
+    // detectSpacingUnit) and runs convertSideValue per side.
+    //
+    // Note: when fromUnit='sp' and the side stores a non-sp token (e.g. '5pt'),
+    // parseSpacingToken returns null and toPt collapses the multiplier to 0.
+    // The result is '0pt' (the value is clobbered) rather than passing through
+    // unchanged. This is the documented current behavior; locking it in here
+    // guards against silent regressions.
+    const sides: Array<keyof SpacingValue> = ['top', 'right', 'bottom', 'left'];
+    const stored: SpacingValue = {
+      top: '5pt',
+      right: '2sp',
+      bottom: undefined,
+      left: '0sp',
+    };
+    const converted = Object.fromEntries(
+      sides.map((side) => [side, convertSideValue(stored[side], 'sp', 'pt', baseUnit)]),
+    ) as SpacingValue;
+
+    expect(converted).toEqual({
+      top: '0pt', // non-sp value collapses to 0pt under sp parsing
+      right: '8pt', // 2sp * 4 = 8pt
+      bottom: undefined, // nil stays nil
+      left: '0pt', // 0sp * 4 = 0pt
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

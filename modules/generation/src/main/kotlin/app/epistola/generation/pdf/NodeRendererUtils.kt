@@ -51,6 +51,16 @@ internal fun Map<String, Any?>.filterNonNullValues(): Map<String, Any> {
 }
 
 /**
+ * Returns this node's non-null styles with the given keys removed.
+ *
+ * Used by the page header/footer event handlers: certain margin sides are
+ * already consumed when positioning the header/footer rectangle on the page,
+ * so they must not be applied a second time as wrapper-Div styles inside the
+ * rectangle.
+ */
+internal fun Node.styleMapExcluding(consumedKeys: Set<String>): Map<String, Any>? = styles?.filterNonNullValues()?.filterKeys { it !in consumedKeys }
+
+/**
  * Parses a border style string prop into a [BorderStyle] enum value.
  * Returns [BorderStyle.all] if the value is null or unrecognized.
  */
@@ -131,5 +141,73 @@ internal fun parseNodeHeight(node: Node?, context: RenderContext): Float? {
             }
         }
         else -> null
+    }
+}
+
+/**
+ * Parses a margin/padding side from `node.styles[key]` to absolute points.
+ * Used by the header/footer page-event handlers to let an explicit
+ * `marginTop` / `marginBottom` on the node override the hardcoded
+ * page-padding default.
+ *
+ * Returns null when the key is absent (nil), when the value isn't a
+ * string, or when the unit isn't supported by [StyleApplicator.parseSize].
+ */
+internal fun parseNodeStyleSize(node: Node?, key: String, context: RenderContext): Float? {
+    val raw = node?.styles?.get(key) as? String ?: return null
+    return StyleApplicator.parseSize(raw, context.renderingDefaults.baseFontSizePt, context.spacingUnit)
+}
+
+/**
+ * Resolves the effective page-edge margin for a given side, in absolute
+ * points, by walking the cascade:
+ *
+ *  1. The node's own `margin{Side}` style (when [overrideNode] is set)
+ *  2. The root node's `margin{Side}` style — applies to anything anchored
+ *     to the page (header, footer, body)
+ *  3. `document.pageSettingsOverride.margins.{side}` — template-level
+ *  4. `context.resolvedPageSettings.margins.{side}` — theme-level
+ *  5. `renderingDefaults.defaultPageSettings.margins.{side}` — engine fallback
+ *
+ * Steps 3-5 are walked per-side: if a layer has the side as null, the
+ * cascade continues. The engine defaults always provide a non-null value.
+ *
+ * `marginKey` is the camelCase property name to look up: `"marginTop"`,
+ * `"marginRight"`, `"marginBottom"`, or `"marginLeft"`.
+ */
+internal fun effectivePageMarginPt(
+    overrideNode: Node?,
+    marginKey: String,
+    context: RenderContext,
+    mmToPt: Float = 2.834645f,
+): Float {
+    // 1. Override node's own margin{Side}
+    parseNodeStyleSize(overrideNode, marginKey, context)?.let { return it }
+    // 2. Root node's margin{Side}
+    val rootNode = context.document.nodes[context.document.root]
+    parseNodeStyleSize(rootNode, marginKey, context)?.let { return it }
+    // 3-5. Page-settings cascade walked per side
+    return effectivePageSettingsMarginMm(marginKey, context).toFloat() * mmToPt
+}
+
+/**
+ * Resolves a single page-settings margin side (mm) by walking the
+ * template → theme → engine-defaults cascade per side. The engine
+ * defaults always supply a non-null value, so this is a total function.
+ */
+internal fun effectivePageSettingsMarginMm(marginKey: String, context: RenderContext): Long {
+    val sideSelector: (app.epistola.template.model.Margins) -> Long? = when (marginKey) {
+        "marginTop" -> { m -> m.top }
+        "marginRight" -> { m -> m.right }
+        "marginBottom" -> { m -> m.bottom }
+        "marginLeft" -> { m -> m.left }
+        else -> error("Unsupported margin key: $marginKey")
+    }
+    val template = context.document.pageSettingsOverride?.margins?.let(sideSelector)
+    if (template != null) return template
+    val theme = context.resolvedPageSettings?.margins?.let(sideSelector)
+    if (theme != null) return theme
+    return requireNotNull(context.renderingDefaults.defaultPageSettings.margins?.let(sideSelector)) {
+        "RenderingDefaults.defaultPageSettings.margins must supply a non-null value for $marginKey"
     }
 }

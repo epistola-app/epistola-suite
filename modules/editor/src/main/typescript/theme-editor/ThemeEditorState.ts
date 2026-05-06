@@ -82,18 +82,17 @@ export class ThemeEditorState extends EventTarget {
     this._fireChange();
   }
 
-  updateMargin(side: 'top' | 'right' | 'bottom' | 'left', value: number): void {
+  updateMargin(side: 'top' | 'right' | 'bottom' | 'left', value: number | undefined): void {
     if (!this._current.pageSettings) {
-      this._current.pageSettings = {
-        format: 'A4',
-        orientation: 'portrait',
-        margins: { top: 20, right: 20, bottom: 20, left: 20 },
-      };
+      this._current.pageSettings = {};
     }
-    this._current.pageSettings.margins = {
-      ...this._current.pageSettings.margins,
-      [side]: value,
-    };
+    const newMargins = { ...(this._current.pageSettings.margins ?? {}) };
+    if (value !== undefined && Number.isFinite(value)) {
+      newMargins[side] = value;
+    } else {
+      delete newMargins[side];
+    }
+    this._current.pageSettings.margins = newMargins;
     this._fireChange();
   }
 
