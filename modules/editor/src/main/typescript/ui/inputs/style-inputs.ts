@@ -20,7 +20,7 @@ export interface ParsedUnit {
 export function parseValueWithUnit(raw: unknown, defaultUnit: string): ParsedUnit {
   if (raw == null || raw === '') return { value: 0, unit: defaultUnit };
   const str = String(raw);
-  const match = str.match(/^(-?[\d.]+)\s*([a-z%]+)?$/i);
+  const match = str.match(/^([\d.]+)\s*([a-z%]+)?$/i);
   if (!match) return { value: 0, unit: defaultUnit };
   return { value: parseFloat(match[1]), unit: match[2] || defaultUnit };
 }
