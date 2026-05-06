@@ -1070,6 +1070,67 @@ export function createDefaultRegistry(): ComponentRegistry {
       return props;
     },
     maxInstancesPerDocument: 1,
+    examples: [
+      {
+        name: 'din-c56-left',
+        description:
+          'Standard left-window envelope address block (DIN C5/C6) with the recipient address rendered from data fields. Singleton: only one address block per document is allowed.',
+        fragment: {
+          rootNodeId: 'n-address-block',
+          nodes: {
+            'n-address-block': {
+              id: 'n-address-block',
+              type: 'addressblock',
+              slots: ['s-address-block-address', 's-address-block-aside'],
+              props: {
+                standard: 'din-c56-left',
+                align: 'left',
+                top: 45,
+                sideDistance: 20,
+                addressWidth: 85,
+                height: 45,
+              },
+            },
+            'n-address-block-text': {
+              id: 'n-address-block-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'expression', attrs: { expression: 'recipient.name' } },
+                        { type: 'hard_break' },
+                        { type: 'expression', attrs: { expression: 'recipient.address' } },
+                        { type: 'hard_break' },
+                        { type: 'expression', attrs: { expression: 'recipient.city' } },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-address-block-address': {
+              id: 's-address-block-address',
+              nodeId: 'n-address-block',
+              name: 'address',
+              children: ['n-address-block-text'],
+            },
+            's-address-block-aside': {
+              id: 's-address-block-aside',
+              nodeId: 'n-address-block',
+              name: 'aside',
+              children: [],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -1113,6 +1174,48 @@ export function createDefaultRegistry(): ComponentRegistry {
       { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
     maxInstancesPerDocument: 1,
+    examples: [
+      {
+        name: 'title-only',
+        description:
+          'Minimal page header with a single text block. Anchored to the top of every page (or every page except the first when hideOnFirstPage is set).',
+        fragment: {
+          rootNodeId: 'n-pageheader',
+          nodes: {
+            'n-pageheader': {
+              id: 'n-pageheader',
+              type: 'pageheader',
+              slots: ['s-pageheader-children'],
+              props: { height: '60pt', hideOnFirstPage: false },
+            },
+            'n-pageheader-text': {
+              id: 'n-pageheader-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'tenant.name' } }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-pageheader-children': {
+              id: 's-pageheader-children',
+              nodeId: 'n-pageheader',
+              name: 'children',
+              children: ['n-pageheader-text'],
+            },
+          },
+        },
+      },
+    ],
   });
 
   registry.register({
@@ -1128,6 +1231,48 @@ export function createDefaultRegistry(): ComponentRegistry {
       { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
     maxInstancesPerDocument: 1,
+    examples: [
+      {
+        name: 'centered-text',
+        description: 'Page footer with a single centered text block. Anchored to the bottom of every page.',
+        fragment: {
+          rootNodeId: 'n-pagefooter',
+          nodes: {
+            'n-pagefooter': {
+              id: 'n-pagefooter',
+              type: 'pagefooter',
+              slots: ['s-pagefooter-children'],
+              props: { height: '40pt', hideOnFirstPage: false },
+            },
+            'n-pagefooter-text': {
+              id: 'n-pagefooter-text',
+              type: 'text',
+              slots: [],
+              styles: { textAlign: 'center', fontSize: '8pt' },
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Confidential — for internal use only' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-pagefooter-children': {
+              id: 's-pagefooter-children',
+              nodeId: 'n-pagefooter',
+              name: 'children',
+              children: ['n-pagefooter-text'],
+            },
+          },
+        },
+      },
+    ],
   });
 
   return registry;
