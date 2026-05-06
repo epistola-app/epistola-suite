@@ -4,6 +4,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
+import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
@@ -13,9 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.time.Instant
 
 class ApiKeyIntegrationTest : BaseIntegrationTest() {
-
-    @Autowired
-    private lateinit var apiKeyRepository: ApiKeyRepository
 
     @Autowired
     private lateinit var apiKeyService: ApiKeyService
@@ -42,15 +40,15 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
 
             // Verify lookup by hash works
             val keyHash = apiKeyService.hashKey(created.plaintextKey)
-            val found = apiKeyRepository.findByKeyHash(keyHash)
-            assertThat(found).isNotNull()
+            val found = LookupApiKeyByHash(keyHash).query()
+            assertThat(found).isNotNull
             assertThat(found!!.id).isEqualTo(created.apiKey.id)
             assertThat(found.tenantKey).isEqualTo(created.apiKey.tenantKey)
         }
     }
 
     @Test
-    fun `revoke API key disables it`() = fixture {
+    fun `revoke API key disables it and records audit info`() = fixture {
         lateinit var tenant: Tenant
         lateinit var created: ApiKeyWithSecret
 
@@ -60,14 +58,18 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
 
         whenever {
             created = CreateApiKey(tenantId = tenant.id, name = "To Revoke").execute()
+            // revokedBy left null here because no users-table row exists for the test
+            // principal in this lightweight fixture; the per-user audit is covered by
+            // ApiKeyHandlerTest which seeds the user.
             RevokeApiKey(tenantId = tenant.id, id = created.apiKey.id).execute()
         }
 
         then {
             val keyHash = apiKeyService.hashKey(created.plaintextKey)
-            val found = apiKeyRepository.findByKeyHash(keyHash)
-            assertThat(found).isNotNull()
+            val found = LookupApiKeyByHash(keyHash).query()
+            assertThat(found).isNotNull
             assertThat(found!!.enabled).isFalse()
+            assertThat(found.revokedAt).isNotNull
         }
     }
 

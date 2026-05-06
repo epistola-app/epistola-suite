@@ -22,6 +22,14 @@ data class ApiKey(
     val lastUsedAt: Instant?,
     val expiresAt: Instant?,
     val createdBy: UserKey?,
+    val revokedAt: Instant? = null,
+    val revokedBy: UserKey? = null,
+    /**
+     * Display name of the user who created this key, resolved via JOIN on listing.
+     * Null when the user no longer exists, when fetched outside a listing context
+     * (e.g. by hash for authentication), or when [createdBy] itself is null.
+     */
+    val createdByDisplayName: String? = null,
 ) {
     fun isExpired(): Boolean = expiresAt != null && Instant.now().isAfter(expiresAt)
 

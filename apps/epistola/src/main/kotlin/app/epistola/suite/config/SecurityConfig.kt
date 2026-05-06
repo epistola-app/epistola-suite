@@ -1,7 +1,6 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
-import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
@@ -41,7 +40,6 @@ class SecurityConfig(
     private val oauth2UserProvisioningService: app.epistola.suite.security.OAuth2UserProvisioningService? = null,
     private val clientRegistrationRepository: ClientRegistrationRepository? = null,
     private val userDetailsService: UserDetailsService? = null,
-    private val apiKeyRepository: ApiKeyRepository,
     private val apiKeyService: ApiKeyService,
     private val authProperties: AuthProperties,
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
@@ -89,7 +87,6 @@ class SecurityConfig(
     @Profile("!test")
     fun apiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         val apiKeyFilter = ApiKeyAuthenticationFilter(
-            apiKeyRepository = apiKeyRepository,
             apiKeyService = apiKeyService,
             meterRegistry = meterRegistry,
             headerName = authProperties.apiKey.headerName,
