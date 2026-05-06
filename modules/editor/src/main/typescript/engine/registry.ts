@@ -592,10 +592,7 @@ export function createDefaultRegistry(): ComponentRegistry {
               id: 's-container-with-children',
               nodeId: 'n-container-with-children',
               name: 'children',
-              children: [
-                'n-container-with-children-heading',
-                'n-container-with-children-body',
-              ],
+              children: ['n-container-with-children-heading', 'n-container-with-children-body'],
             },
           },
         },
@@ -1234,7 +1231,8 @@ export function createDefaultRegistry(): ComponentRegistry {
     examples: [
       {
         name: 'centered-text',
-        description: 'Page footer with a single centered text block. Anchored to the bottom of every page.',
+        description:
+          'Page footer with a single centered text block. Anchored to the bottom of every page.',
         fragment: {
           rootNodeId: 'n-pagefooter',
           nodes: {

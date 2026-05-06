@@ -285,9 +285,7 @@ export function createTableDefinition(): ComponentDefinition {
               props: {
                 content: {
                   type: 'doc',
-                  content: [
-                    { type: 'paragraph', content: [{ type: 'text', text: 'Name' }] },
-                  ],
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Name' }] }],
                 },
               },
             },
@@ -298,9 +296,7 @@ export function createTableDefinition(): ComponentDefinition {
               props: {
                 content: {
                   type: 'doc',
-                  content: [
-                    { type: 'paragraph', content: [{ type: 'text', text: 'Total' }] },
-                  ],
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Total' }] }],
                 },
               },
             },
@@ -311,9 +307,7 @@ export function createTableDefinition(): ComponentDefinition {
               props: {
                 content: {
                   type: 'doc',
-                  content: [
-                    { type: 'paragraph', content: [{ type: 'text', text: 'Subtotal' }] },
-                  ],
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Subtotal' }] }],
                 },
               },
             },

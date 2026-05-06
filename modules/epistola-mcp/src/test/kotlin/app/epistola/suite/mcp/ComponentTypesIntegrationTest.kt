@@ -87,4 +87,62 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
     fun `get_component_type returns null for an unknown type`() {
         assertThat(componentTools.getComponentType("does-not-exist")).isNull()
     }
+
+    @Test
+    fun `every user-insertable component carries at least one example`() {
+        // Every component an AI client can insert should ship a usage example so
+        // the AI doesn't have to invent the JSON shape. Root is implicit (the
+        // document already has it); hidden components are child-only and not
+        // directly insertable, but datatable-column is documented so the AI
+        // can compose datatables.
+        val skipped = setOf("root")
+        val missing = componentTools.listComponentTypes()
+            .filter { it.type !in skipped }
+            .filter { it.examples.isEmpty() }
+            .map { it.type }
+        assertThat(missing).isEmpty()
+    }
+
+    @Test
+    fun `each example's root node is present in fragment nodes and has the matching type`() {
+        // Sanity check: every example's rootNodeId must appear in its nodes map
+        // and the node found there must have the same type as the parent component.
+        // Catches authoring mistakes (mistyped IDs, copy-paste between types).
+        val mismatches = mutableListOf<String>()
+        for (component in componentTools.listComponentTypes()) {
+            for (example in component.examples) {
+                val rootNode = example.fragment.nodes[example.fragment.rootNodeId]
+                if (rootNode == null) {
+                    mismatches += "${component.type}/${example.name}: rootNodeId '${example.fragment.rootNodeId}' not in nodes"
+                    continue
+                }
+                val nodeType = rootNode["type"] as? String
+                if (nodeType != component.type) {
+                    mismatches += "${component.type}/${example.name}: root node has type '$nodeType', expected '${component.type}'"
+                }
+            }
+        }
+        assertThat(mismatches).isEmpty()
+    }
+
+    @Test
+    fun `datatable invoice example demonstrates the full iteration pattern`() {
+        val datatable = componentTools.getComponentType("datatable")
+        assertThat(datatable).isNotNull
+        val example = datatable!!.examples.firstOrNull { it.name == "invoice-line-items" }
+        assertThat(example).isNotNull
+        assertThat(example!!.description).contains("items")
+        // The example should have multiple datatable-column children
+        val columnNodes = example.fragment.nodes.values.filter { it["type"] == "datatable-column" }
+        assertThat(columnNodes).hasSizeGreaterThanOrEqualTo(2)
+    }
+
+    @Test
+    fun `text example with expression demonstrates inline data binding`() {
+        val text = componentTools.getComponentType("text")
+        val withExpression = text?.examples?.firstOrNull { it.name == "with-expression" }
+        assertThat(withExpression).isNotNull
+        // The example's description should mention expressions to help the AI find it
+        assertThat(withExpression!!.description.lowercase()).contains("expression")
+    }
 }
