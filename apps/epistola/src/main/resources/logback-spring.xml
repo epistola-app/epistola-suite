@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- Demotes two specific Spring AI 2.0-Mx MCP cleanup-noise ERRORs to WARN
+         with no stack trace; see SpringAiMcpNoiseRewriter. -->
+    <turboFilter class="app.epistola.suite.config.SpringAiMcpNoiseRewriter"/>
+
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
     <conversionRule conversionWord="cleanEx"

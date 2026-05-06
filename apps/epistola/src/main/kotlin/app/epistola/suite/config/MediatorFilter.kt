@@ -21,12 +21,25 @@ import org.springframework.web.filter.OncePerRequestFilter
  *
  * The mediator is automatically unbound when the request completes due to
  * ScopedValue's automatic scope management.
+ *
+ * ## Async dispatches
+ *
+ * `OncePerRequestFilter` defaults to skipping ASYNC re-dispatches. We override
+ * that because [ScopedValue] is strictly thread-bound and isn't propagated
+ * across async dispatches automatically — without rebinding here, code that
+ * touches [MediatorContext.current] on the async dispatch thread (e.g. Spring
+ * Security filters running over an MCP/SSE re-dispatch) throws
+ * "No Mediator bound to current scope". Rebinding is cheap: the [Mediator]
+ * bean is a singleton, no per-request state involved.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class MediatorFilter(
     private val mediator: Mediator,
 ) : OncePerRequestFilter() {
+
+    /** Run on async re-dispatches too — see class KDoc. */
+    override fun shouldNotFilterAsyncDispatch(): Boolean = false
 
     override fun doFilterInternal(
         request: HttpServletRequest,

@@ -9,6 +9,12 @@ dependencyResolutionManagement {
                 snapshotsOnly()
             }
         }
+        // Spring milestone repo for spring-ai 2.0-Mx (used by :modules:epistola-mcp)
+        maven("https://repo.spring.io/milestone") {
+            mavenContent {
+                releasesOnly()
+            }
+        }
     }
 }
 
@@ -20,3 +26,4 @@ include(":modules:rest-api")
 include(":modules:generation")
 include(":modules:feedback")
 include(":modules:testing")
+include(":modules:epistola-mcp")

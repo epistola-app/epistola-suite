@@ -47,6 +47,7 @@ epistola-suite-modules/
 │   ├── generation/        # Pure PDF rendering
 │   ├── rest-api/          # OpenAPI specs
 │   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
+│   ├── epistola-mcp/      # MCP server for AI assistants (read-only tools at /api/mcp)
 │   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures, Testcontainers)
 ├── docs/                  # Documentation
 ├── scripts/               # Setup scripts
@@ -61,6 +62,7 @@ epistola-suite-modules/
 - **modules/generation**: Pure PDF rendering (no business logic)
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
+- **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `X-API-Key` auth). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
 - **modules/testing**: Shared test infrastructure — `IntegrationTestBase`, Testcontainers, fixture/scenario DSLs (not production code)
 
 ## Frontend Architecture
