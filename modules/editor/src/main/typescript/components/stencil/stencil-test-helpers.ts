@@ -22,7 +22,6 @@ export function createMockCallbacks(overrides?: Partial<StencilCallbacks>): Sten
     searchStencils: vi.fn().mockResolvedValue([]),
     listVersions: vi.fn().mockResolvedValue([]),
     getStencilVersion: vi.fn().mockResolvedValue(null),
-    publishAsStencil: vi.fn().mockResolvedValue({ stencilId: 'new-stencil', version: 1 }),
     updateStencil: vi.fn().mockResolvedValue({ version: 2 }),
     startEditing: vi.fn().mockResolvedValue({ draftVersion: 2 }),
     publishDraft: vi.fn().mockResolvedValue({ version: 2 }),

@@ -485,7 +485,6 @@ describe('canDropHere — placeholder/stencil rules', () => {
       },
       themeRef: { type: 'inherit' },
     };
-    const indexes = buildIndexes(doc);
 
     // Try to move a *different* node (would-be stencil A) into innerSlot.
     // Since the outer chain has stencilId 'A', dropping another A would recurse.
