@@ -29,6 +29,9 @@ import type { StencilCallbacks, StencilRef, StencilVersionInfo } from './types.j
 import { extractSubtree } from './extract-subtree.js';
 import { reKeyContent } from './rekey-content.js';
 import { captureFillsByName, reKeyCapturedFill, type CapturedFill } from './preserve-fills.js';
+import { PLACEHOLDER_SLOT_FILL } from '../placeholder/constants.js';
+import { isPlaceholder, placeholderName } from '../placeholder/node-types.js';
+import { isStencil } from './node-types.js';
 
 export interface StencilActionContext {
   engine: EditorEngine;
@@ -234,10 +237,9 @@ function stencilNode(ctx: StencilActionContext): Node {
 /** Build a StencilRef from the node's props. Returns null when unlinked. */
 export function stencilRef(ctx: StencilActionContext): StencilRef | null {
   const node = ctx.engine.doc.nodes[ctx.stencilNodeId];
-  if (!node) return null;
-  const id = node.props?.stencilId as string | null | undefined;
-  const catalog = node.props?.catalogKey as string | null | undefined;
-  return id && catalog ? { stencilId: id, catalogKey: catalog } : null;
+  if (!isStencil(node)) return null;
+  const { stencilId: id, catalogKey } = node.props;
+  return id && catalogKey ? { stencilId: id, catalogKey } : null;
 }
 
 function requireRef(ctx: StencilActionContext): StencilRef {
@@ -337,10 +339,10 @@ function applyCapturedFills(ctx: StencilActionContext, captured: Map<string, Cap
     const node = doc.nodes[nodeId];
     if (!node) continue;
 
-    if (node.type === 'placeholder') {
-      const name = node.props?.name as string | undefined;
+    if (isPlaceholder(node)) {
+      const name = placeholderName(node);
       if (name && captured.has(name)) {
-        const fillSlotId = node.slots.find((sid) => doc.slots[sid]?.name === 'fill');
+        const fillSlotId = node.slots.find((sid) => doc.slots[sid]?.name === PLACEHOLDER_SLOT_FILL);
         if (fillSlotId) spliceFillIntoSlot(ctx, fillSlotId, captured.get(name)!);
       }
       // Don't descend into placeholder slots — overrides are one-level only.

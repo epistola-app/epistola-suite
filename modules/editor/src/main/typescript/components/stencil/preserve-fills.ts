@@ -10,6 +10,8 @@
 
 import type { TemplateDocument, Node, Slot, NodeId } from '../../types/index.js';
 import { nanoid } from 'nanoid';
+import { PLACEHOLDER_SLOT_FILL } from '../placeholder/constants.js';
+import { isPlaceholder } from '../placeholder/node-types.js';
 
 /** A snapshot of one placeholder fill, captured by name. */
 export interface CapturedFill {
@@ -29,12 +31,12 @@ export interface CapturedFill {
 export function captureFillsByName(doc: TemplateDocument): Map<string, CapturedFill> {
   const result = new Map<string, CapturedFill>();
   for (const node of Object.values(doc.nodes)) {
-    if (node.type !== 'placeholder') continue;
-    const name = (node.props?.name as string | undefined) ?? '';
+    if (!isPlaceholder(node)) continue;
+    const name = node.props.name;
     if (!name) continue;
     const fillSlot = node.slots
       .map((sid) => (doc.slots as Record<string, Slot>)[sid as string])
-      .find((s) => s && s.name === 'fill');
+      .find((s) => s && s.name === PLACEHOLDER_SLOT_FILL);
     if (!fillSlot || fillSlot.children.length === 0) continue;
 
     const collectedNodes = new Map<string, Node>();

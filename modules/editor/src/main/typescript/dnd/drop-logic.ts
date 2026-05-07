@@ -9,6 +9,9 @@ import type { DocumentIndexes } from '../engine/indexes.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js';
 import { computeAncestorScope } from '../components/stencil/ancestry.js';
 import { isSlotLocked } from '../engine/locks.js';
+import { STENCIL_TYPE } from '../components/stencil/constants.js';
+import { PLACEHOLDER_TYPE } from '../components/placeholder/constants.js';
+import { stencilId as readStencilId } from '../components/stencil/node-types.js';
 import type { DragData } from './types.js';
 
 export type Edge = 'top' | 'bottom';
@@ -138,14 +141,14 @@ export function canDropHere(
 
   // Stencil/placeholder structural rules. The same ancestor walk powers
   // three checks; computed once here.
-  if (dragData.blockType === 'stencil' || dragData.blockType === 'placeholder') {
+  if (dragData.blockType === STENCIL_TYPE || dragData.blockType === PLACEHOLDER_TYPE) {
     const scope = computeAncestorScope(doc, targetSlotId, indexes);
 
     // Rule 2: a placeholder may only be dropped where a stencil is in the
     // ancestor chain, and never inside another placeholder's fill slot
     // (rule 3 — at the stencil-definition level, which is the only level
     // a bare placeholder can be dropped from the palette).
-    if (dragData.blockType === 'placeholder') {
+    if (dragData.blockType === PLACEHOLDER_TYPE) {
       if (!scope.hasStencilAncestor) return false;
       if (scope.hasPlaceholderAncestor) return false;
     }
@@ -154,9 +157,8 @@ export function canDropHere(
     // in the ancestor chain. For palette drags the stencilId is chosen later
     // in the picker dialog (which has its own recursion guard); for block
     // drags we have the dragged node, so we can check now.
-    if (dragData.blockType === 'stencil' && dragData.source === 'block') {
-      const dragged = doc.nodes[dragData.nodeId];
-      const sid = dragged?.props?.stencilId as string | undefined;
+    if (dragData.blockType === STENCIL_TYPE && dragData.source === 'block') {
+      const sid = readStencilId(doc.nodes[dragData.nodeId]);
       if (sid && scope.stencilIds.has(sid)) return false;
     }
   }

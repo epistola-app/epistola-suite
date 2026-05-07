@@ -24,7 +24,7 @@ class StencilNodeRenderer(
         context: RenderContext,
         registry: NodeRendererRegistry,
     ): List<IElement> {
-        val stencilId = node.props?.get("stencilId") as? String
+        val stencilId = node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String
         val nextContext = if (stencilId != null) {
             check(stencilId !in context.ancestorStencilIds) {
                 "Stencil recursion detected: '$stencilId' would contain itself transitively"

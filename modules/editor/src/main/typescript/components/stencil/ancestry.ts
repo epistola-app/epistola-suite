@@ -10,6 +10,8 @@
 
 import type { NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 import type { DocumentIndexes } from '../../engine/indexes.js';
+import { isPlaceholder } from '../placeholder/node-types.js';
+import { isStencil, isPublishedStencil } from './node-types.js';
 
 export interface AncestorScope {
   /** Stencil IDs of every stencil ancestor (used for the recursion guard). */
@@ -46,12 +48,11 @@ export function computeAncestorScope(
     visited.add(current);
     const node = doc.nodes[current];
     if (!node) break;
-    if (node.type === 'stencil') {
+    if (isStencil(node)) {
       hasStencilAncestor = true;
-      const sid = node.props?.stencilId as string | undefined;
-      if (sid) stencilIds.add(sid);
+      if (node.props.stencilId) stencilIds.add(node.props.stencilId);
     }
-    if (node.type === 'placeholder') {
+    if (isPlaceholder(node)) {
       hasPlaceholderAncestor = true;
     }
     current = indexes.parentNodeByNodeId.get(current);
@@ -82,11 +83,8 @@ export function placeholderContext(
     visited.add(current);
     const node = doc.nodes[current];
     if (!node) return 'stencil-author';
-    if (node.type === 'stencil') {
-      const stencilId = node.props?.stencilId as string | null | undefined;
-      const isDraft = (node.props?.isDraft as boolean | undefined) ?? false;
-      const isLinked = stencilId !== null && stencilId !== undefined;
-      return isLinked && !isDraft ? 'template-fill' : 'stencil-author';
+    if (isStencil(node)) {
+      return isPublishedStencil(node) ? 'template-fill' : 'stencil-author';
     }
     current = indexes.parentNodeByNodeId.get(current);
   }

@@ -18,14 +18,20 @@ import type { NodeId, SlotId } from '../../types/index.js';
 import { html, nothing } from 'lit';
 import { nanoid } from 'nanoid';
 import { placeholderContext } from '../stencil/ancestry.js';
+import {
+  PLACEHOLDER_TYPE,
+  PLACEHOLDER_SLOT_DEFAULT,
+  PLACEHOLDER_SLOT_FILL,
+} from './constants.js';
+import { isPlaceholder, placeholderName } from './node-types.js';
 import './PlaceholderInspector.js';
 
 export function createPlaceholderDefinition(): ComponentDefinition {
   return {
-    type: 'placeholder',
+    type: PLACEHOLDER_TYPE,
     label: 'Placeholder',
     getLabel: (node) => {
-      const name = (node.props?.name as string) ?? '';
+      const name = placeholderName(node) ?? '';
       return name ? `Placeholder · ${name}` : 'Placeholder';
     },
     icon: 'square-dashed',
@@ -34,10 +40,10 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       // `default` inherits whatever lock the surrounding stencil has — the
       // stencil author edits it (in draft mode) and the template author
       // cannot (when published).
-      { name: 'default' },
+      { name: PLACEHOLDER_SLOT_DEFAULT },
       // `fill` is always user-editable, even inside a published (locked)
       // stencil. This is what makes placeholders work in templates.
-      { name: 'fill', editable: true },
+      { name: PLACEHOLDER_SLOT_FILL, editable: true },
     ],
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
@@ -50,8 +56,8 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       const engine = engineUnknown as EditorEngine;
       const taken = new Set<string>();
       for (const n of Object.values(engine.doc.nodes)) {
-        if (n.type === 'placeholder') {
-          const existing = (n.props?.name as string) ?? '';
+        if (isPlaceholder(n)) {
+          const existing = n.props.name;
           if (existing) taken.add(existing);
         }
       }
@@ -64,13 +70,13 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       {
         id: nanoid() as SlotId,
         nodeId,
-        name: 'default',
+        name: PLACEHOLDER_SLOT_DEFAULT,
         children: [],
       },
       {
         id: nanoid() as SlotId,
         nodeId,
-        name: 'fill',
+        name: PLACEHOLDER_SLOT_FILL,
         children: [],
       },
     ],

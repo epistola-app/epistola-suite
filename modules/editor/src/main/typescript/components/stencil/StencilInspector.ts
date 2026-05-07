@@ -20,6 +20,7 @@ import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
 import * as stencilActions from './stencil-actions.js';
+import { isStencil } from './node-types.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -64,21 +65,21 @@ export class StencilInspector extends LitElement {
   // ── Computed state ──
 
   private get _stencilId(): string | null {
-    return (this.node.props?.stencilId as string) ?? null;
+    return isStencil(this.node) ? this.node.props.stencilId : null;
   }
 
   private get _ref(): StencilRef | null {
-    const id = this._stencilId;
-    const catalog = this.node.props?.catalogKey as string | null;
-    return id && catalog ? { stencilId: id, catalogKey: catalog } : null;
+    if (!isStencil(this.node)) return null;
+    const { stencilId: id, catalogKey } = this.node.props;
+    return id && catalogKey ? { stencilId: id, catalogKey } : null;
   }
 
   private get _version(): number | null {
-    return (this.node.props?.version as number) ?? null;
+    return isStencil(this.node) ? this.node.props.version : null;
   }
 
   private get _isDraft(): boolean {
-    return (this.node.props?.isDraft as boolean) ?? false;
+    return isStencil(this.node) ? this.node.props.isDraft : false;
   }
 
   private get _isLocked(): boolean {

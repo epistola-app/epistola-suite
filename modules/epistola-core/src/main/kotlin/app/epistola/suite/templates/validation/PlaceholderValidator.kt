@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.stencils.PlaceholderNodeKeys
+import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
@@ -50,8 +52,8 @@ class PlaceholderValidator {
     fun validatePlaceholderNamesUnique(doc: TemplateDocument) {
         val seen = mutableSetOf<String>()
         for (node in doc.nodes.values) {
-            if (node.type != PLACEHOLDER) continue
-            val name = node.props?.get("name") as? String ?: continue
+            if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
+            val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: continue
             if (name.isEmpty()) continue
             if (!seen.add(name)) {
                 throw ValidationException(
@@ -68,8 +70,8 @@ class PlaceholderValidator {
      */
     fun validatePlaceholderNameSlug(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
-            if (node.type != PLACEHOLDER) continue
-            val name = node.props?.get("name") as? String
+            if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
+            val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String
             if (name == null || !slugRegex.matches(name)) {
                 throw ValidationException(
                     "content.placeholder.name",
@@ -87,12 +89,12 @@ class PlaceholderValidator {
      */
     fun validateNoNestedPlaceholderDefinition(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
-            if (node.type != PLACEHOLDER) continue
+            if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
             val ancestors = ancestorNodes(doc, node.id)
             for (ancestor in ancestors) {
-                if (ancestor.type == PLACEHOLDER) {
-                    val outerName = ancestor.props?.get("name") as? String ?: "<unnamed>"
-                    val innerName = node.props?.get("name") as? String ?: "<unnamed>"
+                if (ancestor.type == PlaceholderNodeKeys.NODE_TYPE) {
+                    val outerName = ancestor.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
+                    val innerName = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                     throw ValidationException(
                         "content.placeholder",
                         "PLACEHOLDER_NESTED_DEFINITION: placeholder '$innerName' is nested " +
@@ -110,10 +112,10 @@ class PlaceholderValidator {
      */
     fun validatePlaceholdersHaveStencilAncestor(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
-            if (node.type != PLACEHOLDER) continue
+            if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
             val ancestors = ancestorNodes(doc, node.id)
-            if (ancestors.none { it.type == STENCIL }) {
-                val name = node.props?.get("name") as? String ?: "<unnamed>"
+            if (ancestors.none { it.type == StencilNodeKeys.NODE_TYPE }) {
+                val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                 throw ValidationException(
                     "content.placeholder",
                     "PLACEHOLDER_OUTSIDE_STENCIL: placeholder '$name' must be a descendant " +
@@ -134,8 +136,8 @@ class PlaceholderValidator {
     private fun recurse(doc: TemplateDocument, nodeId: String, ancestorStencilIds: Set<String>) {
         val node = doc.nodes[nodeId] ?: return
         var ancestors = ancestorStencilIds
-        if (node.type == STENCIL) {
-            val sid = node.props?.get("stencilId") as? String
+        if (node.type == StencilNodeKeys.NODE_TYPE) {
+            val sid = node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String
             if (sid != null) {
                 if (ancestors.contains(sid)) {
                     throw ValidationException(
@@ -161,7 +163,9 @@ class PlaceholderValidator {
      */
     fun validateForwardCompatReservations(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
-            if (node.type == STENCIL && node.props?.containsKey("parameterBindings") == true) {
+            if (node.type == StencilNodeKeys.NODE_TYPE &&
+                node.props?.containsKey(StencilNodeKeys.PROP_PARAMETER_BINDINGS) == true
+            ) {
                 throw ValidationException(
                     "content.stencil.props.parameterBindings",
                     "STENCIL_PARAMETERBINDINGS_RESERVED: 'parameterBindings' is reserved for a " +
@@ -191,10 +195,5 @@ class PlaceholderValidator {
             current = parent.id
         }
         return result
-    }
-
-    companion object {
-        private const val PLACEHOLDER = "placeholder"
-        private const val STENCIL = "stencil"
     }
 }

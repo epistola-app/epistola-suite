@@ -1,5 +1,7 @@
 package app.epistola.suite.stencils.model
 
+import app.epistola.suite.stencils.PlaceholderNodeKeys
+import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -49,8 +51,8 @@ object StencilContentReplacer {
     ): UpgradeResult {
         // Find all stencil nodes matching the stencilId
         val stencilNodes = document.nodes.values.filter { node ->
-            node.type == "stencil" &&
-                (node.props?.get("stencilId") as? String) == stencilId
+            node.type == StencilNodeKeys.NODE_TYPE &&
+                (node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String) == stencilId
         }
 
         if (stencilNodes.isEmpty()) return UpgradeResult(document, emptyMap())
@@ -85,20 +87,22 @@ object StencilContentReplacer {
 
             // Update the stencil node's props.
             val updatedProps = (stencilNode.props ?: emptyMap()).toMutableMap()
-            updatedProps["version"] = newVersion
+            updatedProps[StencilNodeKeys.PROP_VERSION] = newVersion
             nodes[stencilNode.id] = stencilNode.copy(props = updatedProps)
 
             // 4. Splice captured fills back into the new placeholders by name.
             // The new placeholder's `default` slot keeps the new stencil's
             // default content untouched; we only replace the `fill` slot.
             val matchedNames = mutableSetOf<String>()
-            val newPlaceholders = reKeyed.nodes.filter { it.type == "placeholder" }
+            val newPlaceholders = reKeyed.nodes.filter { it.type == PlaceholderNodeKeys.NODE_TYPE }
             for (newPh in newPlaceholders) {
-                val phName = newPh.props?.get("name") as? String ?: continue
+                val phName = newPh.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: continue
                 val capture = capturedFills[phName] ?: continue
                 matchedNames.add(phName)
 
-                val phFillSlotId = newPh.slots.firstOrNull { slots[it]?.name == "fill" }
+                val phFillSlotId = newPh.slots.firstOrNull {
+                    slots[it]?.name == PlaceholderNodeKeys.SLOT_FILL
+                }
                     ?: continue
                 val phFillSlot = slots[phFillSlotId] ?: continue
 
@@ -157,11 +161,11 @@ object StencilContentReplacer {
             val nodeId = queue.removeFirst()
             val node = nodes[nodeId] ?: continue
 
-            if (node.type == "placeholder") {
-                val name = node.props?.get("name") as? String
+            if (node.type == PlaceholderNodeKeys.NODE_TYPE) {
+                val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String
                 val fillSlot = node.slots
                     .mapNotNull { slots[it] }
-                    .firstOrNull { it.name == "fill" }
+                    .firstOrNull { it.name == PlaceholderNodeKeys.SLOT_FILL }
                 if (name != null && fillSlot != null && fillSlot.children.isNotEmpty()) {
                     // Snapshot the fill's subtree.
                     val collectedNodes = mutableMapOf<String, Node>()

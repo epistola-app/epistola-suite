@@ -17,6 +17,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import { placeholderContext } from '../stencil/ancestry.js';
+import { isPlaceholder } from './node-types.js';
 
 const SLUG_RE = /^[a-z][a-z0-9-]{0,63}$/;
 
@@ -32,11 +33,11 @@ export class PlaceholderInspector extends LitElement {
   @state() private _nameError: string | null = null;
 
   private get _name(): string {
-    return (this.node.props?.name as string) ?? '';
+    return isPlaceholder(this.node) ? this.node.props.name : '';
   }
 
   private get _description(): string {
-    return (this.node.props?.description as string) ?? '';
+    return isPlaceholder(this.node) ? (this.node.props.description ?? '') : '';
   }
 
   override render() {
@@ -137,10 +138,7 @@ export class PlaceholderInspector extends LitElement {
     if (!value) return 'Name is required';
     if (!SLUG_RE.test(value)) return 'Use kebab-case: lowercase letters, digits, and hyphens';
     const duplicates = Object.values(this.engine.doc.nodes).filter(
-      (n) =>
-        n.id !== this.node.id &&
-        n.type === 'placeholder' &&
-        ((n.props?.name as string) ?? '') === value,
+      (n) => n.id !== this.node.id && isPlaceholder(n) && n.props.name === value,
     );
     if (duplicates.length > 0) return `Name '${value}' is already used in this document`;
     return null;

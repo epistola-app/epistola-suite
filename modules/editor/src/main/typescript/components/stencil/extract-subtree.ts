@@ -15,6 +15,7 @@
 
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../../types/index.js';
 import { nanoid } from 'nanoid';
+import { PLACEHOLDER_TYPE, PLACEHOLDER_SLOT_FILL } from '../placeholder/constants.js';
 
 /**
  * Extracts the content of a stencil node as a standalone TemplateDocument.
@@ -57,11 +58,11 @@ export function extractSubtree(
     if (!node) return;
     collectedNodes.set(nodeId as string, node);
 
-    const isPlaceholder = node.type === 'placeholder';
+    const isPlaceholder = node.type === PLACEHOLDER_TYPE;
     for (const sid of node.slots) {
       const s = (doc.slots as Record<string, Slot>)[sid as string];
       if (!s) continue;
-      if (stripFills && isPlaceholder && s.name === 'fill') {
+      if (stripFills && isPlaceholder && s.name === PLACEHOLDER_SLOT_FILL) {
         // Keep the fill slot structurally, but empty — and skip descending.
         collectedSlots.set(sid as string, { ...s, children: [] });
         continue;

@@ -21,8 +21,12 @@ class PlaceholderNodeRenderer : NodeRenderer {
         context: RenderContext,
         registry: NodeRendererRegistry,
     ): List<IElement> {
-        val fillSlotId = node.slots.firstOrNull { document.slots[it]?.name == "fill" }
-        val defaultSlotId = node.slots.firstOrNull { document.slots[it]?.name == "default" }
+        val fillSlotId = node.slots.firstOrNull {
+            document.slots[it]?.name == PlaceholderNodeKeys.SLOT_FILL
+        }
+        val defaultSlotId = node.slots.firstOrNull {
+            document.slots[it]?.name == PlaceholderNodeKeys.SLOT_DEFAULT
+        }
         val fillSlot = fillSlotId?.let { document.slots[it] }
 
         val targetSlotId = if (fillSlot != null && fillSlot.children.isNotEmpty()) {

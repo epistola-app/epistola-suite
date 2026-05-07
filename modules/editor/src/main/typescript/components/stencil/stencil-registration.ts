@@ -18,6 +18,8 @@ import type { StencilCallbacks } from './types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
 import { computeAncestorScope } from './ancestry.js';
+import { STENCIL_TYPE, STENCIL_SLOT_CHILDREN } from './constants.js';
+import { isPublishedStencil, isStencil } from './node-types.js';
 import './StencilInspector.js';
 import { nanoid } from 'nanoid';
 import { html } from 'lit';
@@ -29,13 +31,12 @@ export interface StencilOptions {
 
 export function createStencilDefinition(options: StencilOptions): ComponentDefinition {
   return {
-    type: 'stencil',
+    type: STENCIL_TYPE,
     label: 'Stencil',
     getLabel: (node, eng) => {
       const engine = eng as EditorEngine;
-      const stencilId = node.props?.stencilId as string | null;
-      const version = node.props?.version as number | null;
-      const isDraft = node.props?.isDraft as boolean | undefined;
+      if (!isStencil(node)) return 'Stencil';
+      const { stencilId, version, isDraft } = node.props;
 
       if (!stencilId) return 'Stencil';
 
@@ -52,13 +53,11 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     category: 'layout',
     slots: [
       {
-        name: 'children',
+        name: STENCIL_SLOT_CHILDREN,
         // The stencil's children are frozen as soon as the stencil is
         // published (linked via `stencilId` and not in draft mode). Inner
         // placeholder fill slots opt out via their own `editable: true`.
-        locked: (node) =>
-          (node.props?.stencilId as string | null | undefined) != null &&
-          !((node.props?.isDraft as boolean | undefined) ?? false),
+        locked: (node) => isPublishedStencil(node),
       },
     ],
     allowedChildren: { mode: 'denylist', types: ['stencil'] },
@@ -217,9 +216,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     ],
 
     renderCanvas: ({ node, renderSlot }) => {
-      const stencilId = node.props?.stencilId as string | null;
-      const isDraft = node.props?.isDraft as boolean | undefined;
-      const isLocked = stencilId !== null && !isDraft;
+      const isLocked = isPublishedStencil(node);
 
       // IMPORTANT: Template structure must be identical across all states.
       // Lit's template diffing caches by template string shape. The

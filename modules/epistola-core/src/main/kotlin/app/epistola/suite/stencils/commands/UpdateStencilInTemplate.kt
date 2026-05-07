@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.stencils.model.StencilContentReplacer
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
@@ -84,8 +85,8 @@ class UpdateStencilInTemplateHandler(
 
         // 2. Count stencil instances before upgrade
         val stencilNodes = templateModel.nodes.values.filter { node ->
-            node.type == "stencil" &&
-                (node.props?.get("stencilId") as? String) == command.stencilId.key.value
+            node.type == StencilNodeKeys.NODE_TYPE &&
+                (node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String) == command.stencilId.key.value
         }
 
         if (stencilNodes.isEmpty()) return@inTransaction UpdateStencilInTemplateResult(upgradedCount = 0)
