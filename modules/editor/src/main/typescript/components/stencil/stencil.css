@@ -200,3 +200,15 @@
   background: var(--ep-gray-100);
   color: var(--ep-gray-500);
 }
+
+/* ── Stencil inspector ───────────────────────────────────────────────── */
+
+.stencil-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+}
+
+.stencil-btn {
+  width: 100%;
+}

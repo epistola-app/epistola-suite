@@ -34,10 +34,14 @@ export class StencilInspector extends LitElement {
 
   @state() private _busy = false;
   @state() private _message = '';
+  @state() private _messageFading = false;
+  @state() private _messageType: 'info' | 'success' | 'error' = 'info';
   @state() private _draftVersion: number | null = null;
   @state() private _latestVersion: number | null = null;
 
   private _unsubState?: () => void;
+  private _messageTimer?: ReturnType<typeof setTimeout>;
+  private _fadeTimer?: ReturnType<typeof setTimeout>;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -59,6 +63,8 @@ export class StencilInspector extends LitElement {
 
   override disconnectedCallback(): void {
     this._unsubState?.();
+    clearTimeout(this._messageTimer);
+    clearTimeout(this._fadeTimer);
     super.disconnectedCallback();
   }
 
@@ -148,8 +154,7 @@ export class StencilInspector extends LitElement {
         ${this._isDraft ? this._renderDraft() : nothing}
         ${this._message
           ? html`<div
-              class="inspector-field"
-              style="font-size: var(--ep-font-size-sm); margin-top: var(--ep-space-2); color: var(--ep-color-success, #16a34a);"
+              class=${`callout callout--${this._messageType}${this._messageFading ? ' is-fading' : ''}`}
             >
               ${this._message}
             </div>`
@@ -162,33 +167,23 @@ export class StencilInspector extends LitElement {
 
   private _renderLocked() {
     return html`
-      <div class="inspector-field">
-        <div style="font-size: var(--ep-font-size-sm); margin-bottom: var(--ep-space-2);">
-          <strong>${this._stencilId}</strong> v${this._version}
-          <span style="color: var(--ep-color-text-muted);">(locked)</span>
-        </div>
-
+      <div class="inspector-field stencil-actions">
         ${this._hasUpgrade
           ? html`<button
-                class="btn btn-sm btn-primary"
-                style="width: 100%; margin-bottom: var(--ep-space-2);"
+                class="btn btn-sm btn-primary stencil-btn"
                 ?disabled=${this._busy}
                 @click=${this._handleUpgrade}
               >
                 ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
               </button>
-              <div
-                class="inspector-field-hint"
-                style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-bottom: var(--ep-space-2);"
-              >
+              <div class="callout callout--warning">
                 Upgrade to v${this._latestVersion} before editing — editing the stale
                 v${this._version} content here would overwrite the newer published version when you
                 save.
               </div>`
           : this.callbacks?.startEditing
             ? html`<button
-                class="btn btn-sm btn-primary"
-                style="width: 100%; margin-bottom: var(--ep-space-2);"
+                class="btn btn-sm btn-primary stencil-btn"
                 ?disabled=${this._busy}
                 @click=${this._handleStartEditing}
               >
@@ -196,7 +191,7 @@ export class StencilInspector extends LitElement {
               </button>`
             : nothing}
 
-        <button class="btn btn-sm btn-ghost" style="width: 100%;" @click=${this._handleDetach}>
+        <button class="btn btn-sm btn-outline stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
       </div>
@@ -207,16 +202,10 @@ export class StencilInspector extends LitElement {
 
   private _renderDraft() {
     return html`
-      <div class="inspector-field">
-        <div style="font-size: var(--ep-font-size-sm); margin-bottom: var(--ep-space-2);">
-          <strong>${this._stencilId}</strong>
-          <span style="color: var(--ep-amber-700, #b45309);">editing draft</span>
-        </div>
-
+      <div class="inspector-field stencil-actions">
         ${this.callbacks?.updateStencil
           ? html`<button
-              class="btn btn-sm btn-primary"
-              style="width: 100%; margin-bottom: var(--ep-space-2);"
+              class="btn btn-sm btn-primary stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handleSaveDraft}
             >
@@ -225,8 +214,7 @@ export class StencilInspector extends LitElement {
           : nothing}
         ${this.callbacks?.publishDraft
           ? html`<button
-              class="btn btn-sm btn-outline"
-              style="width: 100%; margin-bottom: var(--ep-space-2);"
+              class="btn btn-sm btn-outline stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handlePublishDraft}
             >
@@ -235,8 +223,7 @@ export class StencilInspector extends LitElement {
           : nothing}
         ${this.callbacks?.getStencilVersion
           ? html`<button
-              class="btn btn-sm btn-outline"
-              style="width: 100%; margin-bottom: var(--ep-space-2);"
+              class="btn btn-sm btn-outline btn-outline-destructive stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handleDiscard}
             >
@@ -244,7 +231,7 @@ export class StencilInspector extends LitElement {
             </button>`
           : nothing}
 
-        <button class="btn btn-sm btn-ghost" style="width: 100%;" @click=${this._handleDetach}>
+        <button class="btn btn-sm btn-outline stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
       </div>
@@ -258,7 +245,7 @@ export class StencilInspector extends LitElement {
       const r = await stencilActions.startEditing(ctx);
       this._draftVersion = r.draftVersion;
       return 'Editing the stencil — your template overrides are preserved';
-    });
+    }, 'info');
 
   private _handleSaveDraft = () =>
     this._run(async (ctx) => {
@@ -303,8 +290,23 @@ export class StencilInspector extends LitElement {
       callbacks: this.callbacks ?? ({} as StencilCallbacks),
       stencilNodeId: this.node.id,
     });
-    this._message = 'Converted to container';
+    this._setMessage('Converted to container', 'success');
   };
+
+  private _setMessage(msg: string, type: 'info' | 'success' | 'error' = 'info') {
+    clearTimeout(this._messageTimer);
+    clearTimeout(this._fadeTimer);
+    this._messageFading = false;
+    this._message = msg;
+    this._messageType = type;
+    this._messageTimer = setTimeout(() => {
+      this._messageFading = true;
+      this._fadeTimer = setTimeout(() => {
+        this._message = '';
+        this._messageFading = false;
+      }, 200);
+    }, 4000);
+  }
 
   /**
    * Common UI shell: set busy, run an action that returns its own success
@@ -313,15 +315,16 @@ export class StencilInspector extends LitElement {
    */
   private async _run(
     action: (ctx: stencilActions.StencilActionContext) => Promise<string>,
+    type: 'info' | 'success' = 'success',
   ): Promise<void> {
     const ctx = this._ctx();
     if (!ctx) return;
     this._busy = true;
     this._message = '';
     try {
-      this._message = await action(ctx);
+      this._setMessage(await action(ctx), type);
     } catch (e) {
-      this._message = `Error: ${(e as Error).message}`;
+      this._setMessage(`Error: ${(e as Error).message}`, 'error');
     } finally {
       this._busy = false;
     }

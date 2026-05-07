@@ -89,6 +89,45 @@
     color: var(--ep-gray-400);
   }
 
+  /* Callout messages — info (blue) and warning (amber) */
+  .callout {
+    font-size: var(--ep-text-xs);
+    border-radius: var(--ep-radius-sm);
+    padding: var(--ep-space-2);
+    border: 1px solid transparent;
+    text-align: center;
+    text-wrap: balance;
+    transition: opacity 200ms ease;
+  }
+
+  .callout.is-fading {
+    opacity: 0;
+  }
+
+  .callout--info {
+    color: var(--ep-blue-700);
+    background: var(--ep-blue-50);
+    border-color: var(--ep-blue-200);
+  }
+
+  .callout--warning {
+    color: var(--ep-amber-800);
+    background: var(--ep-amber-50);
+    border-color: var(--ep-amber-200);
+  }
+
+  .callout--success {
+    color: var(--ep-green-700);
+    background: var(--ep-green-50);
+    border-color: var(--ep-green-100);
+  }
+
+  .callout--error {
+    color: var(--ep-red-700);
+    background: var(--ep-red-50);
+    border-color: var(--ep-red-200);
+  }
+
   /* Style groups */
   .inspector-style-group {
     margin-bottom: var(--ep-space-3);

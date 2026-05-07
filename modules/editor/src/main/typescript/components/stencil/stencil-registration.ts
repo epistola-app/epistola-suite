@@ -33,21 +33,14 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
   return {
     type: STENCIL_TYPE,
     label: 'Stencil',
-    getLabel: (node, eng) => {
-      const engine = eng as EditorEngine;
+    getLabel: (node, _eng) => {
       if (!isStencil(node)) return 'Stencil';
       const { stencilId, version, isDraft } = node.props;
 
       if (!stencilId) return 'Stencil';
 
-      const upgrades = engine.getComponentState<Record<string, number>>('stencil:upgrades');
-      const latestVersion = upgrades?.[stencilId];
-      const hasUpgrade =
-        latestVersion != null && version != null && latestVersion > version && !isDraft;
-
-      if (isDraft) return `Stencil: ${stencilId} — editing draft`;
-      if (hasUpgrade) return `Stencil: ${stencilId} v${version} ⬆ v${latestVersion}`;
-      return `Stencil: ${stencilId} v${version}`;
+      if (isDraft) return stencilId;
+      return `${stencilId} v${version}`;
     },
     icon: 'puzzle',
     category: 'layout',

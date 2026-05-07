@@ -33,8 +33,8 @@
 
 .canvas-placeholder-name--unset {
   font-style: italic;
-  color: var(--ep-color-destructive, #dc2626);
-  border-color: var(--ep-color-destructive, #dc2626);
+  color: var(--ep-destructive);
+  border-color: var(--ep-destructive);
 }
 
 .canvas-placeholder-description {
@@ -140,5 +140,5 @@
 
 .placeholder-inspector-readonly-description {
   font-style: italic;
-  color: var(--ep-color-text-muted, #6b7280);
+  color: var(--ep-muted-foreground);
 }

@@ -147,10 +147,10 @@ describe('getLabel', () => {
     const def = registry.get('stencil');
     const node = engine.doc.nodes[stencilId];
     const label = def!.getLabel!(node, engine);
-    expect(label).toBe('Stencil: header v2');
+    expect(label).toBe('header v2');
   });
 
-  it('returns editing draft label', () => {
+  it('returns name for draft stencil', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
@@ -162,10 +162,10 @@ describe('getLabel', () => {
     const def = registry.get('stencil');
     const node = engine.doc.nodes[stencilId];
     const label = def!.getLabel!(node, engine);
-    expect(label).toBe('Stencil: header — editing draft');
+    expect(label).toBe('header');
   });
 
-  it('shows upgrade indicator when newer version available', () => {
+  it('shows label without upgrade suffix when newer version available', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
@@ -180,10 +180,10 @@ describe('getLabel', () => {
     const def = registry.get('stencil');
     const node = engine.doc.nodes[stencilId];
     const label = def!.getLabel!(node, engine);
-    expect(label).toBe('Stencil: header v1 ⬆ v3');
+    expect(label).toBe('header v1');
   });
 
-  it('no upgrade indicator when on latest version', () => {
+  it('shows label without upgrade indicator when on latest version', () => {
     const callbacks = createMockCallbacks();
     const { engine, registry, rootSlotId } = setupEngine(callbacks);
     const stencilId = insertStencil(engine, registry, rootSlotId, {
@@ -197,7 +197,7 @@ describe('getLabel', () => {
     const def = registry.get('stencil');
     const node = engine.doc.nodes[stencilId];
     const label = def!.getLabel!(node, engine);
-    expect(label).toBe('Stencil: header v3');
+    expect(label).toBe('header v3');
   });
 });
 

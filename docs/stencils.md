@@ -53,10 +53,10 @@ When a stencil is inserted into a template, a **copy** of the stencil version's 
 
 Stencil instances in a template have three states:
 
-| State             | Block header shows                | Content            | Actions                                       |
-| ----------------- | --------------------------------- | ------------------ | --------------------------------------------- |
-| **Locked**        | `Stencil: header v1`              | Read-only (dimmed) | Start Editing, Detach                         |
-| **Editing draft** | `Stencil: header — editing draft` | Fully editable     | Save to Draft, Publish Draft, Discard, Detach |
+| State             | Block header shows | Content            | Actions                                       |
+| ----------------- | ------------------ | ------------------ | --------------------------------------------- |
+| **Locked**        | `header v1`        | Read-only (dimmed) | Start Editing, Detach                         |
+| **Editing draft** | `header`           | Fully editable     | Save to Draft, Publish Draft, Discard, Detach |
 
 **To edit a published stencil's content:**
 
@@ -73,7 +73,7 @@ When a newer version of a stencil is published, templates using an older version
 
 **From the template editor:**
 
-- The block header shows `⬆ v3` when a newer version exists
+- The inspector shows an amber warning explaining the upgrade is available
 - Click the stencil, then "Upgrade to v3" in the inspector
 - Content is replaced with the new version's content
 
