@@ -18,11 +18,7 @@ import type { NodeId, SlotId } from '../../types/index.js';
 import { html, nothing } from 'lit';
 import { nanoid } from 'nanoid';
 import { placeholderContext } from '../stencil/ancestry.js';
-import {
-  PLACEHOLDER_TYPE,
-  PLACEHOLDER_SLOT_DEFAULT,
-  PLACEHOLDER_SLOT_FILL,
-} from './constants.js';
+import { PLACEHOLDER_TYPE, PLACEHOLDER_SLOT_DEFAULT, PLACEHOLDER_SLOT_FILL } from './constants.js';
 import { isPlaceholder, placeholderName } from './node-types.js';
 import './PlaceholderInspector.js';
 
