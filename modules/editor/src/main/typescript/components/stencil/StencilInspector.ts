@@ -1,20 +1,25 @@
 /**
  * StencilInspector — Lit component for stencil-specific inspector controls.
  *
- * Shows contextual actions based on stencil state:
- * - Unlinked (no stencilId): "Publish as Stencil"
- * - Locked (stencilId set, isDraft=false): "Start Editing", "Detach"
- * - Editing draft (isDraft=true): "Save to Draft", "Discard Changes", "Detach"
+ * Pure UI: renders contextual buttons based on stencil state, owns
+ * busy-spinner / message state, and routes user clicks to functions in
+ * `stencil-actions.ts`. All business logic (backend orchestration, content
+ * swap, fill preservation, draft-version recovery) lives in that module.
+ *
+ * State shown:
+ * - Unlinked (no `stencilId`): no controls (publishing flows through other UI).
+ * - Locked (`stencilId` set, `isDraft=false`): "Upgrade" (when one is available)
+ *   or "Start Editing" + "Detach".
+ * - Editing draft (`isDraft=true`): "Save to Draft", "Publish Draft",
+ *   "Discard Changes", "Detach".
  */
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Node, NodeId, Slot, SlotId } from '../../types/index.js';
+import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
-import { extractSubtree } from './extract-subtree.js';
-import { reKeyContent } from './rekey-content.js';
-import { captureFillsByName, reKeyCapturedFill, type CapturedFill } from './preserve-fills.js';
+import * as stencilActions from './stencil-actions.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -41,8 +46,8 @@ export class StencilInspector extends LitElement {
     // reloaded the page mid-edit, or selected the stencil after a previous
     // Start Editing), discover the backend draft's version so Publish/Save
     // know which version to target.
-    if (this._isDraft && this._draftVersion === null) {
-      void this._loadDraftVersion();
+    if (this._isDraft && this._draftVersion === null && this.callbacks) {
+      void this._refreshDraftVersion();
     }
     this._unsubState = this.engine.events.on('component-state:change', ({ key }) => {
       if (key === 'stencil:upgrades') {
@@ -51,69 +56,12 @@ export class StencilInspector extends LitElement {
     });
   }
 
-  /**
-   * Resolve the current draft version on the backend by querying listVersions
-   * and picking the one with status 'draft'. Sets `_draftVersion` and returns
-   * it. Returns null when no draft exists.
-   */
-  private async _loadDraftVersion(): Promise<number | null> {
-    if (!this.callbacks?.listVersions || !this._ref) return null;
-    try {
-      const versions = await this.callbacks.listVersions(this._ref);
-      const draft = versions.find((v) => v.status === 'draft');
-      if (draft) {
-        this._draftVersion = draft.version;
-        return draft.version;
-      }
-    } catch {
-      // Silent — caller will surface a clearer error if the version is needed.
-    }
-    return null;
-  }
-
   override disconnectedCallback(): void {
     this._unsubState?.();
     super.disconnectedCallback();
   }
 
-  /** Check for upgrades for this specific stencil on every selection. */
-  private async _checkForUpgrades() {
-    if (!this.callbacks?.listVersions || !this._ref || !this._version || this._isDraft) return;
-
-    try {
-      const versions = await this.callbacks.listVersions(this._ref);
-      const latestPublished = versions
-        .filter((v) => v.status === 'published')
-        .toSorted((a, b) => b.version - a.version)[0];
-
-      if (latestPublished && latestPublished.version > this._version) {
-        const current =
-          this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
-        this.engine.setComponentState('stencil:upgrades', {
-          ...current,
-          [this._stencilId!]: latestPublished.version,
-        });
-      }
-    } catch {
-      // Silently fail — upgrade check is non-critical
-    }
-  }
-
-  private _readUpgradeState() {
-    const upgrades = this.engine.getComponentState<Record<string, number>>('stencil:upgrades');
-    if (upgrades && this._stencilId) {
-      this._latestVersion = upgrades[this._stencilId] ?? null;
-    }
-  }
-
-  private get _hasUpgrade(): boolean {
-    return (
-      this._latestVersion != null &&
-      this._version != null &&
-      this._latestVersion > this._version &&
-      !this._isDraft
-    );
-  }
+  // ── Computed state ──
 
   private get _stencilId(): string | null {
     return (this.node.props?.stencilId as string) ?? null;
@@ -136,6 +84,59 @@ export class StencilInspector extends LitElement {
   private get _isLocked(): boolean {
     return this._stencilId !== null && !this._isDraft;
   }
+
+  private get _hasUpgrade(): boolean {
+    return (
+      this._latestVersion != null &&
+      this._version != null &&
+      this._latestVersion > this._version &&
+      !this._isDraft
+    );
+  }
+
+  /** Build the action context. Returns null when callbacks aren't configured. */
+  private _ctx(): stencilActions.StencilActionContext | null {
+    if (!this.callbacks) return null;
+    return {
+      engine: this.engine,
+      callbacks: this.callbacks,
+      stencilNodeId: this.node.id,
+    };
+  }
+
+  // ── Background queries ──
+
+  /** Check for upgrades for this specific stencil on every selection. */
+  private async _checkForUpgrades() {
+    if (!this._ref || !this._version || this._isDraft) return;
+    const ctx = this._ctx();
+    if (!ctx) return;
+    const latest = await stencilActions.findLatestPublishedVersion(ctx);
+    if (latest != null && latest > this._version) {
+      const current =
+        this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
+      this.engine.setComponentState('stencil:upgrades', {
+        ...current,
+        [this._stencilId!]: latest,
+      });
+    }
+  }
+
+  private _readUpgradeState() {
+    const upgrades = this.engine.getComponentState<Record<string, number>>('stencil:upgrades');
+    if (upgrades && this._stencilId) {
+      this._latestVersion = upgrades[this._stencilId] ?? null;
+    }
+  }
+
+  /** Resolve the current backend draft version for this stencil. */
+  private async _refreshDraftVersion() {
+    const ctx = this._ctx();
+    if (!ctx) return;
+    this._draftVersion = await stencilActions.loadDraftVersion(ctx);
+  }
+
+  // ── Render ──
 
   override render() {
     return html`
@@ -249,356 +250,79 @@ export class StencilInspector extends LitElement {
     `;
   }
 
-  // ── Actions ──
+  // ── Click handlers — thin wrappers around stencil-actions ──
 
-  private async _handleStartEditing() {
-    if (!this.callbacks?.startEditing || !this._stencilId) return;
-    this._busy = true;
-    this._message = '';
+  private _handleStartEditing = () =>
+    this._run(async (ctx) => {
+      const r = await stencilActions.startEditing(ctx);
+      this._draftVersion = r.draftVersion;
+      return 'Editing the stencil — your template overrides are preserved';
+    });
 
-    try {
-      // Just create/get the backend draft and flip into draft mode locally.
-      // We DO NOT swap content here: with the two-slot model, the placeholder's
-      // `default` slot (which the user edits in draft mode) and `fill` slot
-      // (the template's override) are independent storage. The canvas already
-      // shows the right slot per `placeholderContext`; flipping `isDraft=true`
-      // is enough to put the user in stencil-author mode. The fill slot stays
-      // populated locally, untouched, and is restored to view automatically
-      // when the stencil exits draft mode on Publish or Discard.
-      const result = await this.callbacks.startEditing(this._ref!);
-      this._draftVersion = result.draftVersion;
+  private _handleSaveDraft = () =>
+    this._run(async (ctx) => {
+      const r = await stencilActions.saveDraft(ctx);
+      this._draftVersion = r.version;
+      return `Draft v${r.version} saved`;
+    });
 
-      this.engine.dispatch({
-        type: 'UpdateNodeProps',
-        nodeId: this.node.id,
-        props: {
-          ...this.node.props,
-          isDraft: true,
-        },
-      });
-
-      this._message = 'Editing the stencil — your template overrides are preserved';
-    } catch (e) {
-      this._message = `Error: ${(e as Error).message}`;
-    } finally {
-      this._busy = false;
-    }
-  }
-
-  /**
-   * Splice captured fills (template overrides) into the placeholders of this
-   * stencil's children, matched by `props.name`. Each splice re-keys with
-   * fresh IDs and dispatches one `InsertNode` per top-level fill child.
-   *
-   * Used after Publish, Discard, or Upgrade to preserve user-authored overrides.
-   */
-  private _applyCapturedFills(captured: Map<string, CapturedFill>) {
-    if (captured.size === 0) return;
-    const doc = this.engine.doc;
-    const stencilSlotId = this.node.slots[0];
-    if (!stencilSlotId) return;
-
-    const stack: NodeId[] = [...(doc.slots[stencilSlotId]?.children ?? [])];
-    const visited = new Set<NodeId>();
-    while (stack.length > 0) {
-      const nodeId = stack.shift()!;
-      if (visited.has(nodeId)) continue;
-      visited.add(nodeId);
-      const node = doc.nodes[nodeId];
-      if (!node) continue;
-
-      if (node.type === 'placeholder') {
-        const name = node.props?.name as string | undefined;
-        if (name && captured.has(name)) {
-          const fillSlotId = node.slots.find((sid) => doc.slots[sid]?.name === 'fill');
-          if (fillSlotId) {
-            this._spliceFillIntoSlot(fillSlotId, captured.get(name)!);
-          }
-        }
-        // Don't descend into placeholder slots — overrides are one-level only.
-        continue;
+  private _handlePublishDraft = () =>
+    this._run(async (ctx) => {
+      let draftVersion = this._draftVersion;
+      if (draftVersion == null) {
+        draftVersion = await stencilActions.loadDraftVersion(ctx);
+        if (draftVersion != null) this._draftVersion = draftVersion;
       }
-
-      for (const sid of node.slots) {
-        const slot = doc.slots[sid];
-        if (slot) for (const childId of slot.children) stack.push(childId);
+      if (draftVersion == null) {
+        throw new Error('Could not locate the draft version. Reload the editor and try again.');
       }
-    }
-  }
+      const r = await stencilActions.publishDraft(ctx, draftVersion);
+      return `Published v${r.version}`;
+    });
 
-  private _spliceFillIntoSlot(fillSlotId: SlotId, capture: CapturedFill) {
-    const reKeyed = reKeyCapturedFill(capture);
-    const nodeById = new Map(reKeyed.nodes.map((n) => [n.id as string, n]));
-    const slotById = new Map(reKeyed.slots.map((s) => [s.id as string, s]));
+  private _handleDiscard = () =>
+    this._run(async (ctx) => {
+      if (this._version == null) throw new Error('No published version to revert to');
+      await stencilActions.discard(ctx, this._version);
+      return 'Changes discarded — reverted to published version';
+    });
 
-    for (const rootId of reKeyed.rootChildIds) {
-      const topNode = nodeById.get(rootId as string);
-      if (!topNode) continue;
+  private _handleUpgrade = () =>
+    this._run(async (ctx) => {
+      if (this._latestVersion == null) throw new Error('No upgrade available');
+      const r = await stencilActions.upgrade(ctx, this._latestVersion);
+      this._latestVersion = null;
+      return `Upgraded to v${r.version}`;
+    });
 
-      const ownSlots: Slot[] = [];
-      const descNodes: Node[] = [];
-      const descSlots: Slot[] = [];
-      const seen = new Set<string>();
-      const collect = (id: string, isRoot: boolean) => {
-        if (seen.has(id)) return;
-        seen.add(id);
-        const n = nodeById.get(id);
-        if (!n) return;
-        if (!isRoot) descNodes.push(n);
-        for (const sid of n.slots) {
-          const slot = slotById.get(sid as string);
-          if (!slot) continue;
-          if (isRoot) ownSlots.push(slot);
-          else descSlots.push(slot);
-          for (const c of slot.children) collect(c as string, false);
-        }
-      };
-      collect(rootId as string, true);
-
-      this.engine.dispatch({
-        type: 'InsertNode',
-        node: topNode,
-        slots: [...ownSlots, ...descSlots],
-        targetSlotId: fillSlotId,
-        index: -1,
-        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
-      });
-    }
-  }
-
-  private async _handleUpgrade() {
-    if (!this.callbacks?.getStencilVersion || !this._ref || !this._latestVersion) return;
-    this._busy = true;
-    this._message = '';
-
-    try {
-      const versionInfo = await this.callbacks.getStencilVersion(this._ref, this._latestVersion);
-      if (!versionInfo) {
-        this._message = 'Could not load the new version';
-        return;
-      }
-
-      // Capture template overrides before swapping; the new published
-      // content has empty fills by definition, so we re-splice afterwards.
-      const captured = captureFillsByName(
-        extractSubtree(this.engine.doc, this.node.id, { keepFills: true }),
-      );
-
-      // Replace current content with the new version
-      this._replaceContent(versionInfo.content);
-
-      // Re-apply overrides by placeholder name (matching the server-side
-      // UpdateStencilInTemplate behaviour).
-      this._applyCapturedFills(captured);
-
-      // Update version prop
-      this.engine.dispatch({
-        type: 'UpdateNodeProps',
-        nodeId: this.node.id,
-        props: {
-          ...this.node.props,
-          version: this._latestVersion,
-        },
-      });
-
-      this._latestVersion = null; // No more upgrade available
-      this._message = `Upgraded to v${versionInfo.version}`;
-    } catch (e) {
-      this._message = `Error: ${(e as Error).message}`;
-    } finally {
-      this._busy = false;
-    }
-  }
-
-  private async _handleSaveDraft() {
-    if (!this.callbacks?.updateStencil || !this._ref) return;
-    this._busy = true;
-    this._message = '';
-
-    try {
-      const content = extractSubtree(this.engine.doc, this.node.id);
-      const result = await this.callbacks.updateStencil(this._ref!, content);
-      this._draftVersion = result.version;
-
-      this._message = `Draft v${result.version} saved`;
-    } catch (e) {
-      this._message = `Error: ${(e as Error).message}`;
-    } finally {
-      this._busy = false;
-    }
-  }
-
-  private async _handlePublishDraft() {
-    const draftVersion = this._draftVersion ?? (await this._loadDraftVersion());
-    if (!this.callbacks?.publishDraft || !this._ref) return;
-    if (!draftVersion) {
-      this._message = 'Could not locate the draft version. Reload the editor and try again.';
-      return;
-    }
-    this._busy = true;
-    this._message = '';
-
-    try {
-      // Save current content to draft first. extractSubtree strips placeholder
-      // `fill` slot children so template overrides never leak into the stencil
-      // definition.
-      if (this.callbacks.updateStencil) {
-        const content = extractSubtree(this.engine.doc, this.node.id);
-        await this.callbacks.updateStencil(this._ref, content);
-      }
-
-      const result = await this.callbacks.publishDraft(this._ref, draftVersion);
-
-      // Update node to reference the new published version and exit draft mode.
-      // The local fill slot is untouched throughout the edit cycle, so when the
-      // canvas re-renders in template-fill mode it shows the user's existing
-      // override. No restore step needed.
-      this.engine.dispatch({
-        type: 'UpdateNodeProps',
-        nodeId: this.node.id,
-        props: {
-          ...this.node.props,
-          version: result.version,
-          isDraft: false,
-        },
-      });
-
-      this._message = `Published v${result.version}`;
-    } catch (e) {
-      this._message = `Error: ${(e as Error).message}`;
-    } finally {
-      this._busy = false;
-    }
-  }
-
-  private async _handleDiscard() {
-    if (!this.callbacks?.getStencilVersion || !this._ref || !this._version) return;
-    this._busy = true;
-    this._message = '';
-
-    try {
-      // Fetch the published version's content
-      const versionInfo = await this.callbacks.getStencilVersion(this._ref!, this._version);
-      if (!versionInfo) {
-        this._message = 'Could not load published version';
-        return;
-      }
-
-      // Capture the user's template overrides locally before the swap, so we
-      // can splice them back into the new placeholders by name. Discard
-      // reverts the user's stencil-edits (default-slot edits, layout changes)
-      // but must preserve the template-side overrides (fill-slot content).
-      const captured = captureFillsByName(
-        extractSubtree(this.engine.doc, this.node.id, { keepFills: true }),
-      );
-
-      // Replace the stencil's children with the published content
-      this._replaceContent(versionInfo.content);
-
-      // Re-apply the user's overrides by placeholder name.
-      this._applyCapturedFills(captured);
-
-      // Switch back to locked mode
-      this.engine.dispatch({
-        type: 'UpdateNodeProps',
-        nodeId: this.node.id,
-        props: {
-          ...this.node.props,
-          isDraft: false,
-        },
-      });
-
-      this._message = 'Changes discarded — reverted to published version';
-    } catch (e) {
-      this._message = `Error: ${(e as Error).message}`;
-    } finally {
-      this._busy = false;
-    }
-  }
-
-  private _handleDetach() {
-    this.engine.dispatch({
-      type: 'ReplaceNode',
-      nodeId: this.node.id,
-      newType: 'container',
-      newProps: {},
+  private _handleDetach = () => {
+    // Detach works even without callbacks — it's a pure local operation.
+    stencilActions.detach({
+      engine: this.engine,
+      callbacks: this.callbacks ?? ({} as StencilCallbacks),
+      stencilNodeId: this.node.id,
     });
     this._message = 'Converted to container';
-  }
+  };
 
   /**
-   * Replace the stencil's slot children with new content from a TemplateDocument.
-   * Removes existing children, re-keys the new content, and inserts.
-   *
-   * The stencil's children slot is locked while published — these mutations
-   * pass `bypassLock: true` because this is exactly the well-defined whole-
-   * stencil swap the bypass exists for (Discard / Upgrade flows).
+   * Common UI shell: set busy, run an action that returns its own success
+   * message, surface error messages on failure, clear busy on completion.
+   * Skips the call when callbacks aren't configured.
    */
-  private _replaceContent(content: import('../../types/index.js').TemplateDocument) {
-    const slotId = this.node.slots[0];
-    if (!slotId) return;
-
-    // Remove existing children (re-read doc after each removal since it's immutable)
-    while (true) {
-      const currentSlot = this.engine.doc.slots[slotId];
-      if (!currentSlot || currentSlot.children.length === 0) break;
-      this.engine.dispatch(
-        { type: 'RemoveNode', nodeId: currentSlot.children[0] },
-        { bypassLock: true },
-      );
-    }
-
-    // Re-key the new content and insert each top-level node
-    const reKeyed = reKeyContent(content);
-
-    // Build a set of node IDs that are descendants of each top-level node
-    const nodeById = new Map(reKeyed.nodes.map((n) => [n.id as string, n]));
-    const slotById = new Map(reKeyed.slots.map((s) => [s.id as string, s]));
-
-    for (const childId of reKeyed.childNodeIds) {
-      const childNode = nodeById.get(childId as string);
-      if (!childNode) continue;
-
-      // Collect this node's descendant nodes and slots
-      const descNodes: import('../../types/index.js').Node[] = [];
-      const descSlots: import('../../types/index.js').Slot[] = [];
-
-      function collectDescendants(nodeId: import('../../types/index.js').NodeId) {
-        const node = nodeById.get(nodeId as string);
-        if (!node) return;
-        for (const sid of node.slots) {
-          const slot = slotById.get(sid as string);
-          if (slot) {
-            descSlots.push(slot);
-            for (const cid of slot.children) {
-              const child = nodeById.get(cid as string);
-              if (child) {
-                descNodes.push(child);
-                collectDescendants(cid);
-              }
-            }
-          }
-        }
-      }
-
-      collectDescendants(childId);
-
-      // Get this node's own slots
-      const ownSlots = childNode.slots
-        .map((sid) => slotById.get(sid as string))
-        .filter(Boolean) as import('../../types/index.js').Slot[];
-
-      this.engine.dispatch(
-        {
-          type: 'InsertNode',
-          node: childNode,
-          slots: [...ownSlots, ...descSlots],
-          targetSlotId: slotId,
-          index: -1,
-          _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
-        },
-        { bypassLock: true },
-      );
+  private async _run(
+    action: (ctx: stencilActions.StencilActionContext) => Promise<string>,
+  ): Promise<void> {
+    const ctx = this._ctx();
+    if (!ctx) return;
+    this._busy = true;
+    this._message = '';
+    try {
+      this._message = await action(ctx);
+    } catch (e) {
+      this._message = `Error: ${(e as Error).message}`;
+    } finally {
+      this._busy = false;
     }
   }
 }
