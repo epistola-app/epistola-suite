@@ -61,54 +61,6 @@ export function computeAncestorScope(
 }
 
 /**
- * True when the target slot lives inside a published stencil's frozen layout
- * (and not inside one of its placeholder fill slots).
- *
- * Walks **slots**, not just nodes, because the rule depends on which slot of a
- * placeholder we crossed:
- *
- *  - Crossing a placeholder's `fill` slot: we are in the template-fill area
- *    → editable, return false. The stencil's lock state above doesn't matter.
- *  - Crossing a placeholder's `default` slot: we are in the stencil-author area
- *    → continue walking; the parent stencil's lock state decides.
- *  - Reaching a stencil node:
- *    - has a `stencilId` and is not draft → locked, return true.
- *    - draft, or unlinked (`stencilId == null`) → editable, return false.
- */
-export function isInLockedStencilLayout(
-  doc: TemplateDocument,
-  targetSlotId: SlotId,
-  indexes: DocumentIndexes,
-): boolean {
-  const visited = new Set<SlotId>();
-  let currentSlotId: SlotId | null = targetSlotId;
-
-  while (currentSlotId !== null) {
-    if (visited.has(currentSlotId)) return false; // defensive cycle guard
-    visited.add(currentSlotId);
-    const slot: import('../../types/index.js').Slot | undefined = doc.slots[currentSlotId];
-    if (!slot) return false;
-    const parent: import('../../types/index.js').Node | undefined = doc.nodes[slot.nodeId];
-    if (!parent) return false;
-
-    if (parent.type === 'placeholder') {
-      if (slot.name === 'fill') return false; // fill slot → editable
-      // default (or any other) → keep walking; the stencil decides.
-    }
-    if (parent.type === 'stencil') {
-      const stencilId = parent.props?.stencilId as string | null | undefined;
-      const isDraft = (parent.props?.isDraft as boolean | undefined) ?? false;
-      const isLinked = stencilId !== null && stencilId !== undefined;
-      return isLinked && !isDraft;
-    }
-
-    const next: SlotId | undefined = indexes.parentSlotByNodeId.get(parent.id);
-    currentSlotId = next ?? null;
-  }
-  return false;
-}
-
-/**
  * Determines what context a placeholder is being rendered in.
  *
  * Walks the placeholder's ancestors looking for the nearest stencil:

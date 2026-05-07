@@ -314,13 +314,22 @@ describe('canDropHere — placeholder/stencil rules', () => {
   beforeEach(() => {
     // Stencil is normally registered by lib.ts, not createDefaultRegistry().
     // Tests need it registered to exercise the placeholder/stencil rules.
+    // Mirror the production `locked` predicate so locked-stencil drop tests
+    // see a realistic registration.
     registry = testRegistry();
     registry.register({
       type: 'stencil',
       label: 'Stencil',
       icon: 'puzzle',
       category: 'layout',
-      slots: [{ name: 'children' }],
+      slots: [
+        {
+          name: 'children',
+          locked: (node) =>
+            (node.props?.stencilId as string | null | undefined) != null &&
+            !((node.props?.isDraft as boolean | undefined) ?? false),
+        },
+      ],
       allowedChildren: { mode: 'denylist', types: ['stencil'] },
       applicableStyles: 'all',
       inspector: [],

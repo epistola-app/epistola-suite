@@ -3,12 +3,20 @@
  *
  * Names must be kebab-case slugs (`^[a-z][a-z0-9-]{0,63}$`) and unique within
  * the document — both validated live.
+ *
+ * Renders read-only in template-fill mode (placeholder is inside a published
+ * stencil): the placeholder's identity is the stencil author's contract, so
+ * editing it from a template would silently break the name-keyed link to the
+ * stencil's default and to upgrade preservation. The CSS-level pointer-events
+ * lock prevents *canvas* selection of the placeholder; this read-only view
+ * covers keyboard / programmatic / tree-view selections that bypass CSS.
  */
 
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
+import { placeholderContext } from '../stencil/ancestry.js';
 
 const SLUG_RE = /^[a-z][a-z0-9-]{0,63}$/;
 
@@ -32,6 +40,38 @@ export class PlaceholderInspector extends LitElement {
   }
 
   override render() {
+    const context = placeholderContext(this.engine.doc, this.node.id, this.engine.indexes);
+    if (context === 'template-fill') {
+      return this._renderReadOnly();
+    }
+    return this._renderEditable();
+  }
+
+  private _renderReadOnly() {
+    return html`
+      <div class="inspector-section">
+        <div class="inspector-section-label">Placeholder (from stencil)</div>
+        <div class="inspector-field">
+          <div class="inspector-field-label">Name</div>
+          <code class="placeholder-inspector-readonly-name">${this._name || '(unnamed)'}</code>
+        </div>
+        ${this._description
+          ? html`<div class="inspector-field">
+              <div class="inspector-field-label">Description</div>
+              <div class="placeholder-inspector-readonly-description">${this._description}</div>
+            </div>`
+          : nothing}
+        <div
+          class="inspector-field-hint"
+          style="font-size: var(--ep-font-size-xs); color: var(--ep-color-text-muted); margin-top: var(--ep-space-2);"
+        >
+          Managed by the stencil definition. Edit the stencil to change.
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderEditable() {
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Placeholder</div>

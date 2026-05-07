@@ -31,24 +31,44 @@ export class StencilInspector extends LitElement {
   @state() private _draftVersion: number | null = null;
   @state() private _latestVersion: number | null = null;
 
-  /**
-   * Snapshot of placeholder fills (template overrides) captured before the
-   * local content was swapped to the stencil's draft on Start Editing. Used
-   * to restore the user's overrides on Publish or Discard.
-   */
-  private _capturedFillsBeforeEdit: Map<string, CapturedFill> | null = null;
-
   private _unsubState?: () => void;
 
   override connectedCallback(): void {
     super.connectedCallback();
     this._readUpgradeState();
     this._checkForUpgrades();
+    // If we're mounting on a stencil that's already in draft mode (e.g. user
+    // reloaded the page mid-edit, or selected the stencil after a previous
+    // Start Editing), discover the backend draft's version so Publish/Save
+    // know which version to target.
+    if (this._isDraft && this._draftVersion === null) {
+      void this._loadDraftVersion();
+    }
     this._unsubState = this.engine.events.on('component-state:change', ({ key }) => {
       if (key === 'stencil:upgrades') {
         this._readUpgradeState();
       }
     });
+  }
+
+  /**
+   * Resolve the current draft version on the backend by querying listVersions
+   * and picking the one with status 'draft'. Sets `_draftVersion` and returns
+   * it. Returns null when no draft exists.
+   */
+  private async _loadDraftVersion(): Promise<number | null> {
+    if (!this.callbacks?.listVersions || !this._ref) return null;
+    try {
+      const versions = await this.callbacks.listVersions(this._ref);
+      const draft = versions.find((v) => v.status === 'draft');
+      if (draft) {
+        this._draftVersion = draft.version;
+        return draft.version;
+      }
+    } catch {
+      // Silent — caller will surface a clearer error if the version is needed.
+    }
+    return null;
   }
 
   override disconnectedCallback(): void {
@@ -237,28 +257,16 @@ export class StencilInspector extends LitElement {
     this._message = '';
 
     try {
-      // Capture any template overrides (placeholder fill content) before
-      // swapping the local view to the stencil's draft. We restore them on
-      // Publish or Discard so the user doesn't lose their fills by editing.
-      const localContent = extractSubtree(this.engine.doc, this.node.id);
-      // extractSubtree strips fills; capture from a non-stripping copy.
-      this._capturedFillsBeforeEdit = captureFillsByName({
-        ...localContent,
-        slots: this._collectLocalFillSlotsAsMap(),
-        nodes: this._collectLocalDescendantNodesAsMap(),
-      });
-
+      // Just create/get the backend draft and flip into draft mode locally.
+      // We DO NOT swap content here: with the two-slot model, the placeholder's
+      // `default` slot (which the user edits in draft mode) and `fill` slot
+      // (the template's override) are independent storage. The canvas already
+      // shows the right slot per `placeholderContext`; flipping `isDraft=true`
+      // is enough to put the user in stencil-author mode. The fill slot stays
+      // populated locally, untouched, and is restored to view automatically
+      // when the stencil exits draft mode on Publish or Discard.
       const result = await this.callbacks.startEditing(this._ref!);
       this._draftVersion = result.draftVersion;
-
-      // Swap the local view to the stencil's draft content, so the user is
-      // editing the stencil's defaults — not the template's overrides.
-      if (this.callbacks.getStencilVersion) {
-        const draftInfo = await this.callbacks.getStencilVersion(this._ref!, result.draftVersion);
-        if (draftInfo) {
-          this._replaceContent(draftInfo.content);
-        }
-      }
 
       this.engine.dispatch({
         type: 'UpdateNodeProps',
@@ -275,51 +283,6 @@ export class StencilInspector extends LitElement {
     } finally {
       this._busy = false;
     }
-  }
-
-  /**
-   * Walks the live doc from this stencil's children, returning a `slots` map
-   * that *includes* fill slot children (unlike extractSubtree, which strips
-   * them). Used by the Start Editing capture path so we don't lose overrides.
-   */
-  private _collectLocalFillSlotsAsMap(): Record<string, Slot> {
-    const result: Record<string, Slot> = {};
-    const stack: NodeId[] = [...(this.engine.doc.slots[this.node.slots[0]]?.children ?? [])];
-    const visited = new Set<NodeId>();
-    while (stack.length > 0) {
-      const id = stack.shift()!;
-      if (visited.has(id)) continue;
-      visited.add(id);
-      const node = this.engine.doc.nodes[id];
-      if (!node) continue;
-      for (const sid of node.slots) {
-        const slot = this.engine.doc.slots[sid];
-        if (!slot) continue;
-        result[sid as string] = slot;
-        for (const childId of slot.children) stack.push(childId);
-      }
-    }
-    return result;
-  }
-
-  private _collectLocalDescendantNodesAsMap(): Record<string, Node> {
-    const result: Record<string, Node> = {};
-    const stack: NodeId[] = [...(this.engine.doc.slots[this.node.slots[0]]?.children ?? [])];
-    const visited = new Set<NodeId>();
-    while (stack.length > 0) {
-      const id = stack.shift()!;
-      if (visited.has(id)) continue;
-      visited.add(id);
-      const node = this.engine.doc.nodes[id];
-      if (!node) continue;
-      result[id as string] = node;
-      for (const sid of node.slots) {
-        const slot = this.engine.doc.slots[sid];
-        if (!slot) continue;
-        for (const childId of slot.children) stack.push(childId);
-      }
-    }
-    return result;
   }
 
   /**
@@ -417,11 +380,9 @@ export class StencilInspector extends LitElement {
 
       // Capture template overrides before swapping; the new published
       // content has empty fills by definition, so we re-splice afterwards.
-      const captured = captureFillsByName({
-        ...extractSubtree(this.engine.doc, this.node.id),
-        slots: this._collectLocalFillSlotsAsMap(),
-        nodes: this._collectLocalDescendantNodesAsMap(),
-      });
+      const captured = captureFillsByName(
+        extractSubtree(this.engine.doc, this.node.id, { keepFills: true }),
+      );
 
       // Replace current content with the new version
       this._replaceContent(versionInfo.content);
@@ -468,22 +429,30 @@ export class StencilInspector extends LitElement {
   }
 
   private async _handlePublishDraft() {
-    const draftVersion = this._draftVersion ?? this._version;
-    if (!this.callbacks?.publishDraft || !this._ref || !draftVersion) return;
+    const draftVersion = this._draftVersion ?? (await this._loadDraftVersion());
+    if (!this.callbacks?.publishDraft || !this._ref) return;
+    if (!draftVersion) {
+      this._message = 'Could not locate the draft version. Reload the editor and try again.';
+      return;
+    }
     this._busy = true;
     this._message = '';
 
     try {
-      // Save current content to draft first
+      // Save current content to draft first. extractSubtree strips placeholder
+      // `fill` slot children so template overrides never leak into the stencil
+      // definition.
       if (this.callbacks.updateStencil) {
         const content = extractSubtree(this.engine.doc, this.node.id);
         await this.callbacks.updateStencil(this._ref, content);
       }
 
-      // Publish the draft
       const result = await this.callbacks.publishDraft(this._ref, draftVersion);
 
-      // Update node to reference the new published version and exit draft mode
+      // Update node to reference the new published version and exit draft mode.
+      // The local fill slot is untouched throughout the edit cycle, so when the
+      // canvas re-renders in template-fill mode it shows the user's existing
+      // override. No restore step needed.
       this.engine.dispatch({
         type: 'UpdateNodeProps',
         nodeId: this.node.id,
@@ -493,14 +462,6 @@ export class StencilInspector extends LitElement {
           isDraft: false,
         },
       });
-
-      // Restore the user's template overrides (captured at Start Editing).
-      // The published content has empty fills by definition; this re-applies
-      // the overrides by placeholder name.
-      if (this._capturedFillsBeforeEdit) {
-        this._applyCapturedFills(this._capturedFillsBeforeEdit);
-        this._capturedFillsBeforeEdit = null;
-      }
 
       this._message = `Published v${result.version}`;
     } catch (e) {
@@ -523,8 +484,19 @@ export class StencilInspector extends LitElement {
         return;
       }
 
+      // Capture the user's template overrides locally before the swap, so we
+      // can splice them back into the new placeholders by name. Discard
+      // reverts the user's stencil-edits (default-slot edits, layout changes)
+      // but must preserve the template-side overrides (fill-slot content).
+      const captured = captureFillsByName(
+        extractSubtree(this.engine.doc, this.node.id, { keepFills: true }),
+      );
+
       // Replace the stencil's children with the published content
       this._replaceContent(versionInfo.content);
+
+      // Re-apply the user's overrides by placeholder name.
+      this._applyCapturedFills(captured);
 
       // Switch back to locked mode
       this.engine.dispatch({
@@ -535,12 +507,6 @@ export class StencilInspector extends LitElement {
           isDraft: false,
         },
       });
-
-      // Restore the user's template overrides captured before Start Editing.
-      if (this._capturedFillsBeforeEdit) {
-        this._applyCapturedFills(this._capturedFillsBeforeEdit);
-        this._capturedFillsBeforeEdit = null;
-      }
 
       this._message = 'Changes discarded — reverted to published version';
     } catch (e) {
@@ -563,6 +529,10 @@ export class StencilInspector extends LitElement {
   /**
    * Replace the stencil's slot children with new content from a TemplateDocument.
    * Removes existing children, re-keys the new content, and inserts.
+   *
+   * The stencil's children slot is locked while published — these mutations
+   * pass `bypassLock: true` because this is exactly the well-defined whole-
+   * stencil swap the bypass exists for (Discard / Upgrade flows).
    */
   private _replaceContent(content: import('../../types/index.js').TemplateDocument) {
     const slotId = this.node.slots[0];
@@ -572,7 +542,10 @@ export class StencilInspector extends LitElement {
     while (true) {
       const currentSlot = this.engine.doc.slots[slotId];
       if (!currentSlot || currentSlot.children.length === 0) break;
-      this.engine.dispatch({ type: 'RemoveNode', nodeId: currentSlot.children[0] });
+      this.engine.dispatch(
+        { type: 'RemoveNode', nodeId: currentSlot.children[0] },
+        { bypassLock: true },
+      );
     }
 
     // Re-key the new content and insert each top-level node
@@ -615,14 +588,17 @@ export class StencilInspector extends LitElement {
         .map((sid) => slotById.get(sid as string))
         .filter(Boolean) as import('../../types/index.js').Slot[];
 
-      this.engine.dispatch({
-        type: 'InsertNode',
-        node: childNode,
-        slots: [...ownSlots, ...descSlots],
-        targetSlotId: slotId,
-        index: -1,
-        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
-      });
+      this.engine.dispatch(
+        {
+          type: 'InsertNode',
+          node: childNode,
+          slots: [...ownSlots, ...descSlots],
+          targetSlotId: slotId,
+          index: -1,
+          _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
+        },
+        { bypassLock: true },
+      );
     }
   }
 }

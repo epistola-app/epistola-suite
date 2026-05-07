@@ -19,8 +19,17 @@ import { nanoid } from 'nanoid';
 /**
  * Extracts the content of a stencil node as a standalone TemplateDocument.
  * The stencil node itself is NOT included — only its children and their descendants.
+ *
+ * @param options.keepFills — when true, placeholder `fill` slot content is
+ *   included in the output. Defaults to false (strip fills) — that's what
+ *   stencil-save uses. The fills-preserving variant is used by client-side
+ *   override-preservation flows (Discard).
  */
-export function extractSubtree(doc: TemplateDocument, stencilNodeId: NodeId): TemplateDocument {
+export function extractSubtree(
+  doc: TemplateDocument,
+  stencilNodeId: NodeId,
+  options: { keepFills?: boolean } = {},
+): TemplateDocument {
   const stencilNode = doc.nodes[stencilNodeId];
   if (!stencilNode) throw new Error(`Node ${stencilNodeId} not found`);
 
@@ -36,10 +45,12 @@ export function extractSubtree(doc: TemplateDocument, stencilNodeId: NodeId): Te
   }
 
   // Collect all descendant nodes and slots recursively. When a placeholder is
-  // encountered, descend only into its `default` slot — its `fill` slot is
-  // template-side state and must not round-trip into the stencil definition.
+  // encountered (and `keepFills` is false), descend only into its `default`
+  // slot — its `fill` slot is template-side state and must not round-trip
+  // into the stencil definition.
   const collectedNodes = new Map<string, Node>();
   const collectedSlots = new Map<string, Slot>();
+  const stripFills = !options.keepFills;
 
   function collectDescendants(nodeId: NodeId) {
     const node = doc.nodes[nodeId];
@@ -50,7 +61,7 @@ export function extractSubtree(doc: TemplateDocument, stencilNodeId: NodeId): Te
     for (const sid of node.slots) {
       const s = (doc.slots as Record<string, Slot>)[sid as string];
       if (!s) continue;
-      if (isPlaceholder && s.name === 'fill') {
+      if (stripFills && isPlaceholder && s.name === 'fill') {
         // Keep the fill slot structurally, but empty — and skip descending.
         collectedSlots.set(sid as string, { ...s, children: [] });
         continue;

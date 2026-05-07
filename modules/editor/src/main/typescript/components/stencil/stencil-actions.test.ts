@@ -620,14 +620,28 @@ describe('Inspector action flows with callbacks', () => {
       isDraft: false,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
-    insertText(engine, registry, stencilSlot, 'Old content');
+    // Seed some "old content" via bypassLock — the stencil is locked, so
+    // mirroring the production inspector path which uses the same bypass
+    // for whole-stencil swaps.
+    {
+      const { node, slots } = registry.createNode('text', { content: 'Old content' });
+      engine.dispatch(
+        { type: 'InsertNode', node, slots, targetSlotId: stencilSlot, index: -1 },
+        { bypassLock: true },
+      );
+    }
 
-    // Simulate _handleUpgrade: remove old content, insert new, update props
+    // Simulate _handleUpgrade: remove old content, insert new, update props.
+    // Production passes `bypassLock: true` because the locked-stencil's
+    // children slot would otherwise reject these mutations.
     const versionInfo = await callbacks.getStencilVersion('header', 3);
 
     // Remove old children
     while (engine.doc.slots[stencilSlot].children.length > 0) {
-      engine.dispatch({ type: 'RemoveNode', nodeId: engine.doc.slots[stencilSlot].children[0] });
+      engine.dispatch(
+        { type: 'RemoveNode', nodeId: engine.doc.slots[stencilSlot].children[0] },
+        { bypassLock: true },
+      );
     }
 
     // Insert re-keyed new content
@@ -636,21 +650,27 @@ describe('Inspector action flows with callbacks', () => {
       const childNode = reKeyed.nodes.find((n) => n.id === childId)!;
       const ownSlots = reKeyed.slots.filter((s) => s.nodeId === childId);
       const descNodes = reKeyed.nodes.filter((n) => n.id !== childId);
-      engine.dispatch({
-        type: 'InsertNode',
-        node: childNode,
-        slots: ownSlots,
-        targetSlotId: stencilSlot,
-        index: -1,
-        _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
-      });
+      engine.dispatch(
+        {
+          type: 'InsertNode',
+          node: childNode,
+          slots: ownSlots,
+          targetSlotId: stencilSlot,
+          index: -1,
+          _restoreNodes: descNodes.length > 0 ? descNodes : undefined,
+        },
+        { bypassLock: true },
+      );
     }
 
-    engine.dispatch({
-      type: 'UpdateNodeProps',
-      nodeId,
-      props: { ...engine.doc.nodes[nodeId].props, version: 3 },
-    });
+    engine.dispatch(
+      {
+        type: 'UpdateNodeProps',
+        nodeId,
+        props: { ...engine.doc.nodes[nodeId].props, version: 3 },
+      },
+      { bypassLock: true },
+    );
 
     expect(callbacks.getStencilVersion).toHaveBeenCalledWith('header', 3);
     expect(engine.doc.nodes[nodeId].props?.version).toBe(3);
@@ -702,8 +722,19 @@ describe('Inspector action flows with callbacks', () => {
       isDraft: false,
     });
     const stencilSlot = getStencilSlot(engine, nodeId);
-    insertText(engine, registry, stencilSlot, 'Content');
+    // Seed content via bypassLock — the stencil's children slot is locked
+    // while published, but a real inspector flow uses bypassLock for the
+    // pre-detach state too.
+    {
+      const { node, slots } = registry.createNode('text', { content: 'Content' });
+      engine.dispatch(
+        { type: 'InsertNode', node, slots, targetSlotId: stencilSlot, index: -1 },
+        { bypassLock: true },
+      );
+    }
 
+    // Detach itself targets the stencil node's parent slot (root), not the
+    // stencil's children slot. Root isn't locked, so this works without bypass.
     engine.dispatch({
       type: 'ReplaceNode',
       nodeId,
@@ -788,5 +819,128 @@ describe('catalogKey propagation', () => {
     });
 
     expect(engine.doc.nodes[nodeId].props?.catalogKey).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edit / Publish flow with two-slot placeholder semantics
+// ---------------------------------------------------------------------------
+
+/** Helper: insert a stencil instance with one placeholder having default + fill content. */
+function setupStencilWithFilledPlaceholder(
+  engine: EditorEngine,
+  registry: ComponentRegistry,
+  rootSlotId: SlotId,
+  stencilProps: Record<string, unknown> = { stencilId: 'header', version: 1, isDraft: false },
+): { stencilId: NodeId; placeholderId: NodeId; fillSlotId: SlotId; defaultSlotId: SlotId } {
+  // Insert a stencil node directly via dispatch (bypassing onBeforeInsert).
+  const stencilId = nodeId('stencil');
+  const stencilSlotId = slotId('stencil-slot');
+  const placeholderId = nodeId('ph');
+  const defaultSlotId = slotId('ph-default');
+  const fillSlotId = slotId('ph-fill');
+  const defaultText = nodeId('default-text');
+  const fillText = nodeId('fill-text');
+
+  engine.dispatch({
+    type: 'InsertNode',
+    node: {
+      id: stencilId,
+      type: 'stencil',
+      slots: [stencilSlotId],
+      props: stencilProps,
+    },
+    slots: [
+      { id: stencilSlotId, nodeId: stencilId, name: 'children', children: [placeholderId] },
+      {
+        id: defaultSlotId,
+        nodeId: placeholderId,
+        name: 'default',
+        children: [defaultText],
+      },
+      { id: fillSlotId, nodeId: placeholderId, name: 'fill', children: [fillText] },
+    ],
+    targetSlotId: rootSlotId,
+    index: -1,
+    _restoreNodes: [
+      {
+        id: placeholderId,
+        type: 'placeholder',
+        slots: [defaultSlotId, fillSlotId],
+        props: { name: 'body' },
+      },
+      {
+        id: defaultText,
+        type: 'text',
+        slots: [],
+        props: { content: 'default content' },
+      },
+      {
+        id: fillText,
+        type: 'text',
+        slots: [],
+        props: { content: 'override content' },
+      },
+    ],
+  });
+  return { stencilId, placeholderId, fillSlotId, defaultSlotId };
+}
+
+describe('Edit/Publish flow with two-slot placeholder', () => {
+  it('start editing leaves the local fill content intact', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const { stencilId, fillSlotId } = setupStencilWithFilledPlaceholder(
+      engine,
+      registry,
+      rootSlotId,
+    );
+
+    const fillBefore = [...engine.doc.slots[fillSlotId].children];
+
+    // Simulate _handleStartEditing's only mutation: flip isDraft=true.
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: stencilId,
+      props: { ...engine.doc.nodes[stencilId].props, isDraft: true },
+    });
+
+    // Fill content unchanged.
+    expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
+    expect(engine.doc.nodes[fillBefore[0]]?.props?.content).toBe('override content');
+    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(true);
+  });
+
+  it('publish (extractSubtree + UpdateNodeProps) leaves the local fill content intact', () => {
+    const { engine, registry, rootSlotId } = setupEngine();
+    const { stencilId, fillSlotId } = setupStencilWithFilledPlaceholder(
+      engine,
+      registry,
+      rootSlotId,
+      { stencilId: 'header', version: 1, isDraft: true },
+    );
+
+    const fillBefore = [...engine.doc.slots[fillSlotId].children];
+
+    // Mirror _handlePublishDraft: extract content (fills stripped), then
+    // flip isDraft=false. The extracted content goes to the backend; the
+    // local doc isn't mutated by extractSubtree.
+    const extracted = extractSubtree(engine.doc, stencilId);
+    // Fills should be stripped in the extracted content.
+    const extractedFillSlot = Object.values(extracted.slots).find((s) => s.name === 'fill');
+    expect(extractedFillSlot?.children).toEqual([]);
+    // But locally the fill is still there.
+    expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
+
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: stencilId,
+      props: { ...engine.doc.nodes[stencilId].props, version: 2, isDraft: false },
+    });
+
+    // Local fill survives the whole edit-and-publish cycle.
+    expect(engine.doc.slots[fillSlotId].children).toEqual(fillBefore);
+    expect(engine.doc.nodes[fillBefore[0]]?.props?.content).toBe('override content');
+    expect(engine.doc.nodes[stencilId].props?.version).toBe(2);
+    expect(engine.doc.nodes[stencilId].props?.isDraft).toBe(false);
   });
 });

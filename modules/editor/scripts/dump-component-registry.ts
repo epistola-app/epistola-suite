@@ -49,9 +49,8 @@ import type { ComponentDefinition } from '../src/main/typescript/engine/registry
 
 // Runtime import happens only AFTER the browser globals are installed above.
 const { createDefaultRegistry } = await import('../src/main/typescript/engine/registry.ts');
-const { createStencilDefinition } = await import(
-  '../src/main/typescript/components/stencil/stencil-registration.ts'
-);
+const { createStencilDefinition } =
+  await import('../src/main/typescript/components/stencil/stencil-registration.ts');
 
 interface SerializedComponent {
   type: string;

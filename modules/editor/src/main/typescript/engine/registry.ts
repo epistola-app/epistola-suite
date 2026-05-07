@@ -44,6 +44,25 @@ export type AllowedChildren =
 export interface SlotTemplate {
   name: string;
   dynamic?: boolean;
+  /**
+   * When this slot's `locked` predicate returns `true`, the engine rejects
+   * any mutation whose target is in this slot's subtree. Inheritable: a
+   * deeper slot is also locked unless an intermediate slot opts out via
+   * `editable`.
+   *
+   * Domain components (e.g. stencils) provide their own predicate; the
+   * engine has no built-in knowledge of when something is "locked."
+   */
+  locked?: boolean | ((node: Node) => boolean);
+  /**
+   * Breaks an inherited lock. Descendants of an `editable: true` slot are
+   * mutable even when an outer slot is `locked`. Used by e.g. a placeholder's
+   * `fill` slot to be user-editable inside an otherwise-locked stencil.
+   *
+   * The walk is inside-out: the first slot in the chain whose predicate fires
+   * (either `editable` or `locked`) wins.
+   */
+  editable?: boolean | ((node: Node) => boolean);
 }
 
 export interface InspectorField {

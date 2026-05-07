@@ -95,10 +95,50 @@
   padding-bottom: var(--ep-space-1, 4px);
 }
 
-/* Placeholder fills inside a locked stencil remain editable.
-   The locked stencil sets pointer-events: none on its subtree;
-   re-enable pointer events on the placeholder so users can fill it. */
+/* Placeholder lock UX in template-fill mode.
+   The stencil author's placeholder identity (name, default slot, etc.)
+   is read-only when the stencil is published. Users should only be able
+   to interact with the fill area. The engine's slot-lock primitive is
+   the authoritative consistency guard; this CSS prevents accidental
+   selection from the canvas. */
 .canvas-stencil-locked .canvas-placeholder {
-  pointer-events: auto;
+  /* Override the locked-stencil pointer-events: none so the inner fill
+     can re-enable selectively. */
   opacity: 1;
+}
+
+.canvas-placeholder--filled,
+.canvas-placeholder--empty-fill {
+  /* Template-fill mode wrappers: the wrapper itself isn't selectable
+     (clicks pass through). Inner fill area re-enables clicks below. */
+  pointer-events: none;
+}
+
+.canvas-placeholder--filled .canvas-placeholder-fill,
+.canvas-placeholder--empty-fill .canvas-placeholder-fill {
+  /* Fill area is the only editable surface in template-fill mode. */
+  pointer-events: auto;
+}
+
+/* Stencil-author / draft mode wrapper stays fully clickable — the user
+   selects the placeholder there to edit its name, description, default. */
+.canvas-placeholder--default-edit {
+  pointer-events: auto;
+}
+
+/* Read-only placeholder inspector display — shown when a placeholder is
+   somehow selected in template-fill mode (keyboard/programmatic only;
+   the canvas pointer-events guards the click path). */
+.placeholder-inspector-readonly-name {
+  display: inline-block;
+  padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
+  background: var(--ep-gray-100, #f3f4f6);
+  border-radius: var(--ep-radius-sm, 3px);
+  font-family: var(--ep-font-mono, monospace);
+  font-size: var(--ep-text-xs, 12px);
+}
+
+.placeholder-inspector-readonly-description {
+  font-style: italic;
+  color: var(--ep-color-text-muted, #6b7280);
 }

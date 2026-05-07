@@ -30,7 +30,15 @@ export function createPlaceholderDefinition(): ComponentDefinition {
     },
     icon: 'square-dashed',
     category: 'layout',
-    slots: [{ name: 'default' }, { name: 'fill' }],
+    slots: [
+      // `default` inherits whatever lock the surrounding stencil has — the
+      // stencil author edits it (in draft mode) and the template author
+      // cannot (when published).
+      { name: 'default' },
+      // `fill` is always user-editable, even inside a published (locked)
+      // stencil. This is what makes placeholders work in templates.
+      { name: 'fill', editable: true },
+    ],
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],

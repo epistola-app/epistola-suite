@@ -50,7 +50,17 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     },
     icon: 'puzzle',
     category: 'layout',
-    slots: [{ name: 'children' }],
+    slots: [
+      {
+        name: 'children',
+        // The stencil's children are frozen as soon as the stencil is
+        // published (linked via `stencilId` and not in draft mode). Inner
+        // placeholder fill slots opt out via their own `editable: true`.
+        locked: (node) =>
+          (node.props?.stencilId as string | null | undefined) != null &&
+          !((node.props?.isDraft as boolean | undefined) ?? false),
+      },
+    ],
     allowedChildren: { mode: 'denylist', types: ['stencil'] },
     applicableStyles: 'all',
     inspector: [],

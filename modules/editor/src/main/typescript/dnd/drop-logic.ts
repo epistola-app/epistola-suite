@@ -7,7 +7,8 @@
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 import type { DocumentIndexes } from '../engine/indexes.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js';
-import { computeAncestorScope, isInLockedStencilLayout } from '../components/stencil/ancestry.js';
+import { computeAncestorScope } from '../components/stencil/ancestry.js';
+import { isSlotLocked } from '../engine/locks.js';
 import type { DragData } from './types.js';
 
 export type Edge = 'top' | 'bottom';
@@ -118,10 +119,11 @@ export function canDropHere(
     return false;
   }
 
-  // A published stencil's layout is frozen — drops are only allowed inside
-  // placeholder fills. The CSS lock (`pointer-events: none`) is just a hint;
-  // this is the authoritative check.
-  if (isInLockedStencilLayout(doc, targetSlotId, indexes)) {
+  // The slot's component definition may declare it locked. Ask the engine
+  // generically — the engine doesn't know about stencils, but the stencil's
+  // SlotTemplate.locked predicate (combined with the placeholder fill's
+  // editable break) gives the right answer here.
+  if (isSlotLocked(doc, targetSlotId, indexes, registry)) {
     return false;
   }
 

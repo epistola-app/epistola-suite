@@ -16,7 +16,20 @@ import {
   PAGE_FOOTER_TYPE,
   isAnchoredPageBlock,
 } from './registry.js';
+import { isSlotLocked } from './locks.js';
 import { nanoid } from 'nanoid';
+
+/**
+ * Options that control reducer behaviour.
+ *
+ * `bypassLock` skips the engine's slot-lock check. Used by domain code
+ * (e.g. the stencil inspector during Discard / Upgrade flows) that needs
+ * to swap content inside a locked subtree. The engine offers the
+ * mechanism without knowing why callers use it.
+ */
+export interface ApplyOptions {
+  bypassLock?: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -173,9 +186,10 @@ export function applyCommand(
   indexes: DocumentIndexes,
   command: AnyCommand,
   registry: ComponentRegistry,
+  options?: ApplyOptions,
 ): CommandResult {
   if (isBuiltinCommand(command)) {
-    return applyBuiltinCommand(doc, indexes, command, registry);
+    return applyBuiltinCommand(doc, indexes, command, registry, options);
   }
   return applyComponentCommand(doc, indexes, command, registry);
 }
@@ -185,7 +199,16 @@ function applyBuiltinCommand(
   indexes: DocumentIndexes,
   command: Command,
   registry: ComponentRegistry,
+  options?: ApplyOptions,
 ): CommandResult {
+  // Generic slot-lock check, skipped when the caller explicitly opts out.
+  // Domain components define what counts as "locked" via SlotTemplate
+  // predicates; the engine just enforces what they declared.
+  if (!options?.bypassLock) {
+    const lockErr = checkLock(doc, indexes, command, registry);
+    if (lockErr) return err(lockErr);
+  }
+
   switch (command.type) {
     case 'InsertNode':
       return applyInsertNode(doc, indexes, command, registry);
@@ -209,6 +232,52 @@ function applyBuiltinCommand(
       return applyAddColumnSlot(doc, command);
     case 'RemoveColumnSlot':
       return applyRemoveColumnSlot(doc, indexes, command);
+  }
+}
+
+/**
+ * Returns an error message when the command's affected slot(s) are locked.
+ * Returns null otherwise. Document-level commands and component commands
+ * are not lock-checked here.
+ */
+function checkLock(
+  doc: TemplateDocument,
+  indexes: DocumentIndexes,
+  command: Command,
+  registry: ComponentRegistry,
+): string | null {
+  const targets = lockTargetsOf(command, indexes);
+  for (const slotId of targets) {
+    if (slotId && isSlotLocked(doc, slotId, indexes, registry)) {
+      return `Cannot modify locked slot '${slotId}'`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Slot IDs whose locks gate this command. Empty for document-level commands.
+ * For node mutations, returns the node's parent slot. For inserts/moves,
+ * returns the target slot (and the source's parent for moves).
+ */
+function lockTargetsOf(command: Command, indexes: DocumentIndexes): (SlotId | undefined)[] {
+  switch (command.type) {
+    case 'InsertNode':
+      return [command.targetSlotId];
+    case 'RemoveNode':
+      return [indexes.parentSlotByNodeId.get(command.nodeId)];
+    case 'MoveNode':
+      return [indexes.parentSlotByNodeId.get(command.nodeId), command.targetSlotId];
+    case 'UpdateNodeProps':
+    case 'UpdateNodeStyles':
+    case 'SetStylePreset':
+    case 'ReplaceNode':
+    case 'AddColumnSlot':
+    case 'RemoveColumnSlot':
+      return [indexes.parentSlotByNodeId.get(command.nodeId)];
+    case 'UpdateDocumentStyles':
+    case 'UpdatePageSettings':
+      return [];
   }
 }
 
