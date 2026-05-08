@@ -44,6 +44,8 @@
             </script>
         </th:block>
 
+        <script th:src="@{/js/slug-auto.js}"></script>
+
         <!-- Feedback FAB + console capture (tenant-scoped pages only) -->
         <th:block th:if="${tenantId != null and feedbackEnabled}" sec:authorize="isAuthenticated()">
             <script th:src="@{/feedback/feedback-capture.js}"></script>
