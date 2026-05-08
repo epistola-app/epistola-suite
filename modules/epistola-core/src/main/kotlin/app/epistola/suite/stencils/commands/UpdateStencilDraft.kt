@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -31,9 +32,11 @@ data class UpdateStencilDraft(
 class UpdateStencilDraftHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val placeholderValidator: PlaceholderValidator,
 ) : CommandHandler<UpdateStencilDraft, StencilVersion?> {
     override fun handle(command: UpdateStencilDraft): StencilVersion? {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        placeholderValidator.validateAsStencilDefinition(command.content)
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
             val contentJson = objectMapper.writeValueAsString(command.content)
 

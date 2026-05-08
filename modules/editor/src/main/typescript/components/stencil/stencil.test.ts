@@ -143,10 +143,13 @@ describe('Stencil component registration', () => {
     expect(def!.category).toBe('layout');
   });
 
-  it('has a children slot template', () => {
+  it('has a children slot template with a lock predicate', () => {
     const { registry } = setupEngine();
     const def = registry.get('stencil');
-    expect(def!.slots).toEqual([{ name: 'children' }]);
+    expect(def!.slots).toHaveLength(1);
+    expect(def!.slots[0]?.name).toBe('children');
+    // Locked when published (stencilId set, not draft); editable otherwise.
+    expect(typeof def!.slots[0]?.locked).toBe('function');
   });
 
   it('prevents nesting stencils via denylist', () => {
@@ -364,14 +367,19 @@ describe('Multiple stencils on one page', () => {
     const content = createSampleStencilContent();
 
     // Insert the same content object for both
+    // Use draft mode so the lock doesn't block follow-up insertions —
+    // the test's intent is "two instances are independent," not
+    // "published stencils are editable."
     const stencil1 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
+      isDraft: true,
       _content: content,
     });
     const stencil2 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
+      isDraft: true,
       _content: content,
     });
 
@@ -799,9 +807,12 @@ describe('Delete stencil after modifying content', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const content = createSampleStencilContent();
 
+    // Draft mode — children edits are only valid for draft stencils.
+    // Published stencils' children are locked by the engine.
     const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
+      isDraft: true,
       _content: content,
     });
 
@@ -830,6 +841,7 @@ describe('Delete stencil after modifying content', () => {
     const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
+      isDraft: true,
       _content: content,
     });
 
@@ -924,14 +936,17 @@ describe('Multiple instances of the same stencil version', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const content = createSampleStencilContent();
 
+    // Draft mode — published stencils' children slots are locked by the engine.
     const s1 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
+      isDraft: true,
       _content: content,
     });
     const s2 = insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
+      isDraft: true,
       _content: content,
     });
 

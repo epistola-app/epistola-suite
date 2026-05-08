@@ -27,7 +27,7 @@ export async function handleDrop(
     const def = engine.registry.get(dragData.blockType);
     let overrideProps: Record<string, unknown> | undefined;
     if (def?.onBeforeInsert) {
-      const result = await def.onBeforeInsert(engine);
+      const result = await def.onBeforeInsert(engine, { targetSlotId });
       if (!result) return; // cancelled
       overrideProps = result;
     }

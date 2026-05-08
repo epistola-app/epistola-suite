@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -30,6 +31,7 @@ data class PublishStencilVersion(
 class PublishStencilVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val placeholderValidator: PlaceholderValidator,
 ) : CommandHandler<PublishStencilVersion, StencilVersion?> {
     override fun handle(command: PublishStencilVersion): StencilVersion? = jdbi.inTransaction<StencilVersion?, Exception> { handle ->
         // Fetch the draft version
@@ -50,6 +52,11 @@ class PublishStencilVersionHandler(
 
         // Validate no nested stencil components
         validateNoNestedStencilRefs(version)
+
+        // Validate placeholder rules — same checks that gate draft writes,
+        // re-applied at publish time as belt-and-suspenders for content that
+        // may have been written before validation was wired in.
+        placeholderValidator.validateAsStencilDefinition(version.content)
 
         // Publish: freeze the content
         handle.createQuery(

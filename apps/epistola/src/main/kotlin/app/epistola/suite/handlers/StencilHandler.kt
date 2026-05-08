@@ -390,13 +390,13 @@ class StencilHandler(
         val templateId = TemplateId(TemplateKey.of(req.templateId), templateCatalog)
         val variantId = VariantId(VariantKey.of(req.variantId), templateId)
 
-        val count = UpdateStencilInTemplate(
+        val result = UpdateStencilInTemplate(
             variantId = variantId,
             stencilId = stencilId,
             newVersion = req.newVersion,
         ).execute()
 
-        if (count == null) {
+        if (result == null) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("error" to "No draft version found for this template variant"))
@@ -404,7 +404,14 @@ class StencilHandler(
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("upgraded" to count))
+            .body(
+                mapOf(
+                    "upgraded" to result.upgradedCount,
+                    "droppedFills" to result.droppedFills.mapValues { (_, fills) ->
+                        fills.map { mapOf("name" to it.name, "contentSummary" to it.contentSummary) }
+                    },
+                ),
+            )
     }
 
     // ── Versions ───────────────────────────────────────────────────────────

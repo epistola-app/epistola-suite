@@ -403,9 +403,20 @@ export class EditorEngine {
    *
    * @param options.skipUndo — if true, do not push to undo stack (used by
    *   external components that manage their own undo, e.g. ProseMirror).
+   * @param options.bypassLock — if true, skip the slot-lock check that
+   *   normally rejects mutations targeting locked slots. Used by domain
+   *   code (e.g. the stencil inspector) that legitimately needs to swap
+   *   the content of a locked subtree (Discard / Upgrade flows). The
+   *   engine doesn't know *why* a caller bypasses; it just offers the
+   *   mechanism.
    */
-  dispatch(command: AnyCommand, options?: { skipUndo?: boolean }): CommandResult {
-    const result = applyCommand(this._doc, this._indexes, command, this.registry);
+  dispatch(
+    command: AnyCommand,
+    options?: { skipUndo?: boolean; bypassLock?: boolean },
+  ): CommandResult {
+    const result = applyCommand(this._doc, this._indexes, command, this.registry, {
+      bypassLock: options?.bypassLock,
+    });
 
     if (result.ok) {
       this._doc = deepFreeze(result.doc);
@@ -441,9 +452,15 @@ export class EditorEngine {
   /**
    * Dispatch a command without recording it in the undo stack.
    * Used internally by undo/redo via ChangeContext.
+   *
+   * Lock checks are bypassed: the original command that produced this
+   * inverse was already validated (or was itself a deliberate bypass),
+   * so replaying it must also be allowed.
    */
   private _dispatchSilent(command: AnyCommand): CommandResult {
-    const result = applyCommand(this._doc, this._indexes, command, this.registry);
+    const result = applyCommand(this._doc, this._indexes, command, this.registry, {
+      bypassLock: true,
+    });
 
     if (result.ok) {
       this._doc = deepFreeze(result.doc);

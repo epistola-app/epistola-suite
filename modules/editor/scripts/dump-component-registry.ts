@@ -49,6 +49,8 @@ import type { ComponentDefinition } from '../src/main/typescript/engine/registry
 
 // Runtime import happens only AFTER the browser globals are installed above.
 const { createDefaultRegistry } = await import('../src/main/typescript/engine/registry.ts');
+const { createStencilDefinition } =
+  await import('../src/main/typescript/components/stencil/stencil-registration.ts');
 
 interface SerializedComponent {
   type: string;
@@ -87,6 +89,12 @@ function describe(def: ComponentDefinition): SerializedComponent {
 const outputPath = resolve(process.argv[2] ?? 'dist/component-registry.json');
 
 const registry = createDefaultRegistry();
+// The stencil component is registered at runtime by `lib.ts` (it needs a
+// callbacks bag from the host application). For the registry dump we
+// register a null-callbacks variant so its descriptor — including the
+// `with-placeholder` / `with-overridden-placeholder` examples — surfaces
+// to backend consumers like the MCP server.
+registry.register(createStencilDefinition({ callbacks: null }));
 const components = registry.all().map(describe);
 
 const payload = {

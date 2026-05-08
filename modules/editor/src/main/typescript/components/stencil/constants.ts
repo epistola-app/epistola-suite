@@ -1,0 +1,35 @@
+/**
+ * String keys used by the stencil component throughout the document model.
+ *
+ * Centralised here so a typo in any single literal can't silently break the
+ * stencil mechanism. Mirrored in:
+ *   - Kotlin core: `modules/epistola-core/.../stencils/StencilNodeKeys.kt`
+ *   - Kotlin renderer: `modules/generation/.../pdf/StencilNodeKeys.kt`
+ *
+ * The values are anchored by the JSON Schema in the `epistola-contract` repo;
+ * any divergence between layers would surface in integration runs.
+ */
+
+/** Node `type` discriminator value for stencil nodes. */
+export const STENCIL_TYPE = 'stencil';
+
+/** Slot name for the stencil's children (the inlined published content). */
+export const STENCIL_SLOT_CHILDREN = 'children';
+
+/** Prop key — the stencil's stable identifier. Null when unlinked. */
+export const STENCIL_PROP_STENCIL_ID = 'stencilId';
+
+/** Prop key — catalog the stencil belongs to. Null when unlinked. */
+export const STENCIL_PROP_CATALOG_KEY = 'catalogKey';
+
+/** Prop key — the inlined published version number. */
+export const STENCIL_PROP_VERSION = 'version';
+
+/** Prop key — true when the user is editing the stencil definition in place. */
+export const STENCIL_PROP_IS_DRAFT = 'isDraft';
+
+/**
+ * Reserved for the future stencil-parameters feature. Setting it in v1 is
+ * rejected by `PlaceholderValidator.validateForwardCompatReservations`.
+ */
+export const STENCIL_PROP_PARAMETER_BINDINGS = 'parameterBindings';

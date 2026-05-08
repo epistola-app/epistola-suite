@@ -69,6 +69,17 @@
     }
   }
 
+  .btn-outline-destructive {
+    border-color: var(--ep-red-200);
+    color: var(--ep-destructive);
+
+    &:hover {
+      background-color: var(--ep-red-50);
+      border-color: var(--ep-red-300);
+      color: var(--ep-destructive);
+    }
+  }
+
   .btn-ghost {
     background-color: transparent;
     color: var(--ep-foreground);

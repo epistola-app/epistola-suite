@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import app.epistola.template.model.Node
@@ -52,9 +53,11 @@ data class CreateStencil(
 class CreateStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val placeholderValidator: PlaceholderValidator,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
         return executeOrThrowDuplicate("stencil", command.id.key.value) {
             jdbi.inTransaction<Stencil, Exception> { handle ->
                 val tagsJson = objectMapper.writeValueAsString(command.tags)

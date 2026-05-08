@@ -1,0 +1,105 @@
+/* ── Placeholder block canvas styles ──────────────────────────────────── */
+
+/* The mode (default / override / default preview) is shown in the outer
+   block header via getLabel; the wrapper itself stays unobtrusive so the
+   slot content can read like any other block content. */
+.canvas-placeholder {
+  margin: var(--ep-space-1, 4px) 0;
+}
+
+.canvas-placeholder-fill,
+.canvas-placeholder-default {
+  /* The slot's children render here directly — no border so they look natural. */
+  min-height: 1.5em;
+}
+
+.canvas-placeholder-fill--empty {
+  position: relative;
+  min-height: 2.5em;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    rgb(37 99 235 / 0.025) 6px,
+    rgb(37 99 235 / 0.025) 12px
+  );
+}
+
+.canvas-placeholder-fill-hint {
+  font-size: var(--ep-text-xs, 11px);
+  color: var(--ep-muted-foreground, #6b7280);
+  font-style: italic;
+  padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
+}
+
+/* Stencil-author / draft mode: a thin amber left-stripe accent so the
+   author can tell at a glance that they are editing the stencil's default
+   content, without the full-frame wash that competes with the block's
+   own selection chrome. */
+.canvas-placeholder--default-edit {
+  border-left: 3px solid var(--ep-amber-500, #f59e0b);
+  padding-left: var(--ep-space-2, 8px);
+}
+
+/* Read-only preview of the stencil's default content, shown only when the
+   embedding template's fill is empty. Users see what would render without
+   any override. The wrapper disables pointer-events so the content cannot
+   be selected, edited, or used as a drop target — drops fall through to the
+   adjacent fill slot. */
+.canvas-placeholder-default-preview {
+  pointer-events: none;
+  opacity: 0.45;
+  filter: grayscale(0.4);
+  user-select: none;
+  border-bottom: 1px dashed var(--ep-primary, #2563eb);
+  margin-bottom: var(--ep-space-1, 4px);
+  padding-bottom: var(--ep-space-1, 4px);
+}
+
+/* Placeholder lock UX in template-fill mode.
+   The stencil author's placeholder identity (name, default slot, etc.)
+   is read-only when the stencil is published. Users should only be able
+   to interact with the fill area. The engine's slot-lock primitive is
+   the authoritative consistency guard; this CSS prevents accidental
+   selection from the canvas. */
+.canvas-stencil-locked .canvas-placeholder {
+  /* Override the locked-stencil pointer-events: none so the inner fill
+     can re-enable selectively. */
+  opacity: 1;
+}
+
+.canvas-placeholder--filled,
+.canvas-placeholder--empty-fill {
+  /* Template-fill mode wrappers: the wrapper itself isn't selectable
+     (clicks pass through). Inner fill area re-enables clicks below. */
+  pointer-events: none;
+}
+
+.canvas-placeholder--filled .canvas-placeholder-fill,
+.canvas-placeholder--empty-fill .canvas-placeholder-fill {
+  /* Fill area is the only editable surface in template-fill mode. */
+  pointer-events: auto;
+}
+
+/* Stencil-author / draft mode wrapper stays fully clickable — the user
+   selects the placeholder there to edit its name, description, default. */
+.canvas-placeholder--default-edit {
+  pointer-events: auto;
+}
+
+/* Read-only placeholder inspector display — shown when a placeholder is
+   somehow selected in template-fill mode (keyboard/programmatic only;
+   the canvas pointer-events guards the click path). */
+.placeholder-inspector-readonly-name {
+  display: inline-block;
+  padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
+  background: var(--ep-gray-100, #f3f4f6);
+  border-radius: var(--ep-radius-sm, 3px);
+  font-family: var(--ep-font-mono, monospace);
+  font-size: var(--ep-text-xs, 12px);
+}
+
+.placeholder-inspector-readonly-description {
+  font-style: italic;
+  color: var(--ep-muted-foreground);
+}

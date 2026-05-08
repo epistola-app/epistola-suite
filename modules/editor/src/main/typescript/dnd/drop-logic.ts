@@ -7,6 +7,11 @@
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 import type { DocumentIndexes } from '../engine/indexes.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js';
+import { computeAncestorScope } from '../components/stencil/ancestry.js';
+import { isSlotLocked } from '../engine/locks.js';
+import { STENCIL_TYPE } from '../components/stencil/constants.js';
+import { PLACEHOLDER_TYPE } from '../components/placeholder/constants.js';
+import { stencilId as readStencilId } from '../components/stencil/node-types.js';
 import type { DragData } from './types.js';
 
 export type Edge = 'top' | 'bottom';
@@ -117,6 +122,14 @@ export function canDropHere(
     return false;
   }
 
+  // The slot's component definition may declare it locked. Ask the engine
+  // generically — the engine doesn't know about stencils, but the stencil's
+  // SlotTemplate.locked predicate (combined with the placeholder fill's
+  // editable break) gives the right answer here.
+  if (isSlotLocked(doc, targetSlotId, indexes, registry)) {
+    return false;
+  }
+
   // For block drags: prevent cycle (can't move into own descendant)
   if (dragData.source === 'block') {
     // Can't drop into itself
@@ -124,6 +137,30 @@ export function canDropHere(
 
     // Can't drop into a descendant of itself
     if (isDescendant(targetSlot.nodeId, dragData.nodeId, indexes)) return false;
+  }
+
+  // Stencil/placeholder structural rules. The same ancestor walk powers
+  // three checks; computed once here.
+  if (dragData.blockType === STENCIL_TYPE || dragData.blockType === PLACEHOLDER_TYPE) {
+    const scope = computeAncestorScope(doc, targetSlotId, indexes);
+
+    // Rule 2: a placeholder may only be dropped where a stencil is in the
+    // ancestor chain, and never inside another placeholder's fill slot
+    // (rule 3 — at the stencil-definition level, which is the only level
+    // a bare placeholder can be dropped from the palette).
+    if (dragData.blockType === PLACEHOLDER_TYPE) {
+      if (!scope.hasStencilAncestor) return false;
+      if (scope.hasPlaceholderAncestor) return false;
+    }
+
+    // Rule 1: a stencil cannot be dropped where its own stencilId is already
+    // in the ancestor chain. For palette drags the stencilId is chosen later
+    // in the picker dialog (which has its own recursion guard); for block
+    // drags we have the dragged node, so we can check now.
+    if (dragData.blockType === STENCIL_TYPE && dragData.source === 'block') {
+      const sid = readStencilId(doc.nodes[dragData.nodeId]);
+      if (sid && scope.stencilIds.has(sid)) return false;
+    }
   }
 
   return true;

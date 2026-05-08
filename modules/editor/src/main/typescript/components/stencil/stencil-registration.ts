@@ -17,6 +17,9 @@ import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/i
 import type { StencilCallbacks } from './types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
+import { computeAncestorScope } from './ancestry.js';
+import { STENCIL_TYPE, STENCIL_SLOT_CHILDREN } from './constants.js';
+import { isPublishedStencil, isStencil } from './node-types.js';
 import './StencilInspector.js';
 import { nanoid } from 'nanoid';
 import { html } from 'lit';
@@ -28,28 +31,28 @@ export interface StencilOptions {
 
 export function createStencilDefinition(options: StencilOptions): ComponentDefinition {
   return {
-    type: 'stencil',
+    type: STENCIL_TYPE,
     label: 'Stencil',
-    getLabel: (node, eng) => {
-      const engine = eng as EditorEngine;
-      const stencilId = node.props?.stencilId as string | null;
-      const version = node.props?.version as number | null;
-      const isDraft = node.props?.isDraft as boolean | undefined;
+    getLabel: (node, _eng) => {
+      if (!isStencil(node)) return 'Stencil';
+      const { stencilId, version, isDraft } = node.props;
 
       if (!stencilId) return 'Stencil';
 
-      const upgrades = engine.getComponentState<Record<string, number>>('stencil:upgrades');
-      const latestVersion = upgrades?.[stencilId];
-      const hasUpgrade =
-        latestVersion != null && version != null && latestVersion > version && !isDraft;
-
-      if (isDraft) return `Stencil: ${stencilId} — editing draft`;
-      if (hasUpgrade) return `Stencil: ${stencilId} v${version} ⬆ v${latestVersion}`;
-      return `Stencil: ${stencilId} v${version}`;
+      if (isDraft) return stencilId;
+      return `${stencilId} v${version}`;
     },
     icon: 'puzzle',
     category: 'layout',
-    slots: [{ name: 'children' }],
+    slots: [
+      {
+        name: STENCIL_SLOT_CHILDREN,
+        // The stencil's children are frozen as soon as the stencil is
+        // published (linked via `stencilId` and not in draft mode). Inner
+        // placeholder fill slots opt out via their own `editable: true`.
+        locked: (node) => isPublishedStencil(node),
+      },
+    ],
     allowedChildren: { mode: 'denylist', types: ['stencil'] },
     applicableStyles: 'all',
     inspector: [],
@@ -60,10 +63,153 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       isDraft: false,
     },
 
+    examples: [
+      {
+        name: 'with-placeholder',
+        description:
+          'A published stencil instance (as it appears inside a template) containing one placeholder named "body". The placeholder owns two slots: `default` (set by the stencil author at publish time) and `fill` (the template override; empty here, so the renderer falls back to the default). Replacing or adding to `fill` overrides the default; clearing `fill` reverts to the default.',
+        fragment: {
+          rootNodeId: 'n-stencil-letter',
+          nodes: {
+            'n-stencil-letter': {
+              id: 'n-stencil-letter',
+              type: 'stencil',
+              slots: ['s-stencil-letter-children'],
+              props: {
+                stencilId: 'letter-shell',
+                catalogKey: 'epistola-demo',
+                version: 1,
+                isDraft: false,
+              },
+            },
+            'n-stencil-letter-ph': {
+              id: 'n-stencil-letter-ph',
+              type: 'placeholder',
+              slots: ['s-stencil-letter-ph-default', 's-stencil-letter-ph-fill'],
+              props: { name: 'body', description: 'Body content', kind: 'block' },
+            },
+            'n-stencil-letter-default-text': {
+              id: 'n-stencil-letter-default-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Default body text' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-stencil-letter-children': {
+              id: 's-stencil-letter-children',
+              nodeId: 'n-stencil-letter',
+              name: 'children',
+              children: ['n-stencil-letter-ph'],
+            },
+            's-stencil-letter-ph-default': {
+              id: 's-stencil-letter-ph-default',
+              nodeId: 'n-stencil-letter-ph',
+              name: 'default',
+              children: ['n-stencil-letter-default-text'],
+            },
+            's-stencil-letter-ph-fill': {
+              id: 's-stencil-letter-ph-fill',
+              nodeId: 'n-stencil-letter-ph',
+              name: 'fill',
+              children: [],
+            },
+          },
+        },
+      },
+      {
+        name: 'with-overridden-placeholder',
+        description:
+          'Same stencil as `with-placeholder`, but the template has overridden the placeholder by populating its `fill` slot. The renderer prefers `fill` over `default` when fill is non-empty, so this stencil instance renders "Custom body — overridden" instead of the default. Clearing `fill` would revert to the default.',
+        fragment: {
+          rootNodeId: 'n-stencil-letter-ov',
+          nodes: {
+            'n-stencil-letter-ov': {
+              id: 'n-stencil-letter-ov',
+              type: 'stencil',
+              slots: ['s-stencil-letter-ov-children'],
+              props: {
+                stencilId: 'letter-shell',
+                catalogKey: 'epistola-demo',
+                version: 1,
+                isDraft: false,
+              },
+            },
+            'n-stencil-letter-ov-ph': {
+              id: 'n-stencil-letter-ov-ph',
+              type: 'placeholder',
+              slots: ['s-stencil-letter-ov-ph-default', 's-stencil-letter-ov-ph-fill'],
+              props: { name: 'body', description: 'Body content', kind: 'block' },
+            },
+            'n-stencil-letter-ov-default-text': {
+              id: 'n-stencil-letter-ov-default-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Default body text' }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-stencil-letter-ov-fill-text': {
+              id: 'n-stencil-letter-ov-fill-text',
+              type: 'text',
+              slots: [],
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Custom body — overridden' }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-stencil-letter-ov-children': {
+              id: 's-stencil-letter-ov-children',
+              nodeId: 'n-stencil-letter-ov',
+              name: 'children',
+              children: ['n-stencil-letter-ov-ph'],
+            },
+            's-stencil-letter-ov-ph-default': {
+              id: 's-stencil-letter-ov-ph-default',
+              nodeId: 'n-stencil-letter-ov-ph',
+              name: 'default',
+              children: ['n-stencil-letter-ov-default-text'],
+            },
+            's-stencil-letter-ov-ph-fill': {
+              id: 's-stencil-letter-ov-ph-fill',
+              nodeId: 'n-stencil-letter-ov-ph',
+              name: 'fill',
+              children: ['n-stencil-letter-ov-fill-text'],
+            },
+          },
+        },
+      },
+    ],
+
     renderCanvas: ({ node, renderSlot }) => {
-      const stencilId = node.props?.stencilId as string | null;
-      const isDraft = node.props?.isDraft as boolean | undefined;
-      const isLocked = stencilId !== null && !isDraft;
+      const isLocked = isPublishedStencil(node);
 
       // IMPORTANT: Template structure must be identical across all states.
       // Lit's template diffing caches by template string shape. The
@@ -85,13 +231,23 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       ></stencil-inspector>`;
     },
 
-    onBeforeInsert: async () => {
+    onBeforeInsert: async (engineUnknown, context) => {
       if (!options.callbacks) {
         // No callbacks — create empty stencil container
         return {};
       }
 
-      const result = await openStencilPickerDialog(options.callbacks);
+      // If we know the target slot, compute the ancestor stencil set so the
+      // picker can disable recursive choices.
+      let disabledStencilIds: Set<string> | undefined;
+      const targetSlotId = context?.targetSlotId;
+      if (targetSlotId) {
+        const engine = engineUnknown as EditorEngine;
+        const scope = computeAncestorScope(engine.doc, targetSlotId, engine.indexes);
+        if (scope.stencilIds.size > 0) disabledStencilIds = scope.stencilIds;
+      }
+
+      const result = await openStencilPickerDialog(options.callbacks, { disabledStencilIds });
       if (!result) return null; // Cancelled
 
       if (result.action === 'create-new') {

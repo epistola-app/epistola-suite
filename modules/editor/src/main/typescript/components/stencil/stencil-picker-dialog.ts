@@ -21,8 +21,18 @@ export type StencilPickerResult =
   | { action: 'use-existing'; versionInfo: StencilVersionInfo }
   | null;
 
+export interface StencilPickerOptions {
+  /**
+   * Stencil IDs that would cause recursion if inserted at the cursor's
+   * target slot. Cards for these stencils are rendered disabled with a
+   * tooltip; users cannot select or insert them.
+   */
+  disabledStencilIds?: Set<string>;
+}
+
 export async function openStencilPickerDialog(
   callbacks: StencilCallbacks,
+  options: StencilPickerOptions = {},
 ): Promise<StencilPickerResult> {
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
@@ -126,6 +136,12 @@ export async function openStencilPickerDialog(
         card.className = 'stencil-picker-card';
         card.dataset.stencilId = stencil.id;
 
+        const isRecursive = options.disabledStencilIds?.has(stencil.id) ?? false;
+        if (isRecursive) {
+          card.classList.add('stencil-picker-card--disabled');
+          card.title = 'Cannot insert: this stencil already appears in the ancestor chain';
+        }
+
         const tags =
           stencil.tags.length > 0
             ? stencil.tags.map((t) => `<span class="stencil-picker-tag">${t}</span>`).join('')
@@ -140,8 +156,12 @@ export async function openStencilPickerDialog(
           ? `<span class="stencil-picker-tag">${stencil.catalogKey}</span>`
           : '';
 
+        const recursionBadge = isRecursive
+          ? '<span class="stencil-picker-tag" style="background:var(--ep-amber-50,#fffbeb);color:var(--ep-amber-700,#b45309);">would recurse</span>'
+          : '';
+
         card.innerHTML = `
-          <div class="stencil-picker-card-name">${stencil.name} ${catalogBadge}</div>
+          <div class="stencil-picker-card-name">${stencil.name} ${catalogBadge}${recursionBadge}</div>
           <div class="stencil-picker-card-meta">
             <span class="stencil-picker-card-version">${versionLabel}</span>
             ${tags ? `<span class="stencil-picker-card-tags">${tags}</span>` : ''}
@@ -149,10 +169,12 @@ export async function openStencilPickerDialog(
           ${stencil.description ? `<div class="stencil-picker-card-desc">${stencil.description}</div>` : ''}
         `;
 
-        card.addEventListener('click', () => {
-          selectedStencil = stencil;
-          showVersionPicker(stencil);
-        });
+        if (!isRecursive) {
+          card.addEventListener('click', () => {
+            selectedStencil = stencil;
+            showVersionPicker(stencil);
+          });
+        }
 
         list.appendChild(card);
       }

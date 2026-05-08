@@ -14,6 +14,7 @@ import { createColumnsDefinition } from '../components/columns/columns-registrat
 import { createDatatableDefinition } from '../components/datatable/datatable-registration.js';
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
 import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
+import { createPlaceholderDefinition } from '../components/placeholder/placeholder-registration.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,25 @@ export type AllowedChildren =
 export interface SlotTemplate {
   name: string;
   dynamic?: boolean;
+  /**
+   * When this slot's `locked` predicate returns `true`, the engine rejects
+   * any mutation whose target is in this slot's subtree. Inheritable: a
+   * deeper slot is also locked unless an intermediate slot opts out via
+   * `editable`.
+   *
+   * Domain components (e.g. stencils) provide their own predicate; the
+   * engine has no built-in knowledge of when something is "locked."
+   */
+  locked?: boolean | ((node: Node) => boolean);
+  /**
+   * Breaks an inherited lock. Descendants of an `editable: true` slot are
+   * mutable even when an outer slot is `locked`. Used by e.g. a placeholder's
+   * `fill` slot to be user-editable inside an otherwise-locked stencil.
+   *
+   * The walk is inside-out: the first slot in the chain whose predicate fires
+   * (either `editable` or `locked`) wins.
+   */
+  editable?: boolean | ((node: Node) => boolean);
 }
 
 export interface InspectorField {
@@ -240,8 +260,19 @@ export interface ComponentDefinition {
     currentProps: Record<string, unknown>,
   ) => Record<string, unknown>;
 
-  /** Pre-insert hook for palette (e.g. open a dialog). Returns override props or null to cancel. */
-  onBeforeInsert?: (engine: unknown) => Promise<Record<string, unknown> | null>;
+  /**
+   * Pre-insert hook for palette/DnD (e.g. open a dialog). Returns override
+   * props or null to cancel.
+   *
+   * The optional `context.targetSlotId` is the slot we are about to insert
+   * into. DnD knows it; palette inserts always go to the document root and
+   * leave it undefined. Components like the stencil picker use it to compute
+   * the ancestor scope and disable choices that would cause recursion.
+   */
+  onBeforeInsert?: (
+    engine: unknown,
+    context?: { targetSlotId?: SlotId },
+  ) => Promise<Record<string, unknown> | null>;
 
   /** Command type strings handled by this component's commandHandler. */
   commandTypes?: string[];
@@ -678,6 +709,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register(createDatatableDefinition());
   registry.register(createDatatableColumnDefinition());
   registry.register(createQrCodeDefinition());
+  registry.register(createPlaceholderDefinition());
 
   registry.register({
     type: 'conditional',
