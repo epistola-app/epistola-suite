@@ -15,6 +15,7 @@ import { isAnchoredPageBlock } from '../engine/registry.js';
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js';
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js';
 import { handleDrop } from '../dnd/drop-handler.js';
+import { isSlotLocked } from '../engine/locks.js';
 import { icon } from './icons.js';
 import { isCollapsible, countChildren } from './collapse.js';
 import { toStyleMap, DEFAULT_SPACING_UNIT_PT } from './style-css.js';
@@ -383,6 +384,14 @@ export class EpistolaCanvas extends LitElement {
     const label = def?.getLabel?.(node, this.engine!) ?? def?.label ?? node.type;
     const collapsible = this._isCollapsible(nodeId);
     const collapsed = collapsible && this._collapsedNodes.has(nodeId);
+    // Skip read-only blocks in the keyboard tab cycle. A block whose parent slot
+    // is locked (and not re-enabled by an `editable: true` slot above) is not
+    // user-interactive — clicks already fall through via pointer-events; tabindex
+    // would otherwise leak the block back into focusability.
+    const parentSlotId = this.engine!.indexes.parentSlotByNodeId.get(nodeId);
+    const isInLockedSlot = parentSlotId
+      ? isSlotLocked(doc, parentSlotId, this.engine!.indexes, this.engine!.registry)
+      : false;
 
     // Resolve styles through the full cascade, filtered by component's applicable styles
     const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
@@ -396,7 +405,7 @@ export class EpistolaCanvas extends LitElement {
         data-testid="canvas-block"
         data-node-id=${nodeId}
         data-block-label=${label}
-        tabindex="0"
+        tabindex=${isInLockedSlot ? '-1' : '0'}
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
         @focus=${() => this._handleFocus(nodeId)}
       >
