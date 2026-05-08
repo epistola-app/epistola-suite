@@ -14,7 +14,7 @@
 
 import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import type { NodeId, SlotId } from '../../types/index.js';
+import type { Node, NodeId, SlotId } from '../../types/index.js';
 import { html, nothing } from 'lit';
 import { nanoid } from 'nanoid';
 import { placeholderContext } from '../stencil/ancestry.js';
@@ -22,13 +22,27 @@ import { PLACEHOLDER_TYPE, PLACEHOLDER_SLOT_DEFAULT, PLACEHOLDER_SLOT_FILL } fro
 import { isPlaceholder, placeholderName } from './node-types.js';
 import './PlaceholderInspector.js';
 
+function placeholderModeLabel(node: Node, engineUnknown: unknown): string {
+  const engine = engineUnknown as EditorEngine | undefined;
+  if (!engine) return 'default';
+  const context = placeholderContext(engine.doc, node.id, engine.indexes);
+  if (context === 'stencil-author') return 'default';
+  const slotsById = engine.doc.slots as Record<string, { name: string; children: NodeId[] }>;
+  const fillSlotId = node.slots.find(
+    (sid) => slotsById[sid as string]?.name === PLACEHOLDER_SLOT_FILL,
+  );
+  const fillChildren = fillSlotId ? (slotsById[fillSlotId as string]?.children ?? []) : [];
+  return fillChildren.length > 0 ? 'override' : 'default (preview)';
+}
+
 export function createPlaceholderDefinition(): ComponentDefinition {
   return {
     type: PLACEHOLDER_TYPE,
     label: 'Placeholder',
-    getLabel: (node) => {
+    getLabel: (node, engine) => {
       const name = placeholderName(node) ?? '';
-      return name ? `Placeholder · ${name}` : 'Placeholder';
+      const mode = placeholderModeLabel(node, engine);
+      return name ? `Placeholder · ${name} · ${mode}` : `Placeholder · ${mode}`;
     },
     icon: 'square-dashed',
     category: 'layout',
@@ -158,8 +172,6 @@ export function createPlaceholderDefinition(): ComponentDefinition {
 
     renderCanvas: ({ node, doc, engine: eng, renderSlot }) => {
       const engine = eng as EditorEngine;
-      const name = (node.props?.name as string) ?? '';
-      const description = (node.props?.description as string) ?? '';
       const slotsById = doc.slots as Record<string, { name: string; children: NodeId[] }>;
       const defaultSlotId = node.slots.find((sid) => slotsById[sid as string]?.name === 'default');
       const fillSlotId = node.slots.find((sid) => slotsById[sid as string]?.name === 'fill');
@@ -172,17 +184,6 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       if (context === 'stencil-author') {
         return html`
           <div class="canvas-placeholder canvas-placeholder--default-edit">
-            <div class="canvas-placeholder-header">
-              <span class="canvas-placeholder-label">Placeholder · default</span>
-              ${name
-                ? html`<span class="canvas-placeholder-name">${name}</span>`
-                : html`<span class="canvas-placeholder-name canvas-placeholder-name--unset"
-                    >(unnamed)</span
-                  >`}
-              ${description
-                ? html`<span class="canvas-placeholder-description">${description}</span>`
-                : nothing}
-            </div>
             <div class="canvas-placeholder-default">
               ${defaultSlotId ? renderSlot(defaultSlotId) : nothing}
             </div>
@@ -200,19 +201,6 @@ export function createPlaceholderDefinition(): ComponentDefinition {
             ? 'canvas-placeholder--filled'
             : 'canvas-placeholder--empty-fill'}"
         >
-          <div class="canvas-placeholder-header">
-            <span class="canvas-placeholder-label"
-              >Placeholder · ${showFill ? 'override' : 'default (preview)'}</span
-            >
-            ${name
-              ? html`<span class="canvas-placeholder-name">${name}</span>`
-              : html`<span class="canvas-placeholder-name canvas-placeholder-name--unset"
-                  >(unnamed)</span
-                >`}
-            ${description
-              ? html`<span class="canvas-placeholder-description">${description}</span>`
-              : nothing}
-          </div>
           ${showFill
             ? html`<div class="canvas-placeholder-fill">
                 ${fillSlotId ? renderSlot(fillSlotId) : nothing}

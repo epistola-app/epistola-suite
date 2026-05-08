@@ -1,44 +1,10 @@
 /* ── Placeholder block canvas styles ──────────────────────────────────── */
 
+/* The mode (default / override / default preview) is shown in the outer
+   block header via getLabel; the wrapper itself stays unobtrusive so the
+   slot content can read like any other block content. */
 .canvas-placeholder {
-  border: 1px dashed var(--ep-primary, #2563eb);
-  border-radius: var(--ep-radius-md, 6px);
-  background: var(--ep-primary-soft, rgb(37 99 235 / 0.04));
-  padding: var(--ep-space-2, 8px);
   margin: var(--ep-space-1, 4px) 0;
-}
-
-.canvas-placeholder-header {
-  display: flex;
-  gap: var(--ep-space-2, 8px);
-  align-items: center;
-  font-size: var(--ep-text-xs, 11px);
-  margin-bottom: var(--ep-space-2, 8px);
-  color: var(--ep-primary, #2563eb);
-}
-
-.canvas-placeholder-label {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.canvas-placeholder-name {
-  font-family: var(--ep-font-mono, monospace);
-  background: var(--ep-white, #fff);
-  padding: 0 var(--ep-space-1-5, 6px);
-  border-radius: var(--ep-radius-sm, 3px);
-  border: 1px solid var(--ep-primary, #2563eb);
-}
-
-.canvas-placeholder-name--unset {
-  font-style: italic;
-  color: var(--ep-destructive);
-  border-color: var(--ep-destructive);
-}
-
-.canvas-placeholder-description {
-  color: var(--ep-muted-foreground, #6b7280);
 }
 
 .canvas-placeholder-fill,
@@ -54,8 +20,8 @@
     -45deg,
     transparent,
     transparent 6px,
-    rgb(37 99 235 / 0.03) 6px,
-    rgb(37 99 235 / 0.03) 12px
+    rgb(37 99 235 / 0.025) 6px,
+    rgb(37 99 235 / 0.025) 12px
   );
 }
 
@@ -66,18 +32,13 @@
   padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
 }
 
+/* Stencil-author / draft mode: a thin amber left-stripe accent so the
+   author can tell at a glance that they are editing the stencil's default
+   content, without the full-frame wash that competes with the block's
+   own selection chrome. */
 .canvas-placeholder--default-edit {
-  border-style: solid;
-  border-color: var(--ep-amber-500, #f59e0b);
-  background: var(--ep-amber-soft, rgb(245 158 11 / 0.05));
-}
-
-.canvas-placeholder--default-edit .canvas-placeholder-header {
-  color: var(--ep-amber-700, #b45309);
-}
-
-.canvas-placeholder--default-edit .canvas-placeholder-name {
-  border-color: var(--ep-amber-700, #b45309);
+  border-left: 3px solid var(--ep-amber-500, #f59e0b);
+  padding-left: var(--ep-space-2, 8px);
 }
 
 /* Read-only preview of the stencil's default content, shown only when the

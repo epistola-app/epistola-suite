@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Placeholder canvas chrome toned down.** The placeholder block previously rendered with a full dashed-border box, soft-coloured background, and an internal header that duplicated the placeholder's name (already shown in every block's outer header). The wrapper is now visually quiet — no border, no background — with the mode (`default` / `override` / `default (preview)`) folded into the outer block label via `getLabel`. Stencil-author / draft mode keeps a thin amber left-stripe accent so the author can still tell at a glance they're editing the stencil's default content. The empty-fill diagonal-stripe drop zone and its hint remain (functional drop-target affordance).
+
 ### Fixed
 
 - **Locked stencil layouts now actually reject drops.** Previously the lock was purely visual (`pointer-events: none` on `.canvas-stencil-locked`) and the DnD path still routed drops to slots inside published stencils, letting users mutate frozen layouts. `canDropHere` now consults `isInLockedStencilLayout` (in `components/stencil/ancestry.ts`) which walks ancestors of the target slot and returns `true` when the first stencil ancestor is published (`stencilId != null && !isDraft`) and no placeholder fill was crossed first. Drops inside placeholder fills of published stencils stay allowed — that's the editable surface by design.
