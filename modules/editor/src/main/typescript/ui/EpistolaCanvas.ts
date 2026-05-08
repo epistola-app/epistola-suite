@@ -43,6 +43,10 @@ export class EpistolaCanvas extends LitElement {
   }
 
   private _handleSelect(e: Event, nodeId: NodeId) {
+    // Read-only blocks (parent slot locked, no editable: true breaking the
+    // chain) are pass-through: don't select, don't stop propagation. The
+    // click bubbles up so the nearest unlocked ancestor gets selected.
+    if (this._isInLockedSlot(nodeId)) return;
     e.stopPropagation();
     this.engine?.selectNode(nodeId);
     this._maybeFocusTextEditor(nodeId);
@@ -64,8 +68,16 @@ export class EpistolaCanvas extends LitElement {
   }
 
   private _handleFocus(nodeId: NodeId) {
+    if (this._isInLockedSlot(nodeId)) return;
     this.engine?.selectNode(nodeId);
     this._maybeFocusTextEditor(nodeId);
+  }
+
+  private _isInLockedSlot(nodeId: NodeId): boolean {
+    if (!this.engine || !this.doc) return false;
+    const parentSlotId = this.engine.indexes.parentSlotByNodeId.get(nodeId);
+    if (!parentSlotId) return false;
+    return isSlotLocked(this.doc, parentSlotId, this.engine.indexes, this.engine.registry);
   }
 
   private _maybeFocusTextEditor(nodeId: NodeId) {
@@ -384,14 +396,11 @@ export class EpistolaCanvas extends LitElement {
     const label = def?.getLabel?.(node, this.engine!) ?? def?.label ?? node.type;
     const collapsible = this._isCollapsible(nodeId);
     const collapsed = collapsible && this._collapsedNodes.has(nodeId);
-    // Skip read-only blocks in the keyboard tab cycle. A block whose parent slot
-    // is locked (and not re-enabled by an `editable: true` slot above) is not
-    // user-interactive — clicks already fall through via pointer-events; tabindex
-    // would otherwise leak the block back into focusability.
-    const parentSlotId = this.engine!.indexes.parentSlotByNodeId.get(nodeId);
-    const isInLockedSlot = parentSlotId
-      ? isSlotLocked(doc, parentSlotId, this.engine!.indexes, this.engine!.registry)
-      : false;
+    // Read-only blocks (whose parent slot is locked) get no tabindex so they
+    // can't be reached via tab or click-focus. The same lock check gates the
+    // click/focus handlers in `_handleSelect` / `_handleFocus` so clicks bubble
+    // through to the nearest unlocked ancestor.
+    const isInLockedSlot = this._isInLockedSlot(nodeId);
 
     // Resolve styles through the full cascade, filtered by component's applicable styles
     const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
@@ -405,7 +414,7 @@ export class EpistolaCanvas extends LitElement {
         data-testid="canvas-block"
         data-node-id=${nodeId}
         data-block-label=${label}
-        tabindex=${isInLockedSlot ? '-1' : '0'}
+        tabindex=${isInLockedSlot ? nothing : '0'}
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
         @focus=${() => this._handleFocus(nodeId)}
       >

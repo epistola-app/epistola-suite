@@ -114,7 +114,7 @@ function setupEngine(fillPopulated: boolean): EditorEngine {
   return new EditorEngine(buildDoc({ fillPopulated }), registry);
 }
 
-describe('EpistolaCanvas — read-only blocks are skipped in the tab cycle', () => {
+describe('EpistolaCanvas — read-only blocks are not user-focusable', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -130,12 +130,12 @@ describe('EpistolaCanvas — read-only blocks are skipped in the tab cycle', () 
     expect(tabindexFor(container, 'stencil')).toBe('0');
   });
 
-  it('blocks inside the locked stencil children slot are non-focusable', async () => {
+  it('blocks inside the locked stencil children slot have no tabindex (out of tab cycle and click cycle)', async () => {
     const engine = setupEngine(true);
     await renderCanvas(container, engine);
 
-    expect(tabindexFor(container, 'text-locked')).toBe('-1');
-    expect(tabindexFor(container, 'placeholder')).toBe('-1');
+    expect(tabindexFor(container, 'text-locked')).toBeNull();
+    expect(tabindexFor(container, 'placeholder')).toBeNull();
   });
 
   it('blocks inside the placeholder fill slot are focusable (editable: true breaks the lock)', async () => {
@@ -148,10 +148,26 @@ describe('EpistolaCanvas — read-only blocks are skipped in the tab cycle', () 
   it('blocks inside the placeholder default slot are non-focusable when fill is empty (preview)', async () => {
     // With fill empty, the placeholder renderCanvas exposes the default slot as a
     // greyed-out aria-hidden preview. The block is in the DOM, but its parent
-    // slot inherits the stencil's lock — it must not be a tab stop.
+    // slot inherits the stencil's lock — it must not be a tab stop or click target.
     const engine = setupEngine(false);
     await renderCanvas(container, engine);
 
-    expect(tabindexFor(container, 'text-default')).toBe('-1');
+    expect(tabindexFor(container, 'text-default')).toBeNull();
+  });
+
+  it('clicking a read-only block bubbles up — selection lands on the nearest unlocked ancestor', async () => {
+    // Click on the placeholder canvas-block (which is locked). Since we removed
+    // its @click handler and propagation isn't stopped, the click bubbles up to
+    // the published stencil's canvas-block (unlocked) and selects the stencil.
+    const engine = setupEngine(true);
+    await renderCanvas(container, engine);
+
+    const placeholderBlock = container.querySelector<HTMLElement>(
+      '.canvas-block[data-node-id="placeholder"]',
+    )!;
+    placeholderBlock.click();
+    await Promise.resolve();
+
+    expect(engine.selectedNodeId).toBe('stencil');
   });
 });
