@@ -175,6 +175,9 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       const slotsById = doc.slots as Record<string, { name: string; children: NodeId[] }>;
       const defaultSlotId = node.slots.find((sid) => slotsById[sid as string]?.name === 'default');
       const fillSlotId = node.slots.find((sid) => slotsById[sid as string]?.name === 'fill');
+      const defaultChildren = defaultSlotId
+        ? (slotsById[defaultSlotId as string]?.children ?? [])
+        : [];
       const fillChildren = fillSlotId ? (slotsById[fillSlotId as string]?.children ?? []) : [];
 
       const context = placeholderContext(doc, node.id, engine.indexes);
@@ -194,7 +197,10 @@ export function createPlaceholderDefinition(): ComponentDefinition {
       // Template-fill mode: render the `fill` slot when populated; when empty,
       // also render the `default` slot's children as a greyed-out, non-interactive
       // preview so the user can see what would render if they don't override.
+      // If the default itself is empty, the preview wrapper is dropped — there's
+      // nothing to preview and the drop zone alone tells the story.
       const showFill = fillChildren.length > 0;
+      const hasDefaultPreview = !showFill && defaultChildren.length > 0;
       return html`
         <div
           class="canvas-placeholder ${showFill
@@ -206,13 +212,15 @@ export function createPlaceholderDefinition(): ComponentDefinition {
                 ${fillSlotId ? renderSlot(fillSlotId) : nothing}
               </div>`
             : html`
-                <div
-                  class="canvas-placeholder-default-preview"
-                  aria-hidden="true"
-                  title="Stencil default — read-only preview"
-                >
-                  ${defaultSlotId ? renderSlot(defaultSlotId) : nothing}
-                </div>
+                ${hasDefaultPreview
+                  ? html`<div
+                      class="canvas-placeholder-default-preview"
+                      aria-hidden="true"
+                      title="Stencil default — read-only preview"
+                    >
+                      ${defaultSlotId ? renderSlot(defaultSlotId) : nothing}
+                    </div>`
+                  : nothing}
                 <div class="canvas-placeholder-fill canvas-placeholder-fill--empty">
                   ${fillSlotId ? renderSlot(fillSlotId) : nothing}
                   <div class="canvas-placeholder-fill-hint">
