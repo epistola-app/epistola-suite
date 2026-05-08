@@ -76,6 +76,48 @@ class PlaceholderValidatorTest {
             .hasMessageContaining("PLACEHOLDER_NAME_DUPLICATE")
     }
 
+    // ---------- per-stencil name uniqueness (template-level) ----------
+
+    @Test
+    fun `same placeholder name in two different stencil instances allowed in template`() {
+        // root → [stencil-a → ph-a (body), stencil-b → ph-b (body)]
+        val full = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "stencil-a" to stencil("stencil-a", "sten-A", "stencil-a-slot"),
+            "stencil-b" to stencil("stencil-b", "sten-B", "stencil-b-slot"),
+            "ph-a" to placeholder("ph-a", "body", "ph-a-fill"),
+            "ph-b" to placeholder("ph-b", "body", "ph-b-fill"),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("stencil-a", "stencil-b")),
+                "stencil-a-slot" to Slot("stencil-a-slot", "stencil-a", "children", listOf("ph-a")),
+                "stencil-b-slot" to Slot("stencil-b-slot", "stencil-b", "children", listOf("ph-b")),
+                "ph-a-fill" to Slot("ph-a-fill", "ph-a", "fill", emptyList()),
+                "ph-b-fill" to Slot("ph-b-fill", "ph-b", "fill", emptyList()),
+            ),
+        )
+        validator.validatePlaceholderNamesUniquePerStencil(full)
+    }
+
+    @Test
+    fun `duplicate placeholder names within the same stencil rejected in template`() {
+        // root → stencil → [ph1 (body), ph2 (body)]
+        val full = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "stencil-a" to stencil("stencil-a", "sten-A", "stencil-a-slot"),
+            "ph1" to placeholder("ph1", "body", "ph1-fill"),
+            "ph2" to placeholder("ph2", "body", "ph2-fill"),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("stencil-a")),
+                "stencil-a-slot" to Slot("stencil-a-slot", "stencil-a", "children", listOf("ph1", "ph2")),
+                "ph1-fill" to Slot("ph1-fill", "ph1", "fill", emptyList()),
+                "ph2-fill" to Slot("ph2-fill", "ph2", "fill", emptyList()),
+            ),
+        )
+        assertThatThrownBy { validator.validatePlaceholderNamesUniquePerStencil(full) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("PLACEHOLDER_NAME_DUPLICATE")
+    }
+
     // ---------- name slug ----------
 
     @Test

@@ -2,7 +2,9 @@
  * PlaceholderInspector — name + description editor for a `placeholder` node.
  *
  * Names must be kebab-case slugs (`^[a-z][a-z0-9-]{0,63}$`) and unique within
- * the document — both validated live.
+ * the same stencil — both validated live. Two stencils may both declare a
+ * placeholder named `body`; the namespace is per-stencil, mirroring the
+ * server-side validator.
  *
  * Renders read-only in template-fill mode (placeholder is inside a published
  * stencil): the placeholder's identity is the stencil author's contract, so
@@ -16,7 +18,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import { placeholderContext } from '../stencil/ancestry.js';
+import { nearestStencilAncestor, placeholderContext } from '../stencil/ancestry.js';
 import { isPlaceholder } from './node-types.js';
 
 const SLUG_RE = /^[a-z][a-z0-9-]{0,63}$/;
@@ -137,10 +139,16 @@ export class PlaceholderInspector extends LitElement {
   private _validateName(value: string): string | null {
     if (!value) return 'Name is required';
     if (!SLUG_RE.test(value)) return 'Use kebab-case: lowercase letters, digits, and hyphens';
-    const duplicates = Object.values(this.engine.doc.nodes).filter(
-      (n) => n.id !== this.node.id && isPlaceholder(n) && n.props.name === value,
-    );
-    if (duplicates.length > 0) return `Name '${value}' is already used in this document`;
+    // Names are unique per nearest-stencil-ancestor scope. Two stencils may both
+    // declare `body`; placeholders without a stencil ancestor share the document
+    // root scope (these are caught separately by PLACEHOLDER_OUTSIDE_STENCIL on save).
+    const ownScope = nearestStencilAncestor(this.engine.doc, this.node.id, this.engine.indexes);
+    const duplicates = Object.values(this.engine.doc.nodes).filter((n) => {
+      if (n.id === this.node.id || !isPlaceholder(n) || n.props.name !== value) return false;
+      const otherScope = nearestStencilAncestor(this.engine.doc, n.id, this.engine.indexes);
+      return otherScope === ownScope;
+    });
+    if (duplicates.length > 0) return `Name '${value}' is already used in this stencil`;
     return null;
   }
 }

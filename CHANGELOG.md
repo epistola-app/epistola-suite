@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two stencils in the same template can now declare placeholders with the same name.** `PlaceholderValidator.validatePlaceholderNamesUnique` was checking name uniqueness across the entire document, which is correct for a stencil-version document (a single stencil's content) but wrong for templates — each embedded stencil owns its own placeholder namespace. Two stencils both declaring a `body` placeholder is a legitimate template state. Templates now route through `validatePlaceholderNamesUniquePerStencil`, which scopes the uniqueness check to each placeholder's nearest stencil ancestor; stencil-definition validation keeps the stricter document-wide check (a single stencil cannot declare the same name twice). The editor inspector's live-typing duplicate check (`PlaceholderInspector._validateName`) was relaxed to match.
+
 ### Changed
 
 - **Placeholder canvas chrome toned down.** The placeholder block previously rendered with a full dashed-border box, soft-coloured background, and an internal header that duplicated the placeholder's name (already shown in every block's outer header). The wrapper is now visually quiet — no border, no background — with the mode (`default` / `override` / `default (preview)`) folded into the outer block label via `getLabel`. Stencil-author / draft mode keeps a thin amber left-stripe accent so the author can still tell at a glance they're editing the stencil's default content. The empty-fill diagonal-stripe drop zone and its hint remain (functional drop-target affordance).

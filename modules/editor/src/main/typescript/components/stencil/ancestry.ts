@@ -62,6 +62,30 @@ export function computeAncestorScope(
 }
 
 /**
+ * Walks up from [nodeId] and returns the id of the nearest stencil ancestor,
+ * or `undefined` if there is none. Used to scope placeholder-name uniqueness
+ * checks per stencil instance: two stencils may both declare a `body`
+ * placeholder; they live in independent namespaces.
+ */
+export function nearestStencilAncestor(
+  doc: TemplateDocument,
+  nodeId: NodeId,
+  indexes: DocumentIndexes,
+): NodeId | undefined {
+  const visited = new Set<NodeId>();
+  let current: NodeId | undefined = indexes.parentNodeByNodeId.get(nodeId);
+  while (current !== undefined) {
+    if (visited.has(current)) return undefined;
+    visited.add(current);
+    const node = doc.nodes[current];
+    if (!node) return undefined;
+    if (isStencil(node)) return current;
+    current = indexes.parentNodeByNodeId.get(current);
+  }
+  return undefined;
+}
+
+/**
  * Determines what context a placeholder is being rendered in.
  *
  * Walks the placeholder's ancestors looking for the nearest stencil:

@@ -38,7 +38,7 @@ class PlaceholderValidator {
      * on first violation. Use this from `UpdateDraft` and `UpdateStencilInTemplate`.
      */
     fun validateAsTemplate(doc: TemplateDocument) {
-        validatePlaceholderNamesUnique(doc)
+        validatePlaceholderNamesUniquePerStencil(doc)
         validatePlaceholderNameSlug(doc)
         validatePlaceholdersHaveStencilAncestor(doc)
         validateNoStencilRecursion(doc)
@@ -46,8 +46,10 @@ class PlaceholderValidator {
     }
 
     /**
-     * `PLACEHOLDER_NAME_DUPLICATE` — within a single document, every placeholder's
-     * `props.name` must be unique. Empty/missing names are allowed (caught by slug check).
+     * `PLACEHOLDER_NAME_DUPLICATE` — within a single stencil-definition document, every
+     * placeholder's `props.name` must be unique. Empty/missing names are allowed (caught
+     * by slug check). Use [validatePlaceholderNamesUniquePerStencil] for templates, where
+     * each embedded stencil owns its own placeholder namespace.
      */
     fun validatePlaceholderNamesUnique(doc: TemplateDocument) {
         val seen = mutableSetOf<String>()
@@ -63,6 +65,33 @@ class PlaceholderValidator {
             }
         }
     }
+
+    /**
+     * `PLACEHOLDER_NAME_DUPLICATE` — within each stencil instance in a template, placeholder
+     * names must be unique. Two stencil instances may both declare a `body` placeholder;
+     * they live in independent namespaces. Placeholders without a stencil ancestor are
+     * caught separately by [validatePlaceholdersHaveStencilAncestor], so we ignore them
+     * here.
+     */
+    fun validatePlaceholderNamesUniquePerStencil(doc: TemplateDocument) {
+        val seenByStencil = mutableMapOf<String, MutableSet<String>>()
+        for (node in doc.nodes.values) {
+            if (node.type != PlaceholderNodeKeys.NODE_TYPE) continue
+            val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: continue
+            if (name.isEmpty()) continue
+            val scopeStencil = nearestStencilAncestor(doc, node.id) ?: continue
+            val seen = seenByStencil.getOrPut(scopeStencil.id) { mutableSetOf() }
+            if (!seen.add(name)) {
+                throw ValidationException(
+                    "content.placeholder.name",
+                    "PLACEHOLDER_NAME_DUPLICATE: placeholder name '$name' is used more than once " +
+                        "in the same stencil",
+                )
+            }
+        }
+    }
+
+    private fun nearestStencilAncestor(doc: TemplateDocument, nodeId: String): Node? = ancestorNodes(doc, nodeId).firstOrNull { it.type == StencilNodeKeys.NODE_TYPE }
 
     /**
      * `PLACEHOLDER_NAME_INVALID` — placeholder names are kebab-case slugs:
