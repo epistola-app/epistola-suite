@@ -11,6 +11,13 @@
         <div class="card create-form-card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" method="post">
+                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                        <label class="ep-label" for="name">Name</label>
+                        <input type="text" id="name" name="name" class="ep-input"
+                               required placeholder="Production" data-slug-source="slug"
+                               th:value="${formData?.name}">
+                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                    </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Environment ID (Slug)</label>
                         <input type="text" id="slug" name="slug" class="ep-input"
@@ -20,13 +27,6 @@
                                th:value="${formData?.slug}">
                         <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens only</span>
                         <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label class="ep-label" for="name">Name</label>
-                        <input type="text" id="name" name="name" class="ep-input"
-                               required placeholder="Production"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Create Environment</button>
