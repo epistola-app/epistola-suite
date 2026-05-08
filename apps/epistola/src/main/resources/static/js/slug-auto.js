@@ -17,7 +17,8 @@
     var slugInput = document.getElementById(slugId);
     if (!slugInput) return;
 
-    var slugManuallyEdited = false;
+    var slugManuallyEdited =
+      slugInput.value !== '' && slugInput.value !== nameToSlug(nameInput.value);
 
     nameInput.addEventListener('input', function () {
       if (!slugManuallyEdited) {

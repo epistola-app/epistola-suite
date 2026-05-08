@@ -1,22 +1,13 @@
 package app.epistola.suite.ui
 
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class SlugAutoFillUiTest : BasePlaywrightTest() {
 
-    private fun createTestTenant(): Tenant = withMediator {
-        CreateTenant(
-            id = TenantKey.of("slugtest-${System.nanoTime()}"),
-            name = "Slug AutoFill Test",
-        ).execute()
-    }
+    private fun createTestTenant(): Tenant = createTenant("Slug AutoFill Test")
 
     @Test
     fun `slug field should reject invalid characters`() {
@@ -66,16 +57,6 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
 
         page.locator("#dynamic-name").fill("Hello World")
 
-        val slugValue = page.locator("#dynamic-slug").inputValue()
-
-        assertTrue(
-            slugValue.isNotEmpty(),
-            "Expected slug to be auto-filled but got empty value",
-        )
-        assertEquals(
-            "hello-world",
-            slugValue,
-            "Expected slug to be 'hello-world' but got: '$slugValue'",
-        )
+        assertThat(page.locator("#dynamic-slug")).hasValue("hello-world")
     }
 }
