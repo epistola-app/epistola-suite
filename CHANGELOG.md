@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-05-08
+
 ### Fixed
 
 - **Read-only blocks no longer participate in the keyboard tab cycle.** The canvas-block wrapper used `tabindex="0"` unconditionally, so users could tab onto blocks they couldn't actually interact with — text/container blocks inside a published (locked) stencil, and the placeholder block itself in template-fill mode. The canvas now honors the existing slot-lock primitive (`engine/locks.ts:isSlotLocked`): blocks whose parent slot is locked render with `tabindex="-1"`. The published stencil block itself stays focusable (its parent slot — the document root — isn't locked) so the inspector's Edit / Upgrade buttons remain reachable, and content inside a placeholder's `fill` slot stays focusable because the slot template declares `editable: true`. No component-specific code in the canvas; the same generic check now drives keyboard reachability and the engine's existing mutation/drop guards.
