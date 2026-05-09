@@ -2,19 +2,20 @@
  * StencilParameterDefinitionsPanel — author UI for declaring a stencil's
  * input parameters.
  *
- * Lives on the stencil editor page (sidebar / dedicated tab), separate from
- * the per-instance binding UX in [StencilInspector]. The author edits a list
- * of parameters (name, primitive type, list flag, required, description,
- * default); the panel emits `parameter-schema-change` with a full JsonSchema
- * (`{type:"object", properties:{...}, required:[...]}`) which the host then
- * persists alongside the draft content via `PUT /draft`.
+ * Two-panel layout matching the data-contract editor:
+ *   - Left: compact, clickable list of parameters (name + type badge).
+ *   - Right: detail form for the selected parameter (name, type, list flag,
+ *     required, description, default).
  *
- * V1 surfaces the primitive subset users actually need:
- *   - string / number / integer / boolean / date / date-time
- *   - "list of <primitive>" toggle wraps as `{type:"array",items:{type:<primitive>}}`
+ * Lives inside the parameter-definitions dialog opened from the stencil
+ * inspector. Emits `parameter-schema-change` with a full JsonSchema; the
+ * host (the inspector) drops it onto the stencil node's `parameterSchemaSnapshot`
+ * prop, and `saveDraft` persists it via `PUT /draft`.
  *
- * The canonical storage stays JSON Schema, so v2 can lift restrictions
- * (nested objects, enums, formats) without a migration.
+ * V1 surfaces the primitive subset users actually need (string / number /
+ * integer / boolean / date / date-time, and "list of <primitive>"). The
+ * canonical storage stays JSON Schema, so v2 can lift restrictions without
+ * a migration.
  */
 
 import { LitElement, html, nothing } from 'lit';
@@ -22,6 +23,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { JsonSchema, JsonSchemaProperty } from '../../data-contract/types.js';
 
 interface ParamRow {
+  /** Stable identifier so list selection survives renames. */
+  id: string;
   name: string;
   type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'date-time';
   isList: boolean;
@@ -33,6 +36,15 @@ interface ParamRow {
 const NAME_RE = /^[a-z][a-zA-Z0-9_]{0,63}$/;
 const RESERVED = new Set(['params', 'item', 'sys', 'index']);
 
+const TYPE_OPTIONS: Array<{ value: ParamRow['type']; label: string }> = [
+  { value: 'string', label: 'String' },
+  { value: 'number', label: 'Number' },
+  { value: 'integer', label: 'Integer' },
+  { value: 'boolean', label: 'Boolean' },
+  { value: 'date', label: 'Date' },
+  { value: 'date-time', label: 'Date-time' },
+];
+
 @customElement('stencil-parameter-definitions-panel')
 export class StencilParameterDefinitionsPanel extends LitElement {
   override createRenderRoot() {
@@ -42,156 +54,219 @@ export class StencilParameterDefinitionsPanel extends LitElement {
   @property({ attribute: false }) schema?: JsonSchema;
 
   @state() private _rows: ParamRow[] = [];
-  @state() private _errors: Record<number, string> = {};
+  @state() private _errors: Record<string, string> = {};
+  @state() private _selectedId: string | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
     this._rows = parseSchemaToRows(this.schema);
+    if (this._rows.length > 0 && this._selectedId == null) {
+      this._selectedId = this._rows[0].id;
+    }
   }
 
   override updated(changed: Map<string, unknown>): void {
     if (changed.has('schema')) {
       this._rows = parseSchemaToRows(this.schema);
+      if (
+        this._rows.length > 0 &&
+        (this._selectedId == null || !this._rows.some((r) => r.id === this._selectedId))
+      ) {
+        this._selectedId = this._rows[0].id;
+      }
     }
   }
 
   override render() {
+    const selected = this._rows.find((r) => r.id === this._selectedId);
     return html`
-      <div class="stencil-param-panel" style="padding: var(--ep-space-3) 0;">
-        <div
-          style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--ep-space-2);"
-        >
-          <div style="font-weight: 600; font-size: var(--ep-text-sm);">
-            Parameters (${this._rows.length})
-          </div>
-          <button
-            type="button"
-            class="ep-btn ep-btn-secondary"
-            style="font-size: var(--ep-text-xs);"
-            @click=${this._addRow}
-          >
+      <div style="display:flex; flex-direction:column; gap: var(--ep-space-3);">
+        <p style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin: 0;">
+          Define the parameters that consumers must bind when inserting this stencil. Each parameter
+          becomes a variable available inside the stencil under the configured alias (default
+          <code>params</code>).
+        </p>
+
+        <div style="display:flex; align-items:center; gap: var(--ep-space-2);">
+          <button type="button" class="ep-btn-outline btn-sm" @click=${this._addRow}>
             + Add parameter
           </button>
+          <span style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);">
+            ${this._rows.length} ${this._rows.length === 1 ? 'parameter' : 'parameters'}
+          </span>
         </div>
 
-        ${this._rows.length === 0
-          ? html`
-              <div
-                style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); padding: var(--ep-space-3); border: 1px dashed var(--ep-border); border-radius: var(--ep-radius);"
-              >
-                Stencils with no parameters render the same way for every consumer. Add a parameter
-                to make a value (e.g. recipient name, page number) configurable per insertion.
-              </div>
-            `
-          : nothing}
-        ${this._rows.map((row, index) => this._renderRow(row, index))}
+        ${this._rows.length === 0 ? this._renderEmpty() : this._renderTwoPanel(selected)}
       </div>
     `;
   }
 
-  private _renderRow(row: ParamRow, index: number) {
-    const error = this._errors[index];
+  private _renderEmpty() {
     return html`
       <div
-        style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-2); margin-bottom: var(--ep-space-2);"
+        style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); padding: var(--ep-space-6); border: 1px dashed var(--ep-border); border-radius: var(--ep-radius); text-align: center;"
       >
-        <div style="display: flex; gap: var(--ep-space-2); align-items: flex-end;">
-          <div style="flex: 1;">
-            <label style="font-size: var(--ep-text-xs); font-weight: 500;">Name</label>
-            <input
-              type="text"
-              class="ep-input"
-              style="width: 100%; ${error ? 'border-color: var(--ep-destructive, #dc2626);' : ''}"
-              .value=${row.name}
-              @input=${(e: Event) =>
-                this._updateRow(index, { name: (e.target as HTMLInputElement).value })}
-              placeholder="recipientName"
-            />
-          </div>
-          <div style="width: 110px;">
-            <label style="font-size: var(--ep-text-xs); font-weight: 500;">Type</label>
-            <select
-              class="ep-input"
-              style="width: 100%;"
-              .value=${row.type}
-              @change=${(e: Event) =>
-                this._updateRow(index, {
-                  type: (e.target as HTMLSelectElement).value as ParamRow['type'],
-                })}
-            >
-              <option value="string">string</option>
-              <option value="number">number</option>
-              <option value="integer">integer</option>
-              <option value="boolean">boolean</option>
-              <option value="date">date</option>
-              <option value="date-time">date-time</option>
-            </select>
-          </div>
-          <label
-            style="display: flex; align-items: center; gap: 4px; font-size: var(--ep-text-xs);"
-          >
-            <input
-              type="checkbox"
-              .checked=${row.isList}
-              @change=${(e: Event) =>
-                this._updateRow(index, { isList: (e.target as HTMLInputElement).checked })}
-            />
-            list
-          </label>
-          <label
-            style="display: flex; align-items: center; gap: 4px; font-size: var(--ep-text-xs);"
-          >
-            <input
-              type="checkbox"
-              .checked=${row.required}
-              @change=${(e: Event) =>
-                this._updateRow(index, { required: (e.target as HTMLInputElement).checked })}
-            />
-            required
-          </label>
+        No parameters defined. Add one to make a value (e.g. recipient name, page number)
+        configurable per insertion.
+      </div>
+    `;
+  }
+
+  private _renderTwoPanel(selected: ParamRow | undefined) {
+    return html`
+      <div
+        style="display:grid; grid-template-columns: 220px 1fr; gap: var(--ep-space-3); min-height: 280px;"
+      >
+        ${this._renderList()} ${this._renderDetail(selected)}
+      </div>
+    `;
+  }
+
+  private _renderList() {
+    return html`
+      <div
+        style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); overflow: auto; max-height: 50vh;"
+      >
+        ${this._rows.map((row) => this._renderListItem(row))}
+      </div>
+    `;
+  }
+
+  private _renderListItem(row: ParamRow) {
+    const isSelected = row.id === this._selectedId;
+    const hasError = row.id in this._errors;
+    const typeLabel = row.isList ? `${row.type}[]` : row.type;
+    return html`
+      <div
+        @click=${() => this._select(row.id)}
+        style=${`
+          display:flex; align-items:center; gap: 8px; padding: 6px 10px; cursor: pointer;
+          font-size: var(--ep-text-sm);
+          background: ${isSelected ? 'var(--ep-accent, #eef2ff)' : 'transparent'};
+          border-bottom: 1px solid var(--ep-border);
+        `}
+      >
+        <span
+          style=${`
+            flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+            font-weight: ${isSelected ? '600' : '500'};
+            color: ${hasError ? 'var(--ep-destructive, #dc2626)' : 'inherit'};
+          `}
+          >${row.name || '(unnamed)'}</span
+        >
+        <span
+          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); padding: 1px 6px; background: var(--ep-muted, #f3f4f6); border-radius: 4px;"
+          >${typeLabel}</span
+        >
+        ${row.required
+          ? html`<span
+              title="Required"
+              style="width:6px; height:6px; border-radius:50%; background: var(--ep-destructive, #dc2626);"
+            ></span>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  private _renderDetail(row: ParamRow | undefined) {
+    if (!row) {
+      return html`
+        <div
+          style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-6); display:flex; align-items:center; justify-content:center; color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+        >
+          Select a parameter to edit
+        </div>
+      `;
+    }
+    const error = this._errors[row.id];
+    return html`
+      <div
+        style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-3); display: flex; flex-direction: column; gap: var(--ep-space-2); max-height: 50vh; overflow: auto;"
+      >
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <h4 style="margin: 0; font-size: var(--ep-text-sm); font-weight: 600;">
+            ${row.name || '(unnamed)'}
+          </h4>
           <button
             type="button"
-            class="ep-btn ep-btn-secondary"
-            style="font-size: var(--ep-text-xs);"
-            @click=${() => this._removeRow(index)}
-            aria-label="Remove parameter"
+            class="ep-btn-outline btn-sm"
+            style="color: var(--ep-destructive, #dc2626);"
+            @click=${() => this._removeRow(row.id)}
           >
-            Remove
+            Delete
           </button>
         </div>
 
-        <div style="margin-top: var(--ep-space-2);">
-          <label style="font-size: var(--ep-text-xs); font-weight: 500;">Description</label>
-          <input
+        ${this._renderDetailRow(
+          'Name',
+          html`<input
             type="text"
             class="ep-input"
+            style=${`width: 100%; ${error ? 'border-color: var(--ep-destructive, #dc2626);' : ''}`}
+            .value=${row.name}
+            @input=${(e: Event) =>
+              this._updateRow(row.id, { name: (e.target as HTMLInputElement).value })}
+            placeholder="recipientName"
+          />`,
+        )}
+        ${this._renderDetailRow(
+          'Type',
+          html`<select
+            class="ep-input"
             style="width: 100%;"
+            .value=${row.type}
+            @change=${(e: Event) =>
+              this._updateRow(row.id, {
+                type: (e.target as HTMLSelectElement).value as ParamRow['type'],
+              })}
+          >
+            ${TYPE_OPTIONS.map(
+              (opt) =>
+                html`<option value=${opt.value} ?selected=${row.type === opt.value}>
+                  ${opt.label}
+                </option>`,
+            )}
+          </select>`,
+        )}
+        ${this._renderInlineToggle(
+          row.id,
+          'List of values',
+          row.isList,
+          (checked) => this._updateRow(row.id, { isList: checked }),
+          'Wrap as `array<type>` so the parameter accepts a list',
+        )}
+        ${this._renderInlineToggle(
+          row.id,
+          'Required',
+          row.required,
+          (checked) => this._updateRow(row.id, { required: checked }),
+          'Consumers must bind this parameter (or set a default)',
+        )}
+        ${this._renderDetailRow(
+          'Description',
+          html`<textarea
+            class="ep-input"
+            style="width: 100%; min-height: 60px;"
             .value=${row.description}
             @input=${(e: Event) =>
-              this._updateRow(index, { description: (e.target as HTMLInputElement).value })}
+              this._updateRow(row.id, { description: (e.target as HTMLTextAreaElement).value })}
             placeholder="What this parameter is for"
-          />
-        </div>
-
-        <div style="margin-top: var(--ep-space-2);">
-          <label style="font-size: var(--ep-text-xs); font-weight: 500;">
-            Default ${row.isList ? '(comma-separated)' : ''}
-          </label>
-          <input
+          ></textarea>`,
+        )}
+        ${this._renderDetailRow(
+          row.isList ? 'Default (comma-separated)' : 'Default',
+          html`<input
             type="text"
             class="ep-input"
             style="width: 100%;"
             .value=${row.defaultText}
             @input=${(e: Event) =>
-              this._updateRow(index, { defaultText: (e.target as HTMLInputElement).value })}
+              this._updateRow(row.id, { defaultText: (e.target as HTMLInputElement).value })}
             placeholder=${defaultPlaceholder(row)}
-          />
-        </div>
-
+          />`,
+        )}
         ${error
-          ? html`<div
-              style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626); margin-top: var(--ep-space-1);"
-            >
+          ? html`<div style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);">
               ${error}
             </div>`
           : nothing}
@@ -199,11 +274,50 @@ export class StencilParameterDefinitionsPanel extends LitElement {
     `;
   }
 
+  private _renderDetailRow(label: string, control: unknown) {
+    return html`
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: var(--ep-text-xs); font-weight: 500;">${label}</label>
+        ${control}
+      </div>
+    `;
+  }
+
+  private _renderInlineToggle(
+    rowId: string,
+    label: string,
+    checked: boolean,
+    onChange: (checked: boolean) => void,
+    hint: string,
+  ) {
+    const id = `param-${rowId}-${label.replace(/\s+/g, '-').toLowerCase()}`;
+    return html`
+      <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
+        <input
+          type="checkbox"
+          id=${id}
+          .checked=${checked}
+          @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
+        />
+        <label for=${id} style="font-size: var(--ep-text-xs); cursor: pointer;">
+          <span style="font-weight: 500;">${label}</span>
+          <span style="color: var(--ep-muted-foreground); margin-left: 4px;">— ${hint}</span>
+        </label>
+      </div>
+    `;
+  }
+
+  private _select(id: string) {
+    this._selectedId = id;
+  }
+
   private _addRow = () => {
+    const id = makeRowId();
     const baseName = `param${this._rows.length + 1}`;
-    const newRows = [
+    this._rows = [
       ...this._rows,
       {
+        id,
         name: baseName,
         type: 'string' as const,
         isList: false,
@@ -212,35 +326,39 @@ export class StencilParameterDefinitionsPanel extends LitElement {
         defaultText: '',
       },
     ];
-    this._rows = newRows;
+    this._selectedId = id;
     this._validateAndEmit();
   };
 
-  private _removeRow(index: number) {
-    this._rows = this._rows.filter((_, i) => i !== index);
+  private _removeRow(id: string) {
+    const idx = this._rows.findIndex((r) => r.id === id);
+    this._rows = this._rows.filter((r) => r.id !== id);
+    if (this._selectedId === id) {
+      // Pick a sensible neighbour to keep the user oriented.
+      this._selectedId = this._rows[idx]?.id ?? this._rows[idx - 1]?.id ?? null;
+    }
     this._validateAndEmit();
   }
 
-  private _updateRow(index: number, patch: Partial<ParamRow>) {
-    this._rows = this._rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
+  private _updateRow(id: string, patch: Partial<ParamRow>) {
+    this._rows = this._rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
     this._validateAndEmit();
   }
 
   private _validateAndEmit() {
-    const errors: Record<number, string> = {};
+    const errors: Record<string, string> = {};
     const seenNames = new Set<string>();
-    for (let i = 0; i < this._rows.length; i++) {
-      const row = this._rows[i];
+    for (const row of this._rows) {
       if (!NAME_RE.test(row.name)) {
-        errors[i] = 'Name must match ^[a-z][a-zA-Z0-9_]{0,63}$';
+        errors[row.id] = 'Name must match ^[a-z][a-zA-Z0-9_]{0,63}$';
         continue;
       }
       if (RESERVED.has(row.name)) {
-        errors[i] = `Name '${row.name}' collides with a reserved scope`;
+        errors[row.id] = `Name '${row.name}' collides with a reserved scope`;
         continue;
       }
       if (seenNames.has(row.name)) {
-        errors[i] = `Duplicate name '${row.name}'`;
+        errors[row.id] = `Duplicate name '${row.name}'`;
         continue;
       }
       seenNames.add(row.name);
@@ -263,6 +381,10 @@ export class StencilParameterDefinitionsPanel extends LitElement {
       }),
     );
   }
+}
+
+function makeRowId(): string {
+  return `p_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function parseSchemaToRows(schema: JsonSchema | undefined): ParamRow[] {
@@ -289,6 +411,7 @@ function paramRowFromProp(name: string, prop: JsonSchemaProperty, isRequired: bo
   const defaultText = stringifyDefault(defaultRaw, isList);
 
   return {
+    id: makeRowId(),
     name,
     type,
     isList,
