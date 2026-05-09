@@ -113,6 +113,13 @@ object TwoPassAnalyzer {
      * Collects all expression strings from a node's props:
      * - Expression prop keys (condition, expression, value) with a "raw" string
      * - Inline expressions in TipTap content trees
+     * - Stencil parameter bindings (Map<paramName, JSONata expression>): a
+     *   binding like `parameterBindings: { totalPages: "sys.pages.total" }`
+     *   is a deferred reference to a two-pass value, so the analyzer must
+     *   see it or the renderer would skip the counting pass and the binding
+     *   would resolve to null. The analyzer doesn't care which parameter
+     *   each expression maps to — only that it appears anywhere in the
+     *   document so two-pass detection fires.
      */
     private fun collectExpressions(props: Map<String, Any?>?): List<String> {
         if (props == null) return emptyList()
@@ -128,6 +135,14 @@ object TwoPassAnalyzer {
         val content = props["content"]
         if (content is Map<*, *>) {
             collectTipTapExpressions(content, result)
+        }
+
+        // Stencil parameter bindings — paramName → JSONata expression.
+        val bindings = props["parameterBindings"]
+        if (bindings is Map<*, *>) {
+            for (value in bindings.values) {
+                if (value is String) result.add(value)
+            }
         }
 
         return result
