@@ -16,7 +16,7 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Node } from '../../types/index.js';
+import type { Node, NodeId } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
 import * as stencilActions from './stencil-actions.js';
@@ -145,6 +145,13 @@ export class StencilInspector extends LitElement {
     this._draftVersion = await stencilActions.loadDraftVersion(ctx);
   }
 
+  /** Look up this node's parent node id, if any. Used to compute the outer
+   *  scope when binding parameters (the expressions evaluate against the
+   *  context surrounding the stencil, not its own params namespace). */
+  private _parentNodeId(): NodeId | null {
+    return this.engine.indexes.parentNodeByNodeId.get(this.node.id) ?? null;
+  }
+
   // ── Render ──
 
   override render() {
@@ -210,10 +217,22 @@ export class StencilInspector extends LitElement {
     if (!isStencil(this.node)) return;
     const schema = this.node.props.parameterSchemaSnapshot;
     if (!schema) return;
+    // Compute the available scope at the stencil node's *parent* (bindings
+    // are evaluated against the outer context, not the stencil's own scope).
+    const parentNodeId = this._parentNodeId();
+    const fieldPaths = parentNodeId
+      ? this.engine.getAvailableVariablesAt(parentNodeId)
+      : this.engine.getAvailableVariablesAt(this.node.id);
+    const getExampleData = () =>
+      parentNodeId
+        ? this.engine.getEvaluationContextAt(parentNodeId)
+        : this.engine.getEvaluationContextAt(this.node.id);
     const result = await openParameterBindingsDialog({
       schema,
       initialBindings: (this.node.props.parameterBindings ?? {}) as Record<string, string>,
       initialAlias: this.node.props.paramsAlias ?? 'params',
+      fieldPaths,
+      getExampleData,
     });
     if (!result) return;
 

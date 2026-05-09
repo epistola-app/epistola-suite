@@ -244,16 +244,29 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       }
 
       // If we know the target slot, compute the ancestor stencil set so the
-      // picker can disable recursive choices.
+      // picker can disable recursive choices, plus the available fields at
+      // the insertion point so the binding step can autocomplete from them.
       let disabledStencilIds: Set<string> | undefined;
+      let fieldPaths: import('../../engine/schema-paths.js').FieldPath[] | undefined;
+      let getExampleData: (() => Record<string, unknown> | undefined) | undefined;
       const targetSlotId = context?.targetSlotId;
+      const engine = engineUnknown as EditorEngine;
       if (targetSlotId) {
-        const engine = engineUnknown as EditorEngine;
         const scope = computeAncestorScope(engine.doc, targetSlotId, engine.indexes);
         if (scope.stencilIds.size > 0) disabledStencilIds = scope.stencilIds;
+        const slot = engine.doc.slots[targetSlotId];
+        const parentNodeId = slot?.nodeId;
+        if (parentNodeId) {
+          fieldPaths = engine.getAvailableVariablesAt(parentNodeId);
+          getExampleData = () => engine.getEvaluationContextAt(parentNodeId);
+        }
       }
 
-      const result = await openStencilPickerDialog(options.callbacks, { disabledStencilIds });
+      const result = await openStencilPickerDialog(options.callbacks, {
+        disabledStencilIds,
+        fieldPaths,
+        getExampleData,
+      });
       if (!result) return null; // Cancelled
 
       if (result.action === 'create-new') {

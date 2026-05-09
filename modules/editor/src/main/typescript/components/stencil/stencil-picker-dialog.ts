@@ -15,6 +15,9 @@ import type {
   StencilVersionSummary,
   StencilVersionInfo,
 } from './types.js';
+import type { FieldPath } from '../../engine/schema-paths.js';
+import type { JsonSchemaProperty } from '../../data-contract/types.js';
+import { openExpressionDialog } from '../../ui/expression-dialog.js';
 
 export type StencilPickerResult =
   | { action: 'create-new'; ref: StencilRef; version: number }
@@ -42,6 +45,18 @@ export interface StencilPickerOptions {
    * tooltip; users cannot select or insert them.
    */
   disabledStencilIds?: Set<string>;
+  /**
+   * Variables visible at the insertion point (template data fields,
+   * iteration scope, system parameters). Used to populate the
+   * field-picker dropdowns and the advanced expression dialog when the
+   * user is binding parameters in step 4.
+   */
+  fieldPaths?: FieldPath[];
+  /**
+   * Example data for live preview inside the advanced expression dialog.
+   * Same callback shape the inspector uses.
+   */
+  getExampleData?: () => Record<string, unknown> | undefined;
 }
 
 export async function openStencilPickerDialog(
@@ -314,19 +329,35 @@ export async function openStencilPickerDialog(
       bindingTitle.textContent = `${versionInfo.stencilName} v${versionInfo.version} parameters`;
       bindingRows.innerHTML = '';
 
+      const fieldPaths = options.fieldPaths ?? [];
+
       for (const [name, prop] of Object.entries(props)) {
         const row = document.createElement('div');
         row.style.marginBottom = 'var(--ep-space-3)';
         const isRequired = required.has(name);
-        const typeLabel = (Array.isArray(prop?.type) ? prop?.type[0] : prop?.type) ?? 'string';
+        const typeLabel =
+          (Array.isArray(prop?.type)
+            ? prop?.type[0]
+            : (prop as JsonSchemaProperty | undefined)?.type) ?? 'string';
+        const compatible = filterFieldsByType(
+          fieldPaths,
+          propTypeKey(prop as JsonSchemaProperty | undefined),
+        );
+        const optionsHtml = buildOptionsHtml(compatible);
         row.innerHTML = `
           <div style="display:flex; align-items:center; gap:var(--ep-space-2); margin-bottom:2px;">
-            <label style="font-size: var(--ep-text-xs); font-weight:500;">${name}</label>
+            <label style="font-size: var(--ep-text-xs); font-weight:500;">${escapeHtml(name)}</label>
             <span style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);">${typeLabel}</span>
             ${isRequired ? '<span style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);">required</span>' : ''}
           </div>
-          ${prop?.description ? `<div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom:2px;">${prop.description}</div>` : ''}
-          <input type="text" class="ep-input stencil-binding-input" data-param="${name}" style="width:100%;" placeholder="JSONata expression, e.g. recipient.name" />
+          ${prop?.description ? `<div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom:2px;">${escapeHtml(prop.description)}</div>` : ''}
+          <div style="display:flex; gap: 4px; align-items: center;">
+            <select class="ep-input stencil-binding-select" data-param="${escapeAttr(name)}" style="width: 200px; flex-shrink: 0;">
+              ${optionsHtml}
+            </select>
+            <input type="text" class="ep-input stencil-binding-input" data-param="${escapeAttr(name)}" style="flex: 1;" placeholder="…or type a JSONata expression" />
+            <button type="button" class="stencil-picker-btn" data-advanced data-param="${escapeAttr(name)}" style="padding: 4px 10px;" title="Open expression editor">…</button>
+          </div>
         `;
         bindingRows.appendChild(row);
       }
@@ -336,6 +367,49 @@ export async function openStencilPickerDialog(
           const name = input.dataset.param!;
           const value = input.value.trim();
           if (value) bindingValues[name] = value;
+          else delete bindingValues[name];
+          updateBindingInsertState();
+        });
+      });
+
+      bindingRows
+        .querySelectorAll<HTMLSelectElement>('.stencil-binding-select')
+        .forEach((select) => {
+          select.addEventListener('change', () => {
+            const name = select.dataset.param!;
+            const value = select.value;
+            if (!value) return;
+            const input = bindingRows.querySelector<HTMLInputElement>(
+              `.stencil-binding-input[data-param="${CSS.escape(name)}"]`,
+            );
+            if (input) input.value = value;
+            bindingValues[name] = value;
+            select.value = '';
+            updateBindingInsertState();
+          });
+        });
+
+      bindingRows.querySelectorAll<HTMLButtonElement>('[data-advanced]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const name = btn.dataset.param!;
+          const prop = props[name];
+          const input = bindingRows.querySelector<HTMLInputElement>(
+            `.stencil-binding-input[data-param="${CSS.escape(name)}"]`,
+          );
+          if (!input) return;
+          const compatible = filterFieldsByType(fieldPaths, propTypeKey(prop));
+          const result = await openExpressionDialog({
+            initialValue: input.value,
+            fieldPaths,
+            getExampleData: options.getExampleData,
+            label: `Expression for ${name}`,
+            placeholder: 'e.g. recipient.name',
+            enableBuilderMode: true,
+            fieldPathFilter: (fp) => compatible.some((f) => f.path === fp.path),
+          });
+          if (result.value === null) return;
+          input.value = result.value;
+          if (result.value.trim()) bindingValues[name] = result.value.trim();
           else delete bindingValues[name];
           updateBindingInsertState();
         });
@@ -540,4 +614,73 @@ export async function openStencilPickerDialog(
     dialog.showModal();
     searchInput.focus();
   });
+}
+
+// ── Helpers used by the parameter binding step (kept local — same logic as
+//    parameter-bindings-dialog.ts; if we add a third caller, extract). ──
+
+function buildOptionsHtml(compatible: FieldPath[]): string {
+  if (compatible.length === 0) {
+    return '<option value="">No matching fields</option>';
+  }
+  const groups = {
+    template: [] as FieldPath[],
+    scoped: [] as FieldPath[],
+    system: [] as FieldPath[],
+  };
+  for (const fp of compatible) {
+    if (fp.system) groups.system.push(fp);
+    else if (fp.scope) groups.scoped.push(fp);
+    else groups.template.push(fp);
+  }
+  const opt = (fp: FieldPath) =>
+    `<option value="${escapeAttr(fp.path)}">${escapeHtml(fp.path)}</option>`;
+  let html = '<option value="">Pick a field…</option>';
+  if (groups.template.length > 0) {
+    html += `<optgroup label="Template variables">${groups.template.map(opt).join('')}</optgroup>`;
+  }
+  if (groups.scoped.length > 0) {
+    html += `<optgroup label="Scoped variables">${groups.scoped.map(opt).join('')}</optgroup>`;
+  }
+  if (groups.system.length > 0) {
+    html += `<optgroup label="System parameters">${groups.system.map(opt).join('')}</optgroup>`;
+  }
+  return html;
+}
+
+function filterFieldsByType(fieldPaths: FieldPath[], paramTypeKey: string): FieldPath[] {
+  switch (paramTypeKey) {
+    case 'string':
+    case 'date':
+    case 'datetime':
+      return fieldPaths;
+    case 'number':
+    case 'integer':
+      return fieldPaths.filter((fp) => fp.type === 'number' || fp.type === 'integer');
+    case 'boolean':
+      return fieldPaths.filter((fp) => fp.type === 'boolean');
+    case 'array':
+      return fieldPaths.filter((fp) => fp.type === 'array');
+    default:
+      return fieldPaths;
+  }
+}
+
+function propTypeKey(prop: JsonSchemaProperty | undefined): string {
+  if (!prop) return 'string';
+  const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
+  if (t === 'array') return 'array';
+  if (t === 'string' && prop.format === 'date') return 'date';
+  if (t === 'string' && prop.format === 'date-time') return 'datetime';
+  return t ?? 'string';
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!;
+  });
+}
+
+function escapeAttr(s: string): string {
+  return escapeHtml(s);
 }
