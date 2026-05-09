@@ -339,11 +339,6 @@ export async function openStencilPickerDialog(
           (Array.isArray(prop?.type)
             ? prop?.type[0]
             : (prop as JsonSchemaProperty | undefined)?.type) ?? 'string';
-        const compatible = filterFieldsByType(
-          fieldPaths,
-          propTypeKey(prop as JsonSchemaProperty | undefined),
-        );
-        const optionsHtml = buildOptionsHtml(compatible);
         row.innerHTML = `
           <div style="display:flex; align-items:center; gap:var(--ep-space-2); margin-bottom:2px;">
             <label style="font-size: var(--ep-text-xs); font-weight:500;">${escapeHtml(name)}</label>
@@ -352,10 +347,7 @@ export async function openStencilPickerDialog(
           </div>
           ${prop?.description ? `<div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom:2px;">${escapeHtml(prop.description)}</div>` : ''}
           <div style="display:flex; gap: 4px; align-items: center;">
-            <select class="ep-input stencil-binding-select" data-param="${escapeAttr(name)}" style="width: 200px; flex-shrink: 0;">
-              ${optionsHtml}
-            </select>
-            <input type="text" class="ep-input stencil-binding-input" data-param="${escapeAttr(name)}" style="flex: 1;" placeholder="…or type a JSONata expression" />
+            <input type="text" class="ep-input stencil-binding-input" data-param="${escapeAttr(name)}" style="flex: 1;" placeholder="JSONata expression — e.g. recipient.name" />
             <button type="button" class="stencil-picker-btn" data-advanced data-param="${escapeAttr(name)}" style="padding: 4px 10px;" title="Open expression editor">…</button>
           </div>
         `;
@@ -371,23 +363,6 @@ export async function openStencilPickerDialog(
           updateBindingInsertState();
         });
       });
-
-      bindingRows
-        .querySelectorAll<HTMLSelectElement>('.stencil-binding-select')
-        .forEach((select) => {
-          select.addEventListener('change', () => {
-            const name = select.dataset.param!;
-            const value = select.value;
-            if (!value) return;
-            const input = bindingRows.querySelector<HTMLInputElement>(
-              `.stencil-binding-input[data-param="${CSS.escape(name)}"]`,
-            );
-            if (input) input.value = value;
-            bindingValues[name] = value;
-            select.value = '';
-            updateBindingInsertState();
-          });
-        });
 
       bindingRows.querySelectorAll<HTMLButtonElement>('[data-advanced]').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -618,35 +593,6 @@ export async function openStencilPickerDialog(
 
 // ── Helpers used by the parameter binding step (kept local — same logic as
 //    parameter-bindings-dialog.ts; if we add a third caller, extract). ──
-
-function buildOptionsHtml(compatible: FieldPath[]): string {
-  if (compatible.length === 0) {
-    return '<option value="">No matching fields</option>';
-  }
-  const groups = {
-    template: [] as FieldPath[],
-    scoped: [] as FieldPath[],
-    system: [] as FieldPath[],
-  };
-  for (const fp of compatible) {
-    if (fp.system) groups.system.push(fp);
-    else if (fp.scope) groups.scoped.push(fp);
-    else groups.template.push(fp);
-  }
-  const opt = (fp: FieldPath) =>
-    `<option value="${escapeAttr(fp.path)}">${escapeHtml(fp.path)}</option>`;
-  let html = '<option value="">Pick a field…</option>';
-  if (groups.template.length > 0) {
-    html += `<optgroup label="Template variables">${groups.template.map(opt).join('')}</optgroup>`;
-  }
-  if (groups.scoped.length > 0) {
-    html += `<optgroup label="Scoped variables">${groups.scoped.map(opt).join('')}</optgroup>`;
-  }
-  if (groups.system.length > 0) {
-    html += `<optgroup label="System parameters">${groups.system.map(opt).join('')}</optgroup>`;
-  }
-  return html;
-}
 
 function filterFieldsByType(fieldPaths: FieldPath[], paramTypeKey: string): FieldPath[] {
   switch (paramTypeKey) {

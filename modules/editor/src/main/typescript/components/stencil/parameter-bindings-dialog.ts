@@ -79,21 +79,13 @@ export function openParameterBindingsDialog(
       filterFieldsByType(fieldPaths, paramType);
 
     for (const [name, prop] of Object.entries(properties)) {
-      const row = renderRow(name, prop, required.has(name), bindings[name] ?? '', fieldPaths);
+      const row = renderRow(name, prop, required.has(name), bindings[name] ?? '');
       rowsContainer.appendChild(row.element);
 
       row.input.addEventListener('input', () => {
         const v = row.input.value.trim();
         if (v) bindings[name] = v;
         else delete bindings[name];
-        updateSaveState();
-      });
-      row.select.addEventListener('change', () => {
-        const v = row.select.value;
-        if (!v) return;
-        row.input.value = v;
-        bindings[name] = v;
-        row.select.value = ''; // reset back to placeholder
         updateSaveState();
       });
       row.advancedBtn.addEventListener('click', async () => {
@@ -150,7 +142,6 @@ export function openParameterBindingsDialog(
 interface RenderedRow {
   element: HTMLElement;
   input: HTMLInputElement;
-  select: HTMLSelectElement;
   advancedBtn: HTMLButtonElement;
 }
 
@@ -159,13 +150,10 @@ function renderRow(
   prop: JsonSchemaProperty | undefined,
   isRequired: boolean,
   initialValue: string,
-  fieldPaths: FieldPath[],
 ): RenderedRow {
   const row = document.createElement('div');
   row.style.marginBottom = 'var(--ep-space-3)';
   const typeLabel = typeOf(prop);
-  const compatible = filterFieldsByType(fieldPaths, propTypeKey(prop));
-  const optionsHtml = buildOptionsHtml(compatible, fieldPaths);
 
   row.innerHTML = `
     <div style="display:flex; align-items:center; gap:var(--ep-space-2); margin-bottom:2px;">
@@ -175,53 +163,16 @@ function renderRow(
     </div>
     ${prop?.description ? `<div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom:2px;">${escapeHtml(prop.description)}</div>` : ''}
     <div style="display:flex; gap: 4px; align-items: center;">
-      <select class="ep-input bindings-select" style="width: 200px; flex-shrink: 0;">
-        ${optionsHtml}
-      </select>
-      <input type="text" class="ep-input bindings-input" style="flex: 1;" placeholder="…or type a JSONata expression" />
+      <input type="text" class="ep-input bindings-input" style="flex: 1;" placeholder="JSONata expression — e.g. recipient.name" />
       <button type="button" class="stencil-picker-btn" data-advanced style="padding: 4px 10px;" title="Open expression editor">…</button>
     </div>
   `;
 
   const input = row.querySelector<HTMLInputElement>('.bindings-input')!;
-  const select = row.querySelector<HTMLSelectElement>('.bindings-select')!;
   const advancedBtn = row.querySelector<HTMLButtonElement>('[data-advanced]')!;
   input.value = initialValue;
-  // If the initial value matches a known field path, reflect that in the select.
-  if (initialValue && compatible.some((fp) => fp.path === initialValue)) {
-    select.value = initialValue;
-  }
 
-  return { element: row, input, select, advancedBtn };
-}
-
-function buildOptionsHtml(compatible: FieldPath[], _all: FieldPath[]): string {
-  if (compatible.length === 0) {
-    return '<option value="">No matching fields</option>';
-  }
-  const groups = {
-    template: [] as FieldPath[],
-    scoped: [] as FieldPath[],
-    system: [] as FieldPath[],
-  };
-  for (const fp of compatible) {
-    if (fp.system) groups.system.push(fp);
-    else if (fp.scope) groups.scoped.push(fp);
-    else groups.template.push(fp);
-  }
-  const opt = (fp: FieldPath) =>
-    `<option value="${escapeAttr(fp.path)}">${escapeHtml(fp.path)}</option>`;
-  let html = '<option value="">Pick a field…</option>';
-  if (groups.template.length > 0) {
-    html += `<optgroup label="Template variables">${groups.template.map(opt).join('')}</optgroup>`;
-  }
-  if (groups.scoped.length > 0) {
-    html += `<optgroup label="Scoped variables">${groups.scoped.map(opt).join('')}</optgroup>`;
-  }
-  if (groups.system.length > 0) {
-    html += `<optgroup label="System parameters">${groups.system.map(opt).join('')}</optgroup>`;
-  }
-  return html;
+  return { element: row, input, advancedBtn };
 }
 
 /**
@@ -273,8 +224,4 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!;
   });
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s);
 }

@@ -18,8 +18,17 @@
  * iteration scope uses (`resolveSimplePath`). Simple bindings (`customer.name`,
  * `params.title`, `sys.pages.current`) resolve in the canvas preview; complex
  * JSONata (e.g. `$sum(...)`, string concatenation) doesn't get a preview value
- * but the PDF renderer is the source of truth, so it still resolves at render
- * time. Schema defaults fill in unbound params so the canvas isn't blank.
+ * here, but the PDF renderer is the source of truth so it still resolves at
+ * render time. Resolution order per parameter:
+ *   1. Bound expression resolved as simple path against the outer context.
+ *   2. Schema default.
+ *   3. Synthetic placeholder (`<paramName>`) — so authors editing a stencil
+ *      draft (where no bindings exist yet) see something useful in the canvas
+ *      instead of a literal `{{params.foo}}`.
+ *
+ * The params namespace is *always* populated when the schema declares
+ * properties, so `params.foo` never falls through to `undefined` and never
+ * renders as raw text in the editor.
  */
 import type { JsonSchema, JsonSchemaProperty } from '../data-contract/types.js';
 import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
@@ -44,28 +53,33 @@ export function buildParameterScope(
     description: propSchema?.description,
   }));
 
-  // Evaluate bindings against the outer evaluation context. For simple paths
-  // this gives accurate canvas previews; complex JSONata falls through to
-  // undefined here and resolves correctly at render time.
   const params: Record<string, unknown> = {};
   const outer = ctx.evaluationContext;
   for (const [name, propSchema] of Object.entries(schema.properties)) {
-    const expr = bindings[name];
-    let value: unknown = undefined;
-    if (typeof expr === 'string' && expr.trim() && outer) {
-      value = resolveSimplePath(outer, expr.trim());
-    }
-    if (value === undefined) {
-      const def = (propSchema as JsonSchemaProperty & { default?: unknown }).default;
-      if (def !== undefined) value = def;
-    }
-    if (value !== undefined) params[name] = value;
+    params[name] = resolveValue(name, bindings[name], propSchema, outer);
   }
 
-  const evaluationData =
-    Object.keys(params).length > 0 ? ({ [alias]: params } as Record<string, unknown>) : undefined;
+  return {
+    variables,
+    evaluationData: { [alias]: params },
+  };
+}
 
-  return { variables, evaluationData };
+function resolveValue(
+  name: string,
+  expr: string | undefined,
+  propSchema: JsonSchemaProperty | undefined,
+  outer: Record<string, unknown> | undefined,
+): unknown {
+  if (typeof expr === 'string' && expr.trim() && outer) {
+    const resolved = resolveSimplePath(outer, expr.trim());
+    if (resolved !== undefined) return resolved;
+  }
+  const def = (propSchema as (JsonSchemaProperty & { default?: unknown }) | undefined)?.default;
+  if (def !== undefined) return def;
+  // Synthetic placeholder so authors see something while editing a draft
+  // (no bindings yet) and consumers see an obvious flag for unbound params.
+  return `<${name}>`;
 }
 
 function typeFromSchema(prop: JsonSchemaProperty | undefined): string {
