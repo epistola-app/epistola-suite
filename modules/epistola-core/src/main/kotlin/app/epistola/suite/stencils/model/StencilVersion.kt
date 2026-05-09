@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.json.Json
+import tools.jackson.databind.JsonNode
 import java.time.OffsetDateTime
 
 /**
@@ -29,6 +30,12 @@ data class StencilVersion(
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,
     val archivedAt: OffsetDateTime?,
+    /**
+     * Optional JSON Schema describing the parameters consumers must bind when
+     * inserting this version into a template. Shape: `{"type":"object","properties":{...},"required":[...]}`.
+     * NULL means the version takes no parameters.
+     */
+    @Json val parameterSchema: JsonNode? = null,
 )
 
 /**
