@@ -22,10 +22,10 @@ import tools.jackson.databind.ObjectMapper
  * parameters feature, or stencils whose authors haven't declared any parameters).
  * Callers treat null and empty-schema identically.
  *
- * The snapshot may have travelled through Jackson deserialization, in which case
- * it appears in props as a `Map<String, Any?>` rather than a `JsonNode`. The
- * provider normalises to `JsonNode` so downstream validators / renderers see a
- * canonical shape.
+ * The snapshot in props may be a `Map<String, Any?>` (Jackson-deserialized JSON
+ * content from JSONB) or a `JsonNode` (when set directly via Kotlin code). The
+ * provider normalises to `Map<String, Any?>` so consumers (including the render
+ * pipeline, which has no Jackson dependency) see a canonical shape.
  */
 @Configuration
 class StencilNodeParameterSchemaProviderConfig(
@@ -37,11 +37,13 @@ class StencilNodeParameterSchemaProviderConfig(
         provider = NodeParameterSchemaProvider { node, _ -> readSnapshot(node) },
     )
 
-    private fun readSnapshot(node: Node): JsonNode? {
+    @Suppress("UNCHECKED_CAST")
+    private fun readSnapshot(node: Node): Map<String, Any?>? {
         val raw = node.props?.get(StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT) ?: return null
         return when (raw) {
-            is JsonNode -> raw
-            else -> objectMapper.valueToTree(raw)
+            is Map<*, *> -> raw as Map<String, Any?>
+            is JsonNode -> objectMapper.convertValue(raw, Map::class.java) as Map<String, Any?>
+            else -> null
         }
     }
 }

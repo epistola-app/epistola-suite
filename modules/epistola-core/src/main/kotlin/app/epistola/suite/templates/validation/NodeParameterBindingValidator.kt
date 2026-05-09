@@ -4,8 +4,6 @@ import app.epistola.suite.templates.model.NodeParameterKeys
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Component
-import tools.jackson.databind.node.ArrayNode
-import tools.jackson.databind.node.ObjectNode
 
 /**
  * Cross-document validator for the `parameterBindings` prop carried by parametrised
@@ -34,12 +32,13 @@ class NodeParameterBindingValidator(
      * legacy stencils without a snapshot) — those flow through with whatever bindings
      * were present.
      */
+    @Suppress("UNCHECKED_CAST")
     fun validate(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) as? Map<*, *>
-            val schema = schemaProvider.resolve(node, doc) as? ObjectNode ?: continue
-            val properties = schema.get("properties") as? ObjectNode ?: continue
-            val declaredNames = properties.propertyNames().toSet()
+            val schema = schemaProvider.resolve(node, doc) ?: continue
+            val properties = schema["properties"] as? Map<String, Any?> ?: continue
+            val declaredNames = properties.keys
 
             // Unknown keys in bindings.
             rawBindings?.keys?.forEach { rawKey ->
@@ -53,12 +52,12 @@ class NodeParameterBindingValidator(
             }
 
             // Required parameters with neither a binding nor a default.
-            val required = (schema.get("required") as? ArrayNode)?.mapNotNull { it.asString() }?.toSet().orEmpty()
+            val required = (schema["required"] as? List<Any?>)?.filterIsInstance<String>().orEmpty()
             for (name in required) {
                 val hasBinding = rawBindings?.containsKey(name) == true
                 if (hasBinding) continue
-                val prop = properties.get(name) as? ObjectNode
-                val hasDefault = prop?.get("default") != null
+                val prop = properties[name] as? Map<String, Any?>
+                val hasDefault = prop?.containsKey("default") == true
                 if (!hasDefault) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$name",

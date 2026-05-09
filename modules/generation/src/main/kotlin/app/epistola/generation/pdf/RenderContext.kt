@@ -5,6 +5,7 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
+import app.epistola.template.model.Node
 import app.epistola.template.model.PageSettings
 import app.epistola.template.model.TemplateDocument
 /**
@@ -41,6 +42,25 @@ data class RenderContext(
     val resolvedPageSettings: PageSettings? = null,
     /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
     val systemParams: Map<String, Any?> = emptyMap(),
+    /**
+     * Named parameter scopes exposed to descendants. Each entry is `alias → values`,
+     * where the alias is the top-level key the scope appears under in [effectiveData]
+     * (default alias is "params"). Pushed by any node renderer that supports
+     * parameters (today: stencil; future: snippet, fragment, …). Nested nodes with
+     * different aliases coexist; nodes sharing the same alias intentionally shadow.
+     */
+    val parameterScopes: Map<String, Map<String, Any?>> = emptyMap(),
+    /**
+     * Pluggable schema lookup for parametrised nodes. Returns the JSON Schema
+     * (as a JSON-structured `Map<String, Any?>`) describing the node's
+     * parameters, or null if the node has none. Production wiring delegates to
+     * the Spring `NodeParameterSchemaProviderRegistry` in `epistola-core`;
+     * tests typically pass `{ _, _ -> null }` (the default) or an inline lambda.
+     *
+     * Component-agnostic by design: stencils answer with their per-instance
+     * snapshot prop, future static-parametrised components answer with a constant.
+     */
+    val parameterSchemaProvider: (Node, TemplateDocument) -> Map<String, Any?>? = { _, _ -> null },
     /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
     val totalPages: Int? = null,
     /**
@@ -76,15 +96,24 @@ data class RenderContext(
     }
 
     /**
-     * Data map with system parameters merged under the `sys` key.
-     * Returns the original [data] map when no system parameters are set.
+     * Data map with engine-provided scopes merged in. System parameters live
+     * under `sys.*`; each named entry in [parameterScopes] (default alias
+     * `params`) is exposed as a top-level key. Returns the original [data]
+     * map when no engine scopes are set.
      *
-     * Note: If user data contains a top-level `sys` key, it will be
-     * overwritten by system parameters. The `sys` namespace is reserved
-     * for engine-provided values.
+     * Note: User data keys colliding with `sys` or with a parameter alias
+     * are overwritten by the engine values. These namespaces are reserved.
      */
     val effectiveData: Map<String, Any?>
-        get() = if (systemParams.isEmpty()) data else data + mapOf("sys" to systemParams)
+        get() {
+            if (systemParams.isEmpty() && parameterScopes.isEmpty()) return data
+            var result: Map<String, Any?> = data
+            if (systemParams.isNotEmpty()) result = result + ("sys" to systemParams)
+            for ((alias, values) in parameterScopes) {
+                result = result + (alias to values)
+            }
+            return result
+        }
 
     // The "effective page margins" cascade is per-side and walks
     // overrideNode → root → template override → theme → engine defaults.

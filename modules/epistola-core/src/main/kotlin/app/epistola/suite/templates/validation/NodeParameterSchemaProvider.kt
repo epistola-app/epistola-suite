@@ -3,7 +3,6 @@ package app.epistola.suite.templates.validation
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Component
-import tools.jackson.databind.JsonNode
 
 /**
  * Resolves the JSON Schema describing a node's parameters.
@@ -17,12 +16,16 @@ import tools.jackson.databind.JsonNode
  *    schema as a snapshot prop on the node, copied from the source version at
  *    insert/upgrade time. Implementations read that snapshot.
  *
+ * The schema is returned as a JSON-structured `Map<String, Any?>` — Jackson's
+ * natural deserialization shape — so the render module (which has no Jackson
+ * dependency) can consume the result directly.
+ *
  * Concrete providers register as Spring beans returning a [NodeTypeProviderBinding];
  * the [NodeParameterSchemaProviderRegistry] dispatches by node type.
  */
 fun interface NodeParameterSchemaProvider {
     /** Returns the schema for the given node, or null if the node has no parameters. */
-    fun resolve(node: Node, document: TemplateDocument): JsonNode?
+    fun resolve(node: Node, document: TemplateDocument): Map<String, Any?>?
 }
 
 /**
@@ -45,7 +48,7 @@ class NodeParameterSchemaProviderRegistry(
 ) {
     private val byType: Map<String, NodeParameterSchemaProvider> = bindings.associate { it.nodeType to it.provider }
 
-    fun resolve(node: Node, document: TemplateDocument): JsonNode? {
+    fun resolve(node: Node, document: TemplateDocument): Map<String, Any?>? {
         val provider = byType[node.type] ?: return null
         return provider.resolve(node, document)
     }
