@@ -3,8 +3,8 @@
  *
  * For any node whose `props.parameterSchemaSnapshot` declares parameters,
  * exposes the declared parameters as scoped FieldPath entries under the
- * node's `paramsAlias` (default `params`) and best-effort-evaluates each
- * binding against the outer evaluation context so the canvas preview shows
+ * node's `paramsAlias` (default `params`) and evaluates each binding
+ * against the outer evaluation context so the canvas preview shows
  * resolved values for `params.foo` / `letter.title`.
  *
  * Today the only parametrised component is the stencil, which carries its
@@ -13,16 +13,13 @@
  * the [ComponentDefinition.parameters] field instead — for now we keep the
  * lookup simple and read directly from props.
  *
- * Evaluation is intentionally synchronous: JSONata's `evaluate` is async and
- * the scope-provider walk is sync, so we use the same dot-path resolver the
- * iteration scope uses (`resolveSimplePath`). Simple bindings (`customer.name`,
- * `params.title`, `sys.pages.current`) resolve in the canvas preview; complex
- * JSONata (e.g. `$sum(...)`, string concatenation) doesn't get a preview value
- * here, but the PDF renderer is the source of truth so it still resolves at
- * render time. Resolution order per parameter:
- *   1. Bound expression resolved as simple path against the outer context.
- *   2. Schema default.
- *   3. Synthetic placeholder (`<paramName>`) — so authors editing a stencil
+ * Resolution order per parameter (per call):
+ *   1. Cached value from the async-eval cache (real JSONata, same library
+ *      the PDF renderer uses). Cache hit → return it.
+ *   2. Cache miss → schedule async evaluation (cache populates + canvas
+ *      refreshes when ready). Meanwhile fall through to:
+ *   3. Schema default.
+ *   4. Synthetic placeholder (`<paramName>`) — so authors editing a stencil
  *      draft (where no bindings exist yet) see something useful in the canvas
  *      instead of a literal `{{params.foo}}`.
  *
@@ -33,7 +30,7 @@
 import type { JsonSchema, JsonSchemaProperty } from '../data-contract/types.js';
 import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
 import type { FieldPath } from './schema-paths.js';
-import { resolveSimplePath } from './scoped-fields.js';
+import { evaluateParamAsync, getCachedParamValue } from './parameter-evaluation-cache.js';
 import type { Node } from '../types/index.js';
 
 export function buildParameterScope(
@@ -56,7 +53,7 @@ export function buildParameterScope(
   const params: Record<string, unknown> = {};
   const outer = ctx.evaluationContext;
   for (const [name, propSchema] of Object.entries(schema.properties)) {
-    params[name] = resolveValue(name, bindings[name], propSchema, outer);
+    params[name] = resolveValue(node.id, alias, name, bindings[name], propSchema, outer);
   }
 
   return {
@@ -66,14 +63,21 @@ export function buildParameterScope(
 }
 
 function resolveValue(
+  nodeId: string,
+  alias: string,
   name: string,
   expr: string | undefined,
   propSchema: JsonSchemaProperty | undefined,
   outer: Record<string, unknown> | undefined,
 ): unknown {
-  if (typeof expr === 'string' && expr.trim() && outer) {
-    const resolved = resolveSimplePath(outer, expr.trim());
-    if (resolved !== undefined) return resolved;
+  const trimmed = typeof expr === 'string' ? expr.trim() : '';
+  if (trimmed && outer) {
+    const cached = getCachedParamValue(nodeId, alias, name, trimmed);
+    if (cached.found) return cached.value;
+    // Kick off the async eval; the result populates the cache and triggers
+    // ExpressionNodeView.refreshAll, which re-renders chips against the
+    // updated scope. While pending we fall through to defaults below.
+    evaluateParamAsync(nodeId, alias, name, trimmed, outer);
   }
   const def = (propSchema as (JsonSchemaProperty & { default?: unknown }) | undefined)?.default;
   if (def !== undefined) return def;

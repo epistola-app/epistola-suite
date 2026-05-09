@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js';
 import { EditorEngine } from '../engine/EditorEngine.js';
+import { wireParameterCache } from '../engine/parameter-evaluation-cache.js';
 import {
   createDefaultRegistry,
   PAGE_HEADER_TYPE,
@@ -117,6 +118,7 @@ export class EpistolaEditor extends LitElement {
   private _engine?: EditorEngine;
   private _unsubEngine?: () => void;
   private _unsubSelection?: () => void;
+  private _unsubParameterCache?: () => void;
   private _saveService?: SaveService;
   private _pluginDisposers: PluginDisposeFn[] = [];
   private _onKeydown = this._handleKeydown.bind(this);
@@ -191,6 +193,7 @@ export class EpistolaEditor extends LitElement {
     // Clean up previous engine and save service
     this._unsubEngine?.();
     this._unsubSelection?.();
+    this._unsubParameterCache?.();
     this._saveService?.dispose();
     this._saveService = undefined;
 
@@ -200,6 +203,7 @@ export class EpistolaEditor extends LitElement {
       dataExamples: options?.dataExamples,
     });
     this._doc = this._engine.doc;
+    this._unsubParameterCache = wireParameterCache(this._engine);
 
     this._unsubEngine = this._engine.events.on('doc:change', ({ doc }) => {
       this._doc = doc;
@@ -298,6 +302,7 @@ export class EpistolaEditor extends LitElement {
     this._disposePlugins();
     this._unsubEngine?.();
     this._unsubSelection?.();
+    this._unsubParameterCache?.();
     this._saveService?.dispose();
     this._shortcutResolver.cancelActiveChord();
     this._leaderController.dispose();
