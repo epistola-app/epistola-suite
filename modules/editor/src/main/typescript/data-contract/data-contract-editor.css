@@ -432,7 +432,7 @@
 
   .dc-empty-state-icon-muted {
     color: var(--ep-gray-300);
-    border-color: var(--ep-gray-150, var(--ep-gray-200));
+    border-color: var(--ep-gray-200);
   }
 
   .dc-empty-state p {
@@ -697,7 +697,7 @@
     gap: var(--ep-space-2);
     padding: var(--ep-space-2);
     background: var(--ep-gray-50);
-    border: 1px solid var(--ep-gray-150, var(--ep-gray-200));
+    border: 1px solid var(--ep-gray-200);
     border-radius: var(--ep-radius-md);
   }
 

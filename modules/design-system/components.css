@@ -102,7 +102,7 @@
 
   .btn-sm {
     height: var(--ep-h-8);
-    padding: 0 var(--ep-space-3);
+    padding: 0 var(--ep-space-2-5);
     font-size: var(--ep-text-xs);
     border-radius: var(--ep-radius-sm);
   }
@@ -554,7 +554,8 @@
     }
   }
 
-  .btn-sm {
+  .ep-btn-primary.btn-sm,
+  .ep-btn-outline.btn-sm {
     height: var(--ep-h-8);
     padding: 0 var(--ep-space-2-5);
     font-size: var(--ep-text-xs);

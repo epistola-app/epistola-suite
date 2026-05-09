@@ -290,7 +290,7 @@
     padding: 0;
     border: 1px solid var(--ep-gray-200);
     border-radius: 2px;
-    background: var(--ep-bg-primary);
+    background: var(--ep-white);
     cursor: pointer;
     font-size: 12px;
     line-height: 1;
@@ -300,7 +300,7 @@
 
   .style-border-link-toggle:hover {
     border-color: var(--ep-gray-400);
-    color: var(--ep-text-primary);
+    color: var(--ep-foreground);
   }
 
   .style-border-link-toggle.linked {

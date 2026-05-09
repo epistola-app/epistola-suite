@@ -1285,7 +1285,7 @@ a.stat-card:hover {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--ep-text-muted);
+  color: var(--ep-muted-foreground);
   font-size: var(--ep-text-sm);
 }
 
