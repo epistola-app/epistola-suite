@@ -160,7 +160,79 @@ export class StencilInspector extends LitElement {
             </div>`
           : nothing}
       </div>
+      ${this._renderParameters()}
     `;
+  }
+
+  // ── Parameters: bind values consumers want to forward into the stencil ──
+
+  private _renderParameters() {
+    if (!isStencil(this.node)) return nothing;
+    const props = this.node.props;
+    const schema = props.parameterSchemaSnapshot;
+    if (!schema?.properties || Object.keys(schema.properties).length === 0) return nothing;
+    const bindings = (props.parameterBindings ?? {}) as Record<string, string>;
+    const required = new Set(schema.required ?? []);
+
+    return html`
+      <div class="inspector-section">
+        <div class="inspector-section-label">Parameters</div>
+        ${Object.entries(schema.properties).map(([name, prop]) => {
+          const isRequired = required.has(name);
+          const typeLabel = (Array.isArray(prop?.type) ? prop?.type[0] : prop?.type) ?? 'string';
+          const value = bindings[name] ?? '';
+          return html`
+            <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
+              <label
+                style="font-size: var(--ep-text-xs); display: flex; align-items: center; gap: var(--ep-space-2);"
+              >
+                <span style="font-weight: 500;">${name}</span>
+                <span style="color: var(--ep-muted-foreground);">${typeLabel}</span>
+                ${isRequired
+                  ? html`<span style="color: var(--ep-destructive, #dc2626);">required</span>`
+                  : nothing}
+              </label>
+              ${prop?.description
+                ? html`<div
+                    style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
+                  >
+                    ${prop.description}
+                  </div>`
+                : nothing}
+              <input
+                type="text"
+                class="ep-input"
+                style="width: 100%;"
+                .value=${value}
+                placeholder="JSONata expression, e.g. recipient.name"
+                @input=${(e: Event) =>
+                  this._onBindingChange(name, (e.target as HTMLInputElement).value)}
+              />
+            </div>
+          `;
+        })}
+      </div>
+    `;
+  }
+
+  private _onBindingChange(name: string, value: string) {
+    if (!isStencil(this.node)) return;
+    const current = (this.node.props.parameterBindings ?? {}) as Record<string, string>;
+    const next: Record<string, string> = { ...current };
+    const trimmed = value.trim();
+    if (trimmed) next[name] = trimmed;
+    else delete next[name];
+    const mergedProps = { ...this.node.props } as Record<string, unknown>;
+    if (Object.keys(next).length > 0) {
+      mergedProps.parameterBindings = next;
+    } else {
+      delete mergedProps.parameterBindings;
+    }
+    this.engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: this.node.id,
+      props: mergedProps,
+    });
   }
 
   // ── Locked: published version, not editing ──
