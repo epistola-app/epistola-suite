@@ -16,8 +16,7 @@ import type {
   StencilVersionInfo,
 } from './types.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
-import type { JsonSchemaProperty } from '../../data-contract/types.js';
-import { openExpressionDialog } from '../../ui/expression-dialog.js';
+import { renderBindingRow } from './binding-row.js';
 
 export type StencilPickerResult =
   | { action: 'create-new'; ref: StencilRef; version: number }
@@ -332,63 +331,22 @@ export async function openStencilPickerDialog(
       const fieldPaths = options.fieldPaths ?? [];
 
       for (const [name, prop] of Object.entries(props)) {
-        const row = document.createElement('div');
-        row.style.marginBottom = 'var(--ep-space-3)';
-        const isRequired = required.has(name);
-        const typeLabel =
-          (Array.isArray(prop?.type)
-            ? prop?.type[0]
-            : (prop as JsonSchemaProperty | undefined)?.type) ?? 'string';
-        row.innerHTML = `
-          <div style="display:flex; align-items:center; gap:var(--ep-space-2); margin-bottom:2px;">
-            <label style="font-size: var(--ep-text-xs); font-weight:500;">${escapeHtml(name)}</label>
-            <span style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);">${typeLabel}</span>
-            ${isRequired ? '<span style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);">required</span>' : ''}
-          </div>
-          ${prop?.description ? `<div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom:2px;">${escapeHtml(prop.description)}</div>` : ''}
-          <div style="display:flex; gap: 4px; align-items: center;">
-            <input type="text" class="ep-input stencil-binding-input" data-param="${escapeAttr(name)}" style="flex: 1;" placeholder="JSONata expression — e.g. recipient.name" />
-            <button type="button" class="stencil-picker-btn" data-advanced data-param="${escapeAttr(name)}" style="padding: 4px 10px;" title="Open expression editor">…</button>
-          </div>
-        `;
-        bindingRows.appendChild(row);
+        const row = renderBindingRow({
+          name,
+          prop,
+          required: required.has(name),
+          initialValue: bindingValues[name] ?? '',
+          fieldPaths,
+          getExampleData: options.getExampleData,
+          onChange: (newValue) => {
+            if (newValue) bindingValues[name] = newValue;
+            else delete bindingValues[name];
+            updateBindingInsertState();
+          },
+          paramDatasetKey: name,
+        });
+        bindingRows.appendChild(row.element);
       }
-
-      bindingRows.querySelectorAll<HTMLInputElement>('.stencil-binding-input').forEach((input) => {
-        input.addEventListener('input', () => {
-          const name = input.dataset.param!;
-          const value = input.value.trim();
-          if (value) bindingValues[name] = value;
-          else delete bindingValues[name];
-          updateBindingInsertState();
-        });
-      });
-
-      bindingRows.querySelectorAll<HTMLButtonElement>('[data-advanced]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const name = btn.dataset.param!;
-          const prop = props[name];
-          const input = bindingRows.querySelector<HTMLInputElement>(
-            `.stencil-binding-input[data-param="${CSS.escape(name)}"]`,
-          );
-          if (!input) return;
-          const compatible = filterFieldsByType(fieldPaths, propTypeKey(prop));
-          const result = await openExpressionDialog({
-            initialValue: input.value,
-            fieldPaths,
-            getExampleData: options.getExampleData,
-            label: `Expression for ${name}`,
-            placeholder: 'e.g. recipient.name',
-            enableBuilderMode: true,
-            fieldPathFilter: (fp) => compatible.some((f) => f.path === fp.path),
-          });
-          if (result.value === null) return;
-          input.value = result.value;
-          if (result.value.trim()) bindingValues[name] = result.value.trim();
-          else delete bindingValues[name];
-          updateBindingInsertState();
-        });
-      });
 
       insertBtn.style.display = '';
       insertBtn.textContent = 'Insert';
@@ -589,44 +547,4 @@ export async function openStencilPickerDialog(
     dialog.showModal();
     searchInput.focus();
   });
-}
-
-// ── Helpers used by the parameter binding step (kept local — same logic as
-//    parameter-bindings-dialog.ts; if we add a third caller, extract). ──
-
-function filterFieldsByType(fieldPaths: FieldPath[], paramTypeKey: string): FieldPath[] {
-  switch (paramTypeKey) {
-    case 'string':
-    case 'date':
-    case 'datetime':
-      return fieldPaths;
-    case 'number':
-    case 'integer':
-      return fieldPaths.filter((fp) => fp.type === 'number' || fp.type === 'integer');
-    case 'boolean':
-      return fieldPaths.filter((fp) => fp.type === 'boolean');
-    case 'array':
-      return fieldPaths.filter((fp) => fp.type === 'array');
-    default:
-      return fieldPaths;
-  }
-}
-
-function propTypeKey(prop: JsonSchemaProperty | undefined): string {
-  if (!prop) return 'string';
-  const t = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-  if (t === 'array') return 'array';
-  if (t === 'string' && prop.format === 'date') return 'date';
-  if (t === 'string' && prop.format === 'date-time') return 'datetime';
-  return t ?? 'string';
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!;
-  });
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s);
 }
