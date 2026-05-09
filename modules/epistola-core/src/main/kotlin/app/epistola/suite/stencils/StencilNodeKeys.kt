@@ -20,8 +20,18 @@ object StencilNodeKeys {
     const val PROP_VERSION = "version"
     const val PROP_IS_DRAFT = "isDraft"
 
-    /** Reserved for the future stencil-parameters feature. */
-    const val PROP_PARAMETER_BINDINGS = "parameterBindings"
+    /**
+     * Snapshot of the stencil version's parameter schema, copied onto the
+     * consuming stencil node's props at insert/upgrade time. Stencils are
+     * dynamic components — each version has its own schema — so the schema
+     * cannot live in a static component definition; the snapshot keeps it
+     * accessible to the renderer / editor without a DB lookup.
+     *
+     * For the *generic* parameter-binding prop (used by every parametrised
+     * component, not just stencils), see
+     * [app.epistola.suite.templates.model.NodeParameterKeys.PROP_PARAMETER_BINDINGS].
+     */
+    const val PROP_PARAMETER_SCHEMA_SNAPSHOT = "parameterSchemaSnapshot"
 }
 
 /**

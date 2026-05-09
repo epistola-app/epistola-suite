@@ -29,7 +29,13 @@ export const STENCIL_PROP_VERSION = 'version';
 export const STENCIL_PROP_IS_DRAFT = 'isDraft';
 
 /**
- * Reserved for the future stencil-parameters feature. Setting it in v1 is
- * rejected by `PlaceholderValidator.validateForwardCompatReservations`.
+ * Prop key — JSON Schema snapshot of the stencil version's parameter schema,
+ * copied onto the consuming stencil node at insert/upgrade time. Stencils
+ * are dynamic components — each version has its own schema — so the schema
+ * cannot live in a static component definition; the snapshot keeps it
+ * accessible to the renderer / editor scope provider without a DB lookup.
+ *
+ * For the *generic* parameter-binding prop carried by every parametrised
+ * component (not just stencils), see `engine/node-parameter-keys.ts`.
  */
-export const STENCIL_PROP_PARAMETER_BINDINGS = 'parameterBindings';
+export const STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT = 'parameterSchemaSnapshot';
