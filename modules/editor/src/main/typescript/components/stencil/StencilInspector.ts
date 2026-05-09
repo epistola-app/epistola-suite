@@ -19,10 +19,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
-import type { JsonSchema } from '../../data-contract/types.js';
 import * as stencilActions from './stencil-actions.js';
 import { isStencil } from './node-types.js';
-import './StencilParameterDefinitionsPanel.js';
+import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.js';
+import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -166,76 +166,74 @@ export class StencilInspector extends LitElement {
     `;
   }
 
-  // ── Parameters: bind values consumers want to forward into the stencil ──
+  // ── Parameters: per-instance bindings (popup) ──
 
   private _renderParameters() {
     if (!isStencil(this.node)) return nothing;
     const props = this.node.props;
     const schema = props.parameterSchemaSnapshot;
     if (!schema?.properties || Object.keys(schema.properties).length === 0) return nothing;
+
     const bindings = (props.parameterBindings ?? {}) as Record<string, string>;
+    const declared = Object.keys(schema.properties);
     const required = new Set(schema.required ?? []);
+    const boundCount = declared.filter((name) => (bindings[name] ?? '').trim().length > 0).length;
+    const missingRequired = Array.from(required).some(
+      (name) => (bindings[name] ?? '').trim().length === 0,
+    );
 
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Parameters</div>
-        ${Object.entries(schema.properties).map(([name, prop]) => {
-          const isRequired = required.has(name);
-          const typeLabel = (Array.isArray(prop?.type) ? prop?.type[0] : prop?.type) ?? 'string';
-          const value = bindings[name] ?? '';
-          return html`
-            <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
-              <label
-                style="font-size: var(--ep-text-xs); display: flex; align-items: center; gap: var(--ep-space-2);"
-              >
-                <span style="font-weight: 500;">${name}</span>
-                <span style="color: var(--ep-muted-foreground);">${typeLabel}</span>
-                ${isRequired
-                  ? html`<span style="color: var(--ep-destructive, #dc2626);">required</span>`
-                  : nothing}
-              </label>
-              ${prop?.description
-                ? html`<div
-                    style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
-                  >
-                    ${prop.description}
-                  </div>`
-                : nothing}
-              <input
-                type="text"
-                class="ep-input"
-                style="width: 100%;"
-                .value=${value}
-                placeholder="JSONata expression, e.g. recipient.name"
-                @input=${(e: Event) =>
-                  this._onBindingChange(name, (e.target as HTMLInputElement).value)}
-              />
-            </div>
-          `;
-        })}
+        <div
+          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-2);"
+        >
+          ${boundCount} of ${declared.length}
+          bound${missingRequired
+            ? html`<span style="color: var(--ep-destructive, #dc2626); margin-left: 4px;"
+                >· missing required</span
+              >`
+            : nothing}
+        </div>
+        <button
+          class="btn btn-sm btn-outline stencil-btn"
+          @click=${this._handleEditBindings}
+          style="width: 100%;"
+        >
+          Configure parameters…
+        </button>
       </div>
     `;
   }
 
-  private _onBindingChange(name: string, value: string) {
+  private _handleEditBindings = async () => {
     if (!isStencil(this.node)) return;
-    const current = (this.node.props.parameterBindings ?? {}) as Record<string, string>;
-    const next: Record<string, string> = { ...current };
-    const trimmed = value.trim();
-    if (trimmed) next[name] = trimmed;
-    else delete next[name];
-    const mergedProps = { ...this.node.props } as Record<string, unknown>;
-    if (Object.keys(next).length > 0) {
-      mergedProps.parameterBindings = next;
+    const schema = this.node.props.parameterSchemaSnapshot;
+    if (!schema) return;
+    const result = await openParameterBindingsDialog({
+      schema,
+      initialBindings: (this.node.props.parameterBindings ?? {}) as Record<string, string>,
+      initialAlias: this.node.props.paramsAlias ?? 'params',
+    });
+    if (!result) return;
+
+    const next = { ...this.node.props } as Record<string, unknown>;
+    if (Object.keys(result.bindings).length > 0) {
+      next.parameterBindings = result.bindings;
     } else {
-      delete mergedProps.parameterBindings;
+      delete next.parameterBindings;
+    }
+    if (result.paramsAlias && result.paramsAlias !== 'params') {
+      next.paramsAlias = result.paramsAlias;
+    } else {
+      delete next.paramsAlias;
     }
     this.engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: this.node.id,
-      props: mergedProps,
+      props: next,
     });
-  }
+  };
 
   // ── Locked: published version, not editing ──
 
@@ -276,11 +274,18 @@ export class StencilInspector extends LitElement {
 
   private _renderDraft() {
     const schema = isStencil(this.node) ? this.node.props.parameterSchemaSnapshot : undefined;
+    const paramCount = schema?.properties ? Object.keys(schema.properties).length : 0;
+
     return html`
-      <stencil-parameter-definitions-panel
-        .schema=${schema}
-        @parameter-schema-change=${this._onParameterSchemaChange}
-      ></stencil-parameter-definitions-panel>
+      <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
+        <button
+          class="btn btn-sm btn-outline stencil-btn"
+          @click=${this._handleEditDefinitions}
+          style="width: 100%;"
+        >
+          Define parameters… (${paramCount})
+        </button>
+      </div>
 
       <div class="inspector-field stencil-actions">
         ${this.callbacks?.updateStencil
@@ -318,17 +323,15 @@ export class StencilInspector extends LitElement {
     `;
   }
 
-  private _onParameterSchemaChange = (event: Event) => {
+  private _handleEditDefinitions = async () => {
     if (!isStencil(this.node)) return;
-    const detail = (event as CustomEvent<{ schema: JsonSchema; valid: boolean }>).detail;
-    if (!detail.valid) return;
-    const schema = detail.schema;
-    // The snapshot prop on the node is the live edit surface; saveDraft reads
-    // from here when persisting. Empty-properties schemas drop the snapshot
-    // entirely so the stencil reads as "no parameters".
-    const hasProps = schema.properties && Object.keys(schema.properties).length > 0;
+    const result = await openParameterDefinitionsDialog(this.node.props.parameterSchemaSnapshot);
+    if (!result) return;
+    // Empty-properties schemas drop the snapshot entirely so the stencil
+    // reads as "no parameters".
+    const hasProps = result.properties && Object.keys(result.properties).length > 0;
     const next = { ...this.node.props } as Record<string, unknown>;
-    if (hasProps) next.parameterSchemaSnapshot = schema;
+    if (hasProps) next.parameterSchemaSnapshot = result;
     else delete next.parameterSchemaSnapshot;
     this.engine.dispatch({
       type: 'UpdateNodeProps',
