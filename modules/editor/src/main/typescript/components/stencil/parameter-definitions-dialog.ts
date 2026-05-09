@@ -15,8 +15,11 @@ export function openParameterDefinitionsDialog(
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'stencil-picker-dialog';
+    // Override the .stencil-picker-dialog default max-width (36rem) — the
+    // two-panel layout needs more horizontal room than the picker list.
+    dialog.style.maxWidth = 'min(960px, 90vw)';
     dialog.innerHTML = `
-      <div class="stencil-picker-content" style="max-width: min(960px, 90vw); width: 100%;">
+      <div class="stencil-picker-content">
         <div class="stencil-picker-header">
           <h3>Define parameters</h3>
           <button type="button" class="stencil-picker-close" aria-label="Close">&times;</button>
