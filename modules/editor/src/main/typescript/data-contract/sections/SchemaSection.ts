@@ -78,7 +78,7 @@ export function renderSchemaSection(
       <!-- Toolbar -->
       <div class="dc-toolbar">
         <button
-          class="ep-btn-outline btn-sm dc-add-field-btn"
+          class="ep-btn ep-btn-outline ep-btn-sm dc-add-field-btn"
           @click=${() => callbacks.onAddField()}
           ?disabled=${uiState.readOnly}
         >
@@ -86,7 +86,7 @@ export function renderSchemaSection(
         </button>
 
         <button
-          class="ep-btn-outline btn-sm dc-btn-icon"
+          class="ep-btn ep-btn-outline ep-btn-sm dc-btn-icon"
           ?disabled=${uiState.readOnly}
           @click=${() => callbacks.onImport()}
           title="Import a JSON Schema"
@@ -94,7 +94,10 @@ export function renderSchemaSection(
           Import
         </button>
 
-        <button class="ep-btn-outline btn-sm dc-btn-icon" @click=${() => callbacks.onToggleJson()}>
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm dc-btn-icon"
+          @click=${() => callbacks.onToggleJson()}
+        >
           <span
             class="dc-json-toggle-arrow ${uiState.jsonPanelOpen ? 'dc-json-toggle-arrow-open' : ''}"
             >&#9654;</span
@@ -105,7 +108,7 @@ export function renderSchemaSection(
         <div class="dc-toolbar-spacer"></div>
 
         <button
-          class="ep-btn-outline btn-sm dc-undo-btn"
+          class="ep-btn ep-btn-outline ep-btn-sm dc-undo-btn"
           @click=${() => callbacks.onUndo()}
           ?disabled=${uiState.readOnly || !uiState.canUndo}
           title="Undo (Ctrl+Z)"
@@ -124,7 +127,7 @@ export function renderSchemaSection(
         </button>
 
         <button
-          class="ep-btn-outline btn-sm dc-redo-btn"
+          class="ep-btn ep-btn-outline ep-btn-sm dc-redo-btn"
           @click=${() => callbacks.onRedo()}
           ?disabled=${uiState.readOnly || !uiState.canRedo}
           title="Redo (Ctrl+Shift+Z)"
@@ -148,7 +151,7 @@ export function renderSchemaSection(
           : nothing}
         ${uiState.canForceSave
           ? html`<button
-              class="ep-btn-outline btn-sm dc-force-save-btn"
+              class="ep-btn ep-btn-outline ep-btn-sm dc-force-save-btn"
               ?disabled=${uiState.saving}
               @click=${() => callbacks.onForceSave()}
             >
@@ -156,7 +159,7 @@ export function renderSchemaSection(
             </button>`
           : nothing}
         <button
-          class="ep-btn-primary btn-sm dc-save-btn"
+          class="ep-btn ep-btn-primary ep-btn-sm dc-save-btn"
           ?disabled=${uiState.readOnly || uiState.saving || !uiState.canSave}
           @click=${() => callbacks.onSave()}
           title=${uiState.saveTooltip}
@@ -387,7 +390,7 @@ function renderDetailPanel(
           ${canHaveNested
             ? html`
                 <button
-                  class="ep-btn-outline btn-sm"
+                  class="ep-btn ep-btn-outline ep-btn-sm"
                   @click=${() => {
                     callbacks.onCommand({ type: 'addField', parentFieldId: field.id });
                     callbacks.onToggleFieldExpand(field.id);

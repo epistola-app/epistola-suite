@@ -246,24 +246,24 @@ Components are implemented as CSS classes in `modules/design-system/components.c
 
 ### Buttons
 
-All buttons use the base `.btn` class combined with a variant class. Buttons include built-in focus ring, disabled state, and transition support.
+All buttons use the base `.ep-btn` class combined with a variant class. Buttons include built-in focus ring, disabled state, and transition support.
 
-| Class              | Description                   | Usage                          |
-| ------------------ | ----------------------------- | ------------------------------ |
-| `.btn`             | Base button (required)        | All buttons                    |
-| `.btn-primary`     | Blue background, white text   | Primary actions (save, create) |
-| `.btn-secondary`   | Muted gray background         | Secondary actions              |
-| `.btn-outline`     | White background, gray border | Tertiary actions               |
-| `.btn-ghost`       | Transparent, no border        | Toolbar actions, icon buttons  |
-| `.btn-destructive` | Red background, white text    | Delete, remove actions         |
-| `.btn-sm`          | Smaller size variant          | Compact UI areas               |
-| `.btn-lg`          | Larger size variant           | Prominent CTAs                 |
-| `.btn-icon`        | Square (equal width/height)   | Icon-only buttons              |
+| Class                 | Description                   | Usage                          |
+| --------------------- | ----------------------------- | ------------------------------ |
+| `.ep-btn`             | Base button (required)        | All buttons                    |
+| `.ep-btn-primary`     | Blue background, white text   | Primary actions (save, create) |
+| `.ep-btn-secondary`   | Muted gray background         | Secondary actions              |
+| `.ep-btn-outline`     | White background, gray border | Tertiary actions               |
+| `.ep-btn-ghost`       | Transparent, no border        | Toolbar actions, icon buttons  |
+| `.ep-btn-destructive` | Red background, white text    | Delete, remove actions         |
+| `.ep-btn-sm`          | Smaller size variant          | Compact UI areas               |
+| `.ep-btn-lg`          | Larger size variant           | Prominent CTAs                 |
+| `.ep-btn-icon`        | Square (equal width/height)   | Icon-only buttons              |
 
 ```html
-<button class="btn btn-primary">Save</button>
-<button class="btn btn-outline btn-sm">Cancel</button>
-<button class="btn btn-ghost btn-icon btn-sm">
+<button class="ep-btn ep-btn-primary">Save</button>
+<button class="ep-btn ep-btn-outline ep-btn-sm">Cancel</button>
+<button class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon">
   <svg class="ep-icon">...</svg>
 </button>
 ```

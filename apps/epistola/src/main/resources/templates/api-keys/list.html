@@ -6,7 +6,7 @@
             <h1>API Keys</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_USERS')}"
-                   th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New API key
                 </a>
@@ -24,7 +24,7 @@
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
             <a th:if="${auth.has('TENANT_USERS')}"
-               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New API key
             </a>
@@ -67,7 +67,7 @@
                         <td class="actions">
                             <button th:if="${auth.has('TENANT_USERS')}"
                                     type="button"
-                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
                                     title="Delete API key"
                                     data-confirm-title="Delete API key"
                                     th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"

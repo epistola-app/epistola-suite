@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h3>Version History: <code th:text="${variant.id}"></code></h3>
-            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="document.getElementById('version-history-dialog').close()"
                     title="Close">&times;</button>
         </div>
@@ -47,11 +47,11 @@
                             <!-- Draft actions -->
                             <th:block th:if="${version.status.name() == 'DRAFT'}">
                                 <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
-                                   class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Edit draft">
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" hx-boost="false" title="Edit draft">
                                     <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <button type="button"
-                                        class="btn btn-sm btn-icon btn-ghost"
+                                        class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                         th:data-tenant-id="${tenantId}"
                                         th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
@@ -67,7 +67,7 @@
                             <!-- Published actions -->
                             <th:block th:if="${version.status.name() == 'PUBLISHED'}">
                                 <button type="button"
-                                        class="btn btn-sm btn-icon btn-ghost"
+                                        class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                         th:data-tenant-id="${tenantId}"
                                         th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
@@ -84,7 +84,7 @@
                                       hx-target="#version-history-dialog-body"
                                       hx-swap="innerHTML"
                                       hx-confirm="Are you sure you want to archive this version?">
-                                    <button type="submit" class="btn btn-sm btn-icon btn-ghost"
+                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                             th:disabled="${activationsByVersion.containsKey(version.id)}"
                                             th:title="${activationsByVersion.containsKey(version.id)} ? 'Cannot archive: version is active in one or more environments' : 'Archive version'">
                                         <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
@@ -95,7 +95,7 @@
                             <!-- Archived: preview only -->
                             <th:block th:if="${version.status.name() == 'ARCHIVED'}">
                                 <button type="button"
-                                        class="btn btn-sm btn-icon btn-ghost"
+                                        class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                         th:data-tenant-id="${tenantId}"
                                         th:data-catalog-id="${catalogId}"
                                         th:data-template-id="${templateId}"
@@ -124,7 +124,7 @@
                       th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                       hx-target="#version-history-dialog-body"
                       hx-swap="innerHTML">
-                    <button type="submit" class="btn btn-sm btn-primary">+ Create New Draft</button>
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">+ Create New Draft</button>
                 </form>
             </div>
         </div>

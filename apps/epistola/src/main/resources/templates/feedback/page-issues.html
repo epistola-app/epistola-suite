@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div class="feedback-popover-header" th:data-feedback-count="${#lists.size(feedbackItems)}">
             <span class="feedback-popover-title">Page Feedback</span>
-            <button type="button" class="btn btn-primary btn-sm"
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
                     hx-target="#feedback-fab-dialog-content"
                     hx-swap="innerHTML"

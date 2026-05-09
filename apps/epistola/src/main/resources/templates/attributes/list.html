@@ -6,7 +6,7 @@
             <h1>Attributes</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Attribute
                 </a>
@@ -39,7 +39,7 @@
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
             </a>
@@ -74,7 +74,7 @@
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <span th:if="${attr.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <th:block th:if="${attr.catalogType.name() == 'AUTHORED'}">
-                                <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                         th:hx-get="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/edit(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
                                         hx-target="#edit-attribute-dialog-body"
                                         hx-swap="innerHTML"
@@ -83,7 +83,7 @@
                                     <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </button>
                                 <button type="button"
-                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete attribute"
                                         data-confirm-title="Delete Attribute"
                                         th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
@@ -134,9 +134,9 @@
                 </div>
             </div>
             <div class="ep-dialog-footer">
-                <button type="button" class="btn btn-ghost"
+                <button type="button" class="ep-btn ep-btn-ghost"
                         onclick="document.getElementById('edit-attribute-dialog').close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="submit" class="ep-btn ep-btn-primary">Save</button>
             </div>
         </form>
     </th:block>

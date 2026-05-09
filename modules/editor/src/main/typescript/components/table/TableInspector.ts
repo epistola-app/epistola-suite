@@ -278,7 +278,10 @@ export class TableInspector extends LitElement {
         <div class="table-merge-buttons">
           ${canDoMerge
             ? html`
-                <button class="ep-btn-sm" @click=${() => this._handleMerge(sel)}>
+                <button
+                  class="ep-btn ep-btn-outline ep-btn-sm"
+                  @click=${() => this._handleMerge(sel)}
+                >
                   Merge Cells
                 </button>
               `
@@ -286,7 +289,7 @@ export class TableInspector extends LitElement {
           ${isMergedCell
             ? html`
                 <button
-                  class="ep-btn-sm"
+                  class="ep-btn ep-btn-outline ep-btn-sm"
                   @click=${() => this._handleUnmerge(sel.startRow, sel.startCol)}
                 >
                   Unmerge

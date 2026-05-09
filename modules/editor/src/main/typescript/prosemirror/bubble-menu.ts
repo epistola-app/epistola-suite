@@ -304,17 +304,17 @@ function createMenuElement(schema: Schema): {
       continue;
     }
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = def.className;
-    btn.textContent = def.label;
-    btn.title = def.title;
-    btn.addEventListener('mousedown', (e) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = def.className;
+    button.textContent = def.label;
+    button.title = def.title;
+    button.addEventListener('mousedown', (e) => {
       e.preventDefault(); // Prevent blur
       e.stopPropagation();
     });
-    menuEl.appendChild(btn);
-    buttons.push({ el: btn, def });
+    menuEl.appendChild(button);
+    buttons.push({ el: button, def });
   }
 
   return { menuEl, buttons };

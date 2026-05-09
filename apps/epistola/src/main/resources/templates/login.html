@@ -43,7 +43,7 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" required placeholder="Password">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+                    <button type="submit" class="ep-btn ep-btn-primary" style="width: 100%;">Sign In</button>
                 </form>
 
             </div>
@@ -56,7 +56,7 @@
             <!-- OAuth2 login (shown when OAuth2 is configured) -->
             <div th:if="${hasOAuth2}">
                 <a th:href="@{/oauth2/authorization/{id}(id=${oauth2RegistrationId}, popup=${param.popup != null ? 'true' : null})}"
-                   class="btn btn-outline" style="width: 100%;">
+                   class="ep-btn ep-btn-outline" style="width: 100%;">
                     Sign in with SSO
                 </a>
             </div>

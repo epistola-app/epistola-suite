@@ -10,22 +10,43 @@
 @layer components {
   /* ── Buttons ──────────────────────────────────────────────────────────── */
 
-  .btn {
+  .ep-btn {
+    --btn-height: var(--ep-h-9);
+    --btn-padding-x: var(--ep-space-4);
+    --btn-gap: var(--ep-space-2);
+    --btn-font-size: var(--ep-text-sm);
+    --btn-radius: var(--ep-radius-md);
+    --btn-bg: transparent;
+    --btn-color: var(--ep-foreground);
+    --btn-border-color: transparent;
+    --btn-hover-bg: var(--btn-bg);
+    --btn-hover-color: var(--btn-color);
+    --btn-hover-border-color: var(--btn-border-color);
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--ep-space-2);
-    height: var(--ep-h-9);
-    padding: 0 var(--ep-space-4);
-    font-size: var(--ep-text-sm);
+    gap: var(--btn-gap);
+    height: var(--btn-height);
+    padding: 0 var(--btn-padding-x);
+    font-size: var(--btn-font-size);
     font-weight: 500;
     line-height: 1;
-    border-radius: var(--ep-radius-md);
-    border: 1px solid transparent;
+    border-radius: var(--btn-radius);
+    border: 1px solid var(--btn-border-color);
+    background-color: var(--btn-bg);
+    color: var(--btn-color);
     cursor: pointer;
     white-space: nowrap;
     transition: var(--ep-transition-colors);
     text-decoration: none;
+
+    &:hover:not(:disabled) {
+      background-color: var(--btn-hover-bg);
+      border-color: var(--btn-hover-border-color);
+      color: var(--btn-hover-color);
+      text-decoration: none;
+    }
 
     &:focus-visible {
       outline: none;
@@ -38,89 +59,95 @@
     }
   }
 
-  .btn-primary {
-    background-color: var(--ep-primary);
-    color: var(--ep-primary-foreground);
-
-    &:hover {
-      background-color: var(--ep-blue-700);
-      color: var(--ep-primary-foreground);
-    }
+  .ep-btn-primary {
+    --btn-bg: var(--ep-primary);
+    --btn-color: var(--ep-primary-foreground);
+    --btn-border-color: var(--ep-primary);
+    --btn-hover-bg: var(--ep-blue-700);
+    --btn-hover-color: var(--ep-primary-foreground);
+    --btn-hover-border-color: var(--ep-blue-700);
   }
 
-  .btn-secondary {
-    background-color: var(--ep-muted);
-    color: var(--ep-accent-foreground);
-
-    &:hover {
-      background-color: var(--ep-gray-200);
-      color: var(--ep-accent-foreground);
-    }
+  .ep-btn-secondary {
+    --btn-bg: var(--ep-muted);
+    --btn-color: var(--ep-accent-foreground);
+    --btn-border-color: transparent;
+    --btn-hover-bg: var(--ep-gray-200);
+    --btn-hover-color: var(--ep-accent-foreground);
+    --btn-hover-border-color: transparent;
   }
 
-  .btn-outline {
-    border-color: var(--ep-input-border);
-    background-color: var(--ep-white);
-    color: var(--ep-foreground);
-
-    &:hover {
-      background-color: var(--ep-accent);
-      color: var(--ep-accent-foreground);
-    }
+  .ep-btn-outline {
+    --btn-bg: var(--ep-white);
+    --btn-color: var(--ep-foreground);
+    --btn-border-color: var(--ep-input-border);
+    --btn-hover-bg: var(--ep-accent);
+    --btn-hover-color: var(--ep-accent-foreground);
+    --btn-hover-border-color: var(--ep-input-border);
   }
 
-  .btn-outline-destructive {
-    border-color: var(--ep-red-200);
-    color: var(--ep-destructive);
-
-    &:hover {
-      background-color: var(--ep-red-50);
-      border-color: var(--ep-red-300);
-      color: var(--ep-destructive);
-    }
+  .ep-btn-outline-destructive {
+    --btn-color: var(--ep-destructive);
+    --btn-border-color: var(--ep-red-200);
+    --btn-hover-bg: var(--ep-red-50);
+    --btn-hover-color: var(--ep-destructive);
+    --btn-hover-border-color: var(--ep-red-300);
   }
 
-  .btn-ghost {
-    background-color: transparent;
-    color: var(--ep-foreground);
-
-    &:hover {
-      background-color: var(--ep-accent);
-      color: var(--ep-accent-foreground);
-    }
+  .ep-btn-ghost {
+    --btn-bg: transparent;
+    --btn-color: var(--ep-foreground);
+    --btn-border-color: transparent;
+    --btn-hover-bg: var(--ep-accent);
+    --btn-hover-color: var(--ep-accent-foreground);
+    --btn-hover-border-color: transparent;
   }
 
-  .btn-destructive {
-    background-color: var(--ep-destructive);
-    color: var(--ep-destructive-foreground);
-
-    &:hover {
-      background-color: var(--ep-red-700);
-      color: var(--ep-destructive-foreground);
-    }
+  .ep-btn-ghost-destructive {
+    --btn-color: var(--ep-muted-foreground);
+    --btn-hover-bg: var(--ep-red-50);
+    --btn-hover-color: var(--ep-destructive);
   }
 
-  .btn-sm {
-    height: var(--ep-h-8);
-    padding: 0 var(--ep-space-2-5);
-    font-size: var(--ep-text-xs);
-    border-radius: var(--ep-radius-sm);
+  .ep-btn-destructive {
+    --btn-bg: var(--ep-destructive);
+    --btn-color: var(--ep-destructive-foreground);
+    --btn-border-color: var(--ep-destructive);
+    --btn-hover-bg: var(--ep-red-700);
+    --btn-hover-color: var(--ep-destructive-foreground);
+    --btn-hover-border-color: var(--ep-red-700);
   }
 
-  .btn-lg {
-    height: var(--ep-h-11);
-    padding: 0 var(--ep-space-8);
-    font-size: var(--ep-text-base);
-    border-radius: var(--ep-radius-md);
+  .ep-btn-warning {
+    --btn-bg: var(--ep-amber-500);
+    --btn-color: var(--ep-white);
+    --btn-border-color: var(--ep-amber-500);
+    --btn-hover-bg: var(--ep-amber-600);
+    --btn-hover-color: var(--ep-white);
+    --btn-hover-border-color: var(--ep-amber-600);
   }
 
-  .btn-icon {
-    width: var(--ep-h-9);
-    padding: 0;
+  .ep-btn-sm {
+    --btn-height: var(--ep-h-8);
+    --btn-padding-x: var(--ep-space-2-5);
+    --btn-font-size: var(--ep-text-xs);
+    --btn-radius: var(--ep-radius-sm);
   }
 
-  .btn-icon.btn-sm {
-    width: var(--ep-h-8);
+  .ep-btn-lg {
+    --btn-height: var(--ep-h-11);
+    --btn-padding-x: var(--ep-space-8);
+    --btn-font-size: var(--ep-text-base);
+    --btn-radius: var(--ep-radius-md);
+  }
+
+  .ep-btn-icon {
+    width: var(--btn-height);
+    --btn-padding-x: 0;
+  }
+
+  .ep-btn-full {
+    width: 100%;
   }
 
   /* ── Cards ────────────────────────────────────────────────────────────── */
@@ -500,94 +527,5 @@
     padding: var(--ep-space-3);
     font-size: var(--ep-text-sm);
     color: var(--ep-red-400);
-  }
-
-  /* ── Shared button base ─────────────────────────────────────────────── */
-
-  .ep-btn-primary,
-  .ep-btn-outline {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--ep-space-1-5);
-    height: var(--ep-h-9);
-    padding: 0 var(--ep-space-3);
-    font-size: var(--ep-text-sm);
-    font-weight: 500;
-    border-radius: var(--ep-radius-md);
-    cursor: pointer;
-    transition: var(--ep-transition-colors);
-
-    &:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow:
-        0 0 0 var(--ep-ring-offset) var(--ep-white),
-        0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color);
-    }
-  }
-
-  .ep-btn-primary {
-    background: var(--ep-primary);
-    color: var(--ep-white);
-    border: 1px solid var(--ep-primary);
-
-    &:hover:not(:disabled) {
-      background: var(--ep-blue-700);
-      border-color: var(--ep-blue-700);
-    }
-  }
-
-  .ep-btn-outline {
-    background: var(--ep-white);
-    color: var(--ep-gray-700);
-    border: 1px solid var(--ep-gray-300);
-
-    &:hover:not(:disabled) {
-      background: var(--ep-gray-50);
-      border-color: var(--ep-gray-400);
-      color: var(--ep-gray-900);
-    }
-  }
-
-  .ep-btn-primary.btn-sm,
-  .ep-btn-outline.btn-sm {
-    height: var(--ep-h-8);
-    padding: 0 var(--ep-space-2-5);
-    font-size: var(--ep-text-xs);
-  }
-
-  /* ── Danger button (existing, updated) ───────────────────────────────── */
-
-  .ep-btn-danger {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--ep-h-9);
-    padding: 0 var(--ep-space-3);
-    font-size: var(--ep-text-sm);
-    font-weight: 500;
-    background: var(--ep-red-50);
-    color: var(--ep-red-600);
-    border: 1px solid var(--ep-red-200);
-    border-radius: var(--ep-radius-md);
-    transition: var(--ep-transition-colors);
-
-    &:hover {
-      background: var(--ep-red-100);
-      border-color: var(--ep-red-400);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow:
-        0 0 0 var(--ep-ring-offset) var(--ep-white),
-        0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-red-500);
-    }
   }
 }

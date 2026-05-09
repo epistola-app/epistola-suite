@@ -18,7 +18,7 @@
                 <h2>Resources</h2>
                 <!-- Install All only for subscribed catalogs -->
                 <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"
-                        type="button" class="btn btn-sm btn-primary"
+                        type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id})}"
                         hx-target="#install-preview-body"
                         hx-swap="innerHTML"
@@ -92,7 +92,7 @@
                             </td>
                             <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
                                 <button th:if="${resource.status.name() == 'AVAILABLE'}"
-                                        type="button" class="btn btn-sm btn-primary"
+                                        type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
                                         hx-target="#install-preview-body"
                                         hx-swap="innerHTML"
@@ -177,9 +177,9 @@
               hx-target="#resource-table"
               hx-swap="outerHTML">
             <div class="ep-dialog-footer">
-                <button type="button" class="btn btn-ghost"
+                <button type="button" class="ep-btn ep-btn-ghost"
                         onclick="document.getElementById('install-preview-dialog').close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="ep-btn ep-btn-primary">
                     Install
                     <span th:text="${#lists.size(allResources)}"></span>
                     resource(s)
@@ -204,7 +204,7 @@
             <div class="alert alert-danger" th:text="${error}"></div>
         </div>
         <div class="ep-dialog-footer">
-            <button type="button" class="btn btn-ghost"
+            <button type="button" class="ep-btn ep-btn-ghost"
                     onclick="document.getElementById('install-preview-dialog').close()">Close</button>
         </div>
     </th:block>
@@ -235,7 +235,7 @@
             <p th:if="${usages.isEmpty()}" class="text-muted">No external usages found.</p>
         </div>
         <div class="ep-dialog-footer">
-            <button type="button" class="btn btn-ghost"
+            <button type="button" class="ep-btn ep-btn-ghost"
                     onclick="document.getElementById('usage-detail-dialog').close()">Close</button>
         </div>
     </th:block>

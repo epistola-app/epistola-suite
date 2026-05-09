@@ -11,7 +11,7 @@
                     targetId='theme-rows'
                 )}"></div>
                 <a th:if="${auth.has('THEME_EDIT')}"
-                   th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Theme
                 </a>
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No themes yet</div>
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <a th:if="${auth.has('THEME_EDIT')}"
-               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Theme
             </a>
@@ -78,7 +78,7 @@
                             <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <th:block th:if="${theme.catalogType.name() == 'AUTHORED'}">
                                 <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
-                                   class="btn btn-sm btn-icon btn-ghost" title="Edit theme">
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
                                     <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <form th:if="${auth.has('TENANT_SETTINGS')}"
@@ -88,13 +88,13 @@
                                       hx-swap="innerHTML"
                                       style="display: inline;">
                                     <input type="hidden" name="themeId" th:value="${theme.id}">
-                                    <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
                                         <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                     </button>
                                 </form>
                                 <button th:if="${auth.has('THEME_EDIT') and tenant?.defaultThemeKey != theme.id and #lists.size(themes) > 1}"
                                         type="button"
-                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete theme"
                                         data-confirm-title="Delete Theme"
                                         th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"

@@ -13,7 +13,7 @@
             <h1>Request Log</h1>
             <div class="page-actions">
                 <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-                   class="btn btn-outline">Back to Test Details</a>
+                   class="ep-btn ep-btn-outline">Back to Test Details</a>
             </div>
         </div>
 
@@ -63,7 +63,7 @@
             <div style="display: flex; justify-content: center; align-items: center; gap: var(--ep-space-4); padding: var(--ep-space-4) 0;">
                 <a th:if="${offset > 0}"
                    th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset - limit},limit=${limit})}"
-                   class="btn btn-sm btn-outline">
+                   class="ep-btn ep-btn-outline ep-btn-sm">
                     Previous
                 </a>
                 <span class="text-muted" style="font-size: var(--ep-text-sm);">
@@ -72,7 +72,7 @@
                 </span>
                 <a th:if="${#lists.size(requests) == limit}"
                    th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset + limit},limit=${limit})}"
-                   class="btn btn-sm btn-outline">
+                   class="ep-btn ep-btn-outline ep-btn-sm">
                     Next
                 </a>
             </div>

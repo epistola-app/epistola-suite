@@ -20,7 +20,7 @@
             </h1>
             <div class="page-actions">
                 <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
-                   class="btn btn-outline"
+                   class="ep-btn ep-btn-outline"
                    th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
                     View Request Log
                 </a>
@@ -28,7 +28,7 @@
                       th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
                       method="post"
                       style="display: inline;">
-                    <button type="submit" class="btn btn-destructive">Cancel Test</button>
+                    <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
                 </form>
             </div>
         </div>

@@ -33,8 +33,8 @@
                         <span class="form-error" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Create API key</button>
-                        <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                        <button type="submit" class="ep-btn ep-btn-primary">Create API key</button>
+                        <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>

@@ -10,7 +10,7 @@
                     searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
                     targetId='asset-grid-items'
                 )}"></div>
-                <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="btn btn-primary">
+                <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
                     Upload Asset
                 </a>
@@ -67,7 +67,7 @@
                             <span th:if="${asset.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <th:block th:if="${asset.catalogType.name() == 'AUTHORED'}">
                                 <button type="button"
-                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete asset"
                                         data-confirm-title="Delete Asset"
                                         th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"

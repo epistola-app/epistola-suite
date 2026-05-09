@@ -33,7 +33,7 @@ export function renderJsonSchemaView(
       <!-- Toolbar -->
       <div class="dc-toolbar">
         <button
-          class="ep-btn-outline btn-sm dc-btn-icon"
+          class="ep-btn ep-btn-outline ep-btn-sm dc-btn-icon"
           @click=${() => callbacks.onImportSchema()}
           title="Import a JSON Schema"
         >
@@ -44,7 +44,7 @@ export function renderJsonSchemaView(
 
         ${copySuccess ? html`<span class="dc-status-success">Copied!</span>` : nothing}
         <button
-          class="ep-btn-outline btn-sm"
+          class="ep-btn ep-btn-outline ep-btn-sm"
           @click=${() => callbacks.onCopyToClipboard()}
           ?disabled=${!jsonSchema}
           title="Copy JSON Schema to clipboard"

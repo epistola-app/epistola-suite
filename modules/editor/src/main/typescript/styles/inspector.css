@@ -4,7 +4,7 @@
  * Section labels uppercase/tracked, compact h-8 inputs,
  * subtle node-info background, polished delete section.
  *
- * Uses shared .ep-input, .ep-select, .ep-checkbox, .ep-btn-danger
+ * Uses shared .ep-input, .ep-select, .ep-checkbox, and .ep-btn classes
  * from the design system. Only inspector-specific layout here.
  */
 

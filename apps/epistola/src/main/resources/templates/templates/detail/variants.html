@@ -4,7 +4,7 @@
     <th:block th:fragment="tab-content">
         <!-- Button to open create variant dialog -->
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
-            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('create-variant-dialog').showModal()">+ New Variant</button>
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()">+ New Variant</button>
         </div>
 
         <!-- Create variant dialog -->
@@ -39,8 +39,8 @@
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
-                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('create-variant-dialog').close()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Variant</button>
+                    <button type="button" class="ep-btn ep-btn-ghost" onclick="document.getElementById('create-variant-dialog').close()">Cancel</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Create Variant</button>
                 </div>
             </form>
         </dialog>
@@ -90,31 +90,31 @@
                     <div class="variant-card-footer">
                         <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                            th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                           class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
+                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" hx-boost="false" title="Open editor">
                             <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <form th:if="${auth.has('TEMPLATE_PUBLISH') and editable and variant.hasDraft}"
                               th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-swap="none"
                               style="display: inline;">
-                            <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Publish draft">
+                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Publish draft">
                                 <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>
-                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
                                 th:data-test-data="${contractDataExamples != null and !#lists.isEmpty(contractDataExamples) ? contractDataExamples[0].data : '{}'}"
                                 onclick="previewPdf(this)" title="Preview latest version">
                             <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </button>
-                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 hx-target="#version-history-dialog-body" hx-swap="innerHTML"
                                 onclick="document.getElementById('version-history-dialog').showModal()" title="Version history">
                             <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
                         </button>
-                        <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="btn btn-sm btn-icon btn-ghost"
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 hx-target="#edit-variant-dialog-body" hx-swap="innerHTML"
                                 onclick="document.getElementById('edit-variant-dialog').showModal()" title="Edit variant">
@@ -123,12 +123,12 @@
                         <form th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}"
                               th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section" hx-swap="outerHTML" hx-confirm="Make this the default variant?">
-                            <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
                                 <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}" type="button"
-                                class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete variant"
+                                class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon" title="Delete variant"
                                 data-confirm-title="Delete Variant"
                                 th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title != null ? variant.title : variant.id} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 data-confirm-target="#variants-section" data-confirm-swap="outerHTML"
@@ -136,7 +136,7 @@
                             <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and variant.isDefault}" type="button"
-                                class="btn btn-sm btn-icon btn-ghost" disabled title="Cannot delete the default variant">
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" disabled title="Cannot delete the default variant">
                             <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                     </div>
