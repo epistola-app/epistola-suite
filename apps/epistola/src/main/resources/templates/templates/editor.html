@@ -196,7 +196,13 @@
                     });
                     if (!resp.ok) return null;
                     const v = await resp.json();
-                    return { ref, stencilName: ref.stencilId, version: v.id ?? version, content: v.content };
+                    return {
+                        ref,
+                        stencilName: ref.stencilId,
+                        version: v.id ?? version,
+                        content: v.content,
+                        parameterSchema: v.parameterSchema ?? undefined,
+                    };
                 },
                 createStencil: async (slug, name) => {
                     const resp = await fetch('/tenants/' + tenantId + '/stencils', {

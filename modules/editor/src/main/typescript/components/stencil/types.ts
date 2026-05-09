@@ -31,6 +31,13 @@ export interface StencilVersionInfo {
   version: number;
   /** The template document fragment (nodes + slots) to embed. */
   content: import('../../types/index.js').TemplateDocument;
+  /**
+   * Optional JSON Schema describing the parameters consumers must bind when
+   * inserting this version. Snapshotted onto the consuming stencil node's
+   * props at insert time so render-time / scope-provider lookups don't need
+   * a DB roundtrip. Absent for stencils with no declared parameters.
+   */
+  parameterSchema?: import('../../data-contract/types.js').JsonSchema;
 }
 
 /** Version summary for the version picker. */

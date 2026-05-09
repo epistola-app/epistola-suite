@@ -15,10 +15,16 @@ import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
+import type { JsonSchema } from '../../data-contract/types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
 import { computeAncestorScope } from './ancestry.js';
-import { STENCIL_TYPE, STENCIL_SLOT_CHILDREN } from './constants.js';
+import { buildParameterScope } from '../../engine/parameter-scope.js';
+import {
+  STENCIL_TYPE,
+  STENCIL_SLOT_CHILDREN,
+  STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT,
+} from './constants.js';
 import { isPublishedStencil, isStencil } from './node-types.js';
 import './StencilInspector.js';
 import { nanoid } from 'nanoid';
@@ -260,13 +266,26 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         };
       }
 
-      // Use existing stencil — store content temporarily for createSubtree
-      return {
+      // Use existing stencil — store content temporarily for createSubtree.
+      // parameterSchemaSnapshot, paramsAlias, and parameterBindings (if any)
+      // come straight from the picker; they're persisted on the stencil node
+      // and read by ParameterScope at render time.
+      const overrides: Record<string, unknown> = {
         stencilId: result.versionInfo.ref.stencilId,
         catalogKey: result.versionInfo.ref.catalogKey,
         version: result.versionInfo.version,
         _content: result.versionInfo.content,
       };
+      if (result.versionInfo.parameterSchema) {
+        overrides[STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT] = result.versionInfo.parameterSchema;
+      }
+      if (result.bindings && Object.keys(result.bindings).length > 0) {
+        overrides.parameterBindings = result.bindings;
+      }
+      if (result.paramsAlias && result.paramsAlias !== 'params') {
+        overrides.paramsAlias = result.paramsAlias;
+      }
+      return overrides;
     },
 
     createSubtree: (nodeId: NodeId, props?: Record<string, unknown>) => {
@@ -311,5 +330,17 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         extraSlots: [] as Slot[],
       };
     },
+
+    // Stencils carry their parameter schema as a per-instance snapshot prop
+    // (`parameterSchemaSnapshot`), populated by the picker / upgrade replacer.
+    // The dynamic-function form lets static-parametrised components reuse the
+    // same field in the future by returning a constant.
+    parameters: (node: Node) => {
+      if (!isStencil(node)) return null;
+      const snapshot = node.props.parameterSchemaSnapshot as JsonSchema | undefined;
+      return snapshot ?? null;
+    },
+
+    scopeProvider: buildParameterScope,
   };
 }
