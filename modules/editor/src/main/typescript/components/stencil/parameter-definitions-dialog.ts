@@ -16,7 +16,7 @@ export function openParameterDefinitionsDialog(
     const dialog = document.createElement('dialog');
     dialog.className = 'stencil-picker-dialog';
     dialog.innerHTML = `
-      <div class="stencil-picker-content" style="max-width: 720px;">
+      <div class="stencil-picker-content" style="max-width: min(960px, 90vw); width: 100%;">
         <div class="stencil-picker-header">
           <h3>Define parameters</h3>
           <button type="button" class="stencil-picker-close" aria-label="Close">&times;</button>
