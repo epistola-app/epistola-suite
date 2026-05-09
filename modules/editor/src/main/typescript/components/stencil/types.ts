@@ -75,6 +75,7 @@ export type CreateStencilFn = (
 export type UpdateStencilFn = (
   ref: StencilRef,
   content: import('../../types/index.js').TemplateDocument,
+  parameterSchema?: import('../../data-contract/types.js').JsonSchema,
 ) => Promise<{ version: number }>;
 
 /** Ensure a draft exists for a stencil (creates one if needed). */

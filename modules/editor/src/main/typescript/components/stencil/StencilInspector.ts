@@ -19,8 +19,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
+import type { JsonSchema } from '../../data-contract/types.js';
 import * as stencilActions from './stencil-actions.js';
 import { isStencil } from './node-types.js';
+import './StencilParameterDefinitionsPanel.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -273,7 +275,13 @@ export class StencilInspector extends LitElement {
   // ── Draft: editing mode ──
 
   private _renderDraft() {
+    const schema = isStencil(this.node) ? this.node.props.parameterSchemaSnapshot : undefined;
     return html`
+      <stencil-parameter-definitions-panel
+        .schema=${schema}
+        @parameter-schema-change=${this._onParameterSchemaChange}
+      ></stencil-parameter-definitions-panel>
+
       <div class="inspector-field stencil-actions">
         ${this.callbacks?.updateStencil
           ? html`<button
@@ -309,6 +317,25 @@ export class StencilInspector extends LitElement {
       </div>
     `;
   }
+
+  private _onParameterSchemaChange = (event: Event) => {
+    if (!isStencil(this.node)) return;
+    const detail = (event as CustomEvent<{ schema: JsonSchema; valid: boolean }>).detail;
+    if (!detail.valid) return;
+    const schema = detail.schema;
+    // The snapshot prop on the node is the live edit surface; saveDraft reads
+    // from here when persisting. Empty-properties schemas drop the snapshot
+    // entirely so the stencil reads as "no parameters".
+    const hasProps = schema.properties && Object.keys(schema.properties).length > 0;
+    const next = { ...this.node.props } as Record<string, unknown>;
+    if (hasProps) next.parameterSchemaSnapshot = schema;
+    else delete next.parameterSchemaSnapshot;
+    this.engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: this.node.id,
+      props: next,
+    });
+  };
 
   // ── Click handlers — thin wrappers around stencil-actions ──
 
