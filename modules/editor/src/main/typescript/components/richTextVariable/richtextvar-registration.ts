@@ -12,7 +12,7 @@ import './EpistolaRichTextVariablePreview.js';
 export function createRichTextVariableDefinition(): ComponentDefinition {
   return {
     type: 'richTextVariable',
-    label: 'Rich text variable',
+    label: 'Rich text block',
     icon: 'type',
     category: 'content',
     slots: [],
