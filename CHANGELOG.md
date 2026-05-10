@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Editor feature flags.** `EditorEngine` now carries a typed `EditorFeatureFlags` map forwarded by the host through `mountEditor({ featureFlags })`. Consumers gate experimental affordances via `engine.isFeatureEnabled(flag)` — flag names are `keyof EditorFeatureFlags`, so typos and removals fail the compile rather than silently reading `undefined`. The first flag is `stencilParameters`; new flags require an interface field plus a matching `KnownFeatures` registration and `ShellModelInterceptor` exposure on the backend.
+
+### Changed
+
+- **Stencil parameters are now behind a feature toggle (default off).** The `stencil-parameters` feature toggle (registered in `KnownFeatures`, default `false` in `application.yaml`) gates the editor's parameter authoring UI: the inspector's "Define parameters…" button, the inspector's per-instance "Parameters" section, and the picker dialog's binding step are all hidden unless the toggle is enabled for the tenant. Existing parameter data still renders through the PDF pipeline regardless — only authoring is gated. Tenants enable the preview at `/tenants/{tenantId}/features`.
+
 ### Added (BREAKING)
 
 - **Stencils can declare input parameters.** A stencil version can carry a JSON Schema (`StencilVersion.parameter_schema`, V28 migration) describing typed inputs (string / number / boolean / date, list-of-primitive); when a consumer inserts the stencil, they bind each parameter to a JSONata expression evaluated against the available context (data schema, surrounding `for-each` iteration variables, `sys.pages.current`, …). At render time the bindings are evaluated lazily and pushed onto a new `params.*` namespace inside the stencil's content, so `params.recipientName` resolves to the consumer's bound expression. Bindings are validated cross-document (`NodeParameterBindingValidator` — unknown keys / missing required → 4xx) and preserved across stencil-version upgrades by name (`StencilContentReplacer` reports `droppedBindings` + `unboundRequired` alongside the existing `droppedFills`).

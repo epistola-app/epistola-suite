@@ -86,6 +86,9 @@
         window.DATA_MODEL = /*[[${dataModel}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
         window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
+        window.EPISTOLA_FEATURES = {
+            stencilParameters: /*[[${stencilParametersEnabled}]]*/ false,
+        };
 
         // CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
         window.getCsrfToken = function() {
@@ -122,6 +125,7 @@
             dataExamples: window.DATA_EXAMPLES,
             dataModel: window.DATA_MODEL,
             plugins: plugins,
+            featureFlags: window.EPISTOLA_FEATURES,
             imageOptions: {
                 contentUrlPattern: '/tenants/' + tenantId + '/assets/' + catalogId + '/{assetId}/content',
                 listAssets: async () => {

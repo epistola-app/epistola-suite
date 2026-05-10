@@ -177,6 +177,7 @@ export class StencilInspector extends LitElement {
 
   private _renderParameters() {
     if (!isStencil(this.node)) return nothing;
+    if (!this.engine.isFeatureEnabled('stencilParameters')) return nothing;
     const props = this.node.props;
     const schema = props.parameterSchemaSnapshot;
     if (!schema?.properties || Object.keys(schema.properties).length === 0) return nothing;
@@ -296,15 +297,17 @@ export class StencilInspector extends LitElement {
     const paramCount = schema?.properties ? Object.keys(schema.properties).length : 0;
 
     return html`
-      <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
-        <button
-          class="btn btn-sm btn-outline stencil-btn"
-          @click=${this._handleEditDefinitions}
-          style="width: 100%;"
-        >
-          Define parameters… (${paramCount})
-        </button>
-      </div>
+      ${this.engine.isFeatureEnabled('stencilParameters')
+        ? html`<div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
+            <button
+              class="btn btn-sm btn-outline stencil-btn"
+              @click=${this._handleEditDefinitions}
+              style="width: 100%;"
+            >
+              Define parameters… (${paramCount})
+            </button>
+          </div>`
+        : nothing}
 
       <div class="inspector-field stencil-actions">
         ${this.callbacks?.updateStencil

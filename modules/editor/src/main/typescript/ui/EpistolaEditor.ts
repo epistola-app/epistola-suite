@@ -188,7 +188,11 @@ export class EpistolaEditor extends LitElement {
   initEngine(
     doc: TemplateDocument,
     registry?: ComponentRegistry,
-    options?: { dataModel?: object; dataExamples?: object[] },
+    options?: {
+      dataModel?: object;
+      dataExamples?: object[];
+      featureFlags?: import('../engine/feature-flags.js').EditorFeatureFlags;
+    },
   ): void {
     // Clean up previous engine and save service
     this._unsubEngine?.();
@@ -201,6 +205,7 @@ export class EpistolaEditor extends LitElement {
     this._engine = new EditorEngine(doc, reg, {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
+      featureFlags: options?.featureFlags,
     });
     this._doc = this._engine.doc;
     this._unsubParameterCache = wireParameterCache(this._engine);

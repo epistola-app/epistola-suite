@@ -18,6 +18,7 @@ import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
+import type { EditorFeatureFlags, EditorFeatureFlag } from './feature-flags.js';
 import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
 import { EventEmitter, type EngineEvents } from './events.js';
@@ -57,6 +58,14 @@ export class EditorEngine {
   private _currentExampleIndex: number = 0;
   private _fieldPathsCache: FieldPath[] | undefined;
 
+  /**
+   * Resolved feature flags forwarded by the host. The contract is the
+   * `EditorFeatureFlags` interface; `isFeatureEnabled(flag)` is the typed
+   * read API and catches typos at the call site. Always defined; an
+   * unset flag reads as `false`.
+   */
+  readonly featureFlags: Readonly<EditorFeatureFlags>;
+
   /** Generic component state store (e.g. table cell selection). */
   private _componentState = new Map<string, unknown>();
 
@@ -75,6 +84,7 @@ export class EditorEngine {
       undoDepth?: number;
       dataModel?: object;
       dataExamples?: object[];
+      featureFlags?: EditorFeatureFlags;
     },
   ) {
     this.registry = registry;
@@ -86,6 +96,7 @@ export class EditorEngine {
     this._inheritableKeys = getInheritableKeys(this.styleRegistry);
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
+    this.featureFlags = Object.freeze({ ...(options?.featureFlags ?? {}) });
     this._recomputeStyles();
 
     // Build the ChangeContext that Change implementations use
@@ -116,6 +127,20 @@ export class EditorEngine {
 
   get events(): EventEmitter<EngineEvents> {
     return this._events;
+  }
+
+  // -----------------------------------------------------------------------
+  // Feature flags
+  // -----------------------------------------------------------------------
+
+  /**
+   * Returns true when the named flag is set to `true` on the engine.
+   * The `flag` parameter is constrained to keys of `EditorFeatureFlags`
+   * so typos fail the compile rather than silently reading `undefined`.
+   * Unset flags read as `false`.
+   */
+  isFeatureEnabled(flag: EditorFeatureFlag): boolean {
+    return this.featureFlags[flag] === true;
   }
 
   // -----------------------------------------------------------------------

@@ -266,6 +266,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         disabledStencilIds,
         fieldPaths,
         getExampleData,
+        stencilParametersEnabled: engine.isFeatureEnabled('stencilParameters'),
       });
       if (!result) return null; // Cancelled
 
