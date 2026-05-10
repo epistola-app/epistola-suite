@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatValidationErrors, validateDataAgainstSchema } from './schemaValidation.js';
+import { RICH_TEXT_BLOCK_SCHEMA_REF, RICH_TEXT_INLINE_SCHEMA_REF } from '../types.js';
 import type { JsonObject, JsonSchema } from '../types.js';
 
 describe('validateDataAgainstSchema', () => {
@@ -364,5 +365,87 @@ describe('formatValidationErrors', () => {
     const formatted = formatValidationErrors([]);
 
     expect(formatted).toEqual([]);
+  });
+});
+
+describe('rich-text block $ref shape check', () => {
+  const schema: JsonSchema = {
+    type: 'object',
+    properties: {
+      bio: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF },
+    },
+  };
+
+  it('accepts a doc-shaped value', () => {
+    const result = validateDataAgainstSchema({ bio: { type: 'doc', content: [] } }, schema);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects a plain string for a richTextBlock field', () => {
+    const result = validateDataAgainstSchema(
+      { bio: 'just a string' as unknown as JsonObject },
+      schema,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toMatch(/rich-text document/);
+  });
+
+  it('rejects an array for a richTextBlock field', () => {
+    const result = validateDataAgainstSchema(
+      { bio: [{ type: 'doc' }] as unknown as JsonObject },
+      schema,
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects an object that is not type doc', () => {
+    const result = validateDataAgainstSchema({ bio: { type: 'paragraph', content: [] } }, schema);
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe('rich-text inline $ref shape check', () => {
+  const schema: JsonSchema = {
+    type: 'object',
+    properties: {
+      greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF },
+    },
+  };
+
+  const docOf = (content: unknown[]) => ({ greeting: { type: 'doc', content } });
+
+  it('accepts a single-paragraph doc', () => {
+    const result = validateDataAgainstSchema(docOf([{ type: 'paragraph' }]), schema);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects an empty content array', () => {
+    const result = validateDataAgainstSchema(docOf([]), schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toMatch(/exactly one paragraph/);
+  });
+
+  it('rejects multiple paragraphs', () => {
+    const result = validateDataAgainstSchema(
+      docOf([{ type: 'paragraph' }, { type: 'paragraph' }]),
+      schema,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toMatch(/exactly one paragraph/);
+  });
+
+  it('rejects a non-paragraph block (bullet_list)', () => {
+    const result = validateDataAgainstSchema(docOf([{ type: 'bullet_list' }]), schema);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toMatch(/single paragraph node/);
+  });
+
+  it('rejects a plain string for a richTextInline field', () => {
+    const result = validateDataAgainstSchema(
+      { greeting: 'just a string' as unknown as JsonObject },
+      schema,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toMatch(/inline rich-text document/);
   });
 });

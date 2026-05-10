@@ -929,4 +929,112 @@ class TipTapConverterTest {
         val result = converter.convert(content, emptyMap(), fontCache = fontCache)
         assertEquals(2, result.size)
     }
+
+    @Test
+    fun `expression resolving to a rich-text doc inlines its inline content with marks`() {
+        // Template paragraph with an inline expression chip bound to "bio".
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "About: "),
+                        mapOf("type" to "expression", "attrs" to mapOf("expression" to "bio")),
+                        mapOf("type" to "text", "text" to "."),
+                    ),
+                ),
+            ),
+        )
+
+        // Data: bio is a rich-text doc with one paragraph containing bold text + a link.
+        val data: Map<String, Any?> = mapOf(
+            "bio" to mapOf(
+                "type" to "doc",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "paragraph",
+                        "content" to listOf(
+                            mapOf(
+                                "type" to "text",
+                                "text" to "Bold ",
+                                "marks" to listOf(mapOf("type" to "strong")),
+                            ),
+                            mapOf(
+                                "type" to "text",
+                                "text" to "link",
+                                "marks" to listOf(
+                                    mapOf(
+                                        "type" to "link",
+                                        "attrs" to mapOf("href" to "https://example.com"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, data, fontCache = fontCache)
+        assertEquals(1, result.size)
+        val paragraph = assertIs<Paragraph>(result[0])
+        // 5 children: "About: ", bold text, link element, empty trailing text, "."
+        // We assert at least one Link (from the link mark) and a Text marked bold.
+        val children = paragraph.children
+        assertTrue(children.any { it is Link }, "expected a Link from link mark")
+        assertTrue(children.size >= 3, "expected inline expansion to add multiple text nodes")
+    }
+
+    @Test
+    fun `expression resolving to a rich-text doc with a list drops block content inline`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "before "),
+                        mapOf("type" to "expression", "attrs" to mapOf("expression" to "bio")),
+                        mapOf("type" to "text", "text" to " after"),
+                    ),
+                ),
+            ),
+        )
+
+        // Bio doc contains a paragraph and a list. Only the paragraph's inline
+        // content should be merged into the host paragraph; the list is dropped.
+        val data: Map<String, Any?> = mapOf(
+            "bio" to mapOf(
+                "type" to "doc",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "paragraph",
+                        "content" to listOf(mapOf("type" to "text", "text" to "inlined")),
+                    ),
+                    mapOf(
+                        "type" to "bullet_list",
+                        "content" to listOf(
+                            mapOf(
+                                "type" to "list_item",
+                                "content" to listOf(
+                                    mapOf(
+                                        "type" to "paragraph",
+                                        "content" to listOf(
+                                            mapOf("type" to "text", "text" to "should be dropped"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, data, fontCache = fontCache)
+        // Still one host paragraph; the list did NOT spawn a new block element.
+        assertEquals(1, result.size)
+        assertIs<Paragraph>(result[0])
+    }
 }

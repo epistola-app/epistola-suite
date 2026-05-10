@@ -1,0 +1,212 @@
+{
+  "$id": "https://epistola.app/schemas/richtext-block-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Epistola Rich Text (block) v1",
+  "description": "ProseMirror document subset accepted as a *block* rich-text parameter value. Allowed nodes: doc, paragraph, hard_break, bullet_list, ordered_list, list_item, text. Allowed marks: strong, em, underline, strikethrough, subscript, superscript, link, textStyle. Headings and expressions are reserved for future versions. The companion inline schema is richtext-inline-v1.json (single-paragraph subset).",
+  "type": "object",
+  "required": ["type", "content"],
+  "properties": {
+    "type": { "const": "doc" },
+    "content": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/blockNode" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blockNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/paragraph" },
+        { "$ref": "#/$defs/bulletList" },
+        { "$ref": "#/$defs/orderedList" }
+      ]
+    },
+    "paragraph": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "paragraph" },
+        "attrs": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inlineNode" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "bulletList": {
+      "type": "object",
+      "required": ["type", "content"],
+      "properties": {
+        "type": { "enum": ["bullet_list", "bulletList"] },
+        "attrs": {
+          "type": "object",
+          "properties": {
+            "listStyle": { "enum": ["disc", "circle", "square", "dash"] }
+          },
+          "additionalProperties": false
+        },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/listItem" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "orderedList": {
+      "type": "object",
+      "required": ["type", "content"],
+      "properties": {
+        "type": { "enum": ["ordered_list", "orderedList"] },
+        "attrs": {
+          "type": "object",
+          "properties": {
+            "listType": {
+              "enum": ["decimal", "lower-alpha", "upper-alpha", "lower-roman", "upper-roman"]
+            },
+            "order": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/listItem" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "listItem": {
+      "type": "object",
+      "required": ["type", "content"],
+      "properties": {
+        "type": { "enum": ["list_item", "listItem"] },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/paragraph" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inlineNode": {
+      "oneOf": [{ "$ref": "#/$defs/textNode" }, { "$ref": "#/$defs/hardBreak" }]
+    },
+    "textNode": {
+      "type": "object",
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "const": "text" },
+        "text": { "type": "string" },
+        "marks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mark" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "hardBreak": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["hard_break", "hardBreak"] }
+      },
+      "additionalProperties": false
+    },
+    "mark": {
+      "oneOf": [
+        { "$ref": "#/$defs/markStrong" },
+        { "$ref": "#/$defs/markEm" },
+        { "$ref": "#/$defs/markUnderline" },
+        { "$ref": "#/$defs/markStrikethrough" },
+        { "$ref": "#/$defs/markSubscript" },
+        { "$ref": "#/$defs/markSuperscript" },
+        { "$ref": "#/$defs/markLink" },
+        { "$ref": "#/$defs/markTextStyle" }
+      ]
+    },
+    "markStrong": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["strong", "bold"] }
+      },
+      "additionalProperties": false
+    },
+    "markEm": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["em", "italic"] }
+      },
+      "additionalProperties": false
+    },
+    "markUnderline": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "underline" }
+      },
+      "additionalProperties": false
+    },
+    "markStrikethrough": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["strike", "strikethrough"] }
+      },
+      "additionalProperties": false
+    },
+    "markSubscript": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "subscript" }
+      },
+      "additionalProperties": false
+    },
+    "markSuperscript": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "superscript" }
+      },
+      "additionalProperties": false
+    },
+    "markLink": {
+      "type": "object",
+      "required": ["type", "attrs"],
+      "properties": {
+        "type": { "const": "link" },
+        "attrs": {
+          "type": "object",
+          "required": ["href"],
+          "properties": {
+            "href": { "type": "string", "minLength": 1 },
+            "target": { "type": "string" },
+            "rel": { "type": "string" },
+            "title": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "markTextStyle": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "textStyle" },
+        "attrs": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

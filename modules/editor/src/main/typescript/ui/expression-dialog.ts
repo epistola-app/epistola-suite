@@ -13,6 +13,7 @@
  */
 
 import type { FieldPath } from '../engine/schema-paths.js';
+import { formatFieldPathTypeLabel } from '../data-contract/binding-compatibility.js';
 import {
   tryEvaluateExpression,
   formatForPreview,
@@ -163,6 +164,15 @@ export interface ExpressionDialogOptions {
    * Called after successful evaluation — not called on parse errors or missing data.
    */
   resultValidator?: (value: unknown) => string | null;
+  /**
+   * Optional disable-predicate for field paths in the autocomplete list.
+   * Return a tooltip message string to render the path as a non-clickable
+   * disabled item (with the message as its `title`); return `null` to allow
+   * the path. Used by callers to express domain rules like "an inline chip
+   * cannot bind to a `richTextBlock` field" without leaking that knowledge
+   * into the dialog itself.
+   */
+  pathDisabled?: (fp: FieldPath) => string | null;
 }
 
 export interface ExpressionDialogResult {
@@ -191,6 +201,7 @@ export function openExpressionDialog(
       enableBuilderMode = false,
       fieldPathFilter,
       resultValidator,
+      pathDisabled,
     } = options;
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null;
@@ -202,9 +213,22 @@ export function openExpressionDialog(
         ? tryParseAsBuilderExpression(initialValue, fieldPaths)
         : null
       : null;
+    // If the existing expression points at a path the caller's predicate now
+    // rejects (e.g. a chip created before binding-compatibility was tightened),
+    // open in code mode so the user sees the raw expression rather than a
+    // builder UI that can't represent the bound field.
+    const initialFieldDisabled =
+      initialBuilderState !== null
+        ? !!pathDisabled?.(
+            fieldPaths.find((f) => f.path === initialBuilderState.fieldPath) ?? {
+              path: initialBuilderState.fieldPath,
+              type: 'unknown',
+            },
+          )
+        : false;
     // Default to builder for new/empty expressions or parseable ones; code for complex
     let currentMode: 'builder' | 'code' = enableBuilderMode
-      ? initialValue && !initialBuilderState
+      ? initialValue && (!initialBuilderState || initialFieldDisabled)
         ? 'code'
         : 'builder'
       : 'code';
@@ -212,20 +236,24 @@ export function openExpressionDialog(
     const dataFields = fieldPaths.filter((fp) => !fp.system && !fp.scope);
     const scopedFields = fieldPaths.filter((fp) => fp.scope);
     const systemFields = fieldPaths.filter((fp) => fp.system);
-    // Builder excludes arrays, objects, and any nested array properties (paths containing [])
+    // Builder excludes arrays, objects, nested array properties, and any path
+    // the caller's `pathDisabled` predicate rejects (e.g. richTextBlock fields
+    // for an inline expression chip). The autocomplete list still shows those
+    // paths in a disabled state, but builder mode is a `<select>` and has no
+    // disabled-affordance — omit entirely.
+    const isPickableForBuilder = (fp: FieldPath) =>
+      fp.type !== 'array' && fp.type !== 'object' && !(pathDisabled?.(fp) ?? null);
     const builderFields = dataFields.filter(
-      (fp) => fp.type !== 'array' && fp.type !== 'object' && !fp.path.includes('[]'),
+      (fp) => isPickableForBuilder(fp) && !fp.path.includes('[]'),
     );
-    const builderScopedFields = scopedFields.filter(
-      (fp) => fp.type !== 'array' && fp.type !== 'object',
-    );
+    const builderScopedFields = scopedFields.filter(isPickableForBuilder);
     const dateFieldPaths = new Set(
       fieldPaths.filter((fp) => fp.type === 'date' || fp.type === 'datetime').map((fp) => fp.path),
     );
 
     // --- Build field options HTML ---
     const fieldOptionHtml = (fp: FieldPath) =>
-      `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`;
+      `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(formatFieldPathTypeLabel(fp))}">${escapeHtml(fp.path)}</option>`;
 
     const fieldOptionsHtml = [
       '<option value="">Select a field...</option>',
@@ -429,7 +457,7 @@ export function openExpressionDialog(
     });
 
     // --- Code mode: field paths + quick reference ---
-    renderFieldPaths(pathsContainer, input, fieldPaths, fieldPathFilter);
+    renderFieldPaths(pathsContainer, input, fieldPaths, fieldPathFilter, pathDisabled);
     renderQuickReference(refList, input);
 
     // --- Builder mode logic ---
@@ -615,6 +643,7 @@ function renderFieldPaths(
   input: HTMLInputElement,
   fieldPaths: FieldPath[],
   fieldPathFilter?: (fp: FieldPath) => boolean,
+  pathDisabled?: (fp: FieldPath) => string | null,
 ): void {
   if (fieldPaths.length === 0) return;
 
@@ -644,7 +673,7 @@ function renderFieldPaths(
 
   // Render data fields
   for (const fp of dataFields) {
-    const li = createFieldPathItem(fp, input, fieldPathFilter);
+    const li = createFieldPathItem(fp, input, fieldPathFilter, pathDisabled);
     list.appendChild(li);
     items.push({ li, path: fp.path });
   }
@@ -657,7 +686,7 @@ function renderFieldPaths(
     list.appendChild(scopeHeader);
 
     for (const fp of scopedFields) {
-      const li = createFieldPathItem(fp, input, fieldPathFilter);
+      const li = createFieldPathItem(fp, input, fieldPathFilter, pathDisabled);
       li.classList.add('scoped');
       if (fp.description) {
         li.title = fp.description;
@@ -675,7 +704,7 @@ function renderFieldPaths(
     list.appendChild(sysHeader);
 
     for (const fp of systemFields) {
-      const li = createFieldPathItem(fp, input, fieldPathFilter);
+      const li = createFieldPathItem(fp, input, fieldPathFilter, pathDisabled);
       li.classList.add('system');
       if (fp.description) {
         li.title = fp.description;
@@ -713,6 +742,7 @@ function createFieldPathItem(
   fp: FieldPath,
   input: HTMLInputElement,
   fieldPathFilter?: (fp: FieldPath) => boolean,
+  pathDisabled?: (fp: FieldPath) => string | null,
 ): HTMLLIElement {
   const li = document.createElement('li');
   li.className = 'expression-dialog-path-item';
@@ -721,18 +751,26 @@ function createFieldPathItem(
     li.classList.add('highlighted');
   }
 
+  const disabledReason = pathDisabled?.(fp) ?? null;
+  if (disabledReason !== null) {
+    li.classList.add('disabled');
+    li.title = disabledReason;
+    li.setAttribute('aria-disabled', 'true');
+  }
+
   const pathSpan = document.createElement('span');
   pathSpan.className = 'expression-dialog-path-name';
   pathSpan.textContent = fp.path;
 
   const typeSpan = document.createElement('span');
   typeSpan.className = 'expression-dialog-path-type';
-  typeSpan.textContent = fp.type;
+  typeSpan.textContent = formatFieldPathTypeLabel(fp);
 
   li.appendChild(pathSpan);
   li.appendChild(typeSpan);
 
   li.addEventListener('click', () => {
+    if (disabledReason !== null) return;
     input.value = fp.path;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.focus();

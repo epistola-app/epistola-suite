@@ -4,10 +4,12 @@
  * Used by: command validation, block palette, inspector, DnD.
  */
 
+import { html } from 'lit';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
 import type { FieldPath } from './schema-paths.js';
+import { richTextVariablePathDisabled } from '../data-contract/binding-compatibility.js';
 import { nanoid } from 'nanoid';
 import { createTableDefinition } from '../components/table/table-registration.js';
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';
@@ -15,6 +17,7 @@ import { createDatatableDefinition } from '../components/datatable/datatable-reg
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
 import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
 import { createPlaceholderDefinition } from '../components/placeholder/placeholder-registration.js';
+import '../components/richTextVariable/EpistolaRichTextVariablePreview.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -73,6 +76,14 @@ export interface InspectorField {
   defaultValue?: unknown;
   /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
   units?: string[];
+  /**
+   * For `type: 'expression'` only — predicate consulted by the expression
+   * dialog when listing available field paths. Return a tooltip string to
+   * mark the path disabled (e.g. "this kind of binding cannot accept a
+   * block rich-text field"); return `null` to allow it. The engine treats
+   * the predicate as opaque so component-specific rules don't leak here.
+   */
+  pathDisabled?: (fp: import('./schema-paths.js').FieldPath) => string | null;
 }
 
 /**
@@ -599,6 +610,58 @@ export function createDefaultRegistry(): ComponentRegistry {
                   ],
                 },
               },
+            },
+          },
+          slots: {},
+        },
+      },
+    ],
+  });
+
+  registry.register({
+    type: 'richTextVariable',
+    label: 'Rich text variable',
+    icon: 'type',
+    category: 'content',
+    slots: [],
+    allowedChildren: { mode: 'none' },
+    applicableStyles: 'all',
+    inspector: [
+      {
+        key: 'binding',
+        label: 'Binding',
+        type: 'expression',
+        defaultValue: '',
+        pathDisabled: richTextVariablePathDisabled,
+      },
+    ],
+    defaultStyles: { marginBottom: '1.5sp' },
+    defaultProps: { binding: '' },
+    renderCanvas: ({ node, engine: eng }) => {
+      const binding = (node.props?.binding as string | undefined) ?? '';
+      return html`
+        <div class="rich-text-variable-canvas">
+          <epistola-rich-text-variable-preview
+            .engine=${eng}
+            .nodeId=${node.id}
+            .binding=${binding}
+          ></epistola-rich-text-variable-preview>
+        </div>
+      `;
+    },
+    examples: [
+      {
+        name: 'minimal',
+        description:
+          'Renders the rich-text value bound at the given data path as block content (paragraphs, lists, marks).',
+        fragment: {
+          rootNodeId: 'n-richtextvar-minimal',
+          nodes: {
+            'n-richtextvar-minimal': {
+              id: 'n-richtextvar-minimal',
+              type: 'richTextVariable',
+              slots: [],
+              props: { binding: 'customer.bio' },
             },
           },
           slots: {},

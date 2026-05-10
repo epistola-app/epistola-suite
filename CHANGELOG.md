@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Rich-text parameter values (phase 1).** Data contracts can declare rich-text properties as one of two field types — `richTextInline` for single-paragraph values (a name with bold marks, a greeting with a link) and `richTextBlock` for multi-paragraph values with lists. Wire format is a ProseMirror JSON document constrained by one of two published JSON Schemas: `https://epistola.app/schemas/richtext-inline-v1.json` (single paragraph; text, hard-break, marks) and `https://epistola.app/schemas/richtext-block-v1.json` (paragraphs, hard breaks, bullet/ordered lists, marks). Contracts reference them via standard `$ref` so the existing JSON Schema validators on both sides validate values automatically — sending a list to a `richTextInline` field, or any block content to an inline expression chip, is rejected at preview/generate time with a clear validator error rather than silently dropped. Two consumption surfaces: an inline expression chip (accepts scalars + `richTextInline`, rejects `richTextBlock`) and a new `richTextVariable` block component (accepts only rich-text fields). Binding compatibility is enforced by the expression-dialog field-path picker: incompatible paths render disabled with a tooltip. Allowed marks: `strong`, `em`, `underline`, `strikethrough`, `subscript`, `superscript`, `link`, `textStyle` (color). Headings and inline `expression` nodes inside rich-text values are reserved for v2.
+
 ## [0.19.0] - 2026-05-08
 
 ### Fixed

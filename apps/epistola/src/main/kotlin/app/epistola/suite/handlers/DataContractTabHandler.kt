@@ -6,6 +6,7 @@ import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
+import app.epistola.suite.templates.validation.RefTypeRegistry
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -64,7 +65,9 @@ class DataContractTabHandler(
 
         for ((name, _) in properties.properties()) {
             val prop = properties.get(name) as? ObjectNode ?: continue
-            val type = prop.get("type")?.asString() ?: "unknown"
+            val type = prop.get("type")?.asString()
+                ?: RefTypeRegistry.findByUrl(prop.get("\$ref")?.asString())?.label
+                ?: "unknown"
             val path = if (prefix.isEmpty()) name else "$prefix.$name"
             val description = prop.get("description")?.asString()
 

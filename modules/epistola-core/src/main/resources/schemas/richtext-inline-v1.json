@@ -1,0 +1,154 @@
+{
+  "$id": "https://epistola.app/schemas/richtext-inline-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Epistola Rich Text (inline) v1",
+  "description": "ProseMirror document subset accepted as an *inline* rich-text parameter value. The value must be a doc with exactly one paragraph. Allowed inline nodes: text, hard_break. Allowed marks: strong, em, underline, strikethrough, subscript, superscript, link, textStyle. Block-level nodes (lists, multiple paragraphs, headings) and expressions are disallowed — for those, use richtext-block-v1.json. Marks are duplicated here (not $ref'd across schemas) so this schema is self-contained when networknt resolves it standalone.",
+  "type": "object",
+  "required": ["type", "content"],
+  "properties": {
+    "type": { "const": "doc" },
+    "content": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": { "$ref": "#/$defs/paragraph" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "paragraph": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "paragraph" },
+        "attrs": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inlineNode" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inlineNode": {
+      "oneOf": [{ "$ref": "#/$defs/textNode" }, { "$ref": "#/$defs/hardBreak" }]
+    },
+    "textNode": {
+      "type": "object",
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "const": "text" },
+        "text": { "type": "string" },
+        "marks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mark" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "hardBreak": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["hard_break", "hardBreak"] }
+      },
+      "additionalProperties": false
+    },
+    "mark": {
+      "oneOf": [
+        { "$ref": "#/$defs/markStrong" },
+        { "$ref": "#/$defs/markEm" },
+        { "$ref": "#/$defs/markUnderline" },
+        { "$ref": "#/$defs/markStrikethrough" },
+        { "$ref": "#/$defs/markSubscript" },
+        { "$ref": "#/$defs/markSuperscript" },
+        { "$ref": "#/$defs/markLink" },
+        { "$ref": "#/$defs/markTextStyle" }
+      ]
+    },
+    "markStrong": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["strong", "bold"] }
+      },
+      "additionalProperties": false
+    },
+    "markEm": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["em", "italic"] }
+      },
+      "additionalProperties": false
+    },
+    "markUnderline": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "underline" }
+      },
+      "additionalProperties": false
+    },
+    "markStrikethrough": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["strike", "strikethrough"] }
+      },
+      "additionalProperties": false
+    },
+    "markSubscript": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "subscript" }
+      },
+      "additionalProperties": false
+    },
+    "markSuperscript": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "superscript" }
+      },
+      "additionalProperties": false
+    },
+    "markLink": {
+      "type": "object",
+      "required": ["type", "attrs"],
+      "properties": {
+        "type": { "const": "link" },
+        "attrs": {
+          "type": "object",
+          "required": ["href"],
+          "properties": {
+            "href": { "type": "string", "minLength": 1 },
+            "target": { "type": "string" },
+            "rel": { "type": "string" },
+            "title": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "markTextStyle": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "textStyle" },
+        "attrs": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

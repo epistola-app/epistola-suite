@@ -6,10 +6,14 @@
  * - type: string, number, integer, boolean, object, array (single type only)
  * - format: "date" (on strings only)
  * - properties, required, items, description, additionalProperties, $schema
+ * - $ref: only when it resolves to one of the registered ref types (see
+ *   `data-contract/ref-types.ts`). Other $ref values stay incompatible.
  *
  * Any features outside this subset make the schema "incompatible" — the
  * visual editor is disabled and a read-only JSON view is shown instead.
  */
+
+import { findRefType } from '../ref-types.js';
 
 // =============================================================================
 // Types
@@ -138,6 +142,24 @@ function checkProperty(
   path: string,
   issues: CompatibilityIssue[],
 ): void {
+  // $ref to a registered ref type is compatible. Such properties have no
+  // `type`/`properties`/`items` of their own — the schema body lives behind
+  // the URL. Mixing $ref with `type`/`properties`/`items` is suspicious and
+  // flagged so authors notice the contradiction.
+  if (typeof prop.$ref === 'string' && findRefType(prop.$ref) !== null) {
+    const competing = ['type', 'properties', 'items'].filter((k) => k in prop);
+    if (competing.length > 0) {
+      issues.push({
+        path: `${path}.$ref`,
+        feature: '$ref-with-type',
+        description: `Mixing "$ref" with ${competing.map((k) => `"${k}"`).join(' / ')} is not supported`,
+      });
+    }
+    // Any other keys (description, etc.) are fine; skip the rest of the
+    // generic checks since they assume a structurally-defined property.
+    return;
+  }
+
   // Check for unsupported keys
   for (const key of Object.keys(prop)) {
     if (!SUPPORTED_PROPERTY_KEYS.has(key)) {

@@ -1,5 +1,66 @@
 import { describe, expect, it } from 'vitest';
 import { checkSchemaCompatibility } from './schemaCompatibility.js';
+import { RICH_TEXT_BLOCK_SCHEMA_REF, RICH_TEXT_INLINE_SCHEMA_REF } from '../types.js';
+
+describe('checkSchemaCompatibility — registered $ref handling', () => {
+  it('accepts a property whose $ref is the inline rich-text URL', () => {
+    const result = checkSchemaCompatibility({
+      type: 'object',
+      properties: {
+        greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF },
+      },
+    });
+    expect(result.compatible).toBe(true);
+    expect(result.issues).toHaveLength(0);
+  });
+
+  it('accepts a property whose $ref is the block rich-text URL', () => {
+    const result = checkSchemaCompatibility({
+      type: 'object',
+      properties: {
+        bio: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF, description: 'Customer bio' },
+      },
+    });
+    expect(result.compatible).toBe(true);
+    expect(result.issues).toHaveLength(0);
+  });
+
+  it('flags a $ref whose URL is not registered', () => {
+    const result = checkSchemaCompatibility({
+      type: 'object',
+      properties: {
+        thing: { $ref: 'https://example.com/other.json' },
+      },
+    });
+    expect(result.compatible).toBe(false);
+    expect(result.issues.some((i) => i.feature === '$ref')).toBe(true);
+  });
+
+  it('flags a property that mixes $ref with a competing type', () => {
+    const result = checkSchemaCompatibility({
+      type: 'object',
+      properties: {
+        bio: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF, type: 'string' },
+      },
+    });
+    expect(result.compatible).toBe(false);
+    expect(result.issues.some((i) => i.feature === '$ref-with-type')).toBe(true);
+  });
+
+  it('flags a property that mixes $ref with properties or items', () => {
+    const result = checkSchemaCompatibility({
+      type: 'object',
+      properties: {
+        bio: {
+          $ref: RICH_TEXT_INLINE_SCHEMA_REF,
+          properties: { extra: { type: 'string' } },
+        },
+      },
+    });
+    expect(result.compatible).toBe(false);
+    expect(result.issues.some((i) => i.feature === '$ref-with-type')).toBe(true);
+  });
+});
 
 describe('checkSchemaCompatibility', () => {
   // ===========================================================================

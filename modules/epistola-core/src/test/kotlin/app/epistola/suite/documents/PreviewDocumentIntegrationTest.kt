@@ -209,6 +209,68 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     .hasMessageContaining("name")
             }
         }
+
+        @Test
+        fun `preview rejects rich-text data that violates the registered ref schema`() = scenario {
+            given {
+                val tenant = tenant("RichText Validation Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "RichText Template")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val templateModel = TestTemplateBuilder.buildMinimal(name = "RichText Template")
+                val version = version(compositeVariantId, templateModel)
+
+                // Contract declares `greeting` as a richTextInline value (single paragraph).
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                    templateId = compositeTemplateId,
+                    dataModel = objectMapper.readValue(
+                        """
+                        {
+                          "type": "object",
+                          "properties": {
+                            "greeting": { "${"$"}ref": "https://epistola.app/schemas/richtext-inline-v1.json" }
+                          }
+                        }
+                        """.trimIndent(),
+                        tools.jackson.databind.node.ObjectNode::class.java,
+                    ),
+                ).execute()
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                setup
+            }.then { setup, _ ->
+                // A multi-paragraph doc violates the inline single-paragraph constraint.
+                val multiParagraphDoc = objectMapper.readValue(
+                    """
+                    {
+                      "greeting": {
+                        "type": "doc",
+                        "content": [
+                          { "type": "paragraph", "content": [{ "type": "text", "text": "first" }] },
+                          { "type": "paragraph", "content": [{ "type": "text", "text": "second" }] }
+                        ]
+                      }
+                    }
+                    """.trimIndent(),
+                    tools.jackson.databind.node.ObjectNode::class.java,
+                )
+                assertThatThrownBy {
+                    query(
+                        PreviewVariant(
+                            tenantId = setup.tenant.id,
+                            catalogKey = CatalogKey.DEFAULT,
+                            templateId = setup.template.id,
+                            variantId = setup.variant.id,
+                            data = multiParagraphDoc,
+                        ),
+                    )
+                }.isInstanceOf(IllegalArgumentException::class.java)
+                    .hasMessageContaining("Data validation failed")
+                    .hasMessageContaining("greeting")
+            }
+        }
     }
 
     @Nested

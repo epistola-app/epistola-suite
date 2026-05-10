@@ -17,8 +17,31 @@
  */
 
 import { html, nothing } from 'lit';
-import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
+import {
+  type JsonObject,
+  type JsonSchema,
+  type JsonSchemaProperty,
+  type JsonValue,
+} from '../types.js';
+import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import type { SchemaValidationError } from '../utils/schemaValidation.js';
+import './EpistolaRichTextInput.js';
+
+/** Resolve a JSON Schema property to a simple type label, including ref types. */
+function resolvePropertyType(prop: JsonSchemaProperty | null | undefined): string {
+  if (!prop) return 'string';
+  const refType = findRefType(prop.$ref);
+  if (refType !== null) return refType.id;
+  const raw = Array.isArray(prop.type) ? prop.type[0] : prop.type;
+  if (raw === undefined) return 'string';
+  if (raw === 'string' && prop.format === 'date') return 'date';
+  return raw;
+}
+
+/** True for any field type that the registry recognises as a ref-shaped value. */
+function isRefFieldType(type: string): type is RefTypeId {
+  return type === 'richTextInline' || type === 'richTextBlock';
+}
 
 // ---------------------------------------------------------------------------
 // Deep value helpers
@@ -196,8 +219,7 @@ function renderFormField(
   errors: Map<string, string>,
   readOnly: boolean,
 ): unknown {
-  const rawType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type;
-  const type = rawType === 'string' && propSchema.format === 'date' ? 'date' : rawType;
+  const type = resolvePropertyType(propSchema);
   const value = getNestedValue(rootData, path);
   const fieldError = errors.get(path);
   const fieldId = fieldIdFromPath(path);
@@ -325,6 +347,29 @@ function renderFormField(
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
             />
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
+              : nothing}
+          </div>
+        </div>
+      `;
+
+    case 'richTextInline':
+    case 'richTextBlock':
+      return html`
+        <div class="dc-tree-row dc-tree-row-rich-text">
+          ${label}
+          <div class="dc-tree-input-wrapper">
+            <epistola-rich-text-input
+              class="dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              id=${fieldId}
+              .value=${value ?? null}
+              ?readOnly=${readOnly}
+              .placeholder=${name}
+              .mode=${type === 'richTextInline' ? 'inline' : 'block'}
+              @rich-text-change=${(e: CustomEvent<{ value: JsonValue }>) =>
+                onChange(path, e.detail.value)}
+            ></epistola-rich-text-input>
             ${fieldError
               ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
               : nothing}
@@ -467,12 +512,7 @@ function renderArrayField(
   const currentValue = getNestedValue(rootData, path);
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : [];
   const itemSchema = propSchema.items;
-  const rawItemType = itemSchema
-    ? Array.isArray(itemSchema.type)
-      ? itemSchema.type[0]
-      : itemSchema.type
-    : 'string';
-  const itemType = rawItemType === 'string' && itemSchema?.format === 'date' ? 'date' : rawItemType;
+  const itemType = resolvePropertyType(itemSchema);
 
   const addItem = () => {
     const defaultValue = getDefaultValueForType(itemType, itemSchema);
@@ -765,6 +805,19 @@ function renderPrimitiveInput(
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
         />
       `;
+    case 'richTextInline':
+    case 'richTextBlock':
+      return html`
+        <epistola-rich-text-input
+          class="dc-array-item-input ${errorClass}"
+          .value=${value ?? null}
+          ?readOnly=${readOnly}
+          .placeholder=${label}
+          aria-label="${label}"
+          .mode=${type === 'richTextInline' ? 'inline' : 'block'}
+          @rich-text-change=${(e: CustomEvent<{ value: JsonValue }>) => onChange(e.detail.value)}
+        ></epistola-rich-text-input>
+      `;
     default:
       return html`
         <input
@@ -798,14 +851,17 @@ function getDefaultValueForType(type: string, schema?: JsonSchemaProperty | null
       if (!schema?.properties) return {};
       const obj: Record<string, JsonValue> = {};
       for (const [key, propSchema] of Object.entries(schema.properties)) {
-        const propType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type;
-        obj[key] = getDefaultValueForType(propType, propSchema);
+        obj[key] = getDefaultValueForType(resolvePropertyType(propSchema), propSchema);
       }
       return obj;
     }
     case 'array':
       return [];
     default:
+      // Ref-based field types deliver their default via the registry.
+      if (isRefFieldType(type)) {
+        return getRefTypeById(type).defaultValue();
+      }
       return '';
   }
 }

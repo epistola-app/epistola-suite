@@ -223,6 +223,8 @@ const FIELD_TYPES: SchemaFieldType[] = [
   'integer',
   'boolean',
   'date',
+  'richTextInline',
+  'richTextBlock',
   'array',
   'object',
 ];
@@ -234,6 +236,8 @@ const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
   'integer',
   'boolean',
   'date',
+  'richTextInline',
+  'richTextBlock',
   'object',
 ];
 
