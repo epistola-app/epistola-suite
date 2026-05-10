@@ -271,6 +271,117 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     .hasMessageContaining("greeting")
             }
         }
+
+        @Test
+        fun `preview renders a richTextVariable node bound to a richTextBlock contract field`() = scenario {
+            given {
+                val tenant = tenant("RichText Variable Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "RichText Variable Template")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+
+                // Template: root → richTextVariable bound to "bio"
+                val rootId = "root-rtv"
+                val rootSlot = "root-slot-rtv"
+                val rtvId = "rtv-1"
+                val templateModel = app.epistola.template.model.TemplateDocument(
+                    modelVersion = 1,
+                    root = rootId,
+                    nodes = mapOf(
+                        rootId to app.epistola.template.model.Node(
+                            id = rootId,
+                            type = "root",
+                            slots = listOf(rootSlot),
+                        ),
+                        rtvId to app.epistola.template.model.Node(
+                            id = rtvId,
+                            type = "richTextVariable",
+                            slots = emptyList(),
+                            props = mapOf("binding" to "bio"),
+                        ),
+                    ),
+                    slots = mapOf(
+                        rootSlot to app.epistola.template.model.Slot(
+                            id = rootSlot,
+                            nodeId = rootId,
+                            name = "children",
+                            children = listOf(rtvId),
+                        ),
+                    ),
+                    themeRef = app.epistola.template.model.ThemeRef.Inherit,
+                )
+                val version = version(compositeVariantId, templateModel)
+
+                // Contract: bio is a richTextBlock value.
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                    templateId = compositeTemplateId,
+                    dataModel = objectMapper.readValue(
+                        """
+                            {
+                              "type": "object",
+                              "properties": {
+                                "bio": { "${"$"}ref": "https://epistola.app/schemas/richtext-block-v1.json" }
+                              }
+                            }
+                        """.trimIndent(),
+                        tools.jackson.databind.node.ObjectNode::class.java,
+                    ),
+                ).execute()
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                val data = objectMapper.readValue(
+                    """
+                        {
+                          "bio": {
+                            "type": "doc",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  { "type": "text", "text": "Founded in " },
+                                  { "type": "text", "text": "1999", "marks": [{ "type": "strong" }] }
+                                ]
+                              },
+                              {
+                                "type": "bullet_list",
+                                "content": [
+                                  {
+                                    "type": "list_item",
+                                    "content": [
+                                      {
+                                        "type": "paragraph",
+                                        "content": [{ "type": "text", "text": "Quality" }]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                    """.trimIndent(),
+                    tools.jackson.databind.node.ObjectNode::class.java,
+                )
+                query(
+                    PreviewVariant(
+                        tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
+                        templateId = setup.template.id,
+                        variantId = setup.variant.id,
+                        data = data,
+                    ),
+                )
+            }.then { _, pdfBytes ->
+                // PDF rendered through DirectPdfRenderer + RichTextVariableRenderer.
+                // Structural check: non-empty %PDF-marker'd byte stream, larger than
+                // the empty-content baseline so we know the rendered block landed.
+                assertThat(pdfBytes).isNotEmpty()
+                assertThat(String(pdfBytes.copyOfRange(0, 4))).isEqualTo("%PDF")
+                assertThat(pdfBytes.size).isGreaterThan(1000)
+            }
+        }
     }
 
     @Nested
