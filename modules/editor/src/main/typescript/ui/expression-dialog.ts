@@ -13,7 +13,10 @@
  */
 
 import type { FieldPath } from '../engine/schema-paths.js';
-import { formatFieldPathTypeLabel } from '../data-contract/binding-compatibility.js';
+import {
+  formatBindingPreviewPlaceholder,
+  formatFieldPathTypeLabel,
+} from '../data-contract/binding-compatibility.js';
 import {
   tryEvaluateExpression,
   formatForPreview,
@@ -834,7 +837,8 @@ function updatePreview(
         previewEl.textContent = validationError;
       } else {
         previewEl.className = 'expression-dialog-preview success';
-        previewEl.textContent = `Preview: ${formatForPreview(result.value)}`;
+        const placeholder = formatBindingPreviewPlaceholder(result.value);
+        previewEl.textContent = `Preview: ${placeholder ?? formatForPreview(result.value)}`;
       }
     } else {
       previewEl.className = 'expression-dialog-preview error';

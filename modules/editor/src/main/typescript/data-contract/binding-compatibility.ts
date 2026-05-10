@@ -15,7 +15,7 @@
  */
 
 import type { FieldPath } from '../engine/schema-paths.js';
-import { findRefType, isAnyRefType, isRefType } from './ref-types.js';
+import { classifyValue, findRefType, isAnyRefType, isRefType } from './ref-types.js';
 
 /** Predicate signature consumed by the expression dialog. */
 export type PathDisabledPredicate = (fp: FieldPath) => string | null;
@@ -54,4 +54,16 @@ export const richTextVariablePathDisabled: PathDisabledPredicate = (fp) => {
  */
 export function formatFieldPathTypeLabel(fp: FieldPath): string {
   return findRefType(fp.ref)?.label ?? fp.type;
+}
+
+/**
+ * Display-side helper for the expression dialog's resolved-value preview.
+ * For values that match a registered ref type (e.g. a rich-text doc) the raw
+ * JSON is unhelpful — render a stable placeholder instead so authors know
+ * the binding resolved without seeing a wall of ProseMirror JSON. Returns
+ * `null` when the value isn't a ref-shaped value; the caller then falls back
+ * to its generic formatter (`formatForPreview`).
+ */
+export function formatBindingPreviewPlaceholder(value: unknown): string | null {
+  return classifyValue(value) !== null ? '[rich text value]' : null;
 }
