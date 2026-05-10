@@ -102,6 +102,22 @@ The feature toggles management page is at `/tenants/{tenantId}/features` (Settin
 
 ## Current Features
 
-| Key        | Description                                                  | Default |
-| ---------- | ------------------------------------------------------------ | ------- |
-| `feedback` | Enables the feedback system (nav link, FAB, console capture) | `true`  |
+| Key                  | Description                                                                  | Default |
+| -------------------- | ---------------------------------------------------------------------------- | ------- |
+| `feedback`           | Enables the feedback system (nav link, FAB, console capture)                 | `true`  |
+| `stencil-parameters` | Typed parameters on stencils (preview). Existing data renders when disabled. | `false` |
+
+## Editor feature flags
+
+The template editor receives feature flags from the backend through a typed
+contract (`EditorFeatureFlags` in `modules/editor/src/main/typescript/engine/feature-flags.ts`).
+`ShellModelInterceptor` exposes resolved flags as Thymeleaf model attributes
+(e.g. `stencilParametersEnabled`); `templates/editor.html` forwards them to
+`mountEditor` via the `featureFlags` option, and the engine surfaces them
+through `engine.isFeatureEnabled(flag)`. Components consult the engine
+directly rather than threading boolean props through their own constructors.
+
+To add a new editor flag: add a field to `EditorFeatureFlags`, register the
+matching `FeatureKey` in `KnownFeatures` (with a default in `FeatureDefaults`
+and `application.yaml`), expose it on `ShellModelInterceptor`, and forward
+it from the editor template's `EPISTOLA_FEATURES` window global.

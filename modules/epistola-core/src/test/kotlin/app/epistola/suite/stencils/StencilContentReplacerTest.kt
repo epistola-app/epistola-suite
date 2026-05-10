@@ -8,6 +8,8 @@ import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 @Tag("unit")
 class StencilContentReplacerTest {
@@ -473,5 +475,189 @@ class StencilContentReplacerTest {
 
         // The two fills must have distinct IDs (re-keyed independently)
         assertThat(s1Fill.children[0]).isNotEqualTo(s2Fill.children[0])
+    }
+
+    // ── Parameter binding preservation across upgrades ──────────────────────
+
+    private val mapper = ObjectMapper()
+
+    private fun schema(json: String): ObjectNode = mapper.readValue(json, ObjectNode::class.java)
+
+    private fun stencilWithParameters(
+        bindings: Map<String, String>,
+        oldSnapshot: ObjectNode? = null,
+    ): Node {
+        val props = mutableMapOf<String, Any?>(
+            "stencilId" to "header",
+            "version" to 1,
+            "parameterBindings" to bindings,
+        )
+        if (oldSnapshot != null) props["parameterSchemaSnapshot"] = oldSnapshot
+        return Node(id = "stencil-1", type = "stencil", slots = listOf("stencil-1-slot"), props = props)
+    }
+
+    private fun parametrisedTemplate(stencilNode: Node): TemplateDocument = doc(
+        "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+        "stencil-1" to stencilNode,
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-1")),
+            "stencil-1-slot" to Slot(id = "stencil-1-slot", nodeId = "stencil-1", name = "children", children = emptyList()),
+        ),
+    )
+
+    @Test
+    fun `preserves bindings whose param names still exist in the new schema`() {
+        val newSchema = schema(
+            """{"type":"object","properties":{"name":{"type":"string"}}}""",
+        )
+        val template = parametrisedTemplate(
+            stencilWithParameters(bindings = mapOf("name" to "customer.name")),
+        )
+
+        val result = StencilContentReplacer.upgradeStencilInstances(
+            template,
+            stencilId = "header",
+            newVersion = 2,
+            newContent = stencilContent(),
+            newParameterSchema = newSchema,
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        val bindings = result.document.nodes["stencil-1"]?.props?.get("parameterBindings") as? Map<String, String>
+        assertThat(bindings).containsEntry("name", "customer.name")
+        assertThat(result.droppedBindings).isEmpty()
+        assertThat(result.unboundRequired).isEmpty()
+    }
+
+    @Test
+    fun `reports droppedBindings when a bound param is removed from the schema`() {
+        val newSchema = schema(
+            """{"type":"object","properties":{"name":{"type":"string"}}}""",
+        )
+        val template = parametrisedTemplate(
+            stencilWithParameters(
+                bindings = mapOf(
+                    "name" to "customer.name",
+                    "removed" to "old.expr",
+                ),
+            ),
+        )
+
+        val result = StencilContentReplacer.upgradeStencilInstances(
+            template,
+            stencilId = "header",
+            newVersion = 2,
+            newContent = stencilContent(),
+            newParameterSchema = newSchema,
+        )
+
+        // Surviving binding stays.
+        @Suppress("UNCHECKED_CAST")
+        val bindings = result.document.nodes["stencil-1"]?.props?.get("parameterBindings") as? Map<String, String>
+        assertThat(bindings).containsEntry("name", "customer.name")
+        assertThat(bindings).doesNotContainKey("removed")
+
+        // Dropped one is reported with its expression so the UI can show it.
+        assertThat(result.droppedBindings).containsKey("stencil-1")
+        val dropped = result.droppedBindings["stencil-1"]!!
+        assertThat(dropped).hasSize(1)
+        assertThat(dropped[0].name).isEqualTo("removed")
+        assertThat(dropped[0].expression).isEqualTo("old.expr")
+    }
+
+    @Test
+    fun `reports unboundRequired when a newly-required param has no preserved binding`() {
+        val newSchema = schema(
+            """
+            {"type":"object","properties":{"name":{"type":"string"},"newReq":{"type":"string"}},
+             "required":["newReq"]}
+            """.trimIndent(),
+        )
+        val template = parametrisedTemplate(
+            stencilWithParameters(bindings = mapOf("name" to "customer.name")),
+        )
+
+        val result = StencilContentReplacer.upgradeStencilInstances(
+            template,
+            stencilId = "header",
+            newVersion = 2,
+            newContent = stencilContent(),
+            newParameterSchema = newSchema,
+        )
+
+        assertThat(result.unboundRequired).containsKey("stencil-1")
+        assertThat(result.unboundRequired["stencil-1"]).containsExactly("newReq")
+    }
+
+    @Test
+    fun `unboundRequired skips required params that have a default value`() {
+        val newSchema = schema(
+            """
+            {"type":"object","properties":{
+              "name":{"type":"string","default":"Anonymous"}
+            },"required":["name"]}
+            """.trimIndent(),
+        )
+        val template = parametrisedTemplate(stencilWithParameters(bindings = emptyMap()))
+
+        val result = StencilContentReplacer.upgradeStencilInstances(
+            template,
+            stencilId = "header",
+            newVersion = 2,
+            newContent = stencilContent(),
+            newParameterSchema = newSchema,
+        )
+
+        assertThat(result.unboundRequired).isEmpty()
+    }
+
+    @Test
+    fun `refreshes parameterSchemaSnapshot prop with the new version's schema`() {
+        val oldSchema = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+        val newSchema = schema(
+            """
+            {"type":"object","properties":{"name":{"type":"string"},"extra":{"type":"integer"}}}
+            """.trimIndent(),
+        )
+        val template = parametrisedTemplate(
+            stencilWithParameters(
+                bindings = mapOf("name" to "customer.name"),
+                oldSnapshot = oldSchema,
+            ),
+        )
+
+        val result = StencilContentReplacer.upgradeStencilInstances(
+            template,
+            stencilId = "header",
+            newVersion = 2,
+            newContent = stencilContent(),
+            newParameterSchema = newSchema,
+        )
+
+        val snapshot = result.document.nodes["stencil-1"]?.props?.get("parameterSchemaSnapshot")
+        assertThat(snapshot).isEqualTo(newSchema)
+    }
+
+    @Test
+    fun `drops the snapshot prop when the new version has no parameter schema`() {
+        val oldSchema = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+        val template = parametrisedTemplate(
+            stencilWithParameters(
+                bindings = mapOf("name" to "customer.name"),
+                oldSnapshot = oldSchema,
+            ),
+        )
+
+        val result = StencilContentReplacer.upgradeStencilInstances(
+            template,
+            stencilId = "header",
+            newVersion = 2,
+            newContent = stencilContent(),
+            newParameterSchema = null,
+        )
+
+        assertThat(result.document.nodes["stencil-1"]?.props).doesNotContainKey("parameterSchemaSnapshot")
+        // All bindings dropped because nothing in the new schema declares them.
+        assertThat(result.document.nodes["stencil-1"]?.props).doesNotContainKey("parameterBindings")
     }
 }

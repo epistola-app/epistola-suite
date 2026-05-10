@@ -38,7 +38,7 @@ class GenerationService(
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
     private val themeStyleResolver: ThemeStyleResolver,
-    private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
+    private val pdfRenderer: DirectPdfRenderer,
 ) {
     /**
      * Renders a PDF from a template document and data context.

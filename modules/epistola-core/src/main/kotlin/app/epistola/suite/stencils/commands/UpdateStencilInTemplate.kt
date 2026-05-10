@@ -14,7 +14,6 @@ import app.epistola.suite.stencils.model.StencilContentReplacer
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
@@ -50,6 +49,8 @@ data class UpdateStencilInTemplate(
 data class UpdateStencilInTemplateResult(
     val upgradedCount: Int,
     val droppedFills: Map<String, List<StencilContentReplacer.DroppedFill>> = emptyMap(),
+    val droppedBindings: Map<String, List<StencilContentReplacer.DroppedBinding>> = emptyMap(),
+    val unboundRequired: Map<String, List<String>> = emptyMap(),
 )
 
 @Component
@@ -57,6 +58,7 @@ class UpdateStencilInTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
+    private val nodeParameterBindingValidator: app.epistola.suite.templates.validation.NodeParameterBindingValidator,
 ) : CommandHandler<UpdateStencilInTemplate, UpdateStencilInTemplateResult?> {
     override fun handle(command: UpdateStencilInTemplate): UpdateStencilInTemplateResult? = jdbi.inTransaction<UpdateStencilInTemplateResult?, Exception> { handle ->
         // 1. Load the draft's template_model
@@ -91,11 +93,12 @@ class UpdateStencilInTemplateHandler(
 
         if (stencilNodes.isEmpty()) return@inTransaction UpdateStencilInTemplateResult(upgradedCount = 0)
 
-        // 3. Fetch the new stencil version's content
+        // 3. Fetch the new stencil version's content + parameter schema
         val newStencilVersionId = StencilVersionId(VersionKey.of(command.newVersion), command.stencilId)
-        val newStencilVersion = handle.createQuery(
+        val newStencilRow = handle.createQuery(
             """
-            SELECT content FROM stencil_versions
+            SELECT content::text AS content, parameter_schema::text AS parameter_schema
+            FROM stencil_versions
             WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
             """,
         )
@@ -103,15 +106,17 @@ class UpdateStencilInTemplateHandler(
             .bind("catalogKey", command.stencilId.catalogKey)
             .bind("stencilId", command.stencilId.key)
             .bind("versionId", command.newVersion)
-            .mapTo(String::class.java)
+            .mapToMap()
             .findOne()
             .orElse(null)
             ?: throw ValidationException("newVersion", "Stencil version ${command.newVersion} not found")
 
         val newContent = objectMapper.readValue(
-            newStencilVersion,
+            newStencilRow["content"].toString(),
             app.epistola.template.model.TemplateDocument::class.java,
         )
+        val newParameterSchema: tools.jackson.databind.JsonNode? = (newStencilRow["parameter_schema"] as? String)
+            ?.let { objectMapper.readTree(it) }
 
         // 4. Upgrade all instances
         val upgrade = StencilContentReplacer.upgradeStencilInstances(
@@ -119,10 +124,12 @@ class UpdateStencilInTemplateHandler(
             stencilId = command.stencilId.key.value,
             newVersion = command.newVersion,
             newContent = newContent,
+            newParameterSchema = newParameterSchema,
         )
 
         // 4b. Validate the upgraded document — recursion guard, placeholder scope, etc.
         placeholderValidator.validateAsTemplate(upgrade.document)
+        nodeParameterBindingValidator.validate(upgrade.document)
 
         // 5. Save the modified draft
         val upgradedJson = objectMapper.writeValueAsString(upgrade.document)
@@ -144,6 +151,8 @@ class UpdateStencilInTemplateHandler(
         UpdateStencilInTemplateResult(
             upgradedCount = stencilNodes.size,
             droppedFills = upgrade.droppedFills,
+            droppedBindings = upgrade.droppedBindings,
+            unboundRequired = upgrade.unboundRequired,
         )
     }
 }

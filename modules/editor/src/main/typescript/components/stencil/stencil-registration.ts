@@ -15,10 +15,16 @@ import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 import type { StencilCallbacks } from './types.js';
+import type { JsonSchema } from '../../data-contract/types.js';
 import { openStencilPickerDialog } from './stencil-picker-dialog.js';
 import { reKeyContent } from './rekey-content.js';
 import { computeAncestorScope } from './ancestry.js';
-import { STENCIL_TYPE, STENCIL_SLOT_CHILDREN } from './constants.js';
+import { buildParameterScope } from '../../engine/parameter-scope.js';
+import {
+  STENCIL_TYPE,
+  STENCIL_SLOT_CHILDREN,
+  STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT,
+} from './constants.js';
 import { isPublishedStencil, isStencil } from './node-types.js';
 import './StencilInspector.js';
 import { nanoid } from 'nanoid';
@@ -238,16 +244,30 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       }
 
       // If we know the target slot, compute the ancestor stencil set so the
-      // picker can disable recursive choices.
+      // picker can disable recursive choices, plus the available fields at
+      // the insertion point so the binding step can autocomplete from them.
       let disabledStencilIds: Set<string> | undefined;
+      let fieldPaths: import('../../engine/schema-paths.js').FieldPath[] | undefined;
+      let getExampleData: (() => Record<string, unknown> | undefined) | undefined;
       const targetSlotId = context?.targetSlotId;
+      const engine = engineUnknown as EditorEngine;
       if (targetSlotId) {
-        const engine = engineUnknown as EditorEngine;
         const scope = computeAncestorScope(engine.doc, targetSlotId, engine.indexes);
         if (scope.stencilIds.size > 0) disabledStencilIds = scope.stencilIds;
+        const slot = engine.doc.slots[targetSlotId];
+        const parentNodeId = slot?.nodeId;
+        if (parentNodeId) {
+          fieldPaths = engine.getAvailableVariablesAt(parentNodeId);
+          getExampleData = () => engine.getEvaluationContextAt(parentNodeId);
+        }
       }
 
-      const result = await openStencilPickerDialog(options.callbacks, { disabledStencilIds });
+      const result = await openStencilPickerDialog(options.callbacks, {
+        disabledStencilIds,
+        fieldPaths,
+        getExampleData,
+        stencilParametersEnabled: engine.isFeatureEnabled('stencilParameters'),
+      });
       if (!result) return null; // Cancelled
 
       if (result.action === 'create-new') {
@@ -260,13 +280,26 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         };
       }
 
-      // Use existing stencil — store content temporarily for createSubtree
-      return {
+      // Use existing stencil — store content temporarily for createSubtree.
+      // parameterSchemaSnapshot, paramsAlias, and parameterBindings (if any)
+      // come straight from the picker; they're persisted on the stencil node
+      // and read by ParameterScope at render time.
+      const overrides: Record<string, unknown> = {
         stencilId: result.versionInfo.ref.stencilId,
         catalogKey: result.versionInfo.ref.catalogKey,
         version: result.versionInfo.version,
         _content: result.versionInfo.content,
       };
+      if (result.versionInfo.parameterSchema) {
+        overrides[STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT] = result.versionInfo.parameterSchema;
+      }
+      if (result.bindings && Object.keys(result.bindings).length > 0) {
+        overrides.parameterBindings = result.bindings;
+      }
+      if (result.paramsAlias && result.paramsAlias !== 'params') {
+        overrides.paramsAlias = result.paramsAlias;
+      }
+      return overrides;
     },
 
     createSubtree: (nodeId: NodeId, props?: Record<string, unknown>) => {
@@ -311,5 +344,17 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         extraSlots: [] as Slot[],
       };
     },
+
+    // Stencils carry their parameter schema as a per-instance snapshot prop
+    // (`parameterSchemaSnapshot`), populated by the picker / upgrade replacer.
+    // The dynamic-function form lets static-parametrised components reuse the
+    // same field in the future by returning a constant.
+    parameters: (node: Node) => {
+      if (!isStencil(node)) return null;
+      const snapshot = node.props.parameterSchemaSnapshot as JsonSchema | undefined;
+      return snapshot ?? null;
+    },
+
+    scopeProvider: buildParameterScope,
   };
 }
