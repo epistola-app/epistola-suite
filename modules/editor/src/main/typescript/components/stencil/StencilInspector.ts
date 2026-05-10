@@ -16,11 +16,13 @@
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Node } from '../../types/index.js';
+import type { Node, NodeId } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import type { StencilCallbacks, StencilRef } from './types.js';
 import * as stencilActions from './stencil-actions.js';
 import { isStencil } from './node-types.js';
+import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.js';
+import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -143,6 +145,13 @@ export class StencilInspector extends LitElement {
     this._draftVersion = await stencilActions.loadDraftVersion(ctx);
   }
 
+  /** Look up this node's parent node id, if any. Used to compute the outer
+   *  scope when binding parameters (the expressions evaluate against the
+   *  context surrounding the stencil, not its own params namespace). */
+  private _parentNodeId(): NodeId | null {
+    return this.engine.indexes.parentNodeByNodeId.get(this.node.id) ?? null;
+  }
+
   // ── Render ──
 
   override render() {
@@ -160,8 +169,91 @@ export class StencilInspector extends LitElement {
             </div>`
           : nothing}
       </div>
+      ${this._renderParameters()}
     `;
   }
+
+  // ── Parameters: per-instance bindings (popup) ──
+
+  private _renderParameters() {
+    if (!isStencil(this.node)) return nothing;
+    if (!this.engine.isFeatureEnabled('stencilParameters')) return nothing;
+    const props = this.node.props;
+    const schema = props.parameterSchemaSnapshot;
+    if (!schema?.properties || Object.keys(schema.properties).length === 0) return nothing;
+
+    const bindings = (props.parameterBindings ?? {}) as Record<string, string>;
+    const declared = Object.keys(schema.properties);
+    const required = new Set(schema.required ?? []);
+    const boundCount = declared.filter((name) => (bindings[name] ?? '').trim().length > 0).length;
+    const missingRequired = Array.from(required).some(
+      (name) => (bindings[name] ?? '').trim().length === 0,
+    );
+
+    return html`
+      <div class="inspector-section">
+        <div class="inspector-section-label">Parameters</div>
+        <div
+          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-2);"
+        >
+          ${boundCount} of ${declared.length}
+          bound${missingRequired
+            ? html`<span style="color: var(--ep-destructive, #dc2626); margin-left: 4px;"
+                >· missing required</span
+              >`
+            : nothing}
+        </div>
+        <button
+          class="btn btn-sm btn-outline stencil-btn"
+          @click=${this._handleEditBindings}
+          style="width: 100%;"
+        >
+          Configure parameters…
+        </button>
+      </div>
+    `;
+  }
+
+  private _handleEditBindings = async () => {
+    if (!isStencil(this.node)) return;
+    const schema = this.node.props.parameterSchemaSnapshot;
+    if (!schema) return;
+    // Compute the available scope at the stencil node's *parent* (bindings
+    // are evaluated against the outer context, not the stencil's own scope).
+    const parentNodeId = this._parentNodeId();
+    const fieldPaths = parentNodeId
+      ? this.engine.getAvailableVariablesAt(parentNodeId)
+      : this.engine.getAvailableVariablesAt(this.node.id);
+    const getExampleData = () =>
+      parentNodeId
+        ? this.engine.getEvaluationContextAt(parentNodeId)
+        : this.engine.getEvaluationContextAt(this.node.id);
+    const result = await openParameterBindingsDialog({
+      schema,
+      initialBindings: (this.node.props.parameterBindings ?? {}) as Record<string, string>,
+      initialAlias: this.node.props.paramsAlias ?? 'params',
+      fieldPaths,
+      getExampleData,
+    });
+    if (!result) return;
+
+    const next = { ...this.node.props } as Record<string, unknown>;
+    if (Object.keys(result.bindings).length > 0) {
+      next.parameterBindings = result.bindings;
+    } else {
+      delete next.parameterBindings;
+    }
+    if (result.paramsAlias && result.paramsAlias !== 'params') {
+      next.paramsAlias = result.paramsAlias;
+    } else {
+      delete next.paramsAlias;
+    }
+    this.engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: this.node.id,
+      props: next,
+    });
+  };
 
   // ── Locked: published version, not editing ──
 
@@ -201,7 +293,22 @@ export class StencilInspector extends LitElement {
   // ── Draft: editing mode ──
 
   private _renderDraft() {
+    const schema = isStencil(this.node) ? this.node.props.parameterSchemaSnapshot : undefined;
+    const paramCount = schema?.properties ? Object.keys(schema.properties).length : 0;
+
     return html`
+      ${this.engine.isFeatureEnabled('stencilParameters')
+        ? html`<div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
+            <button
+              class="btn btn-sm btn-outline stencil-btn"
+              @click=${this._handleEditDefinitions}
+              style="width: 100%;"
+            >
+              Define parameters… (${paramCount})
+            </button>
+          </div>`
+        : nothing}
+
       <div class="inspector-field stencil-actions">
         ${this.callbacks?.updateStencil
           ? html`<button
@@ -237,6 +344,23 @@ export class StencilInspector extends LitElement {
       </div>
     `;
   }
+
+  private _handleEditDefinitions = async () => {
+    if (!isStencil(this.node)) return;
+    const result = await openParameterDefinitionsDialog(this.node.props.parameterSchemaSnapshot);
+    if (!result) return;
+    // Empty-properties schemas drop the snapshot entirely so the stencil
+    // reads as "no parameters".
+    const hasProps = result.properties && Object.keys(result.properties).length > 0;
+    const next = { ...this.node.props } as Record<string, unknown>;
+    if (hasProps) next.parameterSchemaSnapshot = result;
+    else delete next.parameterSchemaSnapshot;
+    this.engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: this.node.id,
+      props: next,
+    });
+  };
 
   // ── Click handlers — thin wrappers around stencil-actions ──
 

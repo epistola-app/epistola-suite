@@ -208,6 +208,7 @@ class StencilHandler(
         val tags: List<String>? = null,
         val catalogKey: String? = null,
         val content: app.epistola.template.model.TemplateDocument? = null,
+        val parameterSchema: tools.jackson.databind.JsonNode? = null,
         val publish: Boolean = false,
     )
 
@@ -225,6 +226,7 @@ class StencilHandler(
             description = req.description,
             tags = req.tags ?: emptyList(),
             content = req.content,
+            parameterSchema = req.parameterSchema,
         ).execute()
 
         var publishedVersion: Int? = null
@@ -461,6 +463,7 @@ class StencilHandler(
                     "stencilId" to version.stencilKey.value,
                     "status" to version.status.name.lowercase(),
                     "content" to version.content,
+                    "parameterSchema" to version.parameterSchema,
                 ),
             )
     }
@@ -539,6 +542,7 @@ class StencilHandler(
 
         data class DraftRequest(
             val content: app.epistola.template.model.TemplateDocument,
+            val parameterSchema: tools.jackson.databind.JsonNode? = null,
         )
 
         val body = request.body(String::class.java)
@@ -546,7 +550,11 @@ class StencilHandler(
 
         // Ensure a draft exists (idempotent). Pass content so it works even
         // for brand-new stencils with no published versions to copy from.
-        val draft = CreateStencilVersion(stencilId = stencilId, content = req.content).execute()
+        val draft = CreateStencilVersion(
+            stencilId = stencilId,
+            content = req.content,
+            parameterSchema = req.parameterSchema,
+        ).execute()
             ?: return ServerResponse.status(404)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("error" to "Stencil '${stencilId.key}' not found. Create it first using the stencil picker."))
@@ -555,6 +563,7 @@ class StencilHandler(
         UpdateStencilDraft(
             versionId = StencilVersionId(draft.id, stencilId),
             content = req.content,
+            parameterSchema = req.parameterSchema,
         ).execute()
 
         return ServerResponse.ok()

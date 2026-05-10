@@ -2,6 +2,7 @@ package app.epistola.suite.templates.validation
 
 import app.epistola.suite.stencils.PlaceholderNodeKeys
 import app.epistola.suite.stencils.StencilNodeKeys
+import app.epistola.suite.templates.model.NodeParameterKeys
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component
 class PlaceholderValidator {
 
     private val slugRegex = Regex("^[a-z][a-z0-9-]{0,63}$")
+    private val parameterNameRegex = Regex("^[a-z][a-zA-Z0-9_]{0,63}$")
 
     /**
      * Run all checks that apply to a stencil-version document. Throws [ValidationException]
@@ -30,7 +32,7 @@ class PlaceholderValidator {
         validatePlaceholderNamesUnique(doc)
         validatePlaceholderNameSlug(doc)
         validateNoNestedPlaceholderDefinition(doc)
-        validateForwardCompatReservations(doc)
+        validateStencilBindingShape(doc)
     }
 
     /**
@@ -42,7 +44,7 @@ class PlaceholderValidator {
         validatePlaceholderNameSlug(doc)
         validatePlaceholdersHaveStencilAncestor(doc)
         validateNoStencilRecursion(doc)
-        validateForwardCompatReservations(doc)
+        validateStencilBindingShape(doc)
     }
 
     /**
@@ -186,20 +188,60 @@ class PlaceholderValidator {
     }
 
     /**
-     * `STENCIL_DATAMODEL_RESERVED` / `STENCIL_PARAMETERBINDINGS_RESERVED` — reserve the
-     * keys earmarked for the future stencil-parameters feature. Documents that use them
-     * are rejected so the v1 surface stays clean.
+     * `NODE_PARAMETER_BINDINGS_INVALID_SHAPE` / `NODE_PARAMETER_BINDING_NAME_INVALID` /
+     * `NODE_PARAMETER_BINDING_EMPTY` — structural shape check for the generic
+     * `parameterBindings` prop carried by parametrised nodes. Cross-document checks
+     * (does the bound parameter actually exist on the stencil version's schema?)
+     * live in [NodeParameterBindingValidator] so that this validator stays
+     * standalone and document-only.
      */
-    fun validateForwardCompatReservations(doc: TemplateDocument) {
+    fun validateStencilBindingShape(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
-            if (node.type == StencilNodeKeys.NODE_TYPE &&
-                node.props?.containsKey(StencilNodeKeys.PROP_PARAMETER_BINDINGS) == true
-            ) {
+            // Alias check runs whenever the prop is present, even if no bindings are set —
+            // a node can carry only `paramsAlias` (e.g. to scope schema defaults under a
+            // custom name) and the reserved-name collision still needs catching.
+            val alias = node.props?.get(NodeParameterKeys.PROP_PARAMS_ALIAS)
+            if (alias != null && alias !is String) {
                 throw ValidationException(
-                    "content.stencil.props.parameterBindings",
-                    "STENCIL_PARAMETERBINDINGS_RESERVED: 'parameterBindings' is reserved for a " +
-                        "future stencil-parameters feature; do not set it in v1",
+                    "content.${node.type}.props.paramsAlias",
+                    "NODE_PARAMETER_BINDINGS_INVALID_SHAPE: paramsAlias must be a string",
                 )
+            }
+            if (alias is String && alias in NodeParameterKeys.RESERVED_ALIASES) {
+                throw ValidationException(
+                    "content.${node.type}.props.paramsAlias",
+                    "NODE_PARAMS_ALIAS_RESERVED: paramsAlias '$alias' collides with a " +
+                        "reserved scope name (${NodeParameterKeys.RESERVED_ALIASES.joinToString()})",
+                )
+            }
+
+            val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) ?: continue
+            if (rawBindings !is Map<*, *>) {
+                throw ValidationException(
+                    "content.${node.type}.props.parameterBindings",
+                    "NODE_PARAMETER_BINDINGS_INVALID_SHAPE: parameterBindings must be an object " +
+                        "of paramName → expression entries",
+                )
+            }
+            for ((rawName, rawExpr) in rawBindings) {
+                val name = rawName as? String ?: throw ValidationException(
+                    "content.${node.type}.props.parameterBindings",
+                    "NODE_PARAMETER_BINDING_NAME_INVALID: parameter binding keys must be strings",
+                )
+                if (!parameterNameRegex.matches(name)) {
+                    throw ValidationException(
+                        "content.${node.type}.props.parameterBindings.$name",
+                        "NODE_PARAMETER_BINDING_NAME_INVALID: parameter binding name '$name' must match " +
+                            "^[a-z][a-zA-Z0-9_]{0,63}\$",
+                    )
+                }
+                if (rawExpr !is String || rawExpr.isBlank()) {
+                    throw ValidationException(
+                        "content.${node.type}.props.parameterBindings.$name",
+                        "NODE_PARAMETER_BINDING_EMPTY: parameter binding '$name' must be a non-blank " +
+                            "JSONata expression",
+                    )
+                }
             }
         }
     }

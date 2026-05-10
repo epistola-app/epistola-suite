@@ -288,26 +288,125 @@ class PlaceholderValidatorTest {
         validator.validateNoStencilRecursion(full)
     }
 
-    // ---------- forward-compat reservations ----------
+    // ---------- parameter binding shape ----------
 
     @Test
-    fun `parameterBindings on stencil rejected`() {
+    fun `parameterBindings as a valid map is accepted`() {
         val full = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
             "s1" to stencil(
                 "s1",
                 "header",
                 "s1-slot",
-                extraProps = mapOf("parameterBindings" to mapOf("date" to "today")),
+                extraProps = mapOf("parameterBindings" to mapOf("recipientName" to "recipient.name")),
             ),
             slots = mapOf(
                 "root-slot" to Slot("root-slot", "root", "children", listOf("s1")),
                 "s1-slot" to Slot("s1-slot", "s1", "children", emptyList()),
             ),
         )
-        assertThatThrownBy { validator.validateForwardCompatReservations(full) }
+        validator.validateStencilBindingShape(full)
+    }
+
+    @Test
+    fun `parameterBindings as a non-object is rejected`() {
+        val full = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "s1" to stencil(
+                "s1",
+                "header",
+                "s1-slot",
+                extraProps = mapOf("parameterBindings" to "not-a-map"),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("s1")),
+                "s1-slot" to Slot("s1-slot", "s1", "children", emptyList()),
+            ),
+        )
+        assertThatThrownBy { validator.validateStencilBindingShape(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("STENCIL_PARAMETERBINDINGS_RESERVED")
+            .hasMessageContaining("NODE_PARAMETER_BINDINGS_INVALID_SHAPE")
+    }
+
+    @Test
+    fun `parameterBinding with invalid name is rejected`() {
+        val full = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "s1" to stencil(
+                "s1",
+                "header",
+                "s1-slot",
+                extraProps = mapOf("parameterBindings" to mapOf("Bad-Name" to "x")),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("s1")),
+                "s1-slot" to Slot("s1-slot", "s1", "children", emptyList()),
+            ),
+        )
+        assertThatThrownBy { validator.validateStencilBindingShape(full) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_NAME_INVALID")
+    }
+
+    @Test
+    fun `parameterBinding with empty expression is rejected`() {
+        val full = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "s1" to stencil(
+                "s1",
+                "header",
+                "s1-slot",
+                extraProps = mapOf("parameterBindings" to mapOf("name" to "  ")),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("s1")),
+                "s1-slot" to Slot("s1-slot", "s1", "children", emptyList()),
+            ),
+        )
+        assertThatThrownBy { validator.validateStencilBindingShape(full) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_EMPTY")
+    }
+
+    @Test
+    fun `paramsAlias as a custom name is accepted`() {
+        val full = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "s1" to stencil(
+                "s1",
+                "header",
+                "s1-slot",
+                extraProps = mapOf("paramsAlias" to "letter"),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("s1")),
+                "s1-slot" to Slot("s1-slot", "s1", "children", emptyList()),
+            ),
+        )
+        validator.validateStencilBindingShape(full)
+    }
+
+    @Test
+    fun `paramsAlias as a reserved name is rejected`() {
+        for (reserved in listOf("sys", "item", "index")) {
+            val full = doc(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "s1" to stencil(
+                    "s1",
+                    "header",
+                    "s1-slot",
+                    extraProps = mapOf("paramsAlias" to reserved),
+                ),
+                slots = mapOf(
+                    "root-slot" to Slot("root-slot", "root", "children", listOf("s1")),
+                    "s1-slot" to Slot("s1-slot", "s1", "children", emptyList()),
+                ),
+            )
+            assertThatThrownBy { validator.validateStencilBindingShape(full) }
+                .isInstanceOf(ValidationException::class.java)
+                .hasMessageContaining("NODE_PARAMS_ALIAS_RESERVED")
+                .hasMessageContaining(reserved)
+        }
     }
 
     // ---------- composite entry points ----------

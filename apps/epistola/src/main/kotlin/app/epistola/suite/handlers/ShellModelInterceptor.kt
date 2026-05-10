@@ -67,6 +67,10 @@ class ShellModelInterceptor(
                 "feedbackEnabled",
                 featureToggleService.isEnabled(tenantKey, KnownFeatures.FEEDBACK),
             )
+            modelAndView.addObject(
+                "stencilParametersEnabled",
+                featureToggleService.isEnabled(tenantKey, KnownFeatures.STENCIL_PARAMETERS),
+            )
         }
 
         // Shell-specific attributes

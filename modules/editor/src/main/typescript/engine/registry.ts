@@ -5,6 +5,7 @@
  */
 
 import { html } from 'lit';
+import type { JsonSchema } from '../data-contract/types.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
@@ -312,7 +313,27 @@ export interface ComponentDefinition {
    * Returns null if the component doesn't introduce scope in its current state.
    */
   scopeProvider?: (node: Node, context: ScopeProviderContext) => ScopeDeclaration | null;
+
+  /**
+   * Optional parameter schema declared by the component type. Two shapes:
+   *   - **Static value** (`JsonSchema`): the parameters are the same for every
+   *     instance. Used by static-parametrised components (none today; future:
+   *     "snippet" / "fragment").
+   *   - **Function**: the schema is computed per node. Used by dynamic
+   *     components like stencils, where each node carries its own schema as
+   *     a snapshot prop. The function reads `node.props.parameterSchemaSnapshot`.
+   *
+   * Components without parameters omit this field entirely. The generic scope
+   * provider [buildParameterScope] reads through this field; a future
+   * parametrised component just declares it and inherits the rest.
+   */
+  parameters?: ParameterSchemaProvider;
 }
+
+/** A `JsonSchema` literal or a function returning one based on the node + document. */
+export type ParameterSchemaProvider =
+  | JsonSchema
+  | ((node: Node, document: TemplateDocument) => JsonSchema | null);
 
 // ---------------------------------------------------------------------------
 // Registry

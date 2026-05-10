@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -19,6 +20,7 @@ import app.epistola.template.model.ThemeRef
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -31,6 +33,7 @@ data class CreateStencil(
     val description: String? = null,
     val tags: List<String> = emptyList(),
     val content: TemplateDocument? = null,
+    val parameterSchema: JsonNode? = null,
 ) : Command<Stencil>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
@@ -54,10 +57,12 @@ class CreateStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
+    private val parameterSchemaValidator: ParameterSchemaValidator,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
+        parameterSchemaValidator.validate(command.parameterSchema)
         return executeOrThrowDuplicate("stencil", command.id.key.value) {
             jdbi.inTransaction<Stencil, Exception> { handle ->
                 val tagsJson = objectMapper.writeValueAsString(command.tags)
@@ -83,10 +88,11 @@ class CreateStencilHandler(
                 run {
                     val content = command.content ?: emptyTemplateDocument()
                     val contentJson = objectMapper.writeValueAsString(content)
+                    val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
                     handle.createUpdate(
                         """
-                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, created_at)
-                        VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, 'draft', NOW())
+                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at)
+                        VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW())
                         """,
                     )
                         .bind("id", VersionKey.of(1))
@@ -94,6 +100,7 @@ class CreateStencilHandler(
                         .bind("catalogKey", command.id.catalogKey)
                         .bind("stencilId", command.id.key)
                         .bind("content", contentJson)
+                        .bind("parameterSchema", parameterSchemaJson)
                         .execute()
                 }
 

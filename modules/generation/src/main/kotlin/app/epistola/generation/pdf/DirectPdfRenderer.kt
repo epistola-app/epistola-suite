@@ -34,6 +34,13 @@ import java.io.OutputStream
 class DirectPdfRenderer(
     private val expressionEvaluator: CompositeExpressionEvaluator = CompositeExpressionEvaluator(),
     private val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
+    /**
+     * Pluggable schema lookup for parametrised nodes (today: stencils). Threaded
+     * onto [RenderContext.parameterSchemaProvider] so [StencilNodeRenderer] can
+     * push parameter scope without knowing where the schema comes from. Default
+     * returns null (no parameters) — production wiring binds a real provider.
+     */
+    private val parameterSchemaProvider: (Node, TemplateDocument) -> Map<String, Any?>? = { _, _ -> null },
 ) {
 
     /**
@@ -136,6 +143,7 @@ class DirectPdfRenderer(
             spacingUnit = resolvedTheme.spacingUnit,
             systemParams = SystemParameterRegistry.buildGlobalParams(),
             resolvedPageSettings = resolvedTheme.pageSettings,
+            parameterSchemaProvider = parameterSchemaProvider,
         )
     }
 

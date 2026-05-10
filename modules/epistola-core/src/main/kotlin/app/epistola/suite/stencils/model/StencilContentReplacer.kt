@@ -2,9 +2,13 @@ package app.epistola.suite.stencils.model
 
 import app.epistola.suite.stencils.PlaceholderNodeKeys
 import app.epistola.suite.stencils.StencilNodeKeys
+import app.epistola.suite.templates.model.NodeParameterKeys
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ArrayNode
+import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
 
 /**
@@ -25,9 +29,23 @@ object StencilContentReplacer {
         val document: TemplateDocument,
         /** Per-stencil-instance, the fills that could not be preserved. */
         val droppedFills: Map<String, List<DroppedFill>>,
+        /**
+         * Per-stencil-instance, the parameter bindings whose parameter no longer
+         * exists in the new version's schema. Empty when the schema didn't change
+         * or every previously-bound name still exists.
+         */
+        val droppedBindings: Map<String, List<DroppedBinding>> = emptyMap(),
+        /**
+         * Per-stencil-instance, names of newly-required parameters that have no
+         * preserved binding and no `default`. The user must bind these via the
+         * inspector before rendering will produce sensible output.
+         */
+        val unboundRequired: Map<String, List<String>> = emptyMap(),
     )
 
     data class DroppedFill(val name: String, val contentSummary: String)
+
+    data class DroppedBinding(val name: String, val expression: String)
 
     /**
      * Upgrades all instances of a stencil in the document to use new content,
@@ -48,6 +66,7 @@ object StencilContentReplacer {
         stencilId: String,
         newVersion: Int,
         newContent: TemplateDocument,
+        newParameterSchema: JsonNode? = null,
     ): UpgradeResult {
         // Find all stencil nodes matching the stencilId
         val stencilNodes = document.nodes.values.filter { node ->
@@ -57,9 +76,20 @@ object StencilContentReplacer {
 
         if (stencilNodes.isEmpty()) return UpgradeResult(document, emptyMap())
 
+        val newSchemaProperties = (newParameterSchema as? ObjectNode)?.get("properties") as? ObjectNode
+        val newSchemaDeclaredNames = newSchemaProperties?.propertyNames()?.toSet().orEmpty()
+        val newSchemaRequired = (newParameterSchema as? ObjectNode)
+            ?.get("required")
+            ?.let { it as? ArrayNode }
+            ?.mapNotNull { it.asString() }
+            ?.toSet()
+            .orEmpty()
+
         val nodes = document.nodes.toMutableMap()
         val slots = document.slots.toMutableMap()
         val droppedFillsByInstance = mutableMapOf<String, List<DroppedFill>>()
+        val droppedBindingsByInstance = mutableMapOf<String, List<DroppedBinding>>()
+        val unboundRequiredByInstance = mutableMapOf<String, List<String>>()
 
         for (stencilNode in stencilNodes) {
             val slotId = stencilNode.slots.firstOrNull() ?: continue
@@ -85,9 +115,54 @@ object StencilContentReplacer {
             // Update the stencil's slot to reference the new children.
             slots[slotId] = slot.copy(children = reKeyed.childNodeIds)
 
-            // Update the stencil node's props.
+            // Update the stencil node's props — version, refresh schema snapshot,
+            // and prune bindings whose parameters no longer exist in the new schema.
             val updatedProps = (stencilNode.props ?: emptyMap()).toMutableMap()
             updatedProps[StencilNodeKeys.PROP_VERSION] = newVersion
+
+            // Refresh the schema snapshot. When no schema is supplied (caller didn't
+            // pass one — typically because the new version has no parameters), drop
+            // the snapshot entirely so the consumer sees a clean state.
+            if (newParameterSchema != null) {
+                updatedProps[StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT] = newParameterSchema
+            } else {
+                updatedProps.remove(StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT)
+            }
+
+            // Preserve bindings whose parameter name still exists in the new schema;
+            // record dropped bindings (and newly-required-without-binding) for the UI.
+            @Suppress("UNCHECKED_CAST")
+            val previousBindings = (stencilNode.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) as? Map<String, Any?>)
+                ?.mapNotNull { (k, v) -> if (v is String) k to v else null }
+                ?.toMap()
+                .orEmpty()
+
+            val preservedBindings = previousBindings.filterKeys { it in newSchemaDeclaredNames }
+            val droppedBindings = previousBindings
+                .filterKeys { it !in newSchemaDeclaredNames }
+                .map { (name, expr) -> DroppedBinding(name = name, expression = expr) }
+
+            if (preservedBindings.isEmpty()) {
+                updatedProps.remove(NodeParameterKeys.PROP_PARAMETER_BINDINGS)
+            } else {
+                updatedProps[NodeParameterKeys.PROP_PARAMETER_BINDINGS] = preservedBindings
+            }
+
+            if (droppedBindings.isNotEmpty()) {
+                droppedBindingsByInstance[stencilNode.id] = droppedBindings
+            }
+
+            // Newly-required params that are unbound and have no default.
+            val unbound = newSchemaRequired
+                .filter { name ->
+                    val hasBinding = preservedBindings.containsKey(name)
+                    val hasDefault = (newSchemaProperties?.get(name) as? ObjectNode)?.get("default") != null
+                    !hasBinding && !hasDefault
+                }
+            if (unbound.isNotEmpty()) {
+                unboundRequiredByInstance[stencilNode.id] = unbound
+            }
+
             nodes[stencilNode.id] = stencilNode.copy(props = updatedProps)
 
             // 4. Splice captured fills back into the new placeholders by name.
@@ -136,6 +211,8 @@ object StencilContentReplacer {
         return UpgradeResult(
             document = document.copy(nodes = nodes, slots = slots),
             droppedFills = droppedFillsByInstance,
+            droppedBindings = droppedBindingsByInstance,
+            unboundRequired = unboundRequiredByInstance,
         )
     }
 
