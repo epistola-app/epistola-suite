@@ -4,13 +4,11 @@
  * Used by: command validation, block palette, inspector, DnD.
  */
 
-import { html } from 'lit';
 import type { JsonSchema } from '../data-contract/types.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
 import type { FieldPath } from './schema-paths.js';
-import { richTextVariablePathDisabled } from '../data-contract/binding-compatibility.js';
 import { nanoid } from 'nanoid';
 import { createTableDefinition } from '../components/table/table-registration.js';
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';
@@ -18,7 +16,7 @@ import { createDatatableDefinition } from '../components/datatable/datatable-reg
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
 import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
 import { createPlaceholderDefinition } from '../components/placeholder/placeholder-registration.js';
-import '../components/richTextVariable/EpistolaRichTextVariablePreview.js';
+import { createRichTextVariableDefinition } from '../components/richTextVariable/richtextvar-registration.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -639,57 +637,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     ],
   });
 
-  registry.register({
-    type: 'richTextVariable',
-    label: 'Rich text variable',
-    icon: 'type',
-    category: 'content',
-    slots: [],
-    allowedChildren: { mode: 'none' },
-    applicableStyles: 'all',
-    inspector: [
-      {
-        key: 'binding',
-        label: 'Binding',
-        type: 'expression',
-        defaultValue: '',
-        pathDisabled: richTextVariablePathDisabled,
-      },
-    ],
-    defaultStyles: { marginBottom: '1.5sp' },
-    defaultProps: { binding: '' },
-    renderCanvas: ({ node, engine: eng }) => {
-      const binding = (node.props?.binding as string | undefined) ?? '';
-      return html`
-        <div class="rich-text-variable-canvas">
-          <epistola-rich-text-variable-preview
-            .engine=${eng}
-            .nodeId=${node.id}
-            .binding=${binding}
-          ></epistola-rich-text-variable-preview>
-        </div>
-      `;
-    },
-    examples: [
-      {
-        name: 'minimal',
-        description:
-          'Renders the rich-text value bound at the given data path as block content (paragraphs, lists, marks).',
-        fragment: {
-          rootNodeId: 'n-richtextvar-minimal',
-          nodes: {
-            'n-richtextvar-minimal': {
-              id: 'n-richtextvar-minimal',
-              type: 'richTextVariable',
-              slots: [],
-              props: { binding: 'customer.bio' },
-            },
-          },
-          slots: {},
-        },
-      },
-    ],
-  });
+  registry.register(createRichTextVariableDefinition());
 
   registry.register({
     type: 'container',
