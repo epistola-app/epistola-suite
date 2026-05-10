@@ -20,7 +20,9 @@ import app.epistola.template.model.Node
  *
  * Returns the outer context unchanged when [schema] is null (the node has no
  * parameters declared) or has no `properties`. Render mode is honoured for
- * required-without-binding (STRICT throws; LENIENT yields null).
+ * required-without-binding-and-no-default: STRICT throws; PREVIEW substitutes
+ * a `<paramName>` placeholder so canvas previews surface the missing value
+ * visually instead of silently rendering empty.
  *
  * The schema is a JSON-structured `Map<String, Any?>` — same shape Jackson
  * deserializes JSON Schema into. Avoids pulling Jackson into the generation
@@ -59,10 +61,18 @@ object ParameterScope {
                 )
             } else {
                 val defaultValue = propSchema?.get("default")
-                if (defaultValue == null && name in required && outer.renderMode == RenderMode.STRICT) {
-                    error("Required parameter '$name' has no binding and no default")
+                when {
+                    defaultValue != null -> defaultValue
+                    name !in required -> null
+                    outer.renderMode == RenderMode.STRICT ->
+                        error("Required parameter '$name' has no binding and no default")
+                    // PREVIEW: visible placeholder so the preview pane mirrors the
+                    // editor canvas (which renders `<paramName>` from the editor's
+                    // own scope provider). Without this, PREVIEW would silently
+                    // substitute null and the user wouldn't notice the missing
+                    // binding until the strict render at delivery time.
+                    else -> "<$name>"
                 }
-                defaultValue
             }
         }
 

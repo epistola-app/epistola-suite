@@ -10,6 +10,7 @@
 import type { JsonSchema } from '../../data-contract/types.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
 import { renderBindingRow } from './binding-row.js';
+import { RESERVED_ALIASES } from '../../engine/node-parameter-keys.js';
 
 export interface BindingsDialogResult {
   bindings: Record<string, string>;
@@ -44,6 +45,7 @@ export function openParameterBindingsDialog(
           <div style="margin-bottom: var(--ep-space-3);">
             <label style="font-size: var(--ep-text-xs); font-weight: 500;">Alias</label>
             <input type="text" id="bindings-alias" class="ep-input" style="width: 100%;" />
+            <div id="bindings-alias-error" style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626); margin-top: 2px; display: none;"></div>
             <div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-top: 2px;">
               Namespace this stencil's parameters live under inside its content (default <code>params</code>).
               Change to avoid shadowing when nested inside another parametrised component.
@@ -60,6 +62,7 @@ export function openParameterBindingsDialog(
     `;
 
     const aliasInput = dialog.querySelector<HTMLInputElement>('#bindings-alias')!;
+    const aliasError = dialog.querySelector<HTMLElement>('#bindings-alias-error')!;
     const rowsContainer = dialog.querySelector<HTMLElement>('#bindings-rows')!;
     const closeBtn = dialog.querySelector('.stencil-picker-close')!;
     const cancelBtn = dialog.querySelector('.cancel')!;
@@ -89,10 +92,24 @@ export function openParameterBindingsDialog(
       rowsContainer.appendChild(row.element);
     }
 
-    function updateSaveState() {
-      const ok = Array.from(required).every((name) => (bindings[name] ?? '').trim().length > 0);
-      saveBtn.disabled = !ok;
+    function aliasIsReserved(): boolean {
+      return RESERVED_ALIASES.has(aliasInput.value.trim());
     }
+
+    function updateSaveState() {
+      const reserved = aliasIsReserved();
+      if (reserved) {
+        aliasError.textContent = `Alias '${aliasInput.value.trim()}' collides with a reserved scope (${[...RESERVED_ALIASES].join(', ')}). Pick another name.`;
+        aliasError.style.display = '';
+      } else {
+        aliasError.style.display = 'none';
+      }
+      const allBound = Array.from(required).every(
+        (name) => (bindings[name] ?? '').trim().length > 0,
+      );
+      saveBtn.disabled = !allBound || reserved;
+    }
+    aliasInput.addEventListener('input', updateSaveState);
     updateSaveState();
 
     const finish = (result: BindingsDialogResult | null) => {

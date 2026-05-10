@@ -139,7 +139,7 @@ class ParameterScopeTest {
     }
 
     @Test
-    fun `PREVIEW mode yields null for required parameter with no binding nor default`() {
+    fun `PREVIEW mode substitutes a visible placeholder for required without binding nor default`() {
         val outer = createContext(renderMode = RenderMode.PREVIEW)
         val ctx = ParameterScope.push(
             stencilNode(bindings = emptyMap()),
@@ -149,7 +149,23 @@ class ParameterScopeTest {
             ),
             outer = outer,
         )
-        assertNull(ctx.parameterScopes["params"]?.get("name"))
+        // PREVIEW shows `<name>` so the preview pane mirrors the editor canvas
+        // and the user notices the missing binding before strict-mode delivery.
+        assertEquals("<name>", ctx.parameterScopes["params"]?.get("name"))
+    }
+
+    @Test
+    fun `PREVIEW mode prefers the schema default over the placeholder when one is set`() {
+        val outer = createContext(renderMode = RenderMode.PREVIEW)
+        val ctx = ParameterScope.push(
+            stencilNode(bindings = emptyMap()),
+            schema = mapOf(
+                "properties" to mapOf("name" to mapOf("type" to "string", "default" to "fallback")),
+                "required" to listOf("name"),
+            ),
+            outer = outer,
+        )
+        assertEquals("fallback", ctx.parameterScopes["params"]?.get("name"))
     }
 
     @Test

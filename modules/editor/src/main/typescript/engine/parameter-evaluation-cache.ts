@@ -83,7 +83,8 @@ export function clearParameterCache(): void {
 /**
  * Subscribe an engine instance so its example:change and structural doc:change
  * events clear the cache. Returns an unsubscribe function the caller is
- * expected to run on teardown.
+ * expected to run on teardown — the disposer also wipes the cache so memory
+ * doesn't accumulate across editor instances on the same page.
  *
  * Non-structural doc changes (typing in a text node, prop edits on an
  * unrelated node) don't shift the scope graph, so we leave the cache
@@ -98,5 +99,6 @@ export function wireParameterCache(engine: EditorEngine): () => void {
   return () => {
     unsubExample();
     unsubDoc();
+    clearParameterCache();
   };
 }

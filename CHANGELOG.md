@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stencil parameters: review-pass hardening.** Five fixes from the post-toggle architectural review:
+  - `paramsAlias` is now rejected when set to a reserved scope name (`sys`, `item`, `index`). New error code `NODE_PARAMS_ALIAS_RESERVED` from `PlaceholderValidator.validateStencilBindingShape`. Editor's "Configure parameters…" dialog rejects the same set inline. Without this, a consumer could shadow `sys.pages.total` and similar engine-provided values inside the stencil.
+  - The alias-shape check now runs whether or not `parameterBindings` is set on the same node (was previously gated on bindings being present, so a node with only `paramsAlias` skipped validation entirely).
+  - `RenderMode.PREVIEW` now substitutes a visible `<paramName>` placeholder for required parameters that have no binding and no default — mirrors the editor canvas's behaviour. Previously PREVIEW silently substituted `null`, so the preview pane and canvas disagreed and missing required bindings only surfaced as a hard failure at strict-mode delivery.
+  - The editor's parameter-evaluation cache now wipes itself when the engine disposer runs (in addition to wiping on `example:change` / structural `doc:change`). Stops cache entries from accumulating across re-mounted editor instances.
+  - `StencilParameterDefinitionsPanel` shows an inline note that schema changes only reach existing consumers after publish + per-template upgrade — closes the snapshot-drift footgun documented in ADR 0002 D5.
+  - Docstring drift fix: `ParameterScope` referenced a non-existent `LENIENT` mode; now correctly describes `PREVIEW`.
+
 ### Added
 
 - **Editor feature flags.** `EditorEngine` now carries a typed `EditorFeatureFlags` map forwarded by the host through `mountEditor({ featureFlags })`. Consumers gate experimental affordances via `engine.isFeatureEnabled(flag)` — flag names are `keyof EditorFeatureFlags`, so typos and removals fail the compile rather than silently reading `undefined`. The first flag is `stencilParameters`; new flags require an interface field plus a matching `KnownFeatures` registration and `ShellModelInterceptor` exposure on the backend.

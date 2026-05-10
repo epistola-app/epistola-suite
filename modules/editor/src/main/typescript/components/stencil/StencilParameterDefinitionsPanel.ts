@@ -86,6 +86,15 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           becomes a variable available inside the stencil under the configured alias (default
           <code>params</code>).
         </p>
+        <div
+          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); background: var(--ep-muted, #f5f5f5); border-left: 3px solid var(--ep-warning, #d97706); padding: var(--ep-space-2) var(--ep-space-3); border-radius: var(--ep-radius);"
+          role="note"
+        >
+          Schema changes only reach existing consumers when this draft is
+          <strong>published</strong> and each consuming template <strong>upgrades</strong> the
+          stencil. Until then, consumers continue to validate and render against the previously
+          published schema.
+        </div>
 
         <div style="display:flex; align-items:center; gap: var(--ep-space-2);">
           <button type="button" class="ep-btn-outline btn-sm" @click=${this._addRow}>

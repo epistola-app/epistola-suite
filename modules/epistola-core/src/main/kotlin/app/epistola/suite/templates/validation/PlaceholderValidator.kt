@@ -197,6 +197,24 @@ class PlaceholderValidator {
      */
     fun validateStencilBindingShape(doc: TemplateDocument) {
         for (node in doc.nodes.values) {
+            // Alias check runs whenever the prop is present, even if no bindings are set —
+            // a node can carry only `paramsAlias` (e.g. to scope schema defaults under a
+            // custom name) and the reserved-name collision still needs catching.
+            val alias = node.props?.get(NodeParameterKeys.PROP_PARAMS_ALIAS)
+            if (alias != null && alias !is String) {
+                throw ValidationException(
+                    "content.${node.type}.props.paramsAlias",
+                    "NODE_PARAMETER_BINDINGS_INVALID_SHAPE: paramsAlias must be a string",
+                )
+            }
+            if (alias is String && alias in NodeParameterKeys.RESERVED_ALIASES) {
+                throw ValidationException(
+                    "content.${node.type}.props.paramsAlias",
+                    "NODE_PARAMS_ALIAS_RESERVED: paramsAlias '$alias' collides with a " +
+                        "reserved scope name (${NodeParameterKeys.RESERVED_ALIASES.joinToString()})",
+                )
+            }
+
             val rawBindings = node.props?.get(NodeParameterKeys.PROP_PARAMETER_BINDINGS) ?: continue
             if (rawBindings !is Map<*, *>) {
                 throw ValidationException(
@@ -224,14 +242,6 @@ class PlaceholderValidator {
                             "JSONata expression",
                     )
                 }
-            }
-            // Alias is optional; validate shape if present.
-            val alias = node.props?.get(NodeParameterKeys.PROP_PARAMS_ALIAS)
-            if (alias != null && alias !is String) {
-                throw ValidationException(
-                    "content.${node.type}.props.paramsAlias",
-                    "NODE_PARAMETER_BINDINGS_INVALID_SHAPE: paramsAlias must be a string",
-                )
             }
         }
     }
