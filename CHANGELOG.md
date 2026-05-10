@@ -6,6 +6,24 @@
 
 ### Fixed
 
+- **Undefined design tokens resolved.** Added missing palette values (`--ep-red-300`, `--ep-green-200/300/400/600`, `--ep-amber-300/700`) to `tokens.css`. Replaced stale alias tokens (`--ep-bg-primary` → `--ep-white`, `--ep-text-primary` → `--ep-foreground`, `--ep-text-muted` → `--ep-muted-foreground`). Dropped a dead `--ep-gray-150` fallback chain in the data-contract editor. Zero undefined `--ep-*` references remain in source CSS.
+
+- **Editor component CSS pinned to cascade layers.** `image.css`, `placeholder.css`, `qrcode.css`, and `stencil.css` were unlayered and thus outranked layered styles. They are now wrapped in `@layer components` to match the rest of the editor.
+
+- **Duplicate CSS rules merged.** The two competing `.btn-sm` definitions in `components.css` are now one. The two `.canvas-placeholder--default-edit` rules in `placeholder.css` are now one.
+
+### Changed
+
+- **Button classes standardized to `ep-btn` composable API.** Replaced the parallel unprefixed `btn` / `ep-btn-*` class systems and the main-app legacy classes (`button[type='submit']`, `.btn-small`, `.btn-danger`, `.btn-warning`, `.btn-ghost-destructive`) with a single canonical pattern: `ep-btn ep-btn-{variant} ep-btn-{size}`. Variants: `primary`, `outline`, `destructive`, `ghost`, `warning`. Sizes: `sm`, `lg`. An `ep-btn-icon` modifier handles icon-only buttons. CSS variable slots (`--btn-bg`, `--btn-fg`, `--btn-border-color`, etc.) let variants compose without specificity conflicts. Component-local button classes (`toolbar-btn`, `asset-picker-btn`, etc.) are deliberately untouched.
+
+- **All template and Lit-component button usages migrated** to the new `ep-btn` classes. Updated `brandguide.md` accordingly.
+
+### Added
+
+- **CSS linting via Stylelint.** A `stylelint.config.mjs` gates unprefixed `.btn` / `.btn-*` CSS selectors as hard errors, preventing accidental reintroduction. Integrated as `pnpm lint:css`. Exits 0 on clean, 2 on violations with standard file:line output.
+
+### Fixed
+
 - **Stencil parameters: review-pass hardening.** Five fixes from the post-toggle architectural review:
   - `paramsAlias` is now rejected when set to a reserved scope name (`sys`, `item`, `index`). New error code `NODE_PARAMS_ALIAS_RESERVED` from `PlaceholderValidator.validateStencilBindingShape`. Editor's "Configure parameters…" dialog rejects the same set inline. Without this, a consumer could shadow `sys.pages.total` and similar engine-provided values inside the stencil.
   - The alias-shape check now runs whether or not `parameterBindings` is set on the same node (was previously gated on bindings being present, so a node with only `paramsAlias` skipped validation entirely).
