@@ -70,7 +70,9 @@ export async function startEditing(ctx: StencilActionContext): Promise<{ draftVe
 /**
  * Persist the current local stencil content to the backend draft.
  * Fill slots are stripped on extract — template overrides never round-trip
- * into the stencil definition.
+ * into the stencil definition. The current `parameterSchemaSnapshot` prop
+ * (edited inline by the author via `StencilParameterDefinitionsPanel`) is
+ * forwarded so the schema persists alongside the content.
  */
 export async function saveDraft(ctx: StencilActionContext): Promise<{ version: number }> {
   const ref = requireRef(ctx);
@@ -78,7 +80,8 @@ export async function saveDraft(ctx: StencilActionContext): Promise<{ version: n
     throw new Error('updateStencil callback is not configured');
   }
   const content = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
-  return ctx.callbacks.updateStencil(ref, content);
+  const schema = stencilParameterSchema(ctx);
+  return ctx.callbacks.updateStencil(ref, content, schema);
 }
 
 /**
@@ -97,7 +100,8 @@ export async function publishDraft(
   }
   if (ctx.callbacks.updateStencil) {
     const content = extractSubtree(ctx.engine.doc, ctx.stencilNodeId);
-    await ctx.callbacks.updateStencil(ref, content);
+    const schema = stencilParameterSchema(ctx);
+    await ctx.callbacks.updateStencil(ref, content, schema);
   }
   const result = await ctx.callbacks.publishDraft(ref, draftVersion);
   ctx.engine.dispatch({
@@ -240,6 +244,19 @@ export function stencilRef(ctx: StencilActionContext): StencilRef | null {
   if (!isStencil(node)) return null;
   const { stencilId: id, catalogKey } = node.props;
   return id && catalogKey ? { stencilId: id, catalogKey } : null;
+}
+
+/**
+ * Read the parameter-schema snapshot from the stencil node's props. Returned
+ * straight from the prop — no shape validation here; the backend's
+ * ParameterSchemaValidator is the source of truth.
+ */
+function stencilParameterSchema(
+  ctx: StencilActionContext,
+): import('../../data-contract/types.js').JsonSchema | undefined {
+  const node = ctx.engine.doc.nodes[ctx.stencilNodeId];
+  if (!isStencil(node)) return undefined;
+  return node.props.parameterSchemaSnapshot;
 }
 
 function requireRef(ctx: StencilActionContext): StencilRef {

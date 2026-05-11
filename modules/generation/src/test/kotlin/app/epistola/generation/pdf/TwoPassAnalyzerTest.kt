@@ -87,6 +87,41 @@ class TwoPassAnalyzerTest {
         assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc))
     }
 
+    @Test
+    fun `sys page total in stencil parameter binding returns true`() {
+        // Without this, a stencil whose only reference to sys.pages.total is
+        // through a parameter binding would render single-pass, sys.pages.total
+        // would be undefined at render time, and the binding would resolve to null.
+        val doc = minimalDocument(
+            Node(
+                id = "stencil1",
+                type = "stencil",
+                props = mapOf(
+                    "stencilId" to "letter",
+                    "version" to 1,
+                    "parameterBindings" to mapOf("totalPages" to "sys.pages.total"),
+                ),
+            ),
+        )
+        assertTrue(TwoPassAnalyzer.requiresTwoPassRendering(doc))
+    }
+
+    @Test
+    fun `parameter binding without two-pass reference returns false`() {
+        val doc = minimalDocument(
+            Node(
+                id = "stencil1",
+                type = "stencil",
+                props = mapOf(
+                    "stencilId" to "letter",
+                    "version" to 1,
+                    "parameterBindings" to mapOf("name" to "customer.name"),
+                ),
+            ),
+        )
+        assertFalse(TwoPassAnalyzer.requiresTwoPassRendering(doc))
+    }
+
     // --- validate ---
 
     @Test

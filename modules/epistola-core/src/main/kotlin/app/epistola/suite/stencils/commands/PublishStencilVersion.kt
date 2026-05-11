@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
@@ -32,6 +33,7 @@ class PublishStencilVersionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
+    private val parameterSchemaValidator: ParameterSchemaValidator,
 ) : CommandHandler<PublishStencilVersion, StencilVersion?> {
     override fun handle(command: PublishStencilVersion): StencilVersion? = jdbi.inTransaction<StencilVersion?, Exception> { handle ->
         // Fetch the draft version
@@ -57,6 +59,7 @@ class PublishStencilVersionHandler(
         // re-applied at publish time as belt-and-suspenders for content that
         // may have been written before validation was wired in.
         placeholderValidator.validateAsStencilDefinition(version.content)
+        parameterSchemaValidator.validate(version.parameterSchema)
 
         // Publish: freeze the content
         handle.createQuery(

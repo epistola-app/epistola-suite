@@ -17,6 +17,7 @@
  * and by the JSON Schema; these types are a TypeScript contract over that.
  */
 
+import type { JsonSchema } from '../../data-contract/types.js';
 import type { Node } from '../../types/index.js';
 import { STENCIL_TYPE } from './constants.js';
 
@@ -33,10 +34,26 @@ export interface StencilProps {
   version: number | null;
   isDraft: boolean;
   /**
-   * Reserved for the future stencil-parameters feature. The validator
-   * rejects content with this field set in v1.
+   * Map of `paramName → JSONata expression`. Each entry binds one parameter
+   * declared in `parameterSchemaSnapshot` to an expression evaluated at
+   * render time against the *outer* render context. Absent / empty when the
+   * stencil has no parameters or none have been bound yet.
    */
-  parameterBindings?: never;
+  parameterBindings?: Record<string, string>;
+  /**
+   * Snapshot of the stencil version's parameter schema, copied here at
+   * insert/upgrade time. Stencils are dynamic components — each version has
+   * its own schema — so the schema cannot live in a static component
+   * definition; the snapshot keeps it accessible to the renderer / editor
+   * scope provider without a DB lookup.
+   */
+  parameterSchemaSnapshot?: JsonSchema;
+  /**
+   * Optional namespace alias under which this stencil's parameters are
+   * exposed inside its content. Defaults to `'params'`. Configurable per
+   * instance so nested parametrised nodes don't shadow each other's scopes.
+   */
+  paramsAlias?: string;
 }
 
 /** Branded view of a stencil node. Obtain via {@link isStencil}. */

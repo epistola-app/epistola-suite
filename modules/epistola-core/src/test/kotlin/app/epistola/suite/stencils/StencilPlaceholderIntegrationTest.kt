@@ -496,12 +496,13 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `CreateStencil rejects reserved parameterBindings prop`() = test {
-        val tenant = createTenant("placeholder-reserved")
+    fun `CreateStencil rejects malformed parameterBindings prop`() = test {
+        val tenant = createTenant("placeholder-binding-shape")
         val tenantId = TenantId(tenant.id)
         val sId = stencilId(tenantId)
 
-        val reserved = TemplateDocument(
+        // parameterBindings as a non-map → caught by NODE_PARAMETER_BINDINGS_INVALID_SHAPE.
+        val malformed = TemplateDocument(
             modelVersion = 1,
             root = "root",
             nodes = mapOf(
@@ -513,7 +514,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
                     props = mapOf(
                         "stencilId" to "other",
                         "version" to 1,
-                        "parameterBindings" to mapOf("date" to "today"),
+                        "parameterBindings" to "not-a-map",
                     ),
                 ),
             ),
@@ -524,8 +525,8 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         )
 
         assertThatThrownBy {
-            CreateStencil(id = sId, name = "Reserved", content = reserved).execute()
+            CreateStencil(id = sId, name = "Malformed", content = malformed).execute()
         }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("STENCIL_PARAMETERBINDINGS_RESERVED")
+            .hasMessageContaining("NODE_PARAMETER_BINDINGS_INVALID_SHAPE")
     }
 }

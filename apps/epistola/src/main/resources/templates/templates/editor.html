@@ -86,6 +86,9 @@
         window.DATA_MODEL = /*[[${dataModel}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
         window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
+        window.EPISTOLA_FEATURES = {
+            stencilParameters: /*[[${stencilParametersEnabled}]]*/ false,
+        };
 
         // CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
         window.getCsrfToken = function() {
@@ -122,6 +125,7 @@
             dataExamples: window.DATA_EXAMPLES,
             dataModel: window.DATA_MODEL,
             plugins: plugins,
+            featureFlags: window.EPISTOLA_FEATURES,
             imageOptions: {
                 contentUrlPattern: '/tenants/' + tenantId + '/assets/' + catalogId + '/{assetId}/content',
                 listAssets: async () => {
@@ -196,7 +200,13 @@
                     });
                     if (!resp.ok) return null;
                     const v = await resp.json();
-                    return { ref, stencilName: ref.stencilId, version: v.id ?? version, content: v.content };
+                    return {
+                        ref,
+                        stencilName: ref.stencilId,
+                        version: v.id ?? version,
+                        content: v.content,
+                        parameterSchema: v.parameterSchema ?? undefined,
+                    };
                 },
                 createStencil: async (slug, name) => {
                     const resp = await fetch('/tenants/' + tenantId + '/stencils', {
@@ -229,11 +239,14 @@
                     if (!resp.ok) throw new Error('Failed to publish draft');
                     return await resp.json();
                 },
-                updateStencil: async (ref, content) => {
+                updateStencil: async (ref, content, parameterSchema) => {
+                    const body = parameterSchema !== undefined
+                        ? { content, parameterSchema }
+                        : { content };
                     const resp = await fetch('/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId + '/draft', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-                        body: JSON.stringify({ content }),
+                        body: JSON.stringify(body),
                     });
                     if (!resp.ok) throw new Error('Failed to update stencil');
                     return await resp.json();
