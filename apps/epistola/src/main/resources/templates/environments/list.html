@@ -11,7 +11,7 @@
                     targetId='environment-rows'
                 )}"></div>
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Environment
                 </a>
@@ -25,7 +25,7 @@
             <div class="empty-state-title">No environments yet</div>
             <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Environment
             </a>
@@ -48,7 +48,7 @@
                         <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <button type="button"
-                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                     title="Delete environment"
                                     data-confirm-title="Delete Environment"
                                     th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"

@@ -161,7 +161,7 @@ Actions column — add "Set as Default" button for non-default variants:
   hx-swap="outerHTML"
   hx-confirm="Make this the default variant?"
 >
-  <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+  <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
     <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
   </button>
 </form>

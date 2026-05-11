@@ -11,7 +11,7 @@
                     targetId='template-rows'
                 )}"></div>
                 <a th:if="${auth.has('TEMPLATE_EDIT')}"
-                   th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Template
                 </a>
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
             <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template
             </a>
@@ -75,7 +75,7 @@
                         <td class="actions">
                             <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               class="btn btn-sm btn-icon btn-ghost" title="View template">
+                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
                                 <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
                         </td>

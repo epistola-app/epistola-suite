@@ -21,7 +21,7 @@
                                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
                             </select>
-                            <button type="submit" class="btn btn-sm btn-outline">Update Status</button>
+                            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
                         </form>
                     </div>
                 </div>
@@ -117,7 +117,7 @@
                                           required placeholder="Add a comment..."></textarea>
                             </div>
                             <div class="form-actions" style="margin-top: var(--ep-space-2);">
-                                <button type="submit" class="btn btn-primary btn-sm">Add Comment</button>
+                                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add Comment</button>
                             </div>
                         </form>
                     </th:block>

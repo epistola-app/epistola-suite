@@ -13,12 +13,15 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint --fix",
     "lint:check": "oxlint",
+    "lint:css": "stylelint 'modules/**/*.css' 'apps/**/*.css'",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "devDependencies": {
     "oxfmt": "^0.47.0",
     "oxlint": "^1.57.0",
     "oxlint-tsgolint": "^0.22.0",
+    "stylelint": "^17.11.0",
+    "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.0"
   },
   "engines": {

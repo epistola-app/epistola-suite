@@ -59,7 +59,7 @@
                                       hx-target="#version-list"
                                       hx-swap="innerHTML"
                                       style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-outline">
+                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">
                                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                                         New Draft
                                     </button>
@@ -94,14 +94,14 @@
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                               hx-target="#version-list" hx-swap="innerHTML" style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-primary" title="Publish">Publish</button>
+                                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" title="Publish">Publish</button>
                                         </form>
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                               hx-target="#version-list" hx-swap="innerHTML"
                                               hx-confirm="Archive version? It will no longer be available for insertion into templates."
                                               style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-ghost" title="Archive">Archive</button>
+                                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Archive">Archive</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -136,7 +136,7 @@
                                 </th:block>
                             </th:block>
                         </select>
-                        <button type="button" class="btn btn-sm btn-primary" id="apply-upgrade-btn" onclick="applyUpgrade()">
+                        <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" id="apply-upgrade-btn" onclick="applyUpgrade()">
                             Apply to selected
                         </button>
                         <span id="upgrade-status" style="font-size: var(--ep-text-sm); color: var(--ep-muted-foreground);"></span>
@@ -212,14 +212,14 @@
                                 return;
                             }
 
-                            const btn = document.getElementById('apply-upgrade-btn');
+                            const button = document.getElementById('apply-upgrade-btn');
                             const status = document.getElementById('upgrade-status');
                             _abortController = new AbortController();
 
-                            btn.textContent = 'Cancel';
-                            btn.onclick = () => { _abortController.abort(); };
-                            btn.classList.remove('btn-primary');
-                            btn.classList.add('btn-outline');
+                            button.textContent = 'Cancel';
+                            button.onclick = () => { _abortController.abort(); };
+                            button.classList.remove('ep-btn-primary');
+                            button.classList.add('ep-btn-outline');
                             status.textContent = '';
 
                             let success = 0, failed = 0, cancelled = false;
@@ -247,10 +247,10 @@
                                 status.textContent = `${success + failed} / ${selected.length}...`;
                             }
 
-                            btn.textContent = 'Apply to selected';
-                            btn.onclick = applyUpgrade;
-                            btn.classList.remove('btn-outline');
-                            btn.classList.add('btn-primary');
+                            button.textContent = 'Apply to selected';
+                            button.onclick = applyUpgrade;
+                            button.classList.remove('ep-btn-outline');
+                            button.classList.add('ep-btn-primary');
                             _abortController = null;
 
                             const parts = [];

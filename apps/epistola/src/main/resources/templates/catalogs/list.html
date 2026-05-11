@@ -5,17 +5,17 @@
         <div class="page-header">
             <h1>Catalogs</h1>
             <div class="page-actions">
-                <button type="button" class="btn btn-outline"
+                <button type="button" class="ep-btn ep-btn-outline"
                         onclick="document.getElementById('import-dialog').showModal()">
                     <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon')}" />
                     Import ZIP
                 </button>
-                <button type="button" class="btn btn-outline"
+                <button type="button" class="ep-btn ep-btn-outline"
                         onclick="document.getElementById('subscribe-dialog').showModal()">
                     <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
                     Subscribe
                 </button>
-                <button type="button" class="btn btn-primary"
+                <button type="button" class="ep-btn ep-btn-primary"
                         onclick="document.getElementById('create-dialog').showModal()">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Catalog
@@ -65,15 +65,15 @@
                     <td th:text="${#temporals.format(catalog.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           class="btn btn-sm btn-icon btn-ghost" title="Browse catalog">
+                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
                             <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           class="btn btn-sm btn-icon btn-ghost" title="Export as ZIP" hx-boost="false">
+                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP" hx-boost="false">
                             <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <button type="button"
-                                class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id.toString() == 'default'}"
                                 th:title="${catalog.id.toString() == 'default'} ? 'The default catalog cannot be deleted' : (${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog and all its resources' : 'Remove catalog')"
                                 th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
@@ -112,9 +112,9 @@
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
-                    <button type="button" class="btn btn-ghost"
+                    <button type="button" class="ep-btn ep-btn-ghost"
                             onclick="document.getElementById('create-dialog').close()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Create</button>
                 </div>
             </form>
             <script>
@@ -158,9 +158,9 @@
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
-                    <button type="button" class="btn btn-ghost"
+                    <button type="button" class="ep-btn ep-btn-ghost"
                             onclick="document.getElementById('subscribe-dialog').close()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Subscribe</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Subscribe</button>
                 </div>
             </form>
         </dialog>
@@ -197,9 +197,9 @@
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
-                    <button type="button" class="btn btn-ghost"
+                    <button type="button" class="ep-btn ep-btn-ghost"
                             onclick="document.getElementById('import-dialog').close()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Import</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Import</button>
                 </div>
             </form>
         </dialog>

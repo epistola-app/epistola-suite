@@ -37,7 +37,7 @@
                     </button>
                     <button th:if="${changelogIsNew}"
                             type="button"
-                            class="btn btn-ghost btn-sm btn-icon"
+                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                             th:hx-post="@{/changelog/acknowledge}"
                             hx-target="#whats-new-banner"
                             hx-swap="outerHTML"
@@ -71,19 +71,19 @@
             <div class="dashboard-actions">
                 <h2>Quick Actions</h2>
                 <div class="quick-links">
-                    <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="btn btn-outline">
+                    <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                         New Template
                     </a>
-                    <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="btn btn-outline">
+                    <a th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                         New Theme
                     </a>
-                    <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="btn btn-outline">
+                    <a th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                         New Environment
                     </a>
-                    <a th:href="@{/tenants/{id}/generate(id=${tenant.id})}" class="btn btn-primary">
+                    <a th:href="@{/tenants/{id}/generate(id=${tenant.id})}" class="ep-btn ep-btn-primary">
                         <th:block th:replace="~{fragments/icon :: icon(name='zap', class='ep-icon')}" />
                         Generate Document
                     </a>

@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h3>Compare Versions: <code th:text="${variantId}"></code></h3>
-            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="document.getElementById('version-comparison-dialog').close()"
                     title="Close">&times;</button>
         </div>
@@ -50,7 +50,7 @@
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom: 0; align-self: flex-end;">
-                        <button type="button" class="btn btn-primary" onclick="compareVersions()">Compare</button>
+                        <button type="button" class="ep-btn ep-btn-primary" onclick="compareVersions()">Compare</button>
                     </div>
                 </div>
 

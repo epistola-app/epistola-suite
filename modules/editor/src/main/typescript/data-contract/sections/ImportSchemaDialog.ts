@@ -64,9 +64,11 @@ export function renderImportSchemaDialog(
 
       <!-- Actions -->
       <div class="dc-dialog-actions">
-        <button class="ep-btn-outline btn-sm" @click=${() => callbacks.onCancel()}>Cancel</button>
+        <button class="ep-btn ep-btn-outline ep-btn-sm" @click=${() => callbacks.onCancel()}>
+          Cancel
+        </button>
         <button
-          class="ep-btn-primary btn-sm dc-btn-icon"
+          class="ep-btn ep-btn-primary ep-btn-sm dc-btn-icon"
           @click=${(e: Event) => {
             const dialog = (e.target as HTMLElement).closest('.dc-import-dialog')!;
             const textarea = dialog.querySelector<HTMLTextAreaElement>('#dc-import-textarea')!;

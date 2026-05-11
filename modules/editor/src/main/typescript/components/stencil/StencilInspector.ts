@@ -204,7 +204,7 @@ export class StencilInspector extends LitElement {
             : nothing}
         </div>
         <button
-          class="btn btn-sm btn-outline stencil-btn"
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
           @click=${this._handleEditBindings}
           style="width: 100%;"
         >
@@ -262,7 +262,7 @@ export class StencilInspector extends LitElement {
       <div class="inspector-field stencil-actions">
         ${this._hasUpgrade
           ? html`<button
-                class="btn btn-sm btn-primary stencil-btn"
+                class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
                 ?disabled=${this._busy}
                 @click=${this._handleUpgrade}
               >
@@ -275,7 +275,7 @@ export class StencilInspector extends LitElement {
               </div>`
           : this.callbacks?.startEditing
             ? html`<button
-                class="btn btn-sm btn-primary stencil-btn"
+                class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
                 ?disabled=${this._busy}
                 @click=${this._handleStartEditing}
               >
@@ -283,7 +283,7 @@ export class StencilInspector extends LitElement {
               </button>`
             : nothing}
 
-        <button class="btn btn-sm btn-outline stencil-btn" @click=${this._handleDetach}>
+        <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
       </div>
@@ -300,7 +300,7 @@ export class StencilInspector extends LitElement {
       ${this.engine.isFeatureEnabled('stencilParameters')
         ? html`<div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
             <button
-              class="btn btn-sm btn-outline stencil-btn"
+              class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
               @click=${this._handleEditDefinitions}
               style="width: 100%;"
             >
@@ -312,7 +312,7 @@ export class StencilInspector extends LitElement {
       <div class="inspector-field stencil-actions">
         ${this.callbacks?.updateStencil
           ? html`<button
-              class="btn btn-sm btn-primary stencil-btn"
+              class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handleSaveDraft}
             >
@@ -321,7 +321,7 @@ export class StencilInspector extends LitElement {
           : nothing}
         ${this.callbacks?.publishDraft
           ? html`<button
-              class="btn btn-sm btn-outline stencil-btn"
+              class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handlePublishDraft}
             >
@@ -330,7 +330,7 @@ export class StencilInspector extends LitElement {
           : nothing}
         ${this.callbacks?.getStencilVersion
           ? html`<button
-              class="btn btn-sm btn-outline btn-outline-destructive stencil-btn"
+              class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handleDiscard}
             >
@@ -338,7 +338,7 @@ export class StencilInspector extends LitElement {
             </button>`
           : nothing}
 
-        <button class="btn btn-sm btn-outline stencil-btn" @click=${this._handleDetach}>
+        <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
           Detach from Stencil
         </button>
       </div>

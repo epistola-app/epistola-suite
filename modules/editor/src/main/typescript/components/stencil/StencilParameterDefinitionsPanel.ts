@@ -97,7 +97,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
         </div>
 
         <div style="display:flex; align-items:center; gap: var(--ep-space-2);">
-          <button type="button" class="ep-btn-outline btn-sm" @click=${this._addRow}>
+          <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" @click=${this._addRow}>
             + Add parameter
           </button>
           <span style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);">
@@ -198,7 +198,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           </h4>
           <button
             type="button"
-            class="ep-btn-outline btn-sm"
+            class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
             style="color: var(--ep-destructive, #dc2626);"
             @click=${() => this._removeRow(row.id)}
           >

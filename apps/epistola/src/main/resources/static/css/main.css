@@ -130,32 +130,6 @@ main.regular section {
   margin-top: var(--ep-space-6);
 }
 
-/* Submit button (uses .btn .btn-primary when available, this is for plain submit) */
-button[type='submit'] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--ep-h-9);
-  padding: 0 var(--ep-space-6);
-  font-size: var(--ep-text-sm);
-  font-weight: 500;
-  color: var(--ep-primary-foreground);
-  background-color: var(--ep-primary);
-  border: none;
-  border-radius: var(--ep-radius-md);
-  cursor: pointer;
-  transition: background-color var(--ep-transition-base);
-}
-
-button[type='submit']:hover {
-  background-color: var(--ep-blue-700);
-}
-
-button[type='submit']:focus-visible {
-  outline: none;
-  box-shadow: var(--ep-ring);
-}
-
 /* ── Table styles (scoped to regular pages) ───────────────────────────── */
 
 main.regular table {
@@ -317,35 +291,6 @@ main.regular .empty-message {
   gap: var(--ep-space-1);
 }
 
-/* ── Button classes ───────────────────────────────────────────────────── */
-
-/* Legacy .btn-small mapped to .btn-sm behavior */
-.btn-small {
-  height: var(--ep-h-8);
-  padding: 0 var(--ep-space-3);
-  font-size: var(--ep-text-xs);
-  border-radius: var(--ep-radius-sm);
-}
-
-.btn-danger {
-  background-color: var(--ep-destructive);
-  color: var(--ep-destructive-foreground);
-}
-
-.btn-danger:hover {
-  background-color: var(--ep-red-700);
-  color: var(--ep-destructive-foreground);
-}
-
-.btn-warning {
-  background-color: var(--ep-amber-500);
-  color: var(--ep-white);
-}
-
-.btn-warning:hover {
-  background-color: var(--ep-amber-600);
-}
-
 /* ── Action buttons in tables ─────────────────────────────────────────── */
 
 .actions {
@@ -385,17 +330,6 @@ main.regular .empty-message {
 
 .back-link:hover {
   color: var(--ep-primary);
-}
-
-/* ── Ghost destructive button ────────────────────────────────────────── */
-
-.btn-ghost-destructive {
-  color: var(--ep-muted-foreground);
-}
-
-.btn-ghost-destructive:hover {
-  color: var(--ep-destructive);
-  background-color: var(--ep-red-50);
 }
 
 /* ── Inline form (for create variant) ─────────────────────────────────── */
@@ -1285,7 +1219,7 @@ a.stat-card:hover {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--ep-text-muted);
+  color: var(--ep-muted-foreground);
   font-size: var(--ep-text-sm);
 }
 

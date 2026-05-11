@@ -60,10 +60,13 @@ export function renderMigrationDialog(
       ${autoMigratableCount > 0
         ? html`
             <div class="dc-migration-select-controls">
-              <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onSelectAll()}>
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" @click=${() => callbacks.onSelectAll()}>
                 Select all
               </button>
-              <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onSelectNone()}>
+              <button
+                class="ep-btn ep-btn-ghost ep-btn-sm"
+                @click=${() => callbacks.onSelectNone()}
+              >
                 Select none
               </button>
             </div>
@@ -88,10 +91,12 @@ export function renderMigrationDialog(
 
       <!-- Footer actions -->
       <div class="dc-migration-footer">
-        <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onCancel()}>Cancel</button>
+        <button class="ep-btn ep-btn-ghost ep-btn-sm" @click=${() => callbacks.onCancel()}>
+          Cancel
+        </button>
 
         <button
-          class="btn btn-sm dc-migration-force-save-btn"
+          class="ep-btn ep-btn-sm dc-migration-force-save-btn"
           @click=${() => callbacks.onForceSave()}
           title="Save schema without fixing examples"
         >
@@ -101,7 +106,7 @@ export function renderMigrationDialog(
         ${autoMigratableCount > 0
           ? html`
               <button
-                class="btn btn-sm btn-primary"
+                class="ep-btn ep-btn-primary ep-btn-sm"
                 ?disabled=${selectedCount === 0}
                 @click=${() => {
                   const selected = migrations.filter((m) =>

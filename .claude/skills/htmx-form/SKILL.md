@@ -132,7 +132,7 @@ All list/detail page deletes use `openConfirmDialog()`:
 ```html
 <button
   type="button"
-  class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+  class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
   data-confirm-title="Delete <Entity>"
   th:attr="data-confirm-message='...', data-confirm-url=@{...}"
   data-confirm-target="#<entity>-rows"

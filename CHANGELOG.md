@@ -24,6 +24,24 @@ The first iteration is intentionally tenant-only, in this repo only. The followi
 
 ### Fixed
 
+- **Undefined design tokens resolved.** Added missing palette values (`--ep-red-300`, `--ep-green-200/300/400/600`, `--ep-amber-300/700`) to `tokens.css`. Replaced stale alias tokens (`--ep-bg-primary` → `--ep-white`, `--ep-text-primary` → `--ep-foreground`, `--ep-text-muted` → `--ep-muted-foreground`). Dropped a dead `--ep-gray-150` fallback chain in the data-contract editor. Zero undefined `--ep-*` references remain in source CSS.
+
+- **Editor component CSS pinned to cascade layers.** `image.css`, `placeholder.css`, `qrcode.css`, and `stencil.css` were unlayered and thus outranked layered styles. They are now wrapped in `@layer components` to match the rest of the editor.
+
+- **Duplicate CSS rules merged.** The two competing `.btn-sm` definitions in `components.css` are now one. The two `.canvas-placeholder--default-edit` rules in `placeholder.css` are now one.
+
+### Changed
+
+- **Button classes standardized to `ep-btn` composable API.** Replaced the parallel unprefixed `btn` / `ep-btn-*` class systems and the main-app legacy classes (`button[type='submit']`, `.btn-small`, `.btn-danger`, `.btn-warning`, `.btn-ghost-destructive`) with a single canonical pattern: `ep-btn ep-btn-{variant} ep-btn-{size}`. Variants: `primary`, `outline`, `destructive`, `ghost`, `warning`. Sizes: `sm`, `lg`. An `ep-btn-icon` modifier handles icon-only buttons. CSS variable slots (`--btn-bg`, `--btn-fg`, `--btn-border-color`, etc.) let variants compose without specificity conflicts. Component-local button classes (`toolbar-btn`, `asset-picker-btn`, etc.) are deliberately untouched.
+
+- **All template and Lit-component button usages migrated** to the new `ep-btn` classes. Updated `brandguide.md` accordingly.
+
+### Added
+
+- **CSS linting via Stylelint.** A `stylelint.config.mjs` gates unprefixed `.btn` / `.btn-*` CSS selectors as hard errors, preventing accidental reintroduction. Integrated as `pnpm lint:css`. Exits 0 on clean, 2 on violations with standard file:line output.
+
+### Fixed
+
 - **Flaky Playwright UI tests (`FeedbackScreenshotUiTest`, `EditorShortcutsUiTest`).** Two distinct races identified and fixed deterministically rather than by retry. (a) `openFeedbackDialog()` no longer relies on Playwright's implicit 30 s click auto-wait — it now waits for `networkidle` after navigation (so the htmx `hx-trigger="load"` fetch that injects the popover header settles before any selector check) and explicitly waits for the htmx-loaded `.feedback-popover-header button` before clicking it. (b) In `EditorShortcutsUiTest`'s `leader success hint auto hides and clears…`, assertions on the 700 ms-TTL leader hint now come before the sticky shortcuts-popover assertion — the previous order could consume the hint's whole TTL on a slow CI runner and miss it. `BasePlaywrightTest` now records a Playwright trace per test and persists `build/playwright-traces/*.zip` only on failure (via an `AfterTestExecutionCallback`-backed flag, before `@AfterEach` finishes), and CI uploads `playwright-failures` (traces + JUnit HTML reports) as an artifact on failed runs so future flakes are debuggable rather than guesswork.
 
 - **Stencil parameters: review-pass hardening.** Five fixes from the post-toggle architectural review:

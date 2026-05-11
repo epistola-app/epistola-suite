@@ -259,13 +259,13 @@ export class EpistolaDataContractEditor extends LitElement {
                 </ul>
                 <div class="dc-dialog-actions">
                   <button
-                    class="ep-btn-outline btn-sm"
+                    class="ep-btn ep-btn-outline ep-btn-sm"
                     @click=${() => this._dismissBreakingChanges()}
                   >
                     Cancel
                   </button>
                   <button
-                    class="ep-btn-primary btn-sm"
+                    class="ep-btn ep-btn-primary ep-btn-sm"
                     @click=${() => this._confirmBreakingChanges()}
                   >
                     Save Anyway

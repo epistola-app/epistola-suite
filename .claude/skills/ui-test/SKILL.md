@@ -150,7 +150,7 @@ page.locator("button[title='Delete variant']").first().click()
 page.waitForSelector("#confirm-dialog[open]")
 
 // Click the Delete button inside the dialog
-page.locator("#confirm-dialog button.btn-destructive").click()
+page.locator("#confirm-dialog button.ep-btn-destructive").click()
 
 // Wait for the dialog to close and HTMX swap to complete
 page.waitForSelector("#confirm-dialog:not([open])")
@@ -160,7 +160,7 @@ For the template danger zone delete (which uses native `confirm()`):
 
 ```kotlin
 page.onDialog { dialog -> dialog.accept() }
-page.locator("button.btn-destructive:has-text('Delete Template')").click()
+page.locator("button.ep-btn-destructive:has-text('Delete Template')").click()
 ```
 
 ## Run Commands

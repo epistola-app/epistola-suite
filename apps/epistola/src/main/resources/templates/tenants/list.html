@@ -34,7 +34,7 @@
                         <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
                         <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
-                    <button type="submit" class="btn btn-primary">Create Tenant</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
                 </form>
             </section>
         </div>
@@ -66,12 +66,12 @@
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}"
-                                   class="btn btn-sm btn-icon btn-ghost" title="Open tenant">
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Open tenant">
                                     <th:block th:replace="~{fragments/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <button th:if="${auth.has('TENANT_MANAGER')}"
                                         type="button"
-                                        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete tenant"
                                         data-confirm-title="Delete Tenant"
                                         th:attr="data-confirm-message='Permanently delete tenant &quot;' + ${tenant.name} + '&quot; (' + ${tenant.id} + ')? This will delete all associated data including templates, themes, environments, assets, and memberships. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/delete(tenantId=${tenant.id})}"

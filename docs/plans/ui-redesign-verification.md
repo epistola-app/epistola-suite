@@ -16,15 +16,15 @@ Then check each page visually at http://localhost:8080
 - [ ] Inter font loads correctly
 - [ ] Login card centered with proper shadow
 - [ ] Form inputs use ring-based focus
-- [ ] "Sign In" button uses .btn .btn-primary with Lucide log-in icon
-- [ ] OAuth button uses .btn .btn-outline
+- [ ] "Sign In" button uses .ep-btn .ep-btn-primary with Lucide log-in icon
+- [ ] OAuth button uses .ep-btn .ep-btn-outline
 - [ ] Alert components render correctly (error, success, warning, info)
 - [ ] Login divider renders between form and OAuth
 
 ### Tenant List (/)
 
 - [ ] Table uses .ep-table styling with border-radius
-- [ ] Create tenant form uses .ep-input and .btn .btn-primary
+- [ ] Create tenant form uses .ep-input and .ep-btn .ep-btn-primary
 - [ ] Search input styled correctly
 - [ ] Footer is sticky at bottom
 
@@ -38,7 +38,7 @@ Then check each page visually at http://localhost:8080
 ### Template List
 
 - [ ] Table rows with proper hover state
-- [ ] Action buttons use correct hierarchy (.btn .btn-sm)
+- [ ] Action buttons use correct hierarchy (.ep-btn .ep-btn-sm)
 - [ ] Search fragment works
 
 ### Template Detail
@@ -72,7 +72,7 @@ Then check each page visually at http://localhost:8080
 ### Session Dialogs
 
 - [ ] Dialog backdrop has blur effect
-- [ ] Buttons use .btn classes
+- [ ] Buttons use .ep-btn classes
 
 ## Editor (editor-v2)
 
