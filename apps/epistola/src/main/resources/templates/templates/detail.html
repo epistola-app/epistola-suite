@@ -53,11 +53,10 @@
                         <label class="ep-label" th:for="'edit-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
                         <select th:id="'edit-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
                             <option value="">- Not set -</option>
-                            <option th:if="${!attrDef.allowedValues.isEmpty()}"
-                                    th:each="val : ${attrDef.allowedValues}"
-                                    th:value="${val}"
-                                    th:text="${val}"
-                                    th:selected="${variant.attributes != null and variant.attributes.containsKey(attrDef.id.toString()) and variant.attributes.get(attrDef.id.toString()) == val}"></option>
+                            <option th:each="opt : ${attributeOptions != null ? attributeOptions[attrDef.id.toString()] : null}"
+                                    th:value="${opt.code}"
+                                    th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"
+                                    th:selected="${variant.attributes != null and variant.attributes.containsKey(attrDef.id.toString()) and variant.attributes.get(attrDef.id.toString()) == opt.code}"></option>
                         </select>
                     </div>
                 </div>
