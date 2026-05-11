@@ -311,7 +311,7 @@ class CodeListUiTest : BasePlaywrightTest() {
 
         page.locator(".page-actions button:has-text('Delete')").click()
         page.waitForSelector("#confirm-dialog[open]")
-        page.locator("#confirm-dialog button.btn-destructive").click()
+        page.locator("#confirm-dialog button.ep-btn-destructive").click()
 
         page.waitForURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
         assertThat(page.locator("h1")).hasText("Code lists")
