@@ -177,10 +177,6 @@ building this feature:
 - **[#393](https://github.com/epistola-app/epistola-suite/issues/393)** —
   rework the variant create/edit dialogs so the list of attributes can
   grow without flooding the form with empty rows.
-- **[#394](https://github.com/epistola-app/epistola-suite/issues/394)** —
-  close test gaps: Playwright `CodeListUiTest`, `RefreshCodeList` end-to-end
-  with a stub HTTP server, SUBSCRIBED-catalog refusal across the
-  code-list commands.
 
 Larger follow-ups requiring coordination with `epistola-contract`:
 
@@ -214,6 +210,14 @@ Backend tests live under
   entries.
 - `CodeListClientTest` — classpath fetch, URL scheme allowlist, malformed-URL
   rejection, path-traversal rejection.
+- `RefreshCodeListTest` — `RefreshCodeList` end-to-end against a real
+  `com.sun.net.httpserver.HttpServer`: happy path (entries fetched,
+  `last_refreshed_at` advances), failure path (server 500 leaves entries
+  intact and populates `last_refresh_error`), `Bearer` and `X-API-Key`
+  auth header propagation, INLINE-refresh refusal.
+- `SubscribedCodeListsReadOnlyTest` — every mutating code-list command
+  (Create / Update / Delete / Refresh / UpdateCodeListEntryHidden) raises
+  `CatalogReadOnlyException` against a SUBSCRIBED catalog.
 - `AttributeCodeListBindingTest` — XOR validation between inline values and
   code-list bindings; half-specified bindings rejected; FK violation surfaces
   when binding to a non-existent list; transitioning the binding both ways.
@@ -226,4 +230,21 @@ Run them with:
 
 ```bash
 ./gradlew :modules:epistola-core:test --tests "app.epistola.suite.attributes.codelists.*"
+```
+
+Browser-facing tests live under
+`apps/epistola/src/test/kotlin/app/epistola/suite/ui/CodeListUiTest.kt`:
+
+- create an INLINE code list via the new-form's entries editor and verify
+  the detail page renders the entries,
+- bind a new attribute to a code list via the three-way constraint picker
+  and verify the binding badge on the attribute list,
+- variant create dialog renders dropdown options as `code — label`,
+- hidden entries are filtered out of the variant dropdown,
+- the catalog filter on the code-list list page narrows the rows.
+
+Run them with:
+
+```bash
+./gradlew :apps:epistola:uiTest --tests "app.epistola.suite.ui.CodeListUiTest"
 ```
