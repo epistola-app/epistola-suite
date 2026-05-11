@@ -117,6 +117,36 @@ class CodeListUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `duplicate code list slug shows validation error on new form`() {
+        val tenant = withMediator {
+            val t = createUiTenant()
+            val tenantId = TenantId(t.id)
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of("locales"), CatalogId.default(tenantId)),
+                displayName = "Locales",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("en", "English")),
+            ).execute()
+            t
+        }
+
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/new")
+        page.waitForSelector("#entries-tbody tr")
+
+        page.locator("#displayName").fill("Locales Again")
+        page.locator("#slug").fill("locales")
+        val row = page.locator("#entries-tbody tr").first()
+        row.locator("input[placeholder='code']").fill("nl")
+        row.locator("input[placeholder='Label']").fill("Dutch")
+
+        page.locator("button:has-text('Create code list')").click()
+
+        assertThat(page.locator("#slug + .form-hint + .form-error")).hasText("A code-list with this ID already exists")
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        assertThat(page.locator("#slug")).hasValue("locales")
+    }
+
+    @Test
     fun `bind attribute to code list via three-way picker`() {
         val tenant = withMediator {
             val t = createUiTenant()
