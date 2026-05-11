@@ -8,13 +8,18 @@ Variant attributes are structured key-value pairs assigned to template variants.
 
 Before attributes can be used on variants, they must be defined in a **tenant-scoped registry**. Each attribute definition specifies:
 
-| Field             | Description                                                         |
-| ----------------- | ------------------------------------------------------------------- |
-| **id**            | Slug identifier (3-50 chars), e.g. `language`, `brand`              |
-| **displayName**   | Human-readable label, e.g. "Language", "Brand"                      |
-| **allowedValues** | Optional list of permitted values. If empty, any value is accepted. |
+| Field                                 | Description                                                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **id**                                | Slug identifier (3-50 chars), e.g. `language`, `brand`                                                                                                                          |
+| **displayName**                       | Human-readable label, e.g. "Language", "Brand"                                                                                                                                  |
+| **allowedValues**                     | Optional list of permitted values. If empty and no code list is bound, any value is accepted.                                                                                   |
+| **codeListCatalogKey / codeListSlug** | Optional binding to a [code list](code-lists.md). Mutually exclusive with `allowedValues` — an attribute either uses inline values, binds to a code list, or accepts any value. |
 
 Attribute definitions are managed per tenant. Variants can only use attributes that exist in their tenant's registry.
+
+For longer or shared value sets (locales, country codes, custom taxonomies),
+prefer a **code list** binding over inline `allowedValues`. See
+[`code-lists.md`](code-lists.md) for the full design.
 
 ### Variant Attributes
 

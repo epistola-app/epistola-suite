@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -440,6 +441,7 @@ class DocumentTemplateHandler(
 
         val variants = GetVariantSummaries(templateId = ctx.templateId).query()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
+        val attributeOptions = buildAttributeOptions(ctx.templateId.tenantId, attributeDefinitions)
         val contractVersion = GetLatestContractVersion(templateId = ctx.templateId).query()
 
         return detailHelper.renderDetailPage(
@@ -448,6 +450,7 @@ class DocumentTemplateHandler(
             mapOf(
                 "variants" to variants,
                 "attributeDefinitions" to attributeDefinitions,
+                "attributeOptions" to attributeOptions,
                 "contractDataExamples" to contractVersion?.dataExamples,
             ),
         )

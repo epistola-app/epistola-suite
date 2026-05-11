@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <th:block th:fragment="page-content">
+            <nav class="breadcrumb">
+                <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}">Code lists</a> &raquo;
+                <span th:text="${codeList.displayName}"></span>
+            </nav>
+
+            <div class="page-header">
+                <div>
+                    <h1 th:text="${codeList.displayName}"></h1>
+                    <div class="page-subtitle">
+                        <code th:text="${codeList.catalogKey + '/' + codeList.slug}"></code>
+                        <span class="badge badge-outline" th:text="${codeList.sourceType}"></span>
+                        <span th:if="${!editable}" class="badge badge-muted">Read-only</span>
+                    </div>
+                </div>
+                <div class="page-actions">
+                    <form th:if="${editable and codeList.sourceUrl != null}"
+                          th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
+                          method="post" style="display: inline;">
+                        <button type="submit" class="btn btn-outline">
+                            <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                            Refresh from source
+                        </button>
+                    </form>
+                    <button th:if="${editable}" type="button"
+                            class="btn btn-outline btn-destructive"
+                            data-confirm-title="Delete code list"
+                            th:attr="data-confirm-message='Delete code list &quot;' + ${codeList.displayName} + '&quot;? Bound attributes must be unbound first.',data-confirm-url=@{/tenants/{tenantId}/code-lists/{c}/{s}/delete(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
+                            onclick="openConfirmDialog(this)">
+                        Delete
+                    </button>
+                </div>
+            </div>
+
+            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                <span th:text="${error}"></span>
+            </div>
+
+            <p th:if="${codeList.description != null}" class="ep-text-muted" th:text="${codeList.description}"></p>
+
+            <div th:if="${codeList.lastRefreshedAt != null}" class="ep-text-xs ep-text-muted" style="margin-bottom: var(--ep-space-3);">
+                Last refreshed
+                <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                <th:block th:if="${codeList.lastRefreshError != null}">
+                    &mdash; last attempt failed: <span th:text="${codeList.lastRefreshError}"></span>
+                </th:block>
+            </div>
+
+            <div style="margin: var(--ep-space-3) 0;">
+                <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
+                   class="btn btn-sm btn-ghost"
+                   th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>
+            </div>
+
+            <table class="ep-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Label</th>
+                        <th>Sort order</th>
+                        <th>Hidden</th>
+                    </tr>
+                </thead>
+                <tbody id="entries-tbody">
+                    <th:block th:each="entry : ${entries}">
+                        <tr th:fragment="entry-row"
+                            th:id="'entry-row-' + ${entry.code}"
+                            th:class="${entry.hidden ? 'entry-hidden' : ''}">
+                            <td><code th:text="${entry.code}"></code></td>
+                            <td th:text="${entry.label}"></td>
+                            <td th:text="${entry.sortOrder}"></td>
+                            <td>
+                                <form th:if="${editable}"
+                                      th:hx-patch="@{/tenants/{tenantId}/code-lists/{c}/{s}/entries/{code}/hidden(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},code=${entry.code})}"
+                                      th:hx-vals="'{&quot;hidden&quot;:&quot;' + ${!entry.hidden} + '&quot;}'"
+                                      th:hx-target="'#entry-row-' + ${entry.code}"
+                                      hx-swap="outerHTML">
+                                    <button type="submit" class="btn btn-sm btn-ghost"
+                                            th:text="${entry.hidden ? 'Unhide' : 'Hide'}"></button>
+                                </form>
+                                <span th:if="${!editable and entry.hidden}" class="badge badge-muted">hidden</span>
+                            </td>
+                        </tr>
+                    </th:block>
+                </tbody>
+            </table>
+
+            <div th:if="${#lists.isEmpty(entries)}" class="empty-state">
+                <div class="empty-state-title">No entries yet</div>
+                <div class="empty-state-description">
+                    <th:block th:if="${codeList.sourceType.name() == 'URL'}">
+                        Click "Refresh from source" to fetch entries from
+                        <code th:text="${codeList.sourceUrl}"></code>.
+                    </th:block>
+                    <th:block th:if="${codeList.sourceType.name() != 'URL'}">
+                        This code list is empty.
+                    </th:block>
+                </div>
+            </div>
+        </th:block>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+</body>
+</html>
