@@ -204,7 +204,7 @@ export class StencilInspector extends LitElement {
             : nothing}
         </div>
         <button
-          class="btn btn-sm btn-outline stencil-btn"
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
           @click=${this._handleEditBindings}
           style="width: 100%;"
         >
@@ -300,7 +300,7 @@ export class StencilInspector extends LitElement {
       ${this.engine.isFeatureEnabled('stencilParameters')
         ? html`<div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
             <button
-              class="btn btn-sm btn-outline stencil-btn"
+              class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
               @click=${this._handleEditDefinitions}
               style="width: 100%;"
             >
@@ -330,7 +330,7 @@ export class StencilInspector extends LitElement {
           : nothing}
         ${this.callbacks?.getStencilVersion
           ? html`<button
-              class="ep-btn ep-btn-outline ep-btn-outline-destructive ep-btn-sm stencil-btn"
+              class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm stencil-btn"
               ?disabled=${this._busy}
               @click=${this._handleDiscard}
             >

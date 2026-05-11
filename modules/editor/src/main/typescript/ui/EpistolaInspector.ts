@@ -124,7 +124,7 @@ export class EpistolaInspector extends LitElement {
           ? html`
               <div class="inspector-delete-section">
                 <button
-                  class="ep-btn ep-btn-outline ep-btn-outline-destructive ep-btn-full"
+                  class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-full"
                   @click=${this._handleDelete}
                 >
                   Delete Block

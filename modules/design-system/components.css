@@ -86,7 +86,8 @@
     --btn-hover-border-color: var(--ep-input-border);
   }
 
-  .ep-btn-outline-destructive {
+  .ep-btn-outline.ep-btn-destructive {
+    --btn-bg: var(--ep-white);
     --btn-color: var(--ep-destructive);
     --btn-border-color: var(--ep-red-200);
     --btn-hover-bg: var(--ep-red-50);
@@ -103,10 +104,13 @@
     --btn-hover-border-color: transparent;
   }
 
-  .ep-btn-ghost-destructive {
+  .ep-btn-ghost.ep-btn-destructive {
+    --btn-bg: transparent;
+    --btn-border-color: transparent;
     --btn-color: var(--ep-muted-foreground);
     --btn-hover-bg: var(--ep-red-50);
     --btn-hover-color: var(--ep-destructive);
+    --btn-hover-border-color: transparent;
   }
 
   .ep-btn-destructive {

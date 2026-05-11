@@ -128,7 +128,7 @@
                             </button>
                         </form>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}" type="button"
-                                class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon" title="Delete variant"
+                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon" title="Delete variant"
                                 data-confirm-title="Delete Variant"
                                 th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title != null ? variant.title : variant.id} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                                 data-confirm-target="#variants-section" data-confirm-swap="outerHTML"

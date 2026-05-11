@@ -86,7 +86,7 @@
                             <th:block th:if="${stencil.catalogType.name() == 'AUTHORED'}">
                                 <button th:if="${auth.has('STENCIL_EDIT')}"
                                         type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete stencil"
                                         data-confirm-title="Delete Stencil"
                                         th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"

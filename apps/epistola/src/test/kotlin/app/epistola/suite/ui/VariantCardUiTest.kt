@@ -286,7 +286,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
 
         // Click delete on the non-default variant (opens confirm dialog)
         val nonDefaultCard = page.locator(".variant-card:not(.variant-card-default)")
-        nonDefaultCard.locator("button.ep-btn-ghost-destructive").click()
+        nonDefaultCard.locator("button.ep-btn-destructive").click()
 
         // Confirm in the custom dialog
         page.waitForSelector("#confirm-dialog[open]")

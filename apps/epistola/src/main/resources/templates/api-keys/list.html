@@ -67,7 +67,7 @@
                         <td class="actions">
                             <button th:if="${auth.has('TENANT_USERS')}"
                                     type="button"
-                                    class="ep-btn ep-btn-ghost ep-btn-ghost-destructive ep-btn-sm ep-btn-icon"
+                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                     title="Delete API key"
                                     data-confirm-title="Delete API key"
                                     th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
