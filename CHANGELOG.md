@@ -18,6 +18,7 @@ The first iteration is intentionally tenant-only, in this repo only. The followi
 - **Per-entry deprecation timeline columns** (`hidden_at`, `replaced_by`) and an **ISO 4217 currency code list** + `currency` reserved attribute.
 - **Harden the URL fetch path** ([#391](https://github.com/epistola-app/epistola-suite/issues/391)) — send `Accept: application/json`, cap response size, validate content type.
 - **Variant create/edit dialogs scale with many attributes** ([#393](https://github.com/epistola-app/epistola-suite/issues/393)) — only show attributes that have a value; let the user add others one at a time.
+- **Close test gaps** ([#394](https://github.com/epistola-app/epistola-suite/issues/394)) — Playwright `CodeListUiTest`, `RefreshCodeList` end-to-end with stub HTTP server, SUBSCRIBED-catalog refusal across all code-list commands.
 
 ### Fixed
 

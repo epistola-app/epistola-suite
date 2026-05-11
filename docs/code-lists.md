@@ -177,6 +177,10 @@ building this feature:
 - **[#393](https://github.com/epistola-app/epistola-suite/issues/393)** —
   rework the variant create/edit dialogs so the list of attributes can
   grow without flooding the form with empty rows.
+- **[#394](https://github.com/epistola-app/epistola-suite/issues/394)** —
+  close test gaps: Playwright `CodeListUiTest`, `RefreshCodeList` end-to-end
+  with a stub HTTP server, SUBSCRIBED-catalog refusal across the
+  code-list commands.
 
 Larger follow-ups requiring coordination with `epistola-contract`:
 
