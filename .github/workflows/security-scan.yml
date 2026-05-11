@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -49,6 +50,50 @@ jobs:
           format: "json"
           output: "frontend-results.json"
           severity: "CRITICAL,HIGH"
+
+      - name: Scan backend SBOM (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # master
+        with:
+          scan-type: "sbom"
+          scan-ref: "apps/epistola/build/sbom/bom.json"
+          format: "sarif"
+          output: "backend-results.sarif"
+          severity: "CRITICAL,HIGH"
+
+      - name: Scan frontend SBOM (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # master
+        with:
+          scan-type: "sbom"
+          scan-ref: "modules/editor/build/sbom.json"
+          format: "sarif"
+          output: "frontend-results.sarif"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload backend SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@e46ed2cbd01164d986452f91f178727624ae40d7 # v4
+        with:
+          sarif_file: backend-results.sarif
+          category: trivy-backend
+
+      - name: Upload frontend SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@e46ed2cbd01164d986452f91f178727624ae40d7 # v4
+        with:
+          sarif_file: frontend-results.sarif
+          category: trivy-frontend
+
+      - name: Upload scan results as artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trivy-scan-results
+          path: |
+            backend-results.json
+            frontend-results.json
+            backend-results.sarif
+            frontend-results.sarif
+          retention-days: 30
 
       - name: Generate badge JSON
         id: badge

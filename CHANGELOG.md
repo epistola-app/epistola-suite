@@ -32,6 +32,8 @@ The first iteration is intentionally tenant-only, in this repo only. The followi
 
 ### Changed
 
+- **Security scan now publishes vulnerability details.** The daily Trivy scan workflow (`.github/workflows/security-scan.yml`) previously counted CRITICAL/HIGH findings for the README badge but discarded the per-CVE details on the runner. It now also produces SARIF, uploads it to GitHub Code Scanning (Security tab → Code scanning), and uploads the JSON + SARIF results as a 30-day `trivy-scan-results` workflow artifact.
+
 - **Button classes standardized to `ep-btn` composable API.** Replaced the parallel unprefixed `btn` / `ep-btn-*` class systems and the main-app legacy classes (`button[type='submit']`, `.btn-small`, `.btn-danger`, `.btn-warning`, `.btn-ghost-destructive`) with a single canonical pattern: `ep-btn ep-btn-{variant} ep-btn-{size}`. Variants: `primary`, `outline`, `destructive`, `ghost`, `warning`. Sizes: `sm`, `lg`. An `ep-btn-icon` modifier handles icon-only buttons. CSS variable slots (`--btn-bg`, `--btn-fg`, `--btn-border-color`, etc.) let variants compose without specificity conflicts. Component-local button classes (`toolbar-btn`, `asset-picker-btn`, etc.) are deliberately untouched.
 
 - **All template and Lit-component button usages migrated** to the new `ep-btn` classes. Updated `brandguide.md` accordingly.
