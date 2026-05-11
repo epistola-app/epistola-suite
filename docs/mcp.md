@@ -78,6 +78,58 @@ Then enter the URL and `X-API-Key` header in the Inspector UI.
 ## Limitations and notes
 
 - **PDF preview is binary.** `preview_document` returns the rendered PDF as base64 in the `data` field along with `mediaType: "application/pdf"`. AI assistants generally cannot read PDF text directly; the field is most useful for users who want to view the rendered output. A future iteration may add a textual or HTML-rendered preview path.
+- **Rich-text parameter values.** A data contract property may be declared as one of two rich-text shapes via `$ref`. Both accept a ProseMirror JSON document as the value, passed through `preview_document`'s `data` argument (or the REST API) exactly like any other JSON.
+  - **Inline** (`$ref: "https://epistola.app/schemas/richtext-inline-v1.json"`, visual editor field type `richTextInline`) — a `doc` containing **exactly one** `paragraph` with `text` and `hard_break` nodes. Use for values that fit in a single line of formatted text (a name with bold marks, a greeting with a link). Bind through an inline expression chip.
+
+    ```json
+    {
+      "customer": {
+        "greeting": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Dear " },
+                { "type": "text", "text": "John", "marks": [{ "type": "strong" }] }
+              ]
+            }
+          ]
+        }
+      }
+    }
+    ```
+
+  - **Block** (`$ref: "https://epistola.app/schemas/richtext-block-v1.json"`, visual editor field type `richTextBlock`) — a `doc` with multiple `paragraph` blocks, `bullet_list`, and `ordered_list` content. Use for free-form authored content (a customer bio with paragraphs and lists). Bind through the **Rich Text Variable** block component.
+
+    ```json
+    {
+      "customer": {
+        "bio": {
+          "type": "doc",
+          "content": [
+            { "type": "paragraph", "content": [{ "type": "text", "text": "Founded in 1999." }] },
+            {
+              "type": "bullet_list",
+              "content": [
+                {
+                  "type": "list_item",
+                  "content": [
+                    { "type": "paragraph", "content": [{ "type": "text", "text": "Quality" }] }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+    ```
+
+  Allowed marks (both shapes): `strong`, `em`, `underline`, `strikethrough`, `subscript`, `superscript`, `link` (with `attrs.href`), `textStyle` (with `attrs.color` as `#RRGGBB`). Headings and inline `expression` nodes are reserved for v2.
+
+  The validator rejects mismatches: sending a list to a `richTextInline` field, or any block content to an inline expression chip's binding, fails preview with a JSON Schema error.
+
 - **Data contract auto-creation.** Creating a template auto-creates an empty draft contract (v1). `get_data_contract` returns it even before the contract has been authored.
 - **No write tools yet.** The MCP server cannot create or modify templates, drafts, themes, stencils, or contracts in this MVP. Switch to the UI for authoring; the AI can still inspect what it has access to.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.

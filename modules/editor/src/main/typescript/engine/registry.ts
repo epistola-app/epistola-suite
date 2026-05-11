@@ -16,6 +16,7 @@ import { createDatatableDefinition } from '../components/datatable/datatable-reg
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
 import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
 import { createPlaceholderDefinition } from '../components/placeholder/placeholder-registration.js';
+import { createRichTextVariableDefinition } from '../components/richTextVariable/richtextvar-registration.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -74,6 +75,14 @@ export interface InspectorField {
   defaultValue?: unknown;
   /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
   units?: string[];
+  /**
+   * For `type: 'expression'` only — predicate consulted by the expression
+   * dialog when listing available field paths. Return a tooltip string to
+   * mark the path disabled (e.g. "this kind of binding cannot accept a
+   * block rich-text field"); return `null` to allow it. The engine treats
+   * the predicate as opaque so component-specific rules don't leak here.
+   */
+  pathDisabled?: (fp: import('./schema-paths.js').FieldPath) => string | null;
 }
 
 /**
@@ -627,6 +636,8 @@ export function createDefaultRegistry(): ComponentRegistry {
       },
     ],
   });
+
+  registry.register(createRichTextVariableDefinition());
 
   registry.register({
     type: 'container',

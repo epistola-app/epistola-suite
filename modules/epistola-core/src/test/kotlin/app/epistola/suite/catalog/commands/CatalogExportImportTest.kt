@@ -31,12 +31,14 @@ import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
@@ -46,6 +48,9 @@ import java.util.zip.ZipOutputStream
 private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
 
 class CatalogExportImportTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jsonSchemaValidator: JsonSchemaValidator
 
     @Test
     fun `export and import round-trip preserves all resources`() {
@@ -223,6 +228,125 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ).execute()
             }.isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("catalog.json")
+        }
+    }
+
+    @Test
+    fun `export and import preserves rich-text ref properties verbatim`() {
+        val tenant = createTenant("Rich-Text Ref Round-Trip")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val catalogKey = CatalogKey.of("richtext-ref-catalog")
+        val catalogId = CatalogId(catalogKey, tenantId)
+
+        withMediator {
+            CreateCatalog(
+                tenantKey = tenantKey,
+                id = catalogKey,
+                name = "Rich-Text Ref Catalog",
+                description = "Round-trip a contract with rich-text \$ref properties",
+            ).execute()
+
+            val templateKey = TestIdHelpers.nextTemplateId()
+            CreateDocumentTemplate(
+                id = TemplateId(templateKey, catalogId),
+                name = "Rich-Text Ref Template",
+            ).execute()
+
+            val templateId = TemplateId(templateKey, catalogId)
+
+            // Contract: greeting is richTextInline, bio is richTextBlock,
+            // taglines is an array of richTextInline values.
+            val contractSchema = ObjectMapper().readValue(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "greeting": { "${"$"}ref": "https://epistola.app/schemas/richtext-inline-v1.json" },
+                    "bio": { "${"$"}ref": "https://epistola.app/schemas/richtext-block-v1.json" },
+                    "taglines": {
+                      "type": "array",
+                      "items": { "${"$"}ref": "https://epistola.app/schemas/richtext-inline-v1.json" }
+                    }
+                  },
+                  "required": ["name"]
+                }
+                """.trimIndent(),
+                ObjectNode::class.java,
+            )
+            UpdateContractVersion(
+                templateId = templateId,
+                dataModel = contractSchema,
+            ).execute()
+            PublishContractVersion(templateId = templateId).execute()
+
+            // Publish the default version so the template ends up in the export.
+            val defaultVariantKey = VariantKey.of("${templateKey.value}-default")
+            val defaultVariantId = VariantId(defaultVariantKey, templateId)
+            val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
+            PublishVersion(versionId = defaultVersionId).execute()
+
+            val exportResult = ExportCatalogZip(
+                tenantKey = tenantKey,
+                catalogKey = catalogKey,
+            ).execute()
+            assertThat(exportResult.zipBytes).isNotEmpty()
+
+            val importResult = ImportCatalogZip(
+                tenantKey = tenantKey,
+                zipBytes = exportResult.zipBytes,
+                catalogType = CatalogType.AUTHORED,
+            ).execute()
+            assertThat(importResult.catalogKey).isEqualTo(catalogKey)
+            assertThat(importResult.results).allSatisfy { result ->
+                assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
+            }
+
+            // Verify every \$ref URL came back identical.
+            val reimportedContract = GetLatestContractVersion(templateId = templateId).query()
+            val properties = reimportedContract!!.dataModel!!.get("properties")
+
+            val greeting = properties.get("greeting")
+            assertThat(greeting.has("\$ref")).isTrue()
+            assertThat(greeting.get("\$ref").asString())
+                .isEqualTo("https://epistola.app/schemas/richtext-inline-v1.json")
+
+            val bio = properties.get("bio")
+            assertThat(bio.has("\$ref")).isTrue()
+            assertThat(bio.get("\$ref").asString())
+                .isEqualTo("https://epistola.app/schemas/richtext-block-v1.json")
+
+            val taglines = properties.get("taglines")
+            assertThat(taglines.get("type").asString()).isEqualTo("array")
+            assertThat(taglines.get("items").get("\$ref").asString())
+                .isEqualTo("https://epistola.app/schemas/richtext-inline-v1.json")
+
+            // And: the rich-text values themselves still validate against the
+            // registered schemas after the round-trip — the registry's $ref
+            // resolution survived the import.
+            val sampleData = ObjectMapper().readValue(
+                """
+                {
+                  "name": "Acme Corp",
+                  "greeting": {
+                    "type": "doc",
+                    "content": [
+                      { "type": "paragraph", "content": [{ "type": "text", "text": "Hi" }] }
+                    ]
+                  },
+                  "bio": {
+                    "type": "doc",
+                    "content": [
+                      { "type": "paragraph", "content": [{ "type": "text", "text": "Founded 1999." }] }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+                ObjectNode::class.java,
+            )
+            val errors = jsonSchemaValidator.validate(reimportedContract.dataModel!!, sampleData)
+            assertThat(errors).isEmpty()
         }
     }
 

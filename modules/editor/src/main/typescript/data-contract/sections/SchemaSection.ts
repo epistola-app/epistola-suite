@@ -19,6 +19,7 @@ import type {
 } from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
 import { FIELD_TYPE_LABELS, isValidFieldName } from '../utils/schemaUtils.js';
+import { REF_TYPES } from '../ref-types.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
@@ -216,6 +217,9 @@ function renderFieldList(
 // Right panel: detail form
 // =============================================================================
 
+/** Logical ids of every registered ref type (rich text inline/block today). */
+const REF_TYPE_IDS = REF_TYPES.map((t) => t.id) as SchemaFieldType[];
+
 /** All field types available in the type dropdown */
 const FIELD_TYPES: SchemaFieldType[] = [
   'string',
@@ -223,6 +227,7 @@ const FIELD_TYPES: SchemaFieldType[] = [
   'integer',
   'boolean',
   'date',
+  ...REF_TYPE_IDS,
   'array',
   'object',
 ];
@@ -234,6 +239,7 @@ const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
   'integer',
   'boolean',
   'date',
+  ...REF_TYPE_IDS,
   'object',
 ];
 

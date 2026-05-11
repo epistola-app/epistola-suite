@@ -3,13 +3,24 @@
  *
  * Walks a JSON Schema's `properties` recursively and returns
  * dot-notation paths suitable for expression autocomplete.
+ *
+ * Stays domain-agnostic: every path carries the raw JSON Schema `type`
+ * (with `string + format: date` collapsed to `'date'` because that's how the
+ * editor surfaces the field) and, when present, the raw `$ref` URL. Callers
+ * that care about a specific `$ref` (e.g. rich-text schemas) classify it at
+ * their layer rather than baking that knowledge in here.
  */
 
 export interface FieldPath {
   /** Dot-notation path, e.g. "customer.address.city" */
   path: string;
-  /** JSON Schema type at this path */
+  /** JSON Schema `type` at this path (or `'date'` for `string + format: date`, `'unknown'` if absent). */
   type: string;
+  /**
+   * Raw `$ref` URL when the field is declared by reference (e.g. a rich-text
+   * field). Domain-specific consumers map known URLs to logical types.
+   */
+  ref?: string;
   /** Whether this is a system parameter (injected by the rendering engine). */
   system?: boolean;
   /** Human-readable description (used for system parameter tooltips). */
@@ -50,10 +61,11 @@ function walk(
     if (!propSchema || typeof propSchema !== 'object') continue;
 
     const path = prefix ? `${prefix}.${key}` : key;
-    const rawType = String(propSchema.type ?? 'unknown');
+    const ref = typeof propSchema.$ref === 'string' ? propSchema.$ref : undefined;
+    const rawType = String(propSchema.type ?? (ref ? 'unknown' : 'unknown'));
     const type = rawType === 'string' && propSchema.format === 'date' ? 'date' : rawType;
 
-    result.push({ path, type });
+    result.push(ref ? { path, type, ref } : { path, type });
 
     if (type === 'object') {
       walk(propSchema, path, depth + 1, result);

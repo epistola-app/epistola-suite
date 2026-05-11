@@ -16,6 +16,8 @@ import type { Node as ProsemirrorNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { FieldPath } from '../engine/schema-paths.js';
 import { evaluateExpression, formatResolvedValue } from '../engine/resolve-expression.js';
+import { inlineExpressionPathDisabled } from '../data-contract/binding-compatibility.js';
+import { isRichTextDoc, renderInlineRichText } from './inline-rich-text-rendering.js';
 import { openExpressionDialog } from '../ui/expression-dialog.js';
 
 export interface ExpressionNodeViewOptions {
@@ -149,6 +151,17 @@ export class ExpressionNodeView implements NodeView {
       // Discard stale result (example switched or node destroyed since we started)
       if (generation !== this._displayGeneration) return;
 
+      // Rich-text doc: render inline content with marks; warn if block content
+      // (lists, multi-paragraph) was passed — inline bindings can't host blocks.
+      if (isRichTextDoc(result)) {
+        const { fragment, hasBlockContent } = renderInlineRichText(result);
+        this._setResolvedDomDisplay(fragment, hasBlockContent);
+        this.dom.title = hasBlockContent
+          ? `{{${expr}}} — block content (lists, paragraphs) was dropped; use a Rich Text Variable component for block content.`
+          : `{{${expr}}}`;
+        return;
+      }
+
       const formatted = formatResolvedValue(result);
       if (formatted !== undefined) {
         // Resolved: show value as text, expression in tooltip
@@ -168,9 +181,25 @@ export class ExpressionNodeView implements NodeView {
 
   private _setResolvedDisplay(value: string): void {
     this.dom.classList.remove('is-raw');
+    this.dom.classList.remove('expression-chip-has-block-warn');
     this._leftBrace.hidden = true;
     this._rightBrace.hidden = true;
     this._content.textContent = value;
+  }
+
+  private _setResolvedDomDisplay(fragment: DocumentFragment, hasBlockContent: boolean): void {
+    this.dom.classList.remove('is-raw');
+    this.dom.classList.toggle('expression-chip-has-block-warn', hasBlockContent);
+    this._leftBrace.hidden = true;
+    this._rightBrace.hidden = true;
+    this._content.replaceChildren(fragment);
+    if (hasBlockContent) {
+      const warn = document.createElement('span');
+      warn.className = 'expression-chip-warn-icon';
+      warn.textContent = '⚠️';
+      warn.setAttribute('aria-hidden', 'true');
+      this._content.appendChild(warn);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -190,6 +219,9 @@ export class ExpressionNodeView implements NodeView {
       enableBuilderMode: true,
       label: 'Expression',
       placeholder: 'e.g. customer.name',
+      // Inline expression chips live inside paragraphs — block-level rich
+      // text fields can't render here, so the picker greys them out.
+      pathDisabled: inlineExpressionPathDisabled,
     }).then(({ value }) => {
       this._dialogOpen = false;
       if (value !== null) {

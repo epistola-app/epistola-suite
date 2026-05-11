@@ -329,7 +329,74 @@ class TipTapConverter(
                         data,
                         loopContext,
                     )
-                    paragraph.add(Text(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value)))
+                    if (isRichTextDoc(value)) {
+                        addRichTextInline(paragraph, value, fontCache)
+                    } else {
+                        paragraph.add(Text(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value)))
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns true when the resolved value matches the rich-text doc shape
+     * (`{ "type": "doc", "content": [...] }`) so we can inline its content
+     * instead of falling back to `valueToString`.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun isRichTextDoc(value: Any?): Boolean {
+        val map = value as? Map<String, Any?> ?: return false
+        if (map["type"] != "doc") return false
+        return map["content"] is kotlin.collections.List<*>
+    }
+
+    /**
+     * Inline the inline content of a rich-text doc into the surrounding paragraph.
+     *
+     * Phase 1: only paragraph-level inline content (text + marks, hard breaks)
+     * is rendered; block-level content (lists, multiple paragraphs) is dropped
+     * here and a debug log records the skipped node types — block content
+     * belongs in the `richTextVariable` component, not in an inline expression
+     * chip. The `expressionEvaluator.processTemplate` call is intentionally
+     * skipped because phase-1 rich-text values may not contain expressions.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun addRichTextInline(
+        paragraph: Paragraph,
+        doc: Any?,
+        fontCache: app.epistola.generation.pdf.FontCache,
+    ) {
+        val docMap = doc as? Map<String, Any?> ?: return
+        val blocks = docMap["content"] as? kotlin.collections.List<Map<String, Any>> ?: return
+        for (block in blocks) {
+            val blockType = block["type"] as? String
+            if (blockType != "paragraph") {
+                LOGGER.debug("Dropping block-level rich-text node '{}' from inline context", blockType)
+                continue
+            }
+            val inline = block["content"] as? kotlin.collections.List<Map<String, Any>> ?: continue
+            for (child in inline) {
+                when (child["type"] as? String) {
+                    "text" -> {
+                        val textContent = child["text"] as? String ?: ""
+                        val marks = child["marks"] as? kotlin.collections.List<Map<String, Any>>
+                        val linkHref = marks?.findLinkHref()
+                        val text: Text = if (linkHref != null) {
+                            Link(textContent, PdfAction.createURI(linkHref))
+                                .setUnderline()
+                                .setFontColor(LINK_COLOR)
+                        } else {
+                            Text(textContent)
+                        }
+                        if (marks != null) applyMarks(text, marks, fontCache)
+                        paragraph.add(text)
+                    }
+                    "hard_break", "hardBreak" -> {
+                        // Soft fall-through inside an inline binding: a literal newline
+                        // would split the host paragraph, which we cannot do here.
+                        paragraph.add(Text(" "))
+                    }
                 }
             }
         }
@@ -380,6 +447,8 @@ class TipTapConverter(
     }
 
     companion object {
+        private val LOGGER = org.slf4j.LoggerFactory.getLogger(TipTapConverter::class.java)
+
         /** Standard link color (blue) used for hyperlinks in PDF output. */
         private val LINK_COLOR = DeviceRgb(0, 0, 238)
 
