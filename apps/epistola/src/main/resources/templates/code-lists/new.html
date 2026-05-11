@@ -51,9 +51,9 @@
                                   th:text="${formData?.description}"></textarea>
                     </div>
 
-                    <div class="form-group">
-                        <label class="ep-label">Source</label>
-                        <div role="radiogroup" class="source-radio-group">
+                    <fieldset class="form-group" style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
+                        <legend class="ep-label">Source</legend>
+                        <div class="source-radio-group">
                             <label>
                                 <input type="radio" name="sourceType" value="INLINE"
                                        th:checked="${formData?.sourceType == null or formData?.sourceType == 'INLINE'}"
@@ -67,7 +67,7 @@
                                 URL &mdash; fetch from https endpoint, refresh on demand
                             </label>
                         </div>
-                    </div>
+                    </fieldset>
                     <style>
                         /* base.css gives all inputs `font: inherit`, which makes radio
                            glyphs scale with surrounding font-size. Pin them to 1rem. */
@@ -103,9 +103,10 @@
                         <span class="form-error" th:if="${errors?.containsKey('sourceUrl')}" th:text="${errors.sourceUrl}"></span>
                     </div>
 
-                    <div class="form-group source-pane" data-source-pane="INLINE"
-                         th:classappend="${errors?.containsKey('entries')} ? 'error' : ''">
-                        <label class="ep-label">Entries</label>
+                    <fieldset class="form-group source-pane" data-source-pane="INLINE"
+                              th:classappend="${errors?.containsKey('entries')} ? 'error' : ''"
+                              style="border: 0; padding: 0; margin: 0 0 var(--ep-space-4);">
+                        <legend class="ep-label">Entries</legend>
                         <div th:if="${errors?.containsKey('entries')}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);">
                             <span th:text="${errors.entries}"></span>
                         </div>
@@ -122,7 +123,7 @@
                             Add entry
                         </button>
                         <input type="hidden" id="entriesJson" name="entriesJson" th:value="${formData?.entriesJson}">
-                    </div>
+                    </fieldset>
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Create code list</button>
@@ -162,8 +163,8 @@
                 rows.forEach(function (r, idx) {
                     var tr = document.createElement('tr');
                     tr.innerHTML =
-                        '<td><input type="text" class="ep-input" placeholder="code" required></td>' +
-                        '<td><input type="text" class="ep-input" placeholder="Label" required></td>' +
+                        '<td><input id="entry-code-' + idx + '" type="text" class="ep-input" placeholder="code" aria-label="Entry code" required></td>' +
+                        '<td><input id="entry-label-' + idx + '" type="text" class="ep-input" placeholder="Label" aria-label="Entry label" required></td>' +
                         '<td><button type="button" class="btn btn-sm btn-ghost btn-ghost-destructive">Remove</button></td>';
                     var inputs = tr.querySelectorAll('input');
                     inputs[0].value = r.code;
