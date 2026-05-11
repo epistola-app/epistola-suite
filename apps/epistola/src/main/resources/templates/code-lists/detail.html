@@ -53,7 +53,7 @@
 
             <div style="margin: var(--ep-space-3) 0;">
                 <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
-                   class="btn btn-sm btn-ghost"
+                   class="btn btn-sm btn-outline"
                    th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>
             </div>
 
