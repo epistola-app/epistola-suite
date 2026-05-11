@@ -1,4 +1,4 @@
--- V28: Code lists for attribute value constraints
+-- V29: Code lists for attribute value constraints
 --
 -- Adds code lists — named collections of {code, label, hidden} entries that
 -- attribute definitions can bind to as an alternative to inline allowed_values.

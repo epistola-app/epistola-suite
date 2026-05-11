@@ -16,6 +16,9 @@ The first iteration is intentionally tenant-only, in this repo only. The followi
 - **Bundled "system" catalog + reserved attributes.** A classpath-sourced SUBSCRIBED catalog auto-installed on every tenant supplying reserved attributes (`locale`, `language`, `country`) bound to canonical code lists (BCP-47, ISO 639-1, ISO 3166-1 alpha-2). Lets templates and the API rely on a stable cross-tenant vocabulary. Requires `CatalogManifest` extension in `epistola-contract`.
 - **Catalog-protocol distribution of tenant code lists.** Extending `CatalogManifest` and `DependencyResolver` so remote catalogs can publish code lists and attributes that bind to them.
 - **Per-entry deprecation timeline columns** (`hidden_at`, `replaced_by`) and an **ISO 4217 currency code list** + `currency` reserved attribute.
+- **Harden the URL fetch path** ([#391](https://github.com/epistola-app/epistola-suite/issues/391)) — send `Accept: application/json`, cap response size, validate content type.
+- **Variant create/edit dialogs scale with many attributes** ([#393](https://github.com/epistola-app/epistola-suite/issues/393)) — only show attributes that have a value; let the user add others one at a time.
+
 ### Fixed
 
 - **Stencil parameters: review-pass hardening.** Five fixes from the post-toggle architectural review:

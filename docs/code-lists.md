@@ -168,7 +168,17 @@ variant attribute storage shape is also unchanged (slug-keyed JSONB). See
 
 ## Future work
 
-Tracked separately; not part of this iteration:
+Tracked separately; not part of this iteration. Issues raised while
+building this feature:
+
+- **[#391](https://github.com/epistola-app/epistola-suite/issues/391)** —
+  harden `CodeListClient` URL fetches (Accept header, max response size,
+  content-type validation).
+- **[#393](https://github.com/epistola-app/epistola-suite/issues/393)** —
+  rework the variant create/edit dialogs so the list of attributes can
+  grow without flooding the form with empty rows.
+
+Larger follow-ups requiring coordination with `epistola-contract`:
 
 - **Variant attribute references become catalog-qualified.** Today,
   `validateAttributes` looks up attribute definitions by slug only across all
