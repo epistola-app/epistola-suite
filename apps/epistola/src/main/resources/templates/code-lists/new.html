@@ -9,9 +9,13 @@
 
         <h1>New code list</h1>
 
-        <div class="card create-form-card">
+        <div id="code-list-form-area" class="card create-form-card" th:fragment="form-card">
             <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}" method="post" id="code-list-form">
+                <form th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
+                      th:hx-post="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
+                      hx-target="#code-list-form-area"
+                      hx-swap="outerHTML"
+                      method="post" id="code-list-form">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
                         <select id="catalog" name="catalog" class="ep-input" required>
@@ -99,8 +103,12 @@
                         <span class="form-error" th:if="${errors?.containsKey('sourceUrl')}" th:text="${errors.sourceUrl}"></span>
                     </div>
 
-                    <div class="form-group source-pane" data-source-pane="INLINE">
+                    <div class="form-group source-pane" data-source-pane="INLINE"
+                         th:classappend="${errors?.containsKey('entries')} ? 'error' : ''">
                         <label class="ep-label">Entries</label>
+                        <div th:if="${errors?.containsKey('entries')}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);">
+                            <span th:text="${errors.entries}"></span>
+                        </div>
                         <table class="ep-table" id="entries-table">
                             <thead>
                                 <tr><th>Code</th><th>Label</th><th></th></tr>
@@ -122,7 +130,6 @@
                     </div>
                 </form>
             </div>
-        </div>
 
         <script>
         (function () {
@@ -188,6 +195,7 @@
             }
         })();
         </script>
+        </div>
     </th:block>
 </body>
 </html>

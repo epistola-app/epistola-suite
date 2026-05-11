@@ -91,6 +91,32 @@ class CodeListUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `duplicate inline entry codes show validation error on new form`() {
+        val tenant = withMediator { createUiTenant() }
+
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/new")
+        page.waitForSelector("#entries-tbody tr")
+
+        page.locator("#displayName").fill("Duplicate Codes")
+        page.locator("#slug").fill("duplicate-codes")
+
+        val rows = page.locator("#entries-tbody tr")
+        rows.first().locator("input[placeholder='code']").fill("test")
+        rows.first().locator("input[placeholder='Label']").fill("First")
+        page.locator("#add-entry-btn").click()
+        rows.nth(1).locator("input[placeholder='code']").fill("test")
+        rows.nth(1).locator("input[placeholder='Label']").fill("Second")
+
+        page.locator("button:has-text('Create code list')").click()
+
+        assertThat(page.locator("#code-list-form-area .alert-error")).hasText("Entry codes must be unique within a code list")
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        assertThat(page.locator("#entries-tbody tr")).hasCount(2)
+        assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
+        assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
+    }
+
+    @Test
     fun `bind attribute to code list via three-way picker`() {
         val tenant = withMediator {
             val t = createUiTenant()
