@@ -47,12 +47,12 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             ).execute()
 
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("locale"), catalogId),
+                id = AttributeId(AttributeKey.of("my-locale"), catalogId),
                 displayName = "Locale",
                 codeListId = codeListId,
             ).execute()
 
-            assertThatCode { validateAttributes(tenantId, mapOf("locale" to "en")) }
+            assertThatCode { validateAttributes(tenantId, mapOf("my-locale" to "en")) }
                 .doesNotThrowAnyException()
         }
     }
@@ -73,12 +73,12 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             ).execute()
 
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("locale"), catalogId),
+                id = AttributeId(AttributeKey.of("my-locale"), catalogId),
                 displayName = "Locale",
                 codeListId = codeListId,
             ).execute()
 
-            assertThatThrownBy { validateAttributes(tenantId, mapOf("locale" to "zz")) }
+            assertThatThrownBy { validateAttributes(tenantId, mapOf("my-locale" to "zz")) }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("Not a member of code list")
         }

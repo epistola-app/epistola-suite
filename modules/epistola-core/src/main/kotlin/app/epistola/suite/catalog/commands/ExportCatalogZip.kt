@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.AssetResource
+import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -16,6 +17,7 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
+import app.epistola.suite.catalog.queries.ExportCodeLists
 import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.ExportThemes
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -72,6 +74,7 @@ class ExportCatalogZipHandler(
         val themes = ExportThemes(command.tenantKey, catalogKey = command.catalogKey).query()
         val stencils = ExportStencils(command.tenantKey, catalogKey = command.catalogKey).query()
         val attributes = ExportAttributes(command.tenantKey, catalogKey = command.catalogKey).query()
+        val codeLists = ExportCodeLists(command.tenantKey, catalogKey = command.catalogKey).query()
 
         val assets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
 
@@ -79,11 +82,19 @@ class ExportCatalogZipHandler(
         val resourceEntries = mutableListOf<ResourceEntry>()
         val resourceDetails = mutableMapOf<String, ResourceDetail>()
 
+        // Manifest schemaVersion = 3 once the catalog ships a code list (or
+        // an attribute with a code-list binding), since older clients can't
+        // parse `CodeListResource` or `AttributeResource.codeListBinding`.
+        // Otherwise stay on `schemaVersion = 2` for backward compatibility.
+        val usesCodeListProtocol = codeLists.isNotEmpty() || attributes.any { it.codeListBinding != null }
+        val manifestSchemaVersion = if (usesCodeListProtocol) 3 else 2
+
         fun addResource(type: String, slug: String, name: String, description: String?, resource: CatalogResource) {
             resourceEntries.add(ResourceEntry(type = type, slug = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"))
-            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = 2, resource = resource)
+            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = manifestSchemaVersion, resource = resource)
         }
 
+        for (codeList in codeLists) addResource("codeList", codeList.slug, codeList.name, codeList.description, codeList)
         for (attr in attributes) addResource("attribute", attr.slug, attr.name, null, attr)
         for (theme in themes) addResource("theme", theme.slug, theme.name, theme.description, theme)
         for (stencil in stencils) addResource("stencil", stencil.slug, stencil.name, stencil.description, stencil)
@@ -92,12 +103,12 @@ class ExportCatalogZipHandler(
 
         // Build manifest first (without dependencies)
         val manifest = CatalogManifest(
-            schemaVersion = 2,
+            schemaVersion = manifestSchemaVersion,
             catalog = CatalogInfo(slug = command.catalogKey.value, name = catalog.name, description = catalog.description),
             publisher = PublisherInfo(name = "Epistola"),
             release = ReleaseInfo(version = version),
             resources = resourceEntries,
-            dependencies = findCrossCatalogDependencies(templates, resourceEntries, command.catalogKey.value),
+            dependencies = findCrossCatalogDependencies(templates, attributes, resourceEntries, command.catalogKey.value),
         )
 
         // Build the ZIP
@@ -251,6 +262,7 @@ class ExportCatalogZipHandler(
      */
     private fun findCrossCatalogDependencies(
         templates: List<TemplateResource>,
+        attributes: List<AttributeResource>,
         manifestResources: List<ResourceEntry>,
         catalogKey: String,
     ): List<DependencyRef>? {
@@ -258,6 +270,17 @@ class ExportCatalogZipHandler(
         val ownResources = manifestResources.map { "${it.type}:${it.slug}" }.toSet()
 
         val dependencies = mutableSetOf<DependencyRef>()
+
+        // Attribute → code-list bindings that point outside this catalog. The
+        // `ExportAttributes` query emits `catalogKey = null` for same-catalog
+        // bindings, so any non-null `catalogKey` here is a real cross-catalog
+        // reference that consumers need to satisfy at install time.
+        for (attribute in attributes) {
+            val binding = attribute.codeListBinding ?: continue
+            val target = binding.catalogKey ?: continue
+            if (target == catalogKey) continue
+            dependencies.add(DependencyRef.CodeList(catalogKey = target, slug = binding.slug))
+        }
 
         for (template in templates) {
             // Resource-level theme reference

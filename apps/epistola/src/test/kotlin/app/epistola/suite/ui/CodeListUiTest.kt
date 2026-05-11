@@ -199,8 +199,12 @@ class CodeListUiTest : BasePlaywrightTest() {
                 ),
             ).execute()
 
+            // Slug `my-locale` deliberately avoids colliding with the bundled
+            // system catalog's reserved `locale` attribute — otherwise the
+            // variant create dialog renders two `#create-attr_locale` selects
+            // and the strict-mode locator below explodes.
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("locale"), catalogId),
+                id = AttributeId(AttributeKey.of("my-locale"), catalogId),
                 displayName = "Locale",
                 codeListId = CodeListId(CodeListKey.of("locales"), catalogId),
             ).execute()
@@ -216,7 +220,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         page.locator("button:has-text('New Variant')").click()
         page.waitForSelector("#create-variant-dialog[open]")
 
-        val select = page.locator("#create-attr_locale")
+        val select = page.locator("#create-attr_my-locale")
         assertThat(select).isVisible()
 
         // Options: the "- Not set -" placeholder + the two bound entries.
@@ -282,7 +286,10 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists")
+        // Filter to the tenant's `default` catalog — the bundled `system`
+        // catalog also contributes code lists (bcp-47, iso-639-1,
+        // iso-3166-1-alpha2) that the unfiltered listing would show.
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists?catalog=default")
 
         val rows = page.locator("table.ep-table tbody tr")
         assertThat(rows).hasCount(1)
@@ -315,6 +322,9 @@ class CodeListUiTest : BasePlaywrightTest() {
 
         page.waitForURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
         assertThat(page.locator("h1")).hasText("Code lists")
+        // Filter to the user's default catalog — the bundled system catalog
+        // contributes its own code lists that the unfiltered listing shows.
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists?catalog=default")
         assertThat(page.locator("table.ep-table tbody tr")).hasCount(0)
 
         assertTrue(

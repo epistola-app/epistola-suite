@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -12,12 +13,24 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * Catalog-import UPSERT for variant attribute definitions.
+ *
+ * Carries `codeListCatalogKey` + `codeListSlug` when the source
+ * `AttributeResource` declared a `codeListBinding`. The wire format's
+ * `codeListBinding.catalogKey` may be null (meaning "same catalog as the
+ * attribute"); the caller (`InstallFromCatalog.installAttribute`) resolves
+ * that default before constructing this command, so by the time we get
+ * here both keys are either both present or both null.
+ */
 data class ImportAttribute(
     val tenantId: TenantId,
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val slug: String,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
+    val codeListCatalogKey: CatalogKey? = null,
+    val codeListSlug: CodeListKey? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -46,10 +59,22 @@ class ImportAttributeHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified)
-                VALUES (:id, :tenantKey, :catalogKey, :displayName, :allowedValues::jsonb, NOW(), NOW())
+                INSERT INTO variant_attribute_definitions (
+                    id, tenant_key, catalog_key, display_name, allowed_values,
+                    code_list_catalog_key, code_list_slug,
+                    created_at, last_modified
+                )
+                VALUES (
+                    :id, :tenantKey, :catalogKey, :displayName, :allowedValues::jsonb,
+                    :codeListCatalogKey, :codeListSlug,
+                    NOW(), NOW()
+                )
                 ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                SET display_name = :displayName, allowed_values = :allowedValues::jsonb, last_modified = NOW()
+                SET display_name           = :displayName,
+                    allowed_values         = :allowedValues::jsonb,
+                    code_list_catalog_key  = :codeListCatalogKey,
+                    code_list_slug         = :codeListSlug,
+                    last_modified          = NOW()
                 """,
             )
                 .bind("id", attributeKey)
@@ -57,6 +82,8 @@ class ImportAttributeHandler(
                 .bind("catalogKey", command.catalogKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
+                .bind("codeListCatalogKey", command.codeListCatalogKey)
+                .bind("codeListSlug", command.codeListSlug)
                 .execute()
         }
 

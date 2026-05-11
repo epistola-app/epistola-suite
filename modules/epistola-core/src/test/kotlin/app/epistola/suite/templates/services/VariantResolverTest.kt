@@ -27,7 +27,7 @@ class VariantResolverTest : IntegrationTestBase() {
     private fun setupAttributeDefinitions(tenantId: TenantId): Unit = withMediator {
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(tenantId)),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(tenantId)),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "french"),
             ),
@@ -60,7 +60,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )!!
 
@@ -69,7 +69,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "English",
                         description = null,
-                        attributes = mapOf("language" to "english"),
+                        attributes = mapOf("lang" to "english"),
                     ),
                 )
 
@@ -77,7 +77,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch"),
+                        requiredAttributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -101,7 +101,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -110,7 +110,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
@@ -118,7 +118,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        requiredAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )
 
@@ -146,7 +146,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -155,7 +155,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
@@ -163,7 +163,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        optionalAttributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        optionalAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )
 
@@ -189,7 +189,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -198,7 +198,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
@@ -206,7 +206,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch"),
+                        requiredAttributes = mapOf("lang" to "dutch"),
                         optionalAttributes = mapOf("brand" to "acme"),
                     ),
                 )
@@ -237,7 +237,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "French",
                         description = null,
-                        attributes = mapOf("language" to "french"),
+                        attributes = mapOf("lang" to "french"),
                     ),
                 )
 
@@ -245,7 +245,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch"),
+                        requiredAttributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -276,7 +276,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "French",
                         description = null,
-                        attributes = mapOf("language" to "french"),
+                        attributes = mapOf("lang" to "french"),
                     ),
                 )
 
@@ -285,7 +285,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch"),
+                        requiredAttributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -313,7 +313,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )!!
 
@@ -322,7 +322,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Also Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )!!
 
@@ -331,7 +331,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         tenantId = tenant.id,
                         templateId = template.id,
                         criteria = VariantSelectionCriteria(
-                            requiredAttributes = mapOf("language" to "dutch"),
+                            requiredAttributes = mapOf("lang" to "dutch"),
                         ),
                     )
                 }.isInstanceOf(AmbiguousVariantResolutionException::class.java)
@@ -362,7 +362,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "English Acme",
                         description = null,
-                        attributes = mapOf("language" to "english", "brand" to "acme"),
+                        attributes = mapOf("lang" to "english", "brand" to "acme"),
                     ),
                 )
 
@@ -372,7 +372,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -382,7 +382,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
@@ -390,7 +390,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch"),
+                        requiredAttributes = mapOf("lang" to "dutch"),
                         optionalAttributes = mapOf("brand" to "acme"),
                     ),
                 )
@@ -416,7 +416,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
-                        attributes = mapOf("language" to "dutch"),
+                        attributes = mapOf("lang" to "dutch"),
                     ),
                 )
 
@@ -426,7 +426,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
@@ -434,7 +434,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        optionalAttributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        optionalAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )
 
@@ -484,7 +484,7 @@ class VariantResolverTest : IntegrationTestBase() {
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("language" to "dutch", "brand" to "acme"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
@@ -492,7 +492,7 @@ class VariantResolverTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     criteria = VariantSelectionCriteria(
-                        requiredAttributes = mapOf("language" to "dutch"),
+                        requiredAttributes = mapOf("lang" to "dutch"),
                     ),
                 )
 

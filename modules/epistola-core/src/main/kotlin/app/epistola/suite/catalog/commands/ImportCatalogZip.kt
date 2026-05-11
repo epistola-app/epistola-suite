@@ -116,6 +116,7 @@ class ImportCatalogZipHandler(
                         is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset '${dep.slug}'"
+                        is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.slug}' from catalog '${dep.catalogKey}'"
                     }
                 }
                 throw IllegalArgumentException(
@@ -233,12 +234,36 @@ class ImportCatalogZipHandler(
             content = resource.content,
         ).execute()
 
-        is AttributeResource -> ImportAttribute(
+        is AttributeResource -> {
+            val bindingCatalog = resource.codeListBinding?.let {
+                it.catalogKey?.let(CatalogKey::of) ?: catalogKey
+            }
+            val bindingSlug = resource.codeListBinding?.slug?.let(app.epistola.suite.common.ids.CodeListKey::of)
+            ImportAttribute(
+                tenantId = tenantId,
+                catalogKey = catalogKey,
+                slug = resource.slug,
+                displayName = resource.name,
+                allowedValues = resource.allowedValues ?: emptyList(),
+                codeListCatalogKey = bindingCatalog,
+                codeListSlug = bindingSlug,
+            ).execute()
+        }
+
+        is app.epistola.catalog.protocol.CodeListResource -> ImportCodeList(
             tenantId = tenantId,
             catalogKey = catalogKey,
             slug = resource.slug,
             displayName = resource.name,
-            allowedValues = resource.allowedValues ?: emptyList(),
+            description = resource.description,
+            entries = resource.entries.map { wire ->
+                app.epistola.suite.attributes.codelists.model.CodeListEntry(
+                    code = wire.code,
+                    label = wire.label,
+                    sortOrder = wire.sortOrder,
+                    hidden = wire.hidden,
+                )
+            },
         ).execute()
 
         is AssetResource -> {
@@ -307,6 +332,18 @@ class ImportCatalogZipHandler(
                     .list()
                     .forEach { found.add("asset:$it") }
             }
+
+            // Catalog-scoped: code lists. Matches the same `catalog_key + slug`
+            // shape as themes/stencils so the look-up cost is one PK probe.
+            val codeListDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.CodeList>()
+            if (codeListDeps.isNotEmpty()) {
+                handle.createQuery("SELECT catalog_key, slug FROM code_lists WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
+                    .bind("tenantKey", tenantKey)
+                    .bindList("slugs", codeListDeps.map { it.slug })
+                    .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
+                    .list()
+                    .let { found.addAll(it) }
+            }
         }
 
         return deps.filter { dep ->
@@ -314,6 +351,7 @@ class ImportCatalogZipHandler(
                 is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.slug}" !in found
             }
         }
     }

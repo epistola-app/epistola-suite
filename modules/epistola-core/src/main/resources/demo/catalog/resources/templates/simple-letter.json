@@ -350,6 +350,20 @@
         "attributes": {},
         "templateModel": null,
         "isDefault": true
+      },
+      {
+        "id": "en-us",
+        "title": "US English",
+        "attributes": { "system.locale": "en-US" },
+        "templateModel": null,
+        "isDefault": false
+      },
+      {
+        "id": "nl-nl",
+        "title": "Dutch",
+        "attributes": { "system.locale": "nl-NL" },
+        "templateModel": null,
+        "isDefault": false
       }
     ]
   }

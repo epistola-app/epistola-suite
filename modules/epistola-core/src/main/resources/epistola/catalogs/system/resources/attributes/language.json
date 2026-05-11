@@ -5,7 +5,6 @@
     "slug": "language",
     "name": "Language",
     "codeListBinding": {
-      "catalogKey": "system",
       "slug": "iso-639-1"
     }
   }

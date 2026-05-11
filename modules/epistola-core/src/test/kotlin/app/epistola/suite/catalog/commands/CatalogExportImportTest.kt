@@ -2,7 +2,13 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.codelists.queries.GetCodeList
+import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
@@ -14,6 +20,8 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -439,6 +447,120 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     name = "Duplicate Catalog",
                 ).execute()
             }.isInstanceOf(Exception::class.java)
+        }
+    }
+
+    @Test
+    fun `export and import preserve same-catalog code list and binding`() {
+        val tenant = createTenant("CodeListExport")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val sourceKey = CatalogKey.of("cl-export-source")
+        val sourceId = CatalogId(sourceKey, tenantId)
+
+        val zip = withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = sourceKey, name = "Code List Export Source").execute()
+
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of("regions"), sourceId),
+                displayName = "Regions",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(
+                    CodeListEntry("eu", "Europe"),
+                    CodeListEntry("us", "United States"),
+                    CodeListEntry("apac", "Asia-Pacific"),
+                ),
+            ).execute()
+
+            CreateAttributeDefinition(
+                id = AttributeId(AttributeKey.of("region"), sourceId),
+                displayName = "Region",
+                codeListId = CodeListId(CodeListKey.of("regions"), sourceId),
+            ).execute()
+
+            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute()
+        }
+
+        // Re-import into a second tenant. The exported manifest carries both
+        // the code list resource AND the attribute with a same-catalog
+        // binding (catalogKey null on the wire), and the importer should
+        // wire the FK to the freshly-imported code list inside the new
+        // tenant's own copy of the source catalog.
+        val target = createTenant("CodeListExport-Target")
+        val targetId = TenantId(target.id)
+
+        withMediator {
+            val result = CatalogImportContext.runAsImport {
+                ImportCatalogZip(
+                    tenantKey = target.id,
+                    zipBytes = zip.zipBytes,
+                    catalogType = CatalogType.AUTHORED,
+                ).execute()
+            }
+            val importedCatalogId = CatalogId(result.catalogKey, targetId)
+
+            val codeList = GetCodeList(CodeListId(CodeListKey.of("regions"), importedCatalogId)).query()
+            assertThat(codeList).isNotNull()
+            assertThat(codeList!!.displayName).isEqualTo("Regions")
+
+            val entries = ListCodeListEntries(CodeListId(CodeListKey.of("regions"), importedCatalogId)).query()
+            assertThat(entries).extracting<String> { it.code }
+                .containsExactlyInAnyOrder("eu", "us", "apac")
+
+            val attr = GetAttributeDefinition(AttributeId(AttributeKey.of("region"), importedCatalogId)).query()
+            assertThat(attr).isNotNull()
+            assertThat(attr!!.codeListSlug?.value).isEqualTo("regions")
+            // Same-catalog binding stays same-catalog after re-import; the
+            // wire format's null catalogKey resolves to the importing
+            // catalog's own key.
+            assertThat(attr.codeListCatalogKey?.value).isEqualTo(result.catalogKey.value)
+        }
+    }
+
+    @Test
+    fun `import fails clearly when cross-catalog code-list dependency is missing`() {
+        val tenant = createTenant("MissingDep")
+
+        // Build a minimal manifest declaring a dependency on a code list in a
+        // catalog the tenant does NOT have. We construct the zip by hand so
+        // we don't have to fabricate a whole valid resource graph.
+        val baos = ByteArrayOutputStream()
+        ZipOutputStream(baos).use { zip ->
+            zip.putNextEntry(ZipEntry("catalog.json"))
+            zip.write(
+                """
+                {
+                  "schemaVersion": 3,
+                  "catalog": {
+                    "slug": "needs-missing",
+                    "name": "Needs Missing Dep",
+                    "description": "Declares a cross-catalog code-list dep that the tenant does not have."
+                  },
+                  "publisher": { "name": "Epistola tests" },
+                  "release": { "version": "1", "releasedAt": "2026-05-11T00:00:00Z" },
+                  "resources": [],
+                  "dependencies": [
+                    { "type": "codeList", "catalogKey": "no-such-catalog", "slug": "no-such-list" }
+                  ]
+                }
+                """.trimIndent().toByteArray(),
+            )
+            zip.closeEntry()
+        }
+
+        withMediator {
+            assertThatThrownBy {
+                CatalogImportContext.runAsImport {
+                    ImportCatalogZip(
+                        tenantKey = tenant.id,
+                        zipBytes = baos.toByteArray(),
+                        catalogType = CatalogType.AUTHORED,
+                    ).execute()
+                }
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("unmet dependencies")
+                .hasMessageContaining("code list 'no-such-list'")
+                .hasMessageContaining("from catalog 'no-such-catalog'")
         }
     }
 

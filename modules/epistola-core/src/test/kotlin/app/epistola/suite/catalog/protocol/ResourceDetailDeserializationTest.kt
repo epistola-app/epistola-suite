@@ -48,12 +48,16 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         val json = resourceLoader.getResource("classpath:demo/catalog/resources/attributes/language.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(2)
+        // schemaVersion 3 because the resource now uses `codeListBinding` —
+        // the demo's `language` attribute binds across to `system/iso-639-1`.
+        assertThat(detail.schemaVersion).isEqualTo(3)
         assertThat(detail.resource).isInstanceOf(AttributeResource::class.java)
 
         val attr = detail.resource as AttributeResource
         assertThat(attr.slug).isEqualTo("language")
-        assertThat(attr.allowedValues).containsExactly("nl", "en", "de", "fr")
+        assertThat(attr.allowedValues).isEmpty()
+        assertThat(attr.codeListBinding?.catalogKey).isEqualTo("system")
+        assertThat(attr.codeListBinding?.slug).isEqualTo("iso-639-1")
     }
 
     @Test

@@ -15,6 +15,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -222,8 +223,11 @@ class CodeListCommandsTest : IntegrationTestBase() {
                 entries = listOf(CodeListEntry("y", "Y")),
             ).execute()
 
-            val resultA = ListCodeLists(TenantId(a.id)).query()
-            val resultB = ListCodeLists(TenantId(b.id)).query()
+            // Scope to the tenant's default catalog — the bundled `system`
+            // catalog also contributes code lists (bcp-47, iso-639-1,
+            // iso-3166-1-alpha2) that we don't want to assert on here.
+            val resultA = ListCodeLists(TenantId(a.id), catalogKey = CatalogKey.of("default")).query()
+            val resultB = ListCodeLists(TenantId(b.id), catalogKey = CatalogKey.of("default")).query()
             assertThat(resultA).extracting<String> { it.slug.value }.containsExactly("list-a")
             assertThat(resultB).extracting<String> { it.slug.value }.containsExactly("list-b")
         }

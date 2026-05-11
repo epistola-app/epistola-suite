@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -7,6 +8,7 @@ import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.tenants.Tenant
@@ -45,7 +47,7 @@ class CreateTenantHandler(
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
-        jdbi.withHandle<Tenant, Exception> { handle ->
+        val tenant = jdbi.withHandle<Tenant, Exception> { handle ->
             // 1. Insert tenant with NULL default_theme_key
             handle.createUpdate(
                 "INSERT INTO tenants (id, name, created_at) VALUES (:id, :name, NOW())",
@@ -118,6 +120,15 @@ class CreateTenantHandler(
                 .mapTo<Tenant>()
                 .one()
         }
+
+        // 4. Install the bundled system catalog (reserved attributes + canonical
+        // code lists). Runs in the same `@Transactional` boundary, so a failure
+        // to install rolls back the tenant creation — a tenant should never
+        // exist without its system catalog. `InstallSystemCatalog` is
+        // idempotent, so a retry after a transient failure won't double-install.
+        InstallSystemCatalog(tenantKey = command.id).execute()
+
+        tenant
     }
 
     companion object {

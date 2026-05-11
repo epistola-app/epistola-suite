@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -102,7 +103,13 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 allowedValues = listOf("acme", "globex"),
             ).execute()
 
-            val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
+            // Scope to the tenant's default catalog — the bundled `system`
+            // catalog also contributes reserved attributes (locale, language,
+            // country) that we don't want to assert on here.
+            val attributes = ListAttributeDefinitions(
+                tenantId = tenantId,
+                catalogKey = CatalogKey.of("default"),
+            ).query()
 
             assertThat(attributes).hasSize(2)
             // Ordered by display_name ASC
@@ -129,8 +136,14 @@ class AttributeDefinitionTest : IntegrationTestBase() {
                 displayName = "Brand",
             ).execute()
 
-            val tenant1Attrs = ListAttributeDefinitions(tenantId = tenantId1).query()
-            val tenant2Attrs = ListAttributeDefinitions(tenantId = tenantId2).query()
+            val tenant1Attrs = ListAttributeDefinitions(
+                tenantId = tenantId1,
+                catalogKey = CatalogKey.of("default"),
+            ).query()
+            val tenant2Attrs = ListAttributeDefinitions(
+                tenantId = tenantId2,
+                catalogKey = CatalogKey.of("default"),
+            ).query()
 
             assertThat(tenant1Attrs).hasSize(1)
             assertThat(tenant1Attrs[0].id.value).isEqualTo("language")

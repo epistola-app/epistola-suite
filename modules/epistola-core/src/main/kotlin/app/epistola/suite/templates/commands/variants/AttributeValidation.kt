@@ -10,28 +10,37 @@ import app.epistola.suite.validation.validate
 /**
  * Validates variant attributes against the tenant's attribute definition registry.
  *
- * Checks that:
- * 1. All attribute keys exist as defined attributes for the tenant
- * 2. All attribute values respect the definition's constraint:
- *    - free format        → any value
- *    - inline values      → value must be in `allowedValues`
- *    - bound to code list → value must exist as an entry in the bound list.
- *      Hidden entries are accepted so existing variants don't break when an
- *      entry is sunset.
+ * Each attribute key is either:
+ *  - **catalog-qualified** — `"<catalogKey>.<attributeSlug>"`, e.g.
+ *    `"system.locale"`. Resolves to exactly one definition. Use this form when
+ *    the same slug exists in multiple catalogs of the tenant (e.g.
+ *    `system.language` vs `epistola-demo.language`); the catalog prefix makes
+ *    the choice explicit and removes the silent-collision footgun.
+ *  - **bare slug** — `"locale"`, no dot. Resolves tenant-wide; if the slug
+ *    is ambiguous (defined in multiple catalogs), `associateBy` picks one
+ *    non-deterministically. Kept for backward compatibility with variants
+ *    authored before catalog-qualified references existed; new callers should
+ *    prefer the qualified form.
  *
- * Note: this iteration looks up attribute definitions by slug only (tenant-wide).
- * If the same slug exists in multiple catalogs of the tenant, `associateBy`
- * silently picks one — a known limitation that goes away when variant attribute
- * references become catalog-qualified (see CHANGELOG "Code lists — future work").
+ * Value validation respects the resolved definition's constraint:
+ *  - free format        → any value
+ *  - inline values      → value must be in `allowedValues`
+ *  - bound to code list → value must exist as an entry in the bound list.
+ *    Hidden entries are accepted so existing variants don't break when an
+ *    entry is sunset.
+ *
+ * Catalog slugs match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no `.`), so splitting
+ * on the first `.` is unambiguous.
  */
 fun validateAttributes(tenantId: TenantId, attributes: Map<String, String>) {
     if (attributes.isEmpty()) return
 
     val definitions = ListAttributeDefinitions(tenantId).query()
-    val definitionMap = definitions.associateBy { it.id.value }
+    val byQualified = definitions.associateBy { "${it.catalogKey.value}.${it.id.value}" }
+    val byBareSlug = definitions.associateBy { it.id.value }
 
     for ((key, value) in attributes) {
-        val definition = definitionMap[key]
+        val definition = if ('.' in key) byQualified[key] else byBareSlug[key]
         validate("attributes", definition != null) { "Unknown attribute '$key'. Define it in the attribute registry first." }
         validateValue(key, value, definition!!)
     }

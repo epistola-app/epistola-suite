@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 3,
+  "resource": {
+    "type": "attribute",
+    "slug": "locale",
+    "name": "Locale",
+    "codeListBinding": {
+      "slug": "bcp-47"
+    }
+  }
+}

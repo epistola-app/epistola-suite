@@ -56,7 +56,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -73,12 +73,12 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val filterBar = page.locator("#variant-filter-bar")
         assertThat(filterBar).isVisible()
 
-        val selects = filterBar.locator("select[data-filter-key]")
-        assertThat(selects).hasCount(2)
-
-        val languageSelect = filterBar.locator("select[data-filter-key='language']")
-        assertThat(languageSelect).isVisible()
-        assertThat(languageSelect.locator("option")).hasCount(3) // All + en + nl
+        // The bar lists every attribute definition the tenant has, including
+        // the reserved attributes from the bundled system catalog (locale,
+        // language, country). Assert per-slug below rather than on the total.
+        val langSelect = filterBar.locator("select[data-filter-key='lang']")
+        assertThat(langSelect).isVisible()
+        assertThat(langSelect.locator("option")).hasCount(3) // All + en + nl
 
         val brandSelect = filterBar.locator("select[data-filter-key='brand']")
         assertThat(brandSelect).isVisible()
@@ -90,7 +90,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -100,13 +100,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "English",
                 description = null,
-                attributes = mapOf("language" to "en"),
+                attributes = mapOf("lang" to "en"),
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "Dutch",
                 description = null,
-                attributes = mapOf("language" to "nl"),
+                attributes = mapOf("lang" to "nl"),
             ).execute()
             tenant to template
         }
@@ -117,7 +117,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(cards).hasCount(3) // default + en + nl
 
         // Filter to "en"
-        page.locator("select[data-filter-key='language']").selectOption("en")
+        page.locator("select[data-filter-key='lang']").selectOption("en")
 
         // Only the English card should be visible
         val visibleCards = page.locator(".variant-card:visible")
@@ -130,7 +130,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -138,7 +138,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "English",
                 description = null,
-                attributes = mapOf("language" to "en"),
+                attributes = mapOf("lang" to "en"),
             ).execute()
             tenant to template
         }
@@ -146,11 +146,11 @@ class VariantCardUiTest : BasePlaywrightTest() {
         page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
 
         // Apply filter
-        page.locator("select[data-filter-key='language']").selectOption("en")
+        page.locator("select[data-filter-key='lang']").selectOption("en")
         assertThat(page.locator(".variant-card:visible")).hasCount(1)
 
         // Clear filter
-        page.locator("select[data-filter-key='language']").selectOption("")
+        page.locator("select[data-filter-key='lang']").selectOption("")
         assertThat(page.locator(".variant-card:visible")).hasCount(2)
     }
 
@@ -159,7 +159,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -173,19 +173,19 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "EN Acme",
                 description = null,
-                attributes = mapOf("language" to "en", "brand" to "acme"),
+                attributes = mapOf("lang" to "en", "brand" to "acme"),
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "EN Globex",
                 description = null,
-                attributes = mapOf("language" to "en", "brand" to "globex"),
+                attributes = mapOf("lang" to "en", "brand" to "globex"),
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "NL Acme",
                 description = null,
-                attributes = mapOf("language" to "nl", "brand" to "acme"),
+                attributes = mapOf("lang" to "nl", "brand" to "acme"),
             ).execute()
             tenant to template
         }
@@ -194,7 +194,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(page.locator(".variant-card")).hasCount(4) // default + 3
 
         // Filter: language=en AND brand=acme
-        page.locator("select[data-filter-key='language']").selectOption("en")
+        page.locator("select[data-filter-key='lang']").selectOption("en")
         page.locator("select[data-filter-key='brand']").selectOption("acme")
 
         val visibleCards = page.locator(".variant-card:visible")
