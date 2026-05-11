@@ -25,12 +25,14 @@ import app.epistola.suite.htmx.codeListId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -165,22 +167,39 @@ class CodeListHandler(
         val codeListId = request.codeListId(tenantId) ?: return ServerResponse.badRequest().build()
         return try {
             DeleteCodeList(codeListId).execute()
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/code-lists")
-                .build()
+            val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+            val catalogs = ListCatalogs(tenantId.key).query()
+            val codeLists = ListCodeLists(tenantId = tenantId).query()
+            request.htmx {
+                fragment("code-lists/list", "content") {
+                    "pageTitle" to "Code lists - Epistola"
+                    "tenant" to tenant
+                    "tenantId" to tenantId.key
+                    "catalogs" to catalogs
+                    "selectedCatalog" to ""
+                    "codeLists" to codeLists
+                }
+                pushUrl("/tenants/${tenantId.key}/code-lists")
+                onNonHtmx { redirect("/tenants/${tenantId.key}/code-lists") }
+            }
         } catch (e: CodeListInUseException) {
-            // Stay on the detail page with an error message.
-            val codeList = GetCodeList(codeListId).query()
-                ?: return ServerResponse.notFound().build()
-            ServerResponse.ok().page("code-lists/detail") {
-                "pageTitle" to "${codeList.displayName} - Code list"
-                "tenant" to GetTenant(tenantId.key).query()
-                "tenantId" to tenantId.key
-                "codeList" to codeList
-                "entries" to ListCodeListEntries(codeListId).query()
-                "editable" to (codeList.catalogType == CatalogType.AUTHORED)
-                "includeHidden" to false
-                "error" to (e.message ?: "Cannot delete")
+            if (request.isHtmx) {
+                ServerResponse.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(mapOf("error" to (e.message ?: "Cannot delete")))
+            } else {
+                val codeList = GetCodeList(codeListId).query()
+                    ?: return ServerResponse.notFound().build()
+                ServerResponse.ok().page("code-lists/detail") {
+                    "pageTitle" to "${codeList.displayName} - Code list"
+                    "tenant" to GetTenant(tenantId.key).query()
+                    "tenantId" to tenantId.key
+                    "codeList" to codeList
+                    "entries" to ListCodeListEntries(codeListId).query()
+                    "editable" to (codeList.catalogType == CatalogType.AUTHORED)
+                    "includeHidden" to false
+                    "error" to (e.message ?: "Cannot delete")
+                }
             }
         }
     }

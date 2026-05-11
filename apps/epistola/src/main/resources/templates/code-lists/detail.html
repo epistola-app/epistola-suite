@@ -29,6 +29,7 @@
                     <button th:if="${editable}" type="button"
                             class="btn btn-outline btn-destructive"
                             data-confirm-title="Delete code list"
+                            data-confirm-target="#main-content"
                             th:attr="data-confirm-message='Delete code list &quot;' + ${codeList.displayName} + '&quot;? Bound attributes must be unbound first.',data-confirm-url=@{/tenants/{tenantId}/code-lists/{c}/{s}/delete(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
                             onclick="openConfirmDialog(this)">
                         Delete

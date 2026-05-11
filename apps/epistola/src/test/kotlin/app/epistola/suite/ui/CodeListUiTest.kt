@@ -19,6 +19,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
 
@@ -232,6 +233,40 @@ class CodeListUiTest : BasePlaywrightTest() {
         val rows = page.locator("table.ep-table tbody tr")
         assertThat(rows).hasCount(1)
         assertThat(rows.first().locator("a").first()).hasText("locales")
+    }
+
+    @Test
+    fun `delete code list from detail page swaps back to list without htmx target error`() {
+        val tenant = withMediator {
+            val t = createUiTenant()
+            val tenantId = TenantId(t.id)
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of("deletable"), CatalogId.default(tenantId)),
+                displayName = "Deletable",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("test", "Test")),
+            ).execute()
+            t
+        }
+
+        val consoleMessages = mutableListOf<String>()
+        page.onConsoleMessage { msg -> consoleMessages.add("[${msg.type()}] ${msg.text()}") }
+
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/default/deletable")
+        assertThat(page.locator("h1")).hasText("Deletable")
+
+        page.locator(".page-actions button:has-text('Delete')").click()
+        page.waitForSelector("#confirm-dialog[open]")
+        page.locator("#confirm-dialog button.btn-destructive").click()
+
+        page.waitForURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
+        assertThat(page.locator("h1")).hasText("Code lists")
+        assertThat(page.locator("table.ep-table tbody tr")).hasCount(0)
+
+        assertTrue(
+            consoleMessages.none { it.contains("htmx:targetError") },
+            "Expected no htmx:targetError, got: $consoleMessages",
+        )
     }
 
     /**
