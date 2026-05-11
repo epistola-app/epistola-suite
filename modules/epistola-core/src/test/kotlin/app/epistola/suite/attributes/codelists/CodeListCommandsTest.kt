@@ -192,8 +192,7 @@ class CodeListCommandsTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale"), catalogId),
                 displayName = "Locale",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             assertThatThrownBy { DeleteCodeList(codeListId).execute() }

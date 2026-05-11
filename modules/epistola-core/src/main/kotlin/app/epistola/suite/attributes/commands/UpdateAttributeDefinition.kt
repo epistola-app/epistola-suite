@@ -3,8 +3,7 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.CatalogKey
-import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -20,8 +19,7 @@ data class UpdateAttributeDefinition(
     val id: AttributeId,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
-    val codeListCatalogKey: CatalogKey? = null,
-    val codeListSlug: CodeListKey? = null,
+    val codeListId: CodeListId? = null,
 ) : Command<VariantAttributeDefinition?>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -33,13 +31,13 @@ data class UpdateAttributeDefinition(
         validate("allowedValues", allowedValues.all { it.isNotBlank() }) { "Allowed values must not be blank" }
         validate("allowedValues", allowedValues.size == allowedValues.distinct().size) { "Allowed values must be unique" }
         validate(
-            "codeListSlug",
-            (codeListSlug == null) == (codeListCatalogKey == null),
-        ) { "codeListCatalogKey and codeListSlug must be set together or both null" }
-        validate(
-            "codeListSlug",
-            codeListSlug == null || allowedValues.isEmpty(),
+            "codeListId",
+            codeListId == null || allowedValues.isEmpty(),
         ) { "An attribute cannot have both inline allowedValues and a bound code list" }
+        validate(
+            "codeListId",
+            codeListId == null || codeListId.tenantKey == id.tenantKey,
+        ) { "Bound code list must live in the same tenant as the attribute" }
     }
 }
 
@@ -127,8 +125,8 @@ class UpdateAttributeDefinitionHandler(
                 .bind("catalogKey", command.id.catalogKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
-                .bind("codeListCatalogKey", command.codeListCatalogKey)
-                .bind("codeListSlug", command.codeListSlug)
+                .bind("codeListCatalogKey", command.codeListId?.catalogKey)
+                .bind("codeListSlug", command.codeListId?.key)
                 .mapTo<VariantAttributeDefinition>()
                 .findOne()
                 .orElse(null)

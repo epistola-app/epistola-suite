@@ -441,7 +441,7 @@ class DocumentTemplateHandler(
 
         val variants = GetVariantSummaries(templateId = ctx.templateId).query()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
-        val attributeOptions = buildAttributeOptions(ctx.templateId.tenantId, attributeDefinitions)
+        val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val contractVersion = GetLatestContractVersion(templateId = ctx.templateId).query()
 
         return detailHelper.renderDetailPage(

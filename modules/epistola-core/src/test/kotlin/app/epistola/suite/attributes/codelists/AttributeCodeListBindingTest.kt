@@ -48,17 +48,15 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
             val attr = CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("language"), catalogId),
                 displayName = "Language",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
-            assertThat(attr.codeListCatalogKey).isEqualTo(catalogId.key)
-            assertThat(attr.codeListSlug).isEqualTo(codeListId.key)
+            assertThat(attr.codeListId).isEqualTo(codeListId)
             assertThat(attr.allowedValues).isEmpty()
 
             val fetched = GetAttributeDefinition(AttributeId(attr.id, catalogId)).query()
             assertThat(fetched).isNotNull()
-            assertThat(fetched!!.codeListSlug?.value).isEqualTo("languages")
+            assertThat(fetched!!.codeListId?.key?.value).isEqualTo("languages")
         }
     }
 
@@ -73,27 +71,34 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 id = AttributeId(AttributeKey.of("mixed"), catalogId),
                 displayName = "Mixed",
                 allowedValues = listOf("a", "b"),
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = CodeListKey.of("anything"),
+                codeListId = CodeListId(CodeListKey.of("anything"), catalogId),
             )
         }.isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("cannot have both")
     }
 
     @Test
-    fun `create attribute rejects half-specified code-list binding`() {
+    fun `create attribute rejects code-list binding from a different tenant`() {
         val tenant = createTenant("Bind3")
         val tenantId = TenantId(tenant.id)
         val catalogId = CatalogId.default(tenantId)
 
+        val otherTenant = createTenant("Bind3Other")
+        val otherCatalogId = CatalogId.default(TenantId(otherTenant.id))
+
+        // The new API forces callers to pass a typed `CodeListId`, so the
+        // "half-specified binding" failure mode that the old two-key API had
+        // is impossible by construction. The remaining cross-cutting check
+        // we can drive from the test is the same-tenant invariant: an
+        // attribute cannot bind to a code list owned by a different tenant.
         assertThatThrownBy {
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("partial"), catalogId),
-                displayName = "Partial",
-                codeListSlug = CodeListKey.of("only-slug"),
+                id = AttributeId(AttributeKey.of("cross"), catalogId),
+                displayName = "Cross-tenant",
+                codeListId = CodeListId(CodeListKey.of("foreign"), otherCatalogId),
             )
         }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("set together or both null")
+            .hasMessageContaining("same tenant")
     }
 
     @Test
@@ -107,8 +112,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 CreateAttributeDefinition(
                     id = AttributeId(AttributeKey.of("region"), catalogId),
                     displayName = "Region",
-                    codeListCatalogKey = catalogId.key,
-                    codeListSlug = CodeListKey.of("does-not-exist"),
+                    codeListId = CodeListId(CodeListKey.of("does-not-exist"), catalogId),
                 ).execute()
             }.hasMessageContaining("foreign key")
         }
@@ -138,11 +142,10 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
             val updated = UpdateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("color"), catalogId),
                 displayName = "Color",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
-            assertThat(updated?.codeListSlug?.value).isEqualTo("colors")
+            assertThat(updated?.codeListId).isEqualTo(codeListId)
             assertThat(updated?.allowedValues).isEmpty()
         }
     }
@@ -164,8 +167,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             val updated = UpdateAttributeDefinition(
@@ -173,7 +175,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                 displayName = "Status",
             ).execute()
 
-            assertThat(updated?.codeListSlug).isNull()
+            assertThat(updated?.codeListId).isNull()
             assertThat(updated?.allowedValues).isEmpty()
         }
     }

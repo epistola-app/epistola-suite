@@ -38,17 +38,16 @@ fun validateAttributes(tenantId: TenantId, attributes: Map<String, String>) {
 }
 
 private fun validateValue(key: String, value: String, definition: VariantAttributeDefinition) {
-    val codeListSlug = definition.codeListSlug
-    val codeListCatalogKey = definition.codeListCatalogKey
-    if (codeListSlug != null && codeListCatalogKey != null) {
+    val codeListId = definition.codeListId
+    if (codeListId != null) {
         val exists = CodeListEntryExists(
-            tenantKey = definition.tenantKey,
-            catalogKey = codeListCatalogKey,
-            codeListSlug = codeListSlug,
+            tenantKey = codeListId.tenantKey,
+            catalogKey = codeListId.catalogKey,
+            codeListSlug = codeListId.key,
             code = value,
         ).query()
         validate("attributes", exists) {
-            "Invalid value '$value' for attribute '$key'. Not a member of code list '${codeListCatalogKey.value}/${codeListSlug.value}'."
+            "Invalid value '$value' for attribute '$key'. Not a member of code list '${codeListId.catalogKey.value}/${codeListId.key.value}'."
         }
         return
     }

@@ -49,8 +49,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale"), catalogId),
                 displayName = "Locale",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             assertThatCode { validateAttributes(tenantId, mapOf("locale" to "en")) }
@@ -76,8 +75,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale"), catalogId),
                 displayName = "Locale",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             assertThatThrownBy { validateAttributes(tenantId, mapOf("locale" to "zz")) }
@@ -109,8 +107,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             assertThatCode { validateAttributes(tenantId, mapOf("status" to "legacy")) }
@@ -207,8 +204,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("region"), defaultCatalog),
                 displayName = "Region",
-                codeListCatalogKey = sharedCatalogKey,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             assertThatCode { validateAttributes(tenantId, mapOf("region" to "eu")) }

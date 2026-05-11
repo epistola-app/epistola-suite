@@ -202,8 +202,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale"), catalogId),
                 displayName = "Locale",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = CodeListKey.of("locales"),
+                codeListId = CodeListId(CodeListKey.of("locales"), catalogId),
             ).execute()
 
             val template = CreateDocumentTemplate(
@@ -248,8 +247,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("status"), catalogId),
                 displayName = "Status",
-                codeListCatalogKey = catalogId.key,
-                codeListSlug = codeListId.key,
+                codeListId = codeListId,
             ).execute()
 
             val template = CreateDocumentTemplate(

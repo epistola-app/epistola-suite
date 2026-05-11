@@ -2,9 +2,6 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CodeListId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.query
 
 /**
@@ -31,20 +28,14 @@ data class AttributeOption(
  *    pass validation, but we don't surface them in pickers).
  */
 fun buildAttributeOptions(
-    tenantId: TenantId,
     definitions: List<VariantAttributeDefinition>,
 ): Map<String, List<AttributeOption>> = definitions.associate { def ->
-    def.id.value to optionsFor(tenantId, def)
+    def.id.value to optionsFor(def)
 }
 
-private fun optionsFor(tenantId: TenantId, def: VariantAttributeDefinition): List<AttributeOption> {
-    val codeListSlug = def.codeListSlug
-    val codeListCatalogKey = def.codeListCatalogKey
-    if (codeListSlug != null && codeListCatalogKey != null) {
-        val codeListId = CodeListId(
-            key = codeListSlug,
-            catalogId = CatalogId(codeListCatalogKey, tenantId),
-        )
+private fun optionsFor(def: VariantAttributeDefinition): List<AttributeOption> {
+    val codeListId = def.codeListId
+    if (codeListId != null) {
         return ListCodeListEntries(codeListId, includeHidden = false).query()
             .map { AttributeOption(code = it.code, label = it.label) }
     }
