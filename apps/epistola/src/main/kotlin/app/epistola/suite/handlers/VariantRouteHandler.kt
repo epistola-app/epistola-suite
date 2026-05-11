@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.handlers.AuthContext
+import app.epistola.suite.handlers.buildAttributeOptions
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -78,6 +79,7 @@ class VariantRouteHandler {
             ?: return ServerResponse.notFound().build()
 
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeOptions = buildAttributeOptions(attributeDefinitions)
 
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {
@@ -86,6 +88,7 @@ class VariantRouteHandler {
                 "templateId" to templateId.key
                 "variant" to variant
                 "attributeDefinitions" to attributeDefinitions
+                "attributeOptions" to attributeOptions
             }
         }
     }
@@ -111,6 +114,7 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
         val contractVersion = GetLatestContractVersion(templateId = templateId).query()
@@ -122,6 +126,7 @@ class VariantRouteHandler {
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                "attributeOptions" to attributeOptions
                 "editable" to editable
                 "auth" to auth
                 "contractDataExamples" to contractVersion?.dataExamples
@@ -174,6 +179,7 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
         logger.info("renderVariantsSection: variants={}, editable={}, catalogId={}, isHtmx={}", variants.size, editable, catalogId, request.isHtmx)
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
@@ -186,6 +192,7 @@ class VariantRouteHandler {
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                "attributeOptions" to attributeOptions
                 "editable" to editable
                 "auth" to auth
                 "contractDataExamples" to contractVersion?.dataExamples

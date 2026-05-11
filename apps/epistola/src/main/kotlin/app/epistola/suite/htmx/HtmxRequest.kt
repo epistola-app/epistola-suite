@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.FeedbackId
@@ -159,6 +161,16 @@ fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
     val catalog = CatalogId(catalogId(), tenantId)
     val key = AttributeKey.validateOrNull(pathVariable("attributeId")) ?: return null
     return AttributeId(key, catalog)
+}
+
+/**
+ * Extract and validate a [CodeListId] from the `codeListId` and `catalogId` path variables.
+ * Returns null if the slug is invalid.
+ */
+fun ServerRequest.codeListId(tenantId: TenantId): CodeListId? {
+    val catalog = CatalogId(catalogId(), tenantId)
+    val key = CodeListKey.validateOrNull(pathVariable("codeListId")) ?: return null
+    return CodeListId(key, catalog)
 }
 
 /**

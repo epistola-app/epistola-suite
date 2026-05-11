@@ -1,0 +1,5 @@
+[
+  { "code": "en", "label": "English", "sortOrder": 1 },
+  { "code": "nl", "label": "Dutch", "sortOrder": 2 },
+  { "code": "de", "label": "German", "sortOrder": 3 }
+]

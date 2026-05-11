@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Code lists for attribute value constraints.** Attributes can now bind to a named, reusable collection of `{code, label, hidden}` entries as a third alternative to the existing free-format and inline `allowedValues` kinds. Code lists are tenant + catalog scoped — the same shape attributes already follow — and sourced from a curated `INLINE` editor or fetched over HTTPS (`URL` source) with manual "Refresh from source". Per-entry `hidden` flag soft-deprecates entries: hidden codes are filtered from pickers but stay valid for existing variants. Cross-catalog binding within a tenant is allowed via a composite FK on `(tenant_key, code_list_catalog_key, code_list_slug)` with `ON DELETE RESTRICT`. New UI under `/tenants/{id}/code-lists/**`. New tables `code_lists` + `code_list_entries`; the three-way constraint picker on the attribute form replaces the old single textarea. See [`docs/code-lists.md`](docs/code-lists.md).
+
+### Code lists — future work
+
+The first iteration is intentionally tenant-only, in this repo only. The following pieces are deferred to a follow-up paired with `epistola-contract`:
+
+- **Catalog-qualified variant attribute references.** Today `validateAttributes` looks up an attribute by slug alone across the tenant's catalogs; if the same slug exists in two catalogs `associateBy` silently picks one. The fix is to reshape variant `attributes` from `{ slug: value }` to `{ "catalog.slug": value }` and add a `catalog` field to `VariantSelectionAttribute` in the REST API. Cross-repo change.
+- **Bundled "system" catalog + reserved attributes.** A classpath-sourced SUBSCRIBED catalog auto-installed on every tenant supplying reserved attributes (`locale`, `language`, `country`) bound to canonical code lists (BCP-47, ISO 639-1, ISO 3166-1 alpha-2). Lets templates and the API rely on a stable cross-tenant vocabulary. Requires `CatalogManifest` extension in `epistola-contract`.
+- **Catalog-protocol distribution of tenant code lists.** Extending `CatalogManifest` and `DependencyResolver` so remote catalogs can publish code lists and attributes that bind to them.
+- **Per-entry deprecation timeline columns** (`hidden_at`, `replaced_by`) and an **ISO 4217 currency code list** + `currency` reserved attribute.
+- **Harden the URL fetch path** ([#391](https://github.com/epistola-app/epistola-suite/issues/391)) — send `Accept: application/json`, cap response size, validate content type.
+- **Variant create/edit dialogs scale with many attributes** ([#393](https://github.com/epistola-app/epistola-suite/issues/393)) — only show attributes that have a value; let the user add others one at a time.
+- **Cross-variant attribute validation** ([#396](https://github.com/epistola-app/epistola-suite/issues/396)) — current `validateAttributes` is `1+K` per variant; fine for UI writes, but bulk paths that carry code-list bindings (catalog import once the protocol is extended) need cross-variant batching. Co-ships with the catalog-protocol code-list distribution work.
+- **Encrypt-at-rest credentials** ([#397](https://github.com/epistola-app/epistola-suite/issues/397)) — `code_lists.credential` and `catalogs.source_auth_credential` are plaintext today. Encrypt both with one consistent pattern.
+
 ### Fixed
 
 - **Stencil parameters: review-pass hardening.** Five fixes from the post-toggle architectural review:
