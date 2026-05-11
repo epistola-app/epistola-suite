@@ -28,7 +28,9 @@ class ListAttributeDefinitionsHandler(
         val sql = buildString {
             append(
                 """
-                SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.display_name, a.allowed_values, a.created_at, a.last_modified
+                SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.display_name, a.allowed_values,
+                       a.code_list_catalog_key, a.code_list_slug,
+                       a.created_at, a.last_modified
                 FROM variant_attribute_definitions a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
                 WHERE a.tenant_key = :tenantId

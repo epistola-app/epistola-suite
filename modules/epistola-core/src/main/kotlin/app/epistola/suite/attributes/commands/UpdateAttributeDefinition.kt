@@ -3,6 +3,8 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -18,6 +20,8 @@ data class UpdateAttributeDefinition(
     val id: AttributeId,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
+    val codeListCatalogKey: CatalogKey? = null,
+    val codeListSlug: CodeListKey? = null,
 ) : Command<VariantAttributeDefinition?>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -28,6 +32,14 @@ data class UpdateAttributeDefinition(
         validate("displayName", displayName.length <= 100) { "Display name must be 100 characters or less" }
         validate("allowedValues", allowedValues.all { it.isNotBlank() }) { "Allowed values must not be blank" }
         validate("allowedValues", allowedValues.size == allowedValues.distinct().size) { "Allowed values must be unique" }
+        validate(
+            "codeListSlug",
+            (codeListSlug == null) == (codeListCatalogKey == null),
+        ) { "codeListCatalogKey and codeListSlug must be set together or both null" }
+        validate(
+            "codeListSlug",
+            codeListSlug == null || allowedValues.isEmpty(),
+        ) { "An attribute cannot have both inline allowedValues and a bound code list" }
     }
 }
 
@@ -101,9 +113,11 @@ class UpdateAttributeDefinitionHandler(
             handle.createQuery(
                 """
                 UPDATE variant_attribute_definitions
-                SET display_name = :displayName,
-                    allowed_values = :allowedValues::jsonb,
-                    last_modified = NOW()
+                SET display_name           = :displayName,
+                    allowed_values         = :allowedValues::jsonb,
+                    code_list_catalog_key  = :codeListCatalogKey,
+                    code_list_slug         = :codeListSlug,
+                    last_modified          = NOW()
                 WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 RETURNING *
                 """,
@@ -113,6 +127,8 @@ class UpdateAttributeDefinitionHandler(
                 .bind("catalogKey", command.id.catalogKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
+                .bind("codeListCatalogKey", command.codeListCatalogKey)
+                .bind("codeListSlug", command.codeListSlug)
                 .mapTo<VariantAttributeDefinition>()
                 .findOne()
                 .orElse(null)

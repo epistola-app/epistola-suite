@@ -141,6 +141,16 @@ class AttributeId(
     val catalogKey get() = catalogId.key
 }
 
+class CodeListId(
+    key: CodeListKey,
+    val catalogId: CatalogId,
+) : EntityId<CodeListKey, String, CatalogId>(key, catalogId) {
+    override val type = "code-list"
+    val tenantId get() = catalogId.tenantId
+    val tenantKey get() = catalogId.tenantKey
+    val catalogKey get() = catalogId.key
+}
+
 class AssetId(
     key: AssetKey,
     val catalogId: CatalogId,
