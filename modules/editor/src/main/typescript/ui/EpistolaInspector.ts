@@ -815,6 +815,11 @@ export class EpistolaInspector extends LitElement {
         ? validateBooleanResult
         : undefined;
 
+    // Component-declared binding rules: each inspector field of type
+    // 'expression' may carry a `pathDisabled` predicate. The inspector is
+    // generic — it just plumbs the predicate through to the dialog.
+    const fieldDef = this.engine.registry.get(node.type)?.inspector.find((f) => f.key === key);
+
     openExpressionDialog({
       initialValue: currentValue,
       fieldPaths: this.engine.getAvailableVariablesAt(this.selectedNodeId!),
@@ -823,6 +828,7 @@ export class EpistolaInspector extends LitElement {
       placeholder,
       fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,
       resultValidator,
+      pathDisabled: fieldDef?.pathDisabled,
     }).then(({ value }) => {
       if (value !== null) {
         this._handlePropChange(key, value);

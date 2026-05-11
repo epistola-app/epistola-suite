@@ -1,17 +1,23 @@
 import { nanoid } from 'nanoid';
-import type {
-  JsonObject,
-  JsonSchema,
-  JsonSchemaProperty,
-  JsonValue,
-  PrimitiveField,
-  PrimitiveFieldType,
-  SchemaField,
-  SchemaFieldType,
-  SchemaFieldUpdate,
-  StringFormat,
-  VisualSchema,
+import {
+  type JsonObject,
+  type JsonSchema,
+  type JsonSchemaProperty,
+  type JsonValue,
+  type PrimitiveField,
+  type PrimitiveFieldType,
+  type SchemaField,
+  type SchemaFieldType,
+  type SchemaFieldUpdate,
+  type StringFormat,
+  type VisualSchema,
 } from '../types.js';
+import { classifyValue, findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
+
+/** True when a SchemaFieldType is one of the registered ref-typed field types. */
+function isRefFieldType(type: SchemaFieldType): type is RefTypeId {
+  return type === 'richTextInline' || type === 'richTextBlock';
+}
 
 /**
  * Convert a visual schema to JSON Schema format.
@@ -40,6 +46,14 @@ export function visualSchemaToJsonSchema(visual: VisualSchema): JsonSchema {
  * Convert a single field to a JSON Schema property.
  */
 function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
+  // Ref-based field types are stored as a `$ref` to their canonical schema URL
+  // (no `type` key). The registry resolves the field type to its URL.
+  if (isRefFieldType(field.type)) {
+    const prop: JsonSchemaProperty = { $ref: getRefTypeById(field.type).url };
+    if (field.description) prop.description = field.description;
+    return prop;
+  }
+
   // Date is stored as { type: "string", format: "date" } in JSON Schema
   const prop: JsonSchemaProperty = {
     type: field.type === 'date' ? 'string' : field.type,
@@ -75,6 +89,8 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
       if (nestedRequired.length > 0) {
         prop.items.required = nestedRequired;
       }
+    } else if (isRefFieldType(field.arrayItemType)) {
+      prop.items = { $ref: getRefTypeById(field.arrayItemType).url };
     } else {
       prop.items = { type: field.arrayItemType };
     }
@@ -142,6 +158,18 @@ function jsonSchemaPropertyToField(
   required: boolean,
   path: string,
 ): SchemaField {
+  // Ref-based property: detected by $ref to one of the registered schema URLs.
+  const refType = findRefType(prop.$ref);
+  if (refType !== null) {
+    return {
+      id: `field:${path}`,
+      name,
+      required,
+      description: prop.description,
+      type: refType.id,
+    };
+  }
+
   const rawType = Array.isArray(prop.type) ? prop.type[0] : prop.type;
   // Detect date: JSON Schema uses { type: "string", format: "date" }
   const type = rawType === 'string' && prop.format === 'date' ? 'date' : rawType;
@@ -153,11 +181,14 @@ function jsonSchemaPropertyToField(
   };
 
   if (type === 'array') {
-    const itemType = prop.items
-      ? Array.isArray(prop.items.type)
-        ? prop.items.type[0]
-        : prop.items.type
-      : 'string';
+    const itemRefType = findRefType(prop.items?.$ref);
+    const itemType: SchemaFieldType =
+      itemRefType !== null
+        ? itemRefType.id
+        : prop.items
+          ? (((Array.isArray(prop.items.type) ? prop.items.type[0] : prop.items.type) ??
+              'string') as SchemaFieldType)
+          : 'string';
     const nestedFields =
       itemType === 'object' && prop.items?.properties
         ? Object.entries(prop.items.properties).map(([n, p]) =>
@@ -172,7 +203,7 @@ function jsonSchemaPropertyToField(
     return {
       ...baseField,
       type: 'array' as const,
-      arrayItemType: itemType as SchemaFieldType,
+      arrayItemType: itemType,
       nestedFields,
       ...(prop.minItems !== undefined ? { minItems: prop.minItems } : {}),
     };
@@ -284,6 +315,10 @@ function inferType(value: JsonValue): SchemaFieldType {
     return 'array';
   }
   if (typeof value === 'object') {
+    // Ref-based shapes (rich-text doc, etc.) — first registered type whose
+    // shallow shape check passes wins. Falls back to plain `object`.
+    const refType = classifyValue(value);
+    if (refType !== null) return refType.id;
     return 'object';
   }
   if (typeof value === 'boolean') {
@@ -440,6 +475,8 @@ export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = {
   integer: 'Integer',
   boolean: 'Yes/No',
   date: 'Date',
+  richTextInline: 'Rich text (inline)',
+  richTextBlock: 'Rich text (block)',
   array: 'List',
   object: 'Object',
 };

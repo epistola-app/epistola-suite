@@ -39,11 +39,26 @@ export type SchemaFieldType =
   | 'integer'
   | 'boolean'
   | 'date'
+  | 'richTextInline'
+  | 'richTextBlock'
   | 'array'
   | 'object';
 
 /** Primitive field types (non-container types) */
-export type PrimitiveFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'date';
+export type PrimitiveFieldType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'date'
+  | 'richTextInline'
+  | 'richTextBlock';
+
+/** Canonical $ref URL for inline rich text (single paragraph, no lists). */
+export const RICH_TEXT_INLINE_SCHEMA_REF = 'https://epistola.app/schemas/richtext-inline-v1.json';
+
+/** Canonical $ref URL for block rich text (paragraphs, lists, marks). */
+export const RICH_TEXT_BLOCK_SCHEMA_REF = 'https://epistola.app/schemas/richtext-block-v1.json';
 
 // =============================================================================
 // Schema Fields (Discriminated Union)
@@ -122,7 +137,8 @@ export interface VisualSchema {
 
 /** JSON Schema property type */
 export interface JsonSchemaProperty {
-  type: SchemaFieldType | SchemaFieldType[];
+  type?: SchemaFieldType | SchemaFieldType[];
+  $ref?: string;
   format?: string;
   description?: string;
   items?: JsonSchemaProperty;

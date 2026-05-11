@@ -31,7 +31,7 @@ abstract class EntityId<T : EntityKey<T, V>, V : Any, P : EntityIdBase?>(
     override fun segment(): String = key.value.toString()
 }
 
-class TenantId(key: TenantKey) : EntityId<TenantKey, String, Nothing?>(key, null) {
+data class TenantId(override val key: TenantKey) : EntityId<TenantKey, String, Nothing?>(key, null) {
     override val type = "tenant"
 }
 
@@ -136,6 +136,16 @@ class AttributeId(
     val catalogId: CatalogId,
 ) : EntityId<AttributeKey, String, CatalogId>(key, catalogId) {
     override val type = "attribute"
+    val tenantId get() = catalogId.tenantId
+    val tenantKey get() = catalogId.tenantKey
+    val catalogKey get() = catalogId.key
+}
+
+data class CodeListId(
+    override val key: CodeListKey,
+    val catalogId: CatalogId,
+) : EntityId<CodeListKey, String, CatalogId>(key, catalogId) {
+    override val type = "code-list"
     val tenantId get() = catalogId.tenantId
     val tenantKey get() = catalogId.tenantKey
     val catalogKey get() = catalogId.key

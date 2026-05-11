@@ -1,5 +1,6 @@
 package app.epistola.suite.attributes
 
+import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -11,6 +12,9 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.attributeId
 import app.epistola.suite.htmx.catalogId
@@ -48,10 +52,12 @@ class AttributeHandler {
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+        val codeLists = ListCodeLists(tenantId).query()
         return ServerResponse.ok().page("attributes/new") {
             "pageTitle" to "New Attribute - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
+            "codeLists" to codeLists
         }
     }
 
@@ -60,6 +66,7 @@ class AttributeHandler {
 
         val form = request.form {
             field("catalog") {}
+            field("constraintKind") {}
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -71,16 +78,19 @@ class AttributeHandler {
                 maxLength(100)
             }
             field("allowedValues") {}
+            field("codeList") {}
         }
 
         val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
+        val codeLists = ListCodeLists(tenantId).query()
 
         if (form.hasErrors()) {
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
+                "codeLists" to codeLists
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -93,20 +103,25 @@ class AttributeHandler {
                 "pageTitle" to "New Attribute - Epistola"
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
+                "codeLists" to codeLists
                 "formData" to form.formData
                 "errors" to errors
             }
         }
 
         val displayName = form["displayName"]
+        val constraintKind = form.formData["constraintKind"]?.ifBlank { null } ?: "free"
         val allowedValuesInput = request.params().getFirst("allowedValues")?.trim().orEmpty()
-        val allowedValues = parseAllowedValues(allowedValuesInput)
+        val codeListSelection = request.params().getFirst("codeList")?.ifBlank { null }
+
+        val (allowedValues, codeListId) = parseConstraint(constraintKind, allowedValuesInput, codeListSelection, tenantId)
 
         val result = form.executeOrFormError {
             CreateAttributeDefinition(
                 id = AttributeId(attributeKey, CatalogId(catalogKey, tenantId)),
                 displayName = displayName,
                 allowedValues = allowedValues,
+                codeListId = codeListId,
             ).execute()
         }
 
@@ -115,6 +130,7 @@ class AttributeHandler {
                 "pageTitle" to "New Attribute - Epistola"
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
+                "codeLists" to codeLists
                 "formData" to result.formData
                 "errors" to result.errors
             }
@@ -134,11 +150,13 @@ class AttributeHandler {
         val attribute = GetAttributeDefinition(
             id = attributeId,
         ).query() ?: return ServerResponse.notFound().build()
+        val codeLists = ListCodeLists(tenantId).query()
 
         return request.htmx {
             fragment("attributes/list", "edit-attribute-form") {
                 "tenantId" to tenantId.key
                 "attribute" to attribute
+                "codeLists" to codeLists
             }
         }
     }
@@ -154,8 +172,12 @@ class AttributeHandler {
                 required()
                 maxLength(100)
             }
+            field("constraintKind") {}
             field("allowedValues") {}
+            field("codeList") {}
         }
+
+        val codeLists = ListCodeLists(tenantId).query()
 
         if (form.hasErrors()) {
             val attribute = GetAttributeDefinition(
@@ -165,6 +187,7 @@ class AttributeHandler {
                 fragment("attributes/list", "edit-attribute-form") {
                     "tenantId" to tenantId.key
                     "attribute" to attribute
+                    "codeLists" to codeLists
                     "error" to form.errors.values.firstOrNull()
                 }
                 retarget("#edit-attribute-dialog-body")
@@ -173,14 +196,17 @@ class AttributeHandler {
         }
 
         val displayName = form["displayName"]
+        val constraintKind = form.formData["constraintKind"]?.ifBlank { null } ?: "free"
         val allowedValuesInput = request.params().getFirst("allowedValues")?.trim().orEmpty()
-        val allowedValues = parseAllowedValues(allowedValuesInput)
+        val codeListSelection = request.params().getFirst("codeList")?.ifBlank { null }
+        val (allowedValues, codeListId) = parseConstraint(constraintKind, allowedValuesInput, codeListSelection, tenantId)
 
         try {
             UpdateAttributeDefinition(
                 id = attributeId,
                 displayName = displayName,
                 allowedValues = allowedValues,
+                codeListId = codeListId,
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: Exception) {
             val attribute = GetAttributeDefinition(
@@ -190,6 +216,7 @@ class AttributeHandler {
                 fragment("attributes/list", "edit-attribute-form") {
                     "tenantId" to tenantId.key
                     "attribute" to attribute
+                    "codeLists" to codeLists
                     "error" to (e.message ?: "Update failed")
                 }
                 retarget("#edit-attribute-dialog-body")
@@ -233,5 +260,32 @@ class AttributeHandler {
         return input.lines()
             .map { it.trim() }
             .filter { it.isNotBlank() }
+    }
+
+    /**
+     * Translates the form's constraint-kind selection into the
+     * `(allowedValues, codeListId)` pair expected by the CRUD commands.
+     *
+     * `codeListSelection` is the form's `codeList` field — encoded as
+     * "<catalog>/<slug>" — so we can pack the user's choice across catalogs
+     * into a single `<select>`. Returns `null` for `codeListId` on invalid
+     * input; the command's own validation will then reject blank slugs etc.
+     */
+    private fun parseConstraint(
+        constraintKind: String,
+        allowedValuesInput: String,
+        codeListSelection: String?,
+        tenantId: TenantId,
+    ): Pair<List<String>, CodeListId?> = when (constraintKind) {
+        "inline" -> parseAllowedValues(allowedValuesInput) to null
+        "code-list" -> emptyList<String>() to parseCodeListSelection(codeListSelection, tenantId)
+        else -> emptyList<String>() to null // free format
+    }
+
+    private fun parseCodeListSelection(selection: String?, tenantId: TenantId): CodeListId? {
+        val (catalogPart, slugPart) = selection?.split('/', limit = 2)?.takeIf { it.size == 2 } ?: return null
+        val catalogKey = CatalogKey.validateOrNull(catalogPart) ?: return null
+        val slug = CodeListKey.validateOrNull(slugPart) ?: return null
+        return CodeListId(slug, CatalogId(catalogKey, tenantId))
     }
 }

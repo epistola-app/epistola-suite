@@ -63,12 +63,18 @@
                         <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
                         <td style="font-weight: 500;" th:text="${attr.displayName}"></td>
                         <td>
-                            <div class="tags" th:if="${!attr.allowedValues.isEmpty()}">
+                            <div th:if="${attr.codeListSlug != null}" class="tags">
+                                <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
+                                   class="badge badge-default"
+                                   th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
+                                   th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
+                            </div>
+                            <div th:if="${attr.codeListSlug == null and !attr.allowedValues.isEmpty()}" class="tags">
                                 <span th:each="val : ${attr.allowedValues}"
                                       class="badge badge-outline"
                                       th:text="${val}"></span>
                             </div>
-                            <span th:if="${attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
+                            <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
                         </td>
                         <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
@@ -127,11 +133,81 @@
                            required th:value="${attribute.displayName}" placeholder="e.g. Language">
                 </div>
                 <div class="form-group">
-                    <label class="ep-label" for="edit-attr-allowedValues">Allowed Values (one per line, leave empty for any value)</label>
+                    <label class="ep-label">Value constraint</label>
+                    <div role="radiogroup" class="constraint-radio-group">
+                        <label>
+                            <input type="radio" name="constraintKind" value="free"
+                                   th:checked="${attribute.codeListSlug == null and #lists.isEmpty(attribute.allowedValues)}">
+                            Free format
+                        </label>
+                        <label>
+                            <input type="radio" name="constraintKind" value="inline"
+                                   th:checked="${attribute.codeListSlug == null and !#lists.isEmpty(attribute.allowedValues)}">
+                            Inline values
+                        </label>
+                        <label>
+                            <input type="radio" name="constraintKind" value="code-list"
+                                   th:checked="${attribute.codeListSlug != null}">
+                            Bound to code list
+                        </label>
+                    </div>
+                </div>
+                <style>
+                    /* See attributes/new.html for why we pin radio size locally. */
+                    .constraint-radio-group {
+                        display: flex;
+                        flex-direction: column;
+                        gap: var(--ep-space-2);
+                        margin-top: var(--ep-space-2);
+                    }
+                    .constraint-radio-group label {
+                        display: flex;
+                        align-items: center;
+                        gap: var(--ep-space-2);
+                        font-size: var(--ep-text-sm);
+                        cursor: pointer;
+                    }
+                    .constraint-radio-group input[type="radio"] {
+                        width: 1rem;
+                        height: 1rem;
+                        flex: 0 0 1rem;
+                        margin: 0;
+                        font-size: 1rem;
+                    }
+                </style>
+                <div class="form-group constraint-pane" data-constraint-pane="inline">
+                    <label class="ep-label" for="edit-attr-allowedValues">Allowed values (one per line)</label>
                     <textarea id="edit-attr-allowedValues" name="allowedValues" class="ep-textarea" rows="4"
                               placeholder="dutch&#10;english&#10;german"
                               th:text="${attribute.allowedValues != null ? #strings.listJoin(attribute.allowedValues, '&#10;') : ''}"></textarea>
                 </div>
+                <div class="form-group constraint-pane" data-constraint-pane="code-list">
+                    <label class="ep-label" for="edit-attr-codeList">Code list</label>
+                    <select id="edit-attr-codeList" name="codeList" class="ep-input">
+                        <option value="">&mdash; Select a code list &mdash;</option>
+                        <th:block th:each="cl : ${codeLists}">
+                            <option th:value="${cl.catalogKey + '/' + cl.slug}"
+                                    th:text="${cl.catalogKey + ' / ' + cl.displayName}"
+                                    th:selected="${attribute.codeListCatalogKey != null and cl.catalogKey == attribute.codeListCatalogKey and cl.slug == attribute.codeListSlug}"></option>
+                        </th:block>
+                    </select>
+                </div>
+                <script>
+                (function () {
+                    var dialog = document.getElementById('edit-attribute-dialog-body');
+                    var radios = dialog.querySelectorAll('input[name="constraintKind"]');
+                    var panes = dialog.querySelectorAll('[data-constraint-pane]');
+                    function refresh() {
+                        var selected = dialog.querySelector('input[name="constraintKind"]:checked');
+                        var kind = selected ? selected.value : 'free';
+                        panes.forEach(function (p) {
+                            p.hidden = (p.getAttribute('data-constraint-pane') !== kind);
+                        });
+                    }
+                    radios.forEach(function (r) { r.addEventListener('change', refresh); });
+                    refresh();
+                })();
+                </script>
             </div>
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-ghost"

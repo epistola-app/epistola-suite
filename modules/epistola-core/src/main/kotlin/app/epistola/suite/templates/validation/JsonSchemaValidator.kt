@@ -17,7 +17,17 @@ import tools.jackson.databind.node.ObjectNode
 class JsonSchemaValidator(
     private val objectMapper: ObjectMapper,
 ) {
-    private val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
+    private val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12) { builder ->
+        builder.schemas(loadPreloadedSchemas())
+    }
+
+    private fun loadPreloadedSchemas(): Map<String, String> = RefTypeRegistry.preloadedSchemaResources()
+        .associate { (iri, resourcePath) ->
+            val body = JsonSchemaValidator::class.java.getResource(resourcePath)
+                ?.readText(Charsets.UTF_8)
+                ?: error("Failed to load preloaded JSON Schema from classpath: $resourcePath")
+            iri to body
+        }
 
     /**
      * Validates that a JSON string is a valid JSON Schema.

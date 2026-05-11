@@ -134,9 +134,12 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         page.keyboard().press("Control+Space")
         page.keyboard().press("/")
 
-        assertThat(page.getByTestId("shortcuts-popover")).isVisible()
+        // Assert the transient hint/message before the sticky popover. The hint auto-hides
+        // ~700ms after the result; if we first wait for the popover to render, that wait can
+        // consume the hint's TTL on a slow runner and the next assertion will never see it visible.
         assertThat(leaderHint).isVisible()
         assertThat(leaderMessage).containsText("Opened shortcuts help")
+        assertThat(page.getByTestId("shortcuts-popover")).isVisible()
 
         page.waitForTimeout(LEADER_RESULT_HIDE_WAIT_MS)
         assertThat(leaderHint).isHidden()

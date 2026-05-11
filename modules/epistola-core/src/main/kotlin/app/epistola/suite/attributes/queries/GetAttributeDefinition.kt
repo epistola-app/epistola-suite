@@ -25,7 +25,9 @@ class GetAttributeDefinitionHandler(
     override fun handle(query: GetAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_key, catalog_key, display_name, allowed_values, created_at, last_modified
+                SELECT id, tenant_key, catalog_key, display_name, allowed_values,
+                       code_list_catalog_key, code_list_slug,
+                       created_at, last_modified
                 FROM variant_attribute_definitions
                 WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 """,

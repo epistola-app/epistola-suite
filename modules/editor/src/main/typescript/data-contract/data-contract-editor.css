@@ -569,6 +569,40 @@
     }
   }
 
+  /* Rich-text input: wraps a ProseMirror editor in place of a single-line input. */
+  epistola-rich-text-input {
+    display: block;
+    width: 100%;
+
+    .dc-rich-text-container {
+      min-height: var(--ep-h-9);
+      font-size: var(--ep-text-sm);
+      padding: var(--ep-space-1-5) var(--ep-space-3);
+      border: 1px solid var(--ep-gray-200);
+      border-radius: var(--ep-radius-md);
+      background: var(--ep-bg-input, white);
+
+      &:focus-within {
+        border-color: var(--ep-blue-400);
+        box-shadow: 0 0 0 3px var(--ep-blue-100);
+      }
+
+      .ProseMirror {
+        outline: none;
+        min-height: 1.5em;
+
+        ul,
+        ol {
+          padding-left: 1.25em;
+        }
+      }
+    }
+
+    &.dc-input-error .dc-rich-text-container {
+      border-color: var(--ep-red-400, #f87171);
+    }
+  }
+
   .dc-tree-checkbox {
     display: flex;
     align-items: center;

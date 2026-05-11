@@ -32,8 +32,9 @@
                             <label class="ep-label" th:for="'create-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
                             <select th:id="'create-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
                                 <option value="">- Not set -</option>
-                                <option th:if="${!attrDef.allowedValues.isEmpty()}"
-                                        th:each="val : ${attrDef.allowedValues}" th:value="${val}" th:text="${val}"></option>
+                                <option th:each="opt : ${attributeOptions != null ? attributeOptions[attrDef.id.toString()] : null}"
+                                        th:value="${opt.code}"
+                                        th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"></option>
                             </select>
                         </div>
                     </div>
@@ -52,7 +53,9 @@
                 <label th:for="'attr-filter-' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
                 <select class="ep-select" th:id="'attr-filter-' + ${attrDef.id}" th:data-filter-key="${attrDef.id}" onchange="filterVariants()">
                     <option value="">All</option>
-                    <option th:each="val : ${attrDef.allowedValues}" th:value="${val}" th:text="${val}"></option>
+                    <option th:each="opt : ${attributeOptions != null ? attributeOptions[attrDef.id.toString()] : null}"
+                            th:value="${opt.code}"
+                            th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"></option>
                 </select>
             </div>
         </div>

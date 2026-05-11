@@ -9,6 +9,7 @@ import {
   jsonSchemaToVisualSchema,
   visualSchemaToJsonSchema,
 } from './schemaUtils.js';
+import { RICH_TEXT_BLOCK_SCHEMA_REF, RICH_TEXT_INLINE_SCHEMA_REF } from '../types.js';
 import type { JsonSchema, PrimitiveField, SchemaField, VisualSchema } from '../types.js';
 
 describe('visualSchemaToJsonSchema', () => {
@@ -562,8 +563,159 @@ describe('FIELD_TYPE_LABELS', () => {
     expect(FIELD_TYPE_LABELS.integer).toBe('Integer');
     expect(FIELD_TYPE_LABELS.boolean).toBe('Yes/No');
     expect(FIELD_TYPE_LABELS.date).toBe('Date');
+    expect(FIELD_TYPE_LABELS.richTextInline).toBe('Rich text (inline)');
+    expect(FIELD_TYPE_LABELS.richTextBlock).toBe('Rich text (block)');
     expect(FIELD_TYPE_LABELS.array).toBe('List');
     expect(FIELD_TYPE_LABELS.object).toBe('Object');
+  });
+});
+
+describe('richText round-trip — block', () => {
+  it('emits a $ref to the block schema for richTextBlock fields', () => {
+    const visual: VisualSchema = {
+      fields: [
+        {
+          id: 'f1',
+          name: 'bio',
+          type: 'richTextBlock',
+          required: false,
+          description: 'Customer bio',
+        },
+      ],
+    };
+    const result = visualSchemaToJsonSchema(visual);
+    expect(result.properties?.bio).toEqual({
+      $ref: RICH_TEXT_BLOCK_SCHEMA_REF,
+      description: 'Customer bio',
+    });
+  });
+
+  it('hydrates a $ref to the block schema as a richTextBlock field', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        bio: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF, description: 'Customer bio' },
+      },
+    };
+    const visual = jsonSchemaToVisualSchema(schema);
+    expect(visual.fields).toHaveLength(1);
+    expect(visual.fields[0]).toMatchObject({
+      name: 'bio',
+      type: 'richTextBlock',
+      description: 'Customer bio',
+    });
+  });
+
+  it('round-trips an array of richTextBlock items via $ref in items', () => {
+    const visual: VisualSchema = {
+      fields: [
+        {
+          id: 'f1',
+          name: 'snippets',
+          type: 'array',
+          arrayItemType: 'richTextBlock',
+          required: false,
+        },
+      ],
+    };
+    const result = visualSchemaToJsonSchema(visual);
+    expect(result.properties?.snippets).toMatchObject({
+      type: 'array',
+      items: { $ref: RICH_TEXT_BLOCK_SCHEMA_REF },
+    });
+    const restored = jsonSchemaToVisualSchema(result);
+    expect(restored.fields[0]).toMatchObject({
+      name: 'snippets',
+      type: 'array',
+      arrayItemType: 'richTextBlock',
+    });
+  });
+});
+
+describe('richText round-trip — inline', () => {
+  it('emits a $ref to the inline schema for richTextInline fields', () => {
+    const visual: VisualSchema = {
+      fields: [
+        {
+          id: 'f1',
+          name: 'greeting',
+          type: 'richTextInline',
+          required: false,
+          description: 'Customer greeting',
+        },
+      ],
+    };
+    const result = visualSchemaToJsonSchema(visual);
+    expect(result.properties?.greeting).toEqual({
+      $ref: RICH_TEXT_INLINE_SCHEMA_REF,
+      description: 'Customer greeting',
+    });
+  });
+
+  it('hydrates a $ref to the inline schema as a richTextInline field', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        greeting: { $ref: RICH_TEXT_INLINE_SCHEMA_REF },
+      },
+    };
+    const visual = jsonSchemaToVisualSchema(schema);
+    expect(visual.fields).toHaveLength(1);
+    expect(visual.fields[0]).toMatchObject({
+      name: 'greeting',
+      type: 'richTextInline',
+    });
+  });
+
+  it('round-trips an array of richTextInline items via $ref in items', () => {
+    const visual: VisualSchema = {
+      fields: [
+        {
+          id: 'f1',
+          name: 'titles',
+          type: 'array',
+          arrayItemType: 'richTextInline',
+          required: false,
+        },
+      ],
+    };
+    const result = visualSchemaToJsonSchema(visual);
+    expect(result.properties?.titles).toMatchObject({
+      type: 'array',
+      items: { $ref: RICH_TEXT_INLINE_SCHEMA_REF },
+    });
+    const restored = jsonSchemaToVisualSchema(result);
+    expect(restored.fields[0]).toMatchObject({
+      name: 'titles',
+      type: 'array',
+      arrayItemType: 'richTextInline',
+    });
+  });
+});
+
+describe('inferType for rich text', () => {
+  it('classifies a single-paragraph doc as richTextInline', () => {
+    const visual = generateSchemaFromData({
+      greeting: { type: 'doc', content: [{ type: 'paragraph' }] },
+    });
+    expect(visual.fields[0]).toMatchObject({ name: 'greeting', type: 'richTextInline' });
+  });
+
+  it('classifies a multi-paragraph doc as richTextBlock', () => {
+    const visual = generateSchemaFromData({
+      bio: {
+        type: 'doc',
+        content: [{ type: 'paragraph' }, { type: 'paragraph' }],
+      },
+    });
+    expect(visual.fields[0]).toMatchObject({ name: 'bio', type: 'richTextBlock' });
+  });
+
+  it('classifies a doc with a list as richTextBlock', () => {
+    const visual = generateSchemaFromData({
+      bio: { type: 'doc', content: [{ type: 'bullet_list' }] },
+    });
+    expect(visual.fields[0]).toMatchObject({ name: 'bio', type: 'richTextBlock' });
   });
 });
 

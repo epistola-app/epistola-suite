@@ -464,6 +464,35 @@ value class FeedbackAssetKey(@JsonValue override val value: UUID) : UuidKey<Feed
 }
 
 /**
+ * Typed key for CodeList entities.
+ */
+@JvmInline
+value class CodeListKey(@JsonValue override val value: String) : SlugKey<CodeListKey> {
+    init {
+        require(value.length in 3..64) {
+            "Code list ID must be 3-64 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Code list ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+    }
+
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+
+        fun of(value: String): CodeListKey = CodeListKey(value)
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): CodeListKey = CodeListKey(value)
+
+        fun validateOrNull(value: String): CodeListKey? = runCatching { CodeListKey(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Typed key for Catalog entities.
  */
 @JvmInline

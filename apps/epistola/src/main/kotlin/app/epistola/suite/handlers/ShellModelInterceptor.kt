@@ -85,6 +85,7 @@ class ShellModelInterceptor(
         "/themes" in path -> "themes"
         "/environments" in path -> "environments"
         "/attributes" in path -> "attributes"
+        "/code-lists" in path -> "code-lists"
         "/generation-history" in path -> "generation-history"
         "/load-tests" in path -> "load-tests"
         "/assets" in path -> "assets"

@@ -45,7 +45,7 @@
 
                     <!-- Resources dropdown -->
                     <div class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'environments','assets','attributes'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'environments','assets','attributes','code-lists'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 aria-expanded="false" aria-haspopup="true">
                             Resources
@@ -66,6 +66,11 @@
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''">
                                 Attributes
+                            </a>
+                            <a th:href="@{/tenants/{id}/code-lists(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'code-lists'} ? ' active' : ''">
+                                Code lists
                             </a>
                         </div>
                     </div>
@@ -178,6 +183,8 @@
                        th:classappend="${activeNavSection == 'assets'} ? ' active' : ''" role="menuitem">Assets</a>
                     <a th:href="@{/tenants/{id}/attributes(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''" role="menuitem">Attributes</a>
+                    <a th:href="@{/tenants/{id}/code-lists(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'code-lists'} ? ' active' : ''" role="menuitem">Code lists</a>
                 </div>
                 <div class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Operations</div>

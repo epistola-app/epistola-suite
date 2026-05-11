@@ -1,3 +1,4 @@
+import { findRefType } from '../ref-types.js';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
 
 /** ISO date pattern: YYYY-MM-DD */
@@ -93,6 +94,19 @@ function validateProperty(
 
   if (value === null || value === undefined) {
     // Null/undefined skip type validation — required check handles these separately
+    return errors;
+  }
+
+  // Ref-based values: defer to the registered type's shallow shape check.
+  // (Backend's networknt validator does the rigorous deep check via the IRI.)
+  const refType = findRefType(schema.$ref);
+  if (refType !== null) {
+    const reason = refType.shallowShapeCheck(value);
+    if (reason !== null) errors.push({ path, message: reason });
+    return errors;
+  }
+
+  if (schema.type === undefined) {
     return errors;
   }
 

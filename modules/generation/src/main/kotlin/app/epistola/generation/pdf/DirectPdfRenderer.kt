@@ -478,6 +478,7 @@ class DirectPdfRenderer(
                 mapOf(
                     "root" to ContainerNodeRenderer(),
                     "text" to TextNodeRenderer(),
+                    "richTextVariable" to RichTextVariableRenderer(),
                     "container" to ContainerNodeRenderer(),
                     StencilNodeKeys.NODE_TYPE to StencilNodeRenderer(),
                     PlaceholderNodeKeys.NODE_TYPE to PlaceholderNodeRenderer(),

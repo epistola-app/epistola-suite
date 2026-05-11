@@ -1,9 +1,14 @@
 package app.epistola.suite
 
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -196,6 +201,46 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("An attribute with this ID already exists")
+        }
+    }
+
+    @Test
+    fun `POST code list with duplicate slug returns inline error`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of("locales"), CatalogId.default(tenantId)),
+                displayName = "Locales",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("en", "English")),
+            ).execute()
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("catalog", "default")
+            formData.add("slug", "locales")
+            formData.add("displayName", "Locales Again")
+            formData.add("sourceType", "INLINE")
+            formData.add("entriesJson", """[{"code":"nl","label":"Dutch","sortOrder":0}]""")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity(
+                "/tenants/${tenant.id}/code-lists",
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("A code-list with this ID already exists")
         }
     }
 }
