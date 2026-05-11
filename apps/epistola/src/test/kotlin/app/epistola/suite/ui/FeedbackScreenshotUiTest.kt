@@ -4,7 +4,10 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
+import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import com.microsoft.playwright.options.LoadState
+import com.microsoft.playwright.options.WaitForSelectorState
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -37,11 +40,30 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
 
     private fun openFeedbackDialog() {
         page.navigate("${baseUrl()}/tenants/${tenant.id}")
-        page.waitForSelector("#feedback-fab")
+        // The popover content (header + "New" button) is injected by an `hx-trigger="load"`
+        // request fired during FAB init. Wait for that fetch to settle before any selector
+        // check so we don't race the script execution that creates `#feedback-fab` itself.
+        page.waitForLoadState(LoadState.NETWORKIDLE)
+        page.waitForSelector(
+            "#feedback-fab",
+            Page.WaitForSelectorOptions()
+                .setState(WaitForSelectorState.VISIBLE)
+                .setTimeout(SELECTOR_TIMEOUT_MS),
+        )
         page.click("#feedback-fab")
         page.waitForSelector(".feedback-popover--open")
+        page.waitForSelector(
+            ".feedback-popover-header button",
+            Page.WaitForSelectorOptions()
+                .setState(WaitForSelectorState.VISIBLE)
+                .setTimeout(SELECTOR_TIMEOUT_MS),
+        )
         page.click(".feedback-popover-header button")
         page.waitForSelector("#feedback-fab-dialog[open]")
+    }
+
+    companion object {
+        private const val SELECTOR_TIMEOUT_MS = 15_000.0
     }
 
     @Nested

@@ -78,6 +78,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gradle build
 
+      - name: Upload Playwright traces and test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-failures
+          path: |
+            apps/epistola/build/playwright-traces/
+            apps/epistola/build/reports/tests/
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Generate coverage report
         run: gradle koverXmlReport
 
