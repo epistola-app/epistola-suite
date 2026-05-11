@@ -9,6 +9,7 @@ import org.springframework.core.io.ResourceLoader
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientException
 import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import java.net.URI
@@ -63,12 +64,19 @@ class CodeListClient(
         else -> null
     }
 
-    private fun fetchHttp(url: String, authType: AuthType, credential: String?): List<CodeListEntry> = catalogRestClient.get()
-        .uri(url)
-        .applyAuth(authType, credential)
-        .retrieve()
-        .body(SPRING_ENTRIES_TYPE)
-        ?: throw CodeListFetchException("Empty response from: $url")
+    private fun fetchHttp(url: String, authType: AuthType, credential: String?): List<CodeListEntry> = try {
+        catalogRestClient.get()
+            .uri(url)
+            .applyAuth(authType, credential)
+            .retrieve()
+            .body(SPRING_ENTRIES_TYPE)
+            ?: throw CodeListFetchException("Empty response from: $url")
+    } catch (e: RestClientException) {
+        // Wrap so the caller (RefreshCodeList) sees a single failure type and
+        // can record the message in `last_refresh_error` without leaking
+        // Spring's exception hierarchy across module boundaries.
+        throw CodeListFetchException("Fetch failed for $url: ${e.message}", e)
+    }
 
     private fun RestClient.RequestHeadersSpec<*>.applyAuth(authType: AuthType, credential: String?): RestClient.RequestHeadersSpec<*> = apply {
         when (authType) {
