@@ -177,6 +177,16 @@ building this feature:
 - **[#393](https://github.com/epistola-app/epistola-suite/issues/393)** —
   rework the variant create/edit dialogs so the list of attributes can
   grow without flooding the form with empty rows.
+- **[#396](https://github.com/epistola-app/epistola-suite/issues/396)** —
+  cross-variant attribute validation. The current per-variant validator
+  is `1+K` queries (1 for definitions, K for code-list existence). Fine
+  for UI writes (K = 1-3, rounding error); becomes a cliff for bulk
+  paths once the catalog protocol carries code-list bindings. The
+  cross-variant API ships alongside that protocol work so the new
+  call site uses the right shape from day one.
+- **[#397](https://github.com/epistola-app/epistola-suite/issues/397)** —
+  encrypt `code_lists.credential` (and `catalogs.source_auth_credential`,
+  which follows the same pattern) at rest.
 
 Larger follow-ups requiring coordination with `epistola-contract`:
 

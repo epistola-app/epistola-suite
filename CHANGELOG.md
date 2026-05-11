@@ -18,6 +18,8 @@ The first iteration is intentionally tenant-only, in this repo only. The followi
 - **Per-entry deprecation timeline columns** (`hidden_at`, `replaced_by`) and an **ISO 4217 currency code list** + `currency` reserved attribute.
 - **Harden the URL fetch path** ([#391](https://github.com/epistola-app/epistola-suite/issues/391)) — send `Accept: application/json`, cap response size, validate content type.
 - **Variant create/edit dialogs scale with many attributes** ([#393](https://github.com/epistola-app/epistola-suite/issues/393)) — only show attributes that have a value; let the user add others one at a time.
+- **Cross-variant attribute validation** ([#396](https://github.com/epistola-app/epistola-suite/issues/396)) — current `validateAttributes` is `1+K` per variant; fine for UI writes, but bulk paths that carry code-list bindings (catalog import once the protocol is extended) need cross-variant batching. Co-ships with the catalog-protocol code-list distribution work.
+- **Encrypt-at-rest credentials** ([#397](https://github.com/epistola-app/epistola-suite/issues/397)) — `code_lists.credential` and `catalogs.source_auth_credential` are plaintext today. Encrypt both with one consistent pattern.
 
 ### Fixed
 
