@@ -1,0 +1,13 @@
+/* ── Rich Text Variable block canvas styles ──────────────────────────── */
+
+@layer components {
+  .rich-text-variable-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-xs);
+    text-align: center;
+    padding: var(--ep-space-3) 0;
+  }
+}
