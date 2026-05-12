@@ -2,6 +2,7 @@ package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ActivationDto
 import app.epistola.api.model.AttributeDto
+import app.epistola.api.model.AttributeDtoCodeListBinding
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.TemplateDto
@@ -32,8 +33,20 @@ internal fun Tenant.toDto() = TenantDto(
 internal fun VariantAttributeDefinition.toDto() = AttributeDto(
     key = id.value,
     tenantId = tenantKey.value,
-    description = displayName,
+    catalog = catalogKey.value,
+    displayName = displayName,
+    allowedValues = allowedValues,
+    catalogType = when (catalogType) {
+        app.epistola.suite.catalog.CatalogType.AUTHORED -> AttributeDto.CatalogType.AUTHORED
+        app.epistola.suite.catalog.CatalogType.SUBSCRIBED -> AttributeDto.CatalogType.SUBSCRIBED
+    },
+    readOnly = catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED,
     createdAt = createdAt,
+    lastModified = lastModified,
+    description = null,
+    codeListBinding = codeListId?.let { id ->
+        AttributeDtoCodeListBinding(catalog = id.catalogKey.value, slug = id.key.value)
+    },
 )
 
 internal fun Environment.toDto() = EnvironmentDto(

@@ -5,6 +5,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantKey
+import org.jdbi.v3.core.mapper.reflect.ColumnName
 import java.time.OffsetDateTime
 
 /**
@@ -32,7 +33,10 @@ data class CodeList(
     /**
      * Type of the catalog the code list lives in, populated when the row is
      * read via a JOIN to catalogs. Used by the UI to gate edit affordances.
-     * Null when the row is read without the join.
+     * Null when the row is read without the join. Explicit `@ColumnName`
+     * because JDBI's Kotlin plugin doesn't always reach JOIN aliases via
+     * default snake_case mapping when the field has a default value.
      */
+    @get:ColumnName("catalog_type")
     val catalogType: CatalogType? = null,
 )

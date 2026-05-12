@@ -6,8 +6,11 @@ import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTooLargeException
 import app.epistola.suite.assets.UnsupportedAssetTypeException
+import app.epistola.suite.attributes.codelists.commands.CodeListInUseException
+import app.epistola.suite.attributes.codelists.commands.CodeListNotRefreshableException
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
+import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
@@ -578,6 +581,54 @@ class ApiExceptionHandler {
             ApiErrorResponse(
                 code = "UNAUTHORIZED",
                 message = "Authentication required",
+            ),
+        )
+    }
+
+    /**
+     * Handles writes to SUBSCRIBED catalogs (e.g. the bundled `system`
+     * catalog). Returns 409 Conflict — the resource exists but the catalog
+     * itself is read-only at the REST API surface.
+     */
+    @ExceptionHandler(CatalogReadOnlyException::class)
+    fun handleCatalogReadOnlyException(ex: CatalogReadOnlyException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Write to read-only catalog rejected: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "CATALOG_READ_ONLY",
+                message = ex.message ?: "Catalog is subscribed and cannot be modified through this API",
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to delete a code list that is still bound by an
+     * attribute. Returns 409 Conflict.
+     */
+    @ExceptionHandler(CodeListInUseException::class)
+    fun handleCodeListInUseException(ex: CodeListInUseException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot delete code list: still bound by an attribute. {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "CODE_LIST_IN_USE",
+                message = ex.message ?: "Code list is in use and cannot be deleted",
+            ),
+        )
+    }
+
+    /**
+     * Handles refresh attempts on non-URL-sourced code lists. Returns 400.
+     */
+    @ExceptionHandler(CodeListNotRefreshableException::class)
+    fun handleCodeListNotRefreshableException(ex: CodeListNotRefreshableException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Code list refresh rejected: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            ApiErrorResponse(
+                code = "CODE_LIST_NOT_REFRESHABLE",
+                message = ex.message ?: "Code list is not URL-sourced and cannot be refreshed",
             ),
         )
     }
