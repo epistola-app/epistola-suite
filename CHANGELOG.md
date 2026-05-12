@@ -43,6 +43,12 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 
 - **Duplicate CSS rules merged.** The two competing `.btn-sm` definitions in `components.css` are now one. The two `.canvas-placeholder--default-edit` rules in `placeholder.css` are now one.
 
+- **Label click now focuses rich-text ProseMirror editor in data examples.** Custom elements are not "labelable" per HTML spec, so `<label for>` clicks on `<epistola-rich-text-input>` were silently ignored. Replaced `<label for>` with a `<span>` click handler that calls `.focus()` on the custom element, which forwards to the ProseMirror view. Added `tabIndex = -1` and `focus()` override to `EpistolaRichTextInput`.
+- **Rich-text block empty state styled with design tokens.** Moved from inlined Lit styles to a proper `richtextvar.css` with `@layer components`, using `--ep-muted-foreground` and `--ep-text-xs`. Block label title-cased ("Rich Text Block"), shows bound variable name via `getLabel`.
+- **ProseMirror double border fixed.** Removed redundant border between ProseMirror container and its parent element.
+- **Rich-text example inputs no longer overflow.** Fixed sizing so rich-text ProseMirror editors in the data example form can grow with their content.
+- **Migration detection handles `$ref` property types.** `detectMigrations` now delegates to the ref-type registry's `shallowShapeCheck` for `$ref`-only properties (where `propSchema.type` is `undefined`), avoiding false `TYPE_MISMATCH` for metadata-only changes like required↔optional. `formatValue` classifies rich-text docs via the registry instead of dumping raw ProseMirror JSON.
+
 ### Changed
 
 - **Security scan now publishes vulnerability details.** The daily Trivy scan workflow (`.github/workflows/security-scan.yml`) previously counted CRITICAL/HIGH findings for the README badge but discarded the per-CVE details on the runner. It now also produces SARIF, uploads it to GitHub Code Scanning (Security tab → Code scanning), and uploads the JSON + SARIF results as a 30-day `trivy-scan-results` workflow artifact.
