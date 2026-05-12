@@ -230,10 +230,17 @@
                 };
                 button.addEventListener('click', handler);
             }
-            document.addEventListener('DOMContentLoaded', () => {
+            // Wire immediately rather than waiting for DOMContentLoaded:
+            // the shell uses `hx-boost="true"`, so navigating to this tab
+            // from another swaps `#main-content` and re-executes this
+            // inline script — but DOMContentLoaded has already fired by
+            // then, so a deferred listener never runs. The dialog markup
+            // appears earlier in the same fragment as this script, so by
+            // the time we reach this line the form is in the DOM.
+            (function () {
                 const createForm = document.getElementById('create-variant-form');
                 if (createForm) wireAddAttrPicker(createForm);
-            });
+            })();
             // The edit-variant dialog is HTMX-loaded; wire its picker after
             // each swap.
             document.addEventListener('htmx:afterSwap', e => {
