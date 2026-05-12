@@ -14,6 +14,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.node.JsonNodeFactory
 
@@ -124,6 +125,12 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    @Disabled(
+        "Flaky on CI: the leader-hint asserted at line 140 auto-hides after resultHideMs=700ms " +
+            "(modules/editor/src/main/typescript/shortcuts-config.ts), and Playwright's first poll can " +
+            "land after that window on a slow runner. Re-enable once leader timing is configurable per " +
+            "test (or after switching to event-based observation).",
+    )
     fun `leader success hint auto hides and clears after result timeout`() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
