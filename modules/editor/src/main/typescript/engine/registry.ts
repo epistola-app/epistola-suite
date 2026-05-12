@@ -301,7 +301,7 @@ export interface ComponentDefinition {
    * server's `list_component_types`). Each example is a self-contained
    * TemplateDocument fragment showing one realistic way the component is
    * used in practice. Drawn for inspiration from the demo catalog at
-   * `modules/epistola-core/src/main/resources/demo/catalog/`.
+   * `modules/epistola-core/src/main/resources/epistola/catalogs/demo/`.
    */
   examples?: ComponentExample[];
 

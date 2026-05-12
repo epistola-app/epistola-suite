@@ -53,7 +53,7 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 class CatalogExportImportTest : IntegrationTestBase() {
 

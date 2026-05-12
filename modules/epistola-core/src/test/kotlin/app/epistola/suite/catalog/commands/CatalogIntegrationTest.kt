@@ -15,7 +15,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 class CatalogIntegrationTest : IntegrationTestBase() {
 

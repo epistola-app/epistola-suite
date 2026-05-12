@@ -17,7 +17,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize template resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/templates/hello-world.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/templates/hello-world.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(2)
@@ -31,7 +31,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize theme resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/themes/corporate.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/themes/corporate.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(2)
@@ -45,7 +45,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize attribute resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/attributes/language.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/attributes/language.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         // schemaVersion 3 because the resource now uses `codeListBinding` —
@@ -62,7 +62,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize stencil resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/stencils/company-header.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/stencils/company-header.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(2)

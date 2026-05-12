@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Timeout
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
-private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 @Timeout(30)
 class PublishVersionTest : IntegrationTestBase() {
