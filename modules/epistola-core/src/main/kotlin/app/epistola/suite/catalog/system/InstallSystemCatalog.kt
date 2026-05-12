@@ -33,22 +33,25 @@ const val SYSTEM_CATALOG_URL = "classpath:epistola/catalogs/system/catalog.json"
 val SYSTEM_CATALOG_KEY = CatalogKey.of("system")
 
 /**
- * Idempotent installer for the bundled system catalog. Run by
- * [`SystemCatalogBootstrap`][app.epistola.suite.catalog.system.SystemCatalogBootstrap]
- * on application start (back-fills every tenant) and by `CreateTenant`
- * (initial population for newly-created tenants).
+ * Idempotent installer for the bundled system catalog. Two callers:
  *
- * Flow:
- *  - First-time install: `RegisterCatalog` + `InstallFromCatalog`.
- *  - Already installed at the bundled version: no-op.
- *  - Already installed at an older version: `UpgradeCatalog`.
+ *  - `CreateTenant` invokes it inside its `@Transactional` boundary for
+ *    each new tenant, so a tenant never exists without its system catalog.
+ *  - `SystemCatalogBootstrap` walks every tenant on application start;
+ *    each call is a cheap version-comparison + no-op in steady state, but
+ *    bumping the bundled `release.version` since the last deploy turns it
+ *    into an `UpgradeCatalog` dispatch for every tenant that's still on
+ *    the previous version.
+ *
+ * Result mirrors that flow: `INSTALLED` (first-time), `ALREADY_CURRENT`
+ * (no-op), or `UPGRADED` (bundle bumped past the installed version).
  *
  * The whole flow runs inside `CatalogImportContext.runAsImport { … }` so
  * `requireCatalogEditable` short-circuits — the SYSTEM catalog is SUBSCRIBED
  * (read-only to tenants) but the import path writes through it.
  *
- * Marked `SystemInternal` because callers are framework code (boot runners
- * and `CreateTenant`), not user-initiated requests.
+ * Marked `SystemInternal` because the caller is framework code
+ * (`CreateTenant`), not a user-initiated request.
  */
 data class InstallSystemCatalog(
     val tenantKey: TenantKey,

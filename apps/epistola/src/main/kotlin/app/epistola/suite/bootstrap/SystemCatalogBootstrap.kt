@@ -19,14 +19,18 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
- * Boot-time back-fill for the bundled system catalog. Walks every tenant and
- * runs `InstallSystemCatalog` — idempotent on subsequent boots, populates
- * tenants created before this feature shipped (where `CreateTenant` didn't
- * yet hook in the install), and applies upgrades when the bundled manifest's
- * `release.version` bumps.
+ * Boot-time auto-upgrade for the bundled system catalog. Walks every
+ * tenant on application start and runs `InstallSystemCatalog`.
  *
- * Ordered after `DemoLoader` (which creates the demo tenant on boot) so the
- * back-fill sees every tenant the suite intends to manage on this boot.
+ * In a steady state the call is `ALREADY_CURRENT` for every tenant and
+ * does one cheap version-comparison query each. The work only kicks in
+ * when the bundled manifest's `release.version` has been bumped since
+ * the last deploy: the installer then dispatches `UpgradeCatalog`, which
+ * re-installs the system catalog's resources at the new version and
+ * advances `installed_release_version`.
+ *
+ * Ordered after `DemoLoader` so the demo tenant (created on boot when
+ * `epistola.demo.enabled=true`) is also picked up on the same pass.
  */
 @Component
 @Order(SystemCatalogBootstrap.RUN_ORDER)
@@ -58,40 +62,35 @@ class SystemCatalogBootstrap(
         try {
             SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
                 MediatorContext.runWithMediator(mediator) {
-                    backfillAll()
+                    upgradeAll()
                 }
             }
         } catch (e: Exception) {
-            log.error("System catalog bootstrap failed: {}", e.message, e)
+            log.error("System catalog auto-upgrade failed: {}", e.message, e)
         }
     }
 
-    private fun backfillAll() {
+    private fun upgradeAll() {
         val tenants = mediator.query(ListTenants())
-        if (tenants.isEmpty()) {
-            log.info("System catalog bootstrap: no tenants to back-fill.")
-            return
-        }
+        if (tenants.isEmpty()) return
 
-        log.info("System catalog bootstrap: checking {} tenant(s).", tenants.size)
-
-        var installed = 0
         var upgraded = 0
         var current = 0
+        var installed = 0
         var failed = 0
 
         for (tenant in tenants) {
             try {
                 val result = mediator.send(InstallSystemCatalog(tenant.id))
                 when (result.status) {
-                    SystemCatalogStatus.INSTALLED -> installed++
                     SystemCatalogStatus.UPGRADED -> upgraded++
                     SystemCatalogStatus.ALREADY_CURRENT -> current++
+                    SystemCatalogStatus.INSTALLED -> installed++
                 }
             } catch (e: Exception) {
                 failed++
                 log.error(
-                    "System catalog bootstrap failed for tenant '{}': {}",
+                    "System catalog auto-upgrade failed for tenant '{}': {}",
                     tenant.id.value,
                     e.message,
                     e,
@@ -99,12 +98,17 @@ class SystemCatalogBootstrap(
             }
         }
 
-        log.info(
-            "System catalog bootstrap done — installed: {}, upgraded: {}, already current: {}, failed: {}",
-            installed,
-            upgraded,
-            current,
-            failed,
-        )
+        // Only log when there's anything other than steady-state to report;
+        // a clean boot on a stable bundle is the common case and would
+        // otherwise produce a noisy "checked N tenants" line every restart.
+        if (upgraded > 0 || installed > 0 || failed > 0) {
+            log.info(
+                "System catalog auto-upgrade — upgraded: {}, installed: {}, already current: {}, failed: {}",
+                upgraded,
+                installed,
+                current,
+                failed,
+            )
+        }
     }
 }

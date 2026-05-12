@@ -202,15 +202,27 @@ Larger follow-ups requiring coordination with `epistola-contract`:
 - **Per-entry deprecation timeline.** Columns like `hidden_at` and
   `replaced_by` for soft-deprecation workflows.
 - **ISO 4217 currency code list** + a `currency` reserved attribute.
+- **Revisit boot-time auto-upgrade of the system catalog.**
+  `SystemCatalogBootstrap` currently dispatches `UpgradeCatalog` for every
+  tenant on the previous bundled version. Cheap and works pre-production,
+  but once tenants are live this is an unattended write on every deploy:
+  a regressive bundle (entry removed, slug renamed, code-list shape
+  changed) would cascade across every tenant before anyone notices. We
+  should consider gating auto-upgrade behind an explicit toggle (e.g.
+  `epistola.system-catalog.auto-upgrade.enabled`, default off in prod),
+  or moving to an opt-in path: bundled bumps land in the JAR but the
+  upgrade only runs when an operator triggers it per tenant (UI button
+  or admin endpoint).
 
 Shipped since the first iteration (no longer future work):
 
 - **Reserved attributes + bundled "system" catalog.** A classpath-sourced
-  SUBSCRIBED catalog auto-installed in every tenant, supplying `locale`,
-  `language`, and `country` bound to BCP-47 (curated), ISO 639-1 (full), and
-  ISO 3166-1 alpha-2 (full) respectively. Versioned via the manifest
-  `release.version`; `SystemCatalogBootstrap` back-fills existing tenants
-  and upgrades them on bumps. See
+  SUBSCRIBED catalog installed by `CreateTenant` for every new tenant,
+  supplying `locale`, `language`, and `country` bound to BCP-47 (curated),
+  ISO 639-1 (full), and ISO 3166-1 alpha-2 (full) respectively. Versioned
+  via the manifest `release.version`; a `SystemCatalogBootstrap`
+  `ApplicationRunner` walks every tenant on application start and dispatches
+  `UpgradeCatalog` for any that are still on a previous version. See
   `modules/epistola-core/src/main/resources/epistola/catalogs/system/`.
 - **Catalog-protocol distribution.** `CatalogManifest` (in
   `epistola-contract` 0.4.0+) carries a `CodeListResource` variant and a
