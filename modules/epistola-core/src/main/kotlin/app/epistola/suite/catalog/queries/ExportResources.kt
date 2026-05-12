@@ -232,7 +232,8 @@ class ExportStencilsHandler(
                 JOIN LATERAL (
                     SELECT content FROM stencil_versions
                     WHERE tenant_key = s.tenant_key AND stencil_key = s.id
-                    ORDER BY CASE WHEN status = 'published' THEN 0 ELSE 1 END, id DESC
+                      AND status = 'published'
+                    ORDER BY id DESC
                     LIMIT 1
                 ) sv ON TRUE
                 WHERE s.tenant_key = :tenantKey

@@ -17,6 +17,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -100,6 +101,12 @@ class PublishVersionHandler(
             // 4. If draft, freeze it (update to published) with rendering snapshot
             if (version.status.name == "DRAFT") {
                 requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+                validateReferencedStencilsPublished(
+                    handle,
+                    command.versionId.tenantKey,
+                    command.versionId.catalogKey.value,
+                    version.templateModel,
+                )
                 val themeSnapshot = resolveThemeSnapshot(command.versionId, version)
                 val themeSnapshotJson = themeSnapshot?.let { objectMapper.writeValueAsString(it) }
 
@@ -160,5 +167,94 @@ class PublishVersionHandler(
         } ?: template?.themeKey ?: tenant?.defaultThemeKey
 
         return ResolvedThemeSnapshot.from(resolvedStyles, effectiveThemeKey)
+    }
+
+    private data class StencilRef(val catalogKey: String, val stencilId: String, val pinnedVersion: Int?)
+
+    private fun validateReferencedStencilsPublished(
+        handle: Handle,
+        tenantKey: TenantKey,
+        defaultCatalogKey: String,
+        templateModel: app.epistola.template.model.TemplateDocument,
+    ) {
+        val refs: Set<StencilRef> = templateModel.nodes.values
+            .asSequence()
+            .filter { it.type == "stencil" }
+            .mapNotNull { node ->
+                val props = node.props ?: return@mapNotNull null
+                val stencilId = (props["stencilId"] as? String)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val refCatalogKey = (props["catalogKey"] as? String)?.takeIf { it.isNotBlank() } ?: defaultCatalogKey
+                val pinned = (props["version"] as? Number)?.toInt()
+                StencilRef(refCatalogKey, stencilId, pinned)
+            }
+            .toSet()
+
+        if (refs.isEmpty()) return
+
+        val unpublished = findUnpublishedStencilRefs(handle, tenantKey, refs)
+        require(unpublished.isEmpty()) {
+            val list = unpublished.joinToString(", ") { ref ->
+                if (ref.pinnedVersion != null) "${ref.stencilId} v${ref.pinnedVersion}" else ref.stencilId
+            }
+            val noun = if (unpublished.size > 1) "stencils are" else "stencil is"
+            "Cannot publish template version: referenced $noun not published — $list. Publish the stencil(s) first."
+        }
+    }
+
+    private fun findUnpublishedStencilRefs(
+        handle: Handle,
+        tenantKey: TenantKey,
+        refs: Set<StencilRef>,
+    ): Set<StencilRef> {
+        val unpublished = mutableSetOf<StencilRef>()
+        refs.groupBy { it.catalogKey }.forEach { (catalogKey, group) ->
+            val pinned = group.filter { it.pinnedVersion != null }
+            val unpinned = group.filter { it.pinnedVersion == null }
+
+            if (pinned.isNotEmpty()) {
+                val publishedPairs: Set<Pair<String, Int>> = handle.createQuery(
+                    """
+                    SELECT stencil_key, id FROM stencil_versions
+                    WHERE tenant_key = :tenantKey
+                      AND catalog_key = :catalogKey
+                      AND status = 'published'
+                      AND stencil_key IN (<stencilIds>)
+                    """,
+                )
+                    .bind("tenantKey", tenantKey)
+                    .bind("catalogKey", catalogKey)
+                    .bindList("stencilIds", pinned.map { it.stencilId }.distinct())
+                    .map { rs, _ -> rs.getString("stencil_key") to rs.getInt("id") }
+                    .set()
+                for (ref in pinned) {
+                    if ((ref.stencilId to ref.pinnedVersion!!) !in publishedPairs) {
+                        unpublished.add(ref)
+                    }
+                }
+            }
+
+            if (unpinned.isNotEmpty()) {
+                val publishedStencils: Set<String> = handle.createQuery(
+                    """
+                    SELECT DISTINCT stencil_key FROM stencil_versions
+                    WHERE tenant_key = :tenantKey
+                      AND catalog_key = :catalogKey
+                      AND status = 'published'
+                      AND stencil_key IN (<stencilIds>)
+                    """,
+                )
+                    .bind("tenantKey", tenantKey)
+                    .bind("catalogKey", catalogKey)
+                    .bindList("stencilIds", unpinned.map { it.stencilId }.distinct())
+                    .mapTo<String>()
+                    .set()
+                for (ref in unpinned) {
+                    if (ref.stencilId !in publishedStencils) {
+                        unpublished.add(ref)
+                    }
+                }
+            }
+        }
+        return unpublished
     }
 }
