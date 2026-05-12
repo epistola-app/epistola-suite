@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.protocol.StencilResource
@@ -33,7 +34,11 @@ class DependencyResolver(
         val scanned = mutableSetOf<String>()
         val missing = mutableSetOf<String>()
 
-        var toScan = selected.filter { it.type == "template" || it.type == "stencil" }
+        // Templates and stencils have content to walk; attributes carry a
+        // (potentially same-catalog) code-list reference. Scan all three on
+        // the first pass; recursion only needs to revisit stencils brought
+        // in by templates (their content can in turn reference more stencils).
+        var toScan = selected.filter { it.type == "template" || it.type == "stencil" || it.type == "attribute" }
 
         while (toScan.isNotEmpty()) {
             val deps = mutableListOf<DependencyScanner.Dependencies>()
@@ -50,13 +55,31 @@ class DependencyResolver(
                         if (resource.themeId != null) {
                             deps += DependencyScanner.Dependencies(themeRefs = setOf(resource.themeId!!))
                         }
+                        // Variant attribute keys may be catalog-qualified
+                        // (`"<catalogKey>.<slug>"`). Bare slugs resolve
+                        // within this manifest; qualified keys pointing at
+                        // another catalog are cross-catalog references —
+                        // their resolution is the consumer-tenant's
+                        // problem, not ours, and they should not be looked
+                        // up in `allByKey`.
                         val variantAttrs = resource.variants
                             .flatMap { (it.attributes ?: emptyMap()).keys }
+                            .filter { '.' !in it }
                             .toSet()
                         deps += DependencyScanner.scan(resource.templateModel, variantAttrs)
                         resource.variants.mapNotNull { it.templateModel }.forEach { deps += DependencyScanner.scan(it) }
                     }
                     is StencilResource -> deps += DependencyScanner.scan(resource.content)
+                    is AttributeResource -> {
+                        // Same-catalog bindings are auto-included via the
+                        // resolver; cross-catalog ones (`catalogKey != null`)
+                        // are declared on `manifest.dependencies` and checked
+                        // at install-time, not pulled in here.
+                        val binding = resource.codeListBinding
+                        if (binding != null && binding.catalogKey == null) {
+                            deps += DependencyScanner.Dependencies(codeListRefs = setOf(binding.slug))
+                        }
+                    }
                     else -> {}
                 }
             }
@@ -81,8 +104,12 @@ class DependencyResolver(
             merged.stencilRefs.forEach { resolve("stencil", it) }
             merged.attributeKeys.forEach { resolve("attribute", it) }
             merged.assetRefs.forEach { resolve("asset", it) }
+            merged.codeListRefs.forEach { resolve("codeList", it) }
 
-            toScan = newEntries.filter { it.type == "stencil" }
+            // Continue scanning anything newly discovered that can pull in
+            // further dependencies: stencils (template-model content) and
+            // attributes (newly discovered via template `variants[].attributes`).
+            toScan = newEntries.filter { it.type == "stencil" || it.type == "attribute" }
         }
 
         if (missing.isNotEmpty()) {

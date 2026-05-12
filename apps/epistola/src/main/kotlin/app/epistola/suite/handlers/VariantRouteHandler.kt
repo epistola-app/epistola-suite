@@ -6,7 +6,11 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.handlers.AuthContext
+import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
+import app.epistola.suite.handlers.decorateVariants
+import app.epistola.suite.handlers.filterToUsedDescriptors
+import app.epistola.suite.handlers.resolveVariantAttributes
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -79,7 +83,15 @@ class VariantRouteHandler {
             ?: return ServerResponse.notFound().build()
 
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
+        val variantEntries = resolveVariantAttributes(variant.attributes, attributeDescriptors)
+        // SpEL can't introspect `contains(String)` on Kotlin's `EmptySet`
+        // singleton; wrapping in a parameterized `LinkedHashSet` keeps the
+        // Thymeleaf expressions in `edit-variant-form` working when the
+        // variant has no attributes set yet.
+        val presentQualifiedKeys: Set<String> = LinkedHashSet(variantEntries.mapNotNull { it.descriptor?.qualifiedKey })
+        val presentRawKeys: Set<String> = LinkedHashSet(variant.attributes.keys)
 
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {
@@ -87,8 +99,12 @@ class VariantRouteHandler {
                 "catalogId" to catalogId.value
                 "templateId" to templateId.key
                 "variant" to variant
+                "attributeDescriptors" to attributeDescriptors
                 "attributeDefinitions" to attributeDefinitions
                 "attributeOptions" to attributeOptions
+                "variantEntries" to variantEntries
+                "presentQualifiedKeys" to presentQualifiedKeys
+                "presentRawKeys" to presentRawKeys
             }
         }
     }
@@ -114,7 +130,10 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
+        val decoratedVariants = decorateVariants(variants, attributeDescriptors)
+        val usedDescriptors = filterToUsedDescriptors(attributeDescriptors, decoratedVariants)
         val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
         val contractVersion = GetLatestContractVersion(templateId = templateId).query()
@@ -124,7 +143,9 @@ class VariantRouteHandler {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
                 "template" to template
-                "variants" to variants
+                "variants" to decoratedVariants
+                "attributeDescriptors" to attributeDescriptors
+                "usedAttributeDescriptors" to usedDescriptors
                 "attributeDefinitions" to attributeDefinitions
                 "attributeOptions" to attributeOptions
                 "editable" to editable
@@ -179,7 +200,10 @@ class VariantRouteHandler {
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
+        val decoratedVariants = decorateVariants(variants, attributeDescriptors)
+        val usedDescriptors = filterToUsedDescriptors(attributeDescriptors, decoratedVariants)
         val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
         logger.info("renderVariantsSection: variants={}, editable={}, catalogId={}, isHtmx={}", variants.size, editable, catalogId, request.isHtmx)
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
@@ -190,7 +214,9 @@ class VariantRouteHandler {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
                 "template" to template
-                "variants" to variants
+                "variants" to decoratedVariants
+                "attributeDescriptors" to attributeDescriptors
+                "usedAttributeDescriptors" to usedDescriptors
                 "attributeDefinitions" to attributeDefinitions
                 "attributeOptions" to attributeOptions
                 "editable" to editable
@@ -206,17 +232,29 @@ class VariantRouteHandler {
     }
 
     /**
-     * Reads variant attributes from form parameters.
-     * Each attribute definition is submitted as `attr_{key}` form parameter.
-     * Empty values are excluded (not set).
+     * Reads variant attributes from form parameters. Inputs are named
+     * `attr_<qualifiedKey>` (`attr_system.locale`) on the new forms; older
+     * forms still submit `attr_<bareSlug>` (`attr_language`). Both shapes
+     * are accepted so cached pages from before the qualified-key rollout
+     * keep working. Empty values are excluded.
+     *
+     * Stored keys mirror the input form: qualified inputs land as qualified
+     * keys on the variant; bare-slug inputs land as bare slugs. The
+     * validator + UI both accept either form (see `validateAttributes` and
+     * `resolveAttributeKey`).
      */
     private fun readAttributesFromForm(request: ServerRequest, tenantId: TenantId): Map<String, String> {
-        val definitions = ListAttributeDefinitions(tenantId).query()
+        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(tenantId).query())
         val attributes = mutableMapOf<String, String>()
-        for (def in definitions) {
-            val value = request.params().getFirst("attr_${def.id.value}")?.trim()
-            if (!value.isNullOrEmpty()) {
-                attributes[def.id.value] = value
+        for (descriptor in descriptors) {
+            val qualifiedValue = request.params().getFirst("attr_${descriptor.qualifiedKey}")?.trim()
+            if (!qualifiedValue.isNullOrEmpty()) {
+                attributes[descriptor.qualifiedKey] = qualifiedValue
+                continue
+            }
+            val bareValue = request.params().getFirst("attr_${descriptor.bareSlug}")?.trim()
+            if (!bareValue.isNullOrEmpty()) {
+                attributes[descriptor.bareSlug] = bareValue
             }
         }
         return attributes

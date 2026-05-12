@@ -25,6 +25,8 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -129,10 +131,23 @@ class EpistolaTenantApi :
         createAttributeRequest: CreateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val catalogIdComposite = CatalogId(CatalogKey.of(catalogId), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), catalogIdComposite)
+        // The `codeListBinding` ref always carries an explicit catalog —
+        // it's the wire form, no defaulting. The constraint XOR check
+        // (allowedValues vs codeListBinding) is enforced in
+        // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
+        val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
+            CodeListId(
+                key = CodeListKey.of(binding.slug),
+                catalogId = CatalogId(CatalogKey.of(binding.catalog), tenantIdComposite),
+            )
+        }
         val attribute = CreateAttributeDefinition(
             id = attributeIdComposite,
-            displayName = createAttributeRequest.description ?: createAttributeRequest.key,
+            displayName = createAttributeRequest.displayName,
+            allowedValues = createAttributeRequest.allowedValues ?: emptyList(),
+            codeListId = codeListId,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(attribute.toDto())
     }
@@ -155,13 +170,27 @@ class EpistolaTenantApi :
         attributeKey: String,
         updateAttributeRequest: UpdateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
-        val description = updateAttributeRequest.description
-            ?: return ResponseEntity.badRequest().build()
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val catalogIdComposite = CatalogId(CatalogKey.of(catalogId), tenantIdComposite)
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), catalogIdComposite)
+        // PATCH semantics: pull the current definition so we can write a
+        // full UpdateAttributeDefinition that only changes the fields the
+        // client sent. UpdateAttributeDefinition isn't itself partial.
+        val current = GetAttributeDefinition(id = attributeIdComposite).query()
+            ?: return ResponseEntity.notFound().build()
+        val codeListId = if (updateAttributeRequest.codeListBinding != null) {
+            CodeListId(
+                key = CodeListKey.of(updateAttributeRequest.codeListBinding!!.slug),
+                catalogId = CatalogId(CatalogKey.of(updateAttributeRequest.codeListBinding!!.catalog), tenantIdComposite),
+            )
+        } else {
+            current.codeListId
+        }
         val attribute = UpdateAttributeDefinition(
             id = attributeIdComposite,
-            displayName = description,
+            displayName = updateAttributeRequest.displayName ?: current.displayName,
+            allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
+            codeListId = codeListId,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(attribute.toDto())
     }

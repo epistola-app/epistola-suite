@@ -3,10 +3,12 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.catalog.protocol.CodeListResource
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogImportContext
@@ -15,6 +17,7 @@ import app.epistola.suite.catalog.DependencyResolver
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -107,6 +110,7 @@ class InstallFromCatalogHandler(
         is StencilResource -> installStencil(command, resource)
         is AttributeResource -> installAttribute(command, resource)
         is AssetResource -> installAsset(command, resource, sourceUrl, authType, credential)
+        is CodeListResource -> installCodeList(command, resource)
     }
 
     private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
@@ -176,12 +180,42 @@ class InstallFromCatalogHandler(
 
     private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
+        // A binding's `catalogKey` defaults to the attribute's own catalog —
+        // the typical case is a catalog that authors both the attribute and
+        // the list it binds to. Cross-catalog bindings (e.g. an attribute in
+        // `default` binding to a list in `system`) carry an explicit
+        // catalogKey on the wire.
+        val bindingCatalog = resource.codeListBinding?.let { binding ->
+            binding.catalogKey?.let(CatalogKey::of) ?: command.catalogKey
+        }
+        val bindingSlug = resource.codeListBinding?.slug?.let(CodeListKey::of)
         return ImportAttribute(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
             slug = resource.slug,
             displayName = resource.name,
             allowedValues = resource.allowedValues,
+            codeListCatalogKey = bindingCatalog,
+            codeListSlug = bindingSlug,
+        ).execute()
+    }
+
+    private fun installCodeList(command: InstallFromCatalog, resource: CodeListResource): InstallStatus {
+        val tenantId = TenantId(command.tenantKey)
+        return ImportCodeList(
+            tenantId = tenantId,
+            catalogKey = command.catalogKey,
+            slug = resource.slug,
+            displayName = resource.name,
+            description = resource.description,
+            entries = resource.entries.map { wire ->
+                CodeListEntry(
+                    code = wire.code,
+                    label = wire.label,
+                    sortOrder = wire.sortOrder,
+                    hidden = wire.hidden,
+                )
+            },
         ).execute()
     }
 

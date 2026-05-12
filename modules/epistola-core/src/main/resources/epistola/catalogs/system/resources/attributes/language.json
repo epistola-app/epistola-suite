@@ -1,9 +1,11 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "resource": {
     "type": "attribute",
     "slug": "language",
     "name": "Language",
-    "allowedValues": ["nl", "en", "de", "fr"]
+    "codeListBinding": {
+      "slug": "iso-639-1"
+    }
   }
 }

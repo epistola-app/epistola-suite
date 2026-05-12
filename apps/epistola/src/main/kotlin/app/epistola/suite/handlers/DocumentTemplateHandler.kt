@@ -8,7 +8,10 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.handlers.buildAttributeDescriptors
 import app.epistola.suite.handlers.buildAttributeOptions
+import app.epistola.suite.handlers.decorateVariants
+import app.epistola.suite.handlers.filterToUsedDescriptors
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -441,14 +444,19 @@ class DocumentTemplateHandler(
 
         val variants = GetVariantSummaries(templateId = ctx.templateId).query()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
+        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
+        val decoratedVariants = decorateVariants(variants, attributeDescriptors)
+        val usedDescriptors = filterToUsedDescriptors(attributeDescriptors, decoratedVariants)
         val contractVersion = GetLatestContractVersion(templateId = ctx.templateId).query()
 
         return detailHelper.renderDetailPage(
             ctx,
             "variants",
             mapOf(
-                "variants" to variants,
+                "variants" to decoratedVariants,
+                "attributeDescriptors" to attributeDescriptors,
+                "usedAttributeDescriptors" to usedDescriptors,
                 "attributeDefinitions" to attributeDefinitions,
                 "attributeOptions" to attributeOptions,
                 "contractDataExamples" to contractVersion?.dataExamples,

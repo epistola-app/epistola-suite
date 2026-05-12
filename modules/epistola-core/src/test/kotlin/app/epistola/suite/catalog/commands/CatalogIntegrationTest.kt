@@ -15,7 +15,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 class CatalogIntegrationTest : IntegrationTestBase() {
 
@@ -34,7 +34,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
             assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
-            assertThat(catalog.installedReleaseVersion).isEqualTo("5.2")
+            assertThat(catalog.installedReleaseVersion).isEqualTo("5.3")
         }
     }
 
@@ -46,7 +46,8 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
 
             val catalogs = ListCatalogs(tenant.id).query()
-            assertThat(catalogs).hasSize(2) // default + registered
+            // default + system + registered
+            assertThat(catalogs).hasSize(3)
             assertThat(catalogs.map { it.name }).contains("Epistola Demo Catalog")
         }
     }

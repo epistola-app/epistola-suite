@@ -17,7 +17,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize template resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/templates/hello-world.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/templates/hello-world.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(2)
@@ -31,7 +31,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize theme resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/themes/corporate.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/themes/corporate.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(2)
@@ -45,20 +45,24 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize attribute resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/attributes/language.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/attributes/language.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
-        assertThat(detail.schemaVersion).isEqualTo(2)
+        // schemaVersion 3 because the resource now uses `codeListBinding` —
+        // the demo's `language` attribute binds across to `system/iso-639-1`.
+        assertThat(detail.schemaVersion).isEqualTo(3)
         assertThat(detail.resource).isInstanceOf(AttributeResource::class.java)
 
         val attr = detail.resource as AttributeResource
         assertThat(attr.slug).isEqualTo("language")
-        assertThat(attr.allowedValues).containsExactly("nl", "en", "de", "fr")
+        assertThat(attr.allowedValues).isEmpty()
+        assertThat(attr.codeListBinding?.catalogKey).isEqualTo("system")
+        assertThat(attr.codeListBinding?.slug).isEqualTo("iso-639-1")
     }
 
     @Test
     fun `deserialize stencil resource detail`() {
-        val json = resourceLoader.getResource("classpath:demo/catalog/resources/stencils/company-header.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/stencils/company-header.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(2)

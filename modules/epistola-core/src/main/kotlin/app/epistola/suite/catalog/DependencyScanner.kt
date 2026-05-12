@@ -14,6 +14,13 @@ object DependencyScanner {
         val stencilRefs: Set<String> = emptySet(),
         val assetRefs: Set<String> = emptySet(),
         val attributeKeys: Set<String> = emptySet(),
+        /**
+         * Same-catalog code-list dependencies — slugs of code lists that an
+         * attribute in this catalog binds to. Cross-catalog code-list
+         * bindings are declared via `manifest.dependencies` instead and
+         * checked at install-time, not auto-pulled here.
+         */
+        val codeListRefs: Set<String> = emptySet(),
     )
 
     fun scan(document: TemplateDocument, variantAttributes: Set<String> = emptySet()): Dependencies {
@@ -57,5 +64,6 @@ object DependencyScanner {
         stencilRefs = deps.flatMapTo(mutableSetOf()) { it.stencilRefs },
         assetRefs = deps.flatMapTo(mutableSetOf()) { it.assetRefs },
         attributeKeys = deps.flatMapTo(mutableSetOf()) { it.attributeKeys },
+        codeListRefs = deps.flatMapTo(mutableSetOf()) { it.codeListRefs },
     )
 }

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 3,
+  "catalog": {
+    "slug": "system",
+    "name": "System",
+    "description": "Reserved attributes and canonical code lists shipped with Epistola. Every tenant gets this catalog at creation."
+  },
+  "publisher": {
+    "name": "Epistola",
+    "url": "https://github.com/epistola-app"
+  },
+  "release": {
+    "version": "1",
+    "releasedAt": "2026-05-11T00:00:00Z"
+  },
+  "resources": [
+    {
+      "type": "codeList",
+      "slug": "bcp-47",
+      "name": "BCP-47 Language Tags",
+      "description": "Curated subset of common BCP-47 language + region tags.",
+      "detailUrl": "./resources/codelists/bcp-47.json"
+    },
+    {
+      "type": "codeList",
+      "slug": "iso-639-1",
+      "name": "ISO 639-1 Languages",
+      "description": "Two-letter language codes from ISO 639-1.",
+      "detailUrl": "./resources/codelists/iso-639-1.json"
+    },
+    {
+      "type": "codeList",
+      "slug": "iso-3166-1-alpha2",
+      "name": "ISO 3166-1 Countries (alpha-2)",
+      "description": "Two-letter country codes from ISO 3166-1 alpha-2.",
+      "detailUrl": "./resources/codelists/iso-3166-1-alpha2.json"
+    },
+    {
+      "type": "attribute",
+      "slug": "locale",
+      "name": "Locale",
+      "description": "BCP-47 language + region tag (e.g. en-US, nl-NL).",
+      "detailUrl": "./resources/attributes/locale.json"
+    },
+    {
+      "type": "attribute",
+      "slug": "language",
+      "name": "Language",
+      "description": "ISO 639-1 two-letter language code (e.g. en, nl).",
+      "detailUrl": "./resources/attributes/language.json"
+    },
+    {
+      "type": "attribute",
+      "slug": "country",
+      "name": "Country",
+      "description": "ISO 3166-1 alpha-2 country code (e.g. US, NL).",
+      "detailUrl": "./resources/attributes/country.json"
+    }
+  ]
+}

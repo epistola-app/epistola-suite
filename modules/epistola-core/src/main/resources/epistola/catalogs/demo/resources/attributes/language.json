@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 3,
+  "resource": {
+    "type": "attribute",
+    "slug": "language",
+    "name": "Language",
+    "codeListBinding": {
+      "catalogKey": "system",
+      "slug": "iso-639-1"
+    }
+  }
+}

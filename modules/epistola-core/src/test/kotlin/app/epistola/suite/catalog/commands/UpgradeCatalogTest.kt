@@ -19,7 +19,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 class UpgradeCatalogTest : IntegrationTestBase() {
 

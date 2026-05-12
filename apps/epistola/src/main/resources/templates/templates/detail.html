@@ -48,16 +48,43 @@
                     <input type="text" id="edit-variant-title" name="title" class="ep-input"
                            th:value="${variant.title}" placeholder="e.g. English Newsletter">
                 </div>
-                <div th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
-                    <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
-                        <label class="ep-label" th:for="'edit-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
-                        <select th:id="'edit-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
+                <!-- Show only the attributes this variant already has, plus
+                     an add-attribute picker for the rest. The handler
+                     computes the present-key sets (qualified + raw) so the
+                     template stays Thymeleaf-simple. -->
+                <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
+                     id="edit-attr-rows" data-attr-rows>
+                    <div class="form-group" th:each="d : ${attributeDescriptors}"
+                         th:data-attr-row="${d.qualifiedKey}"
+                         th:with="hasValue=${(presentQualifiedKeys != null and presentQualifiedKeys.contains(d.qualifiedKey)) or (presentRawKeys != null and presentRawKeys.contains(d.bareSlug))}"
+                         th:style="${hasValue} ? '' : 'display: none;'">
+                        <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
+                            <span th:text="${d.displayName}"></span>
+                            <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-2);"
+                                  th:text="${d.qualifiedKey}"></code>
+                        </label>
+                        <select th:id="'edit-attr_' + ${d.qualifiedKey}"
+                                th:name="'attr_' + ${d.qualifiedKey}" class="ep-select">
                             <option value="">- Not set -</option>
-                            <option th:each="opt : ${attributeOptions != null ? attributeOptions[attrDef.id.toString()] : null}"
+                            <option th:each="opt : ${d.options}"
                                     th:value="${opt.code}"
                                     th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"
-                                    th:selected="${variant.attributes != null and variant.attributes.containsKey(attrDef.id.toString()) and variant.attributes.get(attrDef.id.toString()) == opt.code}"></option>
+                                    th:selected="${(variant.attributes != null and (variant.attributes.get(d.qualifiedKey) == opt.code or variant.attributes.get(d.bareSlug) == opt.code))}"></option>
                         </select>
+                    </div>
+                    <!-- Add-attribute picker. -->
+                    <div class="form-group" data-add-attr-picker>
+                        <label class="ep-label" for="edit-add-attr">Add attribute</label>
+                        <div style="display: flex; gap: var(--ep-space-2); align-items: center;">
+                            <select id="edit-add-attr" class="ep-select" data-add-attr-select>
+                                <option value="">— Choose an attribute to add —</option>
+                                <option th:each="d : ${attributeDescriptors}"
+                                        th:if="${(presentQualifiedKeys == null or !presentQualifiedKeys.contains(d.qualifiedKey)) and (presentRawKeys == null or !presentRawKeys.contains(d.bareSlug))}"
+                                        th:value="${d.qualifiedKey}"
+                                        th:text="${d.displayName + '  (' + d.qualifiedKey + ')'}"></option>
+                            </select>
+                            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-add-attr-button>Add</button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -150,16 +150,36 @@ private fun List<VariantSelectionAttribute>.toSelectionCriteria(): VariantSelect
     val required = mutableMapOf<String, String>()
     val optional = mutableMapOf<String, String>()
     for (attr in this) {
+        val storageKey = attr.toStorageKey()
         if (attr.required != false) {
-            required[attr.key] = attr.value
+            required[storageKey] = attr.value
         } else {
-            optional[attr.key] = attr.value
+            optional[storageKey] = attr.value
         }
     }
     return VariantSelectionCriteria(
         requiredAttributes = required,
         optionalAttributes = optional,
     )
+}
+
+/**
+ * Resolve the storage key for a `VariantSelectionAttribute`.
+ *
+ * The variant attribute map is stored as `Map<String, String>` keyed by
+ * either a qualified `"<catalog>.<slug>"` form or a bare slug. We accept
+ * three input shapes (in order of preference):
+ *
+ *  1. Explicit `catalog` field — produces the qualified form.
+ *  2. Dotted `key` (`"<catalog>.<slug>"`) — already qualified, used as-is.
+ *  3. Bare slug — kept as-is for the legacy tenant-wide lookup path.
+ *
+ * Catalog slugs match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no `.`), so the
+ * dotted-form split is unambiguous.
+ */
+private fun VariantSelectionAttribute.toStorageKey(): String = when {
+    catalog != null -> "$catalog.$key"
+    else -> key
 }
 
 internal fun GenerateBatchRequest.toCommand(

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 3,
+  "resource": {
+    "type": "attribute",
+    "slug": "country",
+    "name": "Country",
+    "codeListBinding": {
+      "slug": "iso-3166-1-alpha2"
+    }
+  }
+}

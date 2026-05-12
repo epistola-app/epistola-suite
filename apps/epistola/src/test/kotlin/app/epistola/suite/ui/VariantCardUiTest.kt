@@ -52,11 +52,12 @@ class VariantCardUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `attribute filter dropdowns appear for each attribute definition`() {
+    fun `attribute filter dropdowns appear for each used attribute definition`() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
+            val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -64,6 +65,16 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
+            ).execute()
+            // The filter bar lists only attributes that at least one variant
+            // actually uses — defining a value without using it would clutter
+            // every template's filter bar with attributes that can never
+            // filter anything. Create variants that exercise both.
+            CreateVariant(
+                id = VariantId(TestIdHelpers.nextVariantId(), templateId),
+                title = "English Acme",
+                description = null,
+                attributes = mapOf("lang" to "en", "brand" to "acme"),
             ).execute()
             tenant to template
         }
@@ -73,14 +84,16 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val filterBar = page.locator("#variant-filter-bar")
         assertThat(filterBar).isVisible()
 
-        val selects = filterBar.locator("select[data-filter-key]")
-        assertThat(selects).hasCount(2)
+        // Filter keys are catalog-qualified after the catalog-qualified-
+        // references rollout (`<catalog>.<slug>`). The variant attribute
+        // map was stored as bare `lang`/`brand`; the handler resolves these
+        // to descriptors in the default catalog and surfaces them
+        // qualified.
+        val langSelect = filterBar.locator("select[data-filter-key='default.lang']")
+        assertThat(langSelect).isVisible()
+        assertThat(langSelect.locator("option")).hasCount(3) // All + en + nl
 
-        val languageSelect = filterBar.locator("select[data-filter-key='language']")
-        assertThat(languageSelect).isVisible()
-        assertThat(languageSelect.locator("option")).hasCount(3) // All + en + nl
-
-        val brandSelect = filterBar.locator("select[data-filter-key='brand']")
+        val brandSelect = filterBar.locator("select[data-filter-key='default.brand']")
         assertThat(brandSelect).isVisible()
         assertThat(brandSelect.locator("option")).hasCount(3) // All + acme + globex
     }
@@ -90,7 +103,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -100,13 +113,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "English",
                 description = null,
-                attributes = mapOf("language" to "en"),
+                attributes = mapOf("lang" to "en"),
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "Dutch",
                 description = null,
-                attributes = mapOf("language" to "nl"),
+                attributes = mapOf("lang" to "nl"),
             ).execute()
             tenant to template
         }
@@ -117,7 +130,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(cards).hasCount(3) // default + en + nl
 
         // Filter to "en"
-        page.locator("select[data-filter-key='language']").selectOption("en")
+        page.locator("select[data-filter-key='default.lang']").selectOption("en")
 
         // Only the English card should be visible
         val visibleCards = page.locator(".variant-card:visible")
@@ -130,7 +143,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -138,7 +151,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "English",
                 description = null,
-                attributes = mapOf("language" to "en"),
+                attributes = mapOf("lang" to "en"),
             ).execute()
             tenant to template
         }
@@ -146,11 +159,11 @@ class VariantCardUiTest : BasePlaywrightTest() {
         page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
 
         // Apply filter
-        page.locator("select[data-filter-key='language']").selectOption("en")
+        page.locator("select[data-filter-key='default.lang']").selectOption("en")
         assertThat(page.locator(".variant-card:visible")).hasCount(1)
 
         // Clear filter
-        page.locator("select[data-filter-key='language']").selectOption("")
+        page.locator("select[data-filter-key='default.lang']").selectOption("")
         assertThat(page.locator(".variant-card:visible")).hasCount(2)
     }
 
@@ -159,7 +172,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("language"), CatalogId.default(TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
@@ -173,19 +186,19 @@ class VariantCardUiTest : BasePlaywrightTest() {
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "EN Acme",
                 description = null,
-                attributes = mapOf("language" to "en", "brand" to "acme"),
+                attributes = mapOf("lang" to "en", "brand" to "acme"),
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "EN Globex",
                 description = null,
-                attributes = mapOf("language" to "en", "brand" to "globex"),
+                attributes = mapOf("lang" to "en", "brand" to "globex"),
             ).execute()
             CreateVariant(
                 id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))),
                 title = "NL Acme",
                 description = null,
-                attributes = mapOf("language" to "nl", "brand" to "acme"),
+                attributes = mapOf("lang" to "nl", "brand" to "acme"),
             ).execute()
             tenant to template
         }
@@ -194,8 +207,8 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(page.locator(".variant-card")).hasCount(4) // default + 3
 
         // Filter: language=en AND brand=acme
-        page.locator("select[data-filter-key='language']").selectOption("en")
-        page.locator("select[data-filter-key='brand']").selectOption("acme")
+        page.locator("select[data-filter-key='default.lang']").selectOption("en")
+        page.locator("select[data-filter-key='default.brand']").selectOption("acme")
 
         val visibleCards = page.locator(".variant-card:visible")
         assertThat(visibleCards).hasCount(1)
@@ -306,6 +319,28 @@ class VariantCardUiTest : BasePlaywrightTest() {
             throw e
         }
         assertThat(page.locator(".variant-card")).hasCount(1)
+    }
+
+    @Test
+    fun `edit variant dialog opens when variant has no attributes`() {
+        // Regression: SpEL couldn't resolve `contains(String)` on Kotlin's
+        // `EmptySet` singleton, so opening the edit dialog on a variant
+        // whose attributes map was empty crashed the template engine.
+        // Wrapping `presentRawKeys` / `presentQualifiedKeys` in a normal
+        // `LinkedHashSet<String>` fixes it; this test guards the fix.
+        val (tenant, template) = withMediator { createTenantAndTemplate() }
+
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        assertThat(page.locator(".variant-card")).hasCount(1)
+
+        // Open edit dialog on the default variant — it has empty attributes
+        // because `createTenantAndTemplate()` doesn't seed any.
+        page.locator(".variant-card button[title='Edit variant']").click()
+        page.waitForSelector("#edit-variant-dialog[open]")
+
+        // Dialog rendered without error and surfaces the add-attribute
+        // picker (the empty-state UI affordance).
+        assertThat(page.locator("#edit-variant-dialog #edit-add-attr")).isVisible()
     }
 
     /**

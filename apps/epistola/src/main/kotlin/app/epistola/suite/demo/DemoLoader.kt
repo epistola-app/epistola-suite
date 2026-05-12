@@ -235,7 +235,7 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
+        private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
         private const val DEMO_CATALOG_SLUG = "epistola-demo"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
