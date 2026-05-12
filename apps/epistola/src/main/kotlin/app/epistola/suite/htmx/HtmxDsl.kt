@@ -22,26 +22,31 @@ annotation class HtmxDsl
 data class HtmxFragment(
     val template: String,
     val fragmentName: String?,
-    val model: Map<String, Any>,
+    val model: Map<String, Any?>,
     val isOob: Boolean = false,
 )
 
 /**
  * Builder for constructing model maps in a DSL-friendly way.
+ *
+ * `value` is `Any?` to ensure nullable expressions resolve to this DSL's `to`
+ * instead of silently falling through to `kotlin.to` (the Pair extension),
+ * which would drop the entry from the model entirely. Templates that need
+ * to handle nulls should use Thymeleaf's safe navigation (`?.`) or `th:if`.
  */
 @HtmxDsl
 class ModelBuilder {
-    private val model = mutableMapOf<String, Any>()
+    private val model = mutableMapOf<String, Any?>()
 
     /**
      * Adds a key-value pair to the model.
      * Usage: `"key" to value`
      */
-    infix fun String.to(value: Any) {
+    infix fun String.to(value: Any?) {
         model[this] = value
     }
 
-    internal fun build(): Map<String, Any> = model.toMap()
+    internal fun build(): Map<String, Any?> = model.toMap()
 }
 
 /**
@@ -357,7 +362,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         }
     }
 
-    private fun mergedModel(): Map<String, Any> = fragments.flatMap { it.model.entries }.associate { it.key to it.value }
+    private fun mergedModel(): Map<String, Any?> = fragments.flatMap { it.model.entries }.associate { it.key to it.value }
 }
 
 /**

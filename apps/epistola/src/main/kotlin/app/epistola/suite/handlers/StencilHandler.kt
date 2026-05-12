@@ -359,15 +359,17 @@ class StencilHandler(
         }
 
         val stencil = GetStencil(id = stencilId).query()
+            ?: return ServerResponse.notFound().build()
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "usage") {
                 "tenantId" to tenantId.key
+                "catalogId" to stencilId.catalogKey.value
                 "stencil" to stencil
                 "versions" to versions
                 "usage" to usage
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
     }
 
@@ -578,14 +580,17 @@ class StencilHandler(
         tenantId: TenantId,
         stencilId: StencilId,
     ): ServerResponse {
+        val stencil = GetStencil(id = stencilId).query()
+            ?: return ServerResponse.notFound().build()
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "versions") {
                 "tenantId" to tenantId.key
-                "stencil" to GetStencil(id = stencilId).query()
+                "catalogId" to stencilId.catalogKey.value
+                "stencil" to stencil
                 "versions" to versions
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
         }
     }
 }
