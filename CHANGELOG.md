@@ -31,6 +31,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 
 ### Fixed
 
+- **Flaky CI: disable `EditorShortcutsUiTest > leader success hint auto hides and clears after result timeout`.** The transient `leader-hint` element auto-hides 700ms after the success result fires (`resultHideMs` in `modules/editor/src/main/typescript/shortcuts-config.ts`). On a slow CI runner Playwright's first DOM poll can land after that window, after which `isVisible()` polls forever for an element that won't return. `@Disabled` until leader timing is configurable per test (or until we switch to event-based observation).
 - **Variant edit dialog crash when the variant had no attributes.** Opening "Edit variant" on a variant whose `attributes` map was empty crashed the Thymeleaf template engine with `SpelEvaluationException: Method contains(java.lang.String) cannot be found on type kotlin.collections.EmptySet`. The `presentRawKeys` and `presentQualifiedKeys` sets passed in by `VariantRouteHandler.editVariantForm` are now wrapped in `LinkedHashSet<String>(…)` so SpEL can introspect their `contains(String)` method.
 - **Catalog export skips stencils with no published version.** `ExportStencils` previously fell back to a stencil's latest draft when no version was published, causing draft content to leak into the exported ZIP and into any tenant subscribing to the catalog. The query now filters to `status = 'published'` and stencils without a published version drop out of the export entirely — mirroring how templates were already handled.
 
