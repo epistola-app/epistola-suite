@@ -7,6 +7,9 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -17,16 +20,23 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.CreateStencilVersion
+import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -182,6 +192,99 @@ class PublishVersionTest : IntegrationTestBase() {
             val nextDraft = withMediator { GetDraft(defaultVariantId).query() }
             assertThat(nextDraft).isNull()
         }
+    }
+
+    @Nested
+    inner class StencilValidation {
+        @Test
+        fun `blocks publish when referenced stencil has no published version`() {
+            val stencilKey = TestIdHelpers.nextStencilId()
+            val stencilId = StencilId(stencilKey, templateId.catalogId)
+            withMediator {
+                CreateStencil(id = stencilId, name = "Draft-Only Stencil").execute()
+                UpdateDraft(
+                    variantId = defaultVariantId,
+                    templateModel = templateModelReferencingStencil(stencilKey),
+                ).execute()
+            }
+
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+
+            assertThatThrownBy {
+                withMediator {
+                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+                }
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("not published")
+                .hasMessageContaining(stencilKey.value)
+        }
+
+        @Test
+        fun `blocks publish when pinned stencil version is still draft`() {
+            val stencilKey = TestIdHelpers.nextStencilId()
+            val stencilId = StencilId(stencilKey, templateId.catalogId)
+            withMediator {
+                CreateStencil(id = stencilId, name = "Pinned Stencil").execute()
+                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+                CreateStencilVersion(stencilId = stencilId).execute()
+                UpdateDraft(
+                    variantId = defaultVariantId,
+                    templateModel = templateModelReferencingStencil(stencilKey, version = 2),
+                ).execute()
+            }
+
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+
+            assertThatThrownBy {
+                withMediator {
+                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+                }
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("not published")
+                .hasMessageContaining("${stencilKey.value} v2")
+        }
+
+        @Test
+        fun `allows publish when referenced stencil is published`() {
+            val stencilKey = TestIdHelpers.nextStencilId()
+            val stencilId = StencilId(stencilKey, templateId.catalogId)
+            withMediator {
+                CreateStencil(id = stencilId, name = "Published Stencil").execute()
+                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+                UpdateDraft(
+                    variantId = defaultVariantId,
+                    templateModel = templateModelReferencingStencil(stencilKey),
+                ).execute()
+            }
+
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+
+            val result = withMediator {
+                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+            }
+            assertThat(result).isNotNull
+            assertThat(result!!.status).isEqualTo(VersionStatus.PUBLISHED)
+        }
+    }
+
+    private fun templateModelReferencingStencil(stencilKey: StencilKey, version: Int? = null): TemplateDocument {
+        val rootId = "root-1"
+        val slotId = "slot-1"
+        val stencilNodeId = "stencil-1"
+        val props = mutableMapOf<String, Any?>("stencilId" to stencilKey.value)
+        if (version != null) props["version"] = version
+        return TemplateDocument(
+            modelVersion = 1,
+            root = rootId,
+            nodes = mapOf(
+                rootId to Node(id = rootId, type = "root", slots = listOf(slotId)),
+                stencilNodeId to Node(id = stencilNodeId, type = "stencil", props = props),
+            ),
+            slots = mapOf(
+                slotId to Slot(id = slotId, nodeId = rootId, name = "children", children = listOf(stencilNodeId)),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
     }
 
     @Nested

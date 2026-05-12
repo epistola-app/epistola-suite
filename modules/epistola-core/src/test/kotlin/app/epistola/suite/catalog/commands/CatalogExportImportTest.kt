@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
@@ -22,6 +23,9 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -32,17 +36,24 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.CreateStencilVersion
+import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -562,6 +573,73 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 .hasMessageContaining("code list 'no-such-list'")
                 .hasMessageContaining("from catalog 'no-such-catalog'")
         }
+    }
+
+    @Test
+    fun `export stencils excludes draft-only stencils and uses published content`() {
+        val tenant = createTenant("Stencil Export Filter")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val catalogKey = CatalogKey.of("stencil-export-filter")
+        val catalogId = CatalogId(catalogKey, tenantId)
+
+        withMediator {
+            CreateCatalog(
+                tenantKey = tenantKey,
+                id = catalogKey,
+                name = "Stencil Export Filter",
+            ).execute()
+
+            // Stencil A: only ever drafted, never published
+            val draftOnlyKey = StencilKey.of("draft-only-stencil")
+            val draftOnlyId = StencilId(draftOnlyKey, catalogId)
+            CreateStencil(
+                id = draftOnlyId,
+                name = "Draft Only",
+                content = stencilContentWithRoot("draft-only-root"),
+            ).execute()
+
+            // Stencil B: v1 published with one content, v2 draft with newer content
+            val publishedKey = StencilKey.of("published-with-newer-draft")
+            val publishedId = StencilId(publishedKey, catalogId)
+            CreateStencil(
+                id = publishedId,
+                name = "Published With Newer Draft",
+                content = stencilContentWithRoot("published-v1-root"),
+            ).execute()
+            PublishStencilVersion(
+                versionId = StencilVersionId(VersionKey.of(1), publishedId),
+            ).execute()
+            CreateStencilVersion(
+                stencilId = publishedId,
+                content = stencilContentWithRoot("newer-draft-v2-root"),
+            ).execute()
+
+            val exported = ExportStencils(
+                tenantKey = tenantKey,
+                catalogKey = catalogKey,
+            ).query()
+
+            assertThat(exported.map { it.slug }).doesNotContain(draftOnlyKey.value)
+
+            val publishedExport = exported.single { it.slug == publishedKey.value }
+            assertThat(publishedExport.content.root).isEqualTo("published-v1-root")
+        }
+    }
+
+    private fun stencilContentWithRoot(rootId: String): TemplateDocument {
+        val slotId = "slot-$rootId"
+        return TemplateDocument(
+            modelVersion = 1,
+            root = rootId,
+            nodes = mapOf(
+                rootId to Node(id = rootId, type = "root", slots = listOf(slotId)),
+            ),
+            slots = mapOf(
+                slotId to Slot(id = slotId, nodeId = rootId, name = "children", children = emptyList()),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
     }
 
     /**

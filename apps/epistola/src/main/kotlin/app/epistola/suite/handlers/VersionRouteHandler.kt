@@ -39,6 +39,7 @@ import tools.jackson.databind.ObjectMapper
 @Component
 class VersionRouteHandler(
     private val objectMapper: ObjectMapper,
+    private val variantRouteHandler: VariantRouteHandler,
 ) {
 
     fun listVersions(request: ServerRequest): ServerResponse {
@@ -81,10 +82,12 @@ class VersionRouteHandler(
                 versionId = app.epistola.suite.common.ids.VersionId(draft.id, variantId),
             ).execute()
         } catch (e: IllegalArgumentException) {
-            return ServerResponse.badRequest()
-                .header("HX-Reswap", "none")
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
+            return variantRouteHandler.renderVariantsSection(
+                request = request,
+                tenantId = tenantId,
+                templateId = templateId,
+                errorMessage = e.message,
+            )
         }
 
         // Redirect to reload the page with updated state
