@@ -189,7 +189,7 @@ class VariantRouteHandler {
 
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
 
-    private fun renderVariantsSection(
+    internal fun renderVariantsSection(
         request: ServerRequest,
         tenantId: TenantId,
         templateId: TemplateId,

@@ -142,7 +142,8 @@
                         </a>
                         <form th:if="${auth.has('TEMPLATE_PUBLISH') and editable and variant.hasDraft}"
                               th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                              hx-swap="none"
+                              hx-target="#variants-section"
+                              hx-swap="outerHTML"
                               style="display: inline;">
                             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm ep-btn-icon" title="Publish draft">
                                 <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
