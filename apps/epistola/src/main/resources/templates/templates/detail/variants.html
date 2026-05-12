@@ -27,15 +27,41 @@
                         <label class="ep-label" for="title">Title (optional)</label>
                         <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
                     </div>
-                    <div th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
-                        <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
-                            <label class="ep-label" th:for="'create-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
-                            <select th:id="'create-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
+                    <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
+                         id="create-attr-rows" data-attr-rows>
+                        <!-- All rows start hidden; the user picks attributes
+                             via the "Add attribute" select below. Empty
+                             rows are never submitted (empty values are
+                             excluded server-side), so leaving hidden rows
+                             in the DOM is safe and lets the picker simply
+                             toggle visibility. -->
+                        <div class="form-group" th:each="d : ${attributeDescriptors}"
+                             th:data-attr-row="${d.qualifiedKey}" style="display: none;">
+                            <label class="ep-label" th:for="'create-attr_' + ${d.qualifiedKey}">
+                                <span th:text="${d.displayName}"></span>
+                                <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-2);"
+                                      th:text="${d.qualifiedKey}"></code>
+                            </label>
+                            <select th:id="'create-attr_' + ${d.qualifiedKey}"
+                                    th:name="'attr_' + ${d.qualifiedKey}" class="ep-select">
                                 <option value="">- Not set -</option>
-                                <option th:each="opt : ${attributeOptions != null ? attributeOptions[attrDef.id.toString()] : null}"
+                                <option th:each="opt : ${d.options}"
                                         th:value="${opt.code}"
                                         th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"></option>
                             </select>
+                        </div>
+                        <!-- Add-attribute picker. -->
+                        <div class="form-group" data-add-attr-picker>
+                            <label class="ep-label" for="create-add-attr">Add attribute</label>
+                            <div style="display: flex; gap: var(--ep-space-2); align-items: center;">
+                                <select id="create-add-attr" class="ep-select" data-add-attr-select>
+                                    <option value="">— Choose an attribute to add —</option>
+                                    <option th:each="d : ${attributeDescriptors}"
+                                            th:value="${d.qualifiedKey}"
+                                            th:text="${d.displayName + '  (' + d.qualifiedKey + ')'}"></option>
+                                </select>
+                                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-add-attr-button>Add</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -46,14 +72,22 @@
             </form>
         </dialog>
 
-        <!-- Attribute filter bar -->
+        <!-- Attribute filter bar: shows only attributes that at least one
+             variant actually uses. The filter key matches the variant card's
+             `data-attr-key`, which carries the qualified form (`system.locale`)
+             after the catalog-qualified-references rollout. -->
         <div id="variant-filter-bar" class="variant-filter-bar"
-             th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
-            <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
-                <label th:for="'attr-filter-' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
-                <select class="ep-select" th:id="'attr-filter-' + ${attrDef.id}" th:data-filter-key="${attrDef.id}" onchange="filterVariants()">
+             th:if="${usedAttributeDescriptors != null and !#lists.isEmpty(usedAttributeDescriptors)}">
+            <div class="form-group" th:each="d : ${usedAttributeDescriptors}">
+                <label th:for="'attr-filter-' + ${d.qualifiedKey}">
+                    <span th:text="${d.displayName}"></span>
+                    <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
+                          th:text="${d.qualifiedKey}"></code>
+                </label>
+                <select class="ep-select" th:id="'attr-filter-' + ${d.qualifiedKey}"
+                        th:data-filter-key="${d.qualifiedKey}" onchange="filterVariants()">
                     <option value="">All</option>
-                    <option th:each="opt : ${attributeOptions != null ? attributeOptions[attrDef.id.toString()] : null}"
+                    <option th:each="opt : ${d.options}"
                             th:value="${opt.code}"
                             th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"></option>
                 </select>
@@ -77,10 +111,20 @@
                         <span th:if="${variant.isDefault}" class="badge badge-primary">Default</span>
                     </div>
                     <div class="variant-card-body">
-                        <div class="tags" th:if="${!variant.attributes.isEmpty()}">
-                            <span th:each="entry : ${variant.attributes}" class="badge badge-outline"
+                        <!-- variant.entries carries the resolved
+                             {descriptor, value} per attribute. The descriptor
+                             contributes the catalog prefix (visible in the
+                             badge so the user can tell `system.locale=en-US`
+                             apart from a hypothetical `default.locale`). -->
+                        <div class="tags" th:if="${!#lists.isEmpty(variant.entries)}">
+                            <span th:each="entry : ${variant.entries}" class="badge badge-outline"
                                   th:data-attr-key="${entry.key}" th:data-attr-value="${entry.value}"
-                                  th:text="${entry.key + '=' + entry.value}"></span>
+                                  th:title="${entry.descriptor != null ? entry.descriptor.qualifiedKey + ' = ' + entry.value : entry.key + ' = ' + entry.value}">
+                                <span class="text-muted" style="font-size: var(--ep-text-xs);"
+                                      th:if="${entry.catalogLabel != ''}"
+                                      th:text="${entry.catalogLabel + '.'}"></span><span
+                                      th:text="${entry.slug + ' = ' + entry.value}"></span>
+                            </span>
                         </div>
                         <div class="variant-card-status">
                             <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
@@ -161,6 +205,42 @@
         <dialog id="version-history-dialog" class="ep-dialog ep-dialog-wide"><div id="version-history-dialog-body"></div></dialog>
 
         <script th:inline="javascript">
+            // Wire the "Add attribute" picker on the create-variant dialog.
+            // Edit-variant uses the same pattern in its own fragment; this
+            // file owns the create dialog, that file (detail.html) owns its
+            // copy. Both call into the same shared helper below.
+            function wireAddAttrPicker(scope) {
+                const select = scope.querySelector('[data-add-attr-select]');
+                const button = scope.querySelector('[data-add-attr-button]');
+                if (!select || !button) return;
+                const handler = () => {
+                    const key = select.value;
+                    if (!key) return;
+                    const row = scope.querySelector('[data-attr-row="' + CSS.escape(key) + '"]');
+                    if (row) {
+                        row.style.display = '';
+                        const field = row.querySelector('select, input');
+                        if (field) field.focus();
+                        // Remove the option from the picker so it can't be
+                        // added twice.
+                        const opt = select.querySelector('option[value="' + CSS.escape(key) + '"]');
+                        if (opt) opt.remove();
+                        select.value = '';
+                    }
+                };
+                button.addEventListener('click', handler);
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                const createForm = document.getElementById('create-variant-form');
+                if (createForm) wireAddAttrPicker(createForm);
+            });
+            // The edit-variant dialog is HTMX-loaded; wire its picker after
+            // each swap.
+            document.addEventListener('htmx:afterSwap', e => {
+                if (e.detail.target?.id === 'edit-variant-dialog-body') {
+                    wireAddAttrPicker(e.detail.target);
+                }
+            });
             function filterVariants() {
                 const filterBar = document.getElementById('variant-filter-bar');
                 if (!filterBar) return;

@@ -220,7 +220,13 @@ class CodeListUiTest : BasePlaywrightTest() {
         page.locator("button:has-text('New Variant')").click()
         page.waitForSelector("#create-variant-dialog[open]")
 
-        val select = page.locator("#create-attr_my-locale")
+        // The create dialog hides all attribute rows by default — the user
+        // picks attributes via the "Add attribute" picker. Reveal the
+        // `my-locale` row, then assert on the now-visible dropdown.
+        page.locator("#create-add-attr").selectOption("default.my-locale")
+        page.locator("#create-variant-form [data-add-attr-button]").click()
+
+        val select = page.locator("#create-attr_default\\.my-locale")
         assertThat(select).isVisible()
 
         // Options: the "- Not set -" placeholder + the two bound entries.
@@ -265,11 +271,15 @@ class CodeListUiTest : BasePlaywrightTest() {
         page.locator("button:has-text('New Variant')").click()
         page.waitForSelector("#create-variant-dialog[open]")
 
-        val statusOptions = page.locator("#create-attr_status option")
+        // Reveal the row via the add-attribute picker (rows start hidden).
+        page.locator("#create-add-attr").selectOption("default.status")
+        page.locator("#create-variant-form [data-add-attr-button]").click()
+
+        val statusOptions = page.locator("#create-attr_default\\.status option")
         // "- Not set -" + only "active" (hidden "legacy" is filtered).
         assertThat(statusOptions).hasCount(2)
-        assertThat(page.locator("#create-attr_status option[value='active']")).hasCount(1)
-        assertThat(page.locator("#create-attr_status option[value='legacy']")).hasCount(0)
+        assertThat(page.locator("#create-attr_default\\.status option[value='active']")).hasCount(1)
+        assertThat(page.locator("#create-attr_default\\.status option[value='legacy']")).hasCount(0)
     }
 
     @Test
