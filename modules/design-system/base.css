@@ -34,7 +34,7 @@
   }
 
   /* Global focus-visible ring */
-  :focus-visible {
+  :focus-visible:not(.ProseMirror) {
     outline: none;
     box-shadow: var(--ep-ring);
   }
