@@ -86,8 +86,12 @@ class VariantRouteHandler {
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val variantEntries = resolveVariantAttributes(variant.attributes, attributeDescriptors)
-        val presentQualifiedKeys = variantEntries.mapNotNull { it.descriptor?.qualifiedKey }.toSet()
-        val presentRawKeys = variant.attributes.keys
+        // SpEL can't introspect `contains(String)` on Kotlin's `EmptySet`
+        // singleton; wrapping in a parameterized `LinkedHashSet` keeps the
+        // Thymeleaf expressions in `edit-variant-form` working when the
+        // variant has no attributes set yet.
+        val presentQualifiedKeys: Set<String> = LinkedHashSet(variantEntries.mapNotNull { it.descriptor?.qualifiedKey })
+        val presentRawKeys: Set<String> = LinkedHashSet(variant.attributes.keys)
 
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {

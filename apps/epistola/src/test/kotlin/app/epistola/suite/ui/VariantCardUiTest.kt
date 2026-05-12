@@ -321,6 +321,28 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(page.locator(".variant-card")).hasCount(1)
     }
 
+    @Test
+    fun `edit variant dialog opens when variant has no attributes`() {
+        // Regression: SpEL couldn't resolve `contains(String)` on Kotlin's
+        // `EmptySet` singleton, so opening the edit dialog on a variant
+        // whose attributes map was empty crashed the template engine.
+        // Wrapping `presentRawKeys` / `presentQualifiedKeys` in a normal
+        // `LinkedHashSet<String>` fixes it; this test guards the fix.
+        val (tenant, template) = withMediator { createTenantAndTemplate() }
+
+        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        assertThat(page.locator(".variant-card")).hasCount(1)
+
+        // Open edit dialog on the default variant — it has empty attributes
+        // because `createTenantAndTemplate()` doesn't seed any.
+        page.locator(".variant-card button[title='Edit variant']").click()
+        page.waitForSelector("#edit-variant-dialog[open]")
+
+        // Dialog rendered without error and surfaces the add-attribute
+        // picker (the empty-state UI affordance).
+        assertThat(page.locator("#edit-variant-dialog #edit-add-attr")).isVisible()
+    }
+
     /**
      * Helper to create a tenant + template. Creating a template auto-creates a default variant.
      */
