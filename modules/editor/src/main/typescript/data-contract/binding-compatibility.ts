@@ -57,13 +57,31 @@ export function formatFieldPathTypeLabel(fp: FieldPath): string {
 }
 
 /**
- * Display-side helper for the expression dialog's resolved-value preview.
- * For values that match a registered ref type (e.g. a rich-text doc) the raw
- * JSON is unhelpful — render a stable placeholder instead so authors know
- * the binding resolved without seeing a wall of ProseMirror JSON. Returns
- * `null` when the value isn't a ref-shaped value; the caller then falls back
- * to its generic formatter (`formatForPreview`).
+ * Extract a readable plain-text preview from a resolved expression value.
+ * For rich-text ProseMirror docs, walks paragraphs → text nodes and joins
+ * their text content. Returns `null` when the value isn't a registered ref
+ * type, so the caller can fall back to its generic formatter
+ * (`formatForPreview`).
  */
-export function formatBindingPreviewPlaceholder(value: unknown): string | null {
-  return classifyValue(value) !== null ? '[rich text value]' : null;
+export function formatBindingPreview(value: unknown): string | null {
+  const refType = classifyValue(value);
+  if (refType === null) return null;
+
+  const doc = value as { content?: unknown };
+  if (!Array.isArray(doc.content)) return '(empty)';
+  const paragraphs: string[] = [];
+  for (const block of doc.content) {
+    if (!block || typeof block !== 'object') continue;
+    const b = block as { type?: string; content?: unknown[] };
+    if (b.type !== 'paragraph' || !Array.isArray(b.content)) continue;
+    const texts: string[] = [];
+    for (const node of b.content) {
+      if (!node || typeof node !== 'object') continue;
+      const n = node as { type?: string; text?: string };
+      if (n.type === 'text' && n.text) texts.push(n.text);
+      else if (n.type === 'hard_break') texts.push(' ');
+    }
+    if (texts.length > 0) paragraphs.push(texts.join(''));
+  }
+  return paragraphs.length > 0 ? paragraphs.join(' ') : '(empty)';
 }
