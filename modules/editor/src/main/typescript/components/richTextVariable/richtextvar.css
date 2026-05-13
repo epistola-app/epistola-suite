@@ -1,6 +1,11 @@
 /* ── Rich Text Variable block canvas styles ──────────────────────────── */
 
 @layer components {
+  .rich-text-variable-canvas {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
   .rich-text-variable-empty {
     display: flex;
     align-items: center;
@@ -9,5 +14,15 @@
     font-size: var(--ep-text-xs);
     text-align: center;
     padding: var(--ep-space-3) 0;
+  }
+
+  .rich-text-variable-placeholder code {
+    word-break: break-word;
+  }
+
+  .rich-text-variable-rendered {
+    p {
+      word-break: break-word;
+    }
   }
 }
