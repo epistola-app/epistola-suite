@@ -48,6 +48,13 @@ describe('parseFormatDateExpression', () => {
   it('returns null for empty string', () => {
     expect(parseFormatDateExpression('')).toBeNull();
   });
+
+  it('parses double-quoted pattern', () => {
+    expect(parseFormatDateExpression('$formatDate(invoiceDate, "dd-MM-yyyy")')).toEqual({
+      fieldPath: 'invoiceDate',
+      pattern: 'dd-MM-yyyy',
+    });
+  });
 });
 
 describe('wrapFormatDate', () => {
