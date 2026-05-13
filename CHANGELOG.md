@@ -48,6 +48,8 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 - **ProseMirror double border fixed.** Removed redundant border between ProseMirror container and its parent element.
 - **Rich-text example inputs no longer overflow.** Fixed sizing so rich-text ProseMirror editors in the data example form can grow with their content.
 - **Migration detection handles `$ref` property types.** `detectMigrations` now delegates to the ref-type registry's `shallowShapeCheck` for `$ref`-only properties (where `propSchema.type` is `undefined`), avoiding false `TYPE_MISMATCH` for metadata-only changes like required↔optional. `formatValue` classifies rich-text docs via the registry instead of dumping raw ProseMirror JSON.
+- **Expression dialog preview shows actual rich-text content.** The expression dialog's live preview was rendering a static `[rich text value]` placeholder for resolved rich-text docs instead of showing the text. Replaced `formatBindingPreviewPlaceholder` with `formatBindingPreview`, which walks the ProseMirror doc tree (paragraphs → text nodes) and extracts readable plain text. Hard breaks render as spaces; multi-paragraph docs are joined; malformed docs return `(empty)`.
+- **Rich Text Block canvas no longer overflows long text.** Added `word-break: break-word` and `overflow-wrap: break-word` to the canvas wrapper, the rendered `<p>` elements, and the placeholder `<code>` element so long unbroken strings wrap instead of bleeding outside the block.
 
 ### Changed
 
