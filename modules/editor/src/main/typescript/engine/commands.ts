@@ -10,12 +10,7 @@
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import { isAncestor } from './indexes.js';
-import {
-  type ComponentRegistry,
-  PAGE_HEADER_TYPE,
-  PAGE_FOOTER_TYPE,
-  isAnchoredPageBlock,
-} from './registry.js';
+import { type ComponentRegistry, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE } from './registry.js';
 import { isSlotLocked } from './locks.js';
 import { nanoid } from 'nanoid';
 
@@ -316,15 +311,38 @@ function findNodeIndexByType(
   return children.findIndex((id) => nodes[id]?.type === type);
 }
 
+function findLastNodeIndexByType(
+  children: readonly NodeId[],
+  nodes: Record<NodeId, Node>,
+  type: string,
+): number {
+  for (let i = children.length - 1; i >= 0; i -= 1) {
+    if (nodes[children[i]!]?.type === type) return i;
+  }
+  return -1;
+}
+
+function countNodesByType(
+  children: readonly NodeId[],
+  nodes: Record<NodeId, Node>,
+  type: string,
+): number {
+  let n = 0;
+  for (const id of children) if (nodes[id]?.type === type) n += 1;
+  return n;
+}
+
 function validateRootContentBoundaries(
   children: readonly NodeId[],
   nodes: Record<NodeId, Node>,
   insertIndex: number,
 ): string | null {
-  const headerIndex = findNodeIndexByType(children, nodes, PAGE_HEADER_TYPE);
+  // A document may declare up to two page headers; body content must be inserted
+  // *after* the last one so the header zone stays contiguous at the top.
+  const lastHeaderIndex = findLastNodeIndexByType(children, nodes, PAGE_HEADER_TYPE);
   const footerIndex = findNodeIndexByType(children, nodes, PAGE_FOOTER_TYPE);
 
-  if (headerIndex >= 0 && insertIndex <= headerIndex) {
+  if (lastHeaderIndex >= 0 && insertIndex <= lastHeaderIndex) {
     return 'Cannot place blocks before the page header';
   }
 
@@ -375,7 +393,13 @@ function applyInsertNode(
     if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
       return err('Page header can only be inserted at the top of the document');
     }
-    insertIndex = 0;
+    // Respect the user's drop position within the header zone — dropping above
+    // the existing header makes the new one the first-page variant; dropping on
+    // or below makes it the running (page 2+) variant. `-1` (append, e.g. the
+    // palette "Add" button with no explicit position) defaults to the end of
+    // the header zone so a brand-new header becomes the running variant.
+    const existingHeaderCount = countNodesByType(targetSlot.children, doc.nodes, PAGE_HEADER_TYPE);
+    insertIndex = cmd.index < 0 ? existingHeaderCount : Math.min(cmd.index, existingHeaderCount);
   } else if (cmd.node.type === PAGE_FOOTER_TYPE) {
     if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
       return err('Page footer can only be inserted at the bottom of the document');
@@ -524,10 +548,16 @@ function applyMoveNode(
 
   if (cmd.nodeId === doc.root) return err('Cannot move root node');
 
-  if (isAnchoredPageBlock(node.type)) {
-    const label = node.type === PAGE_HEADER_TYPE ? 'Page header' : 'Page footer';
-    const position = node.type === PAGE_HEADER_TYPE ? 'top' : 'bottom';
-    return err(`${label} is fixed at the ${position} and cannot be moved`);
+  // Page footer is fixed at the bottom. Page headers (up to two) can be reordered
+  // within the root slot's header zone, swapping their first-page / running roles.
+  if (node.type === PAGE_FOOTER_TYPE) {
+    return err('Page footer is fixed at the bottom and cannot be moved');
+  }
+  if (node.type === PAGE_HEADER_TYPE) {
+    const rootSlotId = getRootSlotId(doc);
+    if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
+      return err('Page header is fixed at the top and cannot be moved');
+    }
   }
 
   const targetSlot = doc.slots[cmd.targetSlotId];
@@ -566,9 +596,25 @@ function applyMoveNode(
 
   const rootSlotId = getRootSlotId(doc);
   if (rootSlotId && cmd.targetSlotId === rootSlotId) {
-    const boundaryError = validateRootContentBoundaries(targetChildrenBase, doc.nodes, insertIndex);
-    if (boundaryError) {
-      return err(boundaryError);
+    if (node.type === PAGE_HEADER_TYPE) {
+      // Within the header zone only: index must land amongst the remaining pageheaders.
+      const remainingHeaderCount = countNodesByType(
+        targetChildrenBase,
+        doc.nodes,
+        PAGE_HEADER_TYPE,
+      );
+      if (insertIndex > remainingHeaderCount) {
+        return err('Page header must stay at the top of the document');
+      }
+    } else {
+      const boundaryError = validateRootContentBoundaries(
+        targetChildrenBase,
+        doc.nodes,
+        insertIndex,
+      );
+      if (boundaryError) {
+        return err(boundaryError);
+      }
     }
   }
 

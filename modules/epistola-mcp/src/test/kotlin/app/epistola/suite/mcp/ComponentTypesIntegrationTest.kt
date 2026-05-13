@@ -69,11 +69,19 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `pageheader is a singleton page block`() {
+    fun `pageheader allows up to two instances for the first-page variant`() {
         val pageHeader = componentTools.getComponentType("pageheader")
         assertThat(pageHeader).isNotNull
         assertThat(pageHeader!!.category).isEqualTo("page")
-        assertThat(pageHeader.maxInstancesPerDocument).isEqualTo(1)
+        assertThat(pageHeader.maxInstancesPerDocument).isEqualTo(2)
+    }
+
+    @Test
+    fun `pagefooter remains a singleton page block`() {
+        val pageFooter = componentTools.getComponentType("pagefooter")
+        assertThat(pageFooter).isNotNull
+        assertThat(pageFooter!!.category).isEqualTo("page")
+        assertThat(pageFooter.maxInstancesPerDocument).isEqualTo(1)
     }
 
     @Test

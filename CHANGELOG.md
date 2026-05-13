@@ -6,6 +6,7 @@
 
 ### Added
 
+- **First-page header variant ([#399](https://github.com/epistola-app/epistola-suite/issues/399)).** A template can now declare up to two `pageheader` nodes as direct children of the root slot. With one header, behavior is unchanged. With two, the document-order-first applies to page 1 only and the second to pages 2..N — a positional mapping, no selector property. No two-pass over the document is needed: `PageHeaderEventHandler` picks the right node from the current page number on iText's `END_PAGE` event. The body's top margin is precomputed as the max of `marginTop + height` across declared headers so the body never overlaps either variant. Cardinality (≤ 2) and root-level placement are enforced server-side by the new `PageHeaderCardinalityValidator` in `UpdateDraft`. Out of scope (filed as follow-ups): last-page, per-range/section, odd/even headers; matching variants for footers. Demo catalog `demo-invoice` now ships with a cover-page + running pageheader pair; demo catalog bumped to `release.version = 5.4`.
 - **REST API: code-list CRUD endpoints.** New surface at `/api/tenants/{id}/catalogs/{catalogId}/code-lists/...` covering list, get, create, update, delete, refresh-from-source, and list-entries. Mirrors the existing UI capability so REST clients aren't second-class. SUBSCRIBED-catalog code lists (e.g. `system/bcp-47`) are read-only via the API — writes return 409.
 - **REST API: `AttributeDto` carries catalog + read-only flag.** `AttributeDto` now includes `catalog`, `displayName`, `allowedValues`, `codeListBinding`, `catalogType`, and `readOnly`. Clients can render system-catalog attributes with their editing affordances disabled. `CreateAttributeRequest` + `UpdateAttributeRequest` accept the same constraint shapes (inline values / code-list binding) the UI already supported. PATCH/DELETE on SUBSCRIBED-catalog attributes return 409.
 - **REST API: `VariantSelectionAttribute` carries an optional `catalog` field.** Clients can now write `{ catalog: "system", key: "locale", value: "en-US" }` and the server stores it as `"system.locale"`. The dotted-form (`key = "system.locale"`) and bare-slug (legacy) forms both keep working.
@@ -42,6 +43,10 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 - **Editor component CSS pinned to cascade layers.** `image.css`, `placeholder.css`, `qrcode.css`, and `stencil.css` were unlayered and thus outranked layered styles. They are now wrapped in `@layer components` to match the rest of the editor.
 
 - **Duplicate CSS rules merged.** The two competing `.btn-sm` definitions in `components.css` are now one. The two `.canvas-placeholder--default-edit` rules in `placeholder.css` are now one.
+
+### Removed
+
+- **`hideOnFirstPage` prop on `pageheader` nodes.** Superseded by the two-`pageheader` positional model ([#399](https://github.com/epistola-app/epistola-suite/issues/399)): an author who wants "no header on page 1, normal header from page 2" now adds an empty first-page header. The prop remains on `pagefooter` nodes (footer variants are not in scope for this iteration). Pre-production: no migration path provided.
 
 ### Changed
 

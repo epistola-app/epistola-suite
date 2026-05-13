@@ -215,6 +215,34 @@ $formatDate(sys.render.time, "dd-MM-yyyy HH:mm") // "03-04-2026 10:30"
 └─────────────────────────────────────────────────────────┘
 ```
 
+### Page Headers (first-page variant)
+
+A template may declare up to two `pageheader` nodes as direct children of the
+root slot. Mapping to physical pages is **positional** — the order of header
+nodes in the root slot's `children` array selects which header applies where:
+
+| Header count | Page 1                 | Page 2 and onward       |
+| ------------ | ---------------------- | ----------------------- |
+| 0            | (no header)            | (no header)             |
+| 1            | the sole `pageheader`  | the sole `pageheader`   |
+| 2            | the first `pageheader` | the second `pageheader` |
+
+No second pass over the document is required to make this decision: the
+`PageHeaderEventHandler` runs at iText's END_PAGE event and selects the right
+header node from the current page number. Each page's body sits below its own
+header band: iText's document margin is set to the running header band, and a
+zero-opacity spacer Div is prepended to the body flow sized to the extra height
+that the first-page header needs. The spacer is consumed on page 1, so pages 2+
+start cleanly at the running band — a tall cover header doesn't leak whitespace
+onto running pages.
+
+Cardinality (max 2) and root-level placement are enforced server-side by
+`PageHeaderCardinalityValidator` before any draft update reaches the renderer.
+
+Out of scope for this iteration (filed as follow-ups): last-page header,
+per-section / page-range headers, odd/even alternating headers, and the same
+variant model for footers.
+
 ### Page Settings
 
 ```kotlin
