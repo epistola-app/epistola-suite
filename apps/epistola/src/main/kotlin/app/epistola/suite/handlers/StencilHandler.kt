@@ -336,6 +336,9 @@ class StencilHandler(
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        val stencil = GetStencil(id = stencilId).query()
+            ?: return ServerResponse.notFound().build()
+
         val usage = GetStencilUsageDetails(stencilId = stencilId).query()
 
         if (!request.isHtmx()) {
@@ -358,8 +361,6 @@ class StencilHandler(
                 )
         }
 
-        val stencil = GetStencil(id = stencilId).query()
-            ?: return ServerResponse.notFound().build()
         val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "usage") {

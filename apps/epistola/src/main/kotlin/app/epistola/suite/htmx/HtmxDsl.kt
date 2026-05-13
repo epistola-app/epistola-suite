@@ -29,10 +29,23 @@ data class HtmxFragment(
 /**
  * Builder for constructing model maps in a DSL-friendly way.
  *
- * `value` is `Any?` to ensure nullable expressions resolve to this DSL's `to`
- * instead of silently falling through to `kotlin.to` (the Pair extension),
- * which would drop the entry from the model entirely. Templates that need
- * to handle nulls should use Thymeleaf's safe navigation (`?.`) or `th:if`.
+ * Two independent mechanisms guard the DSL — they solve different problems and
+ * neither replaces the other:
+ *
+ * 1. `@HtmxDsl` (a `@DslMarker`) prevents accidental nesting of DSL receivers
+ *    (e.g. calling outer-builder methods from inside an inner builder block).
+ *    It does **not** influence overload resolution and would not have prevented
+ *    the bug below.
+ *
+ * 2. `infix fun String.to(value: Any?)` accepts nullable values so that
+ *    `"key" to nullable` resolves to this member extension. With a non-null
+ *    `Any` parameter, Kotlin silently fell through to `kotlin.to` (the stdlib
+ *    `Pair` extension) for any nullable expression — the resulting `Pair` was
+ *    discarded as an expression-statement and the entry never reached the
+ *    model, with no compile-time or runtime signal.
+ *
+ * Templates that need to tolerate nulls must say so explicitly via Thymeleaf's
+ * safe navigation (`?.`) or `th:if` — surfacing intent at the call site.
  */
 @HtmxDsl
 class ModelBuilder {
@@ -41,6 +54,9 @@ class ModelBuilder {
     /**
      * Adds a key-value pair to the model.
      * Usage: `"key" to value`
+     *
+     * Parameter type is `Any?` (not `Any`) — see class KDoc for the overload-resolution
+     * rationale. Do not tighten this without reproducing the silent-discard regression.
      */
     infix fun String.to(value: Any?) {
         model[this] = value
