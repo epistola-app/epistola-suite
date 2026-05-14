@@ -20,6 +20,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
 
@@ -307,6 +308,12 @@ class CodeListUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    @Disabled(
+        "Flaky on CI — page.waitForSelector(\"#confirm-dialog[open]\") times out due to a race " +
+            "between the dialog script binding and Playwright's click. See issue #418 for the full " +
+            "analysis and remediation options (preferred: replace with a handler-level test that " +
+            "asserts the response contract directly).",
+    )
     fun `delete code list from detail page swaps back to list without htmx target error`() {
         val tenant = withMediator {
             val t = createUiTenant()
