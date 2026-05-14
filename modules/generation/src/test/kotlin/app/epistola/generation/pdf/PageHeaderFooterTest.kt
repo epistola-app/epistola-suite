@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -383,6 +384,78 @@ class PageHeaderFooterTest {
                 )
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Renderer-level invariants: same shape as PageHeaderCardinalityValidator,
+    // re-asserted here so render paths that bypass UpdateDraft (PreviewDocument,
+    // PreviewVariant, catalog import, …) can't render with undefined positional
+    // semantics on a malformed document.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `renderer rejects pageheader nested below a non-root container`() {
+        val rootSlotId = "slot-root"
+        val containerSlotId = "slot-container"
+        val headerSlotId = "slot-header"
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "container" to Node(id = "container", type = "container", slots = listOf(containerSlotId)),
+                "header-misplaced" to Node(
+                    id = "header-misplaced",
+                    type = "pageheader",
+                    slots = listOf(headerSlotId),
+                    props = mapOf("height" to "40pt"),
+                ),
+                "header-text" to textNode("header-text", "MISPLACED HEADER"),
+                "body-1" to textNode("body-1", "body"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(rootSlotId, "root", "children", listOf("container", "body-1")),
+                containerSlotId to Slot(containerSlotId, "container", "children", listOf("header-misplaced")),
+                headerSlotId to Slot(headerSlotId, "header-misplaced", "children", listOf("header-text")),
+            ),
+        )
+
+        val ex = assertFailsWith<IllegalArgumentException> {
+            renderer.render(doc, emptyMap(), ByteArrayOutputStream())
+        }
+        assertContains(ex.message ?: "", "header-misplaced")
+        assertContains(ex.message ?: "", "direct children of the root slot")
+    }
+
+    @Test
+    fun `renderer rejects more than two pageheaders even when all are at root`() {
+        val rootSlotId = "slot-root"
+        fun header(id: String, height: String) = Node(
+            id = id,
+            type = "pageheader",
+            slots = listOf("$id-slot"),
+            props = mapOf("height" to height),
+        )
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "h1" to header("h1", "30pt"),
+                "h2" to header("h2", "30pt"),
+                "h3" to header("h3", "30pt"),
+                "body-1" to textNode("body-1", "body"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(rootSlotId, "root", "children", listOf("h1", "h2", "h3", "body-1")),
+                "h1-slot" to Slot("h1-slot", "h1", "children", emptyList()),
+                "h2-slot" to Slot("h2-slot", "h2", "children", emptyList()),
+                "h3-slot" to Slot("h3-slot", "h3", "children", emptyList()),
+            ),
+        )
+
+        val ex = assertFailsWith<IllegalArgumentException> {
+            renderer.render(doc, emptyMap(), ByteArrayOutputStream())
+        }
+        assertContains(ex.message ?: "", "at most 2 pageheader")
     }
 
     // -----------------------------------------------------------------------

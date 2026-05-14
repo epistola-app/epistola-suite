@@ -589,31 +589,51 @@ class DirectPdfRenderer(
     }
 
     /**
-     * Returns up to two `pageheader` nodes ordered by their position as children
-     * of the root slot. The order is the positional selector for which header
+     * Returns the `pageheader` nodes ordered by their position as children of
+     * the root slot. The order is the positional selector for which header
      * applies to which page (index 0 → page 1; index 1 → page 2 and onward when
      * present). Document-order is also what the editor surfaces, so authors
      * control the mapping by reordering the nodes.
      *
-     * Falls back to undefined-but-stable ordering (insertion order of the nodes
-     * map) only when the root node or slot cannot be resolved; the validator
-     * rejects such documents before they reach the renderer.
+     * The same invariants enforced by `PageHeaderCardinalityValidator` (server-
+     * side, on `UpdateDraft`) are re-asserted here so render paths that don't
+     * pass through that command — `PreviewDocument`, `PreviewVariant`, catalog
+     * import, future entrypoints — can't silently render with undefined header
+     * positioning when the document is malformed.
      */
     private fun pageHeaderNodesInDocumentOrder(document: TemplateDocument): List<Node> {
-        val rootNode = document.nodes[document.root]
-        if (rootNode != null) {
-            val orderedFromRootSlot = rootNode.slots
-                .asSequence()
-                .mapNotNull { document.slots[it] }
-                .flatMap { it.children.asSequence() }
-                .mapNotNull { document.nodes[it] }
-                .filter { it.type == "pageheader" }
-                .take(2)
-                .toList()
-            if (orderedFromRootSlot.isNotEmpty()) return orderedFromRootSlot
-        }
-        return document.nodes.values
+        val allHeaderIds = document.nodes.values
+            .asSequence()
             .filter { it.type == "pageheader" }
-            .take(2)
+            .map { it.id }
+            .toSet()
+        if (allHeaderIds.isEmpty()) return emptyList()
+
+        val rootNode = document.nodes[document.root]
+            ?: throw IllegalArgumentException(
+                "Cannot render: document declares pageheader nodes but has no resolvable root node",
+            )
+
+        val orderedFromRootSlot = rootNode.slots
+            .asSequence()
+            .mapNotNull { document.slots[it] }
+            .flatMap { it.children.asSequence() }
+            .mapNotNull { document.nodes[it] }
+            .filter { it.type == "pageheader" }
+            .toList()
+
+        val rootSlotHeaderIds = orderedFromRootSlot.map { it.id }.toSet()
+        val misplaced = allHeaderIds - rootSlotHeaderIds
+        if (misplaced.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "Cannot render: pageheader node(s) $misplaced must be direct children of the root slot",
+            )
+        }
+        if (orderedFromRootSlot.size > 2) {
+            throw IllegalArgumentException(
+                "Cannot render: at most 2 pageheader nodes allowed, found ${orderedFromRootSlot.size}",
+            )
+        }
+        return orderedFromRootSlot
     }
 }
