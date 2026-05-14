@@ -7,7 +7,7 @@ import app.epistola.hub.client.discovery.DEFAULT_DISCOVERY_URL
 import app.epistola.hub.client.port.InstallationStore
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
-import org.jdbi.v3.core.Jdbi
+import app.epistola.suite.metadata.AppMetadataService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -31,10 +31,10 @@ import org.springframework.context.annotation.DependsOn
 )
 class SupportConfiguration {
     @Bean
-    fun jdbcInstallationStore(jdbi: Jdbi): InstallationStore = JdbcInstallationStore(jdbi)
+    fun installationStore(metadata: AppMetadataService): InstallationStore = AppMetadataInstallationStore(metadata)
 
     /**
-     * Resolved during context refresh. The `getOrCreate()` call queries
+     * Resolved during context refresh. `installations.get()` reads
      * `app_metadata`, so we must wait for Flyway. Spring Boot adds
      * implicit depends-on relationships for `JdbcOperations`, but not for
      * JDBI, hence the explicit `@DependsOn`.
@@ -56,7 +56,7 @@ class SupportConfiguration {
         require(ip.environment.isNotBlank()) {
             "epistola.installation.environment must be set when epistola.support.enabled=true"
         }
-        val installation = installations.getOrCreate()
+        val installation = installations.get()
         return InstallationMetadata(
             installationId = installation.id,
             name = ip.resolvedName(),

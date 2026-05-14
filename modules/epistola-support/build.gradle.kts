@@ -12,7 +12,9 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 }
 
 dependencies {
-    // Core module (provides Installation domain, AppMetadataService, JDBI config)
+    // Core module (provides Installation domain, AppMetadataService, JDBI config).
+    // The support module persists credentials through AppMetadataService — it does
+    // not talk to JDBI / SQL directly, so it doesn't pull JDBI or Flyway in itself.
     api(project(":modules:epistola-core"))
 
     // Epistola Hub client (Kotlin gRPC SDK). Bundles its own gRPC + protobuf
@@ -25,17 +27,6 @@ dependencies {
 
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter")
-    implementation("org.springframework.boot:spring-boot-starter-jdbc")
-
-    // JDBI
-    implementation(libs.jdbi.core)
-    implementation(libs.jdbi.kotlin)
-    implementation(libs.jdbi.postgres)
-    implementation(libs.jdbi.spring)
-
-    // Flyway (V31 hub-credentials migration lives in this module)
-    implementation("org.springframework.boot:spring-boot-starter-flyway")
-    implementation("org.flywaydb:flyway-database-postgresql")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")

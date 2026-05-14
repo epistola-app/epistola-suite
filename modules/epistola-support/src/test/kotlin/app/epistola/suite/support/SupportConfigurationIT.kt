@@ -46,8 +46,9 @@ class SupportConfigurationIT : IntegrationTestBase() {
     @Test
     fun `installation metadata carries the installation id`() {
         assertNotNull(installationMetadata.installationId)
-        // UUIDv7 — the id is the same one produced by InstallationService.
-        assertEquals(7, installationMetadata.installationId.version())
+        // Seeded by V30 via `gen_random_uuid()` — UUIDv4 (no time-sortability
+        // is needed for a single-row identity).
+        assertEquals(4, installationMetadata.installationId.version())
     }
 
     @Test

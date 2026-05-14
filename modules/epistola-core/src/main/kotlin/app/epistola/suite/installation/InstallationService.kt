@@ -1,38 +1,27 @@
 package app.epistola.suite.installation
 
-import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
-import java.time.Clock
-import java.time.Instant
 
 /**
- * Reads (and on first call, writes) this Suite's [Installation] identity.
- * Single source of truth backed by [AppMetadataService] under key
- * [METADATA_KEY] — see [Installation] for why this is stable across pods.
+ * Reads the installation identity from `app_metadata`. The row is seeded
+ * exactly once by Flyway (see V30__app_metadata_jsonb.sql) and is invariant
+ * for the lifetime of the database — every pod reads the same value.
+ *
+ * A missing row is a bug (someone deleted the metadata) and must surface
+ * loudly. Silently regenerating it would assign a fresh id and confuse the
+ * hub, which has the previous id on record.
  */
 @Service
 class InstallationService(
     private val metadata: AppMetadataService,
-    private val clock: Clock = Clock.systemUTC(),
 ) {
-    /**
-     * Returns the persisted installation identity, creating one on first
-     * call. Idempotent across restarts. Safe under concurrent pods because
-     * the underlying `INSERT ... ON CONFLICT DO NOTHING` keeps the
-     * earliest winner; this method re-reads after the write to converge
-     * on the same value across racing callers.
-     */
-    @Transactional
-    fun getOrCreate(): Installation {
-        metadata.getAs<Installation>(METADATA_KEY)?.let { return it }
-        val fresh = Installation(id = UUIDv7.generate(), createdAt = Instant.now(clock))
-        metadata.setIfAbsent(METADATA_KEY, fresh)
-        return metadata.getAs<Installation>(METADATA_KEY)
-            ?: error("Failed to persist installation identity under key '$METADATA_KEY'")
-    }
+    fun get(): Installation = metadata.getAs<Installation>(METADATA_KEY)
+        ?: error(
+            "Installation identity missing from app_metadata under key '$METADATA_KEY'. " +
+                "Was Flyway migration V30 ever applied?",
+        )
 
     companion object {
         const val METADATA_KEY = "installation"

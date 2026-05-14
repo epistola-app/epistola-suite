@@ -1,31 +1,44 @@
 package app.epistola.suite.support
 
 import app.epistola.hub.client.port.InstallationCredentials
+import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.testing.IntegrationTestBase
 import org.jdbi.v3.core.Jdbi
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-class JdbcInstallationStoreIT : IntegrationTestBase() {
+class AppMetadataInstallationStoreIT : IntegrationTestBase() {
+    @Autowired
+    private lateinit var metadata: AppMetadataService
+
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    private val store: JdbcInstallationStore by lazy { JdbcInstallationStore(jdbi) }
+    private val store: AppMetadataInstallationStore by lazy { AppMetadataInstallationStore(metadata) }
+
+    @BeforeEach
+    fun clearCredentials() {
+        // Wipe the key so each test starts from a known absent state.
+        jdbi.useHandle<Exception> { handle ->
+            handle
+                .createUpdate("DELETE FROM app_metadata WHERE key = :key")
+                .bind("key", AppMetadataInstallationStore.METADATA_KEY)
+                .execute()
+        }
+    }
 
     @Test
     fun `load returns null when no credentials are persisted`() {
-        clearTable()
         assertNull(store.load())
     }
 
     @Test
     fun `save then load round-trips credentials`() {
-        clearTable()
         val credentials = InstallationCredentials(
             installationId = UUID.randomUUID(),
             apiKey = "ek_test_abc123",
@@ -40,8 +53,7 @@ class JdbcInstallationStoreIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `save twice updates the singleton row`() {
-        clearTable()
+    fun `save twice overwrites the existing entry`() {
         val first = InstallationCredentials(UUID.randomUUID(), "ek_first")
         val second = InstallationCredentials(UUID.randomUUID(), "ek_second")
 
@@ -49,31 +61,6 @@ class JdbcInstallationStoreIT : IntegrationTestBase() {
         store.save(second)
 
         val loaded = store.load()
-        assertEquals(second, loaded, "Second save must overwrite the singleton row")
-    }
-
-    @Test
-    fun `singleton CHECK rejects a second row`() {
-        clearTable()
-        // Bypass the store and try to insert a second row directly — the CHECK on id
-        // should reject it.
-        assertFailsWith<Exception> {
-            jdbi.useHandle<Exception> { handle ->
-                handle.execute(
-                    """
-                    INSERT INTO epistola_support_hub_credentials (id, installation_id, api_key)
-                    VALUES (2, ?, ?)
-                    """,
-                    UUID.randomUUID(),
-                    "ek_should_fail",
-                )
-            }
-        }
-    }
-
-    private fun clearTable() {
-        jdbi.useHandle<Exception> { handle ->
-            handle.execute("DELETE FROM epistola_support_hub_credentials")
-        }
+        assertEquals(second, loaded, "Second save must overwrite the previous credentials")
     }
 }
