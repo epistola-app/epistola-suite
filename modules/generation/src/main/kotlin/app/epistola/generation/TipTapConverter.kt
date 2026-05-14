@@ -179,13 +179,7 @@ class TipTapConverter(
         val listStyle = attrs?.get("listStyle") as? String ?: "disc"
 
         val list = List()
-        val symbol = when (listStyle) {
-            "circle" -> "\u25CB  " // ○
-            "square" -> "\u25A0  " // ■
-            "dash" -> "\u2013  " // –
-            else -> "\u2022  " // • (disc, default)
-        }
-        list.setListSymbol(symbol)
+        list.setListSymbol(renderingDefaults.bulletMarker(listStyle))
         list.setMarginBottom(renderingDefaults.listMarginBottom)
         list.setMarginLeft(renderingDefaults.listMarginLeft)
 
