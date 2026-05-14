@@ -23,6 +23,9 @@ dependencies {
     // Feedback module (feedback system with GitHub integration)
     implementation(project(":modules:feedback"))
 
+    // Support module (optional commercial-tier hub integration; off by default)
+    implementation(project(":modules:epistola-support"))
+
     // Catalog module (catalog exchange for sharing templates)
 
     // Load test module (load testing functionality)

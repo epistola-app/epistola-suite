@@ -119,6 +119,30 @@ epistola:
         enabled: false # Enable inbound polling
         interval-ms: 300000 # Poll interval (default 5 min)
 
+  # Optional commercial support tier (epistola-hub integration).
+  # OSS default: disabled. Enable to register the installation with the hub
+  # for feedback sync, monitoring, quality checks, and version-compatibility
+  # services. See modules/epistola-support.
+  support:
+    enabled: false
+    hub:
+      # Override the hub discovery URL for self-hosted deployments.
+      # Blank → use the SaaS default baked into the hub client.
+      discovery-url: ""
+      # Override the per-pod node id. Blank → auto-detect from
+      # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
+      node-id: ""
+
+  # Installation identity. Required when epistola.support.enabled=true;
+  # ignored otherwise. Override per environment via
+  # EPISTOLA_INSTALLATION_COMPANYNAME etc.
+  installation:
+    company-name: ""
+    admin-email: ""
+    environment: "" # e.g., "production", "staging"
+    name: "" # blank → "${company-name} - ${environment}"
+    description: ""
+
 management:
   endpoints:
     web:
