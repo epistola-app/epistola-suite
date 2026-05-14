@@ -46,9 +46,9 @@ class SupportConfigurationIT : IntegrationTestBase() {
     @Test
     fun `installation metadata carries the installation id`() {
         assertNotNull(installationMetadata.installationId)
-        // Seeded by V30 via `gen_random_uuid()` — UUIDv4 (no time-sortability
-        // is needed for a single-row identity).
-        assertEquals(4, installationMetadata.installationId.version())
+        // V30 builds a UUIDv7 in pure SQL — the hub server enforces v7 at
+        // registration time.
+        assertEquals(7, installationMetadata.installationId.version())
     }
 
     @Test

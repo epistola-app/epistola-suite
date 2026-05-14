@@ -205,6 +205,9 @@ support:
   hub:
     # Override the hub discovery URL for self-hosted deployments.
     # Blank → use the SaaS default baked into the hub client.
+    # Kubernetes deployments resolve the hub via `.well-known` discovery;
+    # the direct host/port mode is a local-dev / debug convenience and is
+    # intentionally NOT exposed here.
     discoveryUrl: ""
     # Override the per-pod node id reported to the hub. Blank → auto-detect
     # from EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.

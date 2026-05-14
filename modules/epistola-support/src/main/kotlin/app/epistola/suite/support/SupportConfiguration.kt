@@ -4,6 +4,8 @@ import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.HubRegistrationRetryLoop
 import app.epistola.hub.client.InstallationMetadata
 import app.epistola.hub.client.discovery.DEFAULT_DISCOVERY_URL
+import app.epistola.hub.client.discovery.HubDiscovery
+import app.epistola.hub.client.discovery.HubEndpoint
 import app.epistola.hub.client.port.InstallationStore
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
@@ -67,14 +69,35 @@ class SupportConfiguration {
         )
     }
 
+    /**
+     * Endpoint resolution. When `epistola.support.hub.host` is set, the
+     * static discovery skips `.well-known` entirely and goes straight to
+     * the configured host/port (use for local dev or cluster-internal
+     * deployments). Otherwise, fall back to fetching `.well-known` from
+     * the configured discovery URL (or the SaaS default).
+     */
+    @Bean
+    fun hubDiscovery(props: SupportProperties): HubDiscovery {
+        val hub = props.hub
+        if (hub.host.isNotBlank()) {
+            require(hub.port > 0) {
+                "epistola.support.hub.port must be a positive integer when epistola.support.hub.host is set"
+            }
+            return HubDiscovery.static(HubEndpoint(host = hub.host, port = hub.port, plaintext = hub.plaintext))
+        }
+        return HubDiscovery()
+    }
+
     @Bean(destroyMethod = "close")
     fun epistolaHubClient(
         store: InstallationStore,
         props: SupportProperties,
+        discovery: HubDiscovery,
     ): EpistolaHubClient = EpistolaHubClient(
         store = store,
         nodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: EpistolaHubClient.detectNodeId(),
         discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
+        discovery = discovery,
     )
 
     @Bean(destroyMethod = "close")
