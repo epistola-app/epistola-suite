@@ -486,7 +486,7 @@ describe('EpExpressionDialog builder mode', () => {
 
     const warning = fresh.querySelector('.expression-dialog-mode-warning');
     expect(warning?.textContent).toContain('not found');
-    expect(warning?.textContent).toContain('loop alias');
+    expect(warning?.textContent).toContain('scope may have changed');
     fresh.close(null);
     fresh.remove();
   });

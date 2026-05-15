@@ -371,7 +371,7 @@ export class EpExpressionDialog extends LitElement {
       if (this._expression.trim() && !parsed) {
         const stale = isStaleFieldReference(this._expression.trim(), this.fieldPaths);
         this._modeWarning = stale
-          ? `Field '${this._expression.trim()}' not found. The loop alias may have changed.`
+          ? `Field '${this._expression.trim()}' not found. It may have been renamed, removed, or its scope may have changed.`
           : 'This expression is too complex for Builder mode.';
         this._scheduleWarningDismiss();
         return;
