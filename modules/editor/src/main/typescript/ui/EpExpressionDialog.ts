@@ -17,8 +17,8 @@ import {
   tryParseAsBuilderExpression,
   buildExpression,
   isStaleFieldReference,
-  JSONATA_QUICK_REFERENCE,
-} from './expression-dialog.js';
+} from './expression-builder.js';
+import { JSONATA_QUICK_REFERENCE } from './expression-dialog.js';
 import type { ExpressionDialogResult } from './expression-dialog.js';
 
 /*
@@ -859,12 +859,6 @@ export class EpExpressionDialog extends LitElement {
         </form>
       </dialog>
     `;
-  }
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'ep-expression-dialog': EpExpressionDialog;
   }
 }
 

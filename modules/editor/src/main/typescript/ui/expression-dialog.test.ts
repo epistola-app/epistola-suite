@@ -5,7 +5,7 @@ import {
   tryParseAsBuilderExpression,
   buildExpression,
   isStaleFieldReference,
-} from './expression-dialog.js';
+} from './expression-builder.js';
 import type { FieldPath } from '../engine/schema-paths.js';
 
 describe('parseFormatDateExpression', () => {
