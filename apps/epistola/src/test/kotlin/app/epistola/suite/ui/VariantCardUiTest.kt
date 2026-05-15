@@ -21,11 +21,19 @@ import java.util.regex.Pattern
 
 class VariantCardUiTest : BasePlaywrightTest() {
 
+    /**
+     * The client-side attribute filter (`templates/detail/variants.html`)
+     * hides non-matching cards with inline `style="display: none"`. Selecting
+     * only the *shown* cards structurally — and asserting with a web-first
+     * locator that re-queries — replaces the query-time `:visible` pseudo.
+     */
+    private val shownCards get() = page.locator(".variant-card:not([style*='display: none'])")
+
     @Test
     fun `variant cards render in grid layout`() {
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
 
         assertThat(page.locator(".variant-card")).hasCount(1)
         assertThat(page.locator("table.ep-table")).hasCount(0)
@@ -44,7 +52,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
 
         val cards = page.locator(".variant-card")
         assertThat(cards).hasCount(2)
@@ -79,7 +87,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
 
         val filterBar = page.locator("#variant-filter-bar")
         assertThat(filterBar).isVisible()
@@ -124,7 +132,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
 
         val cards = page.locator(".variant-card")
         assertThat(cards).hasCount(3) // default + en + nl
@@ -132,10 +140,9 @@ class VariantCardUiTest : BasePlaywrightTest() {
         // Filter to "en"
         page.locator("select[data-filter-key='default.lang']").selectOption("en")
 
-        // Only the English card should be visible
-        val visibleCards = page.locator(".variant-card:visible")
-        assertThat(visibleCards).hasCount(1)
-        assertThat(visibleCards.first().locator(".variant-card-title")).hasText("English")
+        // Only the English card should be shown
+        assertThat(shownCards).hasCount(1)
+        assertThat(shownCards.first().locator(".variant-card-title")).hasText("English")
     }
 
     @Test
@@ -156,15 +163,15 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
 
         // Apply filter
         page.locator("select[data-filter-key='default.lang']").selectOption("en")
-        assertThat(page.locator(".variant-card:visible")).hasCount(1)
+        assertThat(shownCards).hasCount(1)
 
         // Clear filter
         page.locator("select[data-filter-key='default.lang']").selectOption("")
-        assertThat(page.locator(".variant-card:visible")).hasCount(2)
+        assertThat(shownCards).hasCount(2)
     }
 
     @Test
@@ -203,71 +210,35 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(4) // default + 3
 
         // Filter: language=en AND brand=acme
         page.locator("select[data-filter-key='default.lang']").selectOption("en")
         page.locator("select[data-filter-key='default.brand']").selectOption("acme")
 
-        val visibleCards = page.locator(".variant-card:visible")
-        assertThat(visibleCards).hasCount(1)
-        assertThat(visibleCards.first().locator(".variant-card-title")).hasText("EN Acme")
+        assertThat(shownCards).hasCount(1)
+        assertThat(shownCards.first().locator(".variant-card-title")).hasText("EN Acme")
     }
 
     @Test
     fun `create variant via HTMX adds a new card`() {
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        // Capture all responses for debugging
-        val allResponses = mutableListOf<String>()
-        val consoleLogs = mutableListOf<String>()
-        val networkErrors = mutableListOf<String>()
-        page.onConsoleMessage { msg -> consoleLogs.add("[${msg.type()}] ${msg.text()}") }
-        page.onResponse { resp ->
-            allResponses.add("${resp.status()} ${resp.request().method()} ${resp.url()}")
-            if (resp.request().method() == "POST") {
-                allResponses.add("  POST RESPONSE BODY: ${resp.text().take(2000)}")
-            }
-            if (resp.status() >= 400) {
-                networkErrors.add("${resp.status()} ${resp.url()} body=${resp.text().take(500)}")
-            }
-        }
-
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(1)
 
-        // Open create dialog
-        page.locator("button:has-text('New Variant')").click()
-        page.waitForSelector("#create-variant-dialog[open]")
-        page.locator("#create-variant-dialog #slug").fill("new-variant")
-        page.locator("#create-variant-dialog #title").fill("New Variant")
-        page.locator("#create-variant-dialog button[type='submit']").click()
+        val dialog = page.openDialogByTrigger(
+            page.locator("button:has-text('New Variant')"),
+            "#create-variant-dialog",
+        )
+        dialog.locator("#slug").fill("new-variant")
+        dialog.locator("#title").fill("New Variant")
+        dialog.locator("button[type='submit']").click()
+        page.htmxSettle()
 
-        // Wait for HTMX swap
-        try {
-            page.waitForSelector(".variant-card[data-variant-id='new-variant']")
-        } catch (e: Exception) {
-            System.err.println("=== URL: ${page.url()} ===")
-            System.err.println("=== CONSOLE LOGS (${consoleLogs.size}) ===")
-            consoleLogs.forEach { System.err.println(it) }
-            System.err.println("=== NETWORK ERRORS (${networkErrors.size}) ===")
-            networkErrors.forEach { System.err.println(it) }
-            System.err.println("=== VARIANTS SECTION ===")
-            try {
-                System.err.println(page.locator("#variants-section").innerHTML())
-            } catch (_: Exception) {
-                System.err.println("(not found)")
-            }
-            System.err.println("=== ALL VARIANT CARDS ===")
-            System.err.println("count=${page.locator(".variant-card").count()}")
-            for (i in 0 until page.locator(".variant-card").count()) {
-                System.err.println("card[$i] data-variant-id=${page.locator(".variant-card").nth(i).getAttribute("data-variant-id")}")
-            }
-            System.err.println("=== ALL RESPONSES (${allResponses.size}) ===")
-            allResponses.forEach { System.err.println(it) }
-            throw e
-        }
+        // Web-first: retries until the swapped-in card is present.
+        assertThat(page.locator(".variant-card[data-variant-id='new-variant']")).isVisible()
         assertThat(page.locator(".variant-card")).hasCount(2)
     }
 
@@ -284,40 +255,18 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        // Capture console and network for debugging
-        val consoleLogs = mutableListOf<String>()
-        val networkErrors = mutableListOf<String>()
-        page.onConsoleMessage { msg -> consoleLogs.add("[${msg.type()}] ${msg.text()}") }
-        page.onResponse { resp ->
-            if (resp.status() >= 400) {
-                networkErrors.add("${resp.status()} ${resp.url()} body=${resp.text().take(500)}")
-            }
-        }
-
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(2)
 
-        // Click delete on the non-default variant (opens confirm dialog)
+        // Click delete on the non-default variant (opens confirm dialog).
         val nonDefaultCard = page.locator(".variant-card:not(.variant-card-default)")
-        nonDefaultCard.locator("button.ep-btn-destructive").click()
+        val confirm = page.openDialogByTrigger(
+            nonDefaultCard.locator("button.ep-btn-destructive"),
+            "#confirm-dialog",
+        )
+        confirm.locator("button.ep-btn-destructive").click()
+        page.htmxSettle()
 
-        // Confirm in the custom dialog
-        page.waitForSelector("#confirm-dialog[open]")
-        page.locator("#confirm-dialog button.ep-btn-destructive").click()
-
-        // Wait for HTMX swap to complete
-        try {
-            page.waitForFunction("document.querySelectorAll('.variant-card').length === 1")
-        } catch (e: Exception) {
-            System.err.println("=== URL: ${page.url()} ===")
-            System.err.println("=== CONSOLE LOGS (${consoleLogs.size}) ===")
-            consoleLogs.forEach { System.err.println(it) }
-            System.err.println("=== NETWORK ERRORS (${networkErrors.size}) ===")
-            networkErrors.forEach { System.err.println(it) }
-            System.err.println("=== FULL PAGE BODY ===")
-            System.err.println(page.content().take(5000))
-            throw e
-        }
         assertThat(page.locator(".variant-card")).hasCount(1)
     }
 
@@ -330,17 +279,19 @@ class VariantCardUiTest : BasePlaywrightTest() {
         // `LinkedHashSet<String>` fixes it; this test guards the fix.
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(1)
 
         // Open edit dialog on the default variant — it has empty attributes
         // because `createTenantAndTemplate()` doesn't seed any.
-        page.locator(".variant-card button[title='Edit variant']").click()
-        page.waitForSelector("#edit-variant-dialog[open]")
+        val dialog = page.openDialogByTrigger(
+            page.locator(".variant-card button[title='Edit variant']"),
+            "#edit-variant-dialog",
+        )
 
         // Dialog rendered without error and surfaces the add-attribute
         // picker (the empty-state UI affordance).
-        assertThat(page.locator("#edit-variant-dialog #edit-add-attr")).isVisible()
+        assertThat(dialog.locator("#edit-add-attr")).isVisible()
     }
 
     /**

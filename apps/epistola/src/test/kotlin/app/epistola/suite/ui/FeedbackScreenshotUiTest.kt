@@ -4,12 +4,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
-import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
-import com.microsoft.playwright.options.LoadState
-import com.microsoft.playwright.options.WaitForSelectorState
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
@@ -39,32 +35,29 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         )
     }
 
+    /**
+     * Opens the feedback dialog deterministically.
+     *
+     * The FAB + popover are injected by `feedback-fab.js`; the popover content
+     * (header + "New" button) is fetched by an `hx-trigger="load"` request, and
+     * the popover itself is a class-toggled div with no min-height — so until
+     * that fetch settles its box is height 0 (the #418-B flake). We therefore
+     * wait for the FAB, let the htmx load settle, open the popover, then open
+     * the native `<dialog>` via [openDialogByTrigger] (which waits for it to be
+     * `:modal` AND non-zero) and let the dialog's own submit-form load settle.
+     */
     private fun openFeedbackDialog() {
-        page.navigate("${baseUrl()}/tenants/${tenant.id}")
-        // The popover content (header + "New" button) is injected by an `hx-trigger="load"`
-        // request fired during FAB init. Wait for that fetch to settle before any selector
-        // check so we don't race the script execution that creates `#feedback-fab` itself.
-        page.waitForLoadState(LoadState.NETWORKIDLE)
-        page.waitForSelector(
-            "#feedback-fab",
-            Page.WaitForSelectorOptions()
-                .setState(WaitForSelectorState.VISIBLE)
-                .setTimeout(SELECTOR_TIMEOUT_MS),
+        gotoAndReady("/tenants/${tenant.id}")
+        assertThat(page.locator("#feedback-fab")).isVisible()
+        page.htmxSettle()
+        page.locator("#feedback-fab").click()
+        page.openDialogByTrigger(
+            page.locator(".feedback-popover-header button"),
+            "#feedback-fab-dialog",
         )
-        page.click("#feedback-fab")
-        page.waitForSelector(".feedback-popover--open")
-        page.waitForSelector(
-            ".feedback-popover-header button",
-            Page.WaitForSelectorOptions()
-                .setState(WaitForSelectorState.VISIBLE)
-                .setTimeout(SELECTOR_TIMEOUT_MS),
-        )
-        page.click(".feedback-popover-header button")
-        page.waitForSelector("#feedback-fab-dialog[open]")
-    }
-
-    companion object {
-        private const val SELECTOR_TIMEOUT_MS = 15_000.0
+        // The submit form is loaded into the dialog via htmx; wait for it so
+        // the dialog body (#fb-capture-region etc.) is present and rendered.
+        page.htmxSettle()
     }
 
     @Nested
@@ -95,9 +88,8 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         fun `capture region button shows selection overlay`() {
             openFeedbackDialog()
 
-            page.click("#fb-capture-region")
+            page.locator("#fb-capture-region").click()
 
-            page.waitForSelector(".fb-capture-overlay")
             assertThat(page.locator(".fb-capture-overlay")).isVisible()
             assertThat(page.locator(".fb-capture-hint")).isVisible()
             assertThat(page.locator(".fb-capture-hint")).containsText("Click and drag")
@@ -107,33 +99,28 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         fun `escape key cancels region selection and restores dialog`() {
             openFeedbackDialog()
 
-            page.click("#fb-capture-region")
-            page.waitForSelector(".fb-capture-overlay")
+            page.locator("#fb-capture-region").click()
+            assertThat(page.locator(".fb-capture-overlay")).isVisible()
 
             page.keyboard().press("Escape")
 
             assertThat(page.locator(".fb-capture-overlay")).hasCount(0)
-            page.waitForSelector("#feedback-fab-dialog[open]")
+            assertThat(page.locator("#feedback-fab-dialog")).isVisible()
         }
 
         @Test
-        @Disabled(
-            "Flaky on CI — waitForSelector(\".feedback-popover--open\") times out because the " +
-                "popover has display:block + width:340 but no min-height; its content is fetched " +
-                "async via HTMX hx-trigger=load, so until the response arrives the bounding box " +
-                "is height 0 and Playwright considers the element hidden. See issue #418.",
-        )
         fun `small selection is treated as cancellation`() {
             openFeedbackDialog()
 
-            page.click("#fb-capture-region")
-            page.waitForSelector(".fb-capture-overlay")
+            page.locator("#fb-capture-region").click()
+            assertThat(page.locator(".fb-capture-overlay")).isVisible()
 
             val overlay = page.locator(".fb-capture-overlay")
             overlay.dispatchEvent("mousedown", mapOf("clientX" to 100, "clientY" to 100))
             overlay.dispatchEvent("mouseup", mapOf("clientX" to 105, "clientY" to 105))
 
-            page.waitForSelector("#feedback-fab-dialog[open]")
+            // A sub-threshold drag is a cancel → the dialog is restored.
+            assertThat(page.locator("#feedback-fab-dialog")).isVisible()
         }
     }
 
@@ -148,6 +135,8 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
             val title = header.locator("h2")
             val closeButton = header.locator("button")
 
+            // Web-first gates the non-retrying boundingBox() reads below: the
+            // dialog is open and rendered (non-zero) by the time these pass.
             assertThat(title).isVisible()
             assertThat(closeButton).isVisible()
 

@@ -8,6 +8,7 @@ import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
 import com.microsoft.playwright.Tracing
+import com.microsoft.playwright.options.LoadState
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
@@ -46,7 +47,15 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
     @BeforeAll
     fun launchBrowser() {
         playwright = Playwright.create()
-        browser = playwright.chromium().launch(BrowserType.LaunchOptions().setHeadless(true))
+        browser = playwright.chromium().launch(
+            BrowserType.LaunchOptions()
+                .setHeadless(true)
+                // CI hardening: GitHub's ubuntu runners have a tiny /dev/shm; without
+                // --disable-dev-shm-usage Chromium tab crashes there surface as random
+                // selector timeouts (the #418 flake family). --no-sandbox is standard in
+                // CI containers; --disable-gpu removes a headless rendering variance source.
+                .setArgs(listOf("--disable-dev-shm-usage", "--no-sandbox", "--disable-gpu")),
+        )
     }
 
     @AfterAll
@@ -65,6 +74,17 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
                 .setSources(true),
         )
         page = context.newPage()
+        // Install the HTMX activity bookkeeper before any page script runs (and on
+        // every subsequent navigation/swap) so htmxSettle() can observe in-flight
+        // requests. Same addInitScript technique FeedbackScreenshotUiTest uses.
+        page.addInitScript(PlaywrightHtmxSupport.HTMX_BOOKKEEPER_SCRIPT)
+        // Centralized, explicit timeouts (single source of truth — replaces Playwright's
+        // implicit 30s default). Actions/assertions fail fast at 15s so a real hang is
+        // captured in the trace instead of holding CI for 30s; navigation stays generous
+        // for Spring cold-start paths.
+        context.setDefaultTimeout(ACTION_TIMEOUT_MS)
+        page.setDefaultTimeout(ACTION_TIMEOUT_MS)
+        page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS)
     }
 
     @AfterEach
@@ -89,6 +109,21 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
     protected fun baseUrl() = "http://localhost:$port"
 
     /**
+     * Navigates to [path] (relative to the test server root) and waits until the
+     * document and its inline `<script>` tags are parsed. The only sanctioned way to
+     * navigate in UI tests — never call [Page.navigate] directly (enforced by
+     * `UiTestHygieneTest`).
+     *
+     * Uses `DOMCONTENTLOADED`, not `NETWORKIDLE`: htmx `hx-trigger="load"` requests
+     * keep the network busy, so `NETWORKIDLE` is itself flaky. The "JS finished
+     * binding" guarantee is layered on top by the helpers in `PlaywrightHtmxSupport`.
+     */
+    protected fun gotoAndReady(path: String) {
+        page.navigate(baseUrl() + path)
+        page.waitForLoadState(LoadState.DOMCONTENTLOADED)
+    }
+
+    /**
      * Records per-test pass/fail before @AfterEach runs so trace persistence can branch on outcome.
      * TestWatcher fires after @AfterEach in JUnit 5, which would be too late.
      */
@@ -101,6 +136,12 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
     }
 
     companion object {
+        /** Default budget for actions and web-first assertions. */
+        const val ACTION_TIMEOUT_MS: Double = 15_000.0
+
+        /** Default budget for navigation — generous for Spring cold-start paths. */
+        const val NAVIGATION_TIMEOUT_MS: Double = 30_000.0
+
         private val lastTestFailed: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
 
         private val unsafeChars = Regex("[^A-Za-z0-9._-]+")

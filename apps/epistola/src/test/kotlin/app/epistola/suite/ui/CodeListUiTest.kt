@@ -19,8 +19,6 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
 
@@ -31,6 +29,11 @@ import java.util.regex.Pattern
  * the attribute form, the inline entries editor on the new-code-list page,
  * the variant dropdown rendering with `code — label`, and the per-entry
  * hide toggle via HTMX.
+ *
+ * The code-list *delete* HTMX contract (HX-Push-Url + list fragment, no
+ * `htmx:targetError`) is asserted deterministically at the handler level in
+ * [app.epistola.suite.handlers.CodeListHandlerHtmxTest] rather than through a
+ * browser — see issue #418 (Instance A).
  *
  * Setup is split between mediator commands (when the UI flow under test
  * isn't the focus — e.g. tenant + template creation, or seeding a code list
@@ -44,19 +47,12 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `create INLINE code list via new form lands on detail page with entries rendered`() {
         val tenant = withMediator { createUiTenant() }
 
-        val responses = mutableListOf<String>()
-        page.onResponse { r ->
-            if (r.request().method() == "POST") {
-                responses.add("POST ${r.url()} → ${r.status()}")
-            }
-        }
-
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
 
         // The inline editor's bootstrap script auto-seeds one empty row when
         // there's no prior submission, so we don't need to click add for the
         // first entry — only for the second.
-        page.waitForSelector("#entries-tbody tr")
+        assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Locales")
         page.locator("#slug").fill("locales")
@@ -71,22 +67,10 @@ class CodeListUiTest : BasePlaywrightTest() {
         // The page has multiple `type="submit"` buttons (form + nav-bar logout
         // forms). Match by visible text to disambiguate.
         page.locator("button:has-text('Create code list')").click()
-        try {
-            page.waitForURL(Pattern.compile(".*/code-lists/default/locales$"))
-        } catch (e: Exception) {
-            System.err.println("=== URL after submit: ${page.url()} ===")
-            System.err.println("=== POST responses ===")
-            responses.forEach { System.err.println(it) }
-            System.err.println("=== entriesJson value ===")
-            System.err.println(page.locator("#entriesJson").inputValue())
-            System.err.println("=== form errors ===")
-            page.locator(".form-error").all().forEach { System.err.println(it.textContent()) }
-            throw e
-        }
+        page.waitForURL(Pattern.compile(".*/code-lists/default/locales$"))
 
         // Detail page: both entries listed in the entries table.
-        val entryRows = page.locator("#entries-tbody tr")
-        assertThat(entryRows).hasCount(2)
+        assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entry-row-en")).isVisible()
         assertThat(page.locator("#entry-row-nl")).isVisible()
     }
@@ -95,8 +79,8 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `duplicate inline entry codes show validation error on new form`() {
         val tenant = withMediator { createUiTenant() }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/new")
-        page.waitForSelector("#entries-tbody tr")
+        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Duplicate Codes")
         page.locator("#slug").fill("duplicate-codes")
@@ -131,8 +115,8 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/new")
-        page.waitForSelector("#entries-tbody tr")
+        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Locales Again")
         page.locator("#slug").fill("locales")
@@ -161,7 +145,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/attributes/new")
+        gotoAndReady("/tenants/${tenant.id}/attributes/new")
 
         page.locator("#displayName").fill("Language")
         page.locator("#slug").fill("language")
@@ -217,15 +201,17 @@ class CodeListUiTest : BasePlaywrightTest() {
             t to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
-        page.locator("button:has-text('New Variant')").click()
-        page.waitForSelector("#create-variant-dialog[open]")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        val dialog = page.openDialogByTrigger(
+            page.locator("button:has-text('New Variant')"),
+            "#create-variant-dialog",
+        )
 
         // The create dialog hides all attribute rows by default — the user
         // picks attributes via the "Add attribute" picker. Reveal the
         // `my-locale` row, then assert on the now-visible dropdown.
-        page.locator("#create-add-attr").selectOption("default.my-locale")
-        page.locator("#create-variant-form [data-add-attr-button]").click()
+        dialog.locator("#create-add-attr").selectOption("default.my-locale")
+        dialog.locator("[data-add-attr-button]").click()
 
         val select = page.locator("#create-attr_default\\.my-locale")
         assertThat(select).isVisible()
@@ -268,13 +254,15 @@ class CodeListUiTest : BasePlaywrightTest() {
             t to template
         }
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/default/${template.id}")
-        page.locator("button:has-text('New Variant')").click()
-        page.waitForSelector("#create-variant-dialog[open]")
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        val dialog = page.openDialogByTrigger(
+            page.locator("button:has-text('New Variant')"),
+            "#create-variant-dialog",
+        )
 
         // Reveal the row via the add-attribute picker (rows start hidden).
-        page.locator("#create-add-attr").selectOption("default.status")
-        page.locator("#create-variant-form [data-add-attr-button]").click()
+        dialog.locator("#create-add-attr").selectOption("default.status")
+        dialog.locator("[data-add-attr-button]").click()
 
         val statusOptions = page.locator("#create-attr_default\\.status option")
         // "- Not set -" + only "active" (hidden "legacy" is filtered).
@@ -300,54 +288,11 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Filter to the tenant's `default` catalog — the bundled `system`
         // catalog also contributes code lists (bcp-47, iso-639-1,
         // iso-3166-1-alpha2) that the unfiltered listing would show.
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/code-lists?catalog=default")
 
         val rows = page.locator("table.ep-table tbody tr")
         assertThat(rows).hasCount(1)
         assertThat(rows.first().locator("a").first()).hasText("locales")
-    }
-
-    @Test
-    @Disabled(
-        "Flaky on CI — page.waitForSelector(\"#confirm-dialog[open]\") times out due to a race " +
-            "between the dialog script binding and Playwright's click. See issue #418 for the full " +
-            "analysis and remediation options (preferred: replace with a handler-level test that " +
-            "asserts the response contract directly).",
-    )
-    fun `delete code list from detail page swaps back to list without htmx target error`() {
-        val tenant = withMediator {
-            val t = createUiTenant()
-            val tenantId = TenantId(t.id)
-            CreateCodeList(
-                id = CodeListId(CodeListKey.of("deletable"), CatalogId.default(tenantId)),
-                displayName = "Deletable",
-                sourceType = CodeListSource.INLINE,
-                entries = listOf(CodeListEntry("test", "Test")),
-            ).execute()
-            t
-        }
-
-        val consoleMessages = mutableListOf<String>()
-        page.onConsoleMessage { msg -> consoleMessages.add("[${msg.type()}] ${msg.text()}") }
-
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists/default/deletable")
-        assertThat(page.locator("h1")).hasText("Deletable")
-
-        page.locator(".page-actions button:has-text('Delete')").click()
-        page.waitForSelector("#confirm-dialog[open]")
-        page.locator("#confirm-dialog button.ep-btn-destructive").click()
-
-        page.waitForURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
-        assertThat(page.locator("h1")).hasText("Code lists")
-        // Filter to the user's default catalog — the bundled system catalog
-        // contributes its own code lists that the unfiltered listing shows.
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/code-lists?catalog=default")
-        assertThat(page.locator("table.ep-table tbody tr")).hasCount(0)
-
-        assertTrue(
-            consoleMessages.none { it.contains("htmx:targetError") },
-            "Expected no htmx:targetError, got: $consoleMessages",
-        )
     }
 
     /**

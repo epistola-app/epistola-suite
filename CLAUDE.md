@@ -275,6 +275,18 @@ Shared test infrastructure lives in `modules/testing/` (not duplicated across mo
 
 To add tests to a new module: `testImplementation(project(":modules:testing"))` and extend `IntegrationTestBase`.
 
+### UI test rules (enforced — issue #418)
+
+UI tests must use the `PlaywrightHtmxSupport` helpers: navigate via
+`gotoAndReady`, await HTMX swaps via `htmxSettle()`, open dialogs via
+`openDialogByTrigger`, assert web-first. `waitForTimeout`, the `:visible`
+pseudo, blind `waitForSelector("…[open]")`, bare `page.navigate`, and forensic
+`System.err.println` dumps are **banned and fail the build** via
+`UiTestHygieneTest` (runs in `unitTest`). Prefer a handler-level
+`*HandlerHtmxTest` over a browser test for server-contract assertions
+(deterministic-only philosophy — no test-retry masking). Full rules:
+[`docs/testing.md`](docs/testing.md#ui-tests-playwright).
+
 ### When to Run Which Tests
 
 | Change type                           | Run                                            |

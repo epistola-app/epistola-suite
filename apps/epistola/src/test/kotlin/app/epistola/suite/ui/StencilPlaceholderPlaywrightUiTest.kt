@@ -56,7 +56,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
     fun `template fill override is preserved and rendered after stencil edit-and-publish`() {
         val variantUrl = withMediator { setupOverrideSurvivingPublish() }
 
-        page.navigate("${baseUrl()}$variantUrl")
+        gotoAndReady(variantUrl)
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
         page.waitForSelector(".canvas-placeholder")

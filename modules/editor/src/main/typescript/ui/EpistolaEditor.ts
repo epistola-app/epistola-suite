@@ -41,7 +41,11 @@ import {
   applyResolutionEventPolicy,
   startShortcutCommandExecution,
 } from '../shortcuts/resolver.js';
-import { LeaderModeController, type LeaderModeState } from '../shortcuts/leader-controller.js';
+import {
+  LeaderModeController,
+  type LeaderModeState,
+  type LeaderModeTimingConfig,
+} from '../shortcuts/leader-controller.js';
 import { validateCoreShortcutRegistriesOnStartup } from '../shortcuts/startup-validation.js';
 import {
   extractBlockSubtree,
@@ -125,18 +129,27 @@ export class EpistolaEditor extends LitElement {
   private _onCopy = this._handleCopy.bind(this);
   private _onPaste = this._handlePaste.bind(this);
   private _onBeforeUnload = this._handleBeforeUnload.bind(this);
+  // Mutable copy of the leader timing config. The default is byte-for-byte the
+  // shipped config; a `data-leader-timing` attribute (read in connectedCallback,
+  // test-only) may shrink these TTLs so timing-dependent behavior is observable
+  // deterministically rather than raced against a wall clock. LeaderModeController
+  // reads `timing.*` lazily at action time, so mutating this object before any
+  // user interaction takes effect with no controller change.
+  private readonly _leaderTiming: LeaderModeTimingConfig = {
+    ...EDITOR_SHORTCUTS_CONFIG.leader.timeout,
+  };
   private readonly _shortcutResolver = new ShortcutResolver<unknown>(
     mergeRegistries(getEditorShortcutRegistry(), getInsertDialogShortcutRegistry()),
     {
       fallbackContexts: [],
       chord: {
-        timeoutMs: EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs,
+        timeoutMs: this._leaderTiming.idleHideMs,
         cancelKeys: ['escape'],
       },
     },
   );
   private readonly _leaderController = new LeaderModeController({
-    timing: EDITOR_SHORTCUTS_CONFIG.leader.timeout,
+    timing: this._leaderTiming,
     getIdleTokens: getLeaderIdleTokensForCommandIds,
     fallbackTokens: getAllLeaderIdleTokens(),
     onStateChange: (state) => this._applyLeaderState(state),
@@ -277,6 +290,7 @@ export class EpistolaEditor extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    this._applyLeaderTimingOverride();
     validateCoreShortcutRegistriesOnStartup();
     window.addEventListener('keydown', this._onKeydown);
     window.addEventListener('copy', this._onCopy);
@@ -292,6 +306,27 @@ export class EpistolaEditor extends LitElement {
       this._cleanMode = localStorage.getItem(EpistolaEditor.CLEAN_MODE_KEY) === 'true';
     } catch {
       // localStorage may be unavailable
+    }
+  }
+
+  /**
+   * Test-only seam: a `data-leader-timing` attribute (JSON
+   * `{idleHideMs,resultHideMs,messageClearMs}`, any subset) shrinks the leader
+   * hint TTLs so timing-dependent behavior can be asserted deterministically
+   * with web-first assertions instead of racing a wall clock. Absent or
+   * malformed → production timing is left byte-for-byte unchanged.
+   */
+  private _applyLeaderTimingOverride(): void {
+    const raw = this.getAttribute('data-leader-timing');
+    if (!raw) return;
+    try {
+      const o = JSON.parse(raw) as Partial<LeaderModeTimingConfig>;
+      if (typeof o.idleHideMs === 'number') this._leaderTiming.idleHideMs = o.idleHideMs;
+      if (typeof o.resultHideMs === 'number') this._leaderTiming.resultHideMs = o.resultHideMs;
+      if (typeof o.messageClearMs === 'number')
+        this._leaderTiming.messageClearMs = o.messageClearMs;
+    } catch {
+      // Malformed override is ignored; production timing is unaffected.
     }
   }
 

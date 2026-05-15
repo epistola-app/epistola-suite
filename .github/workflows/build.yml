@@ -15,12 +15,13 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Compile once + frontend + SBOM. Primes the Gradle build cache so the
+  # parallel test jobs reuse compiled outputs instead of recompiling.
   build:
-    name: Build and Test
+    name: Build (compile + frontend + SBOM)
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: read
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -67,118 +68,29 @@ jobs:
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('gradle/libs.versions.toml') }}
+      - name: Compile (primes the Gradle build cache for the test jobs)
+        run: gradle testClasses
 
-      - name: Build and test
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gradle build
+      # setup-gradle does NOT share the local build cache across jobs, so we
+      # ship it explicitly. It is content-addressed (location-independent), so
+      # the test jobs' compileKotlin/compileJava tasks become FROM-CACHE.
+      - name: Package Gradle build cache
+        run: |
+          if [ -d "$HOME/.gradle/caches/build-cache-1" ]; then
+            tar -C "$HOME" -czf gradle-build-cache.tgz .gradle/caches/build-cache-1
+            echo "Packaged $(du -sh gradle-build-cache.tgz | cut -f1) Gradle build cache"
+          else
+            echo "::error::No Gradle build-cache-1 directory produced by the compile step"
+            exit 1
+          fi
 
-      - name: Upload Playwright traces and test reports on failure
-        if: failure()
+      - name: Upload Gradle build cache
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: playwright-failures
-          path: |
-            apps/epistola/build/playwright-traces/
-            apps/epistola/build/reports/tests/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Generate coverage report
-        run: gradle koverXmlReport
-
-      - name: Generate coverage badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        id: coverage
-        run: |
-          # Parse coverage percentage from Kover XML report
-          REPORT_FILE="build/reports/kover/report.xml"
-          if [ -f "$REPORT_FILE" ]; then
-            # Extract instruction coverage from the summary counter (last INSTRUCTION counter in report)
-            COVERED=$(grep -o 'type="INSTRUCTION"[^/]*' "$REPORT_FILE" | tail -1 | grep -oP 'covered="\K[0-9]+')
-            MISSED=$(grep -o 'type="INSTRUCTION"[^/]*' "$REPORT_FILE" | tail -1 | grep -oP 'missed="\K[0-9]+')
-
-            if [ -n "$COVERED" ] && [ -n "$MISSED" ]; then
-              TOTAL=$((COVERED + MISSED))
-              if [ "$TOTAL" -gt 0 ]; then
-                PERCENTAGE=$((COVERED * 100 / TOTAL))
-              else
-                PERCENTAGE=0
-              fi
-            else
-              PERCENTAGE=0
-            fi
-          else
-            PERCENTAGE=0
-          fi
-
-          echo "percentage=$PERCENTAGE" >> $GITHUB_OUTPUT
-
-          # Determine badge color based on coverage
-          if [ "$PERCENTAGE" -ge 80 ]; then
-            COLOR="brightgreen"
-          elif [ "$PERCENTAGE" -ge 60 ]; then
-            COLOR="green"
-          elif [ "$PERCENTAGE" -ge 40 ]; then
-            COLOR="yellow"
-          elif [ "$PERCENTAGE" -ge 20 ]; then
-            COLOR="orange"
-          else
-            COLOR="red"
-          fi
-
-          # Create shields.io endpoint JSON
-          mkdir -p .github/badges
-          cat > .github/badges/coverage.json << EOF
-          {"schemaVersion":1,"label":"coverage","message":"${PERCENTAGE}%","color":"${COLOR}"}
-          EOF
-
-          echo "color=$COLOR" >> $GITHUB_OUTPUT
-
-      - name: Commit coverage badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          FILE_PATH=".github/badges/coverage.json"
-
-          # Get current file SHA if it exists (required for updates)
-          CURRENT_SHA=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.sha' 2>/dev/null || echo "")
-
-          # Read new content and base64 encode it
-          NEW_CONTENT=$(base64 -w0 ${FILE_PATH})
-
-          # Check if content has changed by comparing with existing
-          if [ -n "$CURRENT_SHA" ]; then
-            EXISTING_CONTENT=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.content' | tr -d '\n')
-            if [ "$NEW_CONTENT" = "$EXISTING_CONTENT" ]; then
-              echo "No changes to coverage badge"
-              exit 0
-            fi
-          fi
-
-          # Create or update the file via GitHub API (commits are automatically signed)
-          if [ -n "$CURRENT_SHA" ]; then
-            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
-              --method PUT \
-              -f message="chore: update coverage badge [skip ci]" \
-              -f content="${NEW_CONTENT}" \
-              -f branch="main" \
-              -f sha="${CURRENT_SHA}"
-          else
-            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
-              --method PUT \
-              -f message="chore: update coverage badge [skip ci]" \
-              -f content="${NEW_CONTENT}" \
-              -f branch="main"
-          fi
-
-          echo "Coverage badge updated and committed (signed by GitHub)"
+          name: gradle-build-cache
+          path: gradle-build-cache.tgz
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Generate SBOMs
         run: |
@@ -246,10 +158,270 @@ jobs:
             frontend-vulnerability-report.txt
           retention-days: 7
 
+  # Unit + integration via the Kover-instrumented catch-all `test` task
+  # (excludes ui/perf). Runs on its own runner, in parallel with test-ui.
+  test-unit-integration:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup tools with mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
+        with:
+          cache-read-only: true
+
+      - name: Download Gradle build cache
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: gradle-build-cache
+
+      - name: Restore Gradle build cache (compile-once reuse)
+        run: |
+          mkdir -p "$HOME/.gradle/caches"
+          tar -C "$HOME" -xzf gradle-build-cache.tgz
+          echo "Restored Gradle build cache from the build job"
+
+      - name: Unit + integration tests (+ aggregated coverage)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gradle test koverXmlReport
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unit-integration-reports
+          path: "**/build/reports/tests/"
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload aggregated coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-report
+          path: build/reports/kover/report.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # UI tests via the hardened `uiTest` task (serial, 2g, --disable-dev-shm-usage).
+  # Dedicated runner = zero CPU contention (the #418 root cause). Re-run THIS job
+  # alone to satisfy the #418 "3 consecutive green UI runs" gate.
+  test-ui:
+    name: UI Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup tools with mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
+        with:
+          cache-read-only: true
+
+      - name: Download Gradle build cache
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: gradle-build-cache
+
+      - name: Restore Gradle build cache (compile-once reuse)
+        run: |
+          mkdir -p "$HOME/.gradle/caches"
+          tar -C "$HOME" -xzf gradle-build-cache.tgz
+          echo "Restored Gradle build cache from the build job"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      # Install the Chromium build + OS deps that match the pinned Playwright
+      # version BEFORE the test task. Idempotent (fast no-op on a cache hit); on a
+      # cache miss this stops the first UI test class from racing a browser install
+      # while it also tries to launch Chromium. Java Playwright reads the same
+      # ~/.cache/ms-playwright as the npm CLI of the same version.
+      - name: Install Playwright browsers
+        run: |
+          PLAYWRIGHT_VERSION=$(grep '^playwright\s*=' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "Installing Playwright $PLAYWRIGHT_VERSION (chromium, --with-deps)"
+          npx --yes "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium
+
+      - name: UI tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gradle uiTest
+
+      - name: Upload Playwright traces and test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-failures
+          path: |
+            apps/epistola/build/playwright-traces/
+            apps/epistola/build/reports/tests/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Badge only when BOTH test buckets are green (needs both) and only on a
+  # push to main (unchanged behavior). The Kover .ic comes solely from the
+  # instrumented `test` task, so coverage just consumes the report artifact.
+  coverage:
+    name: Coverage Badge
+    runs-on: ubuntu-latest
+    needs: [test-unit-integration, test-ui]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Download aggregated coverage report
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: coverage-report
+          path: build/reports/kover
+
+      - name: Generate coverage badge
+        id: coverage
+        run: |
+          # Parse coverage percentage from Kover XML report
+          REPORT_FILE="build/reports/kover/report.xml"
+          if [ -f "$REPORT_FILE" ]; then
+            # Extract instruction coverage from the summary counter (last INSTRUCTION counter in report)
+            COVERED=$(grep -o 'type="INSTRUCTION"[^/]*' "$REPORT_FILE" | tail -1 | grep -oP 'covered="\K[0-9]+')
+            MISSED=$(grep -o 'type="INSTRUCTION"[^/]*' "$REPORT_FILE" | tail -1 | grep -oP 'missed="\K[0-9]+')
+
+            if [ -n "$COVERED" ] && [ -n "$MISSED" ]; then
+              TOTAL=$((COVERED + MISSED))
+              if [ "$TOTAL" -gt 0 ]; then
+                PERCENTAGE=$((COVERED * 100 / TOTAL))
+              else
+                PERCENTAGE=0
+              fi
+            else
+              PERCENTAGE=0
+            fi
+          else
+            PERCENTAGE=0
+          fi
+
+          echo "percentage=$PERCENTAGE" >> $GITHUB_OUTPUT
+
+          # Determine badge color based on coverage
+          if [ "$PERCENTAGE" -ge 80 ]; then
+            COLOR="brightgreen"
+          elif [ "$PERCENTAGE" -ge 60 ]; then
+            COLOR="green"
+          elif [ "$PERCENTAGE" -ge 40 ]; then
+            COLOR="yellow"
+          elif [ "$PERCENTAGE" -ge 20 ]; then
+            COLOR="orange"
+          else
+            COLOR="red"
+          fi
+
+          # Create shields.io endpoint JSON
+          mkdir -p .github/badges
+          cat > .github/badges/coverage.json << EOF
+          {"schemaVersion":1,"label":"coverage","message":"${PERCENTAGE}%","color":"${COLOR}"}
+          EOF
+
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+
+      - name: Commit coverage badge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILE_PATH=".github/badges/coverage.json"
+
+          # Get current file SHA if it exists (required for updates)
+          CURRENT_SHA=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.sha' 2>/dev/null || echo "")
+
+          # Read new content and base64 encode it
+          NEW_CONTENT=$(base64 -w0 ${FILE_PATH})
+
+          # Check if content has changed by comparing with existing
+          if [ -n "$CURRENT_SHA" ]; then
+            EXISTING_CONTENT=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.content' | tr -d '\n')
+            if [ "$NEW_CONTENT" = "$EXISTING_CONTENT" ]; then
+              echo "No changes to coverage badge"
+              exit 0
+            fi
+          fi
+
+          # Create or update the file via GitHub API (commits are automatically signed)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
+              --method PUT \
+              -f message="chore: update coverage badge [skip ci]" \
+              -f content="${NEW_CONTENT}" \
+              -f branch="main" \
+              -f sha="${CURRENT_SHA}"
+          else
+            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
+              --method PUT \
+              -f message="chore: update coverage badge [skip ci]" \
+              -f content="${NEW_CONTENT}" \
+              -f branch="main"
+          fi
+
+          echo "Coverage badge updated and committed (signed by GitHub)"
+
   docker:
     name: Build and Push ${{ matrix.variant }} Docker Image
     runs-on: ubuntu-latest
-    needs: build
+    needs: [test-unit-integration, test-ui]
     if: github.event_name == 'release' || contains(github.event.pull_request.labels.*.name, 'publish')
     concurrency:
       group: docker-publish
