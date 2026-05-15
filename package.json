@@ -17,10 +17,10 @@
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "dependencies": {
-    "htmx.org": "2.0.4"
+    "htmx.org": "2.0.10"
   },
   "devDependencies": {
-    "oxfmt": "^0.47.0",
+    "oxfmt": "^0.50.0",
     "oxlint": "^1.57.0",
     "oxlint-tsgolint": "^0.22.0",
     "stylelint": "^17.11.0",
