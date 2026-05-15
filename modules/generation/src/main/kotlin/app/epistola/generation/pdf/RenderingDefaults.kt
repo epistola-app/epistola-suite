@@ -42,6 +42,7 @@ data class RenderingDefaults(
     val listMarginBottom: Float,
     val listMarginLeft: Float,
     val listItemMarginBottom: Float,
+    val bulletMarkers: Map<String, String>,
 
     // -- Tables --
     val tableBorderWidth: Float,
@@ -111,6 +112,12 @@ data class RenderingDefaults(
             listMarginBottom = 4f, // 1sp
             listMarginLeft = 20f, // 5sp
             listItemMarginBottom = 2f, // 0.5sp
+            bulletMarkers = mapOf(
+                "disc" to "•  ",
+                "circle" to "○  ",
+                "square" to "■  ",
+                "dash" to "–  ",
+            ),
             tableBorderWidth = 0.5f,
             tableBorderColorHex = "#808080",
             tableCellPadding = 0f, // 0pt (0sp) — cells render flush; padding via per-cell styles
@@ -145,6 +152,12 @@ data class RenderingDefaults(
 
     /** Component default styles for the given component type, or null if not defined. */
     fun componentDefaults(componentType: String): Map<String, Any>? = componentSpacing[componentType]
+
+    /**
+     * Marker glyph (plus trailing spacing) for a bullet list of the given style.
+     * Falls back to the `"disc"` marker for unknown styles so rendering always produces a marker.
+     */
+    fun bulletMarker(style: String = "disc"): String = bulletMarkers[style] ?: bulletMarkers.getValue("disc")
 
     /**
      * Engine version string for embedding in PDF metadata.
