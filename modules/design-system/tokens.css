@@ -192,6 +192,8 @@
   /* ── Sidebar width (editor-specific, kept here for central reference) ── */
   --ep-sidebar-width: 18rem;
 
+  /* ── Max widths (editor-specific, kept here for central reference) ── */
+  --ep-max-width-sm: 40rem;
   --ep-max-width-base: 56rem;
   --ep-max-width-lg: 72rem;
   --ep-max-width-xl: 88rem;

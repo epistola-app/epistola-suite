@@ -452,11 +452,10 @@
 
   /* System parameters section header */
   .expression-dialog-section-header {
-    padding: var(--ep-space-1) var(--ep-space-2);
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    padding: var(--ep-space-1) 0;
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    line-height: var(--ep-leading-normal);
     color: var(--ep-gray-500);
     border-top: 1px solid var(--ep-gray-200);
     margin-top: var(--ep-space-1);
