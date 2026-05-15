@@ -64,7 +64,10 @@ export class EpistolaPalette extends LitElement {
     );
     const insertIndex =
       type === PAGE_HEADER_TYPE
-        ? 0
+        ? // Append within the header zone — when a header already exists, the new
+          // one becomes the page-2+ (running) variant. applyInsertNode clamps to
+          // the zone size.
+          -1
         : type === PAGE_FOOTER_TYPE
           ? targetSlot.children.length
           : footerIndex >= 0
