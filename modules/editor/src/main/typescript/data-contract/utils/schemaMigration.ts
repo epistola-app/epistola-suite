@@ -5,6 +5,7 @@ import type {
   JsonSchemaProperty,
   JsonValue,
 } from '../types.js';
+import { findRefType } from '../ref-types.js';
 
 /**
  * Type of validation issue that can be auto-migrated.
@@ -87,13 +88,14 @@ function detectExampleMigrations(
     if (value === undefined) {
       // Missing field - check if required
       if (schema.required?.includes(propName)) {
+        const refType = findRefType(propSchema.$ref);
         migrations.push({
           exampleId,
           exampleName,
           path,
           issue: 'MISSING_REQUIRED',
           currentValue: undefined as unknown as JsonValue,
-          expectedType: propSchema.type as string,
+          expectedType: refType?.label ?? (propSchema.type as string),
           suggestedValue: null,
           autoMigratable: false,
         });
@@ -101,10 +103,27 @@ function detectExampleMigrations(
       continue;
     }
 
-    // Check type mismatch
-    const typeMigration = detectTypeMismatch(exampleId, exampleName, path, value, propSchema);
-    if (typeMigration) {
-      migrations.push(typeMigration);
+    // Check type mismatch — $ref-based properties use shape checking
+    const refType = findRefType(propSchema.$ref);
+    if (refType) {
+      const reason = refType.shallowShapeCheck(value);
+      if (reason !== null) {
+        migrations.push({
+          exampleId,
+          exampleName,
+          path,
+          issue: 'TYPE_MISMATCH',
+          currentValue: value,
+          expectedType: refType.label,
+          suggestedValue: null,
+          autoMigratable: false,
+        });
+      }
+    } else {
+      const typeMigration = detectTypeMismatch(exampleId, exampleName, path, value, propSchema);
+      if (typeMigration) {
+        migrations.push(typeMigration);
+      }
     }
 
     // Recursively check nested objects
@@ -130,8 +149,11 @@ function detectExampleMigrations(
         const item = value[i];
         const itemPath = `${path}[${i}]`;
 
+        const itemRefType = findRefType(propSchema.items.$ref);
+
         // For object items, recurse to check required fields and nested types
         if (
+          !itemRefType &&
           propSchema.items.type === 'object' &&
           propSchema.items.properties &&
           typeof item === 'object' &&
@@ -146,6 +168,20 @@ function detectExampleMigrations(
             itemPath,
           );
           migrations.push(...nested);
+        } else if (itemRefType) {
+          const reason = itemRefType.shallowShapeCheck(item);
+          if (reason !== null) {
+            migrations.push({
+              exampleId,
+              exampleName,
+              path: itemPath,
+              issue: 'TYPE_MISMATCH',
+              currentValue: item,
+              expectedType: itemRefType.label,
+              suggestedValue: null,
+              autoMigratable: false,
+            });
+          }
         } else {
           const itemMigration = detectTypeMismatch(
             exampleId,
