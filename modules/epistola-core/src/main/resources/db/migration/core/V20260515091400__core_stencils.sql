@@ -47,6 +47,8 @@ COMMENT ON COLUMN stencils.created_by IS 'User who created this stencil';
 -- STENCIL VERSIONS
 -- ============================================================================
 
+-- parameter_schema describes the inputs a consumer must bind when inserting
+-- this version into a template (JSON Schema; NULL = no parameters).
 CREATE TABLE stencil_versions (
     id INTEGER NOT NULL,
     tenant_key TENANT_KEY NOT NULL,
@@ -58,6 +60,7 @@ CREATE TABLE stencil_versions (
     published_at TIMESTAMP WITH TIME ZONE,
     archived_at TIMESTAMP WITH TIME ZONE,
     created_by UUID REFERENCES users(id),
+    parameter_schema JSONB,
     PRIMARY KEY (tenant_key, catalog_key, stencil_key, id),
     FOREIGN KEY (tenant_key, catalog_key, stencil_key) REFERENCES stencils(tenant_key, catalog_key, id) ON DELETE CASCADE,
     CHECK (status IN ('draft', 'published', 'archived')),
@@ -86,3 +89,7 @@ COMMENT ON COLUMN stencil_versions.created_at IS 'When the version was created';
 COMMENT ON COLUMN stencil_versions.published_at IS 'When the version was published (frozen). NULL while in draft.';
 COMMENT ON COLUMN stencil_versions.archived_at IS 'When the version was archived. NULL while draft or published.';
 COMMENT ON COLUMN stencil_versions.created_by IS 'User who created this version';
+COMMENT ON COLUMN stencil_versions.parameter_schema IS
+    'Optional JSON Schema (object, properties+required) describing parameters '
+    'consumers must bind when inserting this stencil version into a template. '
+    'NULL = no parameters.';

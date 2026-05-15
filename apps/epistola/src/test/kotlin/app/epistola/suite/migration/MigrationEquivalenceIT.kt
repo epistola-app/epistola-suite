@@ -70,8 +70,7 @@ class MigrationEquivalenceIT {
         }
     }
 
-    private fun jdbcUrlFor(pg: PostgreSQLContainer, db: String): String =
-        "jdbc:postgresql://${pg.host}:${pg.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)}/$db"
+    private fun jdbcUrlFor(pg: PostgreSQLContainer, db: String): String = "jdbc:postgresql://${pg.host}:${pg.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)}/$db"
 
     private fun migrate(pg: PostgreSQLContainer, db: String, location: String) {
         Flyway.configure()

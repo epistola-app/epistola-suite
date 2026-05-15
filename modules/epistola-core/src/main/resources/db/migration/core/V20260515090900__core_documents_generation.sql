@@ -4,12 +4,14 @@
 -- Each request represents ONE document. batch_key groups related requests.
 -- Enables horizontal scaling: any instance can claim requests independently.
 -- IDs are client-provided UUIDv7 for testability and distributed system properties.
+--
+-- Binary content lives in content_store (pluggable backend), not inline.
 
 -- ============================================================================
 -- DOCUMENTS
 -- ============================================================================
 
--- Generated documents stored in PostgreSQL BYTEA
+-- Generated document metadata. Content is stored in content_store.
 -- Partitioned by created_at for efficient TTL enforcement via partition dropping
 CREATE TABLE documents (
     id UUID NOT NULL,
@@ -22,7 +24,6 @@ CREATE TABLE documents (
     correlation_id VARCHAR(255),
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
     size_bytes BIGINT NOT NULL,
-    content BYTEA NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     PRIMARY KEY (id, created_at),
@@ -53,7 +54,6 @@ COMMENT ON COLUMN documents.filename IS 'Output filename (e.g., invoice-2026-001
 COMMENT ON COLUMN documents.correlation_id IS 'Client-provided ID for tracking documents across external systems';
 COMMENT ON COLUMN documents.content_type IS 'MIME type of the generated document';
 COMMENT ON COLUMN documents.size_bytes IS 'Document size in bytes';
-COMMENT ON COLUMN documents.content IS 'Raw document bytes (PDF). Future: migrate to object storage.';
 COMMENT ON COLUMN documents.created_at IS 'When the document was generated';
 COMMENT ON COLUMN documents.created_by IS 'User who triggered the generation';
 
@@ -84,6 +84,7 @@ CREATE TABLE document_generation_requests (
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE,
+    routing_key TEXT,
     PRIMARY KEY (id, created_at),
 
     -- Ensure either version_key OR environment_key is set, not both
