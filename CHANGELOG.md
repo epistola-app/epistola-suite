@@ -52,6 +52,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 ### Documentation
 
 - **Font rendering model documented.** New [`docs/fonts.md`](docs/fonts.md) captures how fonts resolve across the PDF, editor-preview, and PDF/A paths and the known gaps: `fontFamily` is parsed and inherited but **ignored by the PDF renderer**, bold+italic collapses to bold, and standard Helvetica's WinAnsi (CP1252) encoding silently drops the `circle` (U+25CB) and `square` (U+25A0) bullet markers in non-PDF/A output ([#401](https://github.com/epistola-app/epistola-suite/issues/401)). Also records the pending bullet-marker font-policy options and the customer-uploaded-font roadmap. [`docs/pdfa.md`](docs/pdfa.md) now cross-links it, and its "documents render identically in both modes" claim is corrected to note the WinAnsi divergence.
+
 ### Removed
 
 - **`hideOnFirstPage` prop on `pageheader` nodes.** Superseded by the two-`pageheader` positional model ([#399](https://github.com/epistola-app/epistola-suite/issues/399)): an author who wants "no header on page 1, normal header from page 2" now adds an empty first-page header. The prop remains on `pagefooter` nodes (footer variants are not in scope for this iteration). Pre-production: no migration path provided.
