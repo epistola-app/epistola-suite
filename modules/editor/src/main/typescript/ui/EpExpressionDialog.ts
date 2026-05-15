@@ -19,6 +19,7 @@ import {
   isStaleFieldReference,
 } from './expression-builder.js';
 import { JSONATA_QUICK_REFERENCE } from './expression-dialog.js';
+import { icon } from './icons.js';
 import type { ExpressionDialogResult } from './expression-dialog.js';
 
 /*
@@ -86,6 +87,7 @@ export class EpExpressionDialog extends LitElement {
   private _inputRef: Ref<HTMLTextAreaElement> = createRef();
   private _resolve: ((value: ExpressionDialogResult) => void) | null = null;
   private _previewTimer: ReturnType<typeof setTimeout> | null = null;
+  private _warningTimer: ReturnType<typeof setTimeout> | null = null;
   private _previewGeneration = 0;
 
   // -----------------------------------------------------------------------
@@ -267,6 +269,7 @@ export class EpExpressionDialog extends LitElement {
    */
   public close(value: string | null): void {
     this._cancelPreview();
+    this._cancelWarningTimer();
     this._previewGeneration += 1; // discard in-flight previews
 
     const dialog = this._dialogRef.value;
@@ -356,7 +359,7 @@ export class EpExpressionDialog extends LitElement {
   private _switchMode(mode: 'builder' | 'code'): void {
     if (mode === this._mode) {
       // Clicking the already-active mode dismisses any warning
-      this._modeWarning = '';
+      this._clearModeWarning();
       return;
     }
 
@@ -370,10 +373,11 @@ export class EpExpressionDialog extends LitElement {
         this._modeWarning = stale
           ? `Field '${this._expression.trim()}' not found. The loop alias may have changed.`
           : 'This expression is too complex for Builder mode.';
+        this._scheduleWarningDismiss();
         return;
       }
 
-      this._modeWarning = '';
+      this._clearModeWarning();
       if (parsed) {
         this._builderFieldPath = parsed.fieldPath;
         this._builderFormatPattern = parsed.formatPattern;
@@ -384,7 +388,7 @@ export class EpExpressionDialog extends LitElement {
     } else {
       // Builder → Code: sync expression
       this._expression = this._builderExpression;
-      this._modeWarning = '';
+      this._clearModeWarning();
     }
 
     this._mode = mode;
@@ -403,6 +407,25 @@ export class EpExpressionDialog extends LitElement {
   private _canSwitchToBuilder(): boolean {
     if (!this._expression.trim()) return true;
     return tryParseAsBuilderExpression(this._expression.trim(), this.fieldPaths) !== null;
+  }
+
+  private _clearModeWarning(): void {
+    this._cancelWarningTimer();
+    this._modeWarning = '';
+  }
+
+  private _cancelWarningTimer(): void {
+    if (this._warningTimer !== null) {
+      clearTimeout(this._warningTimer);
+      this._warningTimer = null;
+    }
+  }
+
+  private _scheduleWarningDismiss(): void {
+    this._cancelWarningTimer();
+    this._warningTimer = setTimeout(() => {
+      this._modeWarning = '';
+    }, 3000);
   }
 
   // -----------------------------------------------------------------------
@@ -446,7 +469,8 @@ export class EpExpressionDialog extends LitElement {
     const ta = this._inputRef.value;
     if (!ta) return;
     ta.style.height = 'auto';
-    ta.style.height = `${ta.scrollHeight}px`;
+    const maxHeight = 160; // must match CSS max-height
+    ta.style.height = `${Math.min(ta.scrollHeight, maxHeight)}px`;
   }
 
   private _onDateFormatChange(e: Event): void {
@@ -560,7 +584,7 @@ export class EpExpressionDialog extends LitElement {
     const builderDisabled = !this._canSwitchToBuilder();
     return html`
       <div class="expression-dialog-header">
-        <label class="expression-dialog-label" for="expression-dialog-input"> ${this.label} </label>
+        <span class="expression-dialog-title">${this.label}</span>
         <div class="expression-dialog-mode-toggle">
           <button
             type="button"
@@ -594,7 +618,7 @@ export class EpExpressionDialog extends LitElement {
       >
         <div class="expression-dialog-builder-row">
           <div class="expression-dialog-builder-field">
-            <label for="expression-dialog-field">Field</label>
+            <label class="expression-dialog-field-label" for="expression-dialog-field">Field</label>
             <select
               class="expression-dialog-field-select"
               id="expression-dialog-field"
@@ -608,7 +632,9 @@ export class EpExpressionDialog extends LitElement {
             class="expression-dialog-builder-format"
             style="display: ${this._isDateFieldSelected ? '' : 'none'}"
           >
-            <label for="expression-dialog-builder-format">Format</label>
+            <label class="expression-dialog-field-label" for="expression-dialog-builder-format">
+              Format
+            </label>
             <select
               class="expression-dialog-builder-format-select"
               id="expression-dialog-builder-format"
@@ -635,6 +661,11 @@ export class EpExpressionDialog extends LitElement {
         data-mode-panel="code"
         style="display: ${this._mode === 'code' || !this.enableBuilderMode ? '' : 'none'}"
       >
+        ${this.enableBuilderMode
+          ? html`<label class="expression-dialog-field-label" for="expression-dialog-input"
+              >Expression</label
+            >`
+          : nothing}
         <textarea
           class="expression-dialog-input ${this._inputValidationClass()}"
           id="expression-dialog-input"
@@ -677,8 +708,11 @@ export class EpExpressionDialog extends LitElement {
               ? 'loading'
               : 'empty';
 
-    const text =
-      this._previewState === 'empty' ? 'Start typing to see a preview...' : this._previewText;
+    const emptyText =
+      this._mode === 'builder' && this.enableBuilderMode
+        ? 'Select a field to see a preview...'
+        : 'Start typing to see a preview...';
+    const text = this._previewState === 'empty' ? emptyText : this._previewText;
 
     return html`
       <div class="expression-dialog-preview ${stateClass}" aria-live="polite" aria-atomic="true">
@@ -770,13 +804,19 @@ export class EpExpressionDialog extends LitElement {
       <div class="expression-dialog-paths">
         <div class="expression-dialog-paths-header">
           <span>Available fields</span>
-          <input
-            type="text"
-            class="expression-dialog-filter"
-            placeholder="Filter..."
-            .value=${this._fieldFilter}
-            @input=${this._onFieldFilterInput}
-          />
+          <div class="expression-dialog-filter-wrap">
+            <input
+              type="text"
+              class="expression-dialog-filter"
+              placeholder="Filter..."
+              aria-label="Filter available fields"
+              .value=${this._fieldFilter}
+              @input=${this._onFieldFilterInput}
+            />
+            <span class="expression-dialog-filter-icon" aria-hidden="true">
+              ${icon('search', 16)}
+            </span>
+          </div>
         </div>
         <ul class="expression-dialog-paths-list">
           ${this._renderFieldPathsSection('Template variables', dataFields)}
@@ -792,16 +832,21 @@ export class EpExpressionDialog extends LitElement {
   // -----------------------------------------------------------------------
 
   private _insertQuickRef(code: string): void {
+    if (this._mode === 'builder' && this.enableBuilderMode) {
+      this._switchMode('code');
+    }
     this._expression = code;
     this._schedulePreview(code);
-    const input = this._inputRef.value;
-    if (input) input.focus();
+    requestAnimationFrame(() => {
+      const input = this._inputRef.value;
+      if (input) input.focus();
+    });
   }
 
   private _renderQuickReference(): TemplateResult {
     return html`
       <details class="expression-dialog-reference" ?open=${this._refExpanded}>
-        <summary class="expression-dialog-ref-summary">JSONata Quick Reference</summary>
+        <summary class="expression-dialog-ref-summary">JSONata quick reference</summary>
         <div class="expression-dialog-ref-list">
           ${JSONATA_QUICK_REFERENCE.map(
             (entry) => html`
@@ -843,13 +888,16 @@ export class EpExpressionDialog extends LitElement {
           ${this.enableBuilderMode
             ? this._renderModeToggle()
             : html`
-                <label class="expression-dialog-label" for="expression-dialog-input">
+                <label class="expression-dialog-field-label" for="expression-dialog-input">
                   ${this.label}
                 </label>
               `}
-          ${this.enableBuilderMode ? this._renderBuilderPanel() : nothing}
-          ${this.enableBuilderMode ? this._renderModeWarning() : nothing} ${this._renderCodePanel()}
-          ${this._renderPreview()} ${this._renderFieldPaths()} ${this._renderQuickReference()}
+          <div class="expression-dialog-body">
+            ${this.enableBuilderMode ? this._renderBuilderPanel() : nothing}
+            ${this.enableBuilderMode ? this._renderModeWarning() : nothing}
+            ${this._renderCodePanel()} ${this._renderPreview()} ${this._renderFieldPaths()}
+            ${this._renderQuickReference()}
+          </div>
           <div class="expression-dialog-actions">
             <button type="button" class="expression-dialog-btn cancel" @click=${this._onCancel}>
               Cancel

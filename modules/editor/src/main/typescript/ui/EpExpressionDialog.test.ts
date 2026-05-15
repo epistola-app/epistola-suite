@@ -62,7 +62,7 @@ describe('EpExpressionDialog', () => {
     component.label = 'Loop Expression';
     await component.updateComplete;
 
-    const label = component.querySelector('.expression-dialog-label');
+    const label = component.querySelector('.expression-dialog-field-label');
     expect(label?.textContent?.trim()).toBe('Loop Expression');
   });
 
@@ -540,6 +540,37 @@ describe('EpExpressionDialog builder mode', () => {
     expect(builderBtn?.classList.contains('disabled')).toBe(true);
     fresh.close(null);
     fresh.remove();
+  });
+
+  it('auto-dismisses mode warning after 3 seconds', async () => {
+    vi.useFakeTimers();
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = 'name & " " & total';
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const builderBtn = fresh.querySelector<HTMLButtonElement>('.mode-btn[data-mode="builder"]');
+    builderBtn?.click();
+    await fresh.updateComplete;
+
+    expect(fresh.querySelector('.expression-dialog-mode-warning')).not.toBeNull();
+
+    vi.advanceTimersByTime(3000);
+    await fresh.updateComplete;
+
+    expect(fresh.querySelector('.expression-dialog-mode-warning')).toBeNull();
+
+    fresh.close(null);
+    fresh.remove();
+    vi.useRealTimers();
   });
 
   it('syncs builder selection to code expression', async () => {
@@ -1081,5 +1112,34 @@ describe('EpExpressionDialog quick reference', () => {
     const row = component.querySelector('.expression-dialog-ref-row');
     expect(row?.getAttribute('tabindex')).toBe('0');
     expect(row?.getAttribute('role')).toBe('button');
+  });
+
+  it('switches to code mode when a quick-reference row is clicked in builder mode', async () => {
+    const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+
+    component.enableBuilderMode = true;
+    component.fieldPaths = testFieldPaths;
+    component.show();
+    await component.updateComplete;
+
+    // Should start in builder mode
+    const builderPanel = component.querySelector('.expression-dialog-builder');
+    expect(builderPanel?.getAttribute('style')).not.toContain('display: none');
+
+    const rows = component.querySelectorAll('.expression-dialog-ref-row');
+    const concatRow = Array.from(rows).find((el) => el.textContent?.includes('Concatenate'));
+    (concatRow as HTMLElement)?.click();
+    await component.updateComplete;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    // Should now be in code mode with the expression inserted
+    const codePanel = component.querySelector('.expression-dialog-code');
+    expect(codePanel?.getAttribute('style')).not.toContain('display: none');
+
+    const textarea = component.querySelector<HTMLTextAreaElement>('.expression-dialog-input');
+    expect(textarea?.value).toContain('address.line1');
+
+    component.close(null);
   });
 });
