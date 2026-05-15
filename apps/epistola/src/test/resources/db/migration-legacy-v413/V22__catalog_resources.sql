@@ -1,0 +1,5 @@
+-- catalog_resources join table is no longer needed.
+-- Resources now have catalog_key directly in their own tables,
+-- making the join table redundant.
+-- This migration is intentionally empty (the table was never created
+-- because V18 no longer creates catalog_templates either).
