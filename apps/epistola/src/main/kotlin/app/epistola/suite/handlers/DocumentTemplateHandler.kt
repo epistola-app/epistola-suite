@@ -227,6 +227,12 @@ class DocumentTemplateHandler(
         val context = GetEditorContext(variantId = variantId).query()
             ?: return ServerResponse.notFound().build()
 
+        // Test-only seam (issue #418, Instance C): a `leaderTiming` query
+        // param (JSON) lets UI tests shrink the editor's leader-hint TTLs so
+        // their auto-hide behavior is deterministically observable instead of
+        // raced against a wall clock. Absent in production → attribute omitted.
+        val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
+
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -239,6 +245,7 @@ class DocumentTemplateHandler(
                 "templateModel" to context.templateModel,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
+                "leaderTiming" to leaderTiming,
             ),
         )
     }

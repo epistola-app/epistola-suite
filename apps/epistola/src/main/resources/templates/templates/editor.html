@@ -67,7 +67,10 @@
         </a>
         <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
     </nav>
-    <div id="editor-container" data-testid="editor-container" class="editor-container"></div>
+    <!-- data-leader-timing is a test-only seam (issue #418): present only when
+         the ?leaderTiming= query param is supplied; omitted in production. -->
+    <div id="editor-container" data-testid="editor-container" class="editor-container"
+         th:attr="data-leader-timing=${leaderTiming}"></div>
 
     <script th:src="@{/feedback/feedback-capture.js}"></script>
     <script type="module" th:inline="javascript">
