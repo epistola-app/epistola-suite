@@ -60,6 +60,11 @@ COMMENT ON COLUMN template_variants.created_by IS 'User who created this variant
 -- Version history with lifecycle states
 -- id is the version number (1-200) per variant, not UUID
 -- Composite PK (tenant_key, catalog_key, template_key, variant_key, id) matches template_variants hierarchy
+--
+-- rendering_defaults_version + resolved_theme snapshot the deterministic
+-- rendering inputs at publish; contract_version + referenced_paths link the
+-- version to its data contract. The contract_version FK is added in
+-- V20260515090800__core_contract_versions.sql once that table exists.
 CREATE TABLE template_versions (
     id INTEGER NOT NULL,
     tenant_key TENANT_KEY NOT NULL,
@@ -72,6 +77,10 @@ CREATE TABLE template_versions (
     published_at TIMESTAMP WITH TIME ZONE,
     archived_at TIMESTAMP WITH TIME ZONE,
     created_by UUID REFERENCES users(id),
+    rendering_defaults_version INTEGER,
+    resolved_theme JSONB,
+    contract_version INTEGER,
+    referenced_paths JSONB NOT NULL DEFAULT '[]'::jsonb,
     PRIMARY KEY (tenant_key, catalog_key, template_key, variant_key, id),
     FOREIGN KEY (tenant_key, catalog_key, template_key, variant_key) REFERENCES template_variants(tenant_key, catalog_key, template_key, id) ON DELETE CASCADE,
     CHECK (status IN ('draft', 'published', 'archived')),
@@ -101,6 +110,8 @@ COMMENT ON COLUMN template_versions.created_at IS 'When the version was created'
 COMMENT ON COLUMN template_versions.published_at IS 'When the version was published (frozen). NULL while in draft.';
 COMMENT ON COLUMN template_versions.archived_at IS 'When the version was archived. NULL while draft or published.';
 COMMENT ON COLUMN template_versions.created_by IS 'User who created this version';
+COMMENT ON COLUMN template_versions.contract_version IS 'Contract version this template version is associated with. NULL if the template has no contract.';
+COMMENT ON COLUMN template_versions.referenced_paths IS 'Data contract paths referenced by expressions in the template model. Computed on save. Used for precise contract compatibility checking.';
 
 -- ============================================================================
 -- ENVIRONMENT ACTIVATIONS
@@ -138,6 +149,10 @@ COMMENT ON COLUMN environment_activations.activated_at IS 'When this version was
 -- Variant attribute definitions registry (tenant-scoped, catalog-scoped)
 -- Defines which attribute keys are allowed on variants, with optional value constraints
 -- Composite PK (tenant_key, catalog_key, id) ensures attribute names are unique per catalog
+--
+-- Binding to a code list (code_list_catalog_key / code_list_slug columns + the
+-- attr_* constraints) is added in V20260515091700__core_code_lists.sql, once
+-- the CODE_LIST_KEY domain and code_lists table exist.
 CREATE TABLE variant_attribute_definitions (
     id ATTRIBUTE_KEY NOT NULL,
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

@@ -1,19 +1,20 @@
--- Convert app_metadata.value from TEXT to JSONB so it can carry structured
--- values (e.g. the installation identity row under key 'installation' holds
--- {id, createdAt}, and hub credentials live under 'support.hub.credentials').
+-- Key-value metadata table for application-level settings and internal state.
 --
--- The only existing row is the V1-seeded 'demo_version' = '0.0.0', which is
--- not read by any caller in the current codebase (verified) — drop it
--- before the type change so the cast doesn't need to round-trip a non-JSON
--- literal.
-DELETE FROM app_metadata WHERE key = 'demo_version';
+-- `value` is JSONB so it can carry structured values: the installation
+-- identity lives under key 'installation' as {id, createdAt}, and hub
+-- credentials live under 'support.hub.credentials'.
+CREATE TABLE app_metadata (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
 
-ALTER TABLE app_metadata
-    ALTER COLUMN value TYPE JSONB
-    USING to_jsonb(value);
+CREATE INDEX idx_app_metadata_key ON app_metadata(key);
 
-COMMENT ON COLUMN app_metadata.value
-    IS 'Setting value as JSONB (string, number, object, array, …)';
+COMMENT ON TABLE app_metadata IS 'Key-value store for application-level settings and internal state';
+COMMENT ON COLUMN app_metadata.key IS 'Setting identifier (e.g., demo_version)';
+COMMENT ON COLUMN app_metadata.value IS 'Setting value as JSONB (string, number, object, array, …)';
+COMMENT ON COLUMN app_metadata.updated_at IS 'When this setting was last changed';
 
 -- Initialise the installation identity exactly once per database.
 --
@@ -26,6 +27,9 @@ COMMENT ON COLUMN app_metadata.value
 --
 -- The createdAt timestamp is formatted as ISO-8601 UTC with microseconds and
 -- a literal 'Z' suffix so Jackson's Instant deserialiser parses it cleanly.
+--
+-- This is the only data step in the baseline: InstallationService.get() fails
+-- loudly if the row is missing and there is no runtime bootstrap.
 INSERT INTO app_metadata (key, value)
 VALUES (
     'installation',

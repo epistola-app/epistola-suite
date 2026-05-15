@@ -9,8 +9,13 @@ CREATE TABLE api_keys (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_used_at TIMESTAMPTZ,
     expires_at   TIMESTAMPTZ,
-    created_by   UUID REFERENCES users(id) ON DELETE SET NULL
+    created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at   TIMESTAMPTZ,
+    revoked_by   UUID REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash);
 CREATE INDEX idx_api_keys_tenant_key ON api_keys(tenant_key);
+
+COMMENT ON COLUMN api_keys.revoked_at IS 'When this API key was revoked (set when enabled flips to false)';
+COMMENT ON COLUMN api_keys.revoked_by IS 'User who revoked this API key';

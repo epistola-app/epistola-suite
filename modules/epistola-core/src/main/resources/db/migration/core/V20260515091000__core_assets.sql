@@ -1,8 +1,8 @@
 -- Asset storage for tenant-scoped, catalog-scoped images
 --
--- Assets are immutable binary objects (images) stored in PostgreSQL BYTEA.
--- Consistent with the existing documents.content pattern.
--- A 5MB per-image limit keeps storage reasonable.
+-- Assets are immutable binary objects (images). Metadata lives here; the bytes
+-- live in content_store (pluggable backend). A 5MB per-image limit keeps
+-- storage reasonable.
 
 -- ============================================================================
 -- DOMAIN TYPE
@@ -23,7 +23,6 @@ CREATE TABLE assets (
     size_bytes BIGINT NOT NULL,
     width INTEGER,
     height INTEGER,
-    content BYTEA NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
 
@@ -53,6 +52,5 @@ COMMENT ON COLUMN assets.media_type IS 'MIME type: image/png, image/jpeg, image/
 COMMENT ON COLUMN assets.size_bytes IS 'File size in bytes (max 5MB)';
 COMMENT ON COLUMN assets.width IS 'Image width in pixels (NULL for SVG)';
 COMMENT ON COLUMN assets.height IS 'Image height in pixels (NULL for SVG)';
-COMMENT ON COLUMN assets.content IS 'Raw image bytes';
 COMMENT ON COLUMN assets.created_at IS 'When the asset was uploaded';
 COMMENT ON COLUMN assets.created_by IS 'User who uploaded the asset';
