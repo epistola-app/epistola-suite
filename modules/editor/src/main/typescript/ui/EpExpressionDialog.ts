@@ -710,8 +710,8 @@ export class EpExpressionDialog extends LitElement {
 
     const emptyText =
       this._mode === 'builder' && this.enableBuilderMode
-        ? 'Select a field to see a preview...'
-        : 'Start typing to see a preview...';
+        ? 'Select a field to see a preview'
+        : 'Start typing to see a preview';
     const text = this._previewState === 'empty' ? emptyText : this._previewText;
 
     return html`
@@ -846,7 +846,12 @@ export class EpExpressionDialog extends LitElement {
   private _renderQuickReference(): TemplateResult {
     return html`
       <details class="expression-dialog-reference" ?open=${this._refExpanded}>
-        <summary class="expression-dialog-ref-summary">JSONata quick reference</summary>
+        <summary class="expression-dialog-ref-summary">
+          <span>JSONata quick reference</span>
+          <span class="expression-dialog-ref-chevron" aria-hidden="true">
+            ${icon('chevron-right', 16)}
+          </span>
+        </summary>
         <div class="expression-dialog-ref-list">
           ${JSONATA_QUICK_REFERENCE.map(
             (entry) => html`

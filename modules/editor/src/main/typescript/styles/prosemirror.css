@@ -360,6 +360,7 @@
       background: var(--ep-gray-50);
       color: var(--ep-gray-500);
       border: 1px solid var(--ep-gray-200);
+      text-align: center;
     }
 
     &.loading {
@@ -488,9 +489,25 @@
     border: 1px solid var(--ep-gray-200);
     border-radius: var(--ep-radius-sm);
     overflow: hidden;
+    interpolate-size: allow-keywords;
+  }
+
+  .expression-dialog-reference::details-content {
+    height: 0;
+    overflow: hidden;
+    transition:
+      height var(--ep-transition-base),
+      content-visibility var(--ep-transition-base) allow-discrete;
+  }
+
+  .expression-dialog-reference[open]::details-content {
+    height: auto;
   }
 
   .expression-dialog-ref-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: var(--ep-text-sm);
     font-weight: 600;
     line-height: var(--ep-leading-normal);
@@ -507,6 +524,21 @@
 
   .expression-dialog-ref-summary::-webkit-details-marker {
     display: none;
+  }
+
+  .expression-dialog-ref-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ep-gray-400);
+    transform: rotate(0deg);
+    transform-origin: center;
+    transition: transform var(--ep-transition-base);
+    will-change: transform;
+  }
+
+  .expression-dialog-reference[open] .expression-dialog-ref-chevron {
+    transform: rotate(90deg);
   }
 
   .expression-dialog-ref-list {
