@@ -159,18 +159,59 @@ Extend `BasePlaywrightTest`. Full app with a real browser:
 ```kotlin
 class VariantCardUiTest : BasePlaywrightTest() {
     @Test
-    fun `variant card shows attributes`() = fixture {
-        given {
-            val tenant = tenant("UI Test")
-            template(tenant, "Invoice")
-        }
-        then {
-            page.navigate("${baseUrl()}/tenants/${tenant.id}/templates")
-            assertThat(page.title()).contains("Templates")
-        }
+    fun `creating a variant adds a card`() {
+        val (tenant, template) = withMediator { createTenantAndTemplate() }
+
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+
+        val dialog = page.openDialogByTrigger(
+            page.locator("button:has-text('New Variant')"),
+            "#create-variant-dialog",
+        )
+        dialog.locator("#slug").fill("new-variant")
+        dialog.locator("button[type='submit']").click()
+        page.htmxSettle()
+
+        assertThat(page.locator(".variant-card[data-variant-id='new-variant']")).isVisible()
     }
 }
 ```
+
+#### Required patterns (enforced by `UiTestHygieneTest`)
+
+UI tests are flaky-prone; these rules make the deterministic thing the
+default. They are a hard gate — `UiTestHygieneTest` (a fast unit test) fails
+the build on any violation. See issue #418 for the history.
+
+- **Navigate with `gotoAndReady(path)`** — never bare `page.navigate(...)`.
+  It waits for `DOMCONTENTLOADED` (not `NETWORKIDLE`, which an
+  `hx-trigger="load"` keeps busy).
+- **Await HTMX with `page.htmxSettle()`** after any action that triggers an
+  `hx-*` swap, _before any non-retrying read_ (`innerText`, `count()`,
+  `getAttribute`). Web-first assertions already retry, so prefer asserting the
+  expected post-swap state directly when you can.
+- **Open dialogs/popovers with `page.openDialogByTrigger(trigger, selector)`**
+  — never a blind `waitForSelector("…[open]")`. It waits for deferred
+  handler-binding scripts (`load` state) and for the dialog to be open **and**
+  non-zero (defeating the async zero-height popover).
+- **Assert web-first** with Playwright's `assertThat(locator)…`. Never the
+  query-time `:visible` CSS pseudo — select shown elements _structurally_
+  (e.g. `.card:not([style*='display: none'])`).
+- **No `waitForTimeout`, no forensic `System.err.println` dumps.** A hung
+  selector is captured in the persisted Playwright trace on failure.
+- **Time-dependent UI** (auto-hide, debounce): don't race a wall clock.
+  Make the timing test-injectable (see the editor's `?leaderTiming=` /
+  `data-leader-timing` seam) — a "sticky" value makes a transient state
+  effectively permanent (race-free assertion), a "fast" value makes the
+  end-state deterministic — then assert the end state web-first.
+- **Server-contract-only flows belong at the handler level**, not in a
+  browser. Add a `*HandlerHtmxTest` (see `StencilHandlerHtmxTest`,
+  `CodeListHandlerHtmxTest`): `@SpringBootTest(RANDOM_PORT)` +
+  `@AutoConfigureTestRestTemplate`, assert status/headers/body directly.
+  Deterministic, fast, no Playwright.
+
+The shared helpers live in `PlaywrightHtmxSupport` (app test source set);
+`BasePlaywrightTest` installs the HTMX activity bookkeeper per page.
 
 ## Test DSLs
 
