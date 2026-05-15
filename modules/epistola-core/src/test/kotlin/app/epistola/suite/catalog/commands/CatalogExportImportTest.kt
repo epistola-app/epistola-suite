@@ -627,6 +627,89 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `import installs stencil version as published, not draft`() {
+        val tenant = createTenant("Stencil Import Status")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val sourceCatalogKey = CatalogKey.of("stencil-import-source")
+        val sourceCatalogId = CatalogId(sourceCatalogKey, tenantId)
+        val targetCatalogKey = CatalogKey.of("stencil-import-target")
+        val targetCatalogId = CatalogId(targetCatalogKey, tenantId)
+
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = sourceCatalogKey, name = "Source").execute()
+            CreateCatalog(tenantKey = tenantKey, id = targetCatalogKey, name = "Target").execute()
+
+            val stencilSlug = StencilKey.of("import-status-stencil")
+            CreateStencil(
+                id = StencilId(stencilSlug, sourceCatalogId),
+                name = "Import Status",
+                content = stencilContentWithRoot("published-root"),
+            ).execute()
+            PublishStencilVersion(
+                versionId = StencilVersionId(VersionKey.of(1), StencilId(stencilSlug, sourceCatalogId)),
+            ).execute()
+
+            val exported = ExportStencils(tenantKey = tenantKey, catalogKey = sourceCatalogKey).query()
+            val resource = exported.single { it.slug == stencilSlug.value }
+
+            ImportStencil(
+                tenantId = tenantId,
+                catalogKey = targetCatalogKey,
+                slug = resource.slug,
+                name = resource.name,
+                description = resource.description,
+                tags = resource.tags,
+                content = resource.content,
+            ).execute()
+
+            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(
+                stencilId = StencilId(stencilSlug, targetCatalogId),
+            ).query()
+            assertThat(versions).hasSize(1)
+            assertThat(versions.single().status)
+                .isEqualTo(app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED)
+            assertThat(versions.single().publishedAt).isNotNull()
+        }
+    }
+
+    @Test
+    fun `import supersedes existing draft and installs published version`() {
+        val tenant = createTenant("Stencil Import Supersedes Draft")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val catalogKey = CatalogKey.of("stencil-import-supersedes")
+        val catalogId = CatalogId(catalogKey, tenantId)
+
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Supersedes").execute()
+
+            val stencilSlug = StencilKey.of("supersedes-stencil")
+            val stencilId = StencilId(stencilSlug, catalogId)
+            // Local state: v1 published, v2 draft (work-in-progress)
+            CreateStencil(id = stencilId, name = "Supersedes", content = stencilContentWithRoot("v1-root")).execute()
+            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+            CreateStencilVersion(stencilId = stencilId, content = stencilContentWithRoot("local-draft-root")).execute()
+
+            // Simulate a re-import with new content (e.g. from an updated remote catalog).
+            ImportStencil(
+                tenantId = tenantId,
+                catalogKey = catalogKey,
+                slug = stencilSlug.value,
+                name = "Supersedes",
+                content = stencilContentWithRoot("imported-root"),
+            ).execute()
+
+            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(stencilId = stencilId).query()
+            // Local draft v2 is gone; v1 (published) survives; new v2 lands as published.
+            assertThat(versions).hasSize(2)
+            assertThat(versions.map { it.status }).containsOnly(
+                app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED,
+            )
+        }
+    }
+
     private fun stencilContentWithRoot(rootId: String): TemplateDocument {
         val slotId = "slot-$rootId"
         return TemplateDocument(

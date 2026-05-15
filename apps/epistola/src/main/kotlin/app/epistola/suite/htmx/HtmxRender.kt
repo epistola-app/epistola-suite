@@ -19,7 +19,7 @@ import java.net.URI
 fun ServerRequest.render(
     template: String,
     fragment: String? = null,
-    model: Map<String, Any> = emptyMap(),
+    model: Map<String, Any?> = emptyMap(),
     redirectOnSuccess: String? = null,
 ): ServerResponse = when {
     isHtmx && !htmxBoosted && fragment != null -> {
@@ -47,7 +47,7 @@ fun ServerRequest.render(
 fun ServerRequest.renderTemplate(
     template: String,
     fragment: String? = null,
-    model: Map<String, Any> = emptyMap(),
+    model: Map<String, Any?> = emptyMap(),
 ): ServerResponse {
     val templatePath = if (isHtmx && !htmxBoosted && fragment != null) {
         "$template :: $fragment"

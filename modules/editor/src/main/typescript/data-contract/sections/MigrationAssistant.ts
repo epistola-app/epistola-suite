@@ -8,6 +8,7 @@
 
 import { html, nothing } from 'lit';
 import type { MigrationSuggestion, MigrationIssueType } from '../utils/schemaMigration.js';
+import { classifyValue } from '../ref-types.js';
 
 export interface MigrationDialogCallbacks {
   onApply: (selectedMigrations: MigrationSuggestion[]) => void;
@@ -213,10 +214,21 @@ export function migrationKey(m: MigrationSuggestion): string {
   return `${m.exampleId}:${m.path}:${m.issue}`;
 }
 
-/** Format a JSON value for display. */
-function formatValue(value: unknown): string {
+/** Format a JSON value for display in migration items. */
+export function formatValue(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (typeof value === 'string') return `"${value}"`;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') {
+    const refType = classifyValue(value);
+    if (refType !== null) return refType.label;
+    if (Array.isArray(value)) return pluralize(value.length, 'item');
+    return 'Object';
+  }
   return String(value);
+}
+
+function pluralize(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
 }

@@ -48,6 +48,16 @@ export class EpistolaRichTextInput extends LitElement {
   @property({ type: String }) placeholder = '';
   @property({ type: String }) mode: RichTextInputMode = 'block';
 
+  /** Accept programmatic focus (e.g. from a label's for attribute) and forward to ProseMirror. */
+  override focus(): void {
+    this._view?.focus();
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this.tabIndex = -1;
+  }
+
   private _view: EditorView | null = null;
   private _container: HTMLDivElement | null = null;
   private _lastEmittedJson = '';
