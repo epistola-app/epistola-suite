@@ -74,6 +74,10 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
                 .setSources(true),
         )
         page = context.newPage()
+        // Install the HTMX activity bookkeeper before any page script runs (and on
+        // every subsequent navigation/swap) so htmxSettle() can observe in-flight
+        // requests. Same addInitScript technique FeedbackScreenshotUiTest uses.
+        page.addInitScript(PlaywrightHtmxSupport.HTMX_BOOKKEEPER_SCRIPT)
         // Centralized, explicit timeouts (single source of truth — replaces Playwright's
         // implicit 30s default). Actions/assertions fail fast at 15s so a real hang is
         // captured in the trace instead of holding CI for 30s; navigation stays generous

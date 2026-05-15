@@ -2,8 +2,8 @@ package app.epistola.suite.ui
 
 import app.epistola.suite.tenants.Tenant
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.regex.Pattern
 
 class SlugAutoFillUiTest : BasePlaywrightTest() {
 
@@ -13,28 +13,24 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `slug field should reject invalid characters`() {
         val tenant = createTestTenant()
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/new")
-        page.waitForSelector("#slug")
+        gotoAndReady("/tenants/${tenant.id}/templates/new")
+        assertThat(page.locator("#slug")).isVisible()
 
         val slugInput = page.locator("#slug")
         slugInput.click()
         page.keyboard().press("Control+A")
         page.keyboard().type("HELLO_WORLD!")
 
-        val slugValue = slugInput.inputValue()
-
-        assertTrue(
-            slugValue.matches(Regex("^[a-z0-9-]*$")),
-            "Expected slug to contain only [a-z0-9-] but got: '$slugValue'",
-        )
+        // Web-first: retries until the synchronous slug filter has applied.
+        assertThat(slugInput).hasValue(Pattern.compile("^[a-z0-9-]*$"))
     }
 
     @Test
     fun `slug auto-fill should work for elements added after page load`() {
         val tenant = createTestTenant()
 
-        page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/new")
-        page.waitForSelector("#slug")
+        gotoAndReady("/tenants/${tenant.id}/templates/new")
+        assertThat(page.locator("#slug")).isVisible()
 
         page.evaluate(
             """
