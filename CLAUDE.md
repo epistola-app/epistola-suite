@@ -76,8 +76,8 @@ namespace** at app runtime, so versions must be globally unique and ordered. A
 non-core migration that FKs to (or uses a `DOMAIN` from) a core table must
 timestamp **after** the core migration it depends on. Never edit a merged
 migration — add a new timestamped file. Folding `ALTER`s back into the original
-`CREATE` is a deliberate, gated consolidation (equivalence enforced by
-`MigrationEquivalenceIT`). See [`docs/migrations.md`](docs/migrations.md).
+`CREATE` is a deliberate consolidation, verified byte-identical with
+`pg_dump --schema-only` before merge. See [`docs/migrations.md`](docs/migrations.md).
 
 ### Commercial-tier architecture (forward direction)
 

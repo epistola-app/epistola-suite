@@ -58,37 +58,32 @@ shipped, prefer a new timestamped migration with a plain `ALTER TABLE`. Periodic
 consolidation — folding accumulated `ALTER`s back into the original `CREATE
 TABLE` so the schema reads cleanly — is a **deliberate, gated activity**, not
 something to do casually (it rewrites migration history). The last consolidation
-was [#413](https://github.com/epistola-app/epistola-suite/issues/413); the
-equivalence gate below is what makes it safe.
+was [#413](https://github.com/epistola-app/epistola-suite/issues/413).
 
 When folding an `ADD COLUMN` into a `CREATE TABLE`, place the column at the **end
 of the column list** in the order the `ALTER`s originally ran — PostgreSQL
 assigns columns in physical (`attnum`) order and `pg_dump` emits them that way,
-so column position must be preserved for the equivalence gate to pass. Cross-table
-FKs that can't be inlined (the referenced table is created in a later file) are
-added with a trailing `ALTER TABLE … ADD CONSTRAINT` in the file that creates the
-referenced table.
+so column position must be preserved for the consolidated schema to come out
+identical to the history it replaces. Cross-table FKs that can't be inlined (the
+referenced table is created in a later file) are added with a trailing
+`ALTER TABLE … ADD CONSTRAINT` in the file that creates the referenced table.
 
-## The equivalence gate
+## How the #413 consolidation was verified
 
-`apps/epistola/src/test/.../migration/MigrationEquivalenceIT` builds two
-PostgreSQL databases — one from the historical `V1..V30` snapshot
-(`apps/epistola/src/test/resources/db/migration-legacy-v413/`), one from the
-current `classpath:db/migration` — and asserts their normalised
-`pg_dump --schema-only` output is **byte-identical**. It runs as a tagged
-integration test (`./gradlew integrationTest` / `test`).
+The consolidation was proven correct **before merge** with a one-shot
+equivalence check: two PostgreSQL databases were built — one from the historical
+`V1..V30` migrations, one from the new per-module baseline — and their
+normalised `pg_dump --schema-only` output was asserted **byte-identical**
+(`apps/epistola` is the only module whose classpath aggregates core + feedback +
+loadtest the way production does, so this also exercised cross-module version
+ordering). That harness and the historical snapshot were removed once verified;
+they would only ever go from "pass" to a false failure the moment a new
+migration legitimately diverged from the frozen history.
 
-`apps/epistola` is the only module whose test classpath aggregates core +
-feedback + loadtest migrations the way production does, so the gate also proves
-cross-module version ordering.
-
-Note the gate is **schema-only**: it cannot catch a regression in a _data_ step
-(e.g. the `installation` identity seed). Data-affecting migrations must have
+A schema-only check cannot catch a regression in a _data_ step (e.g. the
+`installation` identity seed). Data-affecting migrations must therefore have
 integration-test coverage — `InstallationServiceIT` and
 `AppMetadataInstallationStoreIT` guard the `installation` seed.
-
-> The legacy snapshot + this gate are kept through the 1.0.0 cycle plus one
-> release, then removed (`TODO(#413)`).
 
 ## Adding a new migration
 
@@ -99,9 +94,8 @@ integration-test coverage — `InstallationServiceIT` and
 4. Run `./gradlew :modules:<module>:test` (or `./gradlew integrationTest`). A
    Flyway duplicate-version error means you collided a timestamp — bump and
    retry.
-5. If the migration changes the schema, the equivalence gate is irrelevant for
-   _new_ migrations (it only pins the consolidated baseline); just ensure the
-   normal integration suite passes.
+5. Ensure the normal integration suite passes — a new migration is just appended
+   to the history; there is no special gate to satisfy.
 
 ## Local dev: one-time reset after a consolidation
 
