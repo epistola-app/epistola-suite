@@ -1278,14 +1278,13 @@ export function createDefaultRegistry(): ComponentRegistry {
     applicableStyles: 'all',
     inspector: [
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
-      { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
-    maxInstancesPerDocument: 1,
+    maxInstancesPerDocument: 2,
     examples: [
       {
         name: 'title-only',
         description:
-          'Minimal page header with a single text block. Anchored to the top of every page (or every page except the first when hideOnFirstPage is set).',
+          'Minimal page header with a single text block. Anchored to the top of every page. When the document declares a second pageheader the second one renders on pages 2..N and this one applies only to page 1.',
         fragment: {
           rootNodeId: 'n-pageheader',
           nodes: {
@@ -1293,7 +1292,7 @@ export function createDefaultRegistry(): ComponentRegistry {
               id: 'n-pageheader',
               type: 'pageheader',
               slots: ['s-pageheader-children'],
-              props: { height: '60pt', hideOnFirstPage: false },
+              props: { height: '60pt' },
             },
             'n-pageheader-text': {
               id: 'n-pageheader-text',
@@ -1318,6 +1317,76 @@ export function createDefaultRegistry(): ComponentRegistry {
               nodeId: 'n-pageheader',
               name: 'children',
               children: ['n-pageheader-text'],
+            },
+          },
+        },
+      },
+      {
+        name: 'first-page-and-running',
+        description:
+          'Two pageheader nodes. The first (declared first in the root slot) renders on page 1 only; the second renders on pages 2..N. Useful for cover-page + running header patterns.',
+        fragment: {
+          rootNodeId: 'n-pageheader-first',
+          nodes: {
+            'n-pageheader-first': {
+              id: 'n-pageheader-first',
+              type: 'pageheader',
+              slots: ['s-pageheader-first-children'],
+              props: { height: '80pt' },
+            },
+            'n-pageheader-first-text': {
+              id: 'n-pageheader-first-text',
+              type: 'text',
+              slots: [],
+              styles: { fontSize: '18pt', fontWeight: 'bold' },
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'tenant.name' } }],
+                    },
+                  ],
+                },
+              },
+            },
+            'n-pageheader-rest': {
+              id: 'n-pageheader-rest',
+              type: 'pageheader',
+              slots: ['s-pageheader-rest-children'],
+              props: { height: '40pt' },
+            },
+            'n-pageheader-rest-text': {
+              id: 'n-pageheader-rest-text',
+              type: 'text',
+              slots: [],
+              styles: { fontSize: '9pt' },
+              props: {
+                content: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'expression', attrs: { expression: 'tenant.name' } }],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          slots: {
+            's-pageheader-first-children': {
+              id: 's-pageheader-first-children',
+              nodeId: 'n-pageheader-first',
+              name: 'children',
+              children: ['n-pageheader-first-text'],
+            },
+            's-pageheader-rest-children': {
+              id: 's-pageheader-rest-children',
+              nodeId: 'n-pageheader-rest',
+              name: 'children',
+              children: ['n-pageheader-rest-text'],
             },
           },
         },

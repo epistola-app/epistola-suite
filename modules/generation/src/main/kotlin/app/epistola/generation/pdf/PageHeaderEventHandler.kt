@@ -14,14 +14,26 @@ import com.itextpdf.layout.element.Image
 
 /**
  * Event handler that renders a page header on every page.
- * Registered to handle END_PAGE events and draws header content at the top of each page.
+ *
+ * Accepts an ordered list of header node IDs (size 1 or 2). Mapping is positional:
+ *  - 1 header → applies to every page.
+ *  - 2 headers → index 0 applies to page 1; index 1 applies to pages 2 and onward.
+ *
+ * The body's top margin is computed by the caller from the maximum header height
+ * across the list, so the body never overlaps either variant.
  */
 class PageHeaderEventHandler(
-    private val headerNodeId: String,
+    private val headerNodeIds: List<String>,
     private val document: TemplateDocument,
     private val context: RenderContext,
     private val registry: NodeRendererRegistry,
 ) : AbstractPdfDocumentEventHandler() {
+
+    init {
+        require(headerNodeIds.isNotEmpty() && headerNodeIds.size <= 2) {
+            "PageHeaderEventHandler expects 1 or 2 header node IDs, got ${headerNodeIds.size}"
+        }
+    }
 
     override fun onAcceptedEvent(event: AbstractPdfDocumentEvent) {
         val docEvent = event as? PdfDocumentEvent ?: return
@@ -29,11 +41,18 @@ class PageHeaderEventHandler(
         val pdfDoc = docEvent.document
         val pageSize = page.pageSize
 
+        val pageNumber = pdfDoc.getPageNumber(page)
+        val selectedId = if (pageNumber == 1 || headerNodeIds.size == 1) {
+            headerNodeIds[0]
+        } else {
+            headerNodeIds[1]
+        }
+        val headerNode = document.nodes[selectedId] ?: return
+
         // --- header band (top of page) ---
         // The header rectangle's distance to each page edge follows the cascade:
         // headerNode.margin{Top,Left,Right} → root.margin{Top,Left,Right} →
         // pageSettings.margins.{top,left,right} (template > theme > engine defaults).
-        val headerNode = document.nodes[headerNodeId]
         val topMargin = effectivePageMarginPt(headerNode, "marginTop", context)
         val leftMargin = effectivePageMarginPt(headerNode, "marginLeft", context)
         val rightMargin = effectivePageMarginPt(headerNode, "marginRight", context)
@@ -56,39 +75,34 @@ class PageHeaderEventHandler(
         val canvas = Canvas(pdfCanvas, headerRect)
 
         // Render the header node's slots with page-scoped system parameters
-        if (headerNode != null) {
-            val pageNumber = pdfDoc.getPageNumber(page)
-            val hideOnFirstPage = headerNode.props?.get("hideOnFirstPage") == true
-            if (hideOnFirstPage && pageNumber == 1) return
-            val totalPages = context.totalPages ?: pdfDoc.numberOfPages
-            val pageContext = context.withInheritedStylesFrom(headerNode).withPageParams(pageNumber, totalPages)
-            val elements = registry.renderSlots(headerNode, document, pageContext)
+        val totalPages = context.totalPages ?: pdfDoc.numberOfPages
+        val pageContext = context.withInheritedStylesFrom(headerNode).withPageParams(pageNumber, totalPages)
+        val elements = registry.renderSlots(headerNode, document, pageContext)
 
-            // Wrap slot children in a Div so header node styles (borders, background, padding) apply.
-            // The margin sides consumed above for rectangle positioning are stripped from the
-            // wrapper styles so the same values aren't applied again inside the rectangle.
-            val wrapper = Div()
-            val wrapperStyles = headerNode.styleMapExcluding(setOf("marginTop", "marginLeft", "marginRight"))
-            StyleApplicator.applyStylesWithPreset(
-                wrapper,
-                wrapperStyles,
-                headerNode.stylePreset,
-                context.blockStylePresets,
-                context.inheritedStyles,
-                context.fontCache,
-                context.renderingDefaults.componentDefaults("pageheader"),
-                context.renderingDefaults.baseFontSizePt,
-                context.spacingUnit,
-            )
-            for (element in elements) {
-                when (element) {
-                    is IBlockElement -> wrapper.add(element)
-                    is Image -> wrapper.add(element)
-                    is AreaBreak -> Unit
-                }
+        // Wrap slot children in a Div so header node styles (borders, background, padding) apply.
+        // The margin sides consumed above for rectangle positioning are stripped from the
+        // wrapper styles so the same values aren't applied again inside the rectangle.
+        val wrapper = Div()
+        val wrapperStyles = headerNode.styleMapExcluding(setOf("marginTop", "marginLeft", "marginRight"))
+        StyleApplicator.applyStylesWithPreset(
+            wrapper,
+            wrapperStyles,
+            headerNode.stylePreset,
+            context.blockStylePresets,
+            context.inheritedStyles,
+            context.fontCache,
+            context.renderingDefaults.componentDefaults("pageheader"),
+            context.renderingDefaults.baseFontSizePt,
+            context.spacingUnit,
+        )
+        for (element in elements) {
+            when (element) {
+                is IBlockElement -> wrapper.add(element)
+                is Image -> wrapper.add(element)
+                is AreaBreak -> Unit
             }
-            canvas.add(wrapper)
         }
+        canvas.add(wrapper)
 
         canvas.close()
         pdfCanvas.release()

@@ -1197,6 +1197,86 @@
             }
           }
         },
+        "n-pageheader-cover": {
+          "id": "n-pageheader-cover",
+          "type": "pageheader",
+          "slots": [
+            "s-pageheader-cover-children"
+          ],
+          "props": {
+            "height": "60pt"
+          }
+        },
+        "n-pageheader-cover-text": {
+          "id": "n-pageheader-cover-text",
+          "type": "text",
+          "slots": [],
+          "styles": {
+            "fontSize": "18pt",
+            "fontWeight": "bold",
+            "color": "#1f2937"
+          },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "vendor.name"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-pageheader-running": {
+          "id": "n-pageheader-running",
+          "type": "pageheader",
+          "slots": [
+            "s-pageheader-running-children"
+          ],
+          "props": {
+            "height": "24pt"
+          }
+        },
+        "n-pageheader-running-text": {
+          "id": "n-pageheader-running-text",
+          "type": "text",
+          "slots": [],
+          "styles": {
+            "fontSize": "8pt",
+            "color": "#9ca3af",
+            "textAlign": "right"
+          },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Invoice "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "invoiceNumber"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
         "n-page-footer": {
           "id": "n-page-footer",
           "type": "pagefooter",
@@ -1309,6 +1389,8 @@
           "nodeId": "n-root",
           "name": "children",
           "children": [
+            "n-pageheader-cover",
+            "n-pageheader-running",
             "n-header",
             "n-customer-section",
             "n-line-items-datatable",
@@ -1316,6 +1398,22 @@
             "n-notes-conditional",
             "n-footer",
             "n-page-footer"
+          ]
+        },
+        "s-pageheader-cover-children": {
+          "id": "s-pageheader-cover-children",
+          "nodeId": "n-pageheader-cover",
+          "name": "children",
+          "children": [
+            "n-pageheader-cover-text"
+          ]
+        },
+        "s-pageheader-running-children": {
+          "id": "s-pageheader-running-children",
+          "nodeId": "n-pageheader-running",
+          "name": "children",
+          "children": [
+            "n-pageheader-running-text"
           ]
         },
         "s-header-children": {

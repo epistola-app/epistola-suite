@@ -165,7 +165,8 @@
                                     <input th:if="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'}"
                                            type="checkbox" class="usage-select"
                                            th:data-template-id="${u.templateId}"
-                                           th:data-variant-id="${u.variantId}">
+                                           th:data-variant-id="${u.variantId}"
+                                           th:data-catalog-key="${u.catalogKey}">
                                     <th:block th:if="${u.catalogType.name() == 'SUBSCRIBED'}">
                                         <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                     </th:block>
@@ -227,11 +228,15 @@
                                 if (_abortController.signal.aborted) { cancelled = true; break; }
                                 const templateId = cb.dataset.templateId;
                                 const variantId = cb.dataset.variantId;
+                                // The template's own catalog — not _catalogId, which is the
+                                // stencil's catalog. Usage spans multiple catalogs, so this
+                                // must be the per-row value the handler resolves the template in.
+                                const catalogKey = cb.dataset.catalogKey;
                                 try {
                                     const resp = await fetch('/tenants/' + _tenantId + '/stencils/' + _catalogId + '/' + _stencilId + '/upgrade', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': _csrfToken() },
-                                        body: JSON.stringify({ templateId, variantId, newVersion: version }),
+                                        body: JSON.stringify({ templateId, variantId, catalogKey, newVersion: version }),
                                         signal: _abortController.signal,
                                     });
                                     if (resp.ok) {

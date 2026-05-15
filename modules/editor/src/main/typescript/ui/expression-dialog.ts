@@ -14,7 +14,7 @@
 
 import type { FieldPath } from '../engine/schema-paths.js';
 import {
-  formatBindingPreviewPlaceholder,
+  formatBindingPreview,
   formatFieldPathTypeLabel,
 } from '../data-contract/binding-compatibility.js';
 import {
@@ -837,8 +837,8 @@ function updatePreview(
         previewEl.textContent = validationError;
       } else {
         previewEl.className = 'expression-dialog-preview success';
-        const placeholder = formatBindingPreviewPlaceholder(result.value);
-        previewEl.textContent = `Preview: ${placeholder ?? formatForPreview(result.value)}`;
+        const richTextPreview = formatBindingPreview(result.value);
+        previewEl.textContent = `Preview: ${richTextPreview ?? formatForPreview(result.value)}`;
       }
     } else {
       previewEl.className = 'expression-dialog-preview error';

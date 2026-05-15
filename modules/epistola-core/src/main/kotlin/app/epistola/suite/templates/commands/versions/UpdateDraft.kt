@@ -11,6 +11,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.validation.NodeParameterBindingValidator
+import app.epistola.suite.templates.validation.PageHeaderCardinalityValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -37,11 +38,13 @@ class UpdateDraftHandler(
     private val pathExtractor: app.epistola.suite.templates.analysis.TemplatePathExtractor,
     private val placeholderValidator: PlaceholderValidator,
     private val nodeParameterBindingValidator: NodeParameterBindingValidator,
+    private val pageHeaderCardinalityValidator: PageHeaderCardinalityValidator,
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
         placeholderValidator.validateAsTemplate(command.templateModel)
         nodeParameterBindingValidator.validate(command.templateModel)
+        pageHeaderCardinalityValidator.validate(command.templateModel)
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // Verify the variant belongs to a template owned by the tenant
             val variantExists = handle.createQuery(

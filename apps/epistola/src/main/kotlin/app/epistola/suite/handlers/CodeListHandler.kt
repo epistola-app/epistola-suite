@@ -196,9 +196,11 @@ class CodeListHandler(
             } else {
                 val codeList = GetCodeList(codeListId).query()
                     ?: return ServerResponse.notFound().build()
+                val tenant = GetTenant(tenantId.key).query()
+                    ?: return ServerResponse.notFound().build()
                 ServerResponse.ok().page("code-lists/detail") {
                     "pageTitle" to "${codeList.displayName} - Code list"
-                    "tenant" to GetTenant(tenantId.key).query()
+                    "tenant" to tenant
                     "tenantId" to tenantId.key
                     "codeList" to codeList
                     "entries" to ListCodeListEntries(codeListId).query()

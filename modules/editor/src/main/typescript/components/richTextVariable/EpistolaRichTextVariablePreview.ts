@@ -76,15 +76,14 @@ export class EpistolaRichTextVariablePreview extends LitElement {
     if (!this.binding) {
       return html`
         <div class="rich-text-variable-empty">
-          <span>Rich text variable</span>
-          <small>Set a binding in the inspector.</small>
+          <span>Set a binding in the inspector.</span>
         </div>
       `;
     }
     if (!this._isRichTextDoc(this._resolved)) {
       return html`
         <div class="rich-text-variable-placeholder" data-binding=${this.binding}>
-          <span class="rich-text-variable-label">Rich text:</span>
+          <span class="rich-text-variable-label">Rich Text:</span>
           <code>${this.binding}</code>
         </div>
       `;
