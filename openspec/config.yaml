@@ -3,7 +3,7 @@ context: |
   ## Tech Stack
 
   **Backend**: Spring Boot 4.0.0, Kotlin 2.3.0 (JDK 25), PostgreSQL, JDBI (not JPA), Jackson 3
-  **Frontend**: Thymeleaf + HTMX (server-side), React 19 + TypeScript (client components), TipTap 3
+  **Frontend**: Thymeleaf + HTMX (server-side), Lit + TypeScript (client components), ProseMirror
   **Build**: Gradle (Kotlin DSL), pnpm workspaces
   **Testing**: JUnit 5, Testcontainers (requires Docker)
 

@@ -207,7 +207,7 @@ The template editor (`modules/editor/`) provides a visual editor for designing d
 - **TypeScript** - Type safety
 - **Vite** - Build tool (library mode)
 - **Zustand + Immer** - State management
-- **TipTap 3** - Rich text editing
+- **ProseMirror** - Rich text editing
 - **dnd-kit** - Drag and drop
 - **Tailwind CSS 4** - Styling
 

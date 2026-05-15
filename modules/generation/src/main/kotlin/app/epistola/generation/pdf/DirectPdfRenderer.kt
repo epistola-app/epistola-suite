@@ -1,7 +1,7 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.ProseMirrorConverter
 import app.epistola.generation.SystemParameterRegistry
-import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
@@ -126,13 +126,13 @@ class DirectPdfRenderer(
         renderMode: RenderMode,
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant)
-        val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
+        val proseMirrorConverter = ProseMirrorConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
         return RenderContext(
             data = data,
             loopContext = emptyMap(),
             documentStyles = effectiveDocumentStyles,
             expressionEvaluator = expressionEvaluator,
-            tipTapConverter = tipTapConverter,
+            proseMirrorConverter = proseMirrorConverter,
             defaultExpressionLanguage = defaultExpressionLanguage,
             fontCache = fontCache,
             blockStylePresets = resolvedTheme.blockStylePresets,

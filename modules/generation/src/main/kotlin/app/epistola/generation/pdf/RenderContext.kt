@@ -1,7 +1,7 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.ProseMirrorConverter
 import app.epistola.generation.SystemParameterRegistry
-import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
@@ -16,7 +16,7 @@ data class RenderContext(
     val loopContext: Map<String, Any?> = emptyMap(),
     val documentStyles: DocumentStyles? = null,
     val expressionEvaluator: CompositeExpressionEvaluator,
-    val tipTapConverter: TipTapConverter,
+    val proseMirrorConverter: ProseMirrorConverter,
     /** Default language for embedded expressions in text (e.g., "Hello {{name}}!") */
     val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
     /** Font cache scoped to this document */

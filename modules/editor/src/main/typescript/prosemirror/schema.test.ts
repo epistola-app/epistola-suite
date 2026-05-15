@@ -39,7 +39,7 @@ describe('epistolaSchema', () => {
   });
 
   // -------------------------------------------------------------------------
-  // JSON roundtrip (TipTap compatibility)
+  // JSON roundtrip (ProseMirror compatibility)
   // -------------------------------------------------------------------------
 
   it('expression node roundtrips through JSON', () => {

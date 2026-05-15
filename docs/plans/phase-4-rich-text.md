@@ -2,20 +2,20 @@
 
 ## Context
 
-The editor-v2 canvas renders text nodes as static placeholders (`"Text content"` — `EpistolaCanvas.ts:322`). Phase 4 integrates ProseMirror directly (not TipTap) for rich text editing, expression chips (`{{customer.name}}`), and a floating bubble menu.
+The editor-v2 canvas renders text nodes as static placeholders (`"Text content"` — `EpistolaCanvas.ts:322`). Phase 4 integrates ProseMirror directly for rich text editing, expression chips (`{{customer.name}}`), and a floating bubble menu.
 
-**Why ProseMirror direct instead of TipTap**: TipTap is a convenience wrapper. Going direct gives us full control, smaller bundle, no abstraction leaks. Our needs are simple (basic formatting + one custom node type), so the extra boilerplate is minimal.
+**Why direct ProseMirror (no wrapper library)**: A convenience wrapper would add a dependency and abstraction layer. Going direct gives us full control, smaller bundle, no abstraction leaks. Our needs are simple (basic formatting + one custom node type), so the extra boilerplate is minimal.
 
 The **data model schema** must also be passed into the editor so the expression popover can show available field paths.
 
 ## Key design decisions
 
-- **ProseMirror direct**: Use `prosemirror-*` packages directly. No TipTap.
+- **ProseMirror direct**: Use `prosemirror-*` packages directly — no wrapper library.
 - **Expression editor**: Simple `<input>` in a `<dialog>`. Shows available field paths from data model schema.
 - **Toolbar**: Floating bubble menu positioned with `@floating-ui/dom` (lightweight, 3KB). Appears on text selection.
 - **Undo**: ProseMirror's `prosemirror-history` while focused. Engine undo on blur (node-level).
 - **Content sync**: `isSyncing` flag + JSON equality check prevents loops.
-- **JSON format**: Same TipTap-compatible JSON format (ProseMirror's `node.toJSON()` / `Node.fromJSON()`). Backend `TipTapConverter.kt` unchanged.
+- **JSON format**: Standard ProseMirror JSON (`node.toJSON()` / `Node.fromJSON()`). Backend `ProseMirrorConverter.kt` unchanged.
 
 ## ProseMirror packages needed
 
@@ -220,7 +220,7 @@ case 'text':
 
 ## JSON format compatibility
 
-ProseMirror's `node.toJSON()` produces the same structure as TipTap's `editor.getJSON()` — both are ProseMirror JSON. The backend `TipTapConverter.kt` (which reads `type`, `content`, `marks`, `attrs`) works unchanged.
+ProseMirror's `node.toJSON()` produces standard ProseMirror JSON. The backend `ProseMirrorConverter.kt` (which reads `type`, `content`, `marks`, `attrs`) works unchanged.
 
 ## Verification
 

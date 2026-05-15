@@ -4,7 +4,7 @@
 
 ## Context
 
-The v2 editor (Lit + ProseMirror + headless engine) is feature-complete for its initial scope (Phases 0-6 done). The v1 editor (React + TipTap + Zustand) still serves the app. This change:
+The v2 editor (Lit + ProseMirror + headless engine) is feature-complete for its initial scope (Phases 0-6 done). The v1 editor (React + ProseMirror + Zustand) still serves the app. This change:
 
 1. Switches the entire backend from the v1 `TemplateModel` (flat `blocks[]`) to the v2 `TemplateDocument` (normalized node/slot graph)
 2. Rewrites PDF generation for node/slot traversal

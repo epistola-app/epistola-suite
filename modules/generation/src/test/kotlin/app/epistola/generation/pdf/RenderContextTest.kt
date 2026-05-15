@@ -1,6 +1,6 @@
 package app.epistola.generation.pdf
 
-import app.epistola.generation.TipTapConverter
+import app.epistola.generation.ProseMirrorConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -12,7 +12,7 @@ import kotlin.test.assertSame
 class RenderContextTest {
     private val evaluator = CompositeExpressionEvaluator()
     private val fontCache = FontCache(pdfaCompliant = false)
-    private val tipTapConverter = TipTapConverter(evaluator)
+    private val proseMirrorConverter = ProseMirrorConverter(evaluator)
     private val minimalDocument = TemplateDocument(
         root = "root",
         nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("s1"))),
@@ -25,7 +25,7 @@ class RenderContextTest {
     ) = RenderContext(
         data = data,
         expressionEvaluator = evaluator,
-        tipTapConverter = tipTapConverter,
+        proseMirrorConverter = proseMirrorConverter,
         fontCache = fontCache,
         document = minimalDocument,
         systemParams = systemParams,

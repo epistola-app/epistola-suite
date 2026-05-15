@@ -76,7 +76,7 @@ These are style properties available on all block components (text, container, c
 
 Line height is a unitless multiplier (e.g., `1.5` = 150% of font size). It's an inheritable property — setting it at the document or theme level applies to all text blocks. The default tenant theme sets `lineHeight: 1.5`.
 
-**PDF rendering:** `TextNodeRenderer` resolves the style cascade and passes the value to `TipTapConverter` via a pre-resolved styles map. `TipTapConverter.applyTextStyles()` calls `paragraph.setMultipliedLeading(value)`.
+**PDF rendering:** `TextNodeRenderer` resolves the style cascade and passes the value to `ProseMirrorConverter` via a pre-resolved styles map. `ProseMirrorConverter.applyTextStyles()` calls `paragraph.setMultipliedLeading(value)`.
 
 ### Table Cell Styling
 
@@ -100,7 +100,7 @@ Ordered lists support multiple numbering formats, and bullet lists support multi
 
 **Bullet list styles:** disc (•), circle (○), square (■), dash (–)
 
-**PDF rendering:** `TipTapConverter` maps `listType` attribute to iText `ListNumberingType` for ordered lists, and `listStyle` attribute to custom `setListSymbol()` for bullet lists.
+**PDF rendering:** `ProseMirrorConverter` maps `listType` attribute to iText `ListNumberingType` for ordered lists, and `listStyle` attribute to custom `setListSymbol()` for bullet lists.
 
 ## Page Components
 

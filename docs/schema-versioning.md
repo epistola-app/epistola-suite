@@ -136,7 +136,7 @@ PublishContractVersion(confirmed=true):
 - Loop/datalist/datatable: `node.props["expression"]` with `itemAlias` scoping
 - Conditional: `node.props["condition"]`
 - QR code: `node.props["value"]`
-- Text content: inline TipTap expression nodes
+- Text content: inline ProseMirror expression nodes
 
 ### Loop alias resolution
 

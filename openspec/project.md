@@ -20,7 +20,7 @@ Epistola Suite is a document generation platform enabling users to create, manag
 - **Server-side**: Thymeleaf templates with HTMX for dynamic interactions
 - **Client Components**: Vite + TypeScript + React 19 for rich interactive editors
 - **State Management**: Zustand + Immer
-- **Rich Text**: TipTap 3
+- **Rich Text**: ProseMirror
 
 ### Infrastructure
 

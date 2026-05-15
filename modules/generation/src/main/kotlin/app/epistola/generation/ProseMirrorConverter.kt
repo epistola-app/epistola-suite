@@ -14,9 +14,9 @@ import com.itextpdf.layout.element.Text
 import com.itextpdf.layout.properties.ListNumberingType
 
 /**
- * Converts TipTap JSON content to iText PDF elements.
+ * Converts ProseMirror JSON content to iText PDF elements.
  *
- * TipTap JSON structure:
+ * ProseMirror JSON structure:
  * {
  *   "type": "doc",
  *   "content": [
@@ -30,17 +30,17 @@ import com.itextpdf.layout.properties.ListNumberingType
  * { "type": "text", "text": "Hello", "marks": [{ "type": "bold" }] }
  * { "type": "expression", "attrs": { "expression": "customer.name" } }
  */
-class TipTapConverter(
+class ProseMirrorConverter(
     private val expressionEvaluator: CompositeExpressionEvaluator,
     private val defaultLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
     private val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
 ) {
     /**
-     * Converts TipTap JSON content to a list of iText block elements.
+     * Converts ProseMirror JSON content to a list of iText block elements.
      */
     /**
      * @param resolvedStyles Resolved style cascade for the parent text node.
-     *   TipTapConverter reads properties like `lineHeight` from this map
+     *   ProseMirrorConverter reads properties like `lineHeight` from this map
      *   and applies them to generated paragraphs/headings.
      */
     fun convert(
@@ -441,7 +441,7 @@ class TipTapConverter(
     }
 
     companion object {
-        private val LOGGER = org.slf4j.LoggerFactory.getLogger(TipTapConverter::class.java)
+        private val LOGGER = org.slf4j.LoggerFactory.getLogger(ProseMirrorConverter::class.java)
 
         /** Standard link color (blue) used for hyperlinks in PDF output. */
         private val LINK_COLOR = DeviceRgb(0, 0, 238)
@@ -459,7 +459,7 @@ class TipTapConverter(
 
     /**
      * Apply resolved text styles (lineHeight, etc.) to a paragraph.
-     * This is the single place to add new style properties that affect TipTap paragraphs/headings.
+     * This is the single place to add new style properties that affect ProseMirror paragraphs/headings.
      */
     /**
      * Apply pre-resolved text styles to a paragraph.
