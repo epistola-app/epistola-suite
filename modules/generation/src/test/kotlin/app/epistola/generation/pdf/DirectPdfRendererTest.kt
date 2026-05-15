@@ -856,7 +856,12 @@ class DirectPdfRendererTest {
         val rootNodeId = "root-1"
         val rootSlotId = "slot-root"
         val rootNode = Node(id = rootNodeId, type = "root", slots = listOf(rootSlotId))
-        val rootSlot = Slot(id = rootSlotId, nodeId = rootNodeId, name = "children", children = listOf("body-text"))
+        val rootSlot = Slot(
+            id = rootSlotId,
+            nodeId = rootNodeId,
+            name = "children",
+            children = listOf("pageheader1", "body-text"),
+        )
 
         val document = TemplateDocument(
             root = rootNodeId,

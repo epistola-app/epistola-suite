@@ -63,42 +63,44 @@ class ImportStencilHandler(
                 .bind("tags", tagsJson)
                 .execute()
 
-            // Upsert draft version: update existing draft or create version 1
-            val updated = handle.createUpdate(
+            // Import supersedes local edits: drop any existing draft, then insert
+            // the imported content as the next published version. Mirrors
+            // ImportTemplates.upsertPublishedVersion so the export → import
+            // round-trip preserves publish status (ExportStencils filters to
+            // status='published', so anything we receive here was published
+            // on the source side).
+            handle.createUpdate(
                 """
-                UPDATE stencil_versions SET content = :content::jsonb
+                DELETE FROM stencil_versions
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
                 .bind("catalogKey", command.catalogKey)
                 .bind("stencilKey", stencilKey)
-                .bind("content", contentJson)
                 .execute()
 
-            if (updated == 0) {
-                val nextId = handle.createQuery(
-                    "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
-                )
-                    .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", command.catalogKey)
-                    .bind("stencilKey", stencilKey)
-                    .mapTo(Int::class.java)
-                    .one()
+            val nextId = handle.createQuery(
+                "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
+            )
+                .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", command.catalogKey)
+                .bind("stencilKey", stencilKey)
+                .mapTo(Int::class.java)
+                .one()
 
-                handle.createUpdate(
-                    """
-                    INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, created_at)
-                    VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'draft', NOW())
-                    """,
-                )
-                    .bind("id", VersionKey.of(nextId))
-                    .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", command.catalogKey)
-                    .bind("stencilKey", stencilKey)
-                    .bind("content", contentJson)
-                    .execute()
-            }
+            handle.createUpdate(
+                """
+                INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at, created_at)
+                VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'published', NOW(), NOW())
+                """,
+            )
+                .bind("id", VersionKey.of(nextId))
+                .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", command.catalogKey)
+                .bind("stencilKey", stencilKey)
+                .bind("content", contentJson)
+                .execute()
 
             if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED
         }

@@ -108,10 +108,43 @@ Ordered lists support multiple numbering formats, and bullet lists support multi
 
 Headers and footers render on every page via iText page event handlers.
 
-| Property        | Type    | Default | Description                      |
-| --------------- | ------- | ------- | -------------------------------- |
-| height          | unit    | 60pt    | Height of the header/footer band |
-| hideOnFirstPage | boolean | false   | When true, hidden on page 1      |
+#### Page Header
+
+| Property | Type | Default | Description               |
+| -------- | ---- | ------- | ------------------------- |
+| height   | unit | 60pt    | Height of the header band |
+
+A document may declare **up to two** `pageheader` nodes as direct children of the
+root slot. The order in the root slot is the positional selector for which header
+applies to which page (validated by `PageHeaderCardinalityValidator`):
+
+| Header count | Page 1                 | Page 2 and onward       |
+| ------------ | ---------------------- | ----------------------- |
+| 0            | (no header)            | (no header)             |
+| 1            | the sole `pageheader`  | the sole `pageheader`   |
+| 2            | the first `pageheader` | the second `pageheader` |
+
+Each header can have its own `height`, padding, border, and content. The body's
+top margin matches its own page's header band: page 1 sits below the first-page
+band, pages 2+ sit below the running band. Internally this is implemented by
+setting iText's document margin to the running band and prepending an invisible
+spacer to the body flow sized to the extra first-page height — so a tall cover
+header on page 1 doesn't leak whitespace onto running pages.
+
+In the editor, the two headers can be reordered by dragging within the header
+zone of the root slot — useful for swapping which header is the first-page
+variant and which is the running variant after the fact. Dragging a header out
+of the root slot or below the body is rejected by the engine.
+
+#### Page Footer
+
+| Property        | Type    | Default | Description                        |
+| --------------- | ------- | ------- | ---------------------------------- |
+| height          | unit    | 60pt    | Height of the footer band          |
+| hideOnFirstPage | boolean | false   | When true, footer hidden on page 1 |
+
+A document may declare a single `pagefooter` node. Per-page footer variants are
+not currently supported — file a follow-up issue if needed.
 
 **System parameters available:** `sys.pages.current` (page number), `sys.pages.total` (total pages, requires two-pass rendering).
 

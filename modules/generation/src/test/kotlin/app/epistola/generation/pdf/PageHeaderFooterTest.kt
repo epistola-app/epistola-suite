@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -45,18 +46,13 @@ class PageHeaderFooterTest {
         headerStyles: Map<String, Any?>? = null,
         footerStyles: Map<String, Any?>? = null,
         rootStyles: Map<String, Any?>? = null,
+        bodyParagraphCount: Int = 30,
     ): TemplateDocument {
         val rootSlotId = "slot-root"
         val headerSlotId = "slot-header"
         val footerSlotId = "slot-footer"
 
-        // Create enough content for 2+ pages
-        val longText = "This is a paragraph of text that is long enough to take up significant vertical space on the page. " +
-            "It contains multiple sentences to ensure that the content wraps across several lines in the PDF output. " +
-            "We need enough total content to push the document onto at least two pages for testing header and footer behavior."
-        val bodyNodes = (1..30).associate { i ->
-            "body-$i" to textNode("body-$i", "$longText (Paragraph $i)")
-        }
+        val bodyNodes = buildBodyNodes(bodyParagraphCount)
 
         return TemplateDocument(
             root = "root",
@@ -92,6 +88,64 @@ class PageHeaderFooterTest {
         )
     }
 
+    private fun buildDocumentWithTwoHeaders(bodyParagraphCount: Int = 30): TemplateDocument {
+        val rootSlotId = "slot-root"
+        val firstHeaderSlotId = "slot-header-first"
+        val restHeaderSlotId = "slot-header-rest"
+
+        val bodyNodes = buildBodyNodes(bodyParagraphCount)
+
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "header-first" to Node(
+                    id = "header-first",
+                    type = "pageheader",
+                    slots = listOf(firstHeaderSlotId),
+                    props = mapOf("height" to "60pt"),
+                ),
+                "header-first-text" to textNode("header-first-text", "FIRST PAGE HEADER"),
+                "header-rest" to Node(
+                    id = "header-rest",
+                    type = "pageheader",
+                    slots = listOf(restHeaderSlotId),
+                    props = mapOf("height" to "30pt"),
+                ),
+                "header-rest-text" to textNode("header-rest-text", "OTHER PAGES HEADER"),
+            ) + bodyNodes,
+            slots = mapOf(
+                rootSlotId to Slot(
+                    id = rootSlotId,
+                    nodeId = "root",
+                    name = "children",
+                    children = listOf("header-first", "header-rest") + bodyNodes.keys.toList(),
+                ),
+                firstHeaderSlotId to Slot(
+                    id = firstHeaderSlotId,
+                    nodeId = "header-first",
+                    name = "children",
+                    children = listOf("header-first-text"),
+                ),
+                restHeaderSlotId to Slot(
+                    id = restHeaderSlotId,
+                    nodeId = "header-rest",
+                    name = "children",
+                    children = listOf("header-rest-text"),
+                ),
+            ),
+        )
+    }
+
+    private fun buildBodyNodes(bodyParagraphCount: Int): Map<String, Node> {
+        val longText = "This is a paragraph of text that is long enough to take up significant vertical space on the page. " +
+            "It contains multiple sentences to ensure that the content wraps across several lines in the PDF output. " +
+            "We need enough total content to push the document onto at least two pages for testing header and footer behavior."
+        return (1..bodyParagraphCount).associate { i ->
+            "body-$i" to textNode("body-$i", "$longText (Paragraph $i)")
+        }
+    }
+
     private fun renderAndExtract(doc: TemplateDocument): String {
         val output = ByteArrayOutputStream()
         renderer.render(doc, emptyMap(), output)
@@ -108,20 +162,6 @@ class PageHeaderFooterTest {
     }
 
     @Test
-    fun `header hidden on first page when hideOnFirstPage is true`() {
-        val doc = buildDocument(headerProps = mapOf("hideOnFirstPage" to true))
-        val text = renderAndExtract(doc)
-
-        // Page 1 should NOT have header, page 2+ should
-        val pages = text.split("--- PAGE ")
-        val page1 = pages.getOrNull(1) ?: ""
-        val page2 = pages.getOrNull(2) ?: ""
-
-        assertFalse(page1.contains("HEADER CONTENT"), "Header should be hidden on page 1")
-        assertContains(page2, "HEADER CONTENT", message = "Header should be visible on page 2")
-    }
-
-    @Test
     fun `footer hidden on first page when hideOnFirstPage is true`() {
         val doc = buildDocument(footerProps = mapOf("hideOnFirstPage" to true))
         val text = renderAndExtract(doc)
@@ -134,19 +174,288 @@ class PageHeaderFooterTest {
         assertContains(page2, "FOOTER CONTENT", message = "Footer should be visible on page 2")
     }
 
+    // -----------------------------------------------------------------------
+    // Per-page header variants: 1-header → all pages; 2-headers → first / rest
+    // -----------------------------------------------------------------------
+
     @Test
-    fun `header and footer both hidden on first page`() {
-        val doc = buildDocument(
-            headerProps = mapOf("hideOnFirstPage" to true),
-            footerProps = mapOf("hideOnFirstPage" to true),
-        )
+    fun `first-page header renders on page 1 and other-pages header on subsequent pages`() {
+        val doc = buildDocumentWithTwoHeaders()
         val text = renderAndExtract(doc)
 
         val pages = text.split("--- PAGE ")
         val page1 = pages.getOrNull(1) ?: ""
+        val page2 = pages.getOrNull(2) ?: ""
 
-        assertFalse(page1.contains("HEADER CONTENT"), "Header should be hidden on page 1")
-        assertFalse(page1.contains("FOOTER CONTENT"), "Footer should be hidden on page 1")
+        assertContains(page1, "FIRST PAGE HEADER", message = "First-page header should render on page 1")
+        assertFalse(
+            page1.contains("OTHER PAGES HEADER"),
+            "Other-pages header should not render on page 1",
+        )
+        assertContains(page2, "OTHER PAGES HEADER", message = "Other-pages header should render on page 2")
+        assertFalse(
+            page2.contains("FIRST PAGE HEADER"),
+            "First-page header should not render on page 2",
+        )
+    }
+
+    @Test
+    fun `two-header single-page document renders only the first-page header`() {
+        val doc = buildDocumentWithTwoHeaders(bodyParagraphCount = 1)
+        val text = renderAndExtract(doc)
+
+        val pages = text.split("--- PAGE ")
+        // Exactly one rendered page (split yields one preamble + one page chunk)
+        assertTrue(pages.size <= 2, "Expected a single rendered page, found ${pages.size - 1}")
+        val page1 = pages.getOrNull(1) ?: pages[0]
+
+        assertContains(page1, "FIRST PAGE HEADER", message = "First-page header should render on page 1")
+        assertFalse(
+            page1.contains("OTHER PAGES HEADER"),
+            "Other-pages header should never render in a single-page document",
+        )
+    }
+
+    @Test
+    fun `two-header page 2 first body line sits at the running header band, not the tall first-page band`() {
+        // First-page header = 200pt; running header = 20pt. The first body line on
+        // page 2 should sit just below the running header (~20pt + page margin),
+        // not the 200pt cover-page band. Previously the body used max(header heights)
+        // for every page, dropping page-2 content ~180pt lower than expected.
+        // After this fix, page 1 uses an injected spacer so the cover header has
+        // room on page 1 only; pages 2+ start at the running band.
+        val doc = buildDocumentTallFirstSmallRunningHeader(bodyParagraphCount = 30)
+        val pdfBytes = ByteArrayOutputStream()
+            .also { renderer.render(doc, emptyMap(), it) }
+            .toByteArray()
+
+        // A4 portrait height = 842pt. Running band ≈ 20pt header + ~57pt page margin ≈ 77pt.
+        // First-body-line baseline should be near 842 - 77 ≈ 765 (a bit lower due to
+        // text leading). The strict ceiling: must be well above 842 - 200 = 642
+        // (which is where it would land if the first-page band leaked onto page 2).
+        val firstBodyYPage2 = extractFirstBodyBaselineYOnPage(pdfBytes, 2)
+        assertTrue(
+            firstBodyYPage2 > 700f,
+            "Expected first body line on page 2 to land near the top of body area " +
+                "(running header band ≈ 77pt). Got Y=$firstBodyYPage2 — likely the body is " +
+                "still being pushed down by the first-page header band.",
+        )
+    }
+
+    private fun pageCount(pdfBytes: ByteArray): Int {
+        PdfReader(ByteArrayInputStream(pdfBytes)).use { reader ->
+            PdfDocument(reader).use { return it.numberOfPages }
+        }
+    }
+
+    /**
+     * Returns the Y baseline of the first body-text glyph on [pageNumber],
+     * skipping the page-decoration text ("FIRST PAGE HEADER" / "OTHER PAGES HEADER").
+     */
+    private fun extractFirstBodyBaselineYOnPage(pdfBytes: ByteArray, pageNumber: Int): Float {
+        val decorationMarkers = listOf("FIRST PAGE HEADER", "OTHER PAGES HEADER", "FOOTER")
+        var found: Float? = null
+        PdfReader(ByteArrayInputStream(pdfBytes)).use { reader ->
+            val pdf = PdfDocument(reader)
+            val processor = PdfCanvasProcessor(object : IEventListener {
+                override fun eventOccurred(data: IEventData?, type: EventType?) {
+                    if (data is TextRenderInfo && found == null) {
+                        val rendered = data.text.trim()
+                        if (rendered.isBlank()) return
+                        if (decorationMarkers.any { rendered.contains(it, ignoreCase = true) }) return
+                        val origin: Vector = data.baseline.startPoint
+                        found = origin.get(Vector.I2)
+                    }
+                }
+                override fun getSupportedEvents(): Set<EventType> = setOf(EventType.RENDER_TEXT)
+            })
+            processor.processPageContent(pdf.getPage(pageNumber))
+            pdf.close()
+        }
+        return found ?: error("No body text found on page $pageNumber")
+    }
+
+    private fun buildDocumentTallFirstSmallRunningHeader(bodyParagraphCount: Int): TemplateDocument {
+        val rootSlotId = "slot-root"
+        val firstSlotId = "slot-header-first"
+        val restSlotId = "slot-header-rest"
+        val bodyNodes = buildPageTaggedBodyNodes(bodyParagraphCount)
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "header-first" to Node(
+                    id = "header-first",
+                    type = "pageheader",
+                    slots = listOf(firstSlotId),
+                    props = mapOf("height" to "200pt"),
+                ),
+                "header-first-text" to textNode("header-first-text", "FIRST PAGE HEADER"),
+                "header-rest" to Node(
+                    id = "header-rest",
+                    type = "pageheader",
+                    slots = listOf(restSlotId),
+                    props = mapOf("height" to "20pt"),
+                ),
+                "header-rest-text" to textNode("header-rest-text", "OTHER PAGES HEADER"),
+            ) + bodyNodes,
+            slots = mapOf(
+                rootSlotId to Slot(
+                    id = rootSlotId,
+                    nodeId = "root",
+                    name = "children",
+                    children = listOf("header-first", "header-rest") + bodyNodes.keys.toList(),
+                ),
+                firstSlotId to Slot(firstSlotId, "header-first", "children", listOf("header-first-text")),
+                restSlotId to Slot(restSlotId, "header-rest", "children", listOf("header-rest-text")),
+            ),
+        )
+    }
+
+    private fun buildDocumentSingleHeader(headerHeightPt: String, bodyParagraphCount: Int): TemplateDocument {
+        val rootSlotId = "slot-root"
+        val headerSlotId = "slot-header"
+        val bodyNodes = buildPageTaggedBodyNodes(bodyParagraphCount)
+        return TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "header" to Node(
+                    id = "header",
+                    type = "pageheader",
+                    slots = listOf(headerSlotId),
+                    props = mapOf("height" to headerHeightPt),
+                ),
+                "header-text" to textNode("header-text", "OTHER PAGES HEADER"),
+            ) + bodyNodes,
+            slots = mapOf(
+                rootSlotId to Slot(
+                    id = rootSlotId,
+                    nodeId = "root",
+                    name = "children",
+                    children = listOf("header") + bodyNodes.keys.toList(),
+                ),
+                headerSlotId to Slot(headerSlotId, "header", "children", listOf("header-text")),
+            ),
+        )
+    }
+
+    /**
+     * Body content with a recognisable marker on the *second* page's first
+     * paragraph (`PAGE 2+ BODY`) so the test can measure where that paragraph
+     * lands vertically. The first ~12 paragraphs fill page 1; the marker starts
+     * page 2.
+     */
+    private fun buildPageTaggedBodyNodes(bodyParagraphCount: Int): Map<String, Node> {
+        val longText = "This is a paragraph of text that is long enough to take up significant vertical space on the page. " +
+            "It contains multiple sentences to ensure that the content wraps across several lines in the PDF output. " +
+            "We need enough total content to push the document onto at least two pages for testing header and footer behavior."
+        return (1..bodyParagraphCount).associate { i ->
+            val text = if (i == 13) "PAGE 2+ BODY: $longText (Paragraph $i)" else "$longText (Paragraph $i)"
+            "body-$i" to textNode("body-$i", text)
+        }
+    }
+
+    @Test
+    fun `two-header long document keeps first-page header only on page 1`() {
+        val doc = buildDocumentWithTwoHeaders(bodyParagraphCount = 60)
+        val text = renderAndExtract(doc)
+
+        val pages = text.split("--- PAGE ").drop(1)
+        assertTrue(pages.size >= 3, "Expected at least 3 pages, got ${pages.size}")
+
+        assertContains(pages[0], "FIRST PAGE HEADER", message = "First-page header on page 1")
+        for ((idx, pageText) in pages.withIndex()) {
+            val pageNumber = idx + 1
+            if (pageNumber == 1) {
+                assertFalse(
+                    pageText.contains("OTHER PAGES HEADER"),
+                    "Other-pages header must not appear on page 1",
+                )
+            } else {
+                assertFalse(
+                    pageText.contains("FIRST PAGE HEADER"),
+                    "First-page header must not appear on page $pageNumber",
+                )
+                assertContains(
+                    pageText,
+                    "OTHER PAGES HEADER",
+                    message = "Other-pages header should appear on page $pageNumber",
+                )
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Renderer-level invariants: same shape as PageHeaderCardinalityValidator,
+    // re-asserted here so render paths that bypass UpdateDraft (PreviewDocument,
+    // PreviewVariant, catalog import, …) can't render with undefined positional
+    // semantics on a malformed document.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `renderer rejects pageheader nested below a non-root container`() {
+        val rootSlotId = "slot-root"
+        val containerSlotId = "slot-container"
+        val headerSlotId = "slot-header"
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "container" to Node(id = "container", type = "container", slots = listOf(containerSlotId)),
+                "header-misplaced" to Node(
+                    id = "header-misplaced",
+                    type = "pageheader",
+                    slots = listOf(headerSlotId),
+                    props = mapOf("height" to "40pt"),
+                ),
+                "header-text" to textNode("header-text", "MISPLACED HEADER"),
+                "body-1" to textNode("body-1", "body"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(rootSlotId, "root", "children", listOf("container", "body-1")),
+                containerSlotId to Slot(containerSlotId, "container", "children", listOf("header-misplaced")),
+                headerSlotId to Slot(headerSlotId, "header-misplaced", "children", listOf("header-text")),
+            ),
+        )
+
+        val ex = assertFailsWith<IllegalArgumentException> {
+            renderer.render(doc, emptyMap(), ByteArrayOutputStream())
+        }
+        assertContains(ex.message ?: "", "header-misplaced")
+        assertContains(ex.message ?: "", "direct children of the root slot")
+    }
+
+    @Test
+    fun `renderer rejects more than two pageheaders even when all are at root`() {
+        val rootSlotId = "slot-root"
+        fun header(id: String, height: String) = Node(
+            id = id,
+            type = "pageheader",
+            slots = listOf("$id-slot"),
+            props = mapOf("height" to height),
+        )
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf(rootSlotId)),
+                "h1" to header("h1", "30pt"),
+                "h2" to header("h2", "30pt"),
+                "h3" to header("h3", "30pt"),
+                "body-1" to textNode("body-1", "body"),
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(rootSlotId, "root", "children", listOf("h1", "h2", "h3", "body-1")),
+                "h1-slot" to Slot("h1-slot", "h1", "children", emptyList()),
+                "h2-slot" to Slot("h2-slot", "h2", "children", emptyList()),
+                "h3-slot" to Slot("h3-slot", "h3", "children", emptyList()),
+            ),
+        )
+
+        val ex = assertFailsWith<IllegalArgumentException> {
+            renderer.render(doc, emptyMap(), ByteArrayOutputStream())
+        }
+        assertContains(ex.message ?: "", "at most 2 pageheader")
     }
 
     // -----------------------------------------------------------------------
@@ -314,7 +623,9 @@ class PageHeaderFooterTest {
         return extractFirstBaselineY(pdfBytes, "FOOTER CONTENT")
     }
 
-    private fun extractFirstBaselineY(pdfBytes: ByteArray, text: String): Float {
+    private fun extractFirstBaselineY(pdfBytes: ByteArray, text: String): Float = extractFirstBaselineYOnPage(pdfBytes, text, 1)
+
+    private fun extractFirstBaselineYOnPage(pdfBytes: ByteArray, text: String, pageNumber: Int): Float {
         var found: Float? = null
         PdfReader(ByteArrayInputStream(pdfBytes)).use { reader ->
             val pdf = PdfDocument(reader)
@@ -330,9 +641,9 @@ class PageHeaderFooterTest {
                 }
                 override fun getSupportedEvents(): Set<EventType> = setOf(EventType.RENDER_TEXT)
             })
-            processor.processPageContent(pdf.getPage(1))
+            processor.processPageContent(pdf.getPage(pageNumber))
             pdf.close()
         }
-        return found ?: error("Text '$text' not found in rendered PDF")
+        return found ?: error("Text '$text' not found on page $pageNumber")
     }
 }

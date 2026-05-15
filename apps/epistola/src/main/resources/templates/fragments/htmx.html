@@ -6,7 +6,7 @@
         Include this fragment in templates that use HTMX.
     -->
     <th:block th:fragment="htmx">
-        <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+        <script th:src="@{/js/vendor/htmx.min.js}"></script>
         <script>
             // Global helper to get CSRF token from cookie
             // Spring Security uses CookieCsrfTokenRepository with XSRF-TOKEN cookie

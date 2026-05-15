@@ -5,6 +5,10 @@ server:
     include-message: never
     whitelabel:
       enabled: false
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/javascript,application/json,image/svg+xml
+    min-response-size: 1024
 
 spring:
   ai:

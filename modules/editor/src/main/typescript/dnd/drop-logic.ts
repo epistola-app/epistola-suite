@@ -6,7 +6,11 @@
 
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
 import type { DocumentIndexes } from '../engine/indexes.js';
-import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js';
+import {
+  type ComponentRegistry,
+  PAGE_FOOTER_TYPE,
+  isAnchoredPageBlock,
+} from '../engine/registry.js';
 import { computeAncestorScope } from '../components/stencil/ancestry.js';
 import { isSlotLocked } from '../engine/locks.js';
 import { STENCIL_TYPE } from '../components/stencil/constants.js';
@@ -113,7 +117,10 @@ export function canDropHere(
     return false;
   }
 
-  if (dragData.source === 'block' && isAnchoredPageBlock(dragData.blockType)) {
+  // Page footer is a single fixed-position block: cannot be moved at all.
+  // Page header allows two instances that can be reordered, but never out of the
+  // root slot — the targetSlotId === rootSlotId check above already enforces that.
+  if (dragData.source === 'block' && dragData.blockType === PAGE_FOOTER_TYPE) {
     return false;
   }
 

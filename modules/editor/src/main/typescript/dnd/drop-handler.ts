@@ -47,6 +47,26 @@ export async function handleDrop(
     if (!result.ok) return;
     engine.selectNode(node.id);
   } else if (isBlockDrag(dragData)) {
-    engine.dispatch({ type: 'MoveNode', nodeId: dragData.nodeId, targetSlotId, index });
+    // The drop UI (`resolveDropOnBlockEdge` / `resolveDropInsideNode`) returns
+    // the position in the *original* slot list. `applyMoveNode` expects the
+    // index in the post-removal (filtered) list — i.e. the desired final slot
+    // position. For same-slot moves these only differ when the drop position
+    // is past the moving node's original index: the filtered list is one
+    // shorter, so subtract one. Cross-slot moves don't need this adjustment.
+    let resolvedIndex = index;
+    const currentSlotId = engine.indexes.parentSlotByNodeId.get(dragData.nodeId);
+    if (currentSlotId && currentSlotId === targetSlotId) {
+      const currentSlot = engine.doc.slots[currentSlotId];
+      const currentIndex = currentSlot?.children.indexOf(dragData.nodeId) ?? -1;
+      if (currentIndex >= 0 && resolvedIndex > currentIndex) {
+        resolvedIndex -= 1;
+      }
+    }
+    engine.dispatch({
+      type: 'MoveNode',
+      nodeId: dragData.nodeId,
+      targetSlotId,
+      index: resolvedIndex,
+    });
   }
 }

@@ -358,7 +358,15 @@ function renderFormField(
     case 'richTextBlock':
       return html`
         <div class="dc-tree-row dc-tree-row-rich-text">
-          ${label}
+          <span
+            class="dc-tree-label"
+            role="label"
+            @click=${() => document.getElementById(fieldId)?.focus()}
+          >
+            ${name}${isRequired
+              ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+              : nothing}
+          </span>
           <div class="dc-tree-input-wrapper">
             <epistola-rich-text-input
               class="dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
