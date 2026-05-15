@@ -43,7 +43,7 @@ class DataListNodeRenderer : NodeRenderer {
         val indexAlias = node.props?.get("indexAlias") as? String
         val listType = node.props?.get("listType") as? String ?: "bullet"
 
-        val list = createList(listType)
+        val list = createList(listType, context.renderingDefaults)
         list.setMarginBottom(context.renderingDefaults.listMarginBottom)
         list.setMarginLeft(context.renderingDefaults.listMarginLeft)
 
@@ -91,13 +91,13 @@ class DataListNodeRenderer : NodeRenderer {
         return listOf(list)
     }
 
-    private fun createList(listType: String): List = when (listType) {
+    private fun createList(listType: String, renderingDefaults: RenderingDefaults): List = when (listType) {
         "decimal" -> List(ListNumberingType.DECIMAL)
         "lower-alpha" -> List(ListNumberingType.ENGLISH_LOWER)
         "upper-alpha" -> List(ListNumberingType.ENGLISH_UPPER)
         "lower-roman" -> List(ListNumberingType.ROMAN_LOWER)
         "upper-roman" -> List(ListNumberingType.ROMAN_UPPER)
         "none" -> List().apply { setListSymbol("") }
-        else -> List() // bullet (default)
+        else -> List().apply { setListSymbol(renderingDefaults.bulletMarker()) }
     }
 }
