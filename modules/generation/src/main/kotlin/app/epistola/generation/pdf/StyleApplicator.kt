@@ -234,7 +234,7 @@ object StyleApplicator {
         }
 
         // Line height: applied as multiplied leading on Paragraph elements.
-        // For Div containers, this is a no-op — line height is applied by TipTapConverter
+        // For Div containers, this is a no-op — line height is applied by ProseMirrorConverter
         // on individual paragraphs where it actually takes effect.
         (styles["lineHeight"] as? Any)?.let { v ->
             val value = v.toString().toFloatOrNull()

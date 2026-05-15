@@ -112,7 +112,7 @@ object TwoPassAnalyzer {
     /**
      * Collects all expression strings from a node's props:
      * - Expression prop keys (condition, expression, value) with a "raw" string
-     * - Inline expressions in TipTap content trees
+     * - Inline expressions in ProseMirror content trees
      * - Stencil parameter bindings (Map<paramName, JSONata expression>): a
      *   binding like `parameterBindings: { totalPages: "sys.pages.total" }`
      *   is a deferred reference to a two-pass value, so the analyzer must
@@ -131,10 +131,10 @@ object TwoPassAnalyzer {
             if (raw != null) result.add(raw)
         }
 
-        // Inline expressions in TipTap content
+        // Inline expressions in ProseMirror content
         val content = props["content"]
         if (content is Map<*, *>) {
-            collectTipTapExpressions(content, result)
+            collectProseMirrorExpressions(content, result)
         }
 
         // Stencil parameter bindings — paramName → JSONata expression.
@@ -154,8 +154,8 @@ object TwoPassAnalyzer {
         return prop["raw"] as? String
     }
 
-    /** Recursively walks a TipTap content tree, collecting expression strings. */
-    private fun collectTipTapExpressions(node: Map<*, *>, result: MutableList<String>) {
+    /** Recursively walks a ProseMirror content tree, collecting expression strings. */
+    private fun collectProseMirrorExpressions(node: Map<*, *>, result: MutableList<String>) {
         if (node["type"] == "expression") {
             val attrs = node["attrs"] as? Map<*, *>
             val expr = attrs?.get("expression") as? String
@@ -165,7 +165,7 @@ object TwoPassAnalyzer {
         val content = node["content"] as? List<*> ?: return
         for (child in content) {
             if (child is Map<*, *>) {
-                collectTipTapExpressions(child, result)
+                collectProseMirrorExpressions(child, result)
             }
         }
     }

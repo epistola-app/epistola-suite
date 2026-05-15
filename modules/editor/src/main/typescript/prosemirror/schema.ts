@@ -2,7 +2,7 @@
  * ProseMirror schema definition for Epistola rich text editing.
  *
  * Combines basic schema nodes/marks with custom expression node.
- * Produces JSON compatible with TipTap (ProseMirror JSON format).
+ * Serialises to standard ProseMirror JSON, consumed by the backend converter.
  */
 
 import { Schema, type NodeSpec, type MarkSpec } from 'prosemirror-model';

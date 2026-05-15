@@ -1,6 +1,6 @@
 package app.epistola.generation.pdf
 
-import app.epistola.generation.TipTapConverter
+import app.epistola.generation.ProseMirrorConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -20,12 +20,12 @@ class NodeRendererRegistryTest {
     )
     private val evaluator = CompositeExpressionEvaluator()
     private val fontCache = FontCache(pdfaCompliant = false)
-    private val tipTapConverter = TipTapConverter(evaluator)
+    private val proseMirrorConverter = ProseMirrorConverter(evaluator)
 
     private fun contextFor(doc: TemplateDocument) = RenderContext(
         data = emptyMap(),
         expressionEvaluator = evaluator,
-        tipTapConverter = tipTapConverter,
+        proseMirrorConverter = proseMirrorConverter,
         fontCache = fontCache,
         document = doc,
     )

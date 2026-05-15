@@ -89,8 +89,8 @@ Bullet markers come from `RenderingDefaults.bulletMarkers`
 | `square` | ■     | U+25A0    |
 | `dash`   | –     | U+2013    |
 
-Both authoring paths now read this map — `TipTapConverter` for rich-text
-`bullet_list` (`TipTapConverter.kt:182`) and `DataListNodeRenderer` for the
+Both authoring paths now read this map — `ProseMirrorConverter` for rich-text
+`bullet_list` (`ProseMirrorConverter.kt:182`) and `DataListNodeRenderer` for the
 `datalist` component (`DataListNodeRenderer.kt:101`). Both pass the marker as a
 **string**, so iText draws it in the list/document font — i.e. whatever
 `fontCache.regular` resolves to. There is no dedicated symbol font.
@@ -197,7 +197,7 @@ preview with the PDF output is tracked as a separate follow-up under
 | `modules/generation/.../pdf/StyleApplicator.kt`               | Style → font; weight/style only, ignores `fontFamily` |
 | `modules/generation/.../pdf/RenderingDefaults.kt`             | `bulletMarkers` map + `bulletMarker(style)`           |
 | `modules/generation/.../pdf/DirectPdfRenderer.kt`             | Sets the document default font                        |
-| `modules/generation/.../TipTapConverter.kt`                   | Rich-text `bullet_list` marker                        |
+| `modules/generation/.../ProseMirrorConverter.kt`              | Rich-text `bullet_list` marker                        |
 | `modules/generation/.../pdf/DataListNodeRenderer.kt`          | `datalist` component marker                           |
 | `modules/generation/src/main/resources/fonts/`                | Bundled Liberation Sans TTF + license                 |
 | `modules/editor/src/main/typescript/engine/style-registry.ts` | Editor `fontFamily` options                           |

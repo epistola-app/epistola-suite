@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
 /**
  * Renders a `richTextVariable` node — resolves its `binding` against the data
  * via [CompositeExpressionEvaluator][app.epistola.generation.expression.CompositeExpressionEvaluator],
- * expects a ProseMirror rich-text doc, and feeds it through [TipTapConverter]
+ * expects a ProseMirror rich-text doc, and feeds it through [ProseMirrorConverter]
  * to emit block-level iText elements (paragraphs, lists, marks).
  *
  * Props:
@@ -89,7 +89,7 @@ class RichTextVariableRenderer : NodeRenderer {
             }
         }
 
-        val elements = context.tipTapConverter.convert(
+        val elements = context.proseMirrorConverter.convert(
             doc,
             context.effectiveData,
             context.loopContext,

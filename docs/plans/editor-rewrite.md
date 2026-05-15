@@ -19,7 +19,7 @@
 
 ## Context
 
-The current editor (React 19 + TipTap + Zustand + dnd-kit) has two structural problems:
+The current editor (React 19 + ProseMirror + Zustand + dnd-kit) has two structural problems:
 
 1. **Data model limitations**: The flat `blocks[]` with recursive nesting forces every operation (add, move, delete) to handle multiple code paths — root blocks, `children[]`, column composite IDs (`blockId::columnId`), table composite IDs (`blockId::rowId::cellId`). See `editorStore.ts:199-353` for the pain. Every new container type would need more composite ID handling.
 
@@ -39,7 +39,7 @@ Additionally: **React is being dropped**. The rest of the app uses Thymeleaf + H
 
 - **Clean embedding**: The editor mounts in a Thymeleaf page. Custom elements (`<epistola-editor>`) provide the strongest mount/unmount contract — it's a web standard, not a framework lifecycle.
 - **Eliminates vendor module**: No React, Radix, Zustand to bundle. Lit is ~7KB. The entire `modules/vendor/` module and import map complexity goes away.
-- **ProseMirror compatibility**: ProseMirror manages its own DOM. React fights this (TipTap exists to solve that). Lit leaves ProseMirror alone — mount it in a `<div>` and it works.
+- **ProseMirror compatibility**: ProseMirror manages its own DOM. React fights this (wrapper libraries exist to solve that). Lit leaves ProseMirror alone — mount it in a `<div>` and it works.
 - **Headless engine fit**: Most complexity lives in the engine (framework-agnostic TS). The UI layer is thin: subscribe to state, render, dispatch commands. Lit's reactive properties handle this naturally.
 
 **Fallback**: If Lit proves too verbose after Phase 2 (minimal UI), Svelte 5 is the alternative — the headless engine is framework-agnostic so only the UI layer would change.
@@ -107,7 +107,7 @@ type ThemeRef = { type: "inherit" } | { type: "override"; themeId: string };
 
 | Node type     | Slots                        | Props                                                    |
 | ------------- | ---------------------------- | -------------------------------------------------------- |
-| `text`        | 0                            | `{ content: TipTapJSON }`                                |
+| `text`        | 0                            | `{ content: ProseMirrorJSON }`                           |
 | `container`   | 1: `children`                | `{}`                                                     |
 | `columns`     | N: `column-0` ... `column-N` | `{ columns: { size: number }[], gap?: number }`          |
 | `table`       | R×C: `cell-{r}-{c}`          | `{ columnWidths?, borderStyle?, rows: { isHeader? }[] }` |
@@ -124,7 +124,7 @@ type ThemeRef = { type: "inherit" } | { type: "override"; themeId: string };
 
 | Choice     | Decision                                       | Rationale                                                                                                                  |
 | ---------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Rich text  | **TipTap core** (keep, drop `@tiptap/react`)   | TipTap core is framework-agnostic. ExpressionNode extension ports directly. Backend `TipTapConverter.kt` unchanged.        |
+| Rich text  | **ProseMirror direct** (no wrapper library)    | Framework-agnostic. ExpressionNode ports directly as a custom node. Backend `ProseMirrorConverter.kt` unchanged.           |
 | DnD        | **pragmatic-drag-and-drop**                    | Framework-agnostic (DOM events). Drop targets map to `(slotId, index)`.                                                    |
 | State      | **Headless engine + Lit reactive properties**  | Engine owns state, exposes subscribe/notify. No Zustand, no Immer.                                                         |
 | Validation | **Ajv** (structural) + custom rules (semantic) | Standard JSON Schema validation + registry-based rules.                                                                    |
@@ -254,7 +254,7 @@ type ThemeRef = { type: "inherit" } | { type: "override"; themeId: string };
 
 **4.1 — ProseMirror integration** ✅
 
-- Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks
+- Direct ProseMirror (no wrapper library) for rich text editing in text blocks
 - Full JSON compatibility with existing backend converter
 - ExpressionNode extension ported as inline chips
 - Debounced content sync with engine, undo delegation
@@ -309,7 +309,7 @@ type ThemeRef = { type: "inherit" } | { type: "override"; themeId: string };
 - `DirectPdfRenderer`: traverse `root → slot → children → slot → ...` instead of `blocks[]`
 - Each block renderer: `Block` → `Node` + `TemplateDocument`
 - `RenderContext` gains `TemplateDocument` reference
-- `TipTapConverter.kt` unchanged (same TipTap JSON format)
+- `ProseMirrorConverter.kt` unchanged (same ProseMirror JSON format)
 
 **7.3 — Update Thymeleaf host page**
 
@@ -342,7 +342,7 @@ type ThemeRef = { type: "inherit" } | { type: "override"; themeId: string };
 | `modules/generation/.../pdf/DirectPdfRenderer.kt`                        | Rewrite traversal        |
 | `modules/generation/.../pdf/RenderContext.kt`                            | Add document reference   |
 | `modules/generation/.../pdf/*BlockRenderer.kt`                           | `Block` → `Node`         |
-| `modules/generation/.../TipTapConverter.kt`                              | No change                |
+| `modules/generation/.../ProseMirrorConverter.kt`                         | No change                |
 | `apps/epistola/.../templates/templates/editor.html`                      | Load V2 bundle           |
 | `db/migration/V__template_model_v2.sql`                                  | Truncate version data    |
 

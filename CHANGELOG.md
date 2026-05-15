@@ -26,6 +26,12 @@
 
 - **Breaking (pre-1.0, no production deployments): Flyway migrations restructured per module ([#413](https://github.com/epistola-app/epistola-suite/issues/413)).** The 30 historical incrementing migrations (`V1`–`V30`, plus `feedback`'s `V17` and `loadtest`'s `V11`) are consolidated into per-domain baseline files owned by the module that owns the tables, under `db/migration/<module>/`, named with Flyway timestamp versions (`VYYYYMMDDHHMMSS__<module>_<desc>.sql`). Each table's later `ALTER`s are folded into its `CREATE`; empty placeholders (old `V18`/`V22`) and obsolete data backfills (old `V16` `UPDATE`, `V24`, `V1` demo seed) are dropped; the `installation` identity seed (old `V30`) is preserved verbatim in the `core_app_metadata` baseline. Equivalence with the historical schema was verified byte-identical with `pg_dump --schema-only` before merge. **One-time effect:** existing local dev databases are auto-cleaned and rebuilt on next app start (Flyway validation fails → dev auto-clean in `FlywayConfig`); demo data reloads automatically. No backward compatibility — there are no production deployments. See [`docs/migrations.md`](docs/migrations.md).
 - **`app_metadata.value` is now JSONB.** `AppMetadataService` now exposes a `JsonNode`-based API plus typed `getAs<T>` / `setAs` / `setIfAbsent` helpers (powered by the configured `ObjectMapper`). This lets callers store structured payloads under a single key (`installation` and `support.hub.credentials` are canonical examples). The `core_app_metadata` baseline migration declares the column as JSONB and seeds the singleton `installation` row.
+- **Renamed `TipTapConverter` → `ProseMirrorConverter` and scrubbed all "TipTap" references.** The suite has never used TipTap — the rich-text editor is ProseMirror (direct, no wrapper), and the rich-text JSON the backend consumes is plain ProseMirror JSON. The misnamed converter class/file (and its test), the `tipTapConverter` field on `RenderContext`, and the `extractPathsFromTipTapContent` / `collectTipTapExpressions` helpers are renamed accordingly; "TipTap JSON/content" comments now say "ProseMirror". Historical CHANGELOG and plan references are reworded to describe the change in ProseMirror terms. Behavior unchanged; pure rename/cleanup.
+
+### Removed
+
+- **Removed the obsolete v1 editor architecture doc (`docs/editor.md`).** It documented the retired React + Zustand + Immer + import-map / `modules/vendor` editor stack — fully superseded by [`docs/editor-v2.md`](docs/editor-v2.md) (Lit + headless engine + ProseMirror). Inbound links in `docs/epistola.md` and `docs/component-registry.md` now point to `editor-v2.md`.
+- **Removed all OpenSpec tooling.** Deleted `openspec/` (`project.md`, `config.yaml`), the `/opsx:*` slash commands (`.claude/commands/opsx/`), and the ten `openspec-*` skills (`.claude/skills/openspec-*`). The workflow was unused, and its `project.md` / `config.yaml` still advertised the dead React/Zustand/import-map frontend stack.
 
 ### Code lists — future work
 
@@ -241,7 +247,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
   - Compatible contract changes auto-publish when deploying template versions
   - Breaking changes require explicit publish with two-step confirmation
 - **Schema compatibility checking**: Three-level checking — structural schema diff, template field usage extraction, and per-version compatibility analysis. Only template versions that actually reference removed/changed fields are flagged as incompatible.
-- **Referenced paths extraction**: `TemplatePathExtractor` extracts all data contract variable paths from template expressions (including loop alias resolution, nested loops, conditionals, QR codes, and TipTap inline expressions). Stored on each template version as `referenced_paths`.
+- **Referenced paths extraction**: `TemplatePathExtractor` extracts all data contract variable paths from template expressions (including loop alias resolution, nested loops, conditionals, QR codes, and ProseMirror inline expressions). Stored on each template version as `referenced_paths`.
 - **Data contract tab view/edit mode**: View mode shows schema fields table and example names in read-only format. Edit mode mounts the full Lit editor. Status bar adapts to each mode with version badge, publish/edit buttons, usage dialog, and history dialog.
 - **Contract publish impact preview**: Breaking contract publishes show a confirmation dialog listing breaking changes and affected template versions with their active environment deployments.
 - **Deployment matrix error handling**: Contract compatibility errors shown inline in the deployment matrix instead of generic "An error occurred" message.
@@ -292,7 +298,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 - **Data contract: property name validation**: Field names are now restricted to valid identifiers (letters, digits, underscores). Names with dashes or special characters broke JSONata expressions in the template editor. Validation is enforced in the editor UI, backend API, and catalog import.
 - **Data contract: unknown field detection**: The migration dialog now detects and offers to remove example data keys that are not defined in the schema.
 - **Data contract: breaking change review**: A confirmation dialog now shows before saving when schema changes include field renames, deletions, or type changes. Uses field IDs to distinguish renames from add/delete pairs, ensuring the user is aware of the impact on external systems.
-- **Bold, italic, and strikethrough in PDF**: Text marks now render correctly in generated PDFs. The PDF converter expected TipTap mark names (`bold`, `italic`, `strike`) but ProseMirror uses `strong`, `em`, and `strikethrough`.
+- **Bold, italic, and strikethrough in PDF**: Text marks now render correctly in generated PDFs. The PDF converter expected the wrong mark names (`bold`, `italic`, `strike`) but ProseMirror uses `strong`, `em`, and `strikethrough`.
 - **Stencil creation**: Fixed crash when saving a newly created stencil. The initial draft version was stored with an empty JSON object (`{}`), which failed deserialization because `TemplateDocument` requires a `root` node. Now stores a valid minimal document with an empty root node.
 - **API docs**: Fixed 404 on `/api-docs/epistola-contract.yaml` — the resource handler used an exact path instead of a wildcard pattern, preventing Spring from resolving the OpenAPI spec from the classpath.
 - **Catalog export**: Cross-catalog theme dependencies from resource-level `themeId` are now included in the exported `catalog.json` dependencies list. Previously only `ThemeRefOverride` inside template models was scanned.
@@ -312,7 +318,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 - **UI exception filter**: Replaced `AuthorizationExceptionFilter` with a generic `UiExceptionFilter` that catches all UI request exceptions, maps known domain exceptions to appropriate HTTP status codes, and returns a generic 500 for unknown errors — preventing Tomcat from rendering raw stacktraces.
 - **Per-side border controls**: The editor now supports setting border width, style, and color independently per side (top, right, bottom, left). Replaces the previous all-or-nothing border controls. Backwards compatible with existing unified border styles.
 - **Separator component**: New horizontal rule block type for visually separating sections in templates. Renders as a styled line with configurable border and margin.
-- **Line height in PDF**: The `lineHeight` style property now renders correctly in generated PDFs. Resolved styles are passed to `TipTapConverter` via a single map, enabling future style properties without parameter changes.
+- **Line height in PDF**: The `lineHeight` style property now renders correctly in generated PDFs. Resolved styles are passed to `ProseMirrorConverter` via a single map, enabling future style properties without parameter changes.
 - **Subscript and superscript**: New text formatting marks for m², footnote markers, and legal references. Available in the bubble menu toolbar and rendered in PDF output.
 - **Keep-together / keep-with-next**: New page flow style properties that prevent page breaks from splitting a block or separating it from the next block. Available as checkboxes in the inspector's Page Flow section.
 - **Widow/orphan control**: PDF paragraphs and headings now enforce a minimum of 2 lines at the top and bottom of each page, preventing single isolated lines.
@@ -614,7 +620,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 
 ### Added
 
-- **PDF link rendering**: `TipTapConverter` now renders ProseMirror `link` marks as clickable hyperlinks in PDF output. Links are styled with blue color and underline, and support both `https://` and `mailto:` URIs. Other marks (bold, italic, etc.) are correctly applied on top of links.
+- **PDF link rendering**: `ProseMirrorConverter` now renders ProseMirror `link` marks as clickable hyperlinks in PDF output. Links are styled with blue color and underline, and support both `https://` and `mailto:` URIs. Other marks (bold, italic, etc.) are correctly applied on top of links.
 - **Local dev Docker Compose**: Unified `apps/epistola/docker/docker-compose.yaml` with PostgreSQL and Keycloak services. Single `docker compose up -d` to start all local dependencies.
 
 ### Fixed
@@ -777,7 +783,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 ### Changed
 
 - **Demo invoice template improvements**: Added a vendor logo image block to the invoice header, converted multi-paragraph address/metadata blocks to use `hard_break` for tighter line spacing, and normalized `hardBreak` to `hard_break` for ProseMirror schema consistency. `UploadAsset` command now accepts an optional pre-defined `id` parameter.
-- **Proper spacing architecture**: Unified the spacing system between the editor canvas and PDF renderer to eliminate the 2x vertical spacing mismatch. Individual spacing keys (`marginTop`, `marginBottom`, etc.) are now used throughout instead of compound objects, ensuring user-configured spacing is correctly applied in both the editor and PDF output. Added component default styles (`marginBottom: 0.5em`) for content blocks. TipTap paragraph and list spacing now matches the editor's ProseMirror CSS values.
+- **Proper spacing architecture**: Unified the spacing system between the editor canvas and PDF renderer to eliminate the 2x vertical spacing mismatch. Individual spacing keys (`marginTop`, `marginBottom`, etc.) are now used throughout instead of compound objects, ensuring user-configured spacing is correctly applied in both the editor and PDF output. Added component default styles (`marginBottom: 0.5em`) for content blocks. Paragraph and list spacing now matches the editor's ProseMirror CSS values.
 
 ### Added
 
@@ -1016,7 +1022,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 ### Changed (Breaking)
 
 - **Block style presets format**: Changed `blockStylePresets` from flat `Map<String, Map<String, Any>>` to typed `Map<String, BlockStylePreset>` where `BlockStylePreset` has `{label, styles, applicableTo}` fields. This aligns the Kotlin backend with the TypeScript template-model type. Existing preset data in the database needs to be migrated to the new nested structure.
-- **Complete editor rewrite from v1 to v2**: Replaced the entire editor stack (React + TipTap + Zustand → Lit + ProseMirror + headless engine) and data model (flat `blocks[]` → normalized node/slot graph). This is a full-stack change:
+- **Complete editor rewrite from v1 to v2**: Replaced the entire editor stack (React + Zustand + ProseMirror wrapper → Lit + headless engine + ProseMirror direct) and data model (flat `blocks[]` → normalized node/slot graph). This is a full-stack change:
   - **Data model**: `TemplateModel` replaced by `TemplateDocument` with `nodes: Map<String, Node>` and `slots: Map<String, Slot>`. All domain commands, queries, services, and REST API updated.
   - **PDF generation**: All `BlockRenderer` types replaced by `NodeRenderer` types with `renderNode()`/`renderSlot()` traversal.
   - **Editor**: Thymeleaf page now loads the Lit/ProseMirror editor (`/editor/template-editor.js`). Import map removed.
@@ -1064,7 +1070,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 ### Added
 
 - **Editor V2: Rich text editing with ProseMirror** (Phase 4):
-  - **ProseMirror integration**: Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks, with full JSON compatibility with the existing TipTap-based backend converter
+  - **ProseMirror integration**: Direct ProseMirror (no wrapper library) for rich text editing in text blocks, with full JSON compatibility with the existing ProseMirror-based backend converter
   - **Inline formatting**: Bold, italic, underline, strikethrough marks with keyboard shortcuts (Ctrl+B/I/U)
   - **Block types**: Paragraphs, headings (H1-H3), bullet lists, ordered lists
   - **Expression chips**: Inline `{{expression}}` nodes rendered as styled pills; type `{{` to insert, click to edit
@@ -1154,7 +1160,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 
 ### Added
 
-- **Editor V2 module (`modules/editor-v2/`)**: New template editor built with Lit web components + headless engine architecture, replacing React + TipTap + Zustand
+- **Editor V2 module (`modules/editor-v2/`)**: New template editor built with Lit web components + headless engine architecture, replacing React + Zustand
   - **Node/slot data model**: Normalized graph (`TemplateDocument` with flat `nodes` and `slots` maps) replaces recursive `blocks[]` with composite IDs. Every insert/move/remove is a uniform slot.children update.
   - **JSON Schemas**: Draft 2020-12 schemas for `TemplateDocument`, `Theme`, `ComponentManifest`, `StyleRegistry` in `modules/template-model/schemas/`
   - **Type generation pipeline**: `json-schema-to-typescript` generates TS interfaces from schemas
@@ -1646,9 +1652,9 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
   - Tracks template changes (blocks, styles) with 100-entry history limit
   - 500ms debounce batches rapid changes (e.g., dragging, slider adjustments)
   - Keyboard shortcuts: Ctrl+Z/Cmd+Z (undo), Ctrl+Shift+Z/Cmd+Shift+Z/Ctrl+Y (redo)
-  - Smart focus detection routes undo/redo to TipTap for text or Zustand for structure
+  - Smart focus detection routes undo/redo to ProseMirror for text or Zustand for structure
   - Toolbar buttons with enabled/disabled states reflecting history availability
-  - TipTap's built-in History extension handles character-level text undo
+  - ProseMirror's built-in history handles character-level text undo
 - **Page Header Block**: New block type to display repeating headers on every PDF page
   - Frontend: Visual component with blue styling and drag-drop child block support
   - Backend: `PageHeaderBlock` model with dedicated `PageHeaderEventHandler`
@@ -1734,7 +1740,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 - **PDF Generation**: Fixed iText7 error "Pdf indirect object belongs to other PDF document" when using bold/italic text
   - Root cause: Font objects were cached at class/object level and reused across multiple PDF documents
   - Solution: Implemented `FontCache` class to scope fonts per PDF document
-  - Affected files: `TipTapConverter`, `StyleApplicator`, all block renderers
+  - Affected files: `ProseMirrorConverter`, `StyleApplicator`, all block renderers
   - Impact: Multiple PDF renders (e.g., preview multiple templates) now work correctly
 
 ### Added
@@ -1752,7 +1758,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
     4. Update draft with visual content
   - Bumped `DEMO_VERSION` to 2.0.1 to trigger reload
   - Foundation for future template marketplace/package system
-  - Expression nodes in TipTap content require `"isNew": false` attribute to render correctly
+  - Expression nodes in ProseMirror content require `"isNew": false` attribute to render correctly
   - See `resources/demo/README.md` for adding new templates
 - PDF Preview mode in template editor
   - Toggle between HTML (Fast) and PDF (Actual) preview modes in editor header
@@ -1816,7 +1822,7 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
   - New `modules/generation` module with DirectPdfRenderer for native PDF generation
   - New `modules/template-model` module with shared template types
   - Expression evaluation ({{customer.name}}) with path traversal and array support
-  - TipTap JSON to iText conversion for rich text content
+  - ProseMirror JSON to iText conversion for rich text content
   - Block renderers: Text, Container, Columns, Table, Conditional, Loop
   - Style applicator supporting CSS-like properties (colors, margins, padding, fonts)
   - Preview endpoint: `POST /tenants/{tenantId}/templates/{id}/variants/{variantId}/preview`

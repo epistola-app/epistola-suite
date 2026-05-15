@@ -9,7 +9,7 @@ import com.itextpdf.layout.element.IElement
  * Renders a "text" node to iText elements.
  *
  * Props:
- * - `content`: TipTap JSON content (Map<String, Any>)
+ * - `content`: ProseMirror JSON content (Map<String, Any>)
  */
 class TextNodeRenderer : NodeRenderer {
     override fun render(
@@ -34,7 +34,7 @@ class TextNodeRenderer : NodeRenderer {
         )
 
         // Resolve the full style cascade, then parse size values to points.
-        // TipTapConverter receives pre-resolved values — it doesn't parse units.
+        // ProseMirrorConverter receives pre-resolved values — it doesn't parse units.
         val rawStyles = buildMap<String, Any> {
             putAll(context.inheritedStyles)
             StyleApplicator.resolveBlockStyles(context.blockStylePresets, node.stylePreset, node.styles?.filterNonNullValues())
@@ -46,10 +46,10 @@ class TextNodeRenderer : NodeRenderer {
             }
         }
 
-        // Convert TipTap content to iText elements
+        // Convert ProseMirror content to iText elements
         @Suppress("UNCHECKED_CAST")
         val content = node.props?.get("content") as? Map<String, Any>
-        val elements = context.tipTapConverter.convert(content, context.effectiveData, context.loopContext, context.fontCache, resolvedStyles)
+        val elements = context.proseMirrorConverter.convert(content, context.effectiveData, context.loopContext, context.fontCache, resolvedStyles)
 
         for (element in elements) {
             div.add(element)

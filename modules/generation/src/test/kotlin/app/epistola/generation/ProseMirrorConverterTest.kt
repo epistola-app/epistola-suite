@@ -12,11 +12,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-class TipTapConverterTest {
+class ProseMirrorConverterTest {
     private val expressionEvaluator = CompositeExpressionEvaluator(
         jsonataEvaluator = JsonataEvaluator(),
     )
-    private val converter = TipTapConverter(expressionEvaluator)
+    private val converter = ProseMirrorConverter(expressionEvaluator)
     private val fontCache = FontCache()
 
     @Test

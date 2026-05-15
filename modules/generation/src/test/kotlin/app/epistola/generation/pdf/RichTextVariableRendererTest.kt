@@ -1,6 +1,6 @@
 package app.epistola.generation.pdf
 
-import app.epistola.generation.TipTapConverter
+import app.epistola.generation.ProseMirrorConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.template.model.Node
@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class RichTextVariableRendererTest {
     private val evaluator = CompositeExpressionEvaluator(jsonataEvaluator = JsonataEvaluator())
     private val fontCache = FontCache(pdfaCompliant = false)
-    private val converter = TipTapConverter(evaluator)
+    private val converter = ProseMirrorConverter(evaluator)
     private val renderer = RichTextVariableRenderer()
 
     private fun docWith(node: Node): TemplateDocument = TemplateDocument(
@@ -35,7 +35,7 @@ class RichTextVariableRendererTest {
     private fun contextWith(data: Map<String, Any?>, doc: TemplateDocument) = RenderContext(
         data = data,
         expressionEvaluator = evaluator,
-        tipTapConverter = converter,
+        proseMirrorConverter = converter,
         fontCache = fontCache,
         document = doc,
     )

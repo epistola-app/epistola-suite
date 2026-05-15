@@ -58,7 +58,7 @@ class TemplatePathExtractorTest {
     @Nested
     inner class TextExpressions {
         @Test
-        fun `extracts inline expression from TipTap content`() {
+        fun `extracts inline expression from ProseMirror content`() {
             val doc = documentWithChildren(
                 "text1" to Node(
                     id = "text1",
@@ -715,7 +715,7 @@ class TemplatePathExtractorTest {
         }
 
         @Test
-        fun `deeply nested TipTap content`() {
+        fun `deeply nested ProseMirror content`() {
             val doc = documentWithChildren(
                 "text1" to Node(
                     id = "text1",

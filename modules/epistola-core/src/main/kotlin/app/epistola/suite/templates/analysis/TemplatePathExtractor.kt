@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component
  * - Loop/datalist/datatable expressions with `itemAlias` scoping
  * - Conditional expressions
  * - QR code value expressions
- * - Inline expressions in TipTap text content
+ * - Inline expressions in ProseMirror text content
  * - Nested loops (compounding scope)
  * - JSONata functions (extracts identifiers, filters out `$func` names)
  */
@@ -64,8 +64,8 @@ class TemplatePathExtractor {
                 extractExpressionRaw(props["value"])?.let { raw ->
                     extractPathsFromExpression(raw, scopeStack, paths)
                 }
-                // Text content (TipTap JSON)
-                extractPathsFromTipTapContent(props["content"], scopeStack, paths)
+                // Text content (ProseMirror JSON)
+                extractPathsFromProseMirrorContent(props["content"], scopeStack, paths)
                 scopeStack
             }
         }
@@ -104,12 +104,12 @@ class TemplatePathExtractor {
     }
 
     /**
-     * Walks TipTap JSON content to find inline expression nodes.
-     * TipTap content structure: `{type: "doc", content: [{type: "paragraph", content: [...]}]}`
+     * Walks ProseMirror JSON content to find inline expression nodes.
+     * ProseMirror content structure: `{type: "doc", content: [{type: "paragraph", content: [...]}]}`
      * Expression nodes: `{type: "expression", attrs: {expression: "customer.name"}}`
      */
     @Suppress("UNCHECKED_CAST")
-    private fun extractPathsFromTipTapContent(content: Any?, scopeStack: List<LoopScope>, paths: MutableSet<String>) {
+    private fun extractPathsFromProseMirrorContent(content: Any?, scopeStack: List<LoopScope>, paths: MutableSet<String>) {
         if (content == null) return
         val map = content as? Map<String, Any?> ?: return
 
@@ -126,7 +126,7 @@ class TemplatePathExtractor {
         // Recurse into content array
         val children = map["content"] as? List<Any?> ?: return
         for (child in children) {
-            extractPathsFromTipTapContent(child, scopeStack, paths)
+            extractPathsFromProseMirrorContent(child, scopeStack, paths)
         }
     }
 

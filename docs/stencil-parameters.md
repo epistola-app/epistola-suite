@@ -187,7 +187,7 @@ parameter support to any future renderer.
 ## 5. Two-pass detection
 
 `TwoPassAnalyzer.collectExpressions` walks every node's expression-bearing
-props (`condition`, `expression`, `value`), inline TipTap content, **and**
+props (`condition`, `expression`, `value`), inline ProseMirror content, **and**
 `parameterBindings`. A binding to `sys.pages.total` correctly triggers
 two-pass rendering even when the stencil's own content doesn't reference
 `sys.*` directly.
