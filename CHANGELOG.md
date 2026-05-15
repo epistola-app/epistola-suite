@@ -44,6 +44,10 @@ The remaining follow-ups now that the bundled system catalog and catalog-protoco
 
 - **Duplicate CSS rules merged.** The two competing `.btn-sm` definitions in `components.css` are now one. The two `.canvas-placeholder--default-edit` rules in `placeholder.css` are now one.
 
+### Documentation
+
+- **Font rendering model documented.** New [`docs/fonts.md`](docs/fonts.md) captures how fonts resolve across the PDF, editor-preview, and PDF/A paths and the known gaps: `fontFamily` is parsed and inherited but **ignored by the PDF renderer**, bold+italic collapses to bold, and standard Helvetica's WinAnsi (CP1252) encoding silently drops the `circle` (U+25CB) and `square` (U+25A0) bullet markers in non-PDF/A output ([#401](https://github.com/epistola-app/epistola-suite/issues/401)). Also records the pending bullet-marker font-policy options and the customer-uploaded-font roadmap. [`docs/pdfa.md`](docs/pdfa.md) now cross-links it, and its "documents render identically in both modes" claim is corrected to note the WinAnsi divergence.
+
 ### Changed
 
 - **Security scan now publishes vulnerability details.** The daily Trivy scan workflow (`.github/workflows/security-scan.yml`) previously counted CRITICAL/HIGH findings for the README badge but discarded the per-CVE details on the runner. It now also produces SARIF, uploads it to GitHub Code Scanning (Security tab → Code scanning), and uploads the JSON + SARIF results as a 30-day `trivy-scan-results` workflow artifact.
