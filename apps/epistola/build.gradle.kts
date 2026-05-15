@@ -120,9 +120,30 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
+// Self-hosted HTMX: copied from the pnpm-installed package instead of a CDN.
+val verifyHtmxVendored by tasks.registering {
+    description = "Verifies the vendored HTMX bundle exists (from pnpm install)"
+    group = "verification"
+    val htmxBundle = rootProject.file("node_modules/htmx.org/dist/htmx.min.js")
+
+    doLast {
+        if (!htmxBundle.exists()) {
+            throw GradleException(
+                """
+                Vendored HTMX bundle not found at: ${htmxBundle.absolutePath}
+
+                Please install frontend dependencies first:
+                  pnpm install && pnpm build
+                """.trimIndent(),
+            )
+        }
+    }
+}
+
 tasks.processResources {
     // Copy SBOM to JAR resources for Docker embedding
     dependsOn(tasks.cyclonedxDirectBom)
+    dependsOn(verifyHtmxVendored)
     from(layout.buildDirectory.file("sbom/bom.json")) {
         into("META-INF/sbom")
     }
@@ -130,6 +151,10 @@ tasks.processResources {
     from(rootProject.file("modules/design-system")) {
         include("*.css", "icons.svg")
         into("static/design-system")
+    }
+    // Self-host HTMX so Spring Boot serves it at /js/vendor/htmx.min.js
+    from(rootProject.file("node_modules/htmx.org/dist/htmx.min.js")) {
+        into("static/js/vendor")
     }
     // Copy changelog markdown into app resources
     from(rootProject.file("CHANGELOG.md")) {

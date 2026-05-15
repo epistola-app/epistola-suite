@@ -327,9 +327,18 @@ function createMenuElement(schema: Schema): {
 function updatePosition(menuEl: HTMLElement, view: EditorView): void {
   const { from, to } = view.state.selection;
 
-  // Get the DOM range for the selection
-  const start = view.coordsAtPos(from);
-  const end = view.coordsAtPos(to);
+  // Get the DOM range for the selection. With a collapsed cursor from === to,
+  // yielding a zero-width caret rect — @floating-ui handles that fine. Guard
+  // against coordsAtPos throwing on a freshly-focused / not-yet-laid-out block.
+  let start: { left: number; right: number; top: number; bottom: number };
+  let end: { left: number; right: number; top: number; bottom: number };
+  try {
+    start = view.coordsAtPos(from);
+    end = view.coordsAtPos(to);
+  } catch {
+    hideMenu(menuEl);
+    return;
+  }
 
   // Create a virtual reference element spanning the selection
   const virtualEl = {
@@ -361,6 +370,45 @@ function hideMenu(menuEl: HTMLElement | null): void {
   menuEl.style.display = 'none';
 }
 
+/**
+ * Show the bubble menu whenever the editor has focus — no text selection
+ * required. Shared by the plugin's transaction `update()` and the `focus`
+ * DOM listener (focus alone produces no transaction, so `update()` would
+ * not otherwise run for a click into an empty block).
+ */
+function showMenu(
+  menuEl: HTMLElement | null,
+  buttons: { el: HTMLElement; def: ButtonDef }[],
+  view: EditorView,
+): void {
+  if (!menuEl) return;
+
+  if (!view.hasFocus()) {
+    hideMenu(menuEl);
+    return;
+  }
+
+  const { from, to } = view.state.selection;
+  const size = view.state.doc.content.size;
+  if (from < 0 || to < 0 || from > size || to > size) {
+    hideMenu(menuEl);
+    return;
+  }
+
+  menuEl.style.display = 'flex';
+
+  // Update active states
+  for (const { el, def } of buttons) {
+    if (def.isActive(view)) {
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  }
+
+  updatePosition(menuEl, view);
+}
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -390,6 +438,10 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
         hideMenu(menuEl);
       };
 
+      const onEditorFocus = () => {
+        showMenu(menuEl, buttons, view);
+      };
+
       // Wire up click handlers (need view reference)
       for (const { el, def } of buttons) {
         el.addEventListener('click', (e) => {
@@ -403,39 +455,17 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       ownerDocument.body.appendChild(menuEl);
       ownerDocument.addEventListener('pointerdown', onDocumentPointerDown, true);
       view.dom.addEventListener('blur', onEditorBlur, true);
+      view.dom.addEventListener('focus', onEditorFocus, true);
 
       return {
         update(view, _prevState) {
-          if (!menuEl) return;
-
-          const { state } = view;
-          const { selection } = state;
-          const { empty } = selection;
-
-          // Hide if selection is empty or collapsed
-          if (empty || !view.hasFocus()) {
-            hideMenu(menuEl);
-            return;
-          }
-
-          // Show and update
-          menuEl.style.display = 'flex';
-
-          // Update active states
-          for (const { el, def } of buttons) {
-            if (def.isActive(view)) {
-              el.classList.add('active');
-            } else {
-              el.classList.remove('active');
-            }
-          }
-
-          updatePosition(menuEl, view);
+          showMenu(menuEl, buttons, view);
         },
 
         destroy() {
           ownerDocument.removeEventListener('pointerdown', onDocumentPointerDown, true);
           view.dom.removeEventListener('blur', onEditorBlur, true);
+          view.dom.removeEventListener('focus', onEditorFocus, true);
           menuEl?.remove();
           menuEl = null;
           buttons = [];
