@@ -63,7 +63,27 @@ epistola-suite-modules/
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `X-API-Key` auth). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
+- **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) will arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …). The current `modules/feedback/` will be renamed to `modules/epistola-support-feedback/` in a follow-up PR.
 - **modules/testing**: Shared test infrastructure — `IntegrationTestBase`, Testcontainers, fixture/scenario DSLs (not production code)
+
+### Database migrations are module-owned
+
+Flyway migrations live in the module that owns the tables, under
+`<module>/src/main/resources/db/migration/<module>/`, named
+`VYYYYMMDDHHMMSS__<module>_<desc>.sql` (timestamp versions, generate with
+`date -u +V%Y%m%d%H%M%S`). All module migrations merge onto **one global Flyway
+namespace** at app runtime, so versions must be globally unique and ordered. A
+non-core migration that FKs to (or uses a `DOMAIN` from) a core table must
+timestamp **after** the core migration it depends on. Never edit a merged
+migration — add a new timestamped file. Folding `ALTER`s back into the original
+`CREATE` is a deliberate consolidation, verified byte-identical with
+`pg_dump --schema-only` before merge. See [`docs/migrations.md`](docs/migrations.md).
+
+### Commercial-tier architecture (forward direction)
+
+- **`epistola-support`** owns commercial-tier infrastructure (hub client, registration, credentials). Per-feature modules layer on top.
+- Per-feature modules MAY ship **UI** (Thymeleaf templates + `@Component` handlers in their own `src/main/resources/templates/...`). Spring/Thymeleaf merges classpath templates from every JAR; CSP and security wiring apply automatically. `apps/epistola` keeps being the host that composes UI from contributing modules — relax the "UI only in `apps/epistola`" rule when a support-tier feature module needs to contribute UI.
+- **Extension points** (e.g., "add a Quality tab to the template page") use small SPIs in core, introduced one-at-a-time as features need them. Pattern: feature module ships a `TemplateDetailTab` `@Component` + a UI handler returning an HTMX fragment; host page collects all contributions and renders a tab strip with `hx-get` lazy-load. No SPI exists yet — add the first one when the first contributing feature lands.
 
 ## Frontend Architecture
 

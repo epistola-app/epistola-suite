@@ -119,6 +119,41 @@ spec:
               value: "true"
             {{- end }}
             {{- end }}
+            {{- /* Commercial support tier (epistola-hub integration) */}}
+            {{- if .Values.support.enabled }}
+            - name: EPISTOLA_SUPPORT_ENABLED
+              value: "true"
+            - name: EPISTOLA_INSTALLATION_COMPANYNAME
+              value: {{ required "support.installation.companyName is required when support.enabled is true" .Values.support.installation.companyName | quote }}
+            - name: EPISTOLA_INSTALLATION_ADMINEMAIL
+              value: {{ required "support.installation.adminEmail is required when support.enabled is true" .Values.support.installation.adminEmail | quote }}
+            - name: EPISTOLA_INSTALLATION_ENVIRONMENT
+              value: {{ required "support.installation.environment is required when support.enabled is true" .Values.support.installation.environment | quote }}
+            {{- if .Values.support.installation.name }}
+            - name: EPISTOLA_INSTALLATION_NAME
+              value: {{ .Values.support.installation.name | quote }}
+            {{- end }}
+            {{- if .Values.support.installation.description }}
+            - name: EPISTOLA_INSTALLATION_DESCRIPTION
+              value: {{ .Values.support.installation.description | quote }}
+            {{- end }}
+            {{- if .Values.support.hub.discoveryUrl }}
+            - name: EPISTOLA_SUPPORT_HUB_DISCOVERYURL
+              value: {{ .Values.support.hub.discoveryUrl | quote }}
+            {{- end }}
+            {{- if .Values.support.hub.nodeId }}
+            - name: EPISTOLA_SUPPORT_HUB_NODEID
+              value: {{ .Values.support.hub.nodeId | quote }}
+            {{- else }}
+            {{- /* Default node id to pod name via downward API — gives the
+                   hub stable per-replica identifiers in multi-pod deployments. */}}
+            - name: EPISTOLA_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- end }}
+            {{- end }}
+
             {{- /* Database configuration */}}
             {{- $dbType := include "epistola.database.effectiveType" . }}
             {{- /* CNPG mode - use CNPG secret with jdbc-uri */}}

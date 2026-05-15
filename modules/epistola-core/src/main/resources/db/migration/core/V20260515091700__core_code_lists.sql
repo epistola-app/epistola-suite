@@ -1,16 +1,10 @@
--- V29: Code lists for attribute value constraints
+-- Code lists for attribute value constraints
 --
--- Adds code lists — named collections of {code, label, hidden} entries that
+-- Code lists — named collections of {code, label, hidden} entries that
 -- attribute definitions can bind to as an alternative to inline allowed_values.
 -- Code lists are tenant + catalog scoped, mirroring the attributes that bind
 -- to them. AUTHORED catalogs only — SUBSCRIBED catalogs are already read-only
 -- via requireCatalogEditable.
---
--- Out of scope this migration (deferred to a follow-up paired with
--- epistola-contract changes): a bundled "system" catalog supplying reserved
--- attributes (locale/language/country) and their canonical code lists, plus
--- catalog-qualified variant attribute references. See CHANGELOG "Code lists
--- — future work" for the full deferred list.
 
 -- Domain type for code list slugs (matches ATTRIBUTE_KEY pattern, broader length).
 CREATE DOMAIN CODE_LIST_KEY AS VARCHAR(64)
@@ -24,7 +18,7 @@ CREATE DOMAIN CODE_LIST_SOURCE AS TEXT
     CHECK (VALUE IN ('CLASSPATH', 'URL', 'INLINE'));
 
 -- Auth type for refreshing a URL-sourced code list. Mirrors the catalog
--- subscription auth model (V4: catalogs.source_auth_type).
+-- subscription auth model (catalogs.source_auth_type).
 CREATE DOMAIN CODE_LIST_AUTH_TYPE AS TEXT
     CHECK (VALUE IN ('NONE', 'API_KEY', 'BEARER'));
 
@@ -83,6 +77,10 @@ CREATE INDEX code_list_entries_visible
     WHERE NOT hidden;
 
 -- Extend variant_attribute_definitions to allow binding to a code list.
+-- Deferred here (not folded into the table's CREATE in
+-- V20260515090700__core_template_variants_versions.sql) because the column
+-- type CODE_LIST_KEY and the attr_code_list_fk target both live in this file.
+--
 -- An attribute is constrained in exactly one of three ways:
 --   1. Free format        : allowed_values empty AND code_list_slug NULL
 --   2. Inline values      : allowed_values non-empty AND code_list_slug NULL

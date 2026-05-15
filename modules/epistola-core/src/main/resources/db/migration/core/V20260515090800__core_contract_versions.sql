@@ -51,27 +51,11 @@ COMMENT ON COLUMN contract_versions.created_by IS 'User who created this contrac
 -- ============================================================================
 -- LINK TEMPLATE VERSIONS TO CONTRACT VERSIONS
 -- ============================================================================
-
-ALTER TABLE template_versions
-    ADD COLUMN contract_version INTEGER;
+-- The template_versions.contract_version column lives in
+-- V20260515090700__core_template_variants_versions.sql; the FK is deferred
+-- here because it targets contract_versions, created just above.
 
 ALTER TABLE template_versions
     ADD CONSTRAINT fk_template_versions_contract_version
     FOREIGN KEY (tenant_key, catalog_key, template_key, contract_version)
     REFERENCES contract_versions(tenant_key, catalog_key, template_key, id);
-
-COMMENT ON COLUMN template_versions.contract_version IS 'Contract version this template version is associated with. NULL if the template has no contract.';
-
-ALTER TABLE template_versions
-    ADD COLUMN referenced_paths JSONB NOT NULL DEFAULT '[]'::jsonb;
-
-COMMENT ON COLUMN template_versions.referenced_paths IS 'Data contract paths referenced by expressions in the template model. Computed on save. Used for precise contract compatibility checking.';
-
--- ============================================================================
--- REMOVE CONTRACT COLUMNS FROM DOCUMENT_TEMPLATES
--- ============================================================================
-
-ALTER TABLE document_templates
-    DROP COLUMN schema,
-    DROP COLUMN data_model,
-    DROP COLUMN data_examples;

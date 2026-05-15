@@ -5,20 +5,21 @@ CREATE DOMAIN TEMPLATE_KEY AS VARCHAR(50)
 -- Document templates table with tenant and catalog isolation
 -- IDs are client-provided slugs for human-readable, URL-safe identifiers
 -- Composite PK (tenant_key, catalog_key, id) allows different catalogs to have the same template slug
+--
+-- The data contract (schema, data_model, data_examples) is versioned separately
+-- in contract_versions; pdfa_enabled toggles PDF/A output.
 CREATE TABLE document_templates (
     id TEMPLATE_KEY NOT NULL,
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     catalog_key CATALOG_KEY NOT NULL DEFAULT 'default',
     name VARCHAR(255) NOT NULL,
-    schema JSONB,
-    data_model JSONB,
-    data_examples JSONB DEFAULT '[]'::jsonb,
     theme_key THEME_KEY,
     theme_catalog_key CATALOG_KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     last_modified_by UUID REFERENCES users(id),
+    pdfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, theme_catalog_key, theme_key) REFERENCES themes(tenant_key, catalog_key, id) ON DELETE SET NULL (theme_catalog_key, theme_key)
@@ -32,9 +33,6 @@ COMMENT ON COLUMN document_templates.id IS 'URL-safe slug identifier unique with
 COMMENT ON COLUMN document_templates.tenant_key IS 'Owning tenant';
 COMMENT ON COLUMN document_templates.catalog_key IS 'Catalog this template belongs to';
 COMMENT ON COLUMN document_templates.name IS 'Human-readable display name';
-COMMENT ON COLUMN document_templates.schema IS 'JSON Schema defining the data contract for document generation. NULL means no validation.';
-COMMENT ON COLUMN document_templates.data_model IS 'JSON Schema describing the expected input structure (informational, not enforced)';
-COMMENT ON COLUMN document_templates.data_examples IS 'Sample data objects conforming to the schema, used for preview and testing';
 COMMENT ON COLUMN document_templates.theme_key IS 'Default theme for this template. Variants can override via TemplateDocument.themeRef. NULL falls back to tenant default theme.';
 COMMENT ON COLUMN document_templates.created_at IS 'When the template was created';
 COMMENT ON COLUMN document_templates.last_modified IS 'When the template was last updated';
