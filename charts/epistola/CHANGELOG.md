@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`support` / `support.installation` / `support.hub` values for the commercial-tier hub integration.** When `support.enabled=true`, the chart sets `EPISTOLA_SUPPORT_ENABLED=true`, `EPISTOLA_INSTALLATION_COMPANYNAME`, `EPISTOLA_INSTALLATION_ADMINEMAIL`, and `EPISTOLA_INSTALLATION_ENVIRONMENT` (the latter three are `required` and fail `helm install` with a clear message when missing). Optional overrides: `support.installation.name`, `support.installation.description`, `support.hub.discoveryUrl` (point at a self-hosted `.well-known` document — leave blank to use the SaaS default), `support.hub.nodeId`. Kubernetes deployments always resolve the hub via `.well-known` discovery; the direct host/port mode supported by the application (for local development and debugging) is intentionally not exposed in the chart. When `support.hub.nodeId` is blank, `EPISTOLA_NODE_ID` is sourced from the pod's `metadata.name` via the downward API, giving the hub stable per-replica identifiers. OSS deployments leave `support.enabled=false` — the chart emits nothing extra, and the application keeps the support module dormant.
+
 ## [0.2.1] - 2026-04-13
 
 ### Fixed

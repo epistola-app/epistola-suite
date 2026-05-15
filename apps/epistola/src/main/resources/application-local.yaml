@@ -67,3 +67,23 @@ epistola:
   editor:
     dev-server:
       auto-start: true
+
+  # Identity reported to epistola-hub when support is enabled. Sensible
+  # defaults so a developer can just flip `epistola.support.enabled=true`
+  # on the command line without re-typing every required field.
+  installation:
+    company-name: Local Dev
+    admin-email: dev@local
+    environment: local
+
+  # Support tier stays off by default — flip it on per-run with
+  # `--epistola.support.enabled=true` (or EPISTOLA_SUPPORT_ENABLED=true).
+  # Point straight at the local epistola-hub gRPC port (9090, plaintext)
+  # so we skip the .well-known discovery dance entirely — the local hub
+  # doesn't serve a discovery doc, just the gRPC service.
+  support:
+    enabled: false
+    hub:
+      host: localhost
+      port: 9090
+      plaintext: true

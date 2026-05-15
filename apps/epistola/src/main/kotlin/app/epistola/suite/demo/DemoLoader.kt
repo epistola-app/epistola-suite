@@ -16,7 +16,6 @@ import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
-import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
@@ -40,7 +39,6 @@ import tools.jackson.databind.ObjectMapper
 )
 class DemoLoader(
     private val mediator: Mediator,
-    private val metadataService: AppMetadataService,
     private val catalogClient: CatalogClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,

@@ -181,6 +181,40 @@ keycloakAdmin:
   # Ensure base group hierarchy (/epistola/tenants, /epistola/global/*, /epistola/platform/*) exists on startup.
   ensureGroups: false
 
+# Optional commercial support tier (epistola-hub integration).
+# When enabled, the application registers itself with epistola-hub on startup
+# for feedback sync, monitoring, quality checks, and version-compatibility
+# services. OSS deployments leave this disabled — the support module ships in
+# the image but never constructs any beans. See modules/epistola-support.
+support:
+  enabled: false
+
+  # Installation identity. Required when support.enabled is true.
+  # The companyName/environment combination becomes the default installation
+  # name reported to the hub; override via installation.name.
+  installation:
+    companyName: ""
+    adminEmail: ""
+    environment: "" # e.g., "production", "staging"
+    # Optional display name override. Blank → "{companyName} - {environment}".
+    name: ""
+    # Optional free-form description shown in the hub.
+    description: ""
+
+  # Hub connection (only used when support.enabled is true).
+  hub:
+    # Override the hub discovery URL for self-hosted deployments.
+    # Blank → use the SaaS default baked into the hub client.
+    # Kubernetes deployments resolve the hub via `.well-known` discovery;
+    # the direct host/port mode is a local-dev / debug convenience and is
+    # intentionally NOT exposed here.
+    discoveryUrl: ""
+    # Override the per-pod node id reported to the hub. Blank → auto-detect
+    # from EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
+    # In Kubernetes you usually want to set this to the pod name via the
+    # downward API (an example is in deployment.yaml when enabled).
+    nodeId: ""
+
 # Application configuration
 config:
   # Spring profiles to activate
