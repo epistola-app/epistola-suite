@@ -94,6 +94,19 @@ tasks.register<Test>("uiTest") {
     filter { isFailOnNoMatchingTests = false }
 }
 
+// CRITICAL: `gradle build` → `check` → the catch-all `test` task, which by
+// default runs *every* tagged test — including `@Tag("ui")` — under the generic
+// 512m / uncapped-parallel config. That is exactly the #418 flake environment,
+// and it silently bypassed all of uiTest's hardening on CI. Keep UI (and opt-in
+// perf) tests OUT of `test`, and make `check` depend on the hardened `uiTest`
+// so `gradle build` still covers UI end-to-end — through the right task.
+tasks.named<Test>("test") {
+    useJUnitPlatform { excludeTags("ui", "perf") }
+}
+tasks.named("check") {
+    dependsOn("uiTest")
+}
+
 // Perf tests — opt-in via `@Tag("perf")`. Excluded from `integrationTest` so the
 // regular IT cycle stays fast. Run on demand with `:perfTest --tests ...`.
 // Bigger heap + longer per-test timeout because perf tests bulk-insert lots of
