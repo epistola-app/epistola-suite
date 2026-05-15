@@ -73,6 +73,17 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('gradle/libs.versions.toml') }}
 
+      # Install the Chromium build + OS deps that match the pinned Playwright
+      # version BEFORE the test task. Idempotent (fast no-op on a cache hit); on a
+      # cache miss this stops the first UI test class from racing a browser install
+      # while it also tries to launch Chromium. Java Playwright reads the same
+      # ~/.cache/ms-playwright as the npm CLI of the same version.
+      - name: Install Playwright browsers
+        run: |
+          PLAYWRIGHT_VERSION=$(grep '^playwright\s*=' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "Installing Playwright $PLAYWRIGHT_VERSION (chromium, --with-deps)"
+          npx --yes "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium
+
       - name: Build and test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

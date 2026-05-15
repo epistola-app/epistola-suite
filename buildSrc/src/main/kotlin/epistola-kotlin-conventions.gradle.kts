@@ -68,13 +68,28 @@ tasks.register<Test>("integrationTest") {
     filter { isFailOnNoMatchingTests = false }
 }
 
+// UI tests boot a full Spring Boot context + a child Chromium per class. On the
+// 2-core CI runner, uncapped JUnit class-level concurrency starves CPU and trips
+// timeouts — the dominant flake driver. So UI tests run with a bigger heap, no
+// tiered-compilation cap (they are long-lived; C2 helps steady-state), a hard
+// task timeout to catch hangs, and serialized class execution (only ~6 classes;
+// `-PuiParallelism=N` overrides for local speed). See docs/testing.md.
 tasks.register<Test>("uiTest") {
     description = "Runs UI tests (Playwright + Spring + Testcontainers)"
     group = "verification"
     testClassesDirs = testSourceSet.get().output.classesDirs
     classpath = testSourceSet.get().runtimeClasspath
     useJUnitPlatform { includeTags("ui") }
-    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
+    jvmArgs("-XX:+UseParallelGC", "-Xms512m", "-Xmx2g")
+    maxParallelForks = 1
+    timeout.set(Duration.ofMinutes(5))
+    val uiParallelism = (findProperty("uiParallelism") as String?) ?: "1"
+    systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
+    systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", uiParallelism)
+    // Per-method timeout scoped to the uiTest JVM only (NOT the shared
+    // junit-platform.properties — perfTest shares that file and legitimately runs
+    // long). Converts a hung browser into a fast, trace-captured failure.
+    systemProperty("junit.jupiter.execution.timeout.testable.method.default", "120s")
     testLogging { events("passed", "skipped", "failed") }
     filter { isFailOnNoMatchingTests = false }
 }
