@@ -17,6 +17,7 @@ import {
   tryParseAsBuilderExpression,
   buildExpression,
   isStaleFieldReference,
+  type BuilderState,
 } from './expression-builder.js';
 import { JSONATA_QUICK_REFERENCE } from './expression-dialog.js';
 import { icon } from './icons.js';
@@ -40,6 +41,11 @@ const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
   { value: 'dd-MM-yyyy HH:mm', label: 'dd-MM-yyyy HH:mm (15-01-2024 14:30)' },
   { value: 'yyyy-MM-dd HH:mm', label: 'yyyy-MM-dd HH:mm (2024-01-15 14:30)' },
 ];
+
+/** Non-empty date patterns the builder's Format dropdown can represent. */
+const BUILDER_FORMAT_PATTERNS: ReadonlySet<string> = new Set(
+  DATE_FORMAT_PRESETS.map((p) => p.value).filter((v) => v !== ''),
+);
 
 type PreviewState = 'empty' | 'loading' | 'no-data' | 'success' | 'error';
 
@@ -81,7 +87,7 @@ export class EpExpressionDialog extends LitElement {
   @state() private _previewState: PreviewState = 'empty';
   @state() private _previewText = '';
   @state() private _fieldFilter = '';
-  @state() private _refExpanded = true;
+  @state() private _refExpanded = false;
 
   private _dialogRef: Ref<HTMLDialogElement> = createRef();
   private _inputRef: Ref<HTMLTextAreaElement> = createRef();
@@ -187,9 +193,7 @@ export class EpExpressionDialog extends LitElement {
       return;
     }
 
-    const initialBuilderState = this.initialValue
-      ? tryParseAsBuilderExpression(this.initialValue, this.fieldPaths)
-      : null;
+    const initialBuilderState = this.initialValue ? this._parseBuilder(this.initialValue) : null;
 
     // Check if the initial field is now disabled by pathDisabled
     const pathDisabledFn = this.pathDisabled;
@@ -364,15 +368,18 @@ export class EpExpressionDialog extends LitElement {
     }
 
     if (mode === 'builder') {
-      const parsed = this._expression.trim()
-        ? tryParseAsBuilderExpression(this._expression.trim(), this.fieldPaths)
-        : null;
+      const trimmed = this._expression.trim();
+      const parsed = trimmed ? this._parseBuilder(trimmed) : null;
 
-      if (this._expression.trim() && !parsed) {
-        const stale = isStaleFieldReference(this._expression.trim(), this.fieldPaths);
-        this._modeWarning = stale
-          ? `Field '${this._expression.trim()}' not found. It may have been renamed, removed, or its scope may have changed.`
-          : 'This expression is too complex for Builder mode.';
+      if (trimmed && !parsed) {
+        if (this._hasUnsupportedBuilderFormat(trimmed)) {
+          this._modeWarning = "This date format isn't available in Builder mode — edit it in Code.";
+        } else {
+          const stale = isStaleFieldReference(trimmed, this.fieldPaths);
+          this._modeWarning = stale
+            ? `Field '${trimmed}' not found. It may have been renamed, removed, or its scope may have changed.`
+            : 'This expression is too complex for Builder mode.';
+        }
         this._scheduleWarningDismiss();
         return;
       }
@@ -406,7 +413,35 @@ export class EpExpressionDialog extends LitElement {
 
   private _canSwitchToBuilder(): boolean {
     if (!this._expression.trim()) return true;
-    return tryParseAsBuilderExpression(this._expression.trim(), this.fieldPaths) !== null;
+    return this._parseBuilder(this._expression.trim()) !== null;
+  }
+
+  /**
+   * Parse for builder mode. Rejects a `$formatDate` whose pattern the
+   * builder's preset dropdown can't represent (a custom format) — those
+   * belong in Code, where the raw pattern is visible and editable. Without
+   * this the builder would show an empty Format dropdown while silently
+   * holding (and risking loss of) the custom pattern.
+   */
+  private _parseBuilder(expr: string): BuilderState | null {
+    const parsed = tryParseAsBuilderExpression(expr, this.fieldPaths);
+    if (!parsed) return null;
+    if (parsed.formatType === 'date' && !BUILDER_FORMAT_PATTERNS.has(parsed.formatPattern)) {
+      return null;
+    }
+    return parsed;
+  }
+
+  /**
+   * True when `expr` is a valid `$formatDate` on a known field but uses a
+   * pattern the builder can't represent — distinguishes it from genuinely
+   * complex JSONata so we can show a precise warning.
+   */
+  private _hasUnsupportedBuilderFormat(expr: string): boolean {
+    return (
+      tryParseAsBuilderExpression(expr, this.fieldPaths) !== null &&
+      this._parseBuilder(expr) === null
+    );
   }
 
   private _clearModeWarning(): void {
@@ -493,6 +528,10 @@ export class EpExpressionDialog extends LitElement {
   }
 
   private _showCodeDateFormat(): boolean {
+    // Date formatting is the builder's job when builder mode is available.
+    // The code box only offers it for code-only dialogs (no builder), which
+    // is the inspector's conditional/loop expression fields.
+    if (this.enableBuilderMode) return false;
     const barePath = this._getBarePath(this._expression.trim());
     return this._dateFieldPaths.has(barePath);
   }
@@ -652,6 +691,28 @@ export class EpExpressionDialog extends LitElement {
   private _renderModeWarning(): TemplateResult | typeof nothing {
     if (!this._modeWarning) return nothing;
     return html` <div class="expression-dialog-mode-warning">${this._modeWarning}</div> `;
+  }
+
+  /**
+   * Builder-mode placeholder shown where the field picker / quick reference
+   * would otherwise be. The full field list and JSONata reference are
+   * code-mode tools — point the user there instead of surfacing them in a
+   * mode that can't represent what they'd build with them.
+   */
+  private _renderBuilderCodeHint(): TemplateResult {
+    return html`
+      <div class="expression-dialog-builder-hint">
+        Need a field reference or an advanced expression? Switch to
+        <button
+          type="button"
+          class="expression-dialog-builder-hint-link"
+          @click=${(): void => this._switchMode('code')}
+        >
+          Code
+        </button>
+        for the full field list and JSONata quick reference.
+      </div>
+    `;
   }
 
   private _renderCodePanel(): TemplateResult {
@@ -843,9 +904,22 @@ export class EpExpressionDialog extends LitElement {
     });
   }
 
+  /** Keep `_refExpanded` in sync with native <details> toggling so a
+   * re-render doesn't reset the disclosure to its default state. */
+  private _onRefToggle(e: Event): void {
+    const details = e.target;
+    if (details instanceof HTMLDetailsElement) {
+      this._refExpanded = details.open;
+    }
+  }
+
   private _renderQuickReference(): TemplateResult {
     return html`
-      <details class="expression-dialog-reference" ?open=${this._refExpanded}>
+      <details
+        class="expression-dialog-reference"
+        ?open=${this._refExpanded}
+        @toggle=${this._onRefToggle}
+      >
         <summary class="expression-dialog-ref-summary">
           <span>JSONata quick reference</span>
           <span class="expression-dialog-ref-chevron" aria-hidden="true">
@@ -882,6 +956,10 @@ export class EpExpressionDialog extends LitElement {
   // -----------------------------------------------------------------------
 
   public override render(): TemplateResult | typeof nothing {
+    // The field picker and quick reference only make sense in code mode —
+    // they write raw expressions the builder `<select>` can't represent.
+    // In builder mode show a hint pointing to Code instead.
+    const showCodeTools = !this.enableBuilderMode || this._mode === 'code';
     return html`
       <dialog
         class="expression-dialog"
@@ -900,8 +978,9 @@ export class EpExpressionDialog extends LitElement {
           <div class="expression-dialog-body">
             ${this.enableBuilderMode ? this._renderBuilderPanel() : nothing}
             ${this.enableBuilderMode ? this._renderModeWarning() : nothing}
-            ${this._renderCodePanel()} ${this._renderPreview()} ${this._renderFieldPaths()}
-            ${this._renderQuickReference()}
+            ${this._renderCodePanel()} ${this._renderPreview()}
+            ${showCodeTools ? this._renderFieldPaths() : this._renderBuilderCodeHint()}
+            ${showCodeTools ? this._renderQuickReference() : nothing}
           </div>
           <div class="expression-dialog-actions">
             <button type="button" class="expression-dialog-btn cancel" @click=${this._onCancel}>

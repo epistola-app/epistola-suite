@@ -697,4 +697,31 @@
     border-radius: var(--ep-radius-sm);
     padding: var(--ep-space-1-5) var(--ep-space-2);
   }
+
+  .expression-dialog-builder-hint {
+    font-size: var(--ep-text-xs);
+    line-height: var(--ep-leading-normal);
+    color: var(--ep-gray-500);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    text-align: center;
+  }
+
+  .expression-dialog-builder-hint-link {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: var(--ep-blue-600);
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: underline;
+
+    &:hover {
+      color: var(--ep-blue-700);
+    }
+  }
 }

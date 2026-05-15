@@ -635,6 +635,88 @@ describe('EpExpressionDialog builder mode', () => {
     expect(result.value).toBe('total');
     fresh.remove();
   });
+
+  it('hides field picker and quick reference in builder mode, showing a Code hint instead', async () => {
+    const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    component.show();
+    await component.updateComplete;
+
+    // Builder mode: the code-only tools are not in the DOM at all, so they
+    // can't silently capture a pick that Save (which reads builder state)
+    // would discard.
+    expect(component['_mode']).toBe('builder');
+    expect(component.querySelector('.expression-dialog-paths')).toBeNull();
+    expect(component.querySelector('.expression-dialog-reference')).toBeNull();
+
+    const hint = component.querySelector('.expression-dialog-builder-hint');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toContain('Code');
+
+    // The hint's Code link switches to code mode and reveals the tools.
+    const link = component.querySelector<HTMLButtonElement>('.expression-dialog-builder-hint-link');
+    link?.click();
+    await component.updateComplete;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(component['_mode']).toBe('code');
+    expect(component.querySelector('.expression-dialog-builder-hint')).toBeNull();
+    expect(component.querySelector('.expression-dialog-paths')).not.toBeNull();
+    expect(component.querySelector('.expression-dialog-reference')).not.toBeNull();
+
+    component.close(null);
+  });
+
+  it('disables Builder for a custom (non-preset) date format and opens in Code', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatDate(invoiceDate, 'yyyy')"; // 'yyyy' is not a preset
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    // Not builder-representable → opens in Code with Builder disabled.
+    expect(fresh['_mode']).toBe('code');
+    const builderBtn = fresh.querySelector<HTMLButtonElement>('.mode-btn[data-mode="builder"]');
+    expect(builderBtn?.classList.contains('disabled')).toBe(true);
+
+    // Attempting to switch shows a format-specific warning and stays in Code.
+    builderBtn?.click();
+    await fresh.updateComplete;
+    expect(fresh['_mode']).toBe('code');
+    const warning = fresh.querySelector('.expression-dialog-mode-warning');
+    expect(warning?.textContent).toContain('date format');
+
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('keeps Builder available for a preset date format', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatDate(invoiceDate, 'dd-MM-yyyy')"; // a preset
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    expect(fresh['_mode']).toBe('builder');
+    const builderBtn = fresh.querySelector<HTMLButtonElement>('.mode-btn[data-mode="builder"]');
+    expect(builderBtn?.classList.contains('disabled')).toBe(false);
+    fresh.close(null);
+    fresh.remove();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -743,6 +825,33 @@ describe('EpExpressionDialog code mode date format', () => {
 
     const textarea = fresh.querySelector<HTMLTextAreaElement>('.expression-dialog-input');
     expect(textarea?.value).toBe('invoiceDate');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('does not show the code-box date format row when builder mode is enabled', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = 'invoiceDate'; // a date field
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    // Builder mode owns date formatting (its own Format dropdown). The code
+    // box must not duplicate it — even after switching to code mode.
+    const codeBtn = fresh.querySelector<HTMLButtonElement>('.mode-btn[data-mode="code"]');
+    codeBtn?.click();
+    await fresh.updateComplete;
+    expect(fresh['_mode']).toBe('code');
+
+    const formatRow = fresh.querySelector<HTMLElement>('.expression-dialog-format-row');
+    expect(formatRow?.getAttribute('style')).toContain('display: none');
     fresh.close(null);
     fresh.remove();
   });
@@ -1090,6 +1199,26 @@ describe('EpExpressionDialog quick reference', () => {
     expect(refList?.textContent).toContain('customer.name');
   });
 
+  it('is collapsed by default and preserves open state across re-renders', async () => {
+    await component.updateComplete;
+
+    const details = component.querySelector<HTMLDetailsElement>('.expression-dialog-reference')!;
+    expect(details.open).toBe(false);
+    expect(component['_refExpanded']).toBe(false);
+
+    // User expands it — the native toggle must sync component state.
+    details.open = true;
+    details.dispatchEvent(new Event('toggle'));
+    await component.updateComplete;
+    expect(component['_refExpanded']).toBe(true);
+
+    // An unrelated re-render must not snap the disclosure shut.
+    component.label = 'Changed';
+    await component.updateComplete;
+    const after = component.querySelector<HTMLDetailsElement>('.expression-dialog-reference')!;
+    expect(after.open).toBe(true);
+  });
+
   it('inserts quick reference code on click', async () => {
     const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
     vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
@@ -1114,7 +1243,7 @@ describe('EpExpressionDialog quick reference', () => {
     expect(row?.getAttribute('role')).toBe('button');
   });
 
-  it('switches to code mode when a quick-reference row is clicked in builder mode', async () => {
+  it('is not rendered in builder mode (code-only tool)', async () => {
     const dialog = component.querySelector<HTMLDialogElement>('dialog')!;
     vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
 
@@ -1124,21 +1253,15 @@ describe('EpExpressionDialog quick reference', () => {
     await component.updateComplete;
 
     // Should start in builder mode
+    expect(component['_mode']).toBe('builder');
     const builderPanel = component.querySelector('.expression-dialog-builder');
     expect(builderPanel?.getAttribute('style')).not.toContain('display: none');
 
-    const rows = component.querySelectorAll('.expression-dialog-ref-row');
-    const concatRow = Array.from(rows).find((el) => el.textContent?.includes('Concatenate'));
-    (concatRow as HTMLElement)?.click();
-    await component.updateComplete;
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-
-    // Should now be in code mode with the expression inserted
-    const codePanel = component.querySelector('.expression-dialog-code');
-    expect(codePanel?.getAttribute('style')).not.toContain('display: none');
-
-    const textarea = component.querySelector<HTMLTextAreaElement>('.expression-dialog-input');
-    expect(textarea?.value).toContain('address.line1');
+    // The quick reference is a code-mode tool and must not be in the DOM in
+    // builder mode — otherwise a click would write code-mode state that Save
+    // (reading builder state) silently discards.
+    expect(component.querySelector('.expression-dialog-reference')).toBeNull();
+    expect(component.querySelectorAll('.expression-dialog-ref-row').length).toBe(0);
 
     component.close(null);
   });
