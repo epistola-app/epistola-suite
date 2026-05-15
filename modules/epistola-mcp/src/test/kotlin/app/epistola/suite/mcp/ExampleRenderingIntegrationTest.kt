@@ -146,7 +146,12 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
 
     /**
      * Wraps an example fragment as a complete TemplateDocument by inserting
-     * a synthetic root node whose only child is the fragment's rootNodeId.
+     * a synthetic root node. The synthetic root's children are `rootNodeId`
+     * plus any orphan top-level nodes in the fragment (nodes that aren't
+     * reachable as descendants of `rootNodeId` via slots). This lets an
+     * example express multi-top-level patterns — e.g., the two-pageheader
+     * pattern, where a second pageheader is a document-root sibling rather
+     * than a descendant of the showcased component.
      * Returns the deserialized TemplateDocument so the renderer can consume it.
      */
     private fun wrapAsTemplateDocument(fragment: ObjectNode): TemplateDocument {
@@ -156,6 +161,10 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
 
         val syntheticRootId = "n-render-test-root"
         val syntheticSlotId = "s-render-test-children"
+
+        val reachable = reachableNodeIds(rootNodeId, fragmentNodes, fragmentSlots)
+        val orphans = fragmentNodes.propertyNames().filter { it !in reachable }
+        val rootChildren = listOf(rootNodeId) + orphans
 
         val syntheticRoot = objectMapper.createObjectNode()
             .put("id", syntheticRootId)
@@ -171,7 +180,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
             .put("name", "children")
         syntheticSlot.set(
             "children",
-            objectMapper.createArrayNode().also { it.add(rootNodeId) },
+            objectMapper.createArrayNode().also { array -> rootChildren.forEach { array.add(it) } },
         )
 
         val nodes = objectMapper.createObjectNode()
@@ -196,5 +205,24 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
         docNode.set("slots", slots)
 
         return objectMapper.treeToValue(docNode, TemplateDocument::class.java)
+    }
+
+    private fun reachableNodeIds(rootId: String, nodes: ObjectNode, slots: ObjectNode): Set<String> {
+        val visited = mutableSetOf<String>()
+        val queue = ArrayDeque<String>().apply { add(rootId) }
+        while (queue.isNotEmpty()) {
+            val nodeId = queue.removeFirst()
+            if (!visited.add(nodeId)) continue
+            val node = nodes.get(nodeId) as? ObjectNode ?: continue
+            val nodeSlots = node.get("slots") as? ArrayNode ?: continue
+            for (slotIdNode in nodeSlots.values()) {
+                val slot = slots.get(slotIdNode.asString()) as? ObjectNode ?: continue
+                val children = slot.get("children") as? ArrayNode ?: continue
+                for (childIdNode in children.values()) {
+                    queue.add(childIdNode.asString())
+                }
+            }
+        }
+        return visited
     }
 }

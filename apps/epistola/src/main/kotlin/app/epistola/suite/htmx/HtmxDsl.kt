@@ -22,26 +22,47 @@ annotation class HtmxDsl
 data class HtmxFragment(
     val template: String,
     val fragmentName: String?,
-    val model: Map<String, Any>,
+    val model: Map<String, Any?>,
     val isOob: Boolean = false,
 )
 
 /**
  * Builder for constructing model maps in a DSL-friendly way.
+ *
+ * Two independent mechanisms guard the DSL — they solve different problems and
+ * neither replaces the other:
+ *
+ * 1. `@HtmxDsl` (a `@DslMarker`) prevents accidental nesting of DSL receivers
+ *    (e.g. calling outer-builder methods from inside an inner builder block).
+ *    It does **not** influence overload resolution and would not have prevented
+ *    the bug below.
+ *
+ * 2. `infix fun String.to(value: Any?)` accepts nullable values so that
+ *    `"key" to nullable` resolves to this member extension. With a non-null
+ *    `Any` parameter, Kotlin silently fell through to `kotlin.to` (the stdlib
+ *    `Pair` extension) for any nullable expression — the resulting `Pair` was
+ *    discarded as an expression-statement and the entry never reached the
+ *    model, with no compile-time or runtime signal.
+ *
+ * Templates that need to tolerate nulls must say so explicitly via Thymeleaf's
+ * safe navigation (`?.`) or `th:if` — surfacing intent at the call site.
  */
 @HtmxDsl
 class ModelBuilder {
-    private val model = mutableMapOf<String, Any>()
+    private val model = mutableMapOf<String, Any?>()
 
     /**
      * Adds a key-value pair to the model.
      * Usage: `"key" to value`
+     *
+     * Parameter type is `Any?` (not `Any`) — see class KDoc for the overload-resolution
+     * rationale. Do not tighten this without reproducing the silent-discard regression.
      */
-    infix fun String.to(value: Any) {
+    infix fun String.to(value: Any?) {
         model[this] = value
     }
 
-    internal fun build(): Map<String, Any> = model.toMap()
+    internal fun build(): Map<String, Any?> = model.toMap()
 }
 
 /**
@@ -357,7 +378,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         }
     }
 
-    private fun mergedModel(): Map<String, Any> = fragments.flatMap { it.model.entries }.associate { it.key to it.value }
+    private fun mergedModel(): Map<String, Any?> = fragments.flatMap { it.model.entries }.associate { it.key to it.value }
 }
 
 /**

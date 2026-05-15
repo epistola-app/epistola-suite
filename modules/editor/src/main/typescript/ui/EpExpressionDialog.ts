@@ -4,7 +4,7 @@ import { createRef, ref, type Ref } from 'lit/directives/ref.js';
 import type { FieldPath } from '../engine/schema-paths.js';
 import {
   formatFieldPathTypeLabel,
-  formatBindingPreviewPlaceholder,
+  formatBindingPreview,
 } from '../data-contract/binding-compatibility.js';
 import {
   isValidExpression,
@@ -339,8 +339,8 @@ export class EpExpressionDialog extends LitElement {
             this._previewText = validationError;
           } else {
             this._previewState = 'success';
-            const placeholder = formatBindingPreviewPlaceholder(result.value);
-            this._previewText = `Preview: ${placeholder ?? formatForPreview(result.value)}`;
+            const richTextPreview = formatBindingPreview(result.value);
+            this._previewText = `Preview: ${richTextPreview ?? formatForPreview(result.value)}`;
           }
         } else {
           this._previewState = 'error';

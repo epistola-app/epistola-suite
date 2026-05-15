@@ -85,7 +85,7 @@ class DirectPdfRenderer(
         TwoPassAnalyzer.validate(document)
 
         if (TwoPassAnalyzer.requiresTwoPassRendering(document)) {
-            val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
+            val headerNodes = pageHeaderNodesInDocumentOrder(document)
             val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
             renderTwoPass(
                 document = document,
@@ -97,7 +97,7 @@ class DirectPdfRenderer(
                 assetResolver = assetResolver,
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
-                headerNode = headerNode,
+                headerNodes = headerNodes,
                 footerNode = footerNode,
             )
         } else {
@@ -177,28 +177,26 @@ class DirectPdfRenderer(
             renderMode = renderMode,
         )
 
-        val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
+        val headerNodes = pageHeaderNodesInDocumentOrder(document)
         val footerNode = document.nodes.values.firstOrNull { it.type == "pagefooter" }
 
-        val headerHeight = headerNode?.let {
-            parseNodeHeight(it, context) ?: renderingDefaults.pageHeaderHeight
-        } ?: 0f
         val footerHeight = footerNode?.let {
             parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
         // The body's page-edge margins follow the same cascade as headers/footers:
         // header/footer.margin{Side} → root.margin{Side} → pageSettings.margins.
-        val headerTopMargin = effectivePageMarginPt(headerNode, "marginTop", context)
+        // Each page's body must sit below its own pageheader band: page 1 below
+        // the first-page (index 0) header, pages 2+ below the running (index 1)
+        // header. iText's Document margins are document-scoped, so we set the
+        // *running* band as the body topMargin and prepend a spacer Div on page 1
+        // sized to the extra first-page band height. See computeHeaderBands.
         val footerBottomMargin = effectivePageMarginPt(footerNode, "marginBottom", context)
         val bodyLeftMargin = effectivePageMarginPt(null, "marginLeft", context)
         val bodyRightMargin = effectivePageMarginPt(null, "marginRight", context)
 
-        val topMargin = if (headerNode != null) {
-            headerTopMargin + headerHeight
-        } else {
-            effectivePageMarginPt(null, "marginTop", context)
-        }
+        val bands = computeHeaderBands(headerNodes, context, renderingDefaults)
+        val topMargin = bands.runningBand
         val bottomMargin = if (footerNode != null) {
             footerBottomMargin + footerHeight
         } else {
@@ -208,7 +206,7 @@ class DirectPdfRenderer(
         performRenderWithContext(
             outputStream = outputStream,
             context = context,
-            headerNode = headerNode,
+            headerNodes = headerNodes,
             footerNode = footerNode,
             document = document,
             metadata = metadata,
@@ -218,6 +216,7 @@ class DirectPdfRenderer(
             bottomMargin = bottomMargin,
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
+            firstPageSpacerHeight = bands.firstPageSpacer,
         )
     }
 
@@ -231,7 +230,7 @@ class DirectPdfRenderer(
         assetResolver: AssetResolver?,
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
-        headerNode: Node?,
+        headerNodes: List<Node>,
         footerNode: Node?,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
@@ -254,23 +253,19 @@ class DirectPdfRenderer(
             renderMode = renderMode,
         )
 
-        val headerHeight = headerNode?.let {
-            parseNodeHeight(it, heightContext) ?: renderingDefaults.pageHeaderHeight
-        } ?: 0f
         val footerHeight = footerNode?.let {
             parseNodeHeight(it, heightContext) ?: renderingDefaults.pageFooterHeight
         } ?: 0f
 
         // Body page-edge margins: header/footer.margin → root.margin → pageMargins cascade.
-        val headerTopMargin = effectivePageMarginPt(headerNode, "marginTop", heightContext)
+        // Per-page topMargin: body sits below the running (index 1) band; page 1
+        // gets a spacer Div sized for the extra first-page (index 0) header height.
         val footerBottomMargin = effectivePageMarginPt(footerNode, "marginBottom", heightContext)
         val bodyLeftMargin = effectivePageMarginPt(null, "marginLeft", heightContext)
         val bodyRightMargin = effectivePageMarginPt(null, "marginRight", heightContext)
-        val topMargin = if (headerNode != null) {
-            headerTopMargin + headerHeight
-        } else {
-            effectivePageMarginPt(null, "marginTop", heightContext)
-        }
+        val bands = computeHeaderBands(headerNodes, heightContext, renderingDefaults)
+        val topMargin = bands.runningBand
+        val firstPageSpacerHeight = bands.firstPageSpacer
         val bottomMargin = if (footerNode != null) {
             footerBottomMargin + footerHeight
         } else {
@@ -294,7 +289,7 @@ class DirectPdfRenderer(
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
             context = firstPassContext,
-            headerNode = headerNode,
+            headerNodes = headerNodes,
             footerNode = footerNode,
             document = document,
             metadata = metadata,
@@ -304,6 +299,7 @@ class DirectPdfRenderer(
             bottomMargin = bottomMargin,
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
+            firstPageSpacerHeight = firstPageSpacerHeight,
             enablePdfA = false,
             enableMetadata = false,
             enableHeaderFooter = false,
@@ -324,7 +320,7 @@ class DirectPdfRenderer(
         performRenderWithContext(
             outputStream = outputStream,
             context = finalContext,
-            headerNode = headerNode,
+            headerNodes = headerNodes,
             footerNode = footerNode,
             document = document,
             metadata = metadata,
@@ -334,13 +330,14 @@ class DirectPdfRenderer(
             bottomMargin = bottomMargin,
             rightMargin = bodyRightMargin,
             leftMargin = bodyLeftMargin,
+            firstPageSpacerHeight = firstPageSpacerHeight,
         )
     }
 
     private fun performRenderWithContext(
         outputStream: OutputStream,
         context: RenderContext,
-        headerNode: Node?,
+        headerNodes: List<Node>,
         footerNode: Node?,
         document: TemplateDocument,
         metadata: PdfMetadata,
@@ -350,6 +347,7 @@ class DirectPdfRenderer(
         bottomMargin: Float,
         rightMargin: Float,
         leftMargin: Float,
+        firstPageSpacerHeight: Float = 0f,
         enablePdfA: Boolean = pdfaCompliant,
         enableMetadata: Boolean = true,
         enableHeaderFooter: Boolean = true,
@@ -366,13 +364,15 @@ class DirectPdfRenderer(
         iTextDocument.setMargins(topMargin, rightMargin, bottomMargin, leftMargin)
 
         if (enableHeaderFooter) {
-            val headerHandler = headerNode?.let {
+            val headerHandler = if (headerNodes.isNotEmpty()) {
                 PageHeaderEventHandler(
-                    headerNodeId = it.id,
+                    headerNodeIds = headerNodes.map { it.id },
                     document = document,
                     context = context,
                     registry = nodeRendererRegistry,
                 )
+            } else {
+                null
             }
             val footerHandler = footerNode?.let {
                 PageFooterEventHandler(
@@ -396,6 +396,23 @@ class DirectPdfRenderer(
                 PdfDocumentEvent.END_PAGE,
                 AddressBlockEventHandler(it.id, renderDocument, context, nodeRendererRegistry),
             )
+        }
+
+        // First-page spacer: when the first-page pageheader band is taller than the
+        // running header band, prepend an invisible Div sized to the extra height so
+        // body content on page 1 lands below the cover header. From page 2 onward
+        // the spacer is already consumed and content sits at the running topMargin.
+        //
+        // An empty Div collapses in iText's layout engine; using `setMinHeight` plus
+        // an empty Paragraph (zero-leading) guarantees the layout reserves the
+        // requested vertical space without painting anything visible.
+        if (firstPageSpacerHeight > 0f) {
+            val spacer = com.itextpdf.layout.element.Div()
+                .setMinHeight(firstPageSpacerHeight)
+                .setMargin(0f)
+                .setPadding(0f)
+                .add(com.itextpdf.layout.element.Paragraph("").setMargin(0f).setFixedLeading(0f))
+            iTextDocument.add(spacer)
         }
 
         val elements = nodeRendererRegistry.renderNode(renderDocument.root, renderDocument, context)
@@ -536,5 +553,87 @@ class DirectPdfRenderer(
         )
 
         return document.copy(slots = mutableSlots)
+    }
+
+    /**
+     * Heights derived from the (up to two) pageheader nodes:
+     *  - `runningBand`     — body topMargin used for the iText Document.
+     *    Equals the running (index 1) header band, or the only header band if a
+     *    single header is declared, or the page-edge margin fallback when no
+     *    pageheader is present.
+     *  - `firstPageSpacer` — extra height that page 1 needs to clear the
+     *    first-page header. Injected as an invisible Div at the start of the
+     *    body flow when > 0. From page 2 onward the spacer is consumed.
+     */
+    private data class HeaderBands(val runningBand: Float, val firstPageSpacer: Float)
+
+    private fun computeHeaderBands(
+        headerNodes: List<Node>,
+        context: RenderContext,
+        renderingDefaults: RenderingDefaults,
+    ): HeaderBands {
+        fun band(node: Node): Float = effectivePageMarginPt(node, "marginTop", context) +
+            (parseNodeHeight(node, context) ?: renderingDefaults.pageHeaderHeight)
+
+        val firstHeader = headerNodes.getOrNull(0)
+        val runningHeader = headerNodes.getOrNull(1) ?: firstHeader
+
+        val noHeaderMargin = effectivePageMarginPt(null, "marginTop", context)
+        val runningBand = runningHeader?.let(::band) ?: noHeaderMargin
+        val firstPageBand = firstHeader?.let(::band) ?: noHeaderMargin
+
+        return HeaderBands(
+            runningBand = runningBand,
+            firstPageSpacer = (firstPageBand - runningBand).coerceAtLeast(0f),
+        )
+    }
+
+    /**
+     * Returns the `pageheader` nodes ordered by their position as children of
+     * the root slot. The order is the positional selector for which header
+     * applies to which page (index 0 → page 1; index 1 → page 2 and onward when
+     * present). Document-order is also what the editor surfaces, so authors
+     * control the mapping by reordering the nodes.
+     *
+     * The same invariants enforced by `PageHeaderCardinalityValidator` (server-
+     * side, on `UpdateDraft`) are re-asserted here so render paths that don't
+     * pass through that command — `PreviewDocument`, `PreviewVariant`, catalog
+     * import, future entrypoints — can't silently render with undefined header
+     * positioning when the document is malformed.
+     */
+    private fun pageHeaderNodesInDocumentOrder(document: TemplateDocument): List<Node> {
+        val allHeaderIds = document.nodes.values
+            .asSequence()
+            .filter { it.type == "pageheader" }
+            .map { it.id }
+            .toSet()
+        if (allHeaderIds.isEmpty()) return emptyList()
+
+        val rootNode = document.nodes[document.root]
+            ?: throw IllegalArgumentException(
+                "Cannot render: document declares pageheader nodes but has no resolvable root node",
+            )
+
+        val orderedFromRootSlot = rootNode.slots
+            .asSequence()
+            .mapNotNull { document.slots[it] }
+            .flatMap { it.children.asSequence() }
+            .mapNotNull { document.nodes[it] }
+            .filter { it.type == "pageheader" }
+            .toList()
+
+        val rootSlotHeaderIds = orderedFromRootSlot.map { it.id }.toSet()
+        val misplaced = allHeaderIds - rootSlotHeaderIds
+        if (misplaced.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "Cannot render: pageheader node(s) $misplaced must be direct children of the root slot",
+            )
+        }
+        if (orderedFromRootSlot.size > 2) {
+            throw IllegalArgumentException(
+                "Cannot render: at most 2 pageheader nodes allowed, found ${orderedFromRootSlot.size}",
+            )
+        }
+        return orderedFromRootSlot
     }
 }

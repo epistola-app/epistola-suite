@@ -12,7 +12,11 @@ import './EpistolaRichTextVariablePreview.js';
 export function createRichTextVariableDefinition(): ComponentDefinition {
   return {
     type: 'richTextVariable',
-    label: 'Rich text block',
+    label: 'Rich Text Block',
+    getLabel: (node, _eng) => {
+      const binding = (node.props?.binding as string | undefined) ?? '';
+      return binding ? `Rich Text Block — ${binding}` : 'Rich Text Block';
+    },
     icon: 'type',
     category: 'content',
     slots: [],

@@ -39,6 +39,25 @@ class HtmxDslTest {
                 .containsEntry("count", 42)
                 .containsEntry("active", true)
         }
+
+        @Test
+        fun `nullable value is stored as null, not silently discarded`() {
+            // Regression: with value: Any (non-null), overload resolution silently
+            // selected kotlin.to (Pair extension) for nullable expressions and
+            // the entry never reached the model. The DSL must accept null so that
+            // the entry's absence vs explicit-null is observable in templates.
+            val nullable: String? = null
+
+            val model = ModelBuilder().apply {
+                "present" to "value"
+                "missing" to nullable
+            }.build()
+
+            assertThat(model)
+                .containsKey("missing")
+                .containsEntry("missing", null)
+                .containsEntry("present", "value")
+        }
     }
 
     @Nested

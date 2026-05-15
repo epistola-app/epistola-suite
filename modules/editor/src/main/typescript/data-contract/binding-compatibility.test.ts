@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatBindingPreviewPlaceholder,
+  formatBindingPreview,
   formatFieldPathTypeLabel,
   inlineExpressionPathDisabled,
   richTextVariablePathDisabled,
@@ -51,33 +51,69 @@ describe('richTextVariablePathDisabled', () => {
   });
 });
 
-describe('formatBindingPreviewPlaceholder', () => {
-  it('returns "[rich text value]" for a single-paragraph doc', () => {
+describe('formatBindingPreview', () => {
+  it('extracts text from a single-paragraph doc', () => {
     expect(
-      formatBindingPreviewPlaceholder({
+      formatBindingPreview({
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }],
+      }),
+    ).toBe('Hello');
+  });
+
+  it('extracts text from a multi-paragraph doc', () => {
+    expect(
+      formatBindingPreview({
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'First' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Second' }] },
+        ],
+      }),
+    ).toBe('First Second');
+  });
+
+  it('returns "(empty)" for a doc with no text', () => {
+    expect(
+      formatBindingPreview({
         type: 'doc',
         content: [{ type: 'paragraph' }],
       }),
-    ).toBe('[rich text value]');
+    ).toBe('(empty)');
   });
 
-  it('returns "[rich text value]" for a multi-paragraph doc', () => {
+  it('returns "(empty)" for a doc with non-array content', () => {
     expect(
-      formatBindingPreviewPlaceholder({
+      formatBindingPreview({
+        type: 'doc',
+        content: 'not-an-array',
+      }),
+    ).toBe('(empty)');
+  });
+
+  it('handles hard_break as a space', () => {
+    expect(
+      formatBindingPreview({
         type: 'doc',
         content: [
-          { type: 'paragraph', content: [{ type: 'text', text: 'a' }] },
-          { type: 'bullet_list', content: [] },
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'Line 1' },
+              { type: 'hard_break' },
+              { type: 'text', text: 'Line 2' },
+            ],
+          },
         ],
       }),
-    ).toBe('[rich text value]');
+    ).toBe('Line 1 Line 2');
   });
 
   it('returns null for non-rich-text values so the caller can format normally', () => {
-    expect(formatBindingPreviewPlaceholder('plain string')).toBeNull();
-    expect(formatBindingPreviewPlaceholder(42)).toBeNull();
-    expect(formatBindingPreviewPlaceholder(null)).toBeNull();
-    expect(formatBindingPreviewPlaceholder({ name: 'John' })).toBeNull();
-    expect(formatBindingPreviewPlaceholder([1, 2, 3])).toBeNull();
+    expect(formatBindingPreview('plain string')).toBeNull();
+    expect(formatBindingPreview(42)).toBeNull();
+    expect(formatBindingPreview(null)).toBeNull();
+    expect(formatBindingPreview({ name: 'John' })).toBeNull();
+    expect(formatBindingPreview([1, 2, 3])).toBeNull();
   });
 });

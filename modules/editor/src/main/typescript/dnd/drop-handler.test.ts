@@ -28,17 +28,20 @@ describe('handleDrop', () => {
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
+    // First and second pageheader drops both succeed (max = 2 for the first-page variant).
     handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
-    const headerCountAfterFirst = engine.doc.slots[rootSlotId].children
+    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
+    const headerCountAfterTwo = engine.doc.slots[rootSlotId].children
       .map((id) => engine.doc.nodes[id])
       .filter((node) => node?.type === 'pageheader').length;
-    expect(headerCountAfterFirst).toBe(1);
+    expect(headerCountAfterTwo).toBe(2);
 
+    // A third pageheader drop is rejected.
     handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
-    const headerCountAfterSecond = engine.doc.slots[rootSlotId].children
+    const headerCountAfterThird = engine.doc.slots[rootSlotId].children
       .map((id) => engine.doc.nodes[id])
       .filter((node) => node?.type === 'pageheader').length;
-    expect(headerCountAfterSecond).toBe(1);
+    expect(headerCountAfterThird).toBe(2);
   });
 
   it('moves block drag data between slots', () => {
@@ -55,6 +58,36 @@ describe('handleDrop', () => {
 
     expect(engine.doc.slots[rootSlotId].children).not.toContain(textNodeId);
     expect(engine.doc.slots[containerSlotId].children[0]).toBe(textNodeId);
+  });
+
+  it('swaps two page headers when the first is dropped past the second via DnD', () => {
+    const registry = testRegistry();
+    const doc = createTestDocument();
+    const engine = new EditorEngine(doc, registry);
+    const rootSlotId = doc.nodes[doc.root].slots[0];
+
+    // Add two pageheaders via palette (each lands at the end of the header zone).
+    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
+    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
+
+    const childrenBefore = engine.doc.slots[rootSlotId].children;
+    const header1 = childrenBefore[0]!; // first-page variant
+    const header2 = childrenBefore[1]!; // running variant
+
+    // Drop header1 just past header2. The drop UI uses original-list coords:
+    // header2 is at index 1, so the "after header2" edge yields index 2.
+    // handleDrop must convert this to the filtered-list index expected by
+    // applyMoveNode, producing the swap.
+    handleDrop(
+      engine,
+      { source: 'block', nodeId: header1, blockType: 'pageheader' },
+      rootSlotId,
+      2,
+    );
+
+    const childrenAfter = engine.doc.slots[rootSlotId].children;
+    expect(childrenAfter[0]).toBe(header2);
+    expect(childrenAfter[1]).toBe(header1);
   });
 
   it('keeps anchored page block in place when move is rejected', () => {
