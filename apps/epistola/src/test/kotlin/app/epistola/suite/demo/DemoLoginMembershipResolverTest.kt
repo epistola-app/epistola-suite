@@ -17,7 +17,6 @@ import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
@@ -49,9 +48,6 @@ class DemoLoginMembershipResolverTest {
     @Autowired
     private lateinit var mediator: Mediator
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
     private val createdTenants = mutableListOf<TenantKey>()
 
     private val systemPrincipal = EpistolaPrincipal(
@@ -79,7 +75,7 @@ class DemoLoginMembershipResolverTest {
 
     @BeforeEach
     fun ensureSystemPrincipalUser() {
-        TestPrincipalUsers.ensure(jdbi, systemPrincipal)
+        TestPrincipalUsers.ensure(mediator, systemPrincipal)
     }
 
     @AfterEach

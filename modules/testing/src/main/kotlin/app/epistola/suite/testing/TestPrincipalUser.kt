@@ -14,8 +14,13 @@ import app.epistola.suite.common.ids.UserKey
  */
 object TestPrincipalUser {
     val ID: UserKey = UserKey.of("00000000-0000-0000-0000-000000000099")
-    const val EXTERNAL_ID = "test-user"
-    const val EMAIL = "test@example.com"
-    const val DISPLAY_NAME = "Test User"
+
+    // Globally-unique external_id: the `users` table has a UNIQUE
+    // (external_id, provider) constraint. A generic value like "test-user"
+    // risks colliding with users other tests/flows create, so this principal
+    // owns an external_id nothing else uses.
+    const val EXTERNAL_ID = "epistola-integration-test-principal"
+    const val EMAIL = "integration-test-principal@epistola.test"
+    const val DISPLAY_NAME = "Integration Test Principal"
     const val PROVIDER = "LOCAL"
 }

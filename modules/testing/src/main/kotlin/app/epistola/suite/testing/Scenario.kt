@@ -50,7 +50,6 @@ annotation class ScenarioDsl
 @Component
 class ScenarioFactory(
     private val mediator: Mediator,
-    private val jdbi: org.jdbi.v3.core.Jdbi,
 ) {
     /**
      * Test user for authenticated operations.
@@ -74,7 +73,7 @@ class ScenarioFactory(
         namespace: String,
         block: ScenarioBuilder.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
-        TestPrincipalUsers.runWithPrincipal(jdbi, testUser) {
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
             ScenarioBuilder(namespace).block()
         }
     }
@@ -83,7 +82,7 @@ class ScenarioFactory(
      * Runs the given block with the mediator and security context bound.
      */
     fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        TestPrincipalUsers.runWithPrincipal(jdbi, testUser) {
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
             block()
         }
     }

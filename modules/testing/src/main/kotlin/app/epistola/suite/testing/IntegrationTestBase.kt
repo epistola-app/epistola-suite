@@ -1,6 +1,7 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.documents.batch.JobPoller
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -10,7 +11,6 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
@@ -49,20 +49,26 @@ abstract class IntegrationTestBase {
     @Autowired(required = false)
     private var jobPoller: JobPoller? = null
 
-    @Autowired
-    private lateinit var integrationTestJdbi: Jdbi
-
     @BeforeEach
     fun awaitIdleJobPoller() {
         jobPoller?.awaitIdle()
     }
 
     /**
-     * Idempotently materialise a `users` row for [principal] so it satisfies the
-     * audit foreign keys (`created_by` / `updated_by`). Tests that authenticate
-     * as their own ad-hoc principals call this (or use [runAs], which calls it).
+     * Idempotently materialise a `users` row for [principal] (via the production
+     * `EnsureUser` command) so it satisfies the audit foreign keys
+     * (`created_by` / `updated_by`). Tests that authenticate as their own ad-hoc
+     * principals call this (or use [runAs], which calls it).
      */
-    protected fun ensureUser(principal: EpistolaPrincipal): Unit = TestPrincipalUsers.ensure(integrationTestJdbi, principal)
+    protected fun ensureUser(principal: EpistolaPrincipal): Unit = TestPrincipalUsers.ensure(mediator, principal)
+
+    /** Materialise a `users` row for a specific [id] (for tests that pass an explicit `createdBy`). */
+    protected fun ensureUser(
+        id: UserKey,
+        externalId: String,
+        email: String,
+        displayName: String,
+    ): Unit = TestPrincipalUsers.ensure(mediator, id, externalId, email, displayName)
 
     @Autowired
     protected lateinit var testFixtureFactory: TestFixtureFactory
@@ -97,7 +103,7 @@ abstract class IntegrationTestBase {
      * — use this instead of `SecurityContext.runWithPrincipal` directly in tests.
      */
     protected fun <T> runAs(principal: EpistolaPrincipal, block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        TestPrincipalUsers.runWithPrincipal(integrationTestJdbi, principal, block)
+        TestPrincipalUsers.runWithPrincipal(mediator, principal, block)
     }
 
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(classNamespace, block)

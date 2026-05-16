@@ -29,7 +29,6 @@ annotation class TestFixtureDsl
 @Component
 class TestFixtureFactory(
     private val mediator: Mediator,
-    private val jdbi: org.jdbi.v3.core.Jdbi,
 ) {
     /**
      * Test user for authenticated operations.
@@ -49,7 +48,7 @@ class TestFixtureFactory(
         namespace: String,
         block: TestFixture.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
-        TestPrincipalUsers.runWithPrincipal(jdbi, testUser) {
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
             TestFixture(namespace).block()
         }
     }
@@ -67,7 +66,7 @@ class TestFixtureFactory(
      * ```
      */
     fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        TestPrincipalUsers.runWithPrincipal(jdbi, testUser) {
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
             block()
         }
     }

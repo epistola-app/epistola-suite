@@ -1,10 +1,10 @@
 package app.epistola.suite.config
 
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.testing.TestPrincipalUser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -33,11 +33,14 @@ class TestSecurityContextConfiguration {
     @Bean
     @Order(-98) // Run after SecurityFilter (-99) to override when no auth is present
     fun testPrincipalFilter(): OncePerRequestFilter = object : OncePerRequestFilter() {
+        // Single source of truth: this HTTP-bound principal IS the harness
+        // principal ([TestPrincipalUser]) — same id and (external_id, provider),
+        // so it resolves to the one `users` row TestPrincipalUsers materialises.
         private val testPrincipal = EpistolaPrincipal(
-            userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
-            externalId = "test-user",
-            email = "test@example.com",
-            displayName = "Test User",
+            userId = TestPrincipalUser.ID,
+            externalId = TestPrincipalUser.EXTERNAL_ID,
+            email = TestPrincipalUser.EMAIL,
+            displayName = TestPrincipalUser.DISPLAY_NAME,
             tenantMemberships = emptyMap(),
             globalRoles = TenantRole.entries.toSet(),
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),

@@ -1,54 +1,56 @@
 package app.epistola.suite.testing
 
+import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SecurityContext
-import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.withHandleUnchecked
+import app.epistola.suite.users.AuthProvider
+import app.epistola.suite.users.commands.EnsureUser
 
 /**
  * Single test-infrastructure seam for the audit foreign keys.
  *
  * Domain audit columns (`created_by` / `updated_by`) are real foreign keys to
- * `users(id)` with `ON DELETE SET NULL`. In production every principal that
- * performs a write is a real `users` row (provisioned by the OAuth2 / local /
- * demo authentication paths). Tests authenticate as synthetic principals —
- * fixed well-known ids, deterministically-derived ids and ad-hoc ids — that no
- * production code provisions.
+ * `users(id)`. In production every principal that performs a write is a real
+ * `users` row (provisioned by the OAuth2 / local / demo authentication paths).
+ * Tests authenticate as synthetic principals — a fixed harness principal plus
+ * ad-hoc ones — that no production code provisions.
  *
- * Rather than maintaining a brittle fixed seed list, every place the test
- * harness binds a principal ([IntegrationTestBase.withMediator] / `runAs`, the
- * fixture and scenario DSLs, the HTTP test security filter) routes through
- * [runWithPrincipal] here, which idempotently materialises a `users` row for
- * whatever principal is being bound before delegating to the production
- * [SecurityContext.runWithPrincipal]. This transparently covers every test
- * principal with no production seam.
+ * Rather than maintaining a brittle fixed seed list or hand-writing
+ * `INSERT INTO users` SQL, every place the test harness binds a principal
+ * ([IntegrationTestBase.withMediator] / `runAs`, the fixture and scenario DSLs,
+ * the HTTP test security filter) routes through here, which materialises the
+ * `users` row by dispatching the **production** [EnsureUser] command — the same
+ * idempotent provisioning the real local-auth path uses. Tests therefore
+ * exercise the real provisioning code; there is no test-only SQL and no
+ * production seam.
  */
 object TestPrincipalUsers {
-    /** Idempotently inserts a `users` row matching [principal] (no-op if it already exists). */
-    fun ensure(jdbi: Jdbi, principal: EpistolaPrincipal) {
-        jdbi.withHandleUnchecked { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
-                VALUES (:id, :externalId, :email, :displayName, '${TestPrincipalUser.PROVIDER}', true, NOW())
-                -- Idempotent on the principal id. A (external_id, provider)
-                -- clash is intentionally NOT swallowed: it means two distinct
-                -- synthetic principals reuse the same external_id, which is a
-                -- test-authoring error to fix (give them distinct external_ids).
-                ON CONFLICT (id) DO NOTHING
-                """,
-            )
-                .bind("id", principal.userId.value)
-                .bind("externalId", principal.externalId)
-                .bind("email", principal.email)
-                .bind("displayName", principal.displayName)
-                .execute()
-        }
+    /** Idempotently materialise a `users` row matching [principal] via [EnsureUser]. */
+    fun ensure(mediator: Mediator, principal: EpistolaPrincipal): Unit = ensure(mediator, principal.userId, principal.externalId, principal.email, principal.displayName)
+
+    /** Idempotently materialise a `users` row for [id] via [EnsureUser]. */
+    fun ensure(
+        mediator: Mediator,
+        id: UserKey,
+        externalId: String,
+        email: String,
+        displayName: String,
+    ) {
+        mediator.send(
+            EnsureUser(
+                id = id,
+                externalId = externalId,
+                email = email,
+                displayName = displayName,
+                provider = AuthProvider.LOCAL,
+            ),
+        )
     }
 
     /** [SecurityContext.runWithPrincipal], but the principal's `users` row is ensured first. */
-    fun <T> runWithPrincipal(jdbi: Jdbi, principal: EpistolaPrincipal, block: () -> T): T {
-        ensure(jdbi, principal)
+    fun <T> runWithPrincipal(mediator: Mediator, principal: EpistolaPrincipal, block: () -> T): T {
+        ensure(mediator, principal)
         return SecurityContext.runWithPrincipal(principal, block)
     }
 }
