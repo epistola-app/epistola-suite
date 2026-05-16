@@ -17,6 +17,7 @@ import { createDatatableColumnDefinition } from '../components/datatable/datatab
 import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
 import { createPlaceholderDefinition } from '../components/placeholder/placeholder-registration.js';
 import { createRichTextVariableDefinition } from '../components/richTextVariable/richtextvar-registration.js';
+import { createImageDefinition } from '../components/image/image-registration.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -1451,6 +1452,12 @@ export function createDefaultRegistry(): ComponentRegistry {
       },
     ],
   });
+
+  // Image is always registered so its descriptor is discoverable by backend
+  // consumers (e.g. the MCP component registry dump). Interactive behaviour
+  // (asset picker, click-to-change) is injected at mount time by re-registering
+  // with real callbacks in lib.ts.
+  registry.register(createImageDefinition());
 
   return registry;
 }
