@@ -32,10 +32,10 @@ CREATE TABLE code_lists (
     source_url         TEXT,
     auth_type          CODE_LIST_AUTH_TYPE NOT NULL DEFAULT 'NONE',
     credential         TEXT,
-    last_refreshed_at  TIMESTAMP WITH TIME ZONE,
+    last_refreshed_at  TIMESTAMPTZ,
     last_refresh_error TEXT,
-    created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_modified      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_modified      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, slug),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     -- INLINE has no source_url; CLASSPATH and URL must have one.
@@ -61,7 +61,7 @@ CREATE TABLE code_list_entries (
     code             VARCHAR(64) NOT NULL,
     label            VARCHAR(200) NOT NULL,
     sort_order       INTEGER NOT NULL DEFAULT 0,
-    hidden           BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden           BOOLEAN NOT NULL DEFAULT false,
     PRIMARY KEY (tenant_key, catalog_key, code_list_slug, code),
     FOREIGN KEY (tenant_key, catalog_key, code_list_slug)
         REFERENCES code_lists(tenant_key, catalog_key, slug) ON DELETE CASCADE

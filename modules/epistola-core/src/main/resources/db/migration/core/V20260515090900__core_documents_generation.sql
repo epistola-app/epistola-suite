@@ -24,7 +24,7 @@ CREATE TABLE documents (
     correlation_id VARCHAR(255),
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
     size_bytes BIGINT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     PRIMARY KEY (id, created_at),
 
@@ -78,12 +78,12 @@ CREATE TABLE document_generation_requests (
     document_key UUID,
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),
-    claimed_at TIMESTAMP WITH TIME ZONE,
+    claimed_at TIMESTAMPTZ,
     error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    started_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
     routing_key TEXT,
     PRIMARY KEY (id, created_at),
 
@@ -153,8 +153,8 @@ CREATE TABLE document_generation_batches (
     total_count INTEGER NOT NULL,
     final_completed_count INTEGER,
     final_failed_count INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
 
     CONSTRAINT chk_batches_total_count_positive CHECK (total_count > 0)
 );

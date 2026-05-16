@@ -7,7 +7,7 @@ CREATE TABLE feedback_sync_config (
     enabled         BOOLEAN     NOT NULL DEFAULT false,
     provider_type   VARCHAR(30) NOT NULL,
     settings        JSONB       NOT NULL DEFAULT '{}',
-    last_polled_at  TIMESTAMP WITH TIME ZONE,
+    last_polled_at  TIMESTAMPTZ,
 
     PRIMARY KEY (tenant_key)
 );
@@ -33,8 +33,8 @@ CREATE TABLE feedback (
     console_logs    TEXT,
     metadata        JSONB,       -- client metadata: browser, viewport, app version, etc.
     created_by      UUID        NOT NULL REFERENCES users(id),
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     external_ref    TEXT,        -- external ticket reference (e.g., GitHub issue number)
     external_url    TEXT,        -- external ticket URL
     sync_status     VARCHAR(30) NOT NULL DEFAULT 'NOT_CONFIGURED',
@@ -69,7 +69,7 @@ CREATE TABLE feedback_comments (
     author_email        TEXT,
     source              VARCHAR(20) NOT NULL DEFAULT 'LOCAL',
     external_comment_id TEXT,       -- external comment ID for dedup (string to support GitHub, Jira, etc.)
-    created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (tenant_key, feedback_id, id),
     FOREIGN KEY (tenant_key, feedback_id) REFERENCES feedback(tenant_key, id) ON DELETE CASCADE
@@ -95,7 +95,7 @@ CREATE TABLE feedback_assets (
     content      BYTEA       NOT NULL,
     content_type VARCHAR(100) NOT NULL,
     filename     VARCHAR(255),
-    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (tenant_key, feedback_id, id),
     FOREIGN KEY (tenant_key, feedback_id) REFERENCES feedback(tenant_key, id) ON DELETE CASCADE

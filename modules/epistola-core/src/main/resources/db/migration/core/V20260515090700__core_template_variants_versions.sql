@@ -24,9 +24,9 @@ CREATE TABLE template_variants (
     title VARCHAR(255),
     description TEXT,
     attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
-    is_default BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_key, catalog_key, template_key, id),
     FOREIGN KEY (tenant_key, catalog_key, template_key) REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE
@@ -34,7 +34,7 @@ CREATE TABLE template_variants (
 
 -- Enforce exactly one default variant per template
 CREATE UNIQUE INDEX idx_one_default_variant_per_template
-    ON template_variants (tenant_key, catalog_key, template_key) WHERE is_default = TRUE;
+    ON template_variants (tenant_key, catalog_key, template_key) WHERE is_default = true;
 
 -- GIN index for attribute filtering queries (e.g. checking attribute values in use)
 CREATE INDEX idx_template_variants_attributes_gin
@@ -73,9 +73,9 @@ CREATE TABLE template_versions (
     variant_key VARIANT_KEY NOT NULL,
     template_model JSONB NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    published_at TIMESTAMP WITH TIME ZONE,
-    archived_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    archived_at TIMESTAMPTZ,
     created_by UUID REFERENCES users(id),
     rendering_defaults_version INTEGER,
     resolved_theme JSONB,
@@ -126,7 +126,7 @@ CREATE TABLE environment_activations (
     template_key TEMPLATE_KEY NOT NULL,
     variant_key VARIANT_KEY NOT NULL,
     version_key INTEGER NOT NULL,
-    activated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, environment_key, template_key, variant_key),
     FOREIGN KEY (tenant_key, environment_key) REFERENCES environments(tenant_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, catalog_key, template_key, variant_key) REFERENCES template_variants(tenant_key, catalog_key, template_key, id) ON DELETE CASCADE,

@@ -23,7 +23,7 @@ CREATE TABLE assets (
     size_bytes BIGINT NOT NULL,
     width INTEGER,
     height INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
 
     PRIMARY KEY (tenant_key, catalog_key, id),

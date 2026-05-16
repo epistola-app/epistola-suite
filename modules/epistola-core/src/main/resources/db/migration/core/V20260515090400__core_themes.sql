@@ -17,8 +17,8 @@ CREATE TABLE themes (
     page_settings JSONB,
     block_style_presets JSONB,
     spacing_unit REAL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     last_modified_by UUID REFERENCES users(id),
 

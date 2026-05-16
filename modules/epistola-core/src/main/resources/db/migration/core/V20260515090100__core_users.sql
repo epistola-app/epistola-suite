@@ -11,8 +11,8 @@ CREATE TABLE users (
     display_name VARCHAR(255) NOT NULL,
     provider VARCHAR(50) NOT NULL,          -- KEYCLOAK, LOCAL, GENERIC_OIDC
     enabled BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_login_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at TIMESTAMPTZ,
     CONSTRAINT users_external_id_provider_unique UNIQUE (external_id, provider)
 );
 

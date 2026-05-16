@@ -8,7 +8,7 @@ CREATE TABLE environments (
     id ENVIRONMENT_KEY NOT NULL,
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
     last_modified_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_key, id),

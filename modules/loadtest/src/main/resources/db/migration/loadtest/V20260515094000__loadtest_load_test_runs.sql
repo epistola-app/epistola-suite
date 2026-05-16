@@ -32,7 +32,7 @@ CREATE TABLE load_test_runs (
     -- Status
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),                    -- Instance identifier that claimed this run
-    claimed_at TIMESTAMP WITH TIME ZONE,        -- When the run was claimed
+    claimed_at TIMESTAMPTZ,        -- When the run was claimed
 
     -- Aggregated results (populated after completion)
     completed_count INTEGER NOT NULL DEFAULT 0,
@@ -50,9 +50,9 @@ CREATE TABLE load_test_runs (
     metrics JSONB,        -- Detailed metrics: {"avg_ms": 1234, "min_ms": 500, "max_ms": 5000, "p50_ms": 1100, "p95_ms": 2500, "p99_ms": 3200, "rps": 245.5}
 
     -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    started_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
 
     -- Ensure either version_key OR environment_key is set, not both
     CONSTRAINT chk_load_test_version_or_environment CHECK (

@@ -6,7 +6,7 @@
 CREATE TABLE app_metadata (
     key VARCHAR(100) PRIMARY KEY,
     value JSONB NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_app_metadata_key ON app_metadata(key);

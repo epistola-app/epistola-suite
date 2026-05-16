@@ -15,8 +15,8 @@ CREATE TABLE contract_versions (
     data_model JSONB,
     data_examples JSONB DEFAULT '[]'::jsonb,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    published_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
     created_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_key, catalog_key, template_key, id),
     FOREIGN KEY (tenant_key, catalog_key, template_key)
