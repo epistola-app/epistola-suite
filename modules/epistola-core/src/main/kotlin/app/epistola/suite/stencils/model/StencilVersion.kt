@@ -47,4 +47,9 @@ data class StencilVersionSummary(
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,
     val archivedAt: OffsetDateTime?,
+    /**
+     * Optional JSON Schema describing the parameters consumers must bind when
+     * inserting this version into a template. NULL means the version takes no parameters.
+     */
+    @Json val parameterSchema: tools.jackson.databind.JsonNode? = null,
 )
