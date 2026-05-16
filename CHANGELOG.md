@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-05-16
+
 ### Added
 
 - **Reactive Lit expression dialog (`ep-expression-dialog`).** Replaced the imperative `expression-dialog.ts` with a declarative `EpExpressionDialog` Lit component (`ep-expression-dialog`) using light DOM so existing CSS selectors continue to match. The component handles dialog lifecycle (show/close/cancel), builder/code mode toggle, debounced live preview with stale-generation discard, field-path filtering with keyboard accessibility, quick-reference insertion, and ARIA live regions. The field picker and JSONata quick reference are code-mode tools and are hidden in builder mode (where Save reads builder state and would silently discard a pick); builder mode shows a small hint linking to Code instead. The JSONata quick reference is collapsed by default, and its open/closed state is preserved across re-renders. The code-box date-format selector is shown only for code-only dialogs (inspector conditional/loop fields); when a builder is available, date formatting is the builder's responsibility and is no longer duplicated in the code box. A `$formatDate` using a pattern the builder's preset dropdown can't represent (a custom format) is treated as not builder-representable — the dialog opens in (and stays in) Code, with Builder disabled and a format-specific hint, rather than the builder silently misrepresenting or dropping the custom pattern. All render helpers have explicit return types and accessibility modifiers. The legacy imperative builder helpers were extracted to `expression-builder.ts` (pure, separately tested); the old `renderFieldPaths`/`createFieldPathItem`/`renderQuickReference`/`updatePreview` helpers were removed (no remaining consumers).
