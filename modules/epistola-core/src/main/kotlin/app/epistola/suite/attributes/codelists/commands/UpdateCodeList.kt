@@ -67,12 +67,12 @@ class UpdateCodeListHandler(
                     source_url    = COALESCE(:sourceUrl, source_url),
                     auth_type     = :authType,
                     credential    = :credential,
-                    last_modified = NOW()
+                    updated_at = NOW()
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
                 RETURNING slug, tenant_key, catalog_key, display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
-                          created_at, last_modified
+                          created_at, updated_at
                 """,
             )
                 .bind("slug", command.id.key)

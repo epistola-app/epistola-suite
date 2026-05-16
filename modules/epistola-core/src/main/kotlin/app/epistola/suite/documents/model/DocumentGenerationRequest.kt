@@ -59,7 +59,7 @@ data class DocumentGenerationRequest(
     val environmentKey: EnvironmentKey?,
     @Json val data: ObjectNode,
     val filename: String?,
-    val correlationKey: String?,
+    val correlationId: String?,
     /**
      * Default null so existing SELECT statements that don't yet ask for `routing_key`
      * continue to map cleanly. Queries that need the value should add it to their

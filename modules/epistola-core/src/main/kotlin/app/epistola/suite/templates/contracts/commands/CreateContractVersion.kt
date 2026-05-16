@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExamples
 import org.jdbi.v3.core.Jdbi
@@ -42,6 +43,7 @@ class CreateContractVersionHandler(
 ) : CommandHandler<CreateContractVersion, ContractVersion?> {
     override fun handle(command: CreateContractVersion): ContractVersion? {
         requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
+        val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<ContractVersion?, Exception> { handle ->
             // Lock the template row to serialize contract version creation
             val templateRow = handle.createQuery(
@@ -127,8 +129,8 @@ class CreateContractVersionHandler(
 
             val newDraft = handle.createQuery(
                 """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at)
-                VALUES (:id, :tenantKey, :catalogKey, :templateKey, :schema::jsonb, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, created_by)
+                VALUES (:id, :tenantKey, :catalogKey, :templateKey, :schema::jsonb, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW(), :createdBy)
                 RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at, created_by
                 """,
             )
@@ -139,6 +141,7 @@ class CreateContractVersionHandler(
                 .bind("schema", schemaJson)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .mapTo<ContractVersion>()
                 .one()
 

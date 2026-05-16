@@ -353,20 +353,20 @@ class LoadTestExecutor(
     }
 
     /**
-     * Query all requests created for a batch, ordered by correlation_key sequence.
+     * Query all requests created for a batch, ordered by correlation_id sequence.
      */
     private fun queryBatchRequests(batchId: BatchKey, runId: LoadTestRunKey): List<SubmittedJob> = jdbi.withHandle<List<SubmittedJob>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, correlation_key
+                SELECT id, correlation_id
                 FROM document_generation_requests
                 WHERE batch_id = :batchId
-                ORDER BY correlation_key
+                ORDER BY correlation_id
                 """,
         )
             .bind("batchId", batchId)
             .map { rs, _ ->
-                val correlationId = rs.getString("correlation_key")
+                val correlationId = rs.getString("correlation_id")
                 val sequenceNumber = correlationId.substringAfterLast("-").toInt()
                 SubmittedJob(
                     sequenceNumber = sequenceNumber,

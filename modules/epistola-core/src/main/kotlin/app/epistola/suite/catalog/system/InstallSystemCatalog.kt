@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -18,6 +17,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -76,10 +76,10 @@ data class InstallSystemCatalogResult(
  * inner commands authorize against a principal that always has access.
  */
 private val SYSTEM_INSTALL_PRINCIPAL = EpistolaPrincipal(
-    userId = UserKey.of("00000000-0000-0000-0000-000000000002"),
-    externalId = "system-catalog-installer",
-    email = "system-catalog@epistola.local",
-    displayName = "System Catalog Installer",
+    userId = SystemUser.ID,
+    externalId = SystemUser.EXTERNAL_ID,
+    email = SystemUser.EMAIL,
+    displayName = SystemUser.DISPLAY_NAME,
     tenantMemberships = emptyMap(),
     globalRoles = TenantRole.entries.toSet(),
     platformRoles = setOf(PlatformRole.TENANT_MANAGER),

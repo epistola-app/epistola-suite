@@ -29,7 +29,7 @@ data class CodeList(
     val lastRefreshedAt: OffsetDateTime? = null,
     val lastRefreshError: String? = null,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
     /**
      * Type of the catalog the code list lives in, populated when the row is
      * read via a JOIN to catalogs. Used by the UI to gate edit affordances.

@@ -35,7 +35,7 @@ CREATE TABLE generation_results (
 
     request_id     UUID        NOT NULL,
     batch_id       UUID,
-    tenant_key     TEXT        NOT NULL,
+    tenant_key     TENANT_KEY  NOT NULL,
     routing_key    TEXT        NOT NULL,
     status         GENERATION_RESULT_STATUS NOT NULL,
 
@@ -98,7 +98,7 @@ $$;
 -- if the auth filter ever returns a wrong tenant, queries cannot cross
 -- tenant boundaries.
 CREATE TABLE consumer_partition_cursors (
-    tenant_key           TEXT                 NOT NULL,
+    tenant_key           TENANT_KEY           NOT NULL,
     consumer_id          TEXT                 NOT NULL,
     partition            GENERATION_PARTITION NOT NULL,
     last_acked_sequence  BIGINT               NOT NULL DEFAULT 0,
@@ -115,7 +115,7 @@ CREATE TABLE consumer_partition_cursors (
 -- stored for observability and so the API can echo back what we told the node
 -- last time without recomputing the ring.
 CREATE TABLE consumer_node_assignments (
-    tenant_key    TEXT        NOT NULL,
+    tenant_key    TENANT_KEY  NOT NULL,
     consumer_id   TEXT        NOT NULL,
     node_id       TEXT        NOT NULL,
     partitions    JSONB       NOT NULL,             -- e.g. [0, 3, 7]
@@ -126,3 +126,33 @@ CREATE TABLE consumer_node_assignments (
 -- Idle-node sweep: query for "active nodes for this (tenant, consumer)".
 CREATE INDEX idx_consumer_node_assignments_tenant_consumer_lastseen
     ON consumer_node_assignments (tenant_key, consumer_id, last_seen_at);
+
+COMMENT ON TABLE generation_results IS 'Append-only terminal generation results. RANGE-partitioned by created_at (monthly child partitions managed by PartitionMaintenanceScheduler) for cheap retention via DROP TABLE.';
+COMMENT ON COLUMN generation_results.sequence IS 'Monotonic BIGSERIAL; consumers page with sequence > cursor';
+COMMENT ON COLUMN generation_results.partition IS 'Routing-partition number (0..63), orthogonal to the Postgres month partitions. Groups rows by consumer affinity.';
+COMMENT ON COLUMN generation_results.created_at IS 'When the result was recorded. Also the Postgres RANGE partition key.';
+COMMENT ON COLUMN generation_results.request_id IS 'Originating document_generation_requests.id';
+COMMENT ON COLUMN generation_results.batch_id IS 'Originating batch id, when the request was part of a batch';
+COMMENT ON COLUMN generation_results.tenant_key IS 'Owning tenant slug. Intentionally NOT a foreign key — this is append-only collected data that must survive tenant deletion.';
+COMMENT ON COLUMN generation_results.routing_key IS 'Routing key used to compute the routing partition';
+COMMENT ON COLUMN generation_results.status IS 'Terminal status: COMPLETED or FAILED';
+COMMENT ON COLUMN generation_results.completed_at IS 'When generation reached its terminal state';
+COMMENT ON COLUMN consumer_partition_cursors.last_acked_sequence IS 'Highest sequence the consumer has acknowledged for this (tenant, consumer, partition). Starts at 0.';
+
+COMMENT ON TABLE consumer_partition_cursors IS 'Per-(tenant, consumer, partition) acknowledgement cursor. Advanced when a consumer sends acknowledgeUpTo on the next /generation/collect call.';
+COMMENT ON COLUMN consumer_partition_cursors.tenant_key IS 'Owning tenant slug. Stored explicitly as defense-in-depth so queries cannot cross tenant boundaries even if auth misbehaves.';
+COMMENT ON COLUMN consumer_partition_cursors.consumer_id IS 'Logical consumer identity (one per X-API-Key)';
+COMMENT ON COLUMN consumer_partition_cursors.partition IS 'Routing-partition number (0..63) this cursor tracks';
+COMMENT ON COLUMN consumer_partition_cursors.updated_at IS 'When the cursor was last advanced';
+
+COMMENT ON TABLE consumer_node_assignments IS 'Last-seen heartbeat per (tenant, consumer, node). Drives the consistent hash ring for partition assignment.';
+COMMENT ON COLUMN consumer_node_assignments.tenant_key IS 'Owning tenant slug';
+COMMENT ON COLUMN consumer_node_assignments.consumer_id IS 'Logical consumer identity (one per X-API-Key)';
+COMMENT ON COLUMN consumer_node_assignments.node_id IS 'Individual node within the consumer';
+COMMENT ON COLUMN consumer_node_assignments.partitions IS 'Routing partitions assigned to this node on its last call (e.g. [0, 3, 7]). Stored for observability and echo-back.';
+COMMENT ON COLUMN consumer_node_assignments.last_seen_at IS 'Timestamp of the most recent ping/collect from this node. Idle nodes are swept from the ring.';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_consumer_partition_cursors_updated_at
+    BEFORE UPDATE ON consumer_partition_cursors
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

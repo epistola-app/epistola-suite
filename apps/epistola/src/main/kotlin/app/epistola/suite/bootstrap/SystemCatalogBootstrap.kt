@@ -2,12 +2,12 @@ package app.epistola.suite.bootstrap
 
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.catalog.system.SystemCatalogStatus
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.queries.ListTenants
 import org.slf4j.LoggerFactory
@@ -15,8 +15,6 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
-import java.nio.charset.StandardCharsets
-import java.util.UUID
 
 /**
  * Boot-time auto-upgrade for the bundled system catalog. Walks every
@@ -41,14 +39,12 @@ class SystemCatalogBootstrap(
     companion object {
         const val RUN_ORDER = 100
 
-        private fun deterministicUserId(username: String): UserKey = UserKey.of(UUID.nameUUIDFromBytes(username.toByteArray(StandardCharsets.UTF_8)))
-
         /** Bootstrap principal — has full access to every tenant. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
-            userId = deterministicUserId("system@epistola.app"),
-            externalId = "system",
-            email = "system@epistola.app",
-            displayName = "System",
+            userId = SystemUser.ID,
+            externalId = SystemUser.EXTERNAL_ID,
+            email = SystemUser.EMAIL,
+            displayName = SystemUser.DISPLAY_NAME,
             tenantMemberships = emptyMap(),
             globalRoles = TenantRole.entries.toSet(),
             platformRoles = PlatformRole.entries.toSet(),

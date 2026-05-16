@@ -4,7 +4,6 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -12,7 +11,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -36,10 +34,10 @@ class TestFixtureFactory(
      * Test user for authenticated operations.
      */
     private val testUser = EpistolaPrincipal(
-        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
-        externalId = "test-user",
-        email = "test@example.com",
-        displayName = "Test User",
+        userId = TestPrincipalUser.ID,
+        externalId = TestPrincipalUser.EXTERNAL_ID,
+        email = TestPrincipalUser.EMAIL,
+        displayName = TestPrincipalUser.DISPLAY_NAME,
         tenantMemberships = emptyMap(),
         globalRoles = TenantRole.entries.toSet(),
         platformRoles = setOf(PlatformRole.TENANT_MANAGER),
@@ -50,7 +48,7 @@ class TestFixtureFactory(
         namespace: String,
         block: TestFixture.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
-        SecurityContext.runWithPrincipal(testUser) {
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
             TestFixture(namespace).block()
         }
     }
@@ -68,7 +66,7 @@ class TestFixtureFactory(
      * ```
      */
     fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        SecurityContext.runWithPrincipal(testUser) {
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser) {
             block()
         }
     }

@@ -34,7 +34,7 @@ class ListThemesHandler(
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND t.name ILIKE :searchTerm")
             }
-            append(" ORDER BY t.last_modified DESC")
+            append(" ORDER BY t.updated_at DESC")
         }
 
         val jdbiQuery = handle.createQuery(sql)

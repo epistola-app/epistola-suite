@@ -62,7 +62,7 @@
                         <span th:if="${catalog.installedReleaseVersion}" th:text="${catalog.installedReleaseVersion}"></span>
                         <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
                     </td>
-                    <td th:text="${#temporals.format(catalog.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">

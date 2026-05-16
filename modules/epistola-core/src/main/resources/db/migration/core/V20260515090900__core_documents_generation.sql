@@ -24,8 +24,8 @@ CREATE TABLE documents (
     correlation_id VARCHAR(255),
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
     size_bytes BIGINT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     PRIMARY KEY (id, created_at),
 
     CONSTRAINT chk_documents_filename_not_empty CHECK (LENGTH(filename) > 0),
@@ -41,7 +41,7 @@ CREATE TABLE documents (
 CREATE INDEX idx_documents_tenant_key ON documents(tenant_key);
 CREATE INDEX idx_documents_template_key ON documents(tenant_key, template_key);
 CREATE INDEX idx_documents_created_at ON documents(created_at DESC);
-CREATE INDEX idx_documents_correlation_key ON documents(tenant_key, correlation_id)
+CREATE INDEX idx_documents_correlation_id ON documents(tenant_key, correlation_id)
     WHERE correlation_id IS NOT NULL;
 
 COMMENT ON TABLE documents IS 'Generated PDF documents stored as BYTEA. Partitioned by created_at for TTL enforcement via partition dropping.';
@@ -55,7 +55,7 @@ COMMENT ON COLUMN documents.correlation_id IS 'Client-provided ID for tracking d
 COMMENT ON COLUMN documents.content_type IS 'MIME type of the generated document';
 COMMENT ON COLUMN documents.size_bytes IS 'Document size in bytes';
 COMMENT ON COLUMN documents.created_at IS 'When the document was generated';
-COMMENT ON COLUMN documents.created_by IS 'User who triggered the generation';
+COMMENT ON COLUMN documents.created_by IS 'User who triggered the generation (NULL if the user was deleted)';
 
 -- ============================================================================
 -- GENERATION REQUESTS
@@ -74,16 +74,16 @@ CREATE TABLE document_generation_requests (
     environment_key ENVIRONMENT_KEY,
     data JSONB NOT NULL,
     filename VARCHAR(255),
-    correlation_key VARCHAR(255),
+    correlation_id VARCHAR(255),
     document_key UUID,
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),
-    claimed_at TIMESTAMP WITH TIME ZONE,
+    claimed_at TIMESTAMPTZ,
     error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    started_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
     routing_key TEXT,
     PRIMARY KEY (id, created_at),
 
@@ -109,8 +109,8 @@ CREATE INDEX idx_generation_requests_status ON document_generation_requests(stat
 CREATE INDEX idx_generation_requests_batch_key ON document_generation_requests(batch_id)
     WHERE batch_id IS NOT NULL;
 CREATE INDEX idx_generation_requests_template_key ON document_generation_requests(tenant_key, template_key);
-CREATE INDEX idx_generation_requests_correlation_key ON document_generation_requests(tenant_key, correlation_key)
-    WHERE correlation_key IS NOT NULL;
+CREATE INDEX idx_generation_requests_correlation_id ON document_generation_requests(tenant_key, correlation_id)
+    WHERE correlation_id IS NOT NULL;
 CREATE INDEX idx_generation_requests_document_key ON document_generation_requests(document_key)
     WHERE document_key IS NOT NULL;
 CREATE INDEX idx_generation_requests_expires_at ON document_generation_requests(expires_at)
@@ -131,7 +131,7 @@ COMMENT ON COLUMN document_generation_requests.version_key IS 'Explicit version 
 COMMENT ON COLUMN document_generation_requests.environment_key IS 'Environment to resolve the active version from. Mutually exclusive with version_key.';
 COMMENT ON COLUMN document_generation_requests.data IS 'Input data for template rendering (must conform to template schema)';
 COMMENT ON COLUMN document_generation_requests.filename IS 'Requested output filename. NULL uses a generated default.';
-COMMENT ON COLUMN document_generation_requests.correlation_key IS 'Client-provided ID for tracking across external systems';
+COMMENT ON COLUMN document_generation_requests.correlation_id IS 'Client-provided ID for tracking across external systems';
 COMMENT ON COLUMN document_generation_requests.document_key IS 'Generated document ID. No FK due to composite PK on documents. Enforced at application level.';
 COMMENT ON COLUMN document_generation_requests.status IS 'Job state: PENDING -> IN_PROGRESS -> COMPLETED/FAILED/CANCELLED';
 COMMENT ON COLUMN document_generation_requests.claimed_by IS 'Instance identifier (hostname-pid) that claimed this job';
@@ -153,8 +153,8 @@ CREATE TABLE document_generation_batches (
     total_count INTEGER NOT NULL,
     final_completed_count INTEGER,
     final_failed_count INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
 
     CONSTRAINT chk_batches_total_count_positive CHECK (total_count > 0)
 );

@@ -314,7 +314,7 @@ class UpgradeCatalogHandler(
             handle.createUpdate(
                 """
                 UPDATE catalogs
-                SET installed_release_version = :version, name = :name, description = :description, last_modified = NOW()
+                SET installed_release_version = :version, name = :name, description = :description, updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )

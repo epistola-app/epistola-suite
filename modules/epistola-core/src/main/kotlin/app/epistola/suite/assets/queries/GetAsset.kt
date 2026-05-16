@@ -5,6 +5,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -37,7 +38,7 @@ class GetAssetHandler(
     override fun handle(query: GetAsset): Asset? = jdbi.withHandle<Asset?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at
+            SELECT id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at, created_by
             FROM assets
             WHERE id = :assetId
               AND tenant_key = :tenantId
@@ -56,6 +57,7 @@ class GetAssetHandler(
                     width = rs.getObject("width", Integer::class.java)?.toInt(),
                     height = rs.getObject("height", Integer::class.java)?.toInt(),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                    createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserKey(it) },
                 )
             }
             .findOne()

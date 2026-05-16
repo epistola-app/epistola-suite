@@ -13,7 +13,7 @@ CREATE TABLE tenants (
     name VARCHAR(255) NOT NULL,
     default_theme_catalog_key CATALOG_KEY, -- FK added in V5 after themes table exists
     default_theme_key VARCHAR(20),  -- FK added in V5 after themes table exists
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_tenants_name ON tenants(name);
@@ -35,8 +35,8 @@ CREATE TABLE tenant_memberships (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     roles VARCHAR(20)[] NOT NULL DEFAULT ARRAY['READER']::VARCHAR[],
-    joined_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_synced_at TIMESTAMP WITH TIME ZONE,
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_synced_at TIMESTAMPTZ,
     PRIMARY KEY (user_id, tenant_key)
 );
 
@@ -66,9 +66,9 @@ CREATE TABLE catalogs (
     source_auth_type VARCHAR(20) DEFAULT 'NONE' CHECK (source_auth_type IN ('NONE', 'API_KEY', 'BEARER')),
     source_auth_credential TEXT,
     installed_release_version VARCHAR(50),
-    installed_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    installed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, id)
 );
 
@@ -76,3 +76,10 @@ COMMENT ON TABLE catalogs IS 'Organizational containers for resources. Every res
 COMMENT ON COLUMN catalogs.type IS 'AUTHORED = created locally and editable, SUBSCRIBED = installed from external source and read-only';
 COMMENT ON COLUMN catalogs.source_url IS 'Remote catalog manifest URL (SUBSCRIBED only)';
 COMMENT ON COLUMN catalogs.installed_release_version IS 'Version of the currently installed release (SUBSCRIBED only)';
+COMMENT ON COLUMN catalogs.created_at IS 'When the catalog was created';
+COMMENT ON COLUMN catalogs.updated_at IS 'When the catalog was last updated';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_catalogs_updated_at
+    BEFORE UPDATE ON catalogs
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

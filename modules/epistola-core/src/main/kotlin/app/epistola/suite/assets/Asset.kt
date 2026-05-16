@@ -4,6 +4,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import java.time.OffsetDateTime
 
 /**
@@ -38,6 +39,7 @@ data class Asset(
     val width: Int?,
     val height: Int?,
     val createdAt: OffsetDateTime,
+    val createdBy: UserKey? = null,
 )
 
 /**

@@ -68,14 +68,14 @@ class CreateCodeListHandler(
                     """
                     INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, description,
                                             source_type, source_url, auth_type, credential,
-                                            created_at, last_modified)
+                                            created_at, updated_at)
                     VALUES (:slug, :tenantKey, :catalogKey, :displayName, :description,
                             :sourceType, :sourceUrl, :authType, :credential,
                             NOW(), NOW())
                     RETURNING slug, tenant_key, catalog_key, display_name, description,
                               source_type, source_url, auth_type, credential,
                               last_refreshed_at, last_refresh_error,
-                              created_at, last_modified
+                              created_at, updated_at
                     """,
                 )
                     .bind("slug", command.id.key)

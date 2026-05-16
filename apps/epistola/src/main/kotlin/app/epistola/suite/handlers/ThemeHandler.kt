@@ -230,7 +230,7 @@ class ThemeHandler(
                     "pageSettings" to theme.pageSettings,
                     "blockStylePresets" to theme.blockStylePresets,
                     "spacingUnit" to theme.spacingUnit,
-                    "lastModified" to theme.lastModified,
+                    "updatedAt" to theme.updatedAt,
                 ),
             )
     }

@@ -32,10 +32,10 @@ CREATE TABLE code_lists (
     source_url         TEXT,
     auth_type          CODE_LIST_AUTH_TYPE NOT NULL DEFAULT 'NONE',
     credential         TEXT,
-    last_refreshed_at  TIMESTAMP WITH TIME ZONE,
+    last_refreshed_at  TIMESTAMPTZ,
     last_refresh_error TEXT,
-    created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_modified      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, slug),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     -- INLINE has no source_url; CLASSPATH and URL must have one.
@@ -49,6 +49,8 @@ COMMENT ON COLUMN code_lists.source_type IS 'CLASSPATH = bundled, URL = fetched 
 COMMENT ON COLUMN code_lists.source_url IS 'classpath:… or https://… ; NULL for INLINE';
 COMMENT ON COLUMN code_lists.last_refreshed_at IS 'When entries were last refreshed from source. NULL until first refresh.';
 COMMENT ON COLUMN code_lists.last_refresh_error IS 'Error message from the most recent refresh, if any';
+COMMENT ON COLUMN code_lists.created_at IS 'When the code list was created';
+COMMENT ON COLUMN code_lists.updated_at IS 'When the code list was last updated';
 
 -- Code list entries: code + human-readable label, optionally hidden.
 -- Hidden entries are still valid for existing variants but filtered out of
@@ -61,7 +63,7 @@ CREATE TABLE code_list_entries (
     code             VARCHAR(64) NOT NULL,
     label            VARCHAR(200) NOT NULL,
     sort_order       INTEGER NOT NULL DEFAULT 0,
-    hidden           BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden           BOOLEAN NOT NULL DEFAULT false,
     PRIMARY KEY (tenant_key, catalog_key, code_list_slug, code),
     FOREIGN KEY (tenant_key, catalog_key, code_list_slug)
         REFERENCES code_lists(tenant_key, catalog_key, slug) ON DELETE CASCADE
@@ -103,3 +105,8 @@ ALTER TABLE variant_attribute_definitions
 
 COMMENT ON COLUMN variant_attribute_definitions.code_list_catalog_key IS 'Catalog where the bound code list lives (within the same tenant); NULL when not bound';
 COMMENT ON COLUMN variant_attribute_definitions.code_list_slug IS 'Slug of the bound code list; NULL when free-format or using inline allowed_values';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_code_lists_updated_at
+    BEFORE UPDATE ON code_lists
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

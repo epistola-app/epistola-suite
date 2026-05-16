@@ -39,7 +39,7 @@ data class VariantAttributeDefinition(
     val codeListCatalogKey: CatalogKey? = null,
     val codeListSlug: CodeListKey? = null,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     /**
      * The bound code list as a typed `CodeListId`, or `null` when this

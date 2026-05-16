@@ -18,7 +18,7 @@ data class VariantInfo(
     /** True for the variant chosen when no explicit variant is specified at preview time. */
     val isDefault: Boolean,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(variant: TemplateVariant): VariantInfo = VariantInfo(
@@ -29,7 +29,7 @@ data class VariantInfo(
             attributes = variant.attributes,
             isDefault = variant.isDefault,
             createdAt = variant.createdAt,
-            lastModified = variant.lastModified,
+            updatedAt = variant.updatedAt,
         )
     }
 }

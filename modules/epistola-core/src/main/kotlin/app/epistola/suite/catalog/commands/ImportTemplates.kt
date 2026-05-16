@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -98,6 +99,7 @@ class ImportTemplatesHandler(
 
     private fun importSingleTemplate(tenantId: TenantId, catalogKey: CatalogKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
         val templateId = TemplateKey.of(input.slug)
+        val auditUser = currentUserIdOrNull()?.value
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
         val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
 
@@ -132,10 +134,10 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, pdfa_enabled, created_at, last_modified)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, FALSE, NOW(), NOW())
+                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, FALSE, NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, last_modified = NOW()
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
                 .bind("id", templateId)
@@ -144,13 +146,14 @@ class ImportTemplatesHandler(
                 .bind("name", input.name)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
             ImportStatus.CREATED
         } else {
             handle.createUpdate(
                 """
                     UPDATE document_templates
-                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, last_modified = NOW()
+                    SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, updated_at = NOW(), updated_by = :updatedBy
                     WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                     """,
             )
@@ -160,6 +163,7 @@ class ImportTemplatesHandler(
                 .bind("name", input.name)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
             ImportStatus.UPDATED
         }
@@ -194,8 +198,8 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, published_at, created_at)
-                    VALUES (:id, :tenantId, :catalogKey, :templateId, :dataModel::jsonb, :dataExamples::jsonb, 'published', NOW(), NOW())
+                    INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, published_at, created_at, created_by)
+                    VALUES (:id, :tenantId, :catalogKey, :templateId, :dataModel::jsonb, :dataExamples::jsonb, 'published', NOW(), NOW(), :createdBy)
                     """,
             )
                 .bind("id", nextContractVersionId)
@@ -204,6 +208,7 @@ class ImportTemplatesHandler(
                 .bind("templateId", templateId)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
 
             // Link all existing template versions to the new contract version
@@ -243,10 +248,10 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, attributes, is_default, created_at, last_modified)
-                    VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :attributes::jsonb, :isDefault, NOW(), NOW())
+                    INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, attributes, is_default, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, catalog_key, template_key, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, last_modified = NOW()
+                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
                 .bind("id", variantId)
@@ -256,6 +261,7 @@ class ImportTemplatesHandler(
                 .bind("title", variantInput.title)
                 .bind("attributes", attributesJson)
                 .bind("isDefault", variantInput.isDefault)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
 
             // Upsert a published version with the variant-specific or top-level templateModel
@@ -276,7 +282,7 @@ class ImportTemplatesHandler(
                 .orElseThrow {
                     IllegalStateException("No published contract version found for template '$templateId' during import")
                 }
-            upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel, latestContractVersion)
+            upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel, latestContractVersion, auditUser)
         }
 
         // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
@@ -335,7 +341,7 @@ class ImportTemplatesHandler(
      * Always creates a new version with the next available version ID and status 'published'.
      * Deletes any existing draft first — re-importing a catalog supersedes local edits.
      */
-    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument, contractVersionId: Int) {
+    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument, contractVersionId: Int, auditUser: java.util.UUID?) {
         // Delete existing draft — import supersedes local edits
         handle.createUpdate(
             """
@@ -367,8 +373,8 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, published_at, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', :contractVersion, NOW(), NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, published_at, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', :contractVersion, NOW(), NOW(), :createdBy)
                 """,
         )
             .bind("id", VersionKey.of(nextVersionId))
@@ -378,6 +384,7 @@ class ImportTemplatesHandler(
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
             .bind("contractVersion", contractVersionId)
+            .bind("createdBy", auditUser).bind("updatedBy", auditUser)
             .execute()
     }
 

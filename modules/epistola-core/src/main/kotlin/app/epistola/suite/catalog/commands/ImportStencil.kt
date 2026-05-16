@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -38,6 +39,7 @@ class ImportStencilHandler(
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
         val contentJson = objectMapper.writeValueAsString(command.content)
+        val auditUser = currentUserIdOrNull()?.value
 
         return jdbi.inTransaction<InstallStatus, Exception> { handle ->
             val exists = handle.createQuery("SELECT COUNT(*) > 0 FROM stencils WHERE id = :id AND tenant_key = :tenantKey")
@@ -49,10 +51,10 @@ class ImportStencilHandler(
             // Upsert stencil
             handle.createUpdate(
                 """
-                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, last_modified)
-                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW())
+                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
                 ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                SET name = :name, description = :description, tags = :tags::jsonb, last_modified = NOW()
+                SET name = :name, description = :description, tags = :tags::jsonb, updated_at = NOW(), updated_by = :updatedBy
                 """,
             )
                 .bind("id", stencilKey)
@@ -61,6 +63,7 @@ class ImportStencilHandler(
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("tags", tagsJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
 
             // Import supersedes local edits: drop any existing draft, then insert
@@ -91,8 +94,8 @@ class ImportStencilHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at, created_at)
-                VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'published', NOW(), NOW())
+                INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at, created_at, created_by)
+                VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'published', NOW(), NOW(), :createdBy)
                 """,
             )
                 .bind("id", VersionKey.of(nextId))
@@ -100,6 +103,7 @@ class ImportStencilHandler(
                 .bind("catalogKey", command.catalogKey)
                 .bind("stencilKey", stencilKey)
                 .bind("content", contentJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
 
             if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED

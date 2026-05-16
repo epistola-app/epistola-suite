@@ -12,14 +12,13 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
-import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.ListTenants
@@ -44,12 +43,13 @@ class DemoLoader(
     private val transactionTemplate: TransactionTemplate,
     private val apiKeyService: ApiKeyService,
     private val jdbcClient: org.springframework.jdbc.core.simple.JdbcClient,
-    private val authProperties: AuthProperties,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
         try {
+            // [SystemUser] is seeded as a real users row by the core_users
+            // baseline migration, so the audit FKs are already satisfiable here.
             SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
                 MediatorContext.runWithMediator(mediator) {
                     ensureDemoTenant()
@@ -77,8 +77,6 @@ class DemoLoader(
         transactionTemplate.executeWithoutResult {
             val tenant = mediator.send(CreateTenant(id = tenantKey, name = DEMO_TENANT_NAME))
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
-
-            seedLocalUsers(tenant.id)
 
             val tenantId = TenantId(tenant.id)
             createDemoApiKey(tenantId)
@@ -145,68 +143,6 @@ class DemoLoader(
     }
 
     /**
-     * Seeds local dev users into the database so that foreign key constraints
-     * (e.g., feedback.created_by) are satisfied. These users match the in-memory
-     * users defined in LocalUserDetailsService.
-     *
-     * Uses the same deterministic UUID generation as LocalUserDetailsService
-     * so that user IDs match between database records and authentication principals.
-     */
-    private fun seedLocalUsers(tenantKey: TenantKey) {
-        val users = authProperties.localUsers.ifEmpty {
-            // Fallback defaults when no local-users are configured (demo without localauth)
-            listOf(
-                app.epistola.suite.security.LocalUserProperties(
-                    username = "admin@local",
-                    password = "unused",
-                    displayName = "Local Admin",
-                    tenant = tenantKey.value,
-                ),
-                app.epistola.suite.security.LocalUserProperties(
-                    username = "user@local",
-                    password = "unused",
-                    displayName = "Local User",
-                    tenant = tenantKey.value,
-                ),
-            )
-        }
-
-        for (user in users) {
-            val userId = deterministicUserId(user.username)
-
-            jdbcClient.sql(
-                """
-                INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
-                VALUES (?, ?, ?, ?, 'LOCAL', true, NOW())
-                ON CONFLICT (external_id, provider) DO UPDATE SET
-                    id = EXCLUDED.id,
-                    email = EXCLUDED.email,
-                    display_name = EXCLUDED.display_name,
-                    enabled = EXCLUDED.enabled
-                """,
-            )
-                .param(userId.value)
-                .param(user.username)
-                .param(user.username)
-                .param(user.displayName)
-                .update()
-
-            jdbcClient.sql(
-                """
-                INSERT INTO tenant_memberships (user_id, tenant_key)
-                VALUES (?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-            )
-                .param(userId.value)
-                .param(tenantKey.value)
-                .update()
-        }
-
-        log.info("Seeded {} local dev users with tenant membership", users.size)
-    }
-
-    /**
      * Creates a well-known demo API key for testing external API access.
      */
     private fun createDemoApiKey(tenantId: TenantId) {
@@ -241,17 +177,12 @@ class DemoLoader(
         private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-200000000001"
         const val DEMO_API_KEY = "epk_demo_000000000000000000000000000000000000"
 
-        /**
-         * Generates a deterministic UUID from a username, matching [LocalUserDetailsService].
-         */
-        fun deterministicUserId(username: String): UserKey = UserKey.of(java.util.UUID.nameUUIDFromBytes(username.toByteArray(java.nio.charset.StandardCharsets.UTF_8)))
-
         /** Bootstrap principal used by DemoLoader — has full access to all operations. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
-            userId = deterministicUserId("system@epistola.app"),
-            externalId = "system",
-            email = "system@epistola.app",
-            displayName = "System",
+            userId = SystemUser.ID,
+            externalId = SystemUser.EXTERNAL_ID,
+            email = SystemUser.EMAIL,
+            displayName = SystemUser.DISPLAY_NAME,
             tenantMemberships = emptyMap(),
             globalRoles = TenantRole.entries.toSet(),
             platformRoles = PlatformRole.entries.toSet(),

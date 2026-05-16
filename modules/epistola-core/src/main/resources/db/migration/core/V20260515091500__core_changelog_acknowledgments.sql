@@ -1,7 +1,7 @@
 CREATE TABLE changelog_acknowledgments (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     version VARCHAR(20) NOT NULL,
-    acknowledged_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    acknowledged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE changelog_acknowledgments IS 'Tracks which changelog version each user has last dismissed';

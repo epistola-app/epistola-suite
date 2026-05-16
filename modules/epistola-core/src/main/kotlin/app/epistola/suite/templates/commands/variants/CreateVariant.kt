@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.validation.executeOrThrowDuplicate
@@ -34,6 +35,8 @@ class CreateVariantHandler(
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+
+        val auditUser = currentUserIdOrNull()?.value
 
         // Validate attributes against the tenant's attribute definitions
         validateAttributes(command.id.tenantId, command.attributes)
@@ -73,8 +76,8 @@ class CreateVariantHandler(
 
                 val variant = handle.createQuery(
                     """
-                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, description, attributes, is_default, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, description, attributes, is_default, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
                 RETURNING *
                 """,
                 )
@@ -86,6 +89,7 @@ class CreateVariantHandler(
                     .bind("description", command.description)
                     .bind("attributes", attributesJson)
                     .bind("isDefault", isDefault)
+                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .mapTo<TemplateVariant>()
                     .one()
 
@@ -114,8 +118,8 @@ class CreateVariantHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW(), :createdBy)
                 """,
                 )
                     .bind("id", versionId)
@@ -125,6 +129,7 @@ class CreateVariantHandler(
                     .bind("variantId", command.id.key)
                     .bind("templateModel", templateModelJson)
                     .bind("contractVersion", contractVersionId)
+                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .execute()
 
                 variant

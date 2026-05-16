@@ -6,7 +6,7 @@
 CREATE TABLE app_metadata (
     key VARCHAR(100) PRIMARY KEY,
     value JSONB NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_app_metadata_key ON app_metadata(key);
@@ -42,3 +42,8 @@ VALUES (
         'createdAt', to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
     )
 );
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_app_metadata_updated_at
+    BEFORE UPDATE ON app_metadata
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

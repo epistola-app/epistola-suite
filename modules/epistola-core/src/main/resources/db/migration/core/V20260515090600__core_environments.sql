@@ -8,9 +8,9 @@ CREATE TABLE environments (
     id ENVIRONMENT_KEY NOT NULL,
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    last_modified_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     PRIMARY KEY (tenant_key, id),
     UNIQUE (tenant_key, name)
 );
@@ -20,5 +20,5 @@ COMMENT ON COLUMN environments.id IS 'URL-safe slug identifier unique within the
 COMMENT ON COLUMN environments.tenant_key IS 'Owning tenant';
 COMMENT ON COLUMN environments.name IS 'Human-readable display name, unique within tenant';
 COMMENT ON COLUMN environments.created_at IS 'When the environment was created';
-COMMENT ON COLUMN environments.created_by IS 'User who created this environment';
-COMMENT ON COLUMN environments.last_modified_by IS 'User who last modified this environment';
+COMMENT ON COLUMN environments.created_by IS 'User who created this environment (NULL if the user was deleted)';
+COMMENT ON COLUMN environments.updated_by IS 'User who last modified this environment (NULL if the user was deleted)';

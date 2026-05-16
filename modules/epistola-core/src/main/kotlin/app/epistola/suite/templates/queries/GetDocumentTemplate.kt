@@ -26,7 +26,7 @@ class GetDocumentTemplateHandler(
     override fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT dt.id, dt.tenant_key, dt.catalog_key, c.type AS catalog_type, dt.name, dt.theme_key, dt.theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.last_modified
+                SELECT dt.id, dt.tenant_key, dt.catalog_key, c.type AS catalog_type, dt.name, dt.theme_key, dt.theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by
                 FROM document_templates dt
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
                 WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.catalog_key = :catalogKey

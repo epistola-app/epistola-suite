@@ -272,7 +272,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
-                       data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
+                       data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
                 WHERE batch_id = :batchId
@@ -577,7 +577,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
-                       data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
+                       data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
                 WHERE batch_id = :batchId
@@ -588,7 +588,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 .list()
         }
         assertThat(allRequests).hasSize(2)
-        assertThat(allRequests.map { it.correlationKey }).containsExactlyInAnyOrder("order-123", "order-456")
+        assertThat(allRequests.map { it.correlationId }).containsExactlyInAnyOrder("order-123", "order-456")
 
         // Verify correlation IDs propagated to documents
         val documents = mediator.query(ListDocuments(tenant.id, template.id))
@@ -921,7 +921,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             // Verify correlationId on job item
             val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
             assertThat(job.items).hasSize(1)
-            assertThat(job.items[0].correlationKey).isEqualTo("single-order-789")
+            assertThat(job.items[0].correlationId).isEqualTo("single-order-789")
 
             // Verify correlationId on document
             val documents = mediator.query(

@@ -64,7 +64,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
-                       data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
+                       data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
                 WHERE batch_id = :batchId

@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
@@ -43,20 +44,24 @@ class CreateDocumentTemplateHandler(
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
+        val auditUser = currentUserIdOrNull()?.value
+
         return executeOrThrowDuplicate("template", command.id.key.value) {
             jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, pdfa_enabled, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :name, NULL, FALSE, NOW(), NOW())
-                RETURNING id, tenant_key, catalog_key, name, theme_key, pdfa_enabled, created_at, last_modified
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, :catalogKey, :name, NULL, FALSE, NOW(), NOW(), :createdBy, :updatedBy)
+                RETURNING id, tenant_key, catalog_key, name, theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("name", command.name)
+                    .bind("createdBy", auditUser)
+                    .bind("updatedBy", auditUser)
                     .mapTo<DocumentTemplate>()
                     .one()
 
@@ -64,28 +69,31 @@ class CreateDocumentTemplateHandler(
                 val variantId = VariantKey.of("${command.id.key}-default")
                 handle.createUpdate(
                     """
-                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, attributes, is_default, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, attributes, is_default, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, '{}'::jsonb, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
                 """,
                 )
                     .bind("id", variantId)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", template.id)
+                    .bind("createdBy", auditUser)
+                    .bind("updatedBy", auditUser)
                     .execute()
 
                 // 3. Create empty draft contract version (v1)
                 val contractVersionId = VersionKey.of(1)
                 handle.createUpdate(
                     """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, '[]'::jsonb, 'draft', NOW())
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, '[]'::jsonb, 'draft', NOW(), :createdBy)
                 """,
                 )
                     .bind("id", contractVersionId)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("templateId", template.id)
+                    .bind("createdBy", auditUser)
                     .execute()
 
                 // 4. Create draft version with default TemplateDocument (version ID = 1)
@@ -116,8 +124,8 @@ class CreateDocumentTemplateHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, NOW(), :createdBy)
                 """,
                 )
                     .bind("id", versionId)
@@ -127,6 +135,7 @@ class CreateDocumentTemplateHandler(
                     .bind("variantId", variantId)
                     .bind("templateModel", templateModelJson)
                     .bind("contractVersion", contractVersionId)
+                    .bind("createdBy", auditUser)
                     .execute()
 
                 template

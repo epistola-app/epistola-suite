@@ -41,7 +41,7 @@ internal fun CodeList.toDto() = CodeListDto(
     },
     readOnly = catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED,
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
     description = description,
     sourceUrl = sourceUrl,
     lastRefreshedAt = lastRefreshedAt,

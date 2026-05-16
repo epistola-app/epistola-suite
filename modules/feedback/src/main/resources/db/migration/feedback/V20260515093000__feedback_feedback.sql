@@ -3,11 +3,11 @@
 -- ============================================================================
 
 CREATE TABLE feedback_sync_config (
-    tenant_key      VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_key      TENANT_KEY  NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     enabled         BOOLEAN     NOT NULL DEFAULT false,
     provider_type   VARCHAR(30) NOT NULL,
     settings        JSONB       NOT NULL DEFAULT '{}',
-    last_polled_at  TIMESTAMP WITH TIME ZONE,
+    last_polled_at  TIMESTAMPTZ,
 
     PRIMARY KEY (tenant_key)
 );
@@ -22,7 +22,7 @@ COMMENT ON COLUMN feedback_sync_config.last_polled_at IS 'Timestamp of last succ
 -- ============================================================================
 
 CREATE TABLE feedback (
-    tenant_key      VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_key      TENANT_KEY  NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     id              UUID        NOT NULL,
     title           TEXT        NOT NULL,
     description     TEXT        NOT NULL,
@@ -32,9 +32,12 @@ CREATE TABLE feedback (
     source_url      TEXT,
     console_logs    TEXT,
     metadata        JSONB,       -- client metadata: browser, viewport, app version, etc.
+    -- created_by is NOT NULL with no ON DELETE SET NULL by design: feedback must
+    -- always have an author. This is the one deliberate exception to the
+    -- "audit FKs use ON DELETE SET NULL" rule applied across the schema.
     created_by      UUID        NOT NULL REFERENCES users(id),
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     external_ref    TEXT,        -- external ticket reference (e.g., GitHub issue number)
     external_url    TEXT,        -- external ticket URL
     sync_status     VARCHAR(30) NOT NULL DEFAULT 'NOT_CONFIGURED',
@@ -55,13 +58,16 @@ COMMENT ON COLUMN feedback.external_url IS 'External ticket URL after sync';
 COMMENT ON COLUMN feedback.metadata IS 'Client metadata captured at submission: browser, viewport, app version, etc.';
 COMMENT ON COLUMN feedback.sync_status IS 'PENDING, SYNCED, FAILED, or NOT_CONFIGURED';
 COMMENT ON COLUMN feedback.sync_attempts IS 'Number of sync attempts made. Items exceeding max retries are marked FAILED.';
+COMMENT ON COLUMN feedback.created_by IS 'User who submitted this feedback. Mandatory (NOT NULL) — feedback always has an author.';
+COMMENT ON COLUMN feedback.created_at IS 'When the feedback was submitted';
+COMMENT ON COLUMN feedback.updated_at IS 'When the feedback was last updated';
 
 -- ============================================================================
 -- FEEDBACK COMMENTS
 -- ============================================================================
 
 CREATE TABLE feedback_comments (
-    tenant_key          VARCHAR(63) NOT NULL,
+    tenant_key          TENANT_KEY  NOT NULL,
     feedback_id         UUID        NOT NULL,
     id                  UUID        NOT NULL,
     body                TEXT        NOT NULL,
@@ -69,7 +75,7 @@ CREATE TABLE feedback_comments (
     author_email        TEXT,
     source              VARCHAR(20) NOT NULL DEFAULT 'LOCAL',
     external_comment_id TEXT,       -- external comment ID for dedup (string to support GitHub, Jira, etc.)
-    created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (tenant_key, feedback_id, id),
     FOREIGN KEY (tenant_key, feedback_id) REFERENCES feedback(tenant_key, id) ON DELETE CASCADE
@@ -89,13 +95,13 @@ COMMENT ON COLUMN feedback_comments.external_comment_id IS 'External comment ID 
 -- ============================================================================
 
 CREATE TABLE feedback_assets (
-    tenant_key   VARCHAR(63) NOT NULL,
+    tenant_key   TENANT_KEY  NOT NULL,
     feedback_id  UUID        NOT NULL,
     id           UUID        NOT NULL,
     content      BYTEA       NOT NULL,
     content_type VARCHAR(100) NOT NULL,
     filename     VARCHAR(255),
-    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (tenant_key, feedback_id, id),
     FOREIGN KEY (tenant_key, feedback_id) REFERENCES feedback(tenant_key, id) ON DELETE CASCADE
@@ -103,3 +109,8 @@ CREATE TABLE feedback_assets (
 
 COMMENT ON TABLE feedback_assets IS 'Attachments for feedback items (screenshots, files). Stored as blobs.';
 COMMENT ON COLUMN feedback_assets.content_type IS 'MIME type of the asset (e.g., image/png, image/jpeg)';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_feedback_updated_at
+    BEFORE UPDATE ON feedback
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

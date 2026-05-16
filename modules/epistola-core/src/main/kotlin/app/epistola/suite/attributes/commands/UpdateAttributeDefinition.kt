@@ -115,7 +115,7 @@ class UpdateAttributeDefinitionHandler(
                     allowed_values         = :allowedValues::jsonb,
                     code_list_catalog_key  = :codeListCatalogKey,
                     code_list_slug         = :codeListSlug,
-                    last_modified          = NOW()
+                    updated_at          = NOW()
                 WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
                 RETURNING *
                 """,

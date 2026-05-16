@@ -28,7 +28,7 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_key, tv.template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.last_modified
+                SELECT tv.id, tv.tenant_key, tv.template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
                 FROM template_variants tv
                 WHERE tv.id = :variantId
                   AND tv.template_key = :templateId

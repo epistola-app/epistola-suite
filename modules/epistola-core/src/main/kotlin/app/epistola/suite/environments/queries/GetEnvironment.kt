@@ -25,7 +25,7 @@ class GetEnvironmentHandler(
     override fun handle(query: GetEnvironment): Environment? = jdbi.withHandle<Environment?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_key, name, created_at
+                SELECT id, tenant_key, name, created_at, created_by, updated_by
                 FROM environments
                 WHERE id = :id AND tenant_key = :tenantId
                 """,

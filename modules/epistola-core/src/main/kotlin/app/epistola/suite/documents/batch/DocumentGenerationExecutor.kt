@@ -22,6 +22,7 @@ import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -315,11 +316,15 @@ class DocumentGenerationExecutor(
             variantKey = request.variantKey,
             versionKey = version.id,
             filename = filename,
-            correlationId = request.correlationKey,
+            correlationId = request.correlationId,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
             createdAt = OffsetDateTime.now(),
-            createdBy = null, // TODO: Get from security context when auth is implemented
+            // Background generation runs under the JobPoller's SystemUser
+            // principal, which is a real seeded `users` row — so the creator is
+            // simply the bound principal (a real user for API-triggered
+            // generation, SystemUser for background jobs).
+            createdBy = currentUserIdOrNull(),
         )
         return Triple(document, pdfBytes, renderPath)
     }

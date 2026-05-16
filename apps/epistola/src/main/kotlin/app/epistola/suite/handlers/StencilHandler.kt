@@ -297,7 +297,7 @@ class StencilHandler(
                     "name" to stencil.name,
                     "description" to stencil.description,
                     "tags" to stencil.tags,
-                    "lastModified" to stencil.lastModified,
+                    "updatedAt" to stencil.updatedAt,
                 ),
             )
     }

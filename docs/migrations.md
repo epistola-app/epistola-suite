@@ -41,7 +41,10 @@ date -u +V%Y%m%d%H%M%S
 Rules:
 
 - **Immutable once merged to `main`.** Never edit or renumber a migration that
-  has been merged. Add a new timestamped file instead.
+  has been merged. Add a new timestamped file instead. The **only** exception is
+  a deliberate, gated consolidation/rewrite while the project is pre-1.0 with no
+  production deployments (see below) — editing baseline files in place is then
+  acceptable because every database is rebuilt from scratch.
 - **Never reuse a timestamp.** If `./gradlew test` fails with a Flyway
   duplicate-version error, bump your file's seconds by one and retry.
 - **Cross-module dependency rule.** A migration in a non-core module that
@@ -57,8 +60,25 @@ add a column or constraint to a table you own and the change has not yet
 shipped, prefer a new timestamped migration with a plain `ALTER TABLE`. Periodic
 consolidation — folding accumulated `ALTER`s back into the original `CREATE
 TABLE` so the schema reads cleanly — is a **deliberate, gated activity**, not
-something to do casually (it rewrites migration history). The last consolidation
-was [#413](https://github.com/epistola-app/epistola-suite/issues/413).
+something to do casually (it rewrites migration history). Recent consolidations:
+[#413](https://github.com/epistola-app/epistola-suite/issues/413) (per-module
+restructure) and the schema-standardization rewrite that established the current
+conventions — canonical `created_at`/`updated_at` and `created_by`/`updated_by`
+audit columns (audit FKs to `users(id)` are `ON DELETE SET NULL`, the sole
+exception being `feedback.created_by`, which is mandatory `NOT NULL`),
+`correlation_id` (not `correlation_key`), `TIMESTAMPTZ`, lowercase boolean
+literals, and the `TENANT_KEY` domain for every tenant slug column. Because the
+audit FKs are real, every principal that writes must be a `users` row. The
+single canonical **`SystemUser`** (all-zeros UUID) is seeded by the `core_users`
+baseline migration — a database invariant, the same approach as the
+`installation` row — and owns every system-initiated write (background
+generation, demo bootstrap, system-catalog install/upgrade). Real users come
+from the auth paths (OAuth2 / config-driven local provisioning); integration
+tests materialise a row for whatever principal the harness binds via
+`TestPrincipalUsers` (no fixed seed list) — see
+[`docs/testing.md`](testing.md). When seeding system/identity rows in a
+baseline migration, mirror the constant in code (e.g.
+`app.epistola.suite.security.SystemUser`) and cross-reference both ways.
 
 When folding an `ADD COLUMN` into a `CREATE TABLE`, place the column at the **end
 of the column list** in the order the `ALTER`s originally ran — PostgreSQL

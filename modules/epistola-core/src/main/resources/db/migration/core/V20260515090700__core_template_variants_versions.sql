@@ -24,17 +24,18 @@ CREATE TABLE template_variants (
     title VARCHAR(255),
     description TEXT,
     attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
-    is_default BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     PRIMARY KEY (tenant_key, catalog_key, template_key, id),
     FOREIGN KEY (tenant_key, catalog_key, template_key) REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE
 );
 
 -- Enforce exactly one default variant per template
 CREATE UNIQUE INDEX idx_one_default_variant_per_template
-    ON template_variants (tenant_key, catalog_key, template_key) WHERE is_default = TRUE;
+    ON template_variants (tenant_key, catalog_key, template_key) WHERE is_default = true;
 
 -- GIN index for attribute filtering queries (e.g. checking attribute values in use)
 CREATE INDEX idx_template_variants_attributes_gin
@@ -50,8 +51,9 @@ COMMENT ON COLUMN template_variants.description IS 'Free-text description of wha
 COMMENT ON COLUMN template_variants.attributes IS 'Key-value attribute tags for filtering and resolution (e.g., {"language": "nl", "brand": "premium"})';
 COMMENT ON COLUMN template_variants.is_default IS 'Whether this is the fallback variant when no attributes match. Exactly one per template.';
 COMMENT ON COLUMN template_variants.created_at IS 'When the variant was created';
-COMMENT ON COLUMN template_variants.last_modified IS 'When the variant was last updated';
-COMMENT ON COLUMN template_variants.created_by IS 'User who created this variant';
+COMMENT ON COLUMN template_variants.updated_at IS 'When the variant was last updated';
+COMMENT ON COLUMN template_variants.created_by IS 'User who created this variant (NULL if the user was deleted)';
+COMMENT ON COLUMN template_variants.updated_by IS 'User who last modified this variant (NULL if the user was deleted)';
 
 -- ============================================================================
 -- TEMPLATE VERSIONS
@@ -73,10 +75,10 @@ CREATE TABLE template_versions (
     variant_key VARIANT_KEY NOT NULL,
     template_model JSONB NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    published_at TIMESTAMP WITH TIME ZONE,
-    archived_at TIMESTAMP WITH TIME ZONE,
-    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    archived_at TIMESTAMPTZ,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     rendering_defaults_version INTEGER,
     resolved_theme JSONB,
     contract_version INTEGER,
@@ -109,7 +111,7 @@ COMMENT ON COLUMN template_versions.status IS 'Lifecycle state: draft (editable)
 COMMENT ON COLUMN template_versions.created_at IS 'When the version was created';
 COMMENT ON COLUMN template_versions.published_at IS 'When the version was published (frozen). NULL while in draft.';
 COMMENT ON COLUMN template_versions.archived_at IS 'When the version was archived. NULL while draft or published.';
-COMMENT ON COLUMN template_versions.created_by IS 'User who created this version';
+COMMENT ON COLUMN template_versions.created_by IS 'User who created this version (NULL if the user was deleted)';
 COMMENT ON COLUMN template_versions.contract_version IS 'Contract version this template version is associated with. NULL if the template has no contract.';
 COMMENT ON COLUMN template_versions.referenced_paths IS 'Data contract paths referenced by expressions in the template model. Computed on save. Used for precise contract compatibility checking.';
 
@@ -126,7 +128,7 @@ CREATE TABLE environment_activations (
     template_key TEMPLATE_KEY NOT NULL,
     variant_key VARIANT_KEY NOT NULL,
     version_key INTEGER NOT NULL,
-    activated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, environment_key, template_key, variant_key),
     FOREIGN KEY (tenant_key, environment_key) REFERENCES environments(tenant_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, catalog_key, template_key, variant_key) REFERENCES template_variants(tenant_key, catalog_key, template_key, id) ON DELETE CASCADE,
@@ -160,7 +162,7 @@ CREATE TABLE variant_attribute_definitions (
     display_name VARCHAR(100) NOT NULL,
     allowed_values JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
 );
@@ -172,4 +174,14 @@ COMMENT ON COLUMN variant_attribute_definitions.catalog_key IS 'Catalog this att
 COMMENT ON COLUMN variant_attribute_definitions.display_name IS 'Human-readable label shown in the UI';
 COMMENT ON COLUMN variant_attribute_definitions.allowed_values IS 'Permitted values for this attribute. Empty array means any value is allowed.';
 COMMENT ON COLUMN variant_attribute_definitions.created_at IS 'When the definition was created';
-COMMENT ON COLUMN variant_attribute_definitions.last_modified IS 'When the definition was last updated';
+COMMENT ON COLUMN variant_attribute_definitions.updated_at IS 'When the definition was last updated';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_template_variants_updated_at
+    BEFORE UPDATE ON template_variants
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_variant_attribute_definitions_updated_at
+    BEFORE UPDATE ON variant_attribute_definitions
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

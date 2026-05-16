@@ -7,6 +7,7 @@ import app.epistola.suite.security.LoginMembershipResolver
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.ResolvedMemberships
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.GetTenant
@@ -61,10 +62,10 @@ class DemoLoginMembershipResolver(
 
     companion object {
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
-            userId = DemoLoader.deterministicUserId("system@epistola.app"),
-            externalId = "system",
-            email = "system@epistola.app",
-            displayName = "System",
+            userId = SystemUser.ID,
+            externalId = SystemUser.EXTERNAL_ID,
+            email = SystemUser.EMAIL,
+            displayName = SystemUser.DISPLAY_NAME,
             tenantMemberships = emptyMap(),
             globalRoles = TenantRole.entries.toSet(),
             platformRoles = PlatformRole.entries.toSet(),

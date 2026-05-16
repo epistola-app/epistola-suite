@@ -3,6 +3,7 @@ package app.epistola.suite.templates.model
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantKey
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
@@ -20,7 +21,9 @@ data class TemplateVariant(
     @Json val attributes: Map<String, String> = emptyMap(),
     val isDefault: Boolean,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+    val createdBy: UserKey? = null,
+    val updatedBy: UserKey? = null,
 )
 
 /**

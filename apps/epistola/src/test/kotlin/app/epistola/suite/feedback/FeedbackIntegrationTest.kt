@@ -31,35 +31,22 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.springframework.beans.factory.annotation.Autowired
-import javax.sql.DataSource
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FeedbackIntegrationTest : BaseIntegrationTest() {
 
-    @Autowired
-    private lateinit var dataSource: DataSource
-
+    // Feedback is authored by a dedicated user (feedback.created_by is mandatory
+    // NOT NULL). Materialise it through the harness — same EnsureUser command
+    // production uses — instead of hand-written INSERT SQL.
     private val testUserKey = UserKey.of("00000000-0000-0000-0000-feedbac00099")
 
-    @BeforeAll
-    fun seedTestUser() {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(
-                """
-                INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
-                VALUES (?, 'feedback-test-user', 'feedback-test@example.com', 'Feedback Test User', 'LOCAL', true, NOW())
-                ON CONFLICT (external_id, provider) DO NOTHING
-                """,
-            ).use { stmt ->
-                stmt.setObject(1, testUserKey.value)
-                stmt.executeUpdate()
-            }
-        }
+    @BeforeEach
+    fun ensureFeedbackAuthor() {
+        ensureUser(testUserKey, "feedback-test-author", "feedback-test-author@epistola.test", "Feedback Test Author")
     }
 
     private fun createTestFeedback(tenant: Tenant, title: String = "Test Bug"): Feedback = withMediator {

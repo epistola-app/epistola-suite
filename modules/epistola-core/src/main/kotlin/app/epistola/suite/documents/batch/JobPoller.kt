@@ -2,11 +2,11 @@ package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -19,7 +19,6 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -342,7 +341,7 @@ class JobPoller(
                           document_generation_requests.environment_key,
                           document_generation_requests.data,
                           document_generation_requests.filename,
-                          document_generation_requests.correlation_key,
+                          document_generation_requests.correlation_id,
                           document_generation_requests.routing_key,
                           document_generation_requests.document_key,
                           document_generation_requests.status,
@@ -390,13 +389,11 @@ class JobPoller(
          * for the tenant that owns the generation request, allowing the mediator's
          * authorization checks to pass.
          */
-        private val SYSTEM_USER_ID = UserKey.of(UUID.fromString("00000000-0000-0000-0000-000000000000"))
-
         private fun systemPrincipal(tenantKey: TenantKey): EpistolaPrincipal = EpistolaPrincipal(
-            userId = SYSTEM_USER_ID,
-            externalId = "system:job-poller",
-            email = "job-poller@system.epistola",
-            displayName = "Document Generation System",
+            userId = SystemUser.ID,
+            externalId = SystemUser.EXTERNAL_ID,
+            email = SystemUser.EMAIL,
+            displayName = SystemUser.DISPLAY_NAME,
             tenantMemberships = mapOf(tenantKey to TenantRole.entries.toSet()),
             currentTenantId = tenantKey,
         )

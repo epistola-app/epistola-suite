@@ -4,6 +4,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import org.jdbi.v3.json.Json
@@ -111,5 +112,7 @@ data class Theme(
     /** Spacing base unit in points (see [app.epistola.generation.pdf.SpacingScale]). Null means default (4pt). */
     val spacingUnit: Float?,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+    val createdBy: UserKey? = null,
+    val updatedBy: UserKey? = null,
 )

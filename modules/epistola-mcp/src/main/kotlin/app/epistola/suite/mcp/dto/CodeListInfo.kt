@@ -27,7 +27,7 @@ data class CodeListInfo(
     val lastRefreshedAt: OffsetDateTime?,
     val lastRefreshError: String?,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(codeList: CodeList): CodeListInfo = CodeListInfo(
@@ -47,7 +47,7 @@ data class CodeListInfo(
             lastRefreshedAt = codeList.lastRefreshedAt,
             lastRefreshError = codeList.lastRefreshError,
             createdAt = codeList.createdAt,
-            lastModified = codeList.lastModified,
+            updatedAt = codeList.updatedAt,
         )
     }
 }

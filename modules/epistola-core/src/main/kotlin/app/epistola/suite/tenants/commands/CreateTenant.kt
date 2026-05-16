@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.Routable
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -47,6 +48,7 @@ class CreateTenantHandler(
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
+        val auditUser = currentUserIdOrNull()?.value
         val tenant = jdbi.withHandle<Tenant, Exception> { handle ->
             // 1. Insert tenant with NULL default_theme_key
             handle.createUpdate(
@@ -59,7 +61,7 @@ class CreateTenantHandler(
             // 2. Create default catalog for this tenant
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, type, created_at, last_modified)
+                INSERT INTO catalogs (id, tenant_key, name, type, created_at, updated_at)
                 VALUES ('default', :tenantKey, 'Default', 'AUTHORED', NOW(), NOW())
                 """,
             )
@@ -94,8 +96,8 @@ class CreateTenantHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, created_at, last_modified)
-                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW())
+                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
                 """,
             )
                 .bind("id", themeId)
@@ -104,6 +106,7 @@ class CreateTenantHandler(
                 .bind("description", "Default theme automatically created for this tenant")
                 .bindJsonb("documentStyles", documentStyles, objectMapper)
                 .bindJsonb("pageSettings", pageSettings, objectMapper)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
 
             // 3. Update tenant's default_theme_key to point to the new theme

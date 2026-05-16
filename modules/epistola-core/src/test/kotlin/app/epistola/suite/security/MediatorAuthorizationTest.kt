@@ -35,6 +35,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
             currentTenantId = null,
         )
+        ensureUser(restrictedUser)
 
         MediatorContext.runWithMediator(mediator) {
             SecurityContext.runWithPrincipal(restrictedUser) {
@@ -66,6 +67,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
             currentTenantId = null,
         )
+        ensureUser(readerOnlyUser)
 
         // First create the tenant with our full-access test user
         val tenant = withAuthentication {
@@ -101,6 +103,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             platformRoles = emptySet(), // No platform roles
             currentTenantId = null,
         )
+        ensureUser(nonManagerUser)
 
         MediatorContext.runWithMediator(mediator) {
             SecurityContext.runWithPrincipal(nonManagerUser) {
@@ -121,6 +124,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
             tenantMemberships = emptyMap(),
             currentTenantId = null,
         )
+        ensureUser(minimalUser)
 
         MediatorContext.runWithMediator(mediator) {
             SecurityContext.runWithPrincipal(minimalUser) {

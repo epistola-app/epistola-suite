@@ -4,12 +4,10 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.queries.ListApiKeys
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,7 +20,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
-import javax.sql.DataSource
 
 @SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -31,27 +28,6 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
-
-    @Autowired
-    private lateinit var dataSource: DataSource
-
-    private val testUserKey = UserKey.of("00000000-0000-0000-0000-000000000099")
-
-    @BeforeAll
-    fun seedTestUser() {
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(
-                """
-                INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
-                VALUES (?, 'apikey-test-user', 'apikey-test@example.com', 'API Key Test User', 'LOCAL', true, NOW())
-                ON CONFLICT (external_id, provider) DO NOTHING
-                """,
-            ).use { stmt ->
-                stmt.setObject(1, testUserKey.value)
-                stmt.executeUpdate()
-            }
-        }
-    }
 
     @Test
     fun `GET list returns empty state when tenant has no keys`() = fixture {
