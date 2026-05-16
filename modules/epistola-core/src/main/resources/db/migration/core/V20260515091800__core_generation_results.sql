@@ -35,7 +35,7 @@ CREATE TABLE generation_results (
 
     request_id     UUID        NOT NULL,
     batch_id       UUID,
-    tenant_key     TEXT        NOT NULL,
+    tenant_key     TENANT_KEY  NOT NULL,
     routing_key    TEXT        NOT NULL,
     status         GENERATION_RESULT_STATUS NOT NULL,
 
@@ -98,7 +98,7 @@ $$;
 -- if the auth filter ever returns a wrong tenant, queries cannot cross
 -- tenant boundaries.
 CREATE TABLE consumer_partition_cursors (
-    tenant_key           TEXT                 NOT NULL,
+    tenant_key           TENANT_KEY           NOT NULL,
     consumer_id          TEXT                 NOT NULL,
     partition            GENERATION_PARTITION NOT NULL,
     last_acked_sequence  BIGINT               NOT NULL DEFAULT 0,
@@ -115,7 +115,7 @@ CREATE TABLE consumer_partition_cursors (
 -- stored for observability and so the API can echo back what we told the node
 -- last time without recomputing the ring.
 CREATE TABLE consumer_node_assignments (
-    tenant_key    TEXT        NOT NULL,
+    tenant_key    TENANT_KEY  NOT NULL,
     consumer_id   TEXT        NOT NULL,
     node_id       TEXT        NOT NULL,
     partitions    JSONB       NOT NULL,             -- e.g. [0, 3, 7]

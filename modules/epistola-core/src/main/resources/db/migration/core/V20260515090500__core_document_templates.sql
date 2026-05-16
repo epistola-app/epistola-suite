@@ -16,16 +16,16 @@ CREATE TABLE document_templates (
     theme_key THEME_KEY,
     theme_catalog_key CATALOG_KEY,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    last_modified_by UUID REFERENCES users(id),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     pdfa_enabled BOOLEAN NOT NULL DEFAULT false,
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, theme_catalog_key, theme_key) REFERENCES themes(tenant_key, catalog_key, id) ON DELETE SET NULL (theme_catalog_key, theme_key)
 );
 
-CREATE INDEX idx_document_templates_last_modified ON document_templates(last_modified DESC);
+CREATE INDEX idx_document_templates_updated_at ON document_templates(updated_at DESC);
 CREATE INDEX idx_document_templates_theme_key ON document_templates(theme_key) WHERE theme_key IS NOT NULL;
 
 COMMENT ON TABLE document_templates IS 'Document template definitions. Each template has a data contract (schema), optional sample data, and one or more variants.';
@@ -35,6 +35,6 @@ COMMENT ON COLUMN document_templates.catalog_key IS 'Catalog this template belon
 COMMENT ON COLUMN document_templates.name IS 'Human-readable display name';
 COMMENT ON COLUMN document_templates.theme_key IS 'Default theme for this template. Variants can override via TemplateDocument.themeRef. NULL falls back to tenant default theme.';
 COMMENT ON COLUMN document_templates.created_at IS 'When the template was created';
-COMMENT ON COLUMN document_templates.last_modified IS 'When the template was last updated';
-COMMENT ON COLUMN document_templates.created_by IS 'User who created this template';
-COMMENT ON COLUMN document_templates.last_modified_by IS 'User who last modified this template';
+COMMENT ON COLUMN document_templates.updated_at IS 'When the template was last updated';
+COMMENT ON COLUMN document_templates.created_by IS 'User who created this template (NULL if the user was deleted)';
+COMMENT ON COLUMN document_templates.updated_by IS 'User who last modified this template (NULL if the user was deleted)';

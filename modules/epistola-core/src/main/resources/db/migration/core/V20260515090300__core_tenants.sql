@@ -68,7 +68,7 @@ CREATE TABLE catalogs (
     installed_release_version VARCHAR(50),
     installed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, id)
 );
 
@@ -76,3 +76,5 @@ COMMENT ON TABLE catalogs IS 'Organizational containers for resources. Every res
 COMMENT ON COLUMN catalogs.type IS 'AUTHORED = created locally and editable, SUBSCRIBED = installed from external source and read-only';
 COMMENT ON COLUMN catalogs.source_url IS 'Remote catalog manifest URL (SUBSCRIBED only)';
 COMMENT ON COLUMN catalogs.installed_release_version IS 'Version of the currently installed release (SUBSCRIBED only)';
+COMMENT ON COLUMN catalogs.created_at IS 'When the catalog was created';
+COMMENT ON COLUMN catalogs.updated_at IS 'When the catalog was last updated';

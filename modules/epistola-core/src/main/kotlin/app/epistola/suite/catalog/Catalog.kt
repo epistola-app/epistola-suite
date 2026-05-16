@@ -15,7 +15,7 @@ data class Catalog(
     val installedReleaseVersion: String? = null,
     val installedAt: OffsetDateTime? = null,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 )
 
 enum class CatalogType {

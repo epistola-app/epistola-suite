@@ -42,7 +42,7 @@ internal fun VariantAttributeDefinition.toDto() = AttributeDto(
     },
     readOnly = catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED,
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
     description = null,
     codeListBinding = codeListId?.let { id ->
         AttributeDtoCodeListBinding(catalog = id.catalogKey.value, slug = id.key.value)
@@ -61,7 +61,7 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>, contractVersion: ContractVersion? = null) = TemplateDto(
@@ -79,7 +79,7 @@ internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries
     },
     variants = variantSummaries.map { it.toDto() },
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun VariantSummary.toDto() = VariantSummaryDto(
@@ -101,7 +101,7 @@ internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
     hasDraft = info.hasDraft,
     publishedVersions = info.publishedVersions,
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun TemplateVersion.toDto(objectMapper: ObjectMapper) = VersionDto(

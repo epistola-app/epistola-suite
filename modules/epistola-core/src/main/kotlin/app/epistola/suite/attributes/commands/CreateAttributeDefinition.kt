@@ -72,7 +72,7 @@ class CreateAttributeDefinitionHandler(
                     """
                 INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values,
                                                            code_list_catalog_key, code_list_slug,
-                                                           created_at, last_modified)
+                                                           created_at, updated_at)
                 VALUES (:id, :tenantId, :catalogKey, :displayName, :allowedValues::jsonb,
                         :codeListCatalogKey, :codeListSlug,
                         NOW(), NOW())

@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.templates.model.VariantSummary
 import java.time.OffsetDateTime
 
@@ -23,7 +24,9 @@ data class DocumentTemplate(
     val themeCatalogKey: CatalogKey? = null,
     val pdfaEnabled: Boolean = false,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+    val createdBy: UserKey? = null,
+    val updatedBy: UserKey? = null,
 )
 
 /**
@@ -38,5 +41,7 @@ data class DocumentTemplateWithVariants(
     val pdfaEnabled: Boolean = false,
     val variants: List<VariantSummary>,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+    val createdBy: UserKey? = null,
+    val updatedBy: UserKey? = null,
 )

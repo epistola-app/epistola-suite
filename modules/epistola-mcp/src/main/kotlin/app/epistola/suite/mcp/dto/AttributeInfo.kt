@@ -24,7 +24,7 @@ data class AttributeInfo(
     val catalogType: String,
     val readOnly: Boolean,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(def: VariantAttributeDefinition): AttributeInfo = AttributeInfo(
@@ -38,7 +38,7 @@ data class AttributeInfo(
             catalogType = def.catalogType.name,
             readOnly = def.catalogType.name == "SUBSCRIBED",
             createdAt = def.createdAt,
-            lastModified = def.lastModified,
+            updatedAt = def.updatedAt,
         )
     }
 }

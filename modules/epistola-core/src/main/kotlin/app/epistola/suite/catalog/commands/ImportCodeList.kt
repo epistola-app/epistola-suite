@@ -61,12 +61,12 @@ class ImportCodeListHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, description, source_type, source_url, auth_type, created_at, last_modified)
+                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, description, source_type, source_url, auth_type, created_at, updated_at)
                 VALUES (:slug, :tenantKey, :catalogKey, :displayName, :description, 'INLINE', NULL, 'NONE', NOW(), NOW())
                 ON CONFLICT (tenant_key, catalog_key, slug) DO UPDATE
                 SET display_name  = :displayName,
                     description   = :description,
-                    last_modified = NOW()
+                    updated_at = NOW()
                 """,
             )
                 .bind("slug", codeListSlug)

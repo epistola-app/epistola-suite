@@ -40,7 +40,7 @@ data class ThemeInfo(
     /** Spacing base unit in points (default 4pt when null). */
     val spacingUnit: Float?,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(theme: Theme): ThemeInfo = ThemeInfo(
@@ -53,7 +53,7 @@ data class ThemeInfo(
             blockStylePresets = theme.blockStylePresets,
             spacingUnit = theme.spacingUnit,
             createdAt = theme.createdAt,
-            lastModified = theme.lastModified,
+            updatedAt = theme.updatedAt,
         )
     }
 }

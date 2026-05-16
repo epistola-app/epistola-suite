@@ -3,6 +3,7 @@ package app.epistola.suite.stencils.queries
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -38,7 +39,7 @@ class ListStencilSummariesHandler(
             append(
                 """
                     SELECT s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags,
-                           s.created_at, s.last_modified,
+                           s.created_at, s.updated_at, s.created_by, s.updated_by,
                            MAX(CASE WHEN v.status = 'published' THEN v.id END) AS latest_published_version,
                            MAX(v.id) AS latest_version
                     FROM stencils s
@@ -52,8 +53,8 @@ class ListStencilSummariesHandler(
             if (!query.tag.isNullOrBlank()) {
                 append(" AND s.tags @> :tag::jsonb")
             }
-            append(" GROUP BY s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags, s.created_at, s.last_modified")
-            append(" ORDER BY s.last_modified DESC")
+            append(" GROUP BY s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by")
+            append(" ORDER BY s.updated_at DESC")
             append(" LIMIT :limit OFFSET :offset")
         }
 
@@ -93,7 +94,9 @@ class ListStencilSummariesHandler(
                     latestPublishedVersion = rs.getObject("latest_published_version") as? Int,
                     latestVersion = rs.getObject("latest_version") as? Int,
                     createdAt = rs.getObject("created_at", java.time.OffsetDateTime::class.java),
-                    lastModified = rs.getObject("last_modified", java.time.OffsetDateTime::class.java),
+                    updatedAt = rs.getObject("updated_at", java.time.OffsetDateTime::class.java),
+                    createdBy = rs.getObject("created_by", java.util.UUID::class.java)?.let { UserKey(it) },
+                    updatedBy = rs.getObject("updated_by", java.util.UUID::class.java)?.let { UserKey(it) },
                 )
             }
             .list()

@@ -35,7 +35,7 @@ CREATE TABLE code_lists (
     last_refreshed_at  TIMESTAMPTZ,
     last_refresh_error TEXT,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, slug),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
     -- INLINE has no source_url; CLASSPATH and URL must have one.
@@ -49,6 +49,8 @@ COMMENT ON COLUMN code_lists.source_type IS 'CLASSPATH = bundled, URL = fetched 
 COMMENT ON COLUMN code_lists.source_url IS 'classpath:… or https://… ; NULL for INLINE';
 COMMENT ON COLUMN code_lists.last_refreshed_at IS 'When entries were last refreshed from source. NULL until first refresh.';
 COMMENT ON COLUMN code_lists.last_refresh_error IS 'Error message from the most recent refresh, if any';
+COMMENT ON COLUMN code_lists.created_at IS 'When the code list was created';
+COMMENT ON COLUMN code_lists.updated_at IS 'When the code list was last updated';
 
 -- Code list entries: code + human-readable label, optionally hidden.
 -- Hidden entries are still valid for existing variants but filtered out of

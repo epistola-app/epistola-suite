@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -42,6 +43,7 @@ class ImportThemeHandler(
         val documentStylesJson = objectMapper.writeValueAsString(command.documentStyles)
         val pageSettingsJson = command.pageSettings?.let { objectMapper.writeValueAsString(it) }
         val blockStylePresetsJson = command.blockStylePresets?.let { objectMapper.writeValueAsString(it) }
+        val auditUser = currentUserIdOrNull()?.value
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery("SELECT COUNT(*) > 0 FROM themes WHERE id = :id AND tenant_key = :tenantKey")
@@ -54,12 +56,12 @@ class ImportThemeHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
-                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
+                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
                 ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                 SET name = :name, description = :description, document_styles = :documentStyles::jsonb,
                     page_settings = :pageSettings::jsonb, block_style_presets = :blockStylePresets::jsonb,
-                    spacing_unit = :spacingUnit, last_modified = NOW()
+                    spacing_unit = :spacingUnit, updated_at = NOW(), updated_by = :updatedBy
                 """,
             )
                 .bind("id", themeKey)
@@ -71,6 +73,7 @@ class ImportThemeHandler(
                 .bind("pageSettings", pageSettingsJson)
                 .bind("blockStylePresets", blockStylePresetsJson)
                 .bind("spacingUnit", command.spacingUnit)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
         }
 

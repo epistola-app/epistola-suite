@@ -22,7 +22,7 @@ data class TemplateSummary(
     val catalogKey: CatalogKey,
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
     val variantCount: Int,
     val hasDraft: Boolean,
     val publishedVersionCount: Int,
@@ -53,7 +53,7 @@ class ListTemplateSummariesHandler(
                     dt.catalog_key,
                     c.type AS catalog_type,
                     dt.name,
-                    dt.last_modified,
+                    dt.updated_at,
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), 0)::int as variant_count,
                     COALESCE((SELECT bool_or(ver.status = 'draft')
                               FROM template_versions ver
@@ -74,7 +74,7 @@ class ListTemplateSummariesHandler(
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
-            append(" ORDER BY dt.last_modified DESC")
+            append(" ORDER BY dt.updated_at DESC")
             append(" LIMIT :limit OFFSET :offset")
         }
 

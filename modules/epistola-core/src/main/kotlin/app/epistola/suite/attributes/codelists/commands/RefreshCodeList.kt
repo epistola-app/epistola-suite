@@ -47,7 +47,7 @@ class RefreshCodeListHandler(
                 SELECT slug, tenant_key, catalog_key, display_name, description,
                        source_type, source_url, auth_type, credential,
                        last_refreshed_at, last_refresh_error,
-                       created_at, last_modified
+                       created_at, updated_at
                 FROM code_lists
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
                 """,
@@ -80,7 +80,7 @@ class RefreshCodeListHandler(
                     SELECT slug, tenant_key, catalog_key, display_name, description,
                            source_type, source_url, auth_type, credential,
                            last_refreshed_at, last_refresh_error,
-                           created_at, last_modified
+                           created_at, updated_at
                     FROM code_lists
                     WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
                     """,
@@ -112,12 +112,12 @@ class RefreshCodeListHandler(
                 UPDATE code_lists
                 SET last_refreshed_at  = NOW(),
                     last_refresh_error = NULL,
-                    last_modified      = NOW()
+                    updated_at      = NOW()
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
                 RETURNING slug, tenant_key, catalog_key, display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
-                          created_at, last_modified
+                          created_at, updated_at
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
@@ -133,7 +133,7 @@ class RefreshCodeListHandler(
             handle.createUpdate(
                 """
                 UPDATE code_lists
-                SET last_refresh_error = :error, last_modified = NOW()
+                SET last_refresh_error = :error, updated_at = NOW()
                 WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
                 """,
             )

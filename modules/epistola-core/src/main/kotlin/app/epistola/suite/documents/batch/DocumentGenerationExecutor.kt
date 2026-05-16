@@ -22,6 +22,7 @@ import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -42,6 +43,7 @@ import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * Executes document generation jobs.
@@ -315,11 +317,15 @@ class DocumentGenerationExecutor(
             variantKey = request.variantKey,
             versionKey = version.id,
             filename = filename,
-            correlationId = request.correlationKey,
+            correlationId = request.correlationId,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
             createdAt = OffsetDateTime.now(),
-            createdBy = null, // TODO: Get from security context when auth is implemented
+            // Background generation runs under the JobPoller's synthetic system
+            // principal (all-zeros UUID), which is not a real `users` row. Only
+            // record a real, persistable user as the document creator; the
+            // system principal yields NULL (audit FK is ON DELETE SET NULL).
+            createdBy = currentUserIdOrNull()?.takeUnless { it.value == UUID(0L, 0L) },
         )
         return Triple(document, pdfBytes, renderPath)
     }

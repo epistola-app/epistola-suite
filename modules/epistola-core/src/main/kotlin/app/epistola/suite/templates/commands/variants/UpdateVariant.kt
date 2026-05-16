@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -31,13 +32,15 @@ class UpdateVariantHandler(
         // Validate attributes against the tenant's attribute definitions
         validateAttributes(command.variantId.tenantId, command.attributes)
 
+        val auditUser = currentUserIdOrNull()?.value
+
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val attributesJson = objectMapper.writeValueAsString(command.attributes)
 
             handle.createQuery(
                 """
                 UPDATE template_variants
-                SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
+                SET title = :title, attributes = :attributes::jsonb, updated_at = NOW(), updated_by = :updatedBy
                 WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
                 RETURNING *
                 """,
@@ -48,6 +51,7 @@ class UpdateVariantHandler(
                 .bind("templateId", command.variantId.templateKey)
                 .bind("title", command.title)
                 .bind("attributes", attributesJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .mapTo<TemplateVariant>()
                 .findOne()
                 .orElse(null)

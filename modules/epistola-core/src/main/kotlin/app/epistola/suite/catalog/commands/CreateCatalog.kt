@@ -31,7 +31,7 @@ class CreateCatalogHandler(
         jdbi.withHandle<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, created_at, last_modified)
+                INSERT INTO catalogs (id, tenant_key, name, description, type, created_at, updated_at)
                 VALUES (:id, :tenantKey, :name, :description, 'AUTHORED', NOW(), NOW())
                 """,
             )
@@ -43,7 +43,7 @@ class CreateCatalogHandler(
 
             handle.createQuery(
                 """
-                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
+                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, updated_at
                 FROM catalogs
                 WHERE tenant_key = :tenantKey AND id = :id
                 """,

@@ -21,7 +21,7 @@ internal fun Stencil.toDto(versions: List<StencilVersionSummary>) = StencilDto(
     tags = tags.ifEmpty { null },
     versions = versions.map { it.toDto() },
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun Stencil.toSummaryDto(latestPublishedVersion: Int?) = StencilSummaryDto(
@@ -32,7 +32,7 @@ internal fun Stencil.toSummaryDto(latestPublishedVersion: Int?) = StencilSummary
     tags = tags.ifEmpty { null },
     latestPublishedVersion = latestPublishedVersion,
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun StencilSummaryWithVersionInfo.toSummaryDto() = StencilSummaryDto(
@@ -43,7 +43,7 @@ internal fun StencilSummaryWithVersionInfo.toSummaryDto() = StencilSummaryDto(
     tags = tags.ifEmpty { null },
     latestPublishedVersion = latestPublishedVersion,
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun StencilVersion.toDto(objectMapper: ObjectMapper) = StencilVersionDto(

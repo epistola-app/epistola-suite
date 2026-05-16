@@ -6,6 +6,7 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.security.currentUserIdOrNull
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -119,7 +120,7 @@ class ControllableDocumentGenerationExecutor(
                 VALUES (
                     :id, :tenantId, :templateId, :variantId, :versionId,
                     :filename, :correlationId, :contentType, :sizeBytes,
-                    NOW(), NULL
+                    NOW(), :createdBy
                 )
                 """,
             )
@@ -129,9 +130,12 @@ class ControllableDocumentGenerationExecutor(
                 .bind("variantId", request.variantKey)
                 .bind("versionId", request.versionKey ?: request.environmentKey)
                 .bind("filename", filename)
-                .bind("correlationId", request.correlationKey)
+                .bind("correlationId", request.correlationId)
                 .bind("contentType", contentType)
                 .bind("sizeBytes", sizeBytes)
+                // Mirror DocumentGenerationExecutor: the JobPoller's all-zeros
+                // system principal is not a real users row, so null it out.
+                .bind("createdBy", currentUserIdOrNull()?.takeUnless { it.value == java.util.UUID(0L, 0L) }?.value)
                 .execute()
         }
 
@@ -251,7 +255,7 @@ class ControllableDocumentGenerationExecutor(
         handle.createQuery(
             """
             SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key,
-                   environment_key, data, filename, correlation_key, routing_key, document_key,
+                   environment_key, data, filename, correlation_id, routing_key, document_key,
                    status, claimed_by, claimed_at, error_message, created_at, started_at,
                    completed_at, expires_at
             FROM document_generation_requests

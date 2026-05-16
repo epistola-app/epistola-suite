@@ -24,7 +24,7 @@ CREATE TABLE assets (
     width INTEGER,
     height INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
 
     PRIMARY KEY (tenant_key, catalog_key, id),
 
@@ -53,4 +53,4 @@ COMMENT ON COLUMN assets.size_bytes IS 'File size in bytes (max 5MB)';
 COMMENT ON COLUMN assets.width IS 'Image width in pixels (NULL for SVG)';
 COMMENT ON COLUMN assets.height IS 'Image height in pixels (NULL for SVG)';
 COMMENT ON COLUMN assets.created_at IS 'When the asset was uploaded';
-COMMENT ON COLUMN assets.created_by IS 'User who uploaded the asset';
+COMMENT ON COLUMN assets.created_by IS 'User who uploaded the asset (NULL if the user was deleted)';

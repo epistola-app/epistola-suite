@@ -76,7 +76,7 @@
                         <td>
                             <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
                         </td>
-                        <td th:text="${#temporals.format(stencil.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">

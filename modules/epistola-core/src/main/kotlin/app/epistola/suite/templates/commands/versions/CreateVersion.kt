@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.createDefaultTemplateModel
@@ -41,6 +42,7 @@ class CreateVersionHandler(
 ) : CommandHandler<CreateVersion, TemplateVersion?> {
     override fun handle(command: CreateVersion): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // Verify the variant exists and get template name for default model
             val templateInfo = handle.createQuery(
@@ -160,8 +162,8 @@ class CreateVersionHandler(
 
             handle.createQuery(
                 """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW())
+                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
                 RETURNING *
                 """,
             )
@@ -173,6 +175,7 @@ class CreateVersionHandler(
                 .bind("templateModel", templateModelJson)
                 .bind("contractVersion", contractVersionId)
                 .bind("referencedPaths", referencedPathsJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .mapTo<TemplateVersion>()
                 .one()
         }

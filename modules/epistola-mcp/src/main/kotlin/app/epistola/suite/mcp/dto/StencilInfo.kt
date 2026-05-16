@@ -16,7 +16,7 @@ data class StencilInfo(
     val description: String?,
     val tags: List<String>,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(stencil: Stencil): StencilInfo = StencilInfo(
@@ -26,7 +26,7 @@ data class StencilInfo(
             description = stencil.description,
             tags = stencil.tags,
             createdAt = stencil.createdAt,
-            lastModified = stencil.lastModified,
+            updatedAt = stencil.updatedAt,
         )
     }
 }

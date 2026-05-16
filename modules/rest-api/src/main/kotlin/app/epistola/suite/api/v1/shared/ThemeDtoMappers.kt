@@ -31,7 +31,7 @@ internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
     },
     spacingUnit = spacingUnit?.toBigDecimal(),
     createdAt = createdAt,
-    lastModified = lastModified,
+    lastModified = updatedAt,
 )
 
 internal fun PageSettings.toDto() = PageSettingsDto(

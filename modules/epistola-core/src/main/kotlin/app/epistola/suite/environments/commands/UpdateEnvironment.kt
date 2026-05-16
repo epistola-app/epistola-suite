@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -29,20 +30,24 @@ data class UpdateEnvironment(
 class UpdateEnvironmentHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UpdateEnvironment, Environment?> {
-    override fun handle(command: UpdateEnvironment): Environment? = jdbi.withHandle<Environment?, Exception> { handle ->
-        handle.createQuery(
-            """
+    override fun handle(command: UpdateEnvironment): Environment? {
+        val auditUser = currentUserIdOrNull()?.value
+        return jdbi.withHandle<Environment?, Exception> { handle ->
+            handle.createQuery(
+                """
                 UPDATE environments
-                SET name = :name
+                SET name = :name, updated_by = :updatedBy
                 WHERE id = :id AND tenant_key = :tenantId
                 RETURNING *
                 """,
-        )
-            .bind("id", command.id.key)
-            .bind("tenantId", command.id.tenantKey)
-            .bind("name", command.name)
-            .mapTo<Environment>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
+                .bind("name", command.name)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
+                .mapTo<Environment>()
+                .findOne()
+                .orElse(null)
+        }
     }
 }

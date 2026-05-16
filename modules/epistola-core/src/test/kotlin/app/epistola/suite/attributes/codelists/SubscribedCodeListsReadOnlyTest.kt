@@ -126,7 +126,7 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, type, source_url, created_at, last_modified)
+                INSERT INTO catalogs (id, tenant_key, name, type, source_url, created_at, updated_at)
                 VALUES (:id, :tenantKey, :name, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
                 """,
             )
@@ -149,7 +149,7 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type, source_url, auth_type, created_at, last_modified)
+                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type, source_url, auth_type, created_at, updated_at)
                 VALUES (:slug, :tenantKey, :catalogKey, :displayName, :sourceType, :sourceUrl, 'NONE', NOW(), NOW())
                 """,
             )

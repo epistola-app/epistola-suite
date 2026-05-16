@@ -4,7 +4,7 @@
 CREATE TABLE event_log (
     id BIGSERIAL PRIMARY KEY,
     event_type VARCHAR(255) NOT NULL,
-    tenant_key VARCHAR(100),
+    tenant_key TENANT_KEY,
     entity_id VARCHAR(255),
     payload JSONB NOT NULL,
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

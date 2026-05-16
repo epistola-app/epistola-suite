@@ -14,7 +14,7 @@ data class TemplateSummaryInfo(
     val variantCount: Int,
     val hasDraft: Boolean,
     val publishedVersionCount: Int,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(summary: TemplateSummary): TemplateSummaryInfo = TemplateSummaryInfo(
@@ -24,7 +24,7 @@ data class TemplateSummaryInfo(
             variantCount = summary.variantCount,
             hasDraft = summary.hasDraft,
             publishedVersionCount = summary.publishedVersionCount,
-            lastModified = summary.lastModified,
+            updatedAt = summary.updatedAt,
         )
     }
 }
@@ -43,7 +43,7 @@ data class TemplateInfo(
     /** Whether the template is configured to render as PDF/A. */
     val pdfaEnabled: Boolean,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(template: DocumentTemplate): TemplateInfo = TemplateInfo(
@@ -54,7 +54,7 @@ data class TemplateInfo(
             themeCatalogId = template.themeCatalogKey?.value,
             pdfaEnabled = template.pdfaEnabled,
             createdAt = template.createdAt,
-            lastModified = template.lastModified,
+            updatedAt = template.updatedAt,
         )
     }
 }

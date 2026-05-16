@@ -178,7 +178,7 @@ class EmitGenerationResultHandlerIT : IntegrationTestBase() {
         environmentKey = EnvironmentKey.of("production"),
         data = JsonNodeFactory.instance.objectNode(),
         filename = "doc.pdf",
-        correlationKey = "cor-1",
+        correlationId = "cor-1",
         routingKey = routingKey,
         documentKey = null,
         status = RequestStatus.IN_PROGRESS,

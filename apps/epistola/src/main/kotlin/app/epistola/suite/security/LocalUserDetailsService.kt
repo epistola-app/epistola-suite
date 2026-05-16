@@ -2,6 +2,9 @@ package app.epistola.suite.security
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.users.AuthProvider
+import app.epistola.suite.users.commands.EnsureUser
 import org.springframework.context.annotation.Profile
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
@@ -23,6 +26,7 @@ import java.util.UUID
 @Profile("local | localauth")
 class LocalUserDetailsService(
     authProperties: AuthProperties,
+    private val mediator: Mediator,
 ) : UserDetailsService {
 
     private val passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder()
@@ -35,6 +39,21 @@ class LocalUserDetailsService(
             ?: throw UsernameNotFoundException("User not found: $username")
 
         val userId = UserKey.of(deterministicUuid(localUser.username))
+
+        // Local users are authenticated from configuration, not provisioned via
+        // OAuth2UserProvisioningService. Audit columns (created_by / updated_by)
+        // are real FKs to users(id), so the row must exist before this principal
+        // performs any write. Idempotent on the deterministic id (stable across
+        // restarts), so repeated logins are a no-op.
+        mediator.send(
+            EnsureUser(
+                id = userId,
+                externalId = localUser.username,
+                email = localUser.username,
+                displayName = localUser.displayName,
+                provider = AuthProvider.LOCAL,
+            ),
+        )
 
         val principal = EpistolaPrincipal(
             userId = userId,

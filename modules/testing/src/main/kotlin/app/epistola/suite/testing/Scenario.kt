@@ -4,7 +4,6 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
@@ -12,7 +11,6 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -52,15 +50,16 @@ annotation class ScenarioDsl
 @Component
 class ScenarioFactory(
     private val mediator: Mediator,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
 ) {
     /**
      * Test user for authenticated operations.
      */
     private val testUser = EpistolaPrincipal(
-        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
-        externalId = "test-user",
-        email = "test@example.com",
-        displayName = "Test User",
+        userId = TestPrincipalUser.ID,
+        externalId = TestPrincipalUser.EXTERNAL_ID,
+        email = TestPrincipalUser.EMAIL,
+        displayName = TestPrincipalUser.DISPLAY_NAME,
         tenantMemberships = emptyMap(),
         globalRoles = TenantRole.entries.toSet(),
         platformRoles = setOf(PlatformRole.TENANT_MANAGER),
@@ -75,7 +74,7 @@ class ScenarioFactory(
         namespace: String,
         block: ScenarioBuilder.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
-        SecurityContext.runWithPrincipal(testUser) {
+        TestPrincipalUsers.runWithPrincipal(jdbi, testUser) {
             ScenarioBuilder(namespace).block()
         }
     }
@@ -84,7 +83,7 @@ class ScenarioFactory(
      * Runs the given block with the mediator and security context bound.
      */
     fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        SecurityContext.runWithPrincipal(testUser) {
+        TestPrincipalUsers.runWithPrincipal(jdbi, testUser) {
             block()
         }
     }

@@ -17,7 +17,7 @@ CREATE TABLE contract_versions (
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     published_at TIMESTAMPTZ,
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     PRIMARY KEY (tenant_key, catalog_key, template_key, id),
     FOREIGN KEY (tenant_key, catalog_key, template_key)
         REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE,
@@ -46,7 +46,7 @@ COMMENT ON COLUMN contract_versions.data_examples IS 'Array of named sample data
 COMMENT ON COLUMN contract_versions.status IS 'Lifecycle state: draft (editable) or published (frozen).';
 COMMENT ON COLUMN contract_versions.created_at IS 'When the contract version was created';
 COMMENT ON COLUMN contract_versions.published_at IS 'When the contract version was published. NULL while in draft.';
-COMMENT ON COLUMN contract_versions.created_by IS 'User who created this contract version';
+COMMENT ON COLUMN contract_versions.created_by IS 'User who created this contract version (NULL if the user was deleted)';
 
 -- ============================================================================
 -- LINK TEMPLATE VERSIONS TO CONTRACT VERSIONS

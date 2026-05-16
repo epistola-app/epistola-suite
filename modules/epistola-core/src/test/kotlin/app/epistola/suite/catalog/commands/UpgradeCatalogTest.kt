@@ -73,7 +73,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             // Manually insert a fake template that is not in the manifest
             jdbi.useHandle<Exception> { handle ->
                 handle.createUpdate(
-                    "INSERT INTO document_templates (id, tenant_key, catalog_key, name, created_at, last_modified) VALUES ('stale-template', :tenantKey, :catalogKey, 'Stale', NOW(), NOW())",
+                    "INSERT INTO document_templates (id, tenant_key, catalog_key, name, created_at, updated_at) VALUES ('stale-template', :tenantKey, :catalogKey, 'Stale', NOW(), NOW())",
                 )
                     .bind("tenantKey", tenant.id)
                     .bind("catalogKey", catalogKey)
@@ -153,7 +153,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             jdbi.useHandle<Exception> { handle ->
                 handle.createUpdate(
                     """
-                    INSERT INTO themes (id, tenant_key, catalog_key, name, created_at, last_modified)
+                    INSERT INTO themes (id, tenant_key, catalog_key, name, created_at, updated_at)
                     VALUES ('stale-theme', :t, :c, 'Stale Theme', NOW(), NOW())
                     """,
                 ).bind("t", tenant.id).bind("c", catalogKey).execute()

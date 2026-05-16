@@ -53,7 +53,7 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
                 """
                 INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
                 VALUES (?, 'feedback-test-user', 'feedback-test@example.com', 'Feedback Test User', 'LOCAL', true, NOW())
-                ON CONFLICT (external_id, provider) DO NOTHING
+                ON CONFLICT (id) DO NOTHING
                 """,
             ).use { stmt ->
                 stmt.setObject(1, testUserKey.value)

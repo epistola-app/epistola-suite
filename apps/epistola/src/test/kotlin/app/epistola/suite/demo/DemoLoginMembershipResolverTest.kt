@@ -11,12 +11,15 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -46,11 +49,14 @@ class DemoLoginMembershipResolverTest {
     @Autowired
     private lateinit var mediator: Mediator
 
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
     private val createdTenants = mutableListOf<TenantKey>()
 
     private val systemPrincipal = EpistolaPrincipal(
         userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
-        externalId = "system",
+        externalId = "demo-resolver-test-system",
         email = "system@test",
         displayName = "System",
         tenantMemberships = emptyMap(),
@@ -70,6 +76,11 @@ class DemoLoginMembershipResolverTest {
         lastLoginAt = null,
         tenantMemberships = emptyMap(),
     )
+
+    @BeforeEach
+    fun ensureSystemPrincipalUser() {
+        TestPrincipalUsers.ensure(jdbi, systemPrincipal)
+    }
 
     @AfterEach
     fun cleanup() {

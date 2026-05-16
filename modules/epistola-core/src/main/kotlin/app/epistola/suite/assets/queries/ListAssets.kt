@@ -6,6 +6,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -40,7 +41,7 @@ class ListAssetsHandler(
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.name, a.media_type, a.size_bytes, a.width, a.height, a.created_at
+            SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.name, a.media_type, a.size_bytes, a.width, a.height, a.created_at, a.created_by
             FROM assets a
             JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
             WHERE a.tenant_key = :tenantId
@@ -78,6 +79,7 @@ class ListAssetsHandler(
                 width = rs.getObject("width", Integer::class.java)?.toInt(),
                 height = rs.getObject("height", Integer::class.java)?.toInt(),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserKey(it) },
             )
         }
             .list()

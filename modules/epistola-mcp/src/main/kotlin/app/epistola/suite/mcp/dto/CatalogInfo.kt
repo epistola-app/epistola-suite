@@ -19,7 +19,7 @@ data class CatalogInfo(
     val installedReleaseVersion: String?,
     val installedAt: OffsetDateTime?,
     val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
 ) {
     companion object {
         fun from(catalog: Catalog): CatalogInfo = CatalogInfo(
@@ -31,7 +31,7 @@ data class CatalogInfo(
             installedReleaseVersion = catalog.installedReleaseVersion,
             installedAt = catalog.installedAt,
             createdAt = catalog.createdAt,
-            lastModified = catalog.lastModified,
+            updatedAt = catalog.updatedAt,
         )
     }
 }

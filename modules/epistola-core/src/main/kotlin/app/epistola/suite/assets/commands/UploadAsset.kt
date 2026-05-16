@@ -8,10 +8,12 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -73,6 +75,7 @@ class UploadAssetHandler(
 
         val id = command.id ?: AssetKey.generate()
         val now = OffsetDateTime.now()
+        val auditUser = currentUserIdOrNull()?.value
 
         logger.info(
             "Uploading asset {} ({}, {} bytes) for tenant {}",
@@ -93,8 +96,8 @@ class UploadAssetHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :createdAt)
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at, created_by)
+                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :createdAt, :createdBy)
                 """,
             )
                 .bind("id", id.value)
@@ -106,6 +109,7 @@ class UploadAssetHandler(
                 .bind("width", command.width)
                 .bind("height", command.height)
                 .bind("createdAt", now)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
         }
 
@@ -119,6 +123,7 @@ class UploadAssetHandler(
             width = command.width,
             height = command.height,
             createdAt = now,
+            createdBy = auditUser?.let { UserKey(it) },
         )
     }
 }

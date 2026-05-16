@@ -21,13 +21,14 @@ CREATE TABLE stencils (
     description TEXT,
     tags JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_stencils_tenant_last_modified ON stencils(tenant_key, last_modified DESC);
+CREATE INDEX idx_stencils_tenant_updated_at ON stencils(tenant_key, updated_at DESC);
 
 -- GIN index for tag-based filtering
 CREATE INDEX idx_stencils_tags_gin ON stencils USING GIN (tags);
@@ -40,8 +41,9 @@ COMMENT ON COLUMN stencils.name IS 'Display name of the stencil';
 COMMENT ON COLUMN stencils.description IS 'Optional description of what this stencil provides';
 COMMENT ON COLUMN stencils.tags IS 'JSON array of tags for categorization and search';
 COMMENT ON COLUMN stencils.created_at IS 'When the stencil was created';
-COMMENT ON COLUMN stencils.last_modified IS 'When the stencil was last modified';
-COMMENT ON COLUMN stencils.created_by IS 'User who created this stencil';
+COMMENT ON COLUMN stencils.updated_at IS 'When the stencil was last modified';
+COMMENT ON COLUMN stencils.created_by IS 'User who created this stencil (NULL if the user was deleted)';
+COMMENT ON COLUMN stencils.updated_by IS 'User who last modified this stencil (NULL if the user was deleted)';
 
 -- ============================================================================
 -- STENCIL VERSIONS
@@ -59,7 +61,7 @@ CREATE TABLE stencil_versions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     published_at TIMESTAMPTZ,
     archived_at TIMESTAMPTZ,
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     parameter_schema JSONB,
     PRIMARY KEY (tenant_key, catalog_key, stencil_key, id),
     FOREIGN KEY (tenant_key, catalog_key, stencil_key) REFERENCES stencils(tenant_key, catalog_key, id) ON DELETE CASCADE,
@@ -88,7 +90,7 @@ COMMENT ON COLUMN stencil_versions.status IS 'Lifecycle state: draft (editable),
 COMMENT ON COLUMN stencil_versions.created_at IS 'When the version was created';
 COMMENT ON COLUMN stencil_versions.published_at IS 'When the version was published (frozen). NULL while in draft.';
 COMMENT ON COLUMN stencil_versions.archived_at IS 'When the version was archived. NULL while draft or published.';
-COMMENT ON COLUMN stencil_versions.created_by IS 'User who created this version';
+COMMENT ON COLUMN stencil_versions.created_by IS 'User who created this version (NULL if the user was deleted)';
 COMMENT ON COLUMN stencil_versions.parameter_schema IS
     'Optional JSON Schema (object, properties+required) describing parameters '
     'consumers must bind when inserting this stencil version into a template. '

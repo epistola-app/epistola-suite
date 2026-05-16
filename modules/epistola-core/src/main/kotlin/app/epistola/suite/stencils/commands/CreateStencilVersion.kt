@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
@@ -46,6 +47,7 @@ class CreateStencilVersionHandler(
         requireCatalogEditable(command.stencilId.tenantKey, command.stencilId.catalogKey)
         if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
+        val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
             // Verify stencil exists
             val stencilExists = handle.createQuery(
@@ -117,8 +119,8 @@ class CreateStencilVersionHandler(
 
             handle.createQuery(
                 """
-            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at)
-            VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW())
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at, created_by)
+            VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy)
             RETURNING *
             """,
             )
@@ -128,6 +130,7 @@ class CreateStencilVersionHandler(
                 .bind("stencilId", command.stencilId.key)
                 .bind("content", contentJson)
                 .bind("parameterSchema", parameterSchemaJson)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .mapTo<StencilVersion>()
                 .one()
         }

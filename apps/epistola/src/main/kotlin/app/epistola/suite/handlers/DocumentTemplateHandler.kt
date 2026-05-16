@@ -270,7 +270,7 @@ class DocumentTemplateHandler(
                     "dataModel" to contractVersion?.dataModel,
                     "dataExamples" to (contractVersion?.dataExamples ?: DataExamples.EMPTY),
                     "createdAt" to template.createdAt,
-                    "lastModified" to template.lastModified,
+                    "updatedAt" to template.updatedAt,
                 ),
             )
     }
@@ -297,7 +297,7 @@ class DocumentTemplateHandler(
                 "id" to updated.id,
                 "name" to updated.name,
                 "createdAt" to updated.createdAt,
-                "lastModified" to updated.lastModified,
+                "updatedAt" to updated.updatedAt,
             )
 
             ServerResponse.ok()

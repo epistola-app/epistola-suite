@@ -50,6 +50,7 @@ class DemoLoader(
 
     override fun run(args: ApplicationArguments) {
         try {
+            ensureSystemUser()
             SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
                 MediatorContext.runWithMediator(mediator) {
                     ensureDemoTenant()
@@ -59,6 +60,24 @@ class DemoLoader(
         } catch (e: Exception) {
             log.error("Failed to load demo: {}", e.message, e)
         }
+    }
+
+    /**
+     * The demo bootstrap runs as [SYSTEM_PRINCIPAL]. Audit columns
+     * (`created_by` / `updated_by`) are real foreign keys to `users(id)`, so the
+     * system principal must be a real row before it creates the demo tenant,
+     * catalog and themes. Idempotent on the deterministic id.
+     */
+    private fun ensureSystemUser() {
+        jdbcClient.sql(
+            """
+            INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
+            VALUES (?, 'system', 'system@epistola.app', 'System', 'LOCAL', true, NOW())
+            ON CONFLICT (id) DO NOTHING
+            """,
+        )
+            .param(deterministicUserId("system@epistola.app").value)
+            .update()
     }
 
     /**

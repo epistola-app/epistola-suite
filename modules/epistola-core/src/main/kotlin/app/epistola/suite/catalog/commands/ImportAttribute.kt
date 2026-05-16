@@ -62,7 +62,7 @@ class ImportAttributeHandler(
                 INSERT INTO variant_attribute_definitions (
                     id, tenant_key, catalog_key, display_name, allowed_values,
                     code_list_catalog_key, code_list_slug,
-                    created_at, last_modified
+                    created_at, updated_at
                 )
                 VALUES (
                     :id, :tenantKey, :catalogKey, :displayName, :allowedValues::jsonb,
@@ -74,7 +74,7 @@ class ImportAttributeHandler(
                     allowed_values         = :allowedValues::jsonb,
                     code_list_catalog_key  = :codeListCatalogKey,
                     code_list_slug         = :codeListSlug,
-                    last_modified          = NOW()
+                    updated_at          = NOW()
                 """,
             )
                 .bind("id", attributeKey)

@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -89,7 +90,9 @@ class UpdateStencilHandler(
                     .orElse(null)
             }
 
-            setClauses.add("last_modified = NOW()")
+            setClauses.add("updated_at = NOW()")
+            setClauses.add("updated_by = :updatedBy")
+            bindings["updatedBy"] = currentUserIdOrNull()?.value
 
             val sql = """
             UPDATE stencils SET ${setClauses.joinToString(", ")}

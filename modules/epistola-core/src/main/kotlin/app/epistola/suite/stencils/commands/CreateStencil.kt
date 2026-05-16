@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
@@ -63,6 +64,7 @@ class CreateStencilHandler(
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         if (command.content != null) placeholderValidator.validateAsStencilDefinition(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
+        val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("stencil", command.id.key.value) {
             jdbi.inTransaction<Stencil, Exception> { handle ->
                 val tagsJson = objectMapper.writeValueAsString(command.tags)
@@ -70,9 +72,9 @@ class CreateStencilHandler(
                 // 1. Create the stencil
                 val stencil = handle.createQuery(
                     """
-                    INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, last_modified)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW())
-                    RETURNING id, tenant_key, catalog_key, name, description, tags, created_at, last_modified
+                    INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
+                    RETURNING id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by
                     """,
                 )
                     .bind("id", command.id.key)
@@ -81,6 +83,7 @@ class CreateStencilHandler(
                     .bind("name", command.name)
                     .bind("description", command.description)
                     .bind("tags", tagsJson)
+                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .mapTo<Stencil>()
                     .one()
 
@@ -91,8 +94,8 @@ class CreateStencilHandler(
                     val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
                     handle.createUpdate(
                         """
-                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at)
-                        VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW())
+                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, parameter_schema, status, created_at, created_by)
+                        VALUES (:id, :tenantId, :catalogKey, :stencilId, :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy)
                         """,
                     )
                         .bind("id", VersionKey.of(1))
@@ -101,6 +104,7 @@ class CreateStencilHandler(
                         .bind("stencilId", command.id.key)
                         .bind("content", contentJson)
                         .bind("parameterSchema", parameterSchemaJson)
+                        .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                         .execute()
                 }
 

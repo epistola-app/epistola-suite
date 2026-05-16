@@ -37,7 +37,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             assertThat(attr.allowedValues).containsExactly("dutch", "english", "german")
             assertThat(attr.tenantKey).isEqualTo(tenant.id)
             assertThat(attr.createdAt).isNotNull()
-            assertThat(attr.lastModified).isNotNull()
+            assertThat(attr.updatedAt).isNotNull()
         }
     }
 

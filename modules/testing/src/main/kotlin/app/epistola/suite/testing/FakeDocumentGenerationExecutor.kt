@@ -6,6 +6,7 @@ import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -125,7 +126,7 @@ class FakeDocumentGenerationExecutor(
                     VALUES (
                         :id, :tenantId, :templateId, :variantId, :versionId,
                         :filename, :correlationId, 'application/pdf', :sizeBytes,
-                        NOW(), NULL
+                        NOW(), :createdBy
                     )
                     """,
                 )
@@ -135,8 +136,11 @@ class FakeDocumentGenerationExecutor(
                     .bind("variantId", request.variantKey)
                     .bind("versionId", request.versionKey ?: request.environmentKey) // Use either
                     .bind("filename", filename)
-                    .bind("correlationId", request.correlationKey)
+                    .bind("correlationId", request.correlationId)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
+                    // Mirror DocumentGenerationExecutor: the JobPoller's all-zeros
+                    // system principal is not a real users row, so null it out.
+                    .bind("createdBy", currentUserIdOrNull()?.takeUnless { it.value == java.util.UUID(0L, 0L) }?.value)
                     .execute()
             }
 

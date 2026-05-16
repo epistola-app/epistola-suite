@@ -88,7 +88,7 @@ class EmitGenerationResultHandler(
                 .bind("routingKey", routingKey)
                 .bind("status", command.status.name)
                 .bind("documentId", command.documentId?.value)
-                .bind("correlationId", req.correlationKey)
+                .bind("correlationId", req.correlationId)
                 .bind("templateId", req.templateKey)
                 .bind("variantId", req.variantKey)
                 .bind("versionId", req.versionKey)

@@ -26,8 +26,9 @@ CREATE TABLE template_variants (
     attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
     is_default BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
     PRIMARY KEY (tenant_key, catalog_key, template_key, id),
     FOREIGN KEY (tenant_key, catalog_key, template_key) REFERENCES document_templates(tenant_key, catalog_key, id) ON DELETE CASCADE
 );
@@ -50,8 +51,9 @@ COMMENT ON COLUMN template_variants.description IS 'Free-text description of wha
 COMMENT ON COLUMN template_variants.attributes IS 'Key-value attribute tags for filtering and resolution (e.g., {"language": "nl", "brand": "premium"})';
 COMMENT ON COLUMN template_variants.is_default IS 'Whether this is the fallback variant when no attributes match. Exactly one per template.';
 COMMENT ON COLUMN template_variants.created_at IS 'When the variant was created';
-COMMENT ON COLUMN template_variants.last_modified IS 'When the variant was last updated';
-COMMENT ON COLUMN template_variants.created_by IS 'User who created this variant';
+COMMENT ON COLUMN template_variants.updated_at IS 'When the variant was last updated';
+COMMENT ON COLUMN template_variants.created_by IS 'User who created this variant (NULL if the user was deleted)';
+COMMENT ON COLUMN template_variants.updated_by IS 'User who last modified this variant (NULL if the user was deleted)';
 
 -- ============================================================================
 -- TEMPLATE VERSIONS
@@ -76,7 +78,7 @@ CREATE TABLE template_versions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     published_at TIMESTAMPTZ,
     archived_at TIMESTAMPTZ,
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     rendering_defaults_version INTEGER,
     resolved_theme JSONB,
     contract_version INTEGER,
@@ -109,7 +111,7 @@ COMMENT ON COLUMN template_versions.status IS 'Lifecycle state: draft (editable)
 COMMENT ON COLUMN template_versions.created_at IS 'When the version was created';
 COMMENT ON COLUMN template_versions.published_at IS 'When the version was published (frozen). NULL while in draft.';
 COMMENT ON COLUMN template_versions.archived_at IS 'When the version was archived. NULL while draft or published.';
-COMMENT ON COLUMN template_versions.created_by IS 'User who created this version';
+COMMENT ON COLUMN template_versions.created_by IS 'User who created this version (NULL if the user was deleted)';
 COMMENT ON COLUMN template_versions.contract_version IS 'Contract version this template version is associated with. NULL if the template has no contract.';
 COMMENT ON COLUMN template_versions.referenced_paths IS 'Data contract paths referenced by expressions in the template model. Computed on save. Used for precise contract compatibility checking.';
 
@@ -160,7 +162,7 @@ CREATE TABLE variant_attribute_definitions (
     display_name VARCHAR(100) NOT NULL,
     allowed_values JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, catalog_key, id),
     FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
 );
@@ -172,4 +174,4 @@ COMMENT ON COLUMN variant_attribute_definitions.catalog_key IS 'Catalog this att
 COMMENT ON COLUMN variant_attribute_definitions.display_name IS 'Human-readable label shown in the UI';
 COMMENT ON COLUMN variant_attribute_definitions.allowed_values IS 'Permitted values for this attribute. Empty array means any value is allowed.';
 COMMENT ON COLUMN variant_attribute_definitions.created_at IS 'When the definition was created';
-COMMENT ON COLUMN variant_attribute_definitions.last_modified IS 'When the definition was last updated';
+COMMENT ON COLUMN variant_attribute_definitions.updated_at IS 'When the definition was last updated';

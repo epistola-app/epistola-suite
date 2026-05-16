@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -44,12 +45,13 @@ class CreateThemeHandler(
 ) : CommandHandler<CreateTheme, Theme> {
     override fun handle(command: CreateTheme): Theme {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("theme", command.id.key.value) {
             jdbi.withHandle<Theme, Exception> { handle ->
                 handle.createQuery(
                     """
-                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
-                VALUES (:id, :tenantId, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
+                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
                 RETURNING *
                 """,
                 )
@@ -62,6 +64,7 @@ class CreateThemeHandler(
                     .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
                     .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
                     .bind("spacingUnit", command.spacingUnit)
+                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .mapTo<Theme>()
                     .one()
             }
