@@ -6,8 +6,12 @@ import app.epistola.suite.api.security.ApiKeyAuthenticationToken
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.apikeys.commands.RevokeApiKey
+import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.users.AuthProvider
+import app.epistola.suite.users.queries.GetUserByExternalId
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
@@ -215,6 +219,39 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
                 assertThat(principal.displayName).isEqualTo("My Integration")
                 assertThat(principal.externalId).startsWith("apikey:")
                 assertThat(principal.email).contains("@npa.epistola")
+            }
+        }
+
+        @Test
+        fun `provisions a service-account users row so audited writes don't violate the FK`() = fixture {
+            lateinit var plaintextKey: String
+            var apiKeyId: ApiKeyKey? = null
+            lateinit var tenant: Tenant
+
+            given {
+                tenant = tenant("Filter Audit Identity")
+                val created = CreateApiKey(tenantId = tenant.id, name = "Audit Integration").execute()
+                plaintextKey = created.plaintextKey
+                apiKeyId = created.apiKey.id
+            }
+
+            whenever {
+                request.addHeader("X-API-Key", plaintextKey)
+                filter.doFilter(request, response, filterChain)
+            }
+
+            then {
+                assertThat(filterChainCalled).isTrue()
+                // The filter must have materialised the key's service-account
+                // users row (created_by/updated_by are real FKs to users(id)),
+                // attributed to this key, so REST writes via X-API-Key don't
+                // fail with a foreign key violation.
+                val keyId = apiKeyId!!
+                val user = GetUserByExternalId("apikey:$keyId", AuthProvider.API_KEY).query()
+                assertThat(user).isNotNull
+                assertThat(user!!.id.value).isEqualTo(keyId.value)
+                assertThat(user.provider).isEqualTo(AuthProvider.API_KEY)
+                assertThat(user.displayName).isEqualTo("Audit Integration")
             }
         }
 

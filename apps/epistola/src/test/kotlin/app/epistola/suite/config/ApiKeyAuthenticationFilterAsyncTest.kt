@@ -60,7 +60,9 @@ class ApiKeyAuthenticationFilterAsyncTest {
         }
 
         assertThat(fakeMediator.lookupQueries).isEqualTo(1)
-        assertThat(fakeMediator.recordCommands).isEqualTo(1)
+        // Two commands on the REQUEST path: RecordApiKeyUsage + EnsureUser
+        // (the key's service-account users row, for audit-FK attribution).
+        assertThat(fakeMediator.recordCommands).isEqualTo(2)
         assertThat(SecurityContextHolder.getContext().authentication).isInstanceOf(ApiKeyAuthenticationToken::class.java)
         val cached = request.getAttribute(ApiKeyAuthenticationFilter.REQUEST_ATTR_PRINCIPAL) as? EpistolaPrincipal
         assertThat(cached).isNotNull
@@ -79,8 +81,8 @@ class ApiKeyAuthenticationFilterAsyncTest {
             .withFailMessage("ASYNC dispatch should restore from cache, not re-query the DB")
             .isEqualTo(1)
         assertThat(fakeMediator.recordCommands)
-            .withFailMessage("ASYNC dispatch should not double-record usage")
-            .isEqualTo(1)
+            .withFailMessage("ASYNC dispatch should not re-issue RecordApiKeyUsage / EnsureUser")
+            .isEqualTo(2)
         assertThat(meterRegistry.counter("epistola.api.auth.attempts", "result", "success").count())
             .withFailMessage("ASYNC dispatch should not double-count the success counter")
             .isEqualTo(1.0)

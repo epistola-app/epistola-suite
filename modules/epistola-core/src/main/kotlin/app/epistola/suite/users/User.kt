@@ -42,4 +42,11 @@ enum class AuthProvider {
      * Generic OIDC provider (Google, Azure AD, etc.).
      */
     GENERIC_OIDC,
+
+    /**
+     * Non-human service identity backing an API key. Each API key has its own
+     * `users` row (`external_id = "apikey:<id>"`) so REST writes authenticated
+     * with `X-API-Key` attribute precisely to that key in the audit columns.
+     */
+    API_KEY,
 }

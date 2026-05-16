@@ -8,6 +8,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.users.AuthProvider
+import app.epistola.suite.users.commands.EnsureUser
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.FilterChain
@@ -119,6 +121,20 @@ class ApiKeyAuthenticationFilter(
         } catch (e: Exception) {
             log.debug("Failed to update API key last_used_at: {}", e.message)
         }
+
+        // Every API key is its own non-human service identity. Audit columns
+        // (created_by / updated_by) are real FKs to users(id), so the key's
+        // service-account row must exist before this request performs any
+        // write. Idempotent; mirrors how LocalUserDetailsService provisions a
+        // config user on login. NOT best-effort: a missing users row would only
+        // surface later as a confusing FK violation mid-handler.
+        EnsureUser(
+            id = UserKey.of(apiKey.id.value),
+            externalId = "apikey:${apiKey.id}",
+            email = "apikey-${apiKey.keyPrefix}@npa.epistola",
+            displayName = apiKey.name,
+            provider = AuthProvider.API_KEY,
+        ).execute()
 
         val principal = EpistolaPrincipal(
             userId = UserKey.of(apiKey.id.value),
