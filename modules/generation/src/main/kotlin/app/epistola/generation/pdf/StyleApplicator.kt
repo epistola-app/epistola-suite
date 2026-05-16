@@ -210,8 +210,14 @@ object StyleApplicator {
         // Font style
         val isItalic = (styles["fontStyle"] as? String) == "italic"
 
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
+        // Font family + weight/style.
+        // A structured fontFamily reference selects the referenced font (and
+        // its bold/italic variant). Without a reference the legacy behaviour
+        // applies: only swap to the built-in bold/italic when requested.
+        val fontRef = parseFontRef(styles["fontFamily"])
+        if (fontRef != null) {
+            element.setFont(fontCache.font(fontRef, isBold, isItalic))
+        } else if (isBold || isItalic) {
             val font = when {
                 isBold -> fontCache.bold
                 else -> fontCache.italic
@@ -280,6 +286,18 @@ object StyleApplicator {
         "borderBottom" to { el, b -> (el as BlockElement<Any>).setBorderBottom(b) },
         "borderLeft" to { el, b -> (el as BlockElement<Any>).setBorderLeft(b) },
     )
+
+    /**
+     * Parses a style map's `fontFamily` value into a [ResolvedFontRef].
+     * A structured `{ slug, catalogKey? }` object yields a reference; a legacy
+     * CSS-stack string (or anything else) yields null, preserving pre-font-catalog
+     * behaviour.
+     */
+    private fun parseFontRef(value: Any?): ResolvedFontRef? {
+        val map = value as? Map<*, *> ?: return null
+        val slug = (map["slug"] as? String)?.takeIf { it.isNotBlank() } ?: return null
+        return ResolvedFontRef(catalogKey = map["catalogKey"] as? String, slug = slug)
+    }
 
     private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
         SpacingScale.parseSp(fontSize, spacingUnit)?.let { return it }

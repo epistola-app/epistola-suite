@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Font resolution seam in the PDF renderer (foundation for the font catalog).** The renderer now actually consults a style's `fontFamily`: a structured `{ slug, catalogKey }` reference is resolved through a new pluggable `FontFamilyResolver` (mirrors `AssetResolver` — the `modules/generation` interface stays free of tenant/catalog/JDBI concepts) and embedded; unresolvable or absent references fall back to the built-in font exactly as before. `FontCache` gained `font(ref, isBold, isItalic)` with per-document caching of resolved fonts; `DirectPdfRenderer.render` and `GenerationService.renderPdf*` thread an optional `fontFamilyResolver`. No resolver is wired yet and `fontFamily` values are still legacy strings, so PDF output is unchanged — this closes the long-standing silent no-op where a selected `fontFamily` was stored and inherited but never applied during rendering, and is the foundation the upcoming font catalog builds on.
+
 ## [0.20.0] - 2026-05-16
 
 ### Added

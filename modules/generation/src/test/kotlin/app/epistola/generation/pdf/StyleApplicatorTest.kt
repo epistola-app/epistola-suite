@@ -5,6 +5,7 @@ import com.itextpdf.layout.properties.Property
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class StyleApplicatorTest {
@@ -263,6 +264,48 @@ class StyleApplicatorTest {
             fontCache = fontCache,
         )
         assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))
+    }
+
+    // -----------------------------------------------------------------------
+    // fontFamily resolution
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `structured fontFamily ref applies the resolved font`() {
+        val liberation = StyleApplicatorTest::class.java
+            .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
+        val cache = FontCache(fontFamilyResolver = { _, _, _ -> liberation })
+        val div = Div()
+
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("fontFamily" to mapOf("slug" to "inter", "catalogKey" to "system")),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            inheritedStyles = emptyMap(),
+            fontCache = cache,
+        )
+
+        val applied = div.getProperty<Any?>(Property.FONT)
+        assertNotNull(applied, "A structured fontFamily ref must apply a font")
+        assertSame(cache.font(ResolvedFontRef("system", "inter"), isBold = false, isItalic = false), applied)
+    }
+
+    @Test
+    fun `legacy string fontFamily does not crash and applies no custom font`() {
+        val div = Div()
+
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("fontFamily" to "Helvetica, Arial, sans-serif"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            inheritedStyles = emptyMap(),
+            fontCache = fontCache,
+        )
+
+        // No structured ref, no bold/italic → font is left to document default.
+        assertEquals(null, div.getProperty<Any?>(Property.FONT))
     }
 
     // -----------------------------------------------------------------------
