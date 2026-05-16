@@ -47,6 +47,14 @@
       "detailUrl": "./resources/stencils/company-header.json"
     },
     {
+      "type": "stencil",
+      "slug": "letter-shell",
+      "name": "Letter Shell",
+      "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
+      "updatedAt": "2026-05-16T00:00:00Z",
+      "detailUrl": "./resources/stencils/letter-shell.json"
+    },
+    {
       "type": "template",
       "slug": "hello-world",
       "name": "Hello World",
