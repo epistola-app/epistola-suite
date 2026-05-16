@@ -57,3 +57,8 @@ ALTER TABLE tenants ADD CONSTRAINT fk_tenants_default_theme
 
 CREATE INDEX idx_tenants_default_theme_key ON tenants(default_theme_key)
     WHERE default_theme_key IS NOT NULL;
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_themes_updated_at
+    BEFORE UPDATE ON themes
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

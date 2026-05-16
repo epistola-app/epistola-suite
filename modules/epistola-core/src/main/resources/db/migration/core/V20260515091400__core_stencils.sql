@@ -95,3 +95,8 @@ COMMENT ON COLUMN stencil_versions.parameter_schema IS
     'Optional JSON Schema (object, properties+required) describing parameters '
     'consumers must bind when inserting this stencil version into a template. '
     'NULL = no parameters.';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_stencils_updated_at
+    BEFORE UPDATE ON stencils
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

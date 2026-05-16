@@ -175,3 +175,13 @@ COMMENT ON COLUMN variant_attribute_definitions.display_name IS 'Human-readable 
 COMMENT ON COLUMN variant_attribute_definitions.allowed_values IS 'Permitted values for this attribute. Empty array means any value is allowed.';
 COMMENT ON COLUMN variant_attribute_definitions.created_at IS 'When the definition was created';
 COMMENT ON COLUMN variant_attribute_definitions.updated_at IS 'When the definition was last updated';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_template_variants_updated_at
+    BEFORE UPDATE ON template_variants
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_variant_attribute_definitions_updated_at
+    BEFORE UPDATE ON variant_attribute_definitions
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

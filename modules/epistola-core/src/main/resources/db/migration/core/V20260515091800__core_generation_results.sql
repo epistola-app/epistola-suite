@@ -151,3 +151,8 @@ COMMENT ON COLUMN consumer_node_assignments.consumer_id IS 'Logical consumer ide
 COMMENT ON COLUMN consumer_node_assignments.node_id IS 'Individual node within the consumer';
 COMMENT ON COLUMN consumer_node_assignments.partitions IS 'Routing partitions assigned to this node on its last call (e.g. [0, 3, 7]). Stored for observability and echo-back.';
 COMMENT ON COLUMN consumer_node_assignments.last_seen_at IS 'Timestamp of the most recent ping/collect from this node. Idle nodes are swept from the ring.';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_consumer_partition_cursors_updated_at
+    BEFORE UPDATE ON consumer_partition_cursors
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

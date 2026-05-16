@@ -109,3 +109,8 @@ CREATE TABLE feedback_assets (
 
 COMMENT ON TABLE feedback_assets IS 'Attachments for feedback items (screenshots, files). Stored as blobs.';
 COMMENT ON COLUMN feedback_assets.content_type IS 'MIME type of the asset (e.g., image/png, image/jpeg)';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_feedback_updated_at
+    BEFORE UPDATE ON feedback
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

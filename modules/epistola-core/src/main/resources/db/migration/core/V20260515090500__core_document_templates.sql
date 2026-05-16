@@ -38,3 +38,8 @@ COMMENT ON COLUMN document_templates.created_at IS 'When the template was create
 COMMENT ON COLUMN document_templates.updated_at IS 'When the template was last updated';
 COMMENT ON COLUMN document_templates.created_by IS 'User who created this template (NULL if the user was deleted)';
 COMMENT ON COLUMN document_templates.updated_by IS 'User who last modified this template (NULL if the user was deleted)';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_document_templates_updated_at
+    BEFORE UPDATE ON document_templates
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

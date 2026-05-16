@@ -105,3 +105,8 @@ ALTER TABLE variant_attribute_definitions
 
 COMMENT ON COLUMN variant_attribute_definitions.code_list_catalog_key IS 'Catalog where the bound code list lives (within the same tenant); NULL when not bound';
 COMMENT ON COLUMN variant_attribute_definitions.code_list_slug IS 'Slug of the bound code list; NULL when free-format or using inline allowed_values';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_code_lists_updated_at
+    BEFORE UPDATE ON code_lists
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

@@ -78,3 +78,8 @@ COMMENT ON COLUMN catalogs.source_url IS 'Remote catalog manifest URL (SUBSCRIBE
 COMMENT ON COLUMN catalogs.installed_release_version IS 'Version of the currently installed release (SUBSCRIBED only)';
 COMMENT ON COLUMN catalogs.created_at IS 'When the catalog was created';
 COMMENT ON COLUMN catalogs.updated_at IS 'When the catalog was last updated';
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_catalogs_updated_at
+    BEFORE UPDATE ON catalogs
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();

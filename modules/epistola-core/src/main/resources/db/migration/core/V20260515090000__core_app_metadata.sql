@@ -42,3 +42,8 @@ VALUES (
         'createdAt', to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
     )
 );
+
+-- updated_at is DB-enforced by the shared set_updated_at() trigger function.
+CREATE TRIGGER trg_app_metadata_updated_at
+    BEFORE UPDATE ON app_metadata
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
