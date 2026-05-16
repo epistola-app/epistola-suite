@@ -43,7 +43,6 @@ import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.OffsetDateTime
-import java.util.UUID
 
 /**
  * Executes document generation jobs.
@@ -321,11 +320,11 @@ class DocumentGenerationExecutor(
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
             createdAt = OffsetDateTime.now(),
-            // Background generation runs under the JobPoller's synthetic system
-            // principal (all-zeros UUID), which is not a real `users` row. Only
-            // record a real, persistable user as the document creator; the
-            // system principal yields NULL (audit FK is ON DELETE SET NULL).
-            createdBy = currentUserIdOrNull()?.takeUnless { it.value == UUID(0L, 0L) },
+            // Background generation runs under the JobPoller's SystemUser
+            // principal, which is a real seeded `users` row — so the creator is
+            // simply the bound principal (a real user for API-triggered
+            // generation, SystemUser for background jobs).
+            createdBy = currentUserIdOrNull(),
         )
         return Triple(document, pdfBytes, renderPath)
     }

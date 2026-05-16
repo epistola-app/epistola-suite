@@ -68,10 +68,17 @@ audit columns (audit FKs to `users(id)` are `ON DELETE SET NULL`, the sole
 exception being `feedback.created_by`, which is mandatory `NOT NULL`),
 `correlation_id` (not `correlation_key`), `TIMESTAMPTZ`, lowercase boolean
 literals, and the `TENANT_KEY` domain for every tenant slug column. Because the
-audit FKs are real, every authenticated principal must be a `users` row:
-production auth paths provision one (OAuth2 / local / demo), and integration
-tests materialise it transparently via `TestPrincipalUsers` (no fixed seed
-list) — see [`docs/testing.md`](testing.md).
+audit FKs are real, every principal that writes must be a `users` row. The
+single canonical **`SystemUser`** (all-zeros UUID) is seeded by the `core_users`
+baseline migration — a database invariant, the same approach as the
+`installation` row — and owns every system-initiated write (background
+generation, demo bootstrap, system-catalog install/upgrade). Real users come
+from the auth paths (OAuth2 / config-driven local provisioning); integration
+tests materialise a row for whatever principal the harness binds via
+`TestPrincipalUsers` (no fixed seed list) — see
+[`docs/testing.md`](testing.md). When seeding system/identity rows in a
+baseline migration, mirror the constant in code (e.g.
+`app.epistola.suite.security.SystemUser`) and cross-reference both ways.
 
 When folding an `ADD COLUMN` into a `CREATE TABLE`, place the column at the **end
 of the column list** in the order the `ALTER`s originally ran — PostgreSQL

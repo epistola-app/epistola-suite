@@ -20,7 +20,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_external_id ON users(external_id);
 
 COMMENT ON TABLE users IS 'User accounts with global identity across tenants';
-COMMENT ON COLUMN users.id IS 'UUIDv7 primary key';
+COMMENT ON COLUMN users.id IS 'UUIDv7 primary key (the all-zeros UUID is the reserved system principal — see seed below)';
 COMMENT ON COLUMN users.external_id IS 'User ID from OAuth2 provider (sub claim) or local username';
 COMMENT ON COLUMN users.email IS 'User email address, RFC 5321 compliant (max 320 chars)';
 COMMENT ON COLUMN users.display_name IS 'Human-readable name shown in the UI';
@@ -28,3 +28,14 @@ COMMENT ON COLUMN users.provider IS 'Authentication provider: KEYCLOAK, LOCAL, o
 COMMENT ON COLUMN users.enabled IS 'Whether the user can log in';
 COMMENT ON COLUMN users.created_at IS 'When the user account was created';
 COMMENT ON COLUMN users.last_login_at IS 'Most recent successful login timestamp';
+
+-- The single well-known system principal that owns every system-initiated
+-- write: background document generation, demo bootstrap, the demo login
+-- resolver, and system-catalog install/upgrade. Audit FKs (created_by /
+-- updated_by) reference users(id), so this identity must always exist —
+-- seeding it here makes it a database invariant (same approach as the
+-- 'installation' row in the app_metadata baseline). The all-zeros UUID is the
+-- conventional synthetic system id. Keep in sync with
+-- app.epistola.suite.security.SystemUser.
+INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
+VALUES ('00000000-0000-0000-0000-000000000000', 'system', 'system@epistola.app', 'System', 'LOCAL', true, NOW());

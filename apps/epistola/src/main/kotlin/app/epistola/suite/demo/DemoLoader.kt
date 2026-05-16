@@ -20,6 +20,7 @@ import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.ListTenants
@@ -50,7 +51,8 @@ class DemoLoader(
 
     override fun run(args: ApplicationArguments) {
         try {
-            ensureSystemUser()
+            // [SystemUser] is seeded as a real users row by the core_users
+            // baseline migration, so the audit FKs are already satisfiable here.
             SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
                 MediatorContext.runWithMediator(mediator) {
                     ensureDemoTenant()
@@ -60,24 +62,6 @@ class DemoLoader(
         } catch (e: Exception) {
             log.error("Failed to load demo: {}", e.message, e)
         }
-    }
-
-    /**
-     * The demo bootstrap runs as [SYSTEM_PRINCIPAL]. Audit columns
-     * (`created_by` / `updated_by`) are real foreign keys to `users(id)`, so the
-     * system principal must be a real row before it creates the demo tenant,
-     * catalog and themes. Idempotent on the deterministic id.
-     */
-    private fun ensureSystemUser() {
-        jdbcClient.sql(
-            """
-            INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
-            VALUES (?, 'system', 'system@epistola.app', 'System', 'LOCAL', true, NOW())
-            ON CONFLICT (id) DO NOTHING
-            """,
-        )
-            .param(deterministicUserId("system@epistola.app").value)
-            .update()
     }
 
     /**
@@ -267,10 +251,10 @@ class DemoLoader(
 
         /** Bootstrap principal used by DemoLoader — has full access to all operations. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
-            userId = deterministicUserId("system@epistola.app"),
-            externalId = "system",
-            email = "system@epistola.app",
-            displayName = "System",
+            userId = SystemUser.ID,
+            externalId = SystemUser.EXTERNAL_ID,
+            email = SystemUser.EMAIL,
+            displayName = SystemUser.DISPLAY_NAME,
             tenantMemberships = emptyMap(),
             globalRoles = TenantRole.entries.toSet(),
             platformRoles = PlatformRole.entries.toSet(),

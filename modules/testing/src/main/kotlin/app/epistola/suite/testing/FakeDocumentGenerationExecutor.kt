@@ -138,9 +138,7 @@ class FakeDocumentGenerationExecutor(
                     .bind("filename", filename)
                     .bind("correlationId", request.correlationId)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
-                    // Mirror DocumentGenerationExecutor: the JobPoller's all-zeros
-                    // system principal is not a real users row, so null it out.
-                    .bind("createdBy", currentUserIdOrNull()?.takeUnless { it.value == java.util.UUID(0L, 0L) }?.value)
+                    .bind("createdBy", currentUserIdOrNull()?.value)
                     .execute()
             }
 
