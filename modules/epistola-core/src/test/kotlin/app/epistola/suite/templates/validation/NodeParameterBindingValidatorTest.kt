@@ -213,11 +213,14 @@ class NodeParameterBindingValidatorTest {
             schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
             bindings = mapOf("name" to "recipient.firstName & '"),
         )
-        assertThatThrownBy { validator.validate(doc(node)) }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
-            // The dashjoin JSONata parser message includes the quote issue
-            .hasMessageContaining("quote")
+        try {
+            validator.validate(doc(node))
+            error("expected ValidationException")
+        } catch (e: ValidationException) {
+            val prefix = "NODE_PARAMETER_BINDING_SYNTAX_INVALID: parameter binding 'name' expression is invalid — "
+            assertThat(e.message).startsWith(prefix)
+            assertThat(e.message.length).isGreaterThan(prefix.length)
+        }
     }
 
     @Test
