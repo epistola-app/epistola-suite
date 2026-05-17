@@ -6,6 +6,7 @@ import com.itextpdf.io.font.constants.StandardFonts
 import com.itextpdf.kernel.font.PdfFont
 import com.itextpdf.kernel.font.PdfFontFactory
 import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy
+import org.slf4j.LoggerFactory
 
 /**
  * Manages font creation and caching for a single PDF document.
@@ -30,6 +31,9 @@ class FontCache(
     private val fontFamilyResolver: FontFamilyResolver? = null,
 ) {
     private val fonts = mutableMapOf<String, PdfFont>()
+
+    /** Font families already warned about (once per document) to avoid per-run log spam. */
+    private val warnedUnresolved = mutableSetOf<String>()
 
     /**
      * Gets or creates an embedded font for the given classpath resource path.
@@ -78,13 +82,28 @@ class FontCache(
         val resolver = fontFamilyResolver ?: return null
         val cacheKey = "ref:${ref.catalogKey.orEmpty()}|${ref.slug}|$weight|$italic"
         fonts[cacheKey]?.let { return it }
-        val bytes = resolver.resolve(ref.catalogKey, ref.slug, weight, italic) ?: return null
+        val bytes = resolver.resolve(ref.catalogKey, ref.slug, weight, italic)
+        if (bytes == null) {
+            val familyKey = "${ref.catalogKey.orEmpty()}|${ref.slug}"
+            if (warnedUnresolved.add(familyKey)) {
+                log.warn(
+                    "Font ref '{}' (catalog '{}', weight {}, italic {}) could not be resolved; falling back to the built-in font",
+                    ref.slug,
+                    ref.catalogKey ?: "<owning>",
+                    weight,
+                    italic,
+                )
+            }
+            return null
+        }
         val font = PdfFontFactory.createFont(bytes, PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED)
         fonts[cacheKey] = font
         return font
     }
 
     companion object {
+        private val log = LoggerFactory.getLogger(FontCache::class.java)
+
         /** CSS `font-weight` at or above which the built-in fallback is bold. */
         const val BOLD_THRESHOLD = 700
 

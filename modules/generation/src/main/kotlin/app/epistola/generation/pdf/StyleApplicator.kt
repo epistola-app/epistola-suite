@@ -10,11 +10,14 @@ import com.itextpdf.layout.element.BlockElement
 import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
+import org.slf4j.LoggerFactory
 
 /**
  * Applies CSS-like styles to iText elements.
  */
 object StyleApplicator {
+
+    private val log = LoggerFactory.getLogger(StyleApplicator::class.java)
 
     /**
      * Style property keys that cascade from document styles to block elements.
@@ -298,8 +301,17 @@ object StyleApplicator {
      * behaviour.
      */
     private fun parseFontRef(value: Any?): FontRef? {
-        val map = value as? Map<*, *> ?: return null
-        val slug = (map["slug"] as? String)?.takeIf { it.isNotBlank() } ?: return null
+        if (value == null) return null
+        val map = value as? Map<*, *>
+        if (map == null) {
+            log.warn("Ignoring malformed fontFamily (expected {{slug, catalogKey}}, got {}): {}", value::class.simpleName, value)
+            return null
+        }
+        val slug = (map["slug"] as? String)?.takeIf { it.isNotBlank() }
+        if (slug == null) {
+            log.warn("Ignoring fontFamily ref with missing/blank slug: {}", map)
+            return null
+        }
         return FontRef(catalogKey = map["catalogKey"] as? String, slug = slug)
     }
 
