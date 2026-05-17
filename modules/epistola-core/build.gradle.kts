@@ -42,6 +42,10 @@ dependencies {
     // Validation
     implementation(libs.json.schema.validator)
 
+    // JSONata expression language (already in :modules:generation; declared here
+    // for compile-time visibility in epistola-core validators)
+    implementation("com.dashjoin:jsonata:0.9.10")
+
     // UUID generation
     implementation(libs.uuid.creator)
 

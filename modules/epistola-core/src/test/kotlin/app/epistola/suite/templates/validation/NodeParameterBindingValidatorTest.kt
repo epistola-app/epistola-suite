@@ -4,6 +4,7 @@ import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -40,6 +41,15 @@ class NodeParameterBindingValidatorTest {
             nodes = mapOf("root" to Node("root", "root", listOf("s-root"))) + nodes.associateBy { it.id },
             slots = mapOf("s-root" to rootSlot),
         )
+    }
+
+    private fun catchValidationException(block: () -> Unit): ValidationException {
+        try {
+            block()
+            error("expected ValidationException")
+        } catch (e: ValidationException) {
+            return e
+        }
     }
 
     private fun stencilNode(
@@ -169,13 +179,124 @@ class NodeParameterBindingValidatorTest {
             schema = mapOf("properties" to mapOf("a" to mapOf("type" to "string"))),
             bindings = mapOf("ghost" to "x"),
         )
-        try {
-            validator.validate(doc(node))
-            error("expected ValidationException")
-        } catch (e: ValidationException) {
-            assert(e.field.endsWith(".ghost")) {
-                "expected field to end with '.ghost', got '${e.field}'"
-            }
-        }
+        val ex = catchValidationException { validator.validate(doc(node)) }
+        assertThat(ex.field).endsWith(".ghost")
+    }
+
+    @Test
+    fun `syntactically valid jsonata binding is accepted`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to "customer.firstName & ' ' & customer.lastName"),
+        )
+        assertThatCode { validator.validate(doc(node)) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `syntactically invalid jsonata binding is rejected`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to "recipient.firstName & '"),
+        )
+        assertThatThrownBy { validator.validate(doc(node)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            .hasMessageContaining("'name'")
+    }
+
+    @Test
+    fun `jsonata syntax error includes the parser message`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to "recipient.firstName & '"),
+        )
+        assertThatThrownBy { validator.validate(doc(node)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            // The dashjoin JSONata parser message includes the quote issue
+            .hasMessageContaining("quote")
+    }
+
+    @Test
+    fun `field path in syntax error message points at the offending binding`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("a" to mapOf("type" to "string"))),
+            bindings = mapOf("a" to "broken('"),
+        )
+        val ex = catchValidationException { validator.validate(doc(node)) }
+        assertThat(ex.field).endsWith(".a")
+        assertThat(ex.message).contains("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+    }
+
+    // -- edge cases for non-string / empty binding values -------------------
+
+    @Test
+    fun `empty binding expression is rejected as invalid jsonata`() {
+        // jsonata("") throws — empty expressions are not skipped
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to ""),
+        )
+        assertThatThrownBy { validator.validate(doc(node)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            .hasMessageContaining("'name'")
+    }
+
+    @Test
+    fun `blank binding expression is rejected as invalid jsonata`() {
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to "   "),
+        )
+        assertThatThrownBy { validator.validate(doc(node)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            .hasMessageContaining("'name'")
+    }
+
+    @Test
+    fun `non-string binding value is skipped by syntax check`() {
+        // (rawValue as? String) returns null for non-strings → return@forEach
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to 42),
+        )
+        assertThatCode { validator.validate(doc(node)) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `null binding value is skipped by syntax check`() {
+        // (rawValue as? String) returns null → return@forEach
+        val node = stencilNode(
+            "s1",
+            schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
+            bindings = mapOf("name" to null),
+        )
+        assertThatCode { validator.validate(doc(node)) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `empty binding on required parameter without default is caught by syntax check first`() {
+        // jsonata("") throws SYNTAX_INVALID before the required-parameter check runs
+        val node = stencilNode(
+            "s1",
+            schema = mapOf(
+                "properties" to mapOf("name" to mapOf("type" to "string")),
+                "required" to listOf("name"),
+            ),
+            bindings = mapOf("name" to ""),
+        )
+        assertThatThrownBy { validator.validate(doc(node)) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            .hasMessageContaining("'name'")
     }
 }

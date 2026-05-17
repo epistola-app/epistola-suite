@@ -154,17 +154,12 @@ Three validators run on every content-mutating command:
    `validateAsStencilDefinition` and `validateAsTemplate`.
 
 3. **`NodeParameterBindingValidator`** — cross-document check that every
-   binding key references a declared parameter and every required parameter
-   either has a binding or a `default`. Resolves the schema via
-   `NodeParameterSchemaProviderRegistry`, which dispatches by node type to a
-   provider Spring-bean. Runs from `UpdateDraft` and
-   `UpdateStencilInTemplate`.
-
-JSONata syntax is **not** validated server-side in v1 — the editor's
-`isValidExpression` catches parse errors at edit time, and the renderer
-fails gracefully (returns null) on bad expressions. Defence-in-depth syntax
-validation can be added by wiring `com.dashjoin:jsonata` into
-`epistola-core`.
+   binding key references a declared parameter, every required parameter
+   either has a binding or a `default`, and every bound expression is
+   syntactically valid JSONata (`NODE_PARAMETER_BINDING_SYNTAX_INVALID`).
+   Resolves the schema via `NodeParameterSchemaProviderRegistry`, which
+   dispatches by node type to a provider Spring-bean. Runs from
+   `UpdateDraft` and `UpdateStencilInTemplate`.
 
 ## 4. Render-time evaluation
 
@@ -298,9 +293,6 @@ the canvas converges to the resolved value. The cache invalidates on
 - **Public REST API contract** — the internal `StencilHandler` accepts
   `parameterSchema`, but the public `StencilVersionDto` in
   `epistola-contract` doesn't expose it yet.
-- **JSONata syntax validation** — backend doesn't parse-check binding
-  expressions on save. Add `com.dashjoin:jsonata` to `epistola-core` and
-  call `Jsonata.jsonata(raw)` to enable defence-in-depth.
 - **Alias collision warnings** — the validator hard-rejects reserved
   aliases (`sys`, `item`, `index`), but doesn't warn when a chosen alias
   collides with a visible ancestor scope's alias (e.g. picking `letter`
