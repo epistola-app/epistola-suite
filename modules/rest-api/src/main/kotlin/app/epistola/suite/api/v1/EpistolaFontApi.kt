@@ -1,8 +1,9 @@
 package app.epistola.suite.api.v1
 
-import app.epistola.suite.api.v1.shared.FontDto
-import app.epistola.suite.api.v1.shared.FontListResponse
-import app.epistola.suite.api.v1.shared.FontVariantDto
+import app.epistola.api.FontsApi
+import app.epistola.api.model.FontDto
+import app.epistola.api.model.FontListResponse
+import app.epistola.api.model.FontVariantDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -14,36 +15,31 @@ import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.query
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
  * Read-only REST surface for tenant + catalog font families.
  *
+ * Implements the generated `FontsApi` interface from `epistola-contract`
+ * (tag `Fonts`, ops `listFonts` / `getFont`) — the DTO shape is contract-owned,
+ * exactly like every other v1 controller (e.g. [EpistolaCodeListApi]).
+ *
  * **Deliberately read-only — list + get only.** This mirrors the asset
  * precedent: font-face binaries (like image assets) are managed through the UI
  * and catalog exchange, never created/updated/deleted over the REST API. The
- * external `epistola-contract` artifact has no Fonts API, so this is a
- * hand-written controller (not a generated interface impl) — but it follows the
- * same `/api/tenants/{tenantId}/catalogs/{catalogId}/...` shape, content type,
- * and per-tenant `X-API-Key` auth as the generated controllers.
+ * contract therefore exposes no font write operations.
  *
  * Thin pass-through to the existing `ListFonts` / `GetFontVariants` queries —
  * no domain logic in the controller.
  */
 @RestController
 @RequestMapping("/api")
-class EpistolaFontApi {
+class EpistolaFontApi : FontsApi {
 
-    @GetMapping(
-        "/tenants/{tenantId}/catalogs/{catalogId}/fonts",
-        produces = ["application/vnd.epistola.v1+json"],
-    )
-    fun listFonts(
-        @PathVariable tenantId: String,
-        @PathVariable catalogId: String,
+    override fun listFonts(
+        tenantId: String,
+        catalogId: String,
     ): ResponseEntity<FontListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)
@@ -57,14 +53,10 @@ class EpistolaFontApi {
         return ResponseEntity.ok(FontListResponse(items = items))
     }
 
-    @GetMapping(
-        "/tenants/{tenantId}/catalogs/{catalogId}/fonts/{fontSlug}",
-        produces = ["application/vnd.epistola.v1+json"],
-    )
-    fun getFont(
-        @PathVariable tenantId: String,
-        @PathVariable catalogId: String,
-        @PathVariable fontSlug: String,
+    override fun getFont(
+        tenantId: String,
+        catalogId: String,
+        fontSlug: String,
     ): ResponseEntity<FontDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogKey = CatalogKey.of(catalogId)

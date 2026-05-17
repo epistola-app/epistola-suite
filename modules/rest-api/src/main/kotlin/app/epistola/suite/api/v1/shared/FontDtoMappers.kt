@@ -1,57 +1,32 @@
 package app.epistola.suite.api.v1.shared
 
+import app.epistola.api.model.FontDto
+import app.epistola.api.model.FontVariantDto
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.fonts.model.Font
-import java.time.OffsetDateTime
 
 /**
- * One face of a font family in the public REST view: CSS numeric `weight`
- * (1–1000) + `italic`.
- */
-data class FontVariantDto(
-    val weight: Int,
-    val italic: Boolean,
-)
-
-/**
- * Public, read-only REST view of a font family.
+ * Map domain `Font` (+ its weight/italic faces) → the generated, contract-owned
+ * `app.epistola.api.model.FontDto`.
  *
- * Deliberately read-only: like assets, font binaries are managed through the
- * UI / catalog exchange only — there is no create/update/delete over REST. The
- * DTO carries the family metadata plus the list of weight/italic faces it
- * ships.
+ * The DTOs are generated from the `epistola-contract` OpenAPI spec (tag
+ * `Fonts`), so this mapper only converts domain → generated. `kind` maps via
+ * the lowercase wire form to the generated `FontDto.Kind` enum; `catalogType`
+ * maps SUBSCRIBED/AUTHORED to the generated `FontDto.CatalogType` enum.
  *
- * Hand-written (not generated from `epistola-contract`): the published contract
- * artifact has no Fonts API surface, so this controller + DTO are local to the
- * suite. Mirrors `CodeListDto`'s field shape (slug / catalog / catalogType /
- * readOnly / timestamps).
+ * Fonts are read-only over REST (the asset precedent: binaries are managed
+ * through the UI / catalog exchange only), so there is no `toModel` direction.
  */
-data class FontDto(
-    val slug: String,
-    val name: String,
-    val kind: String,
-    val catalog: String,
-    val catalogType: String,
-    val readOnly: Boolean,
-    val variants: List<FontVariantDto>,
-    val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
-)
-
-data class FontListResponse(
-    val items: List<FontDto>,
-)
-
 internal fun Font.toDto(variants: List<FontVariantDto>) = FontDto(
     slug = slug.value,
     name = name,
-    kind = kind.wire,
+    kind = FontDto.Kind.forValue(kind.wire),
     catalog = catalogKey.value,
     // `catalogType` is loaded via the JOIN in `ListFonts`, so for any row that
     // exists it's non-null. AUTHORED is the safe fallback for the orphan case.
     catalogType = when (catalogType) {
-        CatalogType.SUBSCRIBED -> "SUBSCRIBED"
-        else -> "AUTHORED"
+        CatalogType.SUBSCRIBED -> FontDto.CatalogType.SUBSCRIBED
+        else -> FontDto.CatalogType.AUTHORED
     },
     readOnly = catalogType == CatalogType.SUBSCRIBED,
     variants = variants,
