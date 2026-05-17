@@ -1,5 +1,7 @@
 package app.epistola.suite.mcp.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
+
 /**
  * Description of one editor component type the AI can use when designing or
  * referencing templates. Mirrors the serializable shape of `ComponentDefinition`
@@ -29,6 +31,14 @@ data class ComponentTypeInfo(
     val maxInstancesPerDocument: Int?,
     /** Hand-curated TemplateDocument fragments showing realistic usage patterns. */
     val examples: List<ComponentExampleInfo> = emptyList(),
+    /**
+     * Optional parameter schema for this component type.
+     * - absent from JSON: component has no parameter support
+     * - `null` (JSON null): dynamic per-instance (e.g. stencil — call `get_stencil_version` for the schema)
+     * - JSON Schema object: static parameters (same for every instance)
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    val parameters: tools.jackson.databind.JsonNode? = null,
 )
 
 /**

@@ -64,6 +64,7 @@ class ComponentRegistryProvider(
         defaultProps = node.get("defaultProps")?.let { jsonToMap(it) },
         maxInstancesPerDocument = node.get("maxInstancesPerDocument")?.asInt(),
         examples = node.get("examples")?.values()?.map { parseExample(it) } ?: emptyList(),
+        parameters = node.get("parameters"),
     )
 
     private fun parseExample(node: JsonNode) = ComponentExampleInfo(

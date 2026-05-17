@@ -64,7 +64,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).query()
 
-            assertThat(result.resources).hasSize(7)
+            assertThat(result.resources).hasSize(8)
             assertThat(result.resources.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute"))
             assertThat(result.resources).allMatch { it.status == ResourceStatus.AVAILABLE }
         }
@@ -82,9 +82,9 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
-            assertThat(results).hasSize(7)
+            assertThat(results).hasSize(8)
             val successful = results.filter { it.status != InstallStatus.FAILED }
-            assertThat(successful).hasSize(7)
+            assertThat(successful).hasSize(8)
 
             // Verify templates were created
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
@@ -168,7 +168,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            assertThat(results).hasSize(7)
+            assertThat(results).hasSize(8)
             assertThat(results).allMatch { it.status == InstallStatus.INSTALLED }
         }
     }

@@ -310,5 +310,3 @@ the canvas converges to the resolved value. The cache invalidates on
   until the draft is published and the consuming template upgrades.
 - **Nested-object parameters** — v1 rejects `{type:"object"}` properties.
   v2 can lift this without a migration.
-- **MCP tools** — `list_component_types` / `get_component_type` don't yet
-  surface `parameterSchema`.
