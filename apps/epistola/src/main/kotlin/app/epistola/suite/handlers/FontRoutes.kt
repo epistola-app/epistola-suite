@@ -11,8 +11,13 @@ class FontRoutes(private val handler: FontHandler) {
     @Bean
     fun fontRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/fonts".nest {
+            GET("", handler::list)
+            GET("/new", handler::newForm)
+            POST("", handler::upload)
             GET("/search", handler::search)
+
             GET("/{catalogId}/{slug}/{variant}/content", handler::content)
+            POST("/{catalogId}/{slug}/delete", handler::delete)
         }
     }
 }

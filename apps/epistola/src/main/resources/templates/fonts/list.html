@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Fonts</h1>
+            <div class="page-actions">
+                <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+                    Upload Font
+                </a>
+            </div>
+        </div>
+
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${#strings.equals(selectedCatalog, cat.id.toString())}"></option>
+            </select>
+            <script th:inline="javascript">
+                document.getElementById('catalog-filter').addEventListener('change', function() {
+                    var tenantId = /*[[${tenantId}]]*/ '';
+                    var catalog = this.value;
+                    var url = '/tenants/' + tenantId + '/fonts';
+                    if (catalog) url += '?catalog=' + encodeURIComponent(catalog);
+                    window.location.href = url;
+                });
+            </script>
+        </div>
+
+        <div id="font-grid-items">
+            <th:block th:fragment="font-grid-items">
+                <div th:if="${#lists.isEmpty(fonts)}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No fonts yet</div>
+                    <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
+                </div>
+
+                <div th:if="${!#lists.isEmpty(fonts)}" class="asset-grid">
+                    <div th:each="font : ${fonts}" class="asset-card">
+                        <div class="asset-card-info">
+                            <div class="asset-card-name" th:text="${font.name}" th:title="${font.name}"></div>
+                            <div class="asset-card-meta">
+                                <span th:text="${font.slug}"></span>
+                                <span th:text="${font.kind}"></span>
+                                <span th:text="${font.catalogKey}"></span>
+                            </div>
+                            <div class="asset-card-meta" style="margin-top: var(--ep-space-2);">
+                                <span th:each="v : ${font.variants}"
+                                      class="badge"
+                                      th:classappend="${v.present} ? ' badge-success' : ' badge-muted'"
+                                      th:text="${v.name}"
+                                      th:title="${v.present} ? 'Present' : 'Not provided'"></span>
+                            </div>
+                        </div>
+                        <div class="asset-card-actions">
+                            <span th:if="${font.catalogType == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <th:block th:if="${font.catalogType == 'AUTHORED'}">
+                                <button type="button"
+                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                        title="Delete font"
+                                        data-confirm-title="Delete Font"
+                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/fonts/{catalogId}/{slug}/delete(tenantId=${tenantId},catalogId=${font.catalogKey},slug=${font.slug})}"
+                                        data-confirm-target="#font-grid-items"
+                                        onclick="openConfirmDialog(this)">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </th:block>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </div>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+    </th:block>
+</body>
+</html>

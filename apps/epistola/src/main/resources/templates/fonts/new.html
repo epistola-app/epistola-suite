@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}">Fonts</a> &raquo; <span>Upload Font</span>
+        </nav>
+
+        <h1>Upload Font</h1>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
+                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
+                        <label class="ep-label" for="catalog">Catalog</label>
+                        <select id="catalog" name="catalog" class="ep-input" required>
+                            <option th:each="cat : ${catalogs}"
+                                    th:value="${cat.id}"
+                                    th:text="${cat.name}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="slug">Slug</label>
+                        <input type="text" id="slug" name="slug" class="ep-input"
+                               placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
+                               minlength="2" maxlength="64" required />
+                        <span class="text-muted text-sm">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="name">Display name</label>
+                        <input type="text" id="name" name="name" class="ep-input"
+                               placeholder="Acme Sans" maxlength="100" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="kind">Kind</label>
+                        <select id="kind" name="kind" class="ep-input" required>
+                            <option value="sans">Sans</option>
+                            <option value="serif">Serif</option>
+                            <option value="mono">Mono</option>
+                            <option value="condensed">Condensed</option>
+                            <option value="display">Display</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="ep-label">Faces <span class="text-muted text-sm">(TTF, OTF, or WOFF2)</span></label>
+                        <div class="form-group">
+                            <label class="ep-label" for="file_regular">Regular <span class="text-muted text-sm">(required)</span></label>
+                            <input type="file" id="file_regular" name="file_regular"
+                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="file_bold">Bold <span class="text-muted text-sm">(optional)</span></label>
+                            <input type="file" id="file_bold" name="file_bold"
+                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" />
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="file_italic">Italic <span class="text-muted text-sm">(optional)</span></label>
+                            <input type="file" id="file_italic" name="file_italic"
+                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" />
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="file_bold_italic">Bold italic <span class="text-muted text-sm">(optional)</span></label>
+                            <input type="file" id="file_bold_italic" name="file_bold_italic"
+                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" />
+                        </div>
+                        <span id="font-upload-error" class="form-error" th:text="${error}"></span>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
+                        <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            var fontUploadForm = document.getElementById('font-upload-form');
+            var fontUploadError = document.getElementById('font-upload-error');
+
+            fontUploadForm.addEventListener('htmx:responseError', function(event) {
+                var xhr = event.detail && event.detail.xhr;
+                if (!xhr || xhr.status < 400) {
+                    return;
+                }
+                try {
+                    var body = JSON.parse(xhr.responseText || '{}');
+                    fontUploadError.textContent = body.error || 'Failed to upload font. Please try again.';
+                } catch (e) {
+                    fontUploadError.textContent = 'Failed to upload font. Please try again.';
+                }
+            });
+
+            fontUploadForm.addEventListener('htmx:beforeRequest', function() {
+                fontUploadError.textContent = '';
+            });
+        </script>
+    </th:block>
+</body>
+</html>

@@ -98,3 +98,24 @@ data class FontVariantRow(
     val assetKey: AssetKey? = null,
     val classpathLocation: String? = null,
 )
+
+/**
+ * Describes a theme or template version that references a font family via a
+ * structured `{ slug, catalogKey }` `fontFamily` style ref. Mirrors
+ * `app.epistola.suite.assets.AssetUsage`.
+ */
+data class FontUsage(
+    val kind: String,
+    val name: String,
+)
+
+/**
+ * Thrown when attempting to delete a font family that is still referenced by a
+ * theme or template version. Mirrors `app.epistola.suite.assets.AssetInUseException`.
+ */
+class FontInUseException(
+    val slug: FontKey,
+    val usages: List<FontUsage>,
+) : RuntimeException(
+    "Cannot delete font '${slug.value}': it is used by ${usages.joinToString { "${it.kind} '${it.name}'" }}",
+)
