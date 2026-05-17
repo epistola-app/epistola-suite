@@ -13,8 +13,9 @@ How Epistola models, resolves and renders fonts.
 ## Model
 
 A **font family** (`fonts` table, catalog-scoped: `(tenant, catalog, slug)`)
-groups **faces** (`font_variants`, keyed by `(weight, italic)`, plus a
-reserved `is_variable` flag). Each face points at one of:
+groups **faces** (`font_variants`, keyed by `(weight, italic)`, plus an
+`is_variable` flag — currently unused; slated for removal, see
+[Not yet built](#not-yet-built)). Each face points at one of:
 
 - **`CLASSPATH`** — a bundled file shipped once in the JAR (`source=CLASSPATH`,
   `classpath_location`). System fonts only; no `Asset` row, no per-tenant
@@ -101,6 +102,51 @@ published versions until they are republished — by design.
 
 ## Not yet built
 
-- **Variable-font rendering.** The schema carries `is_variable`, but a
-  single-binary weight-axis font is not yet instanced by iText — only static
-  per-weight faces render. Out of scope until iText axis-instancing is proven.
+### Variable fonts — instance at ingest, not at render (planned direction)
+
+A variable font is a single binary with a continuous weight axis
+(`fvar`/`gvar`/`STAT`) — `Inter[wght].ttf` covers 100–900 in one file.
+**We will not render variable fonts directly.** PDF has no variable-font
+concept and iText embeds only a static instance, so honouring an arbitrary
+weight at render time would need (a) a render-time instancing pipeline and
+(b) a redesign of the determinism guarantee — the per-family fingerprint /
+`content_hash` would have to account for a versioned instancer or the same
+"silently changed published output" bug class returns. Disproportionate.
+
+Instead, when this is built it will be an **ingest-time** feature:
+
+- On upload, detect a variable font (`fvar` present). Rather than storing it
+  as a face, **instance its declared `fvar` named instances** (the
+  weights/styles the designer actually shipped — Light/Regular/Medium/
+  SemiBold/Bold…) into ordinary **static** TTF/OTF faces.
+- Each instanced face is stored exactly like any other uploaded static face:
+  an `Asset` + a `font_variants` row with its own `content_hash`.
+- Everything downstream is **unchanged**: `ResolveFontFace` nearest-weight
+  matching, `FontCache`, the byte cache, catalog export/import, and the
+  published-snapshot determinism (`FontSnapshotVerifier`) all operate on the
+  static outputs — none of the hard render-time/determinism problems arise.
+
+Why this cut: the only material gain of variable fonts for a document
+product is **upload friction** — foundries and Google Fonts ship variable
+by default, so a customer would otherwise have to source and upload each
+static weight file separately. Instancing on upload removes that friction
+while keeping the entire render / determinism / contract surface static.
+The losses (truly-continuous arbitrary weights; one-file storage) are
+negligible for business documents.
+
+Open considerations:
+
+- **Instancing library.** Producing a static snapshot at an axis position
+  needs a font-instancing capability (Python's `fonttools instancer` is the
+  reference; JVM options — HarfBuzz via JNI, or an OpenType lib — are
+  thinner). The one real implementation risk, but bounded to the upload
+  path: it can fail loudly with a clear error and never affects render
+  correctness or determinism.
+- **Italic axis.** Families ship italics either as a separate variable file
+  or via an `ital`/`slnt` axis; ingest must handle both.
+- **`is_variable` becomes unnecessary.** Under this approach a variable font
+  is a _transient input format_, never a stored face type, so the
+  `is_variable` flag (`FontVariantEntry.variable`, `font_variants.is_variable`)
+  is not needed and would be **removed** when this lands. It was added as
+  future-proofing under the assumption of render-time variable support,
+  which this approach supersedes.
