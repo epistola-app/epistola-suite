@@ -151,6 +151,16 @@ data class CodeListId(
     val catalogKey get() = catalogId.key
 }
 
+data class FontId(
+    override val key: FontKey,
+    val catalogId: CatalogId,
+) : EntityId<FontKey, String, CatalogId>(key, catalogId) {
+    override val type = "font"
+    val tenantId get() = catalogId.tenantId
+    val tenantKey get() = catalogId.tenantKey
+    val catalogKey get() = catalogId.key
+}
+
 class AssetId(
     key: AssetKey,
     val catalogId: CatalogId,

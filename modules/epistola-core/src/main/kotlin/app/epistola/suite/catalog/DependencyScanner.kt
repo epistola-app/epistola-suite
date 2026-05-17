@@ -21,6 +21,13 @@ object DependencyScanner {
          * checked at install-time, not auto-pulled here.
          */
         val codeListRefs: Set<String> = emptySet(),
+        /**
+         * Same-catalog font-family dependencies — slugs of font families that
+         * a theme/template `fontFamily` style binds to within this catalog.
+         * Cross-catalog font bindings are declared via `manifest.dependencies`
+         * and checked at install-time, not auto-pulled here.
+         */
+        val fontRefs: Set<String> = emptySet(),
     )
 
     fun scan(document: TemplateDocument, variantAttributes: Set<String> = emptySet()): Dependencies {
@@ -65,5 +72,6 @@ object DependencyScanner {
         assetRefs = deps.flatMapTo(mutableSetOf()) { it.assetRefs },
         attributeKeys = deps.flatMapTo(mutableSetOf()) { it.attributeKeys },
         codeListRefs = deps.flatMapTo(mutableSetOf()) { it.codeListRefs },
+        fontRefs = deps.flatMapTo(mutableSetOf()) { it.fontRefs },
     )
 }

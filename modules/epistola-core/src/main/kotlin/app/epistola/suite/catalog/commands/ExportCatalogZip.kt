@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
 import app.epistola.suite.catalog.queries.ExportCodeLists
+import app.epistola.suite.catalog.queries.ExportFonts
 import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.ExportThemes
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -75,6 +76,7 @@ class ExportCatalogZipHandler(
         val stencils = ExportStencils(command.tenantKey, catalogKey = command.catalogKey).query()
         val attributes = ExportAttributes(command.tenantKey, catalogKey = command.catalogKey).query()
         val codeLists = ExportCodeLists(command.tenantKey, catalogKey = command.catalogKey).query()
+        val fonts = ExportFonts(command.tenantKey, catalogKey = command.catalogKey).query()
 
         val assets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
 
@@ -95,6 +97,7 @@ class ExportCatalogZipHandler(
         }
 
         for (codeList in codeLists) addResource("codeList", codeList.slug, codeList.name, codeList.description, codeList)
+        for (font in fonts) addResource("font", font.slug, font.name, null, font)
         for (attr in attributes) addResource("attribute", attr.slug, attr.name, null, attr)
         for (theme in themes) addResource("theme", theme.slug, theme.name, theme.description, theme)
         for (stencil in stencils) addResource("stencil", stencil.slug, stencil.name, stencil.description, stencil)

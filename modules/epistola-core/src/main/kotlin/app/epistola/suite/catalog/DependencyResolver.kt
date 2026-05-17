@@ -2,6 +2,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
@@ -80,6 +81,11 @@ class DependencyResolver(
                             deps += DependencyScanner.Dependencies(codeListRefs = setOf(binding.slug))
                         }
                     }
+                    is FontResource -> {
+                        // A `FontResource` carries no binding to scan: its
+                        // faces are same-catalog assets, which are declared
+                        // and pulled in as ordinary asset dependencies.
+                    }
                     else -> {}
                 }
             }
@@ -105,6 +111,7 @@ class DependencyResolver(
             merged.attributeKeys.forEach { resolve("attribute", it) }
             merged.assetRefs.forEach { resolve("asset", it) }
             merged.codeListRefs.forEach { resolve("codeList", it) }
+            merged.fontRefs.forEach { resolve("font", it) }
 
             // Continue scanning anything newly discovered that can pull in
             // further dependencies: stencils (template-model content) and

@@ -4,6 +4,8 @@ import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CodeListBindingRef
 import app.epistola.catalog.protocol.CodeListEntryEntry
 import app.epistola.catalog.protocol.CodeListResource
+import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.common.ids.CatalogKey
@@ -257,5 +259,86 @@ class ExportStencilsHandler(
                 content = objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java),
             )
         }.list()
+    }
+}
+
+// ── Export Fonts ─────────────────────────────────────────────────────────────
+
+data class ExportFonts(
+    override val tenantKey: TenantKey,
+    val slugs: List<String>? = null,
+    val catalogKey: CatalogKey? = null,
+) : Query<List<FontResource>>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_SETTINGS
+}
+
+@Component
+class ExportFontsHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<ExportFonts, List<FontResource>> {
+
+    override fun handle(query: ExportFonts): List<FontResource> = jdbi.withHandle<List<FontResource>, Exception> { handle ->
+        // Two-query load: list the matching fonts first, then load all their
+        // variants in a single batched fetch (mirrors `ExportCodeLists`).
+        val fontSql = buildString {
+            append(
+                """
+                SELECT catalog_key, slug, name, kind
+                FROM fonts
+                WHERE tenant_key = :tenantKey
+                """,
+            )
+            if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
+            if (query.slugs != null) append(" AND slug IN (<slugs>)")
+            append(" ORDER BY catalog_key, slug")
+        }
+        data class FontRow(val catalogKey: String, val slug: String, val name: String, val kind: String)
+        val fonts = handle.createQuery(fontSql).bind("tenantKey", query.tenantKey).apply {
+            if (query.catalogKey != null) bind("catalogKey", query.catalogKey)
+            if (query.slugs != null) bindList("slugs", query.slugs)
+        }.map { rs, _ ->
+            FontRow(rs.getString("catalog_key"), rs.getString("slug"), rs.getString("name"), rs.getString("kind"))
+        }.list()
+
+        if (fonts.isEmpty()) return@withHandle emptyList()
+
+        // System (CLASSPATH) faces are never exported — the wire format only
+        // describes catalog-authored, asset-backed fonts. Filter the candidate
+        // variants in Kotlin against the actual font set (JDBI has no tuple-IN
+        // binder and the row count is tiny: max 4 per font).
+        val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
+        val variantsByFont = handle.createQuery(
+            """
+            SELECT catalog_key, font_slug, variant, asset_key
+            FROM font_variants
+            WHERE tenant_key = :tenantKey
+              AND source = 'ASSET'
+              AND catalog_key IN (<catalogs>)
+              AND font_slug IN (<slugs>)
+            ORDER BY catalog_key, font_slug, variant
+            """,
+        )
+            .bind("tenantKey", query.tenantKey)
+            .bindList("catalogs", fonts.map { it.catalogKey }.distinct())
+            .bindList("slugs", fonts.map { it.slug }.distinct())
+            .map { rs, _ ->
+                (rs.getString("catalog_key") to rs.getString("font_slug")) to FontVariantEntry(
+                    variant = rs.getString("variant"),
+                    assetSlug = rs.getObject("asset_key", java.util.UUID::class.java).toString(),
+                )
+            }
+            .list()
+            .filter { it.first in wantedKeys }
+            .groupBy({ it.first }, { it.second })
+
+        fonts.map { font ->
+            FontResource(
+                slug = font.slug,
+                name = font.name,
+                kind = font.kind,
+                variants = variantsByFont[font.catalogKey to font.slug] ?: emptyList(),
+            )
+        }
     }
 }

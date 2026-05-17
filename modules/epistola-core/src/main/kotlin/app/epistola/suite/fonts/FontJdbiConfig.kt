@@ -1,0 +1,42 @@
+package app.epistola.suite.fonts
+
+import app.epistola.suite.fonts.model.FontKind
+import app.epistola.suite.fonts.model.FontVariant
+import app.epistola.suite.fonts.model.FontVariantSource
+import jakarta.annotation.PostConstruct
+import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.mapper.ColumnMapper
+import org.jdbi.v3.core.statement.StatementContext
+import org.springframework.context.annotation.Configuration
+import java.sql.ResultSet
+
+@Configuration
+class FontJdbiConfig(private val jdbi: Jdbi) {
+
+    @PostConstruct
+    fun registerFontMappers() {
+        // FontKind / FontVariant persist their lowercase wire form, not the
+        // enum constant name, so map via `fromWire`.
+        jdbi.registerColumnMapper(
+            FontKind::class.java,
+            ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
+                val value = r.getString(columnNumber)
+                if (r.wasNull()) null else FontKind.fromWire(value)
+            },
+        )
+        jdbi.registerColumnMapper(
+            FontVariant::class.java,
+            ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
+                val value = r.getString(columnNumber)
+                if (r.wasNull()) null else FontVariant.fromWire(value)
+            },
+        )
+        jdbi.registerColumnMapper(
+            FontVariantSource::class.java,
+            ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
+                val value = r.getString(columnNumber)
+                if (r.wasNull()) null else FontVariantSource.valueOf(value)
+            },
+        )
+    }
+}
