@@ -12,9 +12,11 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.CatalogSizeLimits
+import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
 import app.epistola.suite.catalog.queries.ExportCodeLists
@@ -111,7 +113,7 @@ class ExportCatalogZipHandler(
             publisher = PublisherInfo(name = "Epistola"),
             release = ReleaseInfo(version = version),
             resources = resourceEntries,
-            dependencies = findCrossCatalogDependencies(templates, attributes, resourceEntries, command.catalogKey.value),
+            dependencies = findCrossCatalogDependencies(templates, attributes, themes, resourceEntries, command.catalogKey.value),
         )
 
         // Build the ZIP
@@ -266,6 +268,7 @@ class ExportCatalogZipHandler(
     private fun findCrossCatalogDependencies(
         templates: List<TemplateResource>,
         attributes: List<AttributeResource>,
+        themes: List<ThemeResource>,
         manifestResources: List<ResourceEntry>,
         catalogKey: String,
     ): List<DependencyRef>? {
@@ -273,6 +276,23 @@ class ExportCatalogZipHandler(
         val ownResources = manifestResources.map { "${it.type}:${it.slug}" }.toSet()
 
         val dependencies = mutableSetOf<DependencyRef>()
+
+        // Font refs that point outside this catalog. A `fontFamily` style value
+        // is `{ slug, catalogKey? }`; a non-null catalogKey other than this
+        // catalog (e.g. the bundled `system` catalog) is a cross-catalog
+        // reference consumers must satisfy at install time. Same-catalog refs
+        // are covered by the catalog's own `font` resources. Sources: theme
+        // documentStyles/blockStylePresets and template documentStylesOverride
+        // + inline node styles.
+        fun addFontRef(ref: DependencyScanner.FontRefLite) {
+            val target = ref.catalogKey ?: return
+            if (target == catalogKey) return
+            if ("font:${ref.slug}" in ownResources) return
+            dependencies.add(DependencyRef.Font(catalogKey = target, slug = ref.slug))
+        }
+        for (theme in themes) {
+            DependencyScanner.themeFontRefs(theme.documentStyles, theme.blockStylePresets).forEach(::addFontRef)
+        }
 
         // Attribute → code-list bindings that point outside this catalog. The
         // `ExportAttributes` query emits `catalogKey = null` for same-catalog
@@ -296,6 +316,9 @@ class ExportCatalogZipHandler(
             template.variants.mapNotNull { it.templateModel }.forEach { docs.add(it) }
 
             for (doc in docs) {
+                // Cross-catalog font refs in this template's style override / inline node styles
+                DependencyScanner.documentFontRefs(doc).forEach(::addFontRef)
+
                 // Theme override references inside template model
                 val themeRef = doc.themeRef
                 if (themeRef is app.epistola.template.model.ThemeRefOverride) {

@@ -30,6 +30,28 @@ object DependencyScanner {
         val fontRefs: Set<String> = emptySet(),
     )
 
+    /** A `{ slug, catalogKey? }` font reference parsed from a `fontFamily` style value. */
+    data class FontRefLite(val catalogKey: String?, val slug: String)
+
+    /** Extracts the structured font reference from a style map's `fontFamily` value, if any. */
+    fun fontRefIn(styles: Map<*, *>?): FontRefLite? {
+        val ff = styles?.get("fontFamily") as? Map<*, *> ?: return null
+        val slug = (ff["slug"] as? String)?.takeIf { it.isNotBlank() } ?: return null
+        return FontRefLite(catalogKey = ff["catalogKey"] as? String, slug = slug)
+    }
+
+    /** Font references carried by a theme's document styles and block-style presets. */
+    fun themeFontRefs(documentStyles: Map<String, Any?>?, blockStylePresets: Map<String, Any?>?): Set<FontRefLite> = buildSet {
+        fontRefIn(documentStyles)?.let { add(it) }
+        blockStylePresets?.values?.forEach { preset -> fontRefIn(preset as? Map<*, *>)?.let { add(it) } }
+    }
+
+    /** Font references carried by a template document's style override and inline node styles. */
+    fun documentFontRefs(document: TemplateDocument): Set<FontRefLite> = buildSet {
+        fontRefIn(document.documentStylesOverride)?.let { add(it) }
+        for (node in document.nodes.values) fontRefIn(node.styles)?.let { add(it) }
+    }
+
     fun scan(document: TemplateDocument, variantAttributes: Set<String> = emptySet()): Dependencies {
         val themeRefs = mutableSetOf<String>()
         val stencilRefs = mutableSetOf<String>()
@@ -55,11 +77,18 @@ object DependencyScanner {
             }
         }
 
+        // Same-catalog font refs (no explicit catalogKey) are auto-pulled like
+        // code lists; cross-catalog ones are declared on manifest.dependencies.
+        val fontRefs = documentFontRefs(document)
+            .filter { it.catalogKey == null }
+            .mapTo(mutableSetOf()) { it.slug }
+
         return Dependencies(
             themeRefs = themeRefs,
             stencilRefs = stencilRefs,
             assetRefs = assetRefs,
             attributeKeys = variantAttributes,
+            fontRefs = fontRefs,
         )
     }
 
