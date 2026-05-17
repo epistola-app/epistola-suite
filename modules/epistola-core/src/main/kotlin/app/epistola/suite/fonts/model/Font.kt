@@ -85,8 +85,8 @@ enum class FontVariantSource {
  * A single font-face pointer, keyed by CSS numeric [weight] (1–1000;
  * 400 = regular, 700 = bold) + [italic]. Exactly one of [assetKey] /
  * [classpathLocation] is non-null, matching the `chk_font_variant_source`
- * SQL CHECK. [variable] marks a reserved single-binary weight-axis ("variable")
- * font — stored only; variable-font instancing is not yet rendered.
+ * SQL CHECK. Every face is a static binary — variable fonts are instanced
+ * into static faces at upload, never represented as a face type here.
  */
 data class FontVariantRow(
     val weight: Int,
@@ -94,8 +94,6 @@ data class FontVariantRow(
     val source: FontVariantSource,
     val assetKey: AssetKey? = null,
     val classpathLocation: String? = null,
-    @get:ColumnName("is_variable")
-    val variable: Boolean = false,
 )
 
 /**

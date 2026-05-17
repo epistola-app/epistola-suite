@@ -310,7 +310,7 @@ class ExportFontsHandler(
         val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
         val variantsByFont = handle.createQuery(
             """
-            SELECT catalog_key, font_slug, weight, italic, is_variable, asset_key
+            SELECT catalog_key, font_slug, weight, italic, asset_key
             FROM font_variants
             WHERE tenant_key = :tenantKey
               AND source = 'ASSET'
@@ -327,7 +327,6 @@ class ExportFontsHandler(
                     weight = rs.getInt("weight"),
                     italic = rs.getBoolean("italic"),
                     assetSlug = rs.getObject("asset_key", java.util.UUID::class.java).toString(),
-                    variable = rs.getBoolean("is_variable"),
                 )
             }
             .list()

@@ -29,7 +29,7 @@ class GetFontVariantsHandler(
     override fun handle(query: GetFontVariants): List<FontVariantRow> = jdbi.withHandle<List<FontVariantRow>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT weight, italic, source, asset_key, classpath_location, is_variable
+            SELECT weight, italic, source, asset_key, classpath_location
             FROM font_variants
             WHERE tenant_key = :tenantKey
               AND catalog_key = :catalogKey

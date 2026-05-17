@@ -241,7 +241,6 @@ class InstallFromCatalogHandler(
                     italic = entry.italic,
                     source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
                     assetKey = app.epistola.suite.common.ids.AssetKey.of(java.util.UUID.fromString(entry.assetSlug)),
-                    variable = entry.variable,
                 )
             },
         ).execute()

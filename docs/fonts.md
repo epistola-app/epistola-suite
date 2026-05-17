@@ -13,9 +13,8 @@ How Epistola models, resolves and renders fonts.
 ## Model
 
 A **font family** (`fonts` table, catalog-scoped: `(tenant, catalog, slug)`)
-groups **faces** (`font_variants`, keyed by `(weight, italic)`, plus an
-`is_variable` flag — currently unused; slated for removal, see
-[Not yet built](#not-yet-built)). Each face points at one of:
+groups **faces** (`font_variants`, keyed by `(weight, italic)`). Each face
+points at one of:
 
 - **`CLASSPATH`** — a bundled file shipped once in the JAR (`source=CLASSPATH`,
   `classpath_location`). System fonts only; no `Asset` row, no per-tenant
@@ -144,9 +143,8 @@ Open considerations:
   correctness or determinism.
 - **Italic axis.** Families ship italics either as a separate variable file
   or via an `ital`/`slnt` axis; ingest must handle both.
-- **`is_variable` becomes unnecessary.** Under this approach a variable font
-  is a _transient input format_, never a stored face type, so the
-  `is_variable` flag (`FontVariantEntry.variable`, `font_variants.is_variable`)
-  is not needed and would be **removed** when this lands. It was added as
-  future-proofing under the assumption of render-time variable support,
-  which this approach supersedes.
+- **No `is_variable` in the model.** A variable font is a _transient input
+  format_, never a stored face type — there is deliberately no
+  `variable`/`is_variable` field on `FontVariantEntry` / `font_variants`. (A
+  reserved flag existed briefly as render-time future-proofing and was
+  removed once this ingest-instancing direction was decided.)

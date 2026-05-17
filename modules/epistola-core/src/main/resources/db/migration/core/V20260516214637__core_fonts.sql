@@ -76,7 +76,6 @@ CREATE TABLE font_variants (
     font_slug          FONT_KEY NOT NULL,
     weight             SMALLINT NOT NULL CHECK (weight BETWEEN 1 AND 1000),
     italic             BOOLEAN NOT NULL,
-    is_variable        BOOLEAN NOT NULL DEFAULT FALSE,
     source             FONT_VARIANT_SOURCE NOT NULL,
     asset_key          ASSET_KEY,
     classpath_location TEXT,
@@ -95,7 +94,7 @@ CREATE TABLE font_variants (
 );
 
 COMMENT ON TABLE font_variants IS
-    'One face per row, keyed by CSS numeric weight (1-1000) + italic. is_variable marks a reserved weight-axis variable font (not yet rendered). ASSET -> assets row (uploaded); CLASSPATH -> bundled JAR resource.';
+    'One face per row, keyed by CSS numeric weight (1-1000) + italic. Every face is a static binary (variable fonts are instanced into static faces at upload). ASSET -> assets row (uploaded); CLASSPATH -> bundled JAR resource.';
 
 COMMENT ON COLUMN font_variants.content_hash IS
     'Lowercase hex SHA-256 of the face binary, recomputed by ImportFont. Pinned (per family) in the published theme snapshot for deterministic renders. NULL = not yet hashed (treated as a mismatch).';
