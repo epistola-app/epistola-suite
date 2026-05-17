@@ -50,6 +50,7 @@ target.window = window;
 
 // Type-only import — erased before runtime so it doesn't trigger the Lit modules.
 import type { ComponentDefinition } from '../src/main/typescript/engine/registry.ts';
+import type { JsonSchema } from '../src/main/typescript/data-contract/types.js';
 
 // Runtime import happens only AFTER the browser globals are installed above.
 const { createDefaultRegistry } = await import('../src/main/typescript/engine/registry.ts');
@@ -71,7 +72,7 @@ interface SerializedComponent {
   maxInstancesPerDocument?: number;
   examples?: ComponentDefinition['examples'];
   /** Parameter schema: null = dynamic per-instance; undefined = no parameter support. */
-  parameters?: import('../src/main/typescript/data-contract/types.js').JsonSchema | null;
+  parameters?: JsonSchema | null;
 }
 
 function serializeParameters(def: ComponentDefinition): SerializedComponent['parameters'] {
