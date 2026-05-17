@@ -1,2 +1,5 @@
 *.jar binary
+*.ttf binary
+*.otf binary
+*.woff2 binary
 CHANGELOG.md merge=union
