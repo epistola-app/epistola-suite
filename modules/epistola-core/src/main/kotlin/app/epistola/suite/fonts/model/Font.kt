@@ -6,7 +6,19 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.mapper.reflect.ColumnName
+import java.security.MessageDigest
 import java.time.OffsetDateTime
+
+/**
+ * Lowercase hex SHA-256 of [bytes]. The single digest used both to pin a
+ * face's bytes in [content_hash][FontVariantRow] (at import) and to derive a
+ * family fingerprint (at publish) — so a delete+re-upload under the same
+ * `(slug, weight, italic)` with different bytes flips the fingerprint and a
+ * published render fails loudly.
+ */
+fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
+    .digest(bytes)
+    .joinToString("") { "%02x".format(it) }
 
 /**
  * A font family: a thin, catalog-scoped grouping over N font-face binaries,
@@ -106,3 +118,13 @@ class FontInUseException(
 ) : RuntimeException(
     "Cannot delete font '${slug.value}': it is used by ${usages.joinToString { "${it.kind} '${it.name}'" }}",
 )
+
+/**
+ * Thrown when rendering a *published* template version whose pinned per-family
+ * font fingerprint no longer matches the live font family — i.e. a face was
+ * deleted, added, or re-uploaded with different bytes since publish. The
+ * published version is deterministic-or-nothing: rather than silently
+ * re-rendering with changed glyphs, the render fails loudly. Republishing the
+ * template version re-pins the current bytes.
+ */
+class FontIntegrityException(message: String) : RuntimeException(message)

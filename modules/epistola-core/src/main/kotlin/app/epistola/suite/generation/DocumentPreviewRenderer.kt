@@ -8,6 +8,7 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.DocumentTemplate
@@ -31,6 +32,7 @@ class DocumentPreviewRenderer(
     private val mediator: Mediator,
     private val generationService: GenerationService,
     private val objectMapper: ObjectMapper,
+    private val fontSnapshotVerifier: FontSnapshotVerifier,
 ) {
 
     /**
@@ -74,6 +76,9 @@ class DocumentPreviewRenderer(
         val resolvedTheme = version?.resolvedTheme
         val renderingDefaultsVersion = version?.renderingDefaultsVersion
         if (resolvedTheme != null && renderingDefaultsVersion != null) {
+            // Deterministic-or-nothing: a published version must render with the
+            // exact font bytes pinned at publish. Fail loudly on drift.
+            fontSnapshotVerifier.verify(tenantId, owningCatalogKey, resolvedTheme)
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
             val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
             generationService.renderPdfWithSnapshot(

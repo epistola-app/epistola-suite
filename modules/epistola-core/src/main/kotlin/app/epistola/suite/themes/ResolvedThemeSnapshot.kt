@@ -19,6 +19,13 @@ import app.epistola.suite.templates.model.PageSettings
  * @param pageSettings The theme's page settings fallback (null if no theme or no page settings)
  * @param blockStylePresets The theme's block style presets as a plain map (preset name -> styles map)
  * @param spacingUnit The theme's spacing base unit in points (see [SpacingScale])
+ * @param fontFingerprints Per-family font fingerprints pinned at publish time,
+ *   keyed by `"${catalogKey ?: ""}/${slug}"`. Each value is the
+ *   [GetFontFamilyFingerprint][app.epistola.suite.fonts.queries.GetFontFamilyFingerprint]
+ *   digest of the family's whole face set at publish. At render of a published
+ *   version the live fingerprint is recomputed and compared; a mismatch fails
+ *   the render loudly (deterministic-or-nothing). Defaults empty so older /
+ *   draft snapshots (nothing pinned) skip the check entirely.
  */
 data class ResolvedThemeSnapshot(
     val themeKey: ThemeKey?,
@@ -26,6 +33,7 @@ data class ResolvedThemeSnapshot(
     val pageSettings: PageSettings?,
     val blockStylePresets: Map<String, Map<String, Any>>,
     val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+    val fontFingerprints: Map<String, String> = emptyMap(),
 ) {
     companion object {
         /**

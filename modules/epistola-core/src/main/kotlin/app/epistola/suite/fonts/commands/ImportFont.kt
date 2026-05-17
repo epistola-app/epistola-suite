@@ -1,5 +1,6 @@
 package app.epistola.suite.fonts.commands
 
+import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -8,8 +9,10 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -111,8 +114,8 @@ class ImportFontHandler(
                 val batch = handle.prepareBatch(
                     """
                     INSERT INTO font_variants
-                        (tenant_key, catalog_key, font_slug, weight, italic, is_variable, source, asset_key, classpath_location)
-                    VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :isVariable, :source, :assetKey, :classpathLocation)
+                        (tenant_key, catalog_key, font_slug, weight, italic, is_variable, source, asset_key, classpath_location, content_hash)
+                    VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :isVariable, :source, :assetKey, :classpathLocation, :contentHash)
                     """,
                 )
                 for (variant in command.variants) {
@@ -125,6 +128,7 @@ class ImportFontHandler(
                         .bind("source", variant.source.name)
                         .bind("assetKey", variant.assetKey?.value)
                         .bind("classpathLocation", variant.classpathLocation)
+                        .bind("contentHash", contentHash(command.tenantKey, variant))
                         .add()
                 }
                 batch.execute()
@@ -132,5 +136,29 @@ class ImportFontHandler(
 
             if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED
         }
+    }
+
+    /**
+     * SHA-256 hex of a variant's bytes, stored into `content_hash` so a
+     * published version can pin (and later verify) the exact face binary.
+     *
+     * Resilient by design: this is a *metadata* import. If the bytes cannot be
+     * loaded (missing classpath resource / asset not yet readable) we store
+     * `null` rather than failing the import — the family fingerprint treats a
+     * null hash as a mismatch, so a never-hashed face still fails a published
+     * render loudly instead of silently rendering wrong.
+     */
+    private fun contentHash(tenantKey: TenantKey, variant: ImportFontVariant): String? {
+        val bytes = runCatching {
+            when (variant.source) {
+                FontVariantSource.CLASSPATH -> variant.classpathLocation?.let { location ->
+                    this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
+                }
+                FontVariantSource.ASSET -> variant.assetKey?.let { assetKey ->
+                    GetAssetContent(tenantKey, assetKey).query()?.content
+                }
+            }
+        }.getOrNull() ?: return null
+        return sha256Hex(bytes)
     }
 }

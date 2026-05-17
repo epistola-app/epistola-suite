@@ -62,6 +62,7 @@ class DocumentGenerationExecutor(
     private val schemaValidator: JsonSchemaValidator,
     private val contentStore: ContentStore,
     private val meterRegistry: MeterRegistry,
+    private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -269,6 +270,9 @@ class DocumentGenerationExecutor(
         val renderPath: String
         if (resolvedTheme != null && renderingDefaultsVersion != null) {
             renderPath = "snapshot"
+            // Deterministic-or-nothing: a published version must render with the
+            // exact font bytes pinned at publish. Fail loudly on drift.
+            fontSnapshotVerifier.verify(request.tenantKey, owningCatalogKey, resolvedTheme)
             // Deterministic path: use frozen theme + rendering defaults from publish time
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
             val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())

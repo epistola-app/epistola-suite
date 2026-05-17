@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewVariant
+import app.epistola.suite.fonts.queries.GetFontFamilyFingerprint
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.execute
@@ -15,8 +16,10 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -29,6 +32,9 @@ import tools.jackson.databind.node.ObjectNode
  */
 @Timeout(60)
 class SystemFontsIntegrationTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     private val objectMapper = ObjectMapper()
 
@@ -106,6 +112,53 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
             val fonts = ListFonts(TenantId(tenant.id), SYSTEM_CATALOG_KEY).query()
             assertThat(fonts).hasSize(8)
+        }
+    }
+
+    private val hexRegex = Regex("^[0-9a-f]{64}$")
+
+    @Test
+    fun `every seeded system font face has a 64-char hex content hash`() {
+        val tenant = createTenant("Fonts Hash Tenant")
+        val hashes = jdbi.withHandle<List<String?>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT content_hash FROM font_variants
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                """,
+            )
+                .bind("tenantKey", tenant.id.value)
+                .bind("catalogKey", SYSTEM_CATALOG_KEY.value)
+                .mapTo(String::class.java)
+                .list()
+        }
+        // 8 families × 4 bundled faces.
+        assertThat(hashes).hasSize(32)
+        assertThat(hashes).allSatisfy { h ->
+            assertThat(h)
+                .withFailMessage("content_hash is not a 64-char lowercase hex SHA-256: %s", h)
+                .isNotNull()
+                .matches { it != null && hexRegex.matches(it) }
+        }
+    }
+
+    @Test
+    fun `re-seeding system fonts is hash-idempotent`() {
+        val tenant = createTenant("Fonts Hash Idempotent Tenant")
+        withMediator {
+            val before = expectedSlugs.associateWith { slug ->
+                GetFontFamilyFingerprint(tenant.id, SYSTEM_CATALOG_KEY, FontKey.of(slug)).query()
+            }
+            assertThat(before.values).allSatisfy { assertThat(it).isNotNull() }
+
+            // CreateTenant already ran EnsureSystemFonts; re-run it (ImportFont
+            // re-hashes from the same classpath bytes) — fingerprints must hold.
+            app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
+
+            val after = expectedSlugs.associateWith { slug ->
+                GetFontFamilyFingerprint(tenant.id, SYSTEM_CATALOG_KEY, FontKey.of(slug)).query()
+            }
+            assertThat(after).isEqualTo(before)
         }
     }
 
