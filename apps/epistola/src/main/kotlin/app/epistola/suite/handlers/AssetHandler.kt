@@ -26,7 +26,9 @@ import java.util.UUID
 import javax.imageio.ImageIO
 
 @Component
-class AssetHandler {
+class AssetHandler(
+    private val assetTypeCatalog: app.epistola.suite.assets.AssetTypeCatalog,
+) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -115,7 +117,7 @@ class AssetHandler {
                 .body(mapOf("error" to "No content type on uploaded file"))
 
         val mediaType = try {
-            AssetMediaType.fromMimeType(contentType)
+            assetTypeCatalog.require(contentType)
         } catch (e: UnsupportedAssetTypeException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)

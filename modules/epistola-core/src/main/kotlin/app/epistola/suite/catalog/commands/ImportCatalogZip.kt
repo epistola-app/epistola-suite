@@ -4,6 +4,7 @@ import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
@@ -117,6 +118,7 @@ class ImportCatalogZipHandler(
                         is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset '${dep.slug}'"
                         is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.slug}' from catalog '${dep.catalogKey}'"
                     }
                 }
                 throw IllegalArgumentException(
@@ -266,6 +268,25 @@ class ImportCatalogZipHandler(
             },
         ).execute()
 
+        is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = resource.slug,
+            name = resource.name,
+            kind = resource.kind,
+            // Every variant's binary rode the ZIP as an `AssetResource`
+            // installed in this same catalog (asset slug = asset UUID).
+            // System (CLASSPATH) fonts are never exported.
+            variants = resource.variants.map { entry ->
+                app.epistola.suite.fonts.commands.ImportFontVariant(
+                    weight = entry.weight,
+                    italic = entry.italic,
+                    source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
+                    assetKey = AssetKey.of(java.util.UUID.fromString(entry.assetSlug)),
+                )
+            },
+        ).execute()
+
         is AssetResource -> {
             // Resolve binary content from ZIP entries
             val contentPath = resource.contentUrl.removePrefix("./")
@@ -344,6 +365,18 @@ class ImportCatalogZipHandler(
                     .list()
                     .let { found.addAll(it) }
             }
+
+            // Catalog-scoped: fonts. Same `catalog_key + slug` PK-probe shape
+            // as themes/stencils/code lists.
+            val fontDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Font>()
+            if (fontDeps.isNotEmpty()) {
+                handle.createQuery("SELECT catalog_key, slug FROM fonts WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
+                    .bind("tenantKey", tenantKey)
+                    .bindList("slugs", fontDeps.map { it.slug })
+                    .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
+                    .list()
+                    .let { found.addAll(it) }
+            }
         }
 
         return deps.filter { dep ->
@@ -352,6 +385,7 @@ class ImportCatalogZipHandler(
                 is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.slug}" !in found
             }
         }
     }

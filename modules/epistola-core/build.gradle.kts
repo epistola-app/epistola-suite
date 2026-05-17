@@ -45,6 +45,9 @@ dependencies {
     // UUID generation
     implementation(libs.uuid.creator)
 
+    // In-process font byte cache (version managed by the Spring Boot BOM)
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     // AWS SDK v2 (S3 content storage backend)
     implementation(platform(libs.aws.bom))
     implementation(libs.aws.s3)

@@ -8,6 +8,7 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
@@ -18,6 +19,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
@@ -60,6 +62,8 @@ class DocumentGenerationExecutor(
     private val schemaValidator: JsonSchemaValidator,
     private val contentStore: ContentStore,
     private val meterRegistry: MeterRegistry,
+    private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
+    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -254,6 +258,12 @@ class DocumentGenerationExecutor(
             mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
+        // Owning catalog for unqualified font refs: same cascade as theme
+        // resolution / asset binding (template theme catalog → tenant default
+        // theme catalog → the tenant's default catalog).
+        val owningCatalogKey =
+            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
+        val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
 
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme
@@ -261,6 +271,9 @@ class DocumentGenerationExecutor(
         val renderPath: String
         if (resolvedTheme != null && renderingDefaultsVersion != null) {
             renderPath = "snapshot"
+            // Deterministic-or-nothing: a published version must render with the
+            // exact font bytes pinned at publish. Fail loudly on drift.
+            fontSnapshotVerifier.verify(request.tenantKey, owningCatalogKey, resolvedTheme)
             // Deterministic path: use frozen theme + rendering defaults from publish time
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
             val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
@@ -273,6 +286,7 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
             )
         } else {
             renderPath = "legacy"
@@ -290,6 +304,7 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )

@@ -4,6 +4,7 @@ import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.CodeListResource
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
@@ -20,6 +21,8 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.commands.ImportFont
+import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -111,6 +114,7 @@ class InstallFromCatalogHandler(
         is AttributeResource -> installAttribute(command, resource)
         is AssetResource -> installAsset(command, resource, sourceUrl, authType, credential)
         is CodeListResource -> installCodeList(command, resource)
+        is FontResource -> installFont(command, resource)
     }
 
     private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
@@ -214,6 +218,29 @@ class InstallFromCatalogHandler(
                     label = wire.label,
                     sortOrder = wire.sortOrder,
                     hidden = wire.hidden,
+                )
+            },
+        ).execute()
+    }
+
+    private fun installFont(command: InstallFromCatalog, resource: FontResource): InstallStatus {
+        val tenantId = TenantId(command.tenantKey)
+        // Each variant's binary rode the catalog as an `AssetResource` already
+        // imported in this same catalog, so every variant is ASSET-backed and
+        // the asset slug is the asset's UUID. System (CLASSPATH) fonts are
+        // never exported and so never arrive over the wire.
+        return ImportFont(
+            tenantId = tenantId,
+            catalogKey = command.catalogKey,
+            slug = resource.slug,
+            name = resource.name,
+            kind = resource.kind,
+            variants = resource.variants.map { entry ->
+                ImportFontVariant(
+                    weight = entry.weight,
+                    italic = entry.italic,
+                    source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
+                    assetKey = app.epistola.suite.common.ids.AssetKey.of(java.util.UUID.fromString(entry.assetSlug)),
                 )
             },
         ).execute()

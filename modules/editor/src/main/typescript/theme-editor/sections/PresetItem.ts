@@ -10,6 +10,7 @@ import { html } from 'lit';
 import type { StyleProperty } from '@epistola.app/epistola-model/generated/style-registry';
 import type { BlockStylePreset } from '@epistola.app/epistola-model/generated/theme';
 import { defaultStyleRegistry } from '../../engine/style-registry.js';
+import { normalizeFontFamilyValue, fontFamilyValueToSelectValue } from '../../engine/font-ref.js';
 import {
   renderUnitInput,
   renderColorInput,
@@ -197,9 +198,9 @@ function renderPresetStyleInput(
   switch (prop.type) {
     case 'select':
       return renderSelectInput(
-        value,
+        prop.key === 'fontFamily' ? fontFamilyValueToSelectValue(value) : value,
         prop.options ?? [],
-        (v) => onChange(v || undefined),
+        (v) => onChange(prop.key === 'fontFamily' ? normalizeFontFamilyValue(v) : v || undefined),
         inputId,
         readOnly,
       );

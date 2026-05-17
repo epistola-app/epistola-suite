@@ -44,6 +44,13 @@ class TextNodeRenderer : NodeRenderer {
             rawStyles["lineHeight"]?.toString()?.toFloatOrNull()?.let {
                 put("lineHeight", it)
             }
+            // Forward the resolved font face so ProseMirrorConverter renders
+            // headings and bold/italic marks in the *selected* family (not the
+            // built-in fallback). fontWeight/fontStyle are passed through and
+            // parsed by FaceContext; fontFamily is the structured ref.
+            rawStyles["fontFamily"]?.let { put("fontFamily", it) }
+            rawStyles["fontWeight"]?.let { put("fontWeight", it) }
+            rawStyles["fontStyle"]?.let { put("fontStyle", it) }
         }
 
         // Convert ProseMirror content to iText elements

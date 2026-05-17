@@ -2,9 +2,11 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.catalog.commands.InvalidCatalogException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -35,10 +37,13 @@ class DependencyResolver(
         val missing = mutableSetOf<String>()
 
         // Templates and stencils have content to walk; attributes carry a
-        // (potentially same-catalog) code-list reference. Scan all three on
-        // the first pass; recursion only needs to revisit stencils brought
-        // in by templates (their content can in turn reference more stencils).
-        var toScan = selected.filter { it.type == "template" || it.type == "stencil" || it.type == "attribute" }
+        // (potentially same-catalog) code-list reference; themes carry a
+        // (potentially same-catalog) fontFamily reference. Scan all on the
+        // first pass; recursion revisits stencils, attributes and themes
+        // brought in transitively (a pulled theme can pull a same-catalog font).
+        var toScan = selected.filter {
+            it.type == "template" || it.type == "stencil" || it.type == "attribute" || it.type == "theme"
+        }
 
         while (toScan.isNotEmpty()) {
             val deps = mutableListOf<DependencyScanner.Dependencies>()
@@ -80,6 +85,25 @@ class DependencyResolver(
                             deps += DependencyScanner.Dependencies(codeListRefs = setOf(binding.slug))
                         }
                     }
+                    is ThemeResource -> {
+                        // A theme's documentStyles / blockStylePresets can carry
+                        // a `fontFamily` ref. Same-catalog refs (no explicit
+                        // catalogKey) are auto-pulled; cross-catalog ones are
+                        // declared on manifest.dependencies and checked at
+                        // install-time.
+                        val sameCatalogFonts = DependencyScanner
+                            .themeFontRefs(resource.documentStyles, resource.blockStylePresets)
+                            .filter { it.catalogKey == null }
+                            .mapTo(mutableSetOf()) { it.slug }
+                        if (sameCatalogFonts.isNotEmpty()) {
+                            deps += DependencyScanner.Dependencies(fontRefs = sameCatalogFonts)
+                        }
+                    }
+                    is FontResource -> {
+                        // A `FontResource` carries no binding to scan: its
+                        // faces are same-catalog assets, which are declared
+                        // and pulled in as ordinary asset dependencies.
+                    }
                     else -> {}
                 }
             }
@@ -105,11 +129,12 @@ class DependencyResolver(
             merged.attributeKeys.forEach { resolve("attribute", it) }
             merged.assetRefs.forEach { resolve("asset", it) }
             merged.codeListRefs.forEach { resolve("codeList", it) }
+            merged.fontRefs.forEach { resolve("font", it) }
 
             // Continue scanning anything newly discovered that can pull in
             // further dependencies: stencils (template-model content) and
             // attributes (newly discovered via template `variants[].attributes`).
-            toScan = newEntries.filter { it.type == "stencil" || it.type == "attribute" }
+            toScan = newEntries.filter { it.type == "stencil" || it.type == "attribute" || it.type == "theme" }
         }
 
         if (missing.isNotEmpty()) {

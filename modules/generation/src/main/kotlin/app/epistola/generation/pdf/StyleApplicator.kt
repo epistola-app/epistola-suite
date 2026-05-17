@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.protocol.FontRef
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.borders.DashedBorder
@@ -9,11 +10,14 @@ import com.itextpdf.layout.element.BlockElement
 import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
+import org.slf4j.LoggerFactory
 
 /**
  * Applies CSS-like styles to iText elements.
  */
 object StyleApplicator {
+
+    private val log = LoggerFactory.getLogger(StyleApplicator::class.java)
 
     /**
      * Style property keys that cascade from document styles to block elements.
@@ -202,16 +206,24 @@ object StyleApplicator {
             }
         }
 
-        // Font weight
-        val isBold = (styles["fontWeight"] as? String)?.let { weight ->
-            weight == "bold" || weight.toIntOrNull()?.let { it >= 700 } == true
-        } ?: false
+        // Font weight: a CSS numeric weight 1..1000. Keywords map to the
+        // canonical numeric stops; absent/unrecognised → 400 (normal).
+        val weight = parseFontWeight(styles["fontWeight"])
 
         // Font style
         val isItalic = (styles["fontStyle"] as? String) == "italic"
 
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
+        // Font family + weight/style.
+        // A structured fontFamily reference selects the referenced font; the
+        // resolver (which owns the DB) picks the nearest available face for
+        // the requested (weight, italic). Without a reference the legacy
+        // behaviour applies: only swap to the built-in bold/italic when the
+        // numeric weight is bold (>= 700) or italic is requested.
+        val fontRef = parseFontRef(styles["fontFamily"])
+        val isBold = weight >= FontCache.BOLD_THRESHOLD
+        if (fontRef != null) {
+            element.setFont(fontCache.font(fontRef, weight, isItalic))
+        } else if (isBold || isItalic) {
             val font = when {
                 isBold -> fontCache.bold
                 else -> fontCache.italic
@@ -280,6 +292,46 @@ object StyleApplicator {
         "borderBottom" to { el, b -> (el as BlockElement<Any>).setBorderBottom(b) },
         "borderLeft" to { el, b -> (el as BlockElement<Any>).setBorderLeft(b) },
     )
+
+    /**
+     * Parses a style map's `fontFamily` value into a [FontRef].
+     * A structured `{ slug, catalogKey? }` object yields a reference (`slug`
+     * required and non-blank, `catalogKey` optional); a legacy CSS-stack
+     * string (or anything else) yields null, preserving pre-font-catalog
+     * behaviour.
+     */
+    internal fun parseFontRef(value: Any?): FontRef? {
+        if (value == null) return null
+        val ref = FontRefs.parse(value)
+        if (ref == null) {
+            log.warn("Ignoring malformed fontFamily (expected {{slug, catalogKey}} with a non-blank slug): {}", value)
+        }
+        return ref
+    }
+
+    /**
+     * Parses a CSS `font-weight` value to a numeric weight clamped to 1..1000.
+     *
+     * - `"normal"`, absent, or unrecognised → 400
+     * - `"bold"` → 700
+     * - `"lighter"` → 300
+     * - `"bolder"` → 600
+     * - a number (Int/Number) or numeric string → that value clamped 1..1000
+     */
+    internal fun parseFontWeight(value: Any?): Int {
+        val numeric: Int? = when (value) {
+            is Number -> value.toInt()
+            is String -> when (value.trim().lowercase()) {
+                "", "normal" -> 400
+                "bold" -> 700
+                "lighter" -> 300
+                "bolder" -> 600
+                else -> value.trim().toIntOrNull()
+            }
+            else -> null
+        }
+        return (numeric ?: 400).coerceIn(1, 1000)
+    }
 
     private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
         SpacingScale.parseSp(fontSize, spacingUnit)?.let { return it }

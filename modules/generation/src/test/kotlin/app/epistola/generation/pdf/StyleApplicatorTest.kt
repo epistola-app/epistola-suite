@@ -1,10 +1,12 @@
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.protocol.FontRef
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.properties.Property
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class StyleApplicatorTest {
@@ -263,6 +265,156 @@ class StyleApplicatorTest {
             fontCache = fontCache,
         )
         assertEquals(null, div.getProperty<Boolean>(Property.KEEP_TOGETHER))
+    }
+
+    // -----------------------------------------------------------------------
+    // fontFamily resolution
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `structured fontFamily ref applies the resolved font`() {
+        val liberation = StyleApplicatorTest::class.java
+            .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
+        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
+        val div = Div()
+
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("fontFamily" to mapOf("slug" to "inter", "catalogKey" to "system")),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            inheritedStyles = emptyMap(),
+            fontCache = cache,
+        )
+
+        val applied = div.getProperty<Any?>(Property.FONT)
+        assertNotNull(applied, "A structured fontFamily ref must apply a font")
+        assertSame(cache.font(FontRef("system", "inter"), weight = 400, italic = false), applied)
+    }
+
+    @Test
+    fun `legacy string fontFamily does not crash and applies no custom font`() {
+        val div = Div()
+
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("fontFamily" to "Helvetica, Arial, sans-serif"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            inheritedStyles = emptyMap(),
+            fontCache = fontCache,
+        )
+
+        // No structured ref, no bold/italic → font is left to document default.
+        assertEquals(null, div.getProperty<Any?>(Property.FONT))
+    }
+
+    /**
+     * Malformed `fontFamily` values must NOT parse into a [FontRef] (so the
+     * resolver is never consulted) and must not throw. We prove "no ref
+     * parsed" via behaviour: a resolver that would always supply a custom
+     * font if asked, yet no FONT property is set because `parseFontRef`
+     * returned null for the malformed input.
+     */
+    private fun assertMalformedFontFamilyAppliesNoFont(value: Any) {
+        val liberation = StyleApplicatorTest::class.java
+            .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
+        // This resolver would embed a custom font for ANY ref it is asked about.
+        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
+        val div = Div()
+
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("fontFamily" to value),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            inheritedStyles = emptyMap(),
+            fontCache = cache,
+        )
+
+        // parseFontRef returned null (malformed) → no ref → resolver never
+        // consulted → no custom font applied, and no exception thrown.
+        assertEquals(
+            null,
+            div.getProperty<Any?>(Property.FONT),
+            "Malformed fontFamily ($value) must not apply a custom font",
+        )
+    }
+
+    @Test
+    fun `malformed fontFamily as a plain string applies no custom font`() {
+        assertMalformedFontFamilyAppliesNoFont("Inter")
+    }
+
+    @Test
+    fun `malformed fontFamily as a map without slug applies no custom font`() {
+        assertMalformedFontFamilyAppliesNoFont(mapOf("catalogKey" to "system"))
+    }
+
+    @Test
+    fun `malformed fontFamily as a map with blank slug applies no custom font`() {
+        assertMalformedFontFamilyAppliesNoFont(mapOf("slug" to "   ", "catalogKey" to "system"))
+    }
+
+    // -----------------------------------------------------------------------
+    // parseFontWeight — CSS font-weight normalisation (1..1000)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `parseFontWeight null defaults to 400`() {
+        assertEquals(400, StyleApplicator.parseFontWeight(null))
+    }
+
+    @Test
+    fun `parseFontWeight keyword normal is 400`() {
+        assertEquals(400, StyleApplicator.parseFontWeight("normal"))
+    }
+
+    @Test
+    fun `parseFontWeight keyword bold is 700`() {
+        assertEquals(700, StyleApplicator.parseFontWeight("bold"))
+    }
+
+    @Test
+    fun `parseFontWeight keyword lighter is 300`() {
+        assertEquals(300, StyleApplicator.parseFontWeight("lighter"))
+    }
+
+    @Test
+    fun `parseFontWeight keyword bolder is 600`() {
+        assertEquals(600, StyleApplicator.parseFontWeight("bolder"))
+    }
+
+    @Test
+    fun `parseFontWeight numeric Int is preserved`() {
+        assertEquals(500, StyleApplicator.parseFontWeight(500))
+    }
+
+    @Test
+    fun `parseFontWeight numeric string is preserved`() {
+        assertEquals(500, StyleApplicator.parseFontWeight("500"))
+    }
+
+    @Test
+    fun `parseFontWeight preserves the 699 700 boundary`() {
+        assertEquals(699, StyleApplicator.parseFontWeight(699))
+        assertEquals(700, StyleApplicator.parseFontWeight(700))
+        assertEquals(699, StyleApplicator.parseFontWeight("699"))
+        assertEquals(700, StyleApplicator.parseFontWeight("700"))
+    }
+
+    @Test
+    fun `parseFontWeight clamps out-of-range numbers to 1 and 1000`() {
+        assertEquals(1, StyleApplicator.parseFontWeight(0))
+        assertEquals(1, StyleApplicator.parseFontWeight(-50))
+        assertEquals(1000, StyleApplicator.parseFontWeight(2000))
+        assertEquals(1000, StyleApplicator.parseFontWeight("2000"))
+    }
+
+    @Test
+    fun `parseFontWeight unrecognised string defaults to 400`() {
+        // Documented contract: "unrecognised → 400".
+        assertEquals(400, StyleApplicator.parseFontWeight("garbage"))
     }
 
     // -----------------------------------------------------------------------
