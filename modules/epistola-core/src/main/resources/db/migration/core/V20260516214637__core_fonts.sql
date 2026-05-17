@@ -20,18 +20,15 @@
 -- catalog already emit structured refs).
 
 -- ============================================================================
--- FONT MEDIA TYPES (extend the shared assets constraint)
+-- FONT MEDIA TYPES (register in the asset_types lookup)
 -- ============================================================================
--- Uploaded font-face binaries are ordinary assets, so the assets media-type
--- whitelist must accept font formats. TTF/OTF only — the PDF font embedder
--- consumes sfnt-flavoured binaries (WOFF2 is rejected at upload).
-ALTER TABLE assets DROP CONSTRAINT chk_assets_media_type;
-ALTER TABLE assets ADD CONSTRAINT chk_assets_media_type CHECK (
-    media_type IN (
-        'image/png', 'image/jpeg', 'image/svg+xml', 'image/webp',
-        'font/ttf', 'font/otf'
-    )
-);
+-- Uploaded font-face binaries are ordinary assets, so the font formats must
+-- be allowed asset media types. TTF/OTF only — the PDF font embedder consumes
+-- sfnt-flavoured binaries (WOFF2 is rejected at upload). Just an INSERT now
+-- (no CHECK to alter), the whole point of the asset_types lookup.
+INSERT INTO asset_types (media_type) VALUES
+    ('font/ttf'),
+    ('font/otf');
 
 -- ============================================================================
 -- DOMAIN TYPES
