@@ -300,7 +300,7 @@ object StyleApplicator {
      * string (or anything else) yields null, preserving pre-font-catalog
      * behaviour.
      */
-    private fun parseFontRef(value: Any?): FontRef? {
+    internal fun parseFontRef(value: Any?): FontRef? {
         if (value == null) return null
         val map = value as? Map<*, *>
         if (map == null) {
