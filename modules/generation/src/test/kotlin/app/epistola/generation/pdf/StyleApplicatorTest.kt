@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.protocol.FontRef
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.properties.Property
 import kotlin.test.Test
@@ -274,7 +275,7 @@ class StyleApplicatorTest {
     fun `structured fontFamily ref applies the resolved font`() {
         val liberation = StyleApplicatorTest::class.java
             .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
-        val cache = FontCache(fontFamilyResolver = { _, _, _ -> liberation })
+        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
         val div = Div()
 
         StyleApplicator.applyStylesWithPreset(
@@ -288,7 +289,7 @@ class StyleApplicatorTest {
 
         val applied = div.getProperty<Any?>(Property.FONT)
         assertNotNull(applied, "A structured fontFamily ref must apply a font")
-        assertSame(cache.font(ResolvedFontRef("system", "inter"), isBold = false, isItalic = false), applied)
+        assertSame(cache.font(FontRef("system", "inter"), weight = 400, italic = false), applied)
     }
 
     @Test

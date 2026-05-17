@@ -10,17 +10,22 @@ import app.epistola.suite.fonts.model.Font
  * `readOnly` is true for SUBSCRIBED-catalog families (e.g. the bundled
  * `system` fonts), consistent with the code-list/attribute MCP DTOs.
  */
+data class FontVariantInfo(
+    val weight: Int,
+    val italic: Boolean,
+)
+
 data class FontInfo(
     val slug: String,
     val catalog: String,
     val name: String,
     val kind: String,
-    val variants: List<String>,
+    val variants: List<FontVariantInfo>,
     val catalogType: String,
     val readOnly: Boolean,
 ) {
     companion object {
-        fun from(font: Font, variants: List<String>): FontInfo {
+        fun from(font: Font, variants: List<FontVariantInfo>): FontInfo {
             val subscribed =
                 font.catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED
             return FontInfo(

@@ -19,7 +19,6 @@ import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariant
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
@@ -46,20 +45,17 @@ import org.springframework.web.servlet.function.ServerResponse
  *
  * - `search`  → JSON list of the fonts visible to the editing context (the
  *   owning catalog + the always-present `system` catalog), each carrying the
- *   `@font-face` family name and per-variant content URLs the editor needs.
+ *   `@font-face` family name and one content URL per weight/italic face.
  * - `content` → streams a single font-face TTF with immutable cache headers.
  */
 @Component
 class FontHandler {
 
-    /** Wire variant names a font family can carry, in display order. */
-    private val variantOrder = listOf("regular", "bold", "italic", "bold_italic")
-
     /**
      * Font management list page (mirrors `AssetHandler.list`). Lists font
      * families for the tenant (optionally filtered by catalog), each annotated
-     * with which of the four faces are present and whether its catalog is
-     * editable (AUTHORED) or read-only (SUBSCRIBED, e.g. `system`).
+     * with its weight/italic faces and whether its catalog is editable
+     * (AUTHORED) or read-only (SUBSCRIBED, e.g. `system`).
      */
     fun list(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
@@ -99,8 +95,9 @@ class FontHandler {
 
     /**
      * Upload handler: creates an `assets` row per provided face, then upserts
-     * the family + variants via [ImportFont]. `regular` is required;
-     * bold/italic/bold-italic are optional. AUTHORED catalogs only.
+     * the family + variants via [ImportFont]. The form submits a repeating set
+     * of faces — parallel `file` / `weight` / `italic` fields, one entry per
+     * row. At least one face file is required. AUTHORED catalogs only.
      */
     fun upload(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
@@ -129,35 +126,54 @@ class FontHandler {
         val catalogKeyStr = field("catalog") ?: return badRequest("catalog is required")
         val catalogKey = CatalogKey.of(catalogKeyStr)
 
-        // Collect the provided face files. `regular` is mandatory.
-        val faceParts: Map<String, Part> = variantOrder.mapNotNull { variant ->
-            multipartData["file_$variant"]?.firstOrNull()
-                ?.takeIf { (it.submittedFileName ?: "").isNotBlank() && it.size > 0 }
-                ?.let { variant to it }
-        }.toMap()
+        // Collect the repeating face rows: parallel `file` / `weight` /
+        // `italic` fields, indexed positionally. Rows whose file is empty are
+        // skipped (the template renders at least one row but extras may be
+        // blank). At least one face file is required.
+        val fileParts: List<Part> = multipartData["file"].orEmpty()
+        val weights: List<String> = multipartData["weight"].orEmpty()
+            .map { String(it.inputStream.readAllBytes()).trim() }
+        val italics: List<String> = multipartData["italic"].orEmpty()
+            .map { String(it.inputStream.readAllBytes()).trim() }
 
-        if ("regular" !in faceParts) {
-            return badRequest("A regular face is required")
+        data class FaceRow(val part: Part, val weight: Int, val italic: Boolean)
+        val rows = mutableListOf<FaceRow>()
+        for ((idx, part) in fileParts.withIndex()) {
+            if ((part.submittedFileName ?: "").isBlank() || part.size <= 0L) continue
+            val weight = weights.getOrNull(idx)?.toIntOrNull()
+                ?: return badRequest("Each face needs a numeric weight (1–1000)")
+            if (weight !in 1..1000) {
+                return badRequest("Font weight must be between 1 and 1000")
+            }
+            val italic = italics.getOrNull(idx)?.equals("true", ignoreCase = true) == true
+            rows += FaceRow(part, weight, italic)
+        }
+
+        if (rows.isEmpty()) {
+            return badRequest("At least one face file is required")
+        }
+        if (rows.map { it.weight to it.italic }.toSet().size != rows.size) {
+            return badRequest("Each (weight, italic) face must be unique")
         }
 
         val importVariants = mutableListOf<ImportFontVariant>()
         try {
-            for (variant in variantOrder) {
-                val part = faceParts[variant] ?: continue
+            for (row in rows) {
+                val part = row.part
                 val contentType = part.contentType
-                    ?: return badRequest("No content type on uploaded $variant face")
+                    ?: return badRequest("No content type on uploaded face")
                 val mediaType = try {
                     AssetMediaType.fromMimeType(contentType)
                 } catch (e: UnsupportedAssetTypeException) {
                     return badRequest(e.message)
                 }
                 if (mediaType !in FONT_MEDIA_TYPES) {
-                    return badRequest("Unsupported font format: $contentType. Use TTF, OTF, or WOFF2.")
+                    return badRequest("Unsupported font format: $contentType. Use TTF or OTF.")
                 }
                 val bytes = part.inputStream.use { it.readAllBytes() }
                 val asset = UploadAsset(
                     tenantId = tenantKey,
-                    name = part.submittedFileName ?: "${slug.value}-$variant",
+                    name = part.submittedFileName ?: "${slug.value}-${row.weight}${if (row.italic) "i" else ""}",
                     mediaType = mediaType,
                     content = bytes,
                     width = null,
@@ -165,7 +181,8 @@ class FontHandler {
                     catalogKey = catalogKey,
                 ).execute()
                 importVariants += ImportFontVariant(
-                    variant = variant,
+                    weight = row.weight,
+                    italic = row.italic,
                     source = FontVariantSource.ASSET,
                     assetKey = asset.id,
                 )
@@ -234,20 +251,29 @@ class FontHandler {
         }
     }
 
-    /** List-row view model: family metadata + which faces are present. */
+    /** List-row view model: family metadata + its weight/italic faces. */
     private fun toFontView(tenantId: TenantId, font: Font): Map<String, Any?> {
-        val present = GetFontVariants(
+        val faces = GetFontVariants(
             fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
-        ).query().map { it.variant.wire }.toSet()
+        ).query().map { row ->
+            mapOf(
+                "weight" to row.weight,
+                "italic" to row.italic,
+                "label" to faceLabel(row.weight, row.italic),
+            )
+        }
         return mapOf(
             "slug" to font.slug.value,
             "name" to font.name,
             "kind" to font.kind.wire,
             "catalogKey" to font.catalogKey.value,
             "catalogType" to (font.catalogType?.name ?: CatalogType.AUTHORED.name),
-            "variants" to variantOrder.map { mapOf("name" to it, "present" to (it in present)) },
+            "variants" to faces,
         )
     }
+
+    /** Human-friendly chip label, e.g. `400`, `700 italic`. */
+    private fun faceLabel(weight: Int, italic: Boolean): String = if (italic) "$weight italic" else "$weight"
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
@@ -271,9 +297,9 @@ class FontHandler {
         }
 
         val fontInfoList = merged.values.map { font ->
-            val variants = GetFontVariants(
+            val rows = GetFontVariants(
                 fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
-            ).query().map { it.variant.wire }
+            ).query()
 
             val family = "epistola-${font.catalogKey.value}-${font.slug.value}"
             mapOf(
@@ -281,11 +307,16 @@ class FontHandler {
                 "name" to font.name,
                 "kind" to font.kind.wire,
                 "catalogKey" to font.catalogKey.value,
-                "variants" to variants,
+                "variants" to rows.map { mapOf("weight" to it.weight, "italic" to it.italic) },
                 "css" to mapOf(
                     "family" to family,
-                    "urls" to variants.associateWith { variant ->
-                        "/tenants/${tenantKey.value}/fonts/${font.catalogKey.value}/${font.slug.value}/$variant/content"
+                    "faces" to rows.map { row ->
+                        mapOf(
+                            "weight" to row.weight,
+                            "italic" to row.italic,
+                            "url" to "/tenants/${tenantKey.value}/fonts/${font.catalogKey.value}/" +
+                                "${font.slug.value}/${row.weight}/${row.italic}/content",
+                        )
                     },
                 ),
             )
@@ -300,17 +331,18 @@ class FontHandler {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         val slug = FontKey.of(request.pathVariable("slug"))
-        val variant = try {
-            FontVariant.fromWire(request.pathVariable("variant"))
-        } catch (_: IllegalArgumentException) {
-            return ServerResponse.notFound().build()
-        }
+        val weight = request.pathVariable("weight").toIntOrNull()
+            ?.takeIf { it in 1..1000 }
+            ?: return ServerResponse.notFound().build()
+        val italic = request.pathVariable("italic").toBooleanStrictOrNull()
+            ?: return ServerResponse.notFound().build()
 
         val bytes = GetFontVariantContent(
             tenantId = tenantKey,
             catalogKey = catalogKey,
             slug = slug,
-            variant = variant,
+            weight = weight,
+            italic = italic,
         ).query() ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -324,7 +356,6 @@ class FontHandler {
         val FONT_MEDIA_TYPES = setOf(
             AssetMediaType.TTF,
             AssetMediaType.OTF,
-            AssetMediaType.WOFF2,
         )
     }
 }

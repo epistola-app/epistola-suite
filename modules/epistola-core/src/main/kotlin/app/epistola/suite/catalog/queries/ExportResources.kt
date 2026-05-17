@@ -306,17 +306,17 @@ class ExportFontsHandler(
         // System (CLASSPATH) faces are never exported — the wire format only
         // describes catalog-authored, asset-backed fonts. Filter the candidate
         // variants in Kotlin against the actual font set (JDBI has no tuple-IN
-        // binder and the row count is tiny: max 4 per font).
+        // binder and the row count is tiny).
         val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
         val variantsByFont = handle.createQuery(
             """
-            SELECT catalog_key, font_slug, variant, asset_key
+            SELECT catalog_key, font_slug, weight, italic, is_variable, asset_key
             FROM font_variants
             WHERE tenant_key = :tenantKey
               AND source = 'ASSET'
               AND catalog_key IN (<catalogs>)
               AND font_slug IN (<slugs>)
-            ORDER BY catalog_key, font_slug, variant
+            ORDER BY catalog_key, font_slug, italic, weight
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -324,8 +324,10 @@ class ExportFontsHandler(
             .bindList("slugs", fonts.map { it.slug }.distinct())
             .map { rs, _ ->
                 (rs.getString("catalog_key") to rs.getString("font_slug")) to FontVariantEntry(
-                    variant = rs.getString("variant"),
+                    weight = rs.getInt("weight"),
+                    italic = rs.getBoolean("italic"),
                     assetSlug = rs.getObject("asset_key", java.util.UUID::class.java).toString(),
+                    variable = rs.getBoolean("is_variable"),
                 )
             }
             .list()

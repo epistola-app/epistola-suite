@@ -43,27 +43,29 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="ep-label">Faces <span class="text-muted text-sm">(TTF, OTF, or WOFF2)</span></label>
-                        <div class="form-group">
-                            <label class="ep-label" for="file_regular">Regular <span class="text-muted text-sm">(required)</span></label>
-                            <input type="file" id="file_regular" name="file_regular"
-                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" required />
+                        <label class="ep-label">Faces <span class="text-muted text-sm">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
+                        <div id="font-faces">
+                            <div class="font-face-row form-group" style="display:flex; gap: var(--ep-space-2); align-items:flex-end;">
+                                <div style="flex:2;">
+                                    <label class="ep-label">File</label>
+                                    <input type="file" name="file"
+                                           accept="font/ttf,font/otf,.ttf,.otf" />
+                                </div>
+                                <div style="flex:1;">
+                                    <label class="ep-label">Weight</label>
+                                    <input type="number" name="weight" class="ep-input"
+                                           min="1" max="1000" step="1" value="400" />
+                                </div>
+                                <div style="flex:1;">
+                                    <label class="ep-label">Italic</label>
+                                    <select name="italic" class="ep-input">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="file_bold">Bold <span class="text-muted text-sm">(optional)</span></label>
-                            <input type="file" id="file_bold" name="file_bold"
-                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" />
-                        </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="file_italic">Italic <span class="text-muted text-sm">(optional)</span></label>
-                            <input type="file" id="file_italic" name="file_italic"
-                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" />
-                        </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="file_bold_italic">Bold italic <span class="text-muted text-sm">(optional)</span></label>
-                            <input type="file" id="file_bold_italic" name="file_bold_italic"
-                                   accept="font/ttf,font/otf,font/woff2,.ttf,.otf,.woff2" />
-                        </div>
+                        <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm">+ Add face</button>
                         <span id="font-upload-error" class="form-error" th:text="${error}"></span>
                     </div>
                     <div class="form-actions">
@@ -75,6 +77,23 @@
         </div>
 
         <script>
+            var fontFaces = document.getElementById('font-faces');
+            var addFaceBtn = document.getElementById('add-face-btn');
+            addFaceBtn.addEventListener('click', function() {
+                var rows = fontFaces.querySelectorAll('.font-face-row');
+                var clone = rows[0].cloneNode(true);
+                clone.querySelectorAll('input, select').forEach(function(el) {
+                    if (el.type === 'file') {
+                        el.value = '';
+                    } else if (el.name === 'weight') {
+                        el.value = '400';
+                    } else if (el.name === 'italic') {
+                        el.selectedIndex = 0;
+                    }
+                });
+                fontFaces.appendChild(clone);
+            });
+
             var fontUploadForm = document.getElementById('font-upload-form');
             var fontUploadError = document.getElementById('font-upload-error');
 

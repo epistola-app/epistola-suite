@@ -51,11 +51,11 @@
                                 <span th:text="${font.catalogKey}"></span>
                             </div>
                             <div class="asset-card-meta" style="margin-top: var(--ep-space-2);">
+                                <span th:if="${#lists.isEmpty(font.variants)}" class="badge badge-muted">No faces</span>
                                 <span th:each="v : ${font.variants}"
-                                      class="badge"
-                                      th:classappend="${v.present} ? ' badge-success' : ' badge-muted'"
-                                      th:text="${v.name}"
-                                      th:title="${v.present} ? 'Present' : 'Not provided'"></span>
+                                      class="badge badge-success"
+                                      th:text="${v.label}"
+                                      th:title="'weight ' + ${v.weight} + (${v.italic} ? ', italic' : '')"></span>
                             </div>
                         </div>
                         <div class="asset-card-actions">

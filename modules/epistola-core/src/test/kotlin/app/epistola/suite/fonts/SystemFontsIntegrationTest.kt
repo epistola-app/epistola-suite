@@ -8,7 +8,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewVariant
-import app.epistola.suite.fonts.model.FontVariant
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.execute
@@ -65,24 +64,33 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         }
     }
 
+    /** The four canonical bundled faces: (weight, italic). */
+    private val expectedFaces = listOf(
+        400 to false,
+        700 to false,
+        400 to true,
+        700 to true,
+    )
+
     @Test
-    fun `each family resolves four variants to real font binaries`() {
+    fun `each family resolves four faces to real font binaries`() {
         val tenant = createTenant("Fonts2")
         withMediator {
             for (slug in expectedSlugs) {
-                for (variant in FontVariant.entries) {
+                for ((weight, italic) in expectedFaces) {
                     val bytes = GetFontVariantContent(
                         tenantId = tenant.id,
                         catalogKey = SYSTEM_CATALOG_KEY,
                         slug = FontKey.of(slug),
-                        variant = variant,
+                        weight = weight,
+                        italic = italic,
                     ).query()
                     assertThat(bytes)
-                        .withFailMessage("no bytes for $slug/$variant")
+                        .withFailMessage("no bytes for $slug/$weight/$italic")
                         .isNotNull()
                     assertThat(bytes!!.size).isGreaterThan(10_000)
                     assertThat(bytes.isFontBinary())
-                        .withFailMessage("$slug/$variant is not a TTF/OTF binary")
+                        .withFailMessage("$slug/$weight/$italic is not a TTF/OTF binary")
                         .isTrue()
                 }
             }

@@ -81,8 +81,8 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(
-                    ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = regular),
-                    ImportFontVariant("bold", FontVariantSource.ASSET, assetKey = bold),
+                    ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular),
+                    ImportFontVariant(700, false, FontVariantSource.ASSET, assetKey = bold),
                 ),
             ).execute()
 
@@ -92,8 +92,8 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             assertThat(acme.kind).isEqualTo(FontKind.SANS)
 
             val variants = GetFontVariants(FontId(FontKey.of("acme-sans"), CatalogId(CatalogKey.DEFAULT, tenantId)))
-                .query().map { it.variant.wire }
-            assertThat(variants).containsExactlyInAnyOrder("regular", "bold")
+                .query().map { it.weight to it.italic }
+            assertThat(variants).containsExactlyInAnyOrder(400 to false, 700 to false)
         }
     }
 
@@ -129,7 +129,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "delete-me",
                 name = "Delete Me",
                 kind = FontKind.SERIF.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
             ).execute()
 
             val deleted = DeleteFont(FontId(FontKey.of("delete-me"), CatalogId(CatalogKey.DEFAULT, tenantId))).execute()
@@ -167,7 +167,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "used-font",
                 name = "Used Font",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
             ).execute()
 
             CreateTheme(
@@ -207,7 +207,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "lonely-font",
                 name = "Lonely Font",
                 kind = FontKind.MONO.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
             ).execute()
 
             val usages = FindFontUsages(
@@ -229,7 +229,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "round-trip",
                 name = "Round Trip",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
             ).execute()
 
             // Simulate catalog import into a second tenant: re-import the same
@@ -243,7 +243,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "round-trip",
                 name = "Round Trip",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = importedAsset)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = importedAsset)),
             ).execute()
 
             val imported = ListFonts(tenantId = targetId, catalogKey = CatalogKey.DEFAULT).query()
@@ -251,8 +251,8 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             assertThat(imported.name).isEqualTo("Round Trip")
             assertThat(
                 GetFontVariants(FontId(FontKey.of("round-trip"), CatalogId(CatalogKey.DEFAULT, targetId)))
-                    .query().map { it.variant.wire },
-            ).containsExactly("regular")
+                    .query().map { it.weight to it.italic },
+            ).containsExactly(400 to false)
         }
     }
 }

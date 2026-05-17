@@ -16,13 +16,24 @@ function makeFont(slug: string, name: string, kind: string, catalogKey = 'system
     name,
     kind,
     catalogKey,
-    variants: ['regular', 'bold'],
+    variants: [
+      { weight: 400, italic: false },
+      { weight: 700, italic: false },
+    ],
     css: {
       family: `epistola-${catalogKey}-${slug}`,
-      urls: {
-        regular: `/tenants/t/fonts/${catalogKey}/${slug}/regular/content`,
-        bold: `/tenants/t/fonts/${catalogKey}/${slug}/bold/content`,
-      },
+      faces: [
+        {
+          weight: 400,
+          italic: false,
+          url: `/tenants/t/fonts/${catalogKey}/${slug}/400/false/content`,
+        },
+        {
+          weight: 700,
+          italic: false,
+          url: `/tenants/t/fonts/${catalogKey}/${slug}/700/false/content`,
+        },
+      ],
     },
   };
 }

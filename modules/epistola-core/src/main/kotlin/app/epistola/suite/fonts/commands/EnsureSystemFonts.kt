@@ -4,7 +4,6 @@ import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariant
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -16,8 +15,10 @@ import org.springframework.stereotype.Component
 /**
  * Seeds the eight bundled open-source font families into a tenant's `system`
  * catalog. Each family ships four static TTF faces on the classpath under
- * `epistola/fonts/<slug>/<slug>-<Variant>.ttf`; the rows just point at those
- * resources (`FontVariantSource.CLASSPATH`) — no per-tenant binary copy.
+ * `epistola/fonts/<slug>/<slug>-<Token>.ttf`, registered as the canonical CSS
+ * faces `(400,false)` / `(700,false)` / `(400,true)` / `(700,true)`; the rows
+ * just point at those resources (`FontVariantSource.CLASSPATH`) — no
+ * per-tenant binary copy.
  *
  * Idempotent: delegates to [ImportFont], which UPSERTs the `fonts` row and
  * delete-and-reinserts its `font_variants`. Re-running on every boot (via
@@ -56,12 +57,18 @@ private val SYSTEM_FONTS = listOf(
     SystemFont("jetbrains-mono", "JetBrains Mono", FontKind.MONO),
 )
 
-/** Wire variant name -> static TTF filename token (`<slug>-<token>.ttf`). */
-private val VARIANT_FILE_TOKEN = mapOf(
-    FontVariant.REGULAR to "Regular",
-    FontVariant.BOLD to "Bold",
-    FontVariant.ITALIC to "Italic",
-    FontVariant.BOLD_ITALIC to "BoldItalic",
+/**
+ * The four bundled faces per family: CSS (weight, italic) → static TTF
+ * filename token (`<slug>-<token>.ttf`). The bundled font *files* are
+ * unchanged — only their addressing moved to numeric weight + italic.
+ */
+private data class BundledFace(val weight: Int, val italic: Boolean, val token: String)
+
+private val BUNDLED_FACES = listOf(
+    BundledFace(weight = 400, italic = false, token = "Regular"),
+    BundledFace(weight = 700, italic = false, token = "Bold"),
+    BundledFace(weight = 400, italic = true, token = "Italic"),
+    BundledFace(weight = 700, italic = true, token = "BoldItalic"),
 )
 
 @Component
@@ -72,11 +79,12 @@ class EnsureSystemFontsHandler : CommandHandler<EnsureSystemFonts, Unit> {
     override fun handle(command: EnsureSystemFonts) {
         val tenantId = TenantId(command.tenantKey)
         for (font in SYSTEM_FONTS) {
-            val variants = VARIANT_FILE_TOKEN.map { (variant, token) ->
+            val variants = BUNDLED_FACES.map { face ->
                 ImportFontVariant(
-                    variant = variant.wire,
+                    weight = face.weight,
+                    italic = face.italic,
                     source = FontVariantSource.CLASSPATH,
-                    classpathLocation = "epistola/fonts/${font.slug}/${font.slug}-$token.ttf",
+                    classpathLocation = "epistola/fonts/${font.slug}/${font.slug}-${face.token}.ttf",
                 )
             }
             ImportFont(

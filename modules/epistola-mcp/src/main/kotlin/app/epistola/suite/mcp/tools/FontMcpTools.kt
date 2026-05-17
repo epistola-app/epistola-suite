@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mcp.dto.FontInfo
+import app.epistola.suite.mcp.dto.FontVariantInfo
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import org.springframework.ai.mcp.annotation.McpTool
@@ -31,8 +32,8 @@ class FontMcpTools(
         description = "List font families in the current tenant. Optionally narrow by " +
             "catalog (e.g. `system` for the bundled open-source families: inter, " +
             "roboto, lato, source-sans-3, source-serif-4, merriweather, lora, " +
-            "jetbrains-mono). Each entry carries the present variant faces " +
-            "(regular/bold/italic/bold_italic) and a `readOnly` flag for " +
+            "jetbrains-mono). Each entry carries the family's faces as " +
+            "{weight (1-1000), italic} pairs and a `readOnly` flag for " +
             "SUBSCRIBED-catalog (e.g. `system`) families.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
@@ -51,7 +52,7 @@ class FontMcpTools(
                     GetFontVariants(
                         fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
                     ),
-                ).map { it.variant.wire }
+                ).map { FontVariantInfo(it.weight, it.italic) }
                 FontInfo.from(font, variants)
             }
     }

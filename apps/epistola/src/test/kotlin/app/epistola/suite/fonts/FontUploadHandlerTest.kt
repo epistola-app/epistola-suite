@@ -27,9 +27,10 @@ import tools.jackson.databind.ObjectMapper
 /**
  * End-to-end coverage for the customer font upload UI (mirrors
  * `app.epistola.suite.assets.AssetRoutesTest`): a multipart POST creates the
- * asset binaries + the font family, SUBSCRIBED catalogs and a missing regular
- * face are rejected, and the family then appears in `ListFonts` + the JSON
- * `/fonts/search` editor surface.
+ * asset binaries + the font family from repeating (file, weight, italic) face
+ * rows, SUBSCRIBED catalogs and a face-less submission are rejected, and the
+ * family then appears in `ListFonts` + the JSON `/fonts/search` editor
+ * surface.
  */
 @SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -72,8 +73,12 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("name", "Acme Sans")
             payload.add("kind", "sans")
             payload.add("catalog", "default")
-            payload.add("file_regular", facePart("acme-sans-regular.ttf"))
-            payload.add("file_bold", facePart("acme-sans-bold.ttf"))
+            payload.add("file", facePart("acme-sans-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
+            payload.add("file", facePart("acme-sans-bold.ttf"))
+            payload.add("weight", "700")
+            payload.add("italic", "false")
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/fonts",
                 HttpEntity(payload, multipartHeaders()),
@@ -113,7 +118,9 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("name", "Rogue Sans")
             payload.add("kind", "sans")
             payload.add("catalog", "system")
-            payload.add("file_regular", facePart("rogue-regular.ttf"))
+            payload.add("file", facePart("rogue-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/fonts",
                 HttpEntity(payload, multipartHeaders()),
@@ -133,18 +140,17 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `upload without a regular face is rejected`() = fixture {
+    fun `upload without any face file is rejected`() = fixture {
         lateinit var testTenant: Tenant
 
-        given { testTenant = tenant("Font No Regular Tenant") }
+        given { testTenant = tenant("Font No Face Tenant") }
 
         whenever {
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("slug", "bold-only")
-            payload.add("name", "Bold Only")
+            payload.add("slug", "no-face")
+            payload.add("name", "No Face")
             payload.add("kind", "display")
             payload.add("catalog", "default")
-            payload.add("file_bold", facePart("bold-only-bold.ttf"))
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/fonts",
                 HttpEntity(payload, multipartHeaders()),
@@ -155,7 +161,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-            assertThat(response.body).contains("regular face is required")
+            assertThat(response.body).contains("At least one face file is required")
         }
     }
 
@@ -171,7 +177,9 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("name", "Bad")
             payload.add("kind", "sans")
             payload.add("catalog", "default")
-            payload.add("file_regular", facePart("bad-regular.ttf"))
+            payload.add("file", facePart("bad-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/fonts",
                 HttpEntity(payload, multipartHeaders()),
@@ -197,7 +205,9 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("name", "Temp Sans")
             payload.add("kind", "sans")
             payload.add("catalog", "default")
-            payload.add("file_regular", facePart("temp-regular.ttf"))
+            payload.add("file", facePart("temp-regular.ttf"))
+            payload.add("weight", "400")
+            payload.add("italic", "false")
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/fonts",
                 HttpEntity(payload, multipartHeaders()),

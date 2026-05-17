@@ -16,14 +16,18 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * A single font-face pointer carried by [ImportFont]. Exactly one of
+ * A single font-face pointer carried by [ImportFont], keyed by CSS numeric
+ * [weight] (1–1000; 400 = regular, 700 = bold) + [italic]. Exactly one of
  * [assetKey] / [classpathLocation] is non-null, matching the SQL CHECK.
+ * [variable] marks a reserved single-binary weight-axis font (stored only).
  */
 data class ImportFontVariant(
-    val variant: String,
+    val weight: Int,
+    val italic: Boolean,
     val source: FontVariantSource,
     val assetKey: AssetKey? = null,
     val classpathLocation: String? = null,
+    val variable: Boolean = false,
 )
 
 /**
@@ -107,15 +111,17 @@ class ImportFontHandler(
                 val batch = handle.prepareBatch(
                     """
                     INSERT INTO font_variants
-                        (tenant_key, catalog_key, font_slug, variant, source, asset_key, classpath_location)
-                    VALUES (:tenantKey, :catalogKey, :slug, :variant, :source, :assetKey, :classpathLocation)
+                        (tenant_key, catalog_key, font_slug, weight, italic, is_variable, source, asset_key, classpath_location)
+                    VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :isVariable, :source, :assetKey, :classpathLocation)
                     """,
                 )
                 for (variant in command.variants) {
                     batch.bind("tenantKey", command.tenantKey)
                         .bind("catalogKey", command.catalogKey)
                         .bind("slug", fontSlug)
-                        .bind("variant", variant.variant)
+                        .bind("weight", variant.weight)
+                        .bind("italic", variant.italic)
+                        .bind("isVariable", variant.variable)
                         .bind("source", variant.source.name)
                         .bind("assetKey", variant.assetKey?.value)
                         .bind("classpathLocation", variant.classpathLocation)

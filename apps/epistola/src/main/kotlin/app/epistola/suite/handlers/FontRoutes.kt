@@ -16,7 +16,7 @@ class FontRoutes(private val handler: FontHandler) {
             POST("", handler::upload)
             GET("/search", handler::search)
 
-            GET("/{catalogId}/{slug}/{variant}/content", handler::content)
+            GET("/{catalogId}/{slug}/{weight}/{italic}/content", handler::content)
             POST("/{catalogId}/{slug}/delete", handler::delete)
         }
     }

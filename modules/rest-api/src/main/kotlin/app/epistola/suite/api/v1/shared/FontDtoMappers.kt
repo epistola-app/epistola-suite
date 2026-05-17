@@ -5,12 +5,21 @@ import app.epistola.suite.fonts.model.Font
 import java.time.OffsetDateTime
 
 /**
+ * One face of a font family in the public REST view: CSS numeric `weight`
+ * (1–1000) + `italic`.
+ */
+data class FontVariantDto(
+    val weight: Int,
+    val italic: Boolean,
+)
+
+/**
  * Public, read-only REST view of a font family.
  *
  * Deliberately read-only: like assets, font binaries are managed through the
  * UI / catalog exchange only — there is no create/update/delete over REST. The
- * DTO carries the family metadata plus the list of present variant wire names
- * (`regular` / `bold` / `italic` / `bold_italic`).
+ * DTO carries the family metadata plus the list of weight/italic faces it
+ * ships.
  *
  * Hand-written (not generated from `epistola-contract`): the published contract
  * artifact has no Fonts API surface, so this controller + DTO are local to the
@@ -24,7 +33,7 @@ data class FontDto(
     val catalog: String,
     val catalogType: String,
     val readOnly: Boolean,
-    val variants: List<String>,
+    val variants: List<FontVariantDto>,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
 )
@@ -33,7 +42,7 @@ data class FontListResponse(
     val items: List<FontDto>,
 )
 
-internal fun Font.toDto(variants: List<String>) = FontDto(
+internal fun Font.toDto(variants: List<FontVariantDto>) = FontDto(
     slug = slug.value,
     name = name,
     kind = kind.wire,

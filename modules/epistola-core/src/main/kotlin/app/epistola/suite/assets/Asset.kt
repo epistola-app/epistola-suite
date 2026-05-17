@@ -17,7 +17,6 @@ enum class AssetMediaType(val mimeType: String) {
     WEBP("image/webp"),
     TTF("font/ttf"),
     OTF("font/otf"),
-    WOFF2("font/woff2"),
     ;
 
     companion object {

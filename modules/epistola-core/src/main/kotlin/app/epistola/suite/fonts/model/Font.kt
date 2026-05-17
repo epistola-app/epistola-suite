@@ -9,9 +9,9 @@ import org.jdbi.v3.core.mapper.reflect.ColumnName
 import java.time.OffsetDateTime
 
 /**
- * A font family: a thin, catalog-scoped grouping over up to four font-face
- * binaries (regular / bold / italic / bold-italic). Tenant + catalog scoped,
- * mirroring the code lists / assets it groups.
+ * A font family: a thin, catalog-scoped grouping over N font-face binaries,
+ * each keyed by a CSS numeric weight (1–1000) + italic flag. Tenant + catalog
+ * scoped, mirroring the code lists / assets it groups.
  *
  * Variants are loaded separately via `GetFontVariants` — the listing UI only
  * needs the family metadata.
@@ -57,25 +57,6 @@ enum class FontKind(val wire: String) {
 }
 
 /**
- * One of the up-to-four faces a font family can carry. Stored and read as the
- * lowercase wire form to match the `FONT_VARIANT` SQL domain.
- */
-enum class FontVariant(val wire: String) {
-    REGULAR("regular"),
-    BOLD("bold"),
-    ITALIC("italic"),
-    BOLD_ITALIC("bold_italic"),
-    ;
-
-    companion object {
-        private val BY_WIRE = entries.associateBy { it.wire }
-
-        fun fromWire(wire: String): FontVariant = BY_WIRE[wire]
-            ?: throw IllegalArgumentException("Unknown font variant: $wire")
-    }
-}
-
-/**
  * Where a variant's binary lives:
  *
  * - `ASSET`     — an ordinary `assets` row in the same catalog (uploaded
@@ -89,14 +70,20 @@ enum class FontVariantSource {
 }
 
 /**
- * A single font-face pointer. Exactly one of [assetKey] / [classpathLocation]
- * is non-null, matching the `chk_font_variant_source` SQL CHECK.
+ * A single font-face pointer, keyed by CSS numeric [weight] (1–1000;
+ * 400 = regular, 700 = bold) + [italic]. Exactly one of [assetKey] /
+ * [classpathLocation] is non-null, matching the `chk_font_variant_source`
+ * SQL CHECK. [variable] marks a reserved single-binary weight-axis ("variable")
+ * font — stored only; variable-font instancing is not yet rendered.
  */
 data class FontVariantRow(
-    val variant: FontVariant,
+    val weight: Int,
+    val italic: Boolean,
     val source: FontVariantSource,
     val assetKey: AssetKey? = null,
     val classpathLocation: String? = null,
+    @get:ColumnName("is_variable")
+    val variable: Boolean = false,
 )
 
 /**

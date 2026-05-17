@@ -60,12 +60,14 @@ class FontRoutesTest : BaseIntegrationTest() {
             assertThat(inter["name"].asString()).isEqualTo("Inter")
             assertThat(inter["kind"].asString()).isEqualTo("sans")
             assertThat(inter["catalogKey"].asString()).isEqualTo("system")
-            val variants: List<String> = inter["variants"].values().map { it.asString() }
-            assertThat(variants)
-                .containsExactlyInAnyOrder("regular", "bold", "italic", "bold_italic")
+            val faces = inter["variants"].values().map { it["weight"].asInt() to it["italic"].asBoolean() }
+            assertThat(faces)
+                .containsExactlyInAnyOrder(400 to false, 700 to false, 400 to true, 700 to true)
             assertThat(inter["css"]["family"].asString()).isEqualTo("epistola-system-inter")
-            assertThat(inter["css"]["urls"]["regular"].asString())
-                .isEqualTo("/tenants/${testTenant.id}/fonts/system/inter/regular/content")
+            val regularFace = inter["css"]["faces"].values()
+                .first { it["weight"].asInt() == 400 && !it["italic"].asBoolean() }
+            assertThat(regularFace["url"].asString())
+                .isEqualTo("/tenants/${testTenant.id}/fonts/system/inter/400/false/content")
         }
     }
 
@@ -79,7 +81,7 @@ class FontRoutesTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/fonts/system/inter/regular/content",
+                "/tenants/${testTenant.id}/fonts/system/inter/400/false/content",
                 ByteArray::class.java,
             )
         }
@@ -104,7 +106,7 @@ class FontRoutesTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/fonts/system/does-not-exist/regular/content",
+                "/tenants/${testTenant.id}/fonts/system/does-not-exist/400/false/content",
                 String::class.java,
             )
         }

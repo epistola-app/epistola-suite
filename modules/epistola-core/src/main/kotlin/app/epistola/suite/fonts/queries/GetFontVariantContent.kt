@@ -5,7 +5,6 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.model.FontVariant
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -17,7 +16,11 @@ import org.springframework.stereotype.Component
 import java.util.UUID
 
 /**
- * Resolves a single font-face's binary bytes.
+ * Resolves a single font-face's binary bytes by an **exact** (weight, italic)
+ * key. Used by the editor `@font-face` content route, which serves a specific
+ * face the catalog actually ships (the search surface only emits URLs for
+ * present faces). Render-time resolution uses [ResolveFontFace] instead, which
+ * adds nearest-weight matching.
  *
  * - `ASSET`     — dispatches to `GetAssetContent` (the face is an ordinary
  *   uploaded asset in the same catalog).
@@ -29,7 +32,8 @@ data class GetFontVariantContent(
     val tenantId: TenantKey,
     val catalogKey: CatalogKey,
     val slug: FontKey,
-    val variant: FontVariant,
+    val weight: Int,
+    val italic: Boolean,
 ) : Query<ByteArray?>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -56,13 +60,15 @@ class GetFontVariantContentHandler(
                 WHERE tenant_key = :tenantKey
                   AND catalog_key = :catalogKey
                   AND font_slug = :slug
-                  AND variant = :variant
+                  AND weight = :weight
+                  AND italic = :italic
                 """,
             )
                 .bind("tenantKey", query.tenantId)
                 .bind("catalogKey", query.catalogKey)
                 .bind("slug", query.slug)
-                .bind("variant", query.variant.wire)
+                .bind("weight", query.weight)
+                .bind("italic", query.italic)
                 .map { rs, _ ->
                     VariantPointer(
                         source = FontVariantSource.valueOf(rs.getString("source")),

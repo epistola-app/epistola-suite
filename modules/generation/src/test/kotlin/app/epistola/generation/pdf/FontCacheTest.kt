@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.protocol.FontRef
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -59,67 +60,68 @@ class FontCacheTest {
     }
 
     // -----------------------------------------------------------------------
-    // font(ref, isBold, isItalic) — structured fontFamily resolution
+    // font(ref, weight, italic) — structured fontFamily resolution
     // -----------------------------------------------------------------------
 
     @Test
-    fun `null ref falls back to the built-in variant`() {
+    fun `null ref falls back to the built-in face by weight and italic`() {
         val cache = FontCache(pdfaCompliant = false)
 
-        assertSame(cache.regular, cache.font(null, isBold = false, isItalic = false))
-        assertSame(cache.bold, cache.font(null, isBold = true, isItalic = false))
-        assertSame(cache.italic, cache.font(null, isBold = false, isItalic = true))
-        assertSame(cache.boldItalic, cache.font(null, isBold = true, isItalic = true))
+        assertSame(cache.regular, cache.font(null, weight = 400, italic = false))
+        assertSame(cache.bold, cache.font(null, weight = 700, italic = false))
+        assertSame(cache.italic, cache.font(null, weight = 400, italic = true))
+        assertSame(cache.boldItalic, cache.font(null, weight = 700, italic = true))
     }
 
     @Test
     fun `ref without a configured resolver falls back to the built-in`() {
         val cache = FontCache(pdfaCompliant = false)
-        val ref = ResolvedFontRef(catalogKey = "system", slug = "inter")
+        val ref = FontRef(catalogKey = "system", slug = "inter")
 
-        assertSame(cache.regular, cache.font(ref, isBold = false, isItalic = false))
+        assertSame(cache.regular, cache.font(ref, weight = 400, italic = false))
     }
 
     @Test
     fun `ref resolves to an embedded font and is cached`() {
         val cache = FontCache(
             pdfaCompliant = false,
-            fontFamilyResolver = { _, _, variant ->
-                if (variant == FontVariant.REGULAR) liberationRegularBytes else null
+            fontFamilyResolver = { _, _, weight, italic ->
+                if (weight == 400 && !italic) liberationRegularBytes else null
             },
         )
-        val ref = ResolvedFontRef(catalogKey = "system", slug = "inter")
+        val ref = FontRef(catalogKey = "system", slug = "inter")
 
-        val resolved = cache.font(ref, isBold = false, isItalic = false)
+        val resolved = cache.font(ref, weight = 400, italic = false)
         assertTrue(resolved.isEmbedded, "Resolver-provided fonts are force-embedded")
         assertTrue(resolved !== cache.regular, "Resolved font must not be the built-in Helvetica")
-        assertSame(resolved, cache.font(ref, isBold = false, isItalic = false), "Resolved fonts are cached per document")
+        assertSame(resolved, cache.font(ref, weight = 400, italic = false), "Resolved fonts are cached per document")
     }
 
     @Test
-    fun `missing variant falls back to the family regular variant`() {
+    fun `resolver returning bytes for any weight embeds that face`() {
+        // The resolver owns nearest-weight matching: it returns the best
+        // available face's bytes for the requested (weight, italic).
         val cache = FontCache(
             pdfaCompliant = false,
-            fontFamilyResolver = { _, _, variant ->
-                if (variant == FontVariant.REGULAR) liberationRegularBytes else null
+            fontFamilyResolver = { _, _, _, italic ->
+                if (!italic) liberationRegularBytes else null
             },
         )
-        val ref = ResolvedFontRef(catalogKey = "system", slug = "inter")
+        val ref = FontRef(catalogKey = "system", slug = "inter")
 
-        // BOLD has no bytes; resolver returns REGULAR as the family fallback.
-        val resolved = cache.font(ref, isBold = true, isItalic = false)
+        val resolved = cache.font(ref, weight = 700, italic = false)
         assertTrue(resolved.isEmbedded)
         assertTrue(resolved !== cache.bold, "Should not fall through to the built-in bold")
     }
 
     @Test
-    fun `unresolvable ref falls back to the built-in variant`() {
+    fun `unresolvable ref falls back to the built-in face`() {
         val cache = FontCache(
             pdfaCompliant = false,
-            fontFamilyResolver = { _, _, _ -> null },
+            fontFamilyResolver = { _, _, _, _ -> null },
         )
-        val ref = ResolvedFontRef(catalogKey = "system", slug = "missing")
+        val ref = FontRef(catalogKey = "system", slug = "missing")
 
-        assertSame(cache.bold, cache.font(ref, isBold = true, isItalic = false))
+        assertSame(cache.bold, cache.font(ref, weight = 700, italic = false))
     }
 }

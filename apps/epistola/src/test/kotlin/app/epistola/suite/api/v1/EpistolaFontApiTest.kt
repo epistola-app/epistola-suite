@@ -98,8 +98,10 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo("inter")
         assertThat(JsonPath.read<String>(body, "$.catalog")).isEqualTo("system")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
-        val variants: List<String> = JsonPath.read(body, "$.variants")
-        assertThat(variants).containsExactlyInAnyOrder("regular", "bold", "italic", "bold_italic")
+        val weights: List<Int> = JsonPath.read(body, "$.variants[*].weight")
+        assertThat(weights).containsExactlyInAnyOrder(400, 700, 400, 700)
+        val italics: List<Boolean> = JsonPath.read(body, "$.variants[*].italic")
+        assertThat(italics).containsExactlyInAnyOrder(false, false, true, true)
     }
 
     @Test
@@ -121,7 +123,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = asset.id)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset.id)),
             ).execute()
         }
 

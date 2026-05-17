@@ -279,9 +279,11 @@ class ImportCatalogZipHandler(
             // System (CLASSPATH) fonts are never exported.
             variants = resource.variants.map { entry ->
                 app.epistola.suite.fonts.commands.ImportFontVariant(
-                    variant = entry.variant,
+                    weight = entry.weight,
+                    italic = entry.italic,
                     source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
                     assetKey = AssetKey.of(java.util.UUID.fromString(entry.assetSlug)),
+                    variable = entry.variable,
                 )
             },
         ).execute()

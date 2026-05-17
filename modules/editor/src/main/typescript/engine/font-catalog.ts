@@ -23,26 +23,31 @@
 
 import { defaultStyleRegistry } from './style-registry.js';
 
+/** One face of a font family: CSS numeric weight (1–1000) + italic. */
+export interface FontVariant {
+  weight: number;
+  italic: boolean;
+}
+
+/** One renderable face: weight + italic + the content URL for its binary. */
+export interface FontFace {
+  weight: number;
+  italic: boolean;
+  url: string;
+}
+
 /** One font family as returned by the `/tenants/{id}/fonts/search` handler. */
 export interface FontInfo {
   slug: string;
   name: string;
   kind: string;
   catalogKey: string;
-  variants: string[];
+  variants: FontVariant[];
   css: {
     family: string;
-    urls: Record<string, string>;
+    faces: FontFace[];
   };
 }
-
-/** Wire variant name → `@font-face` weight/style descriptors. */
-const VARIANT_FACE: Record<string, { weight: string; style: string }> = {
-  regular: { weight: '400', style: 'normal' },
-  bold: { weight: '700', style: 'normal' },
-  italic: { weight: '400', style: 'italic' },
-  bold_italic: { weight: '700', style: 'italic' },
-};
 
 /** Coarse `FontKind` wire value → CSS generic fallback. */
 const KIND_FALLBACK: Record<string, string> = {
@@ -160,14 +165,12 @@ function injectFontFaces(): void {
   const rules: string[] = [];
   for (const font of currentCatalog) {
     const family = fontFaceFamily(font.slug, font.catalogKey);
-    for (const variant of font.variants) {
-      const face = VARIANT_FACE[variant];
-      const url = font.css.urls[variant];
-      if (!face || !url) continue;
+    for (const face of font.css.faces) {
+      if (!face.url) continue;
       rules.push(
         `@font-face{font-family:'${family}';font-weight:${face.weight};` +
-          `font-style:${face.style};font-display:swap;` +
-          `src:url('${url}') format('truetype');}`,
+          `font-style:${face.italic ? 'italic' : 'normal'};font-display:swap;` +
+          `src:url('${face.url}') format('truetype');}`,
       );
     }
   }

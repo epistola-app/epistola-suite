@@ -2,6 +2,7 @@ package app.epistola.suite.api.v1
 
 import app.epistola.suite.api.v1.shared.FontDto
 import app.epistola.suite.api.v1.shared.FontListResponse
+import app.epistola.suite.api.v1.shared.FontVariantDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -50,7 +51,7 @@ class EpistolaFontApi {
         val items = fonts.map { font ->
             val variants = GetFontVariants(
                 fontId = FontId(font.slug, CatalogId(catalogKey, tenantIdComposite)),
-            ).query().map { it.variant.wire }
+            ).query().map { FontVariantDto(it.weight, it.italic) }
             font.toDto(variants)
         }
         return ResponseEntity.ok(FontListResponse(items = items))
@@ -73,7 +74,7 @@ class EpistolaFontApi {
             ?: return ResponseEntity.notFound().build()
         val variants = GetFontVariants(
             fontId = FontId(slug, CatalogId(catalogKey, tenantIdComposite)),
-        ).query().map { it.variant.wire }
+        ).query().map { FontVariantDto(it.weight, it.italic) }
         return ResponseEntity.ok(font.toDto(variants))
     }
 }

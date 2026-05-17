@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.catalog.protocol.FontRef
 import com.itextpdf.io.font.PdfEncodings
 import com.itextpdf.io.font.constants.StandardFonts
 import com.itextpdf.kernel.font.PdfFont
@@ -16,7 +17,10 @@ import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy
  *
  * When a [fontFamilyResolver] is supplied and a style carries a structured
  * `fontFamily` reference, the referenced font is embedded instead of the
- * built-in font. Unresolvable references fall back to the built-in font.
+ * built-in font. The resolver receives the exact requested CSS face
+ * (numeric `weight` + `italic`) and is responsible for nearest-weight
+ * matching. Unresolvable references fall back to the built-in font, mapping
+ * `weight >= 700` to the bold built-in and `italic` to the oblique built-in.
  *
  * Fonts created by this cache are scoped to a specific PdfDocument instance
  * and should not be reused across different documents.
@@ -50,43 +54,40 @@ class FontCache(
 
     /**
      * Resolves the [PdfFont] for an optional structured font reference and the
-     * given bold/italic flags. When [ref] is null, no resolver is configured, or
-     * the reference cannot be resolved, falls back to the built-in font for the
-     * variant. Resolved fonts are cached per document like the built-ins.
+     * requested CSS face ([weight] 1–1000, [italic]). When [ref] is null, no
+     * resolver is configured, or the reference cannot be resolved, falls back
+     * to the built-in font: `weight >= 700` selects the bold built-in and
+     * [italic] selects the oblique built-in. Resolved fonts are cached per
+     * document like the built-ins.
      */
-    fun font(ref: ResolvedFontRef?, isBold: Boolean, isItalic: Boolean): PdfFont {
-        val variant = when {
-            isBold && isItalic -> FontVariant.BOLD_ITALIC
-            isBold -> FontVariant.BOLD
-            isItalic -> FontVariant.ITALIC
-            else -> FontVariant.REGULAR
-        }
+    fun font(ref: FontRef?, weight: Int, italic: Boolean): PdfFont {
         if (ref != null) {
-            resolveReferencedFont(ref, variant)?.let { return it }
+            resolveReferencedFont(ref, weight, italic)?.let { return it }
         }
-        return builtIn(variant)
+        return builtIn(weight >= BOLD_THRESHOLD, italic)
     }
 
-    private fun builtIn(variant: FontVariant): PdfFont = when (variant) {
-        FontVariant.REGULAR -> regular
-        FontVariant.BOLD -> bold
-        FontVariant.ITALIC -> italic
-        FontVariant.BOLD_ITALIC -> boldItalic
+    private fun builtIn(isBold: Boolean, isItalic: Boolean): PdfFont = when {
+        isBold && isItalic -> boldItalic
+        isBold -> bold
+        isItalic -> italic
+        else -> regular
     }
 
-    private fun resolveReferencedFont(ref: ResolvedFontRef, variant: FontVariant): PdfFont? {
+    private fun resolveReferencedFont(ref: FontRef, weight: Int, italic: Boolean): PdfFont? {
         val resolver = fontFamilyResolver ?: return null
-        val cacheKey = "ref:${ref.catalogKey.orEmpty()}/${ref.slug}/$variant"
+        val cacheKey = "ref:${ref.catalogKey.orEmpty()}|${ref.slug}|$weight|$italic"
         fonts[cacheKey]?.let { return it }
-        val bytes = resolver.resolve(ref.catalogKey, ref.slug, variant)
-            ?: resolver.resolve(ref.catalogKey, ref.slug, FontVariant.REGULAR)
-            ?: return null
+        val bytes = resolver.resolve(ref.catalogKey, ref.slug, weight, italic) ?: return null
         val font = PdfFontFactory.createFont(bytes, PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED)
         fonts[cacheKey] = font
         return font
     }
 
     companion object {
+        /** CSS `font-weight` at or above which the built-in fallback is bold. */
+        const val BOLD_THRESHOLD = 700
+
         private const val FONT_DIR = "/fonts"
         private const val REGULAR = "$FONT_DIR/LiberationSans-Regular.ttf"
         private const val BOLD = "$FONT_DIR/LiberationSans-Bold.ttf"

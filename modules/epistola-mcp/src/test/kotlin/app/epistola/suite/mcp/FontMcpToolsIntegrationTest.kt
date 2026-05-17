@@ -62,7 +62,8 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
         val inter = systemFonts.single { it.slug == "inter" }
         assertThat(inter.name).isEqualTo("Inter")
         assertThat(inter.kind).isEqualTo("sans")
-        assertThat(inter.variants).containsExactlyInAnyOrder("regular", "bold", "italic", "bold_italic")
+        assertThat(inter.variants.map { it.weight to it.italic })
+            .containsExactlyInAnyOrder(400 to false, 700 to false, 400 to true, 700 to true)
     }
 
     @Test
@@ -86,7 +87,7 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant("regular", FontVariantSource.ASSET, assetKey = asset.id)),
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset.id)),
             ).execute()
         }
 
@@ -95,7 +96,7 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(acme.catalog).isEqualTo("default")
         assertThat(acme.catalogType).isEqualTo("AUTHORED")
         assertThat(acme.readOnly).isFalse
-        assertThat(acme.variants).containsExactly("regular")
+        assertThat(acme.variants.map { it.weight to it.italic }).containsExactly(400 to false)
         // System families still present in the unfiltered listing.
         assertThat(all.map { it.slug }).contains("inter")
     }
