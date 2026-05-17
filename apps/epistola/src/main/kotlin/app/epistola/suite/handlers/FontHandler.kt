@@ -49,7 +49,9 @@ import org.springframework.web.servlet.function.ServerResponse
  * - `content` → streams a single font-face TTF with immutable cache headers.
  */
 @Component
-class FontHandler {
+class FontHandler(
+    private val assetTypeCatalog: app.epistola.suite.assets.AssetTypeCatalog,
+) {
 
     /**
      * Font management list page (mirrors `AssetHandler.list`). Lists font
@@ -163,7 +165,7 @@ class FontHandler {
                 val contentType = part.contentType
                     ?: return badRequest("No content type on uploaded face")
                 val mediaType = try {
-                    AssetMediaType.fromMimeType(contentType)
+                    assetTypeCatalog.require(contentType)
                 } catch (e: UnsupportedAssetTypeException) {
                     return badRequest(e.message)
                 }

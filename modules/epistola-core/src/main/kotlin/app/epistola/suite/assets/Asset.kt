@@ -7,23 +7,41 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import java.time.OffsetDateTime
 
+/** Broad behavioural class of an asset, derived from its media type prefix. */
+enum class AssetMediaCategory { IMAGE, FONT, OTHER }
+
 /**
- * Supported image media types for assets.
+ * An asset media type (MIME string).
+ *
+ * Open value class — *not* a closed enum. The set of *allowed* media types is
+ * the seeded `asset_types` table (see [AssetTypeCatalog]); adding a type is a
+ * DB insert, not a code change. The companion holds the well-known constants
+ * code branches on; [category] gives the image/font behavioural split without
+ * enumerating every type.
  */
-enum class AssetMediaType(val mimeType: String) {
-    PNG("image/png"),
-    JPEG("image/jpeg"),
-    SVG("image/svg+xml"),
-    WEBP("image/webp"),
-    TTF("font/ttf"),
-    OTF("font/otf"),
-    ;
+@JvmInline
+value class AssetMediaType(val mimeType: String) {
+    val category: AssetMediaCategory
+        get() = when {
+            mimeType.startsWith("image/") -> AssetMediaCategory.IMAGE
+            mimeType.startsWith("font/") -> AssetMediaCategory.FONT
+            else -> AssetMediaCategory.OTHER
+        }
 
     companion object {
-        private val BY_MIME_TYPE = entries.associateBy { it.mimeType }
+        val PNG = AssetMediaType("image/png")
+        val JPEG = AssetMediaType("image/jpeg")
+        val SVG = AssetMediaType("image/svg+xml")
+        val WEBP = AssetMediaType("image/webp")
+        val TTF = AssetMediaType("font/ttf")
+        val OTF = AssetMediaType("font/otf")
 
-        fun fromMimeType(mimeType: String): AssetMediaType = BY_MIME_TYPE[mimeType]
-            ?: throw UnsupportedAssetTypeException(mimeType)
+        /**
+         * Wraps a MIME string. Does **not** validate — validation is against
+         * the `asset_types` table at the write boundary ([AssetTypeCatalog]).
+         * Safe for values read back from the DB (the FK guarantees validity).
+         */
+        fun fromMimeType(mimeType: String): AssetMediaType = AssetMediaType(mimeType)
     }
 }
 
@@ -69,7 +87,11 @@ class AssetNotFoundException(tenantId: TenantKey, assetId: AssetKey) : RuntimeEx
 
 class AssetTooLargeException(sizeBytes: Long) : RuntimeException("Asset size $sizeBytes bytes exceeds maximum of $MAX_ASSET_SIZE_BYTES bytes (5MB)")
 
-class UnsupportedAssetTypeException(mimeType: String) : RuntimeException("Unsupported asset media type: $mimeType. Supported: ${AssetMediaType.entries.map { it.mimeType }}")
+class UnsupportedAssetTypeException(mimeType: String, supported: Collection<String> = emptyList()) :
+    RuntimeException(
+        "Unsupported asset media type: $mimeType" +
+            if (supported.isEmpty()) "" else ". Supported: ${supported.sorted()}",
+    )
 
 /**
  * Describes a template version that references an asset.
