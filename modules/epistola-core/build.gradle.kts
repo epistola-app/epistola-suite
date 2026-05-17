@@ -44,7 +44,7 @@ dependencies {
 
     // JSONata expression language (already in :modules:generation; declared here
     // for compile-time visibility in epistola-core validators)
-    implementation("com.dashjoin:jsonata:0.9.10")
+    implementation(libs.jsonata)
 
     // UUID generation
     implementation(libs.uuid.creator)

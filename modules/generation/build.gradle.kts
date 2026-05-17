@@ -17,7 +17,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // JSONata expression language (Apache 2.0)
-    implementation("com.dashjoin:jsonata:0.9.10")
+    implementation(libs.jsonata)
 
     // GraalJS for JavaScript expression evaluation
     implementation("org.graalvm.polyglot:polyglot:25.0.3")
