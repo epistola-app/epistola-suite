@@ -18,14 +18,10 @@ export const defaultStyleRegistry: StyleRegistry = {
           label: 'Font',
           type: 'select',
           inheritable: true,
-          options: [
-            { label: 'System Default', value: 'system-ui, -apple-system, sans-serif' },
-            { label: 'Arial', value: 'Arial, sans-serif' },
-            { label: 'Georgia', value: 'Georgia, serif' },
-            { label: 'Times New Roman', value: '"Times New Roman", serif' },
-            { label: 'Courier New', value: '"Courier New", monospace' },
-            { label: 'Verdana', value: 'Verdana, sans-serif' },
-          ],
+          // Backend-driven: the host fetches the tenant's font catalog and
+          // `setFontCatalog()` (font-catalog.ts) mutates this array in place.
+          // Empty until the catalog loads.
+          options: [],
         },
         {
           key: 'fontSize',
