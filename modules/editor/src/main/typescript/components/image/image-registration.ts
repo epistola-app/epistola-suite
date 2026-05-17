@@ -37,6 +37,9 @@ function pxToPt(px: number): number {
 }
 
 export function createImageDefinition(options?: ImageOptions): ComponentDefinition {
+  const { assetPicker, contentUrlPattern } = options || {};
+  const hasPicker = assetPicker !== undefined && assetPicker !== null;
+
   return {
     type: 'image',
     label: 'Image',
@@ -133,10 +136,10 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
     renderCanvas: ({ node, engine: eng }) => {
       const engine = eng as EditorEngine;
 
-      const pickAsset = async (e: Event) => {
+      const pickAsset = async (e: Event): Promise<void> => {
         e.stopPropagation();
-        if (!options?.assetPicker) return;
-        const asset = await openAssetPickerDialog(options.assetPicker);
+        if (!assetPicker) return;
+        const asset = await openAssetPickerDialog(assetPicker);
         if (!asset) return;
         engine.dispatch({
           type: 'UpdateNodeProps',
@@ -153,18 +156,27 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
 
       const assetId = node.props?.assetId as string | null;
       if (!assetId) {
-        const hasPicker = options?.assetPicker != null;
+        if (hasPicker) {
+          return html`<div
+            class="canvas-image-placeholder"
+            @click=${pickAsset}
+            style="cursor: pointer"
+            title="Click to select an image"
+          >
+            <span class="canvas-image-placeholder-icon">&#128247;</span>
+            <span>Click to select an image</span>
+          </div>`;
+        }
         return html`<div
           class="canvas-image-placeholder"
-          @click=${hasPicker ? pickAsset : undefined}
-          style=${hasPicker ? 'cursor: pointer' : undefined}
-          title=${hasPicker ? 'Click to select an image' : 'Image placeholder (no asset selected)'}
+          title="Image placeholder (no asset selected)"
         >
           <span class="canvas-image-placeholder-icon">&#128247;</span>
-          <span>${hasPicker ? 'Click to select an image' : 'Image placeholder'}</span>
+          <span>Image placeholder</span>
         </div>`;
       }
-      const src = resolveContentUrl(options?.contentUrlPattern, assetId);
+
+      const src = resolveContentUrl(contentUrlPattern, assetId);
       const alt = (node.props?.alt as string) || '';
       const width = node.props?.width as string | undefined;
       const height = node.props?.height as string | undefined;
@@ -174,20 +186,24 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
           .filter(Boolean)
           .join('; ') + ';';
 
-      const hasPicker = options?.assetPicker != null;
-      return html`<div
-        class="canvas-image-wrapper"
-        @click=${hasPicker ? pickAsset : undefined}
-        style=${hasPicker ? 'cursor: pointer' : undefined}
-        title=${hasPicker ? 'Click to change image' : alt}
-      >
+      if (hasPicker) {
+        return html`<div
+          class="canvas-image-wrapper"
+          @click=${pickAsset}
+          style="cursor: pointer"
+          title="Click to change image"
+        >
+          <img src="${src}" alt="${alt}" style=${imgStyle} class="canvas-image" />
+        </div>`;
+      }
+      return html`<div class="canvas-image-wrapper" title="${alt}">
         <img src="${src}" alt="${alt}" style=${imgStyle} class="canvas-image" />
       </div>`;
     },
 
-    onBeforeInsert: options?.assetPicker
+    onBeforeInsert: assetPicker
       ? async () => {
-          const asset = await openAssetPickerDialog(options.assetPicker!);
+          const asset = await openAssetPickerDialog(assetPicker);
           if (!asset) return null;
 
           return {
