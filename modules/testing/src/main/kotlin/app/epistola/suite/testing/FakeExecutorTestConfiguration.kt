@@ -31,6 +31,7 @@ class FakeExecutorTestConfiguration {
         meterRegistry: MeterRegistry,
         schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator,
         fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
+        fontByteCache: app.epistola.suite.fonts.FontByteCache,
         @Value("\${epistola.generation.jobs.retention-days:7}") retentionDays: Int,
         @Value("\${epistola.generation.documents.max-size-mb:50}") maxDocumentSizeMb: Long,
     ): DocumentGenerationExecutor = FakeDocumentGenerationExecutor(
@@ -42,6 +43,7 @@ class FakeExecutorTestConfiguration {
         meterRegistry,
         schemaValidator,
         fontSnapshotVerifier,
+        fontByteCache,
         retentionDays,
         maxDocumentSizeMb,
     )

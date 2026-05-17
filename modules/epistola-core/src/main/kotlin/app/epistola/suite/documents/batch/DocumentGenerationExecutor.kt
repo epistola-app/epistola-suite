@@ -63,6 +63,7 @@ class DocumentGenerationExecutor(
     private val contentStore: ContentStore,
     private val meterRegistry: MeterRegistry,
     private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
+    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -262,7 +263,7 @@ class DocumentGenerationExecutor(
         // theme catalog → the tenant's default catalog).
         val owningCatalogKey =
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
-        val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey)
+        val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
 
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme

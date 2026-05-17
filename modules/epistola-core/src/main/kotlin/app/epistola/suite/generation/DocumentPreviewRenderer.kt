@@ -33,6 +33,7 @@ class DocumentPreviewRenderer(
     private val generationService: GenerationService,
     private val objectMapper: ObjectMapper,
     private val fontSnapshotVerifier: FontSnapshotVerifier,
+    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
 ) {
 
     /**
@@ -70,7 +71,7 @@ class DocumentPreviewRenderer(
         // default theme catalog → the tenant's default catalog).
         val owningCatalogKey =
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
-        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey)
+        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, fontByteCache)
 
         // Use snapshot rendering for published versions that have it, live cascade otherwise
         val resolvedTheme = version?.resolvedTheme
