@@ -171,6 +171,9 @@ class FontHandler {
                     return badRequest("Unsupported font format: $contentType. Use TTF or OTF.")
                 }
                 val bytes = part.inputStream.use { it.readAllBytes() }
+                app.epistola.generation.pdf.FontBytesValidator.rejectionReason(bytes)?.let { reason ->
+                    return badRequest("Face ${row.weight}${if (row.italic) " italic" else ""}: $reason")
+                }
                 val asset = UploadAsset(
                     tenantId = tenantKey,
                     name = part.submittedFileName ?: "${slug.value}-${row.weight}${if (row.italic) "i" else ""}",
