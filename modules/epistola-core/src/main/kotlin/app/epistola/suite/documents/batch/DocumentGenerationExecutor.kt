@@ -8,6 +8,7 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
@@ -18,6 +19,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
@@ -254,6 +256,12 @@ class DocumentGenerationExecutor(
             mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
+        // Owning catalog for unqualified font refs: same cascade as theme
+        // resolution / asset binding (template theme catalog → tenant default
+        // theme catalog → the tenant's default catalog).
+        val owningCatalogKey =
+            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
+        val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey)
 
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme
@@ -273,6 +281,7 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
             )
         } else {
             renderPath = "legacy"
@@ -290,6 +299,7 @@ class DocumentGenerationExecutor(
                 metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )

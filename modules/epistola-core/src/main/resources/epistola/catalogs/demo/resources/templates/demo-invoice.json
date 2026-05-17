@@ -336,7 +336,7 @@
         }
       },
       "documentStylesOverride": {
-        "fontFamily": "Helvetica",
+        "fontFamily": { "slug": "inter", "catalogKey": "system" },
         "fontSize": "10pt",
         "color": "#333333"
       },

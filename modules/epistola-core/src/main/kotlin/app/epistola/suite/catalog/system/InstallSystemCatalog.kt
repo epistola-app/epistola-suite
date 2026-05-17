@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.commands.EnsureSystemFonts
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -98,6 +99,17 @@ class InstallSystemCatalogHandler(
     }
 
     private fun doHandle(command: InstallSystemCatalog): InstallSystemCatalogResult = CatalogImportContext.runAsImport {
+        val result = installCatalog(command)
+        // Bundled font families live next to the system catalog and are seeded
+        // every pass (idempotent UPSERT). Doing it here — inside the same
+        // elevated principal + import context — means a newly bundled font is
+        // picked up on the next boot even when the catalog's release.version
+        // didn't move, mirroring how the asset/code-list payload is handled.
+        EnsureSystemFonts(tenantKey = command.tenantKey).execute()
+        result
+    }
+
+    private fun installCatalog(command: InstallSystemCatalog): InstallSystemCatalogResult {
         // Fetching once up front — the manifest's release.version is the
         // gate that decides install / upgrade / no-op.
         val manifest = catalogClient.fetchManifest(SYSTEM_CATALOG_URL, AuthType.NONE, null)
@@ -128,11 +140,11 @@ class InstallSystemCatalogHandler(
                 )
             }
             log.info("System catalog installed for tenant {} at version {}", command.tenantKey.value, bundledVersion)
-            return@runAsImport InstallSystemCatalogResult(SystemCatalogStatus.INSTALLED, bundledVersion)
+            return InstallSystemCatalogResult(SystemCatalogStatus.INSTALLED, bundledVersion)
         }
 
         if (existing.installedReleaseVersion == bundledVersion) {
-            return@runAsImport InstallSystemCatalogResult(SystemCatalogStatus.ALREADY_CURRENT, bundledVersion)
+            return InstallSystemCatalogResult(SystemCatalogStatus.ALREADY_CURRENT, bundledVersion)
         }
 
         // Existing install at an older version — upgrade. `UpgradeCatalog`
@@ -145,6 +157,6 @@ class InstallSystemCatalogHandler(
             previousVersion,
             bundledVersion,
         )
-        InstallSystemCatalogResult(SystemCatalogStatus.UPGRADED, bundledVersion)
+        return InstallSystemCatalogResult(SystemCatalogStatus.UPGRADED, bundledVersion)
     }
 }

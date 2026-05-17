@@ -6,7 +6,7 @@
     "name": "Corporate Theme",
     "description": "A clean corporate theme with professional styling.",
     "documentStyles": {
-      "fontFamily": "Helvetica, Arial, sans-serif",
+      "fontFamily": { "slug": "inter", "catalogKey": "system" },
       "fontSize": "11pt",
       "lineHeight": 1.5,
       "color": "#333333"

@@ -6,7 +6,9 @@ import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.TemplateVersion
@@ -61,6 +63,12 @@ class DocumentPreviewRenderer(
             mediator.query(GetAssetContent(tenantId, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
+        // Owning catalog for unqualified font refs: same cascade the theme
+        // resolution + asset binding use (template theme catalog → tenant
+        // default theme catalog → the tenant's default catalog).
+        val owningCatalogKey =
+            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
+        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey)
 
         // Use snapshot rendering for published versions that have it, live cascade otherwise
         val resolvedTheme = version?.resolvedTheme
@@ -77,6 +85,7 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -92,6 +101,7 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )

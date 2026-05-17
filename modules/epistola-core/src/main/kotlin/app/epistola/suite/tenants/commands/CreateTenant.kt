@@ -83,7 +83,8 @@ class CreateTenantHandler(
             val themeSlug = "$prefix$suffix"
             val themeId = ThemeKey.of(themeSlug)
             val documentStyles = mapOf(
-                "fontFamily" to "Helvetica, Arial, sans-serif",
+                // Structured ref into the bundled `system` catalog font family.
+                "fontFamily" to mapOf("slug" to "inter", "catalogKey" to "system"),
                 "fontSize" to "11pt",
                 "color" to "#333333",
                 "lineHeight" to 1.5,
