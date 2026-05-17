@@ -228,12 +228,18 @@ export class StencilInspector extends LitElement {
       parentNodeId
         ? this.engine.getEvaluationContextAt(parentNodeId)
         : this.engine.getEvaluationContextAt(this.node.id);
+    // Retrieve any stored binding errors from a failed save and clear them
+    const bindingErrors =
+      this.engine.getComponentState<Record<string, string>>('stencil:binding-errors');
+    this.engine.setComponentState('stencil:binding-errors', null);
+
     const result = await openParameterBindingsDialog({
       schema,
       initialBindings: (this.node.props.parameterBindings ?? {}) as Record<string, string>,
       initialAlias: this.node.props.paramsAlias ?? 'params',
       fieldPaths,
       getExampleData,
+      bindingErrors,
     });
     if (!result) return;
 

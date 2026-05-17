@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { EditorEngine } from '../engine/EditorEngine.js';
 import type { SaveState } from './save-service.js';
 import type { ToolbarAction } from '../plugins/types.js';
+import { parseBindingSaveError } from '../components/stencil/binding-row.js';
 import { icon } from './icons.js';
 import { buildShortcutGroupsProjection, type ShortcutGroup } from './shortcuts.js';
 import { normalizeShortcutEvent } from '../shortcuts/resolver.js';
@@ -769,16 +770,27 @@ export class EpistolaToolbar extends LitElement {
         break;
     }
 
+    // Parse binding validation errors for a more visible inline message
+    const bindingError = isError ? parseBindingSaveError(errorMsg) : null;
+    const displayError = bindingError
+      ? `Invalid binding for "${bindingError.paramName}": ${bindingError.message}`
+      : null;
+
     return html`
       <div class="toolbar-separator"></div>
-      <button
-        class=${cssClass}
-        ?disabled=${disabled}
-        @click=${this._handleForceSave}
-        title=${title}
-      >
-        ${icon(iconName)} ${label}
-      </button>
+      <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
+        <button
+          class=${cssClass}
+          ?disabled=${disabled}
+          @click=${this._handleForceSave}
+          title=${title}
+        >
+          ${icon(iconName)} ${label}
+        </button>
+        ${displayError
+          ? html`<span class="toolbar-save-error-text" title=${errorMsg}>${displayError}</span>`
+          : nothing}
+      </div>
     `;
   }
 

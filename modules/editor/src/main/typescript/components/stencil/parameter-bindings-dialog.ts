@@ -26,11 +26,14 @@ export interface BindingsDialogOptions {
   fieldPaths?: FieldPath[];
   /** Example data for live preview inside openExpressionDialog. */
   getExampleData?: () => Record<string, unknown> | undefined;
+  /** Per-parameter backend validation errors to display inline (e.g. from a failed save). */
+  bindingErrors?: Record<string, string>;
 }
 
 export function openParameterBindingsDialog(
   options: BindingsDialogOptions,
 ): Promise<BindingsDialogResult | null> {
+  const bindingErrors = options.bindingErrors;
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'stencil-picker-dialog';
@@ -88,6 +91,7 @@ export function openParameterBindingsDialog(
           else delete bindings[name];
           updateSaveState();
         },
+        error: bindingErrors?.[name],
       });
       rowsContainer.appendChild(row.element);
     }
