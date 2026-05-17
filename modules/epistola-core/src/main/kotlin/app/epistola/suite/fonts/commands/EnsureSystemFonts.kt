@@ -76,6 +76,23 @@ class EnsureSystemFontsHandler : CommandHandler<EnsureSystemFonts, Unit> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    companion object {
+        /** The single addressing convention for a bundled face's classpath resource. */
+        private fun classpathLocation(slug: String, token: String): String = "epistola/fonts/$slug/$slug-$token.ttf"
+
+        /**
+         * Every classpath resource the seeder will register, derived from the
+         * exact same `SYSTEM_FONTS` × `BUNDLED_FACES` cross-product the handler
+         * uses (via the shared [classpathLocation]). Exposed (`internal`) so a
+         * guard test can assert the hardcoded list stays in sync with the
+         * bundled resource tree without duplicating the list.
+         */
+        internal val DECLARED_CLASSPATH_LOCATIONS: List<String> =
+            SYSTEM_FONTS.flatMap { font ->
+                BUNDLED_FACES.map { face -> classpathLocation(font.slug, face.token) }
+            }
+    }
+
     override fun handle(command: EnsureSystemFonts) {
         val tenantId = TenantId(command.tenantKey)
         for (font in SYSTEM_FONTS) {
@@ -84,7 +101,7 @@ class EnsureSystemFontsHandler : CommandHandler<EnsureSystemFonts, Unit> {
                     weight = face.weight,
                     italic = face.italic,
                     source = FontVariantSource.CLASSPATH,
-                    classpathLocation = "epistola/fonts/${font.slug}/${font.slug}-${face.token}.ttf",
+                    classpathLocation = classpathLocation(font.slug, face.token),
                 )
             }
             ImportFont(

@@ -51,18 +51,44 @@ data class ResolveFontFace(
     override val tenantKey get() = tenantId
 }
 
+internal data class FaceRow(
+    val weight: Int,
+    val italic: Boolean,
+    val source: FontVariantSource,
+    val assetKey: AssetKey?,
+    val classpathLocation: String?,
+)
+
+/**
+ * Pure nearest-weight face selection (no DB). Extracted for unit-testability;
+ * the handler delegates here so behaviour is unchanged.
+ *
+ * 1. **Italic preference**: prefer rows whose `italic` matches the request;
+ *    if the family ships no face with the requested italic, fall back to the
+ *    other italic set.
+ * 2. **Nearest weight**: minimal absolute weight distance; ties (equal
+ *    distance) break toward the **heavier** weight.
+ *
+ * @return the best-matching row, or `null` when [rows] is empty.
+ */
+internal fun pickBestFace(rows: List<FaceRow>, weight: Int, italic: Boolean): FaceRow? {
+    if (rows.isEmpty()) return null
+
+    // (a) Italic preference: same-italic set, else the other set.
+    val sameItalic = rows.filter { it.italic == italic }
+    val candidates = sameItalic.ifEmpty { rows }
+
+    // (b) Nearest weight: minimal |distance|; tie → heavier weight.
+    return candidates.minWith(
+        compareBy<FaceRow> { abs(it.weight - weight) }
+            .thenByDescending { it.weight },
+    )
+}
+
 @Component
 class ResolveFontFaceHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ResolveFontFace, ByteArray?> {
-
-    private data class FaceRow(
-        val weight: Int,
-        val italic: Boolean,
-        val source: FontVariantSource,
-        val assetKey: AssetKey?,
-        val classpathLocation: String?,
-    )
 
     override fun handle(query: ResolveFontFace): ByteArray? {
         val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
@@ -89,17 +115,8 @@ class ResolveFontFaceHandler(
                 }
                 .list()
         }
-        if (rows.isEmpty()) return null
 
-        // (a) Italic preference: same-italic set, else the other set.
-        val sameItalic = rows.filter { it.italic == query.italic }
-        val candidates = sameItalic.ifEmpty { rows }
-
-        // (b) Nearest weight: minimal |distance|; tie → heavier weight.
-        val best = candidates.minWith(
-            compareBy<FaceRow> { abs(it.weight - query.weight) }
-                .thenByDescending { it.weight },
-        )
+        val best = pickBestFace(rows, query.weight, query.italic) ?: return null
 
         return when (best.source) {
             FontVariantSource.CLASSPATH -> best.classpathLocation?.let { location ->
