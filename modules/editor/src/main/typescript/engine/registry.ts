@@ -71,7 +71,7 @@ export interface InspectorField {
   key: string;
   label: string;
   type: 'text' | 'number' | 'boolean' | 'select' | 'expression' | 'json' | 'color' | 'unit';
-  options?: { label: string; value: unknown }[];
+  options?: { label: string; value: unknown; group?: string }[];
   defaultValue?: unknown;
   /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
   units?: string[];

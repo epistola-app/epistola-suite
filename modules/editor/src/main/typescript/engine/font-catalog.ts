@@ -90,10 +90,14 @@ export function getFontCatalog(): readonly FontInfo[] {
  */
 export function buildFontFamilyOptions(
   fonts: readonly FontInfo[],
-): { label: string; value: string }[] {
+): { label: string; value: string; group: string }[] {
   return fonts.map((f) => ({
     label: f.name,
     value: JSON.stringify({ slug: f.slug, catalogKey: f.catalogKey }),
+    // Groups the picker into `<optgroup>`s by catalog so the author can see
+    // which catalog a font comes from (and same-named fonts in different
+    // catalogs are distinguishable).
+    group: f.catalogKey,
   }));
 }
 

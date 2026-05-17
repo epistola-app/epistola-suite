@@ -44,8 +44,8 @@ describe('buildFontFamilyOptions', () => {
     const opts = buildFontFamilyOptions(fonts);
 
     expect(opts).toEqual([
-      { label: 'Inter', value: '{"slug":"inter","catalogKey":"system"}' },
-      { label: 'Lora', value: '{"slug":"lora","catalogKey":"system"}' },
+      { label: 'Inter', value: '{"slug":"inter","catalogKey":"system"}', group: 'system' },
+      { label: 'Lora', value: '{"slug":"lora","catalogKey":"system"}', group: 'system' },
     ]);
   });
 
@@ -74,7 +74,7 @@ describe('setFontCatalog', () => {
     setFontCatalog([makeFont('inter', 'Inter', 'sans')]);
 
     expect(fontProp.options).toEqual([
-      { label: 'Inter', value: '{"slug":"inter","catalogKey":"system"}' },
+      { label: 'Inter', value: '{"slug":"inter","catalogKey":"system"}', group: 'system' },
     ]);
     expect(getFontCatalog()).toHaveLength(1);
   });
