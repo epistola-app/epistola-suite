@@ -7,6 +7,7 @@ import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.DataExampleEntry
 import app.epistola.catalog.protocol.DependencyRef
+import app.epistola.catalog.protocol.FontRef
 import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
@@ -284,7 +285,7 @@ class ExportCatalogZipHandler(
         // are covered by the catalog's own `font` resources. Sources: theme
         // documentStyles/blockStylePresets and template documentStylesOverride
         // + inline node styles.
-        fun addFontRef(ref: DependencyScanner.FontRefLite) {
+        fun addFontRef(ref: FontRef) {
             val target = ref.catalogKey ?: return
             if (target == catalogKey) return
             if ("font:${ref.slug}" in ownResources) return

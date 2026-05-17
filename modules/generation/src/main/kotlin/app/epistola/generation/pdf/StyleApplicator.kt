@@ -302,17 +302,11 @@ object StyleApplicator {
      */
     internal fun parseFontRef(value: Any?): FontRef? {
         if (value == null) return null
-        val map = value as? Map<*, *>
-        if (map == null) {
-            log.warn("Ignoring malformed fontFamily (expected {{slug, catalogKey}}, got {}): {}", value::class.simpleName, value)
-            return null
+        val ref = FontRefs.parse(value)
+        if (ref == null) {
+            log.warn("Ignoring malformed fontFamily (expected {{slug, catalogKey}} with a non-blank slug): {}", value)
         }
-        val slug = (map["slug"] as? String)?.takeIf { it.isNotBlank() }
-        if (slug == null) {
-            log.warn("Ignoring fontFamily ref with missing/blank slug: {}", map)
-            return null
-        }
-        return FontRef(catalogKey = map["catalogKey"] as? String, slug = slug)
+        return ref
     }
 
     /**
