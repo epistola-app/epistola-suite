@@ -5,7 +5,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
+import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -57,21 +57,23 @@ class ExportCatalogZipHandler(
         // label when it drifted (unreleased edits) or was never released.
         // Export is never hard-blocked — `-dev` makes drift unmistakable.
         val fingerprint = fingerprintService.fingerprint(content)
-        val status = GetCatalogReleaseStatus(command.tenantKey, command.catalogKey).query()
+        // Cheap release-pointer read — no second O(catalog-size) content build
+        // (the working-copy fingerprint we need is already `fingerprint`).
+        val release = GetLatestCatalogRelease(command.tenantKey, command.catalogKey).query()
         val version = when {
-            status.latestVersion == null -> {
+            release.latestVersion == null -> {
                 logger.warn("Exporting never-released catalog '{}' as 0.0.0-dev", command.catalogKey.value)
                 "0.0.0-dev"
             }
-            status.latestFingerprint != fingerprint -> {
+            release.latestFingerprint != fingerprint -> {
                 logger.warn(
                     "Exporting catalog '{}' with unreleased changes — labelling {}-dev",
                     command.catalogKey.value,
-                    status.latestVersion,
+                    release.latestVersion,
                 )
-                "${status.latestVersion}-dev"
+                "${release.latestVersion}-dev"
             }
-            else -> status.latestVersion
+            else -> release.latestVersion
         }
         val releasedAt = if (version.endsWith("-dev")) null else OffsetDateTime.now().toString()
         val manifest = content.toManifest(
