@@ -6,6 +6,7 @@ import org.springframework.boot.Banner
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.boot.context.logging.LoggingApplicationListener
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
 import org.springframework.context.annotation.Configuration
@@ -66,6 +67,35 @@ object MigrationLauncher {
     }
 
     /**
+     * The isolated migration [SpringApplicationBuilder] — the single
+     * construction used by both production ([runMigration]) and the migration
+     * tests, so they can never drift (this is what
+     * `MigrationFlywayConfigEquivalenceTest` asserts).
+     *
+     * `LoggingApplicationListener` is deliberately excluded: this short-lived,
+     * isolated runner must NOT own the JVM-global Logback `LoggerContext`.
+     * Spring Boot registers a logging `SmartLifecycle` for root contexts whose
+     * `stop()` (on context close) runs `LogbackLoggingSystem.cleanUp()` on the
+     * shared singleton — which, in the single Gradle test JVM, tears logging
+     * down for sibling `@SpringBootTest`s. Without the listener the migration
+     * context neither initialises nor cleans the shared logging system.
+     *
+     * Trade-off: `logback-spring.xml` is applied by that listener (not
+     * auto-loaded by Logback), so the migration process logs at Logback's
+     * built-in default formatting. Acceptable for a one-shot migration runner —
+     * Flyway output and exit codes are unaffected.
+     */
+    internal fun migrationApplication(): SpringApplicationBuilder {
+        val builder = SpringApplicationBuilder(MigrationConfig::class.java)
+            .web(WebApplicationType.NONE)
+            .bannerMode(Banner.Mode.OFF)
+        builder.application().setListeners(
+            builder.application().listeners.filterNot { it is LoggingApplicationListener },
+        )
+        return builder
+    }
+
+    /**
      * Boot the isolated migration context, run Flyway, close it, and return the
      * process exit code (0 success / 1 failure). Pure of `exitProcess` so the
      * exit contract — the thing the deploy gate depends on — is testable.
@@ -73,9 +103,7 @@ object MigrationLauncher {
     fun runMigration(args: Array<String>): Int {
         logger.info("Starting in migration mode — isolated context, no web server")
         return try {
-            SpringApplicationBuilder(MigrationConfig::class.java)
-                .web(WebApplicationType.NONE)
-                .bannerMode(Banner.Mode.OFF)
+            migrationApplication()
                 // Passed as command-line args (high precedence) so they
                 // override application.yaml. `properties()` would register
                 // them as *default* properties (lowest precedence) and
