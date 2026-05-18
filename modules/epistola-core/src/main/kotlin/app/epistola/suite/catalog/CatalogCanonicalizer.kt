@@ -15,6 +15,15 @@ import tools.jackson.databind.node.ObjectNode
  * separate from [CatalogFingerprintService] so its determinism is unit-testable
  * without the DB / HTTP collaborators.
  *
+ * **One definition.** Every fingerprint — bundled drift gate, export-stamped,
+ * release-stored, working-copy drift — is computed from the **serialized
+ * resource-detail JSON** (the exact wire form): parse with floats as
+ * `BigDecimal`, take `resource`, recursively sort object keys, compact-write,
+ * SHA-256 over the sorted entries + identity + deps. So the value stamped into
+ * an exported manifest equals what any consumer recomputes from that manifest's
+ * detail bytes via [fingerprintFromSource] — by construction. There is no
+ * separate "typed object" path that could diverge for `Float`/`Double` fields.
+ *
  * What is hashed (in this exact order):
  *  1. identity line: `slug   name   description`;
  *  2. each resource, sorted by `"$type/$slug"`, as
@@ -23,28 +32,17 @@ import tools.jackson.databind.node.ObjectNode
  *     `;`-joined.
  *
  * Excluded by construction: `release.*`, `schemaVersion`, every `updatedAt`,
- * `detailUrl` — none are part of the resource payloads. Asset binary bytes are
- * folded in via their own SHA-256 (mirrors the font family fingerprint), so a
- * swapped image flips the fingerprint even when its JSON is unchanged.
+ * `detailUrl` — none are part of the `resource` payload. Asset binary bytes
+ * are folded in via their own SHA-256 (mirrors the font family fingerprint).
  *
  * **Determinism:** numbers are canonicalized as `BigDecimal` (exact source
  * digits), never round-tripped through `Double`/`Float.toString` — whose
- * algorithm changed across JDKs (JDK-4511638). The bundled drift gate compares
- * a fingerprint committed on one JDK against one recomputed on another (CI),
- * so this must be JDK-independent. See
+ * algorithm changed across JDKs (JDK-4511638). See
  * [`docs/catalog-versioning.md`](../../../../../../../../docs/catalog-versioning.md).
  */
 class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
 
     private val bigDecimalReader = objectMapper.reader().with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-
-    /**
-     * Canonical JSON: parse [json] into a tree with floats as `BigDecimal`,
-     * recursively sort every object's keys (array order preserved — arrays are
-     * ordered content), then compact-write. Independent of property/map
-     * iteration order and of JDK floating-point formatting.
-     */
-    private fun canonical(json: String): String = objectMapper.writeValueAsString(sortKeys(bigDecimalReader.readTree(json)))
 
     private fun sortKeys(node: JsonNode): JsonNode = when (node) {
         is ObjectNode -> objectMapper.createObjectNode().also { sorted ->
@@ -57,6 +55,27 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
     }
 
     private data class Entry(val key: String, val canonicalJson: String, val assetHash: String)
+
+    /**
+     * The single per-resource pipeline: each value is the serialized
+     * `ResourceDetail` JSON (raw file bytes for the source path; serialized
+     * in-memory detail for the DB/wire path). Parse → `resource` subtree →
+     * sort keys → compact JSON; fold in asset bytes by `contentUrl`.
+     */
+    private fun entriesFromDetailBytes(
+        detailBytesByKey: Map<String, ByteArray>,
+        assetBytes: (contentUrl: String) -> ByteArray?,
+    ): List<Entry> = detailBytesByKey.map { (key, bytes) ->
+        val resourceNode = bigDecimalReader.readTree(bytes).get("resource")
+        val json = objectMapper.writeValueAsString(sortKeys(resourceNode))
+        val assetHash = if (resourceNode.get("type")?.asString() == "asset") {
+            val contentUrl = resourceNode.get("contentUrl")?.asString() ?: ""
+            assetBytes(contentUrl)?.let { sha256Hex(it) } ?: "MISSING"
+        } else {
+            ""
+        }
+        Entry(key, json, assetHash)
+    }
 
     private fun hash(catalog: CatalogInfo, entries: List<Entry>, dependencies: List<DependencyRef>?): String {
         val sb = StringBuilder()
@@ -93,41 +112,43 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         return sha256Hex(sb.toString().toByteArray(Charsets.UTF_8))
     }
 
-    private fun assetFilename(contentUrl: String): String = contentUrl.substringAfterLast('/')
+    // ── Wire / DB path: fingerprint of the serialized resource-detail form ────
 
-    // ── DB / working-copy path (typed resources) ─────────────────────────────
+    /**
+     * Fingerprint of a catalog from already-serialized `ResourceDetail` JSON
+     * (the exact bytes written to a ZIP / `catalog_releases` snapshot). This is
+     * the value stamped into manifests and stored on release; it equals
+     * [fingerprintFromSource] over the same bytes.
+     */
+    fun fingerprintFromSerializedDetails(
+        catalog: CatalogInfo,
+        serializedDetails: Map<String, ByteArray>,
+        dependencies: List<DependencyRef>?,
+        assetBytes: (contentUrl: String) -> ByteArray?,
+    ): String = hash(catalog, entriesFromDetailBytes(serializedDetails, assetBytes), dependencies)
 
-    fun fingerprint(content: CatalogContent): String = fingerprint(content.catalog, content.resourceDetails, content.dependencies) { filename ->
-        content.assetContents[filename]
+    fun fingerprint(content: CatalogContent): String = fingerprint(content.catalog, content.resourceDetails, content.dependencies) { contentUrl ->
+        content.assetContents[contentUrl.removePrefix("./resources/asset/")]
     }
 
     fun fingerprint(
         catalog: CatalogInfo,
         resourceDetails: Map<String, ResourceDetail>,
         dependencies: List<DependencyRef>?,
-        assetBytes: (filename: String) -> ByteArray?,
+        assetBytes: (contentUrl: String) -> ByteArray?,
     ): String {
-        val entries = resourceDetails.map { (key, detail) ->
-            val resource = detail.resource
-            val json = canonical(objectMapper.writeValueAsString(resource))
-            val assetHash = if (resource is app.epistola.catalog.protocol.AssetResource) {
-                assetBytes(assetFilename(resource.contentUrl))?.let { sha256Hex(it) } ?: "MISSING"
-            } else {
-                ""
-            }
-            Entry(key, json, assetHash)
-        }
-        return hash(catalog, entries, dependencies)
+        val serialized = resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) }
+        return fingerprintFromSerializedDetails(catalog, serialized, dependencies, assetBytes)
     }
 
-    // ── Source path (raw JSON — no typed binding, JDK-independent) ────────────
+    // ── Source path (bundled drift gate): raw committed file bytes ────────────
 
     /**
      * Fingerprint of a catalog fetched from a source URL (classpath / file /
-     * https). Reads each resource detail as **raw JSON** (never bound to typed
-     * `Double`/`Float`), so the result is byte-stable across JDKs — required
-     * because the bundled drift gate commits a value on one machine and
-     * recomputes it on another. Spring-free: depends only on a [CatalogClient].
+     * https). Reads each resource detail as the raw committed JSON — the
+     * bundled drift gate commits a value on one machine and recomputes it on
+     * another, so it never binds typed numbers. Spring-free: depends only on a
+     * [CatalogClient].
      */
     fun fingerprintFromSource(
         catalogClient: CatalogClient,
@@ -136,18 +157,13 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         credential: String?,
     ): String {
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
-        val entries = manifest.resources.map { entry ->
-            val rawDetail = catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
-            val resourceNode = bigDecimalReader.readTree(rawDetail).get("resource")
-            val json = objectMapper.writeValueAsString(sortKeys(resourceNode))
-            val assetHash = if (entry.type == "asset") {
-                val contentUrl = resourceNode.get("contentUrl")?.asString() ?: ""
-                val bytes = catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential)
-                sha256Hex(bytes)
-            } else {
-                ""
-            }
-            Entry("${entry.type}/${entry.slug}", json, assetHash)
+        val detailBytes = LinkedHashMap<String, ByteArray>()
+        for (entry in manifest.resources) {
+            detailBytes["${entry.type}/${entry.slug}"] =
+                catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
+        }
+        val entries = entriesFromDetailBytes(detailBytes) { contentUrl ->
+            catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential)
         }
         return hash(manifest.catalog, entries, manifest.dependencies)
     }

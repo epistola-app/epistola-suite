@@ -53,16 +53,26 @@ end to end.
 Hashes, in order: an identity line (`slug name description`); each resource
 sorted by `"$type/$slug"`, rendered as `key  <canonical resource JSON>  <asset
 bytes SHA-256 | "" | "MISSING">`; then a sorted, `;`-joined dependencies line.
-Resource JSON is canonical: serialized with the configured mapper, then every
-object's keys recursively sorted (array order preserved — arrays are ordered
-content). Excluded by construction: `release.*`, `schemaVersion`, every
-`updatedAt`, `detailUrl`. Asset _binary bytes_ are folded in via their own
-SHA-256 (mirrors the font-family fingerprint), so swapping an image flips the
-fingerprint even though the `AssetResource` JSON is unchanged.
+Resource JSON is canonical: the serialized `ResourceDetail` is parsed (floats
+as `BigDecimal`), the `resource` subtree taken, every object's keys recursively
+sorted (array order preserved — arrays are ordered content), then compact-written.
+Excluded by construction: `release.*`, `schemaVersion`, every `updatedAt`,
+`detailUrl`. Asset _binary bytes_ are folded in via their own SHA-256 (mirrors
+the font-family fingerprint), so swapping an image flips the fingerprint even
+though the `AssetResource` JSON is unchanged.
 
-The export ZIP and the fingerprint are built from the **same**
+**One definition (invariant).** There is a single canonicalization, run over
+the **serialized resource-detail JSON** (the exact wire form). The value
+stamped into an exported manifest / stored on release and the value any
+consumer recomputes from those detail bytes via
+[`fingerprintFromSource`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogCanonicalizer.kt)
+**agree by construction** — there is no separate "typed object" path that could
+diverge for `Float`/`Double` fields (numbers never round-trip through
+`Double`/`Float.toString`, whose algorithm changed across JDKs — JDK-4511638).
+Guarded by `CatalogFingerprintEquivalenceTest`. The export ZIP and the
+fingerprint are built from the **same**
 [`CatalogContentBuilder`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt),
-so "the bytes you export" ≡ "the bytes you fingerprint" by construction.
+so "the bytes you export" ≡ "the bytes you fingerprint".
 
 ## Cutting a release (AUTHORED)
 
