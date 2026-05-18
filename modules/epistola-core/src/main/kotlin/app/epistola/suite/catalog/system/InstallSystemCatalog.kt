@@ -1,26 +1,20 @@
 package app.epistola.suite.catalog.system
 
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.CatalogClient
-import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.commands.InstallFromCatalog
-import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.UpgradeCatalog
-import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.commands.EnsureCatalogStatus
+import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.commands.EnsureSystemFonts
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
@@ -39,17 +33,16 @@ val SYSTEM_CATALOG_KEY = CatalogKey.of("system")
  *  - `CreateTenant` invokes it inside its `@Transactional` boundary for
  *    each new tenant, so a tenant never exists without its system catalog.
  *  - `SystemCatalogBootstrap` walks every tenant on application start;
- *    each call is a cheap version-comparison + no-op in steady state, but
- *    bumping the bundled `release.version` since the last deploy turns it
- *    into an `UpgradeCatalog` dispatch for every tenant that's still on
- *    the previous version.
+ *    each call is a cheap fingerprint-comparison + no-op in steady state.
+ *
+ * A thin system-catalog-specific wrapper over the shared
+ * [EnsureSubscribedCatalog] state machine: it adds the elevated install
+ * principal and seeds the bundled system fonts (which live next to the
+ * system catalog and are re-seeded every pass, idempotently, so a newly
+ * bundled font is picked up even when the catalog content didn't move).
  *
  * Result mirrors that flow: `INSTALLED` (first-time), `ALREADY_CURRENT`
- * (no-op), or `UPGRADED` (bundle bumped past the installed version).
- *
- * The whole flow runs inside `CatalogImportContext.runAsImport { … }` so
- * `requireCatalogEditable` short-circuits — the SYSTEM catalog is SUBSCRIBED
- * (read-only to tenants) but the import path writes through it.
+ * (no-op), or `UPGRADED` (bundle content drifted past what's installed).
  *
  * Marked `SystemInternal` because the caller is framework code
  * (`CreateTenant`), not a user-initiated request.
@@ -67,14 +60,14 @@ data class InstallSystemCatalogResult(
 )
 
 /**
- * Synthetic principal used while the system catalog installer dispatches its
- * inner commands (`RegisterCatalog`, `InstallFromCatalog`, …). The outer
- * `InstallSystemCatalog` is `SystemInternal`, but the per-resource imports
- * it fans out to require tenant permissions — and `InstallSystemCatalog` may
- * be invoked from `CreateTenant` on behalf of a user who has the platform
- * role to create tenants but no membership in the just-created tenant.
- * Re-binding the security context for the duration of the install lets those
- * inner commands authorize against a principal that always has access.
+ * Synthetic principal used while the installer dispatches its inner commands
+ * (`RegisterCatalog`, `InstallFromCatalog`, …). The outer `InstallSystemCatalog`
+ * is `SystemInternal`, but the per-resource imports it fans out to require
+ * tenant permissions — and `InstallSystemCatalog` may be invoked from
+ * `CreateTenant` on behalf of a user with the platform role to create tenants
+ * but no membership in the just-created tenant. Re-binding the security context
+ * for the duration lets those inner commands authorize against a principal that
+ * always has access.
  */
 private val SYSTEM_INSTALL_PRINCIPAL = EpistolaPrincipal(
     userId = SystemUser.ID,
@@ -88,76 +81,28 @@ private val SYSTEM_INSTALL_PRINCIPAL = EpistolaPrincipal(
 )
 
 @Component
-class InstallSystemCatalogHandler(
-    private val catalogClient: CatalogClient,
-) : CommandHandler<InstallSystemCatalog, InstallSystemCatalogResult> {
-
-    private val log = LoggerFactory.getLogger(javaClass)
+class InstallSystemCatalogHandler : CommandHandler<InstallSystemCatalog, InstallSystemCatalogResult> {
 
     override fun handle(command: InstallSystemCatalog): InstallSystemCatalogResult = SecurityContext.runWithPrincipal(SYSTEM_INSTALL_PRINCIPAL) {
-        doHandle(command)
-    }
+        val result = EnsureSubscribedCatalog(
+            tenantKey = command.tenantKey,
+            sourceUrl = SYSTEM_CATALOG_URL,
+            authType = AuthType.NONE,
+        ).execute()
 
-    private fun doHandle(command: InstallSystemCatalog): InstallSystemCatalogResult = CatalogImportContext.runAsImport {
-        val result = installCatalog(command)
         // Bundled font families live next to the system catalog and are seeded
-        // every pass (idempotent UPSERT). Doing it here — inside the same
-        // elevated principal + import context — means a newly bundled font is
-        // picked up on the next boot even when the catalog's release.version
-        // didn't move, mirroring how the asset/code-list payload is handled.
+        // every pass (idempotent UPSERT) — inside the same elevated principal —
+        // so a newly bundled font is picked up on the next boot even when the
+        // catalog content didn't move, mirroring the asset/code-list payload.
         EnsureSystemFonts(tenantKey = command.tenantKey).execute()
-        result
-    }
 
-    private fun installCatalog(command: InstallSystemCatalog): InstallSystemCatalogResult {
-        // Fetching once up front — the manifest's content fingerprint is the
-        // gate that decides install / upgrade / no-op (version is for humans).
-        val manifest = catalogClient.fetchManifest(SYSTEM_CATALOG_URL, AuthType.NONE, null)
-        val bundledVersion = manifest.release.version
-        val bundledFingerprint = manifest.release.fingerprint
-
-        val existing = GetCatalog(command.tenantKey, SYSTEM_CATALOG_KEY).query()
-
-        if (existing == null) {
-            // First-time install for this tenant.
-            val catalog = RegisterCatalog(
-                tenantKey = command.tenantKey,
-                sourceUrl = SYSTEM_CATALOG_URL,
-                authType = AuthType.NONE,
-                authCredential = null,
-            ).execute()
-            val results = InstallFromCatalog(
-                tenantKey = command.tenantKey,
-                catalogKey = catalog.id,
-            ).execute()
-            val failed = results.count { it.status == app.epistola.suite.catalog.commands.InstallStatus.FAILED }
-            if (failed > 0) {
-                log.warn(
-                    "System catalog installed for tenant {} with {} failures: {}",
-                    command.tenantKey.value,
-                    failed,
-                    results.filter { it.status == app.epistola.suite.catalog.commands.InstallStatus.FAILED }
-                        .joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
-                )
-            }
-            log.info("System catalog installed for tenant {} at version {}", command.tenantKey.value, bundledVersion)
-            return InstallSystemCatalogResult(SystemCatalogStatus.INSTALLED, bundledVersion)
-        }
-
-        if (bundledFingerprint != null && existing.installedFingerprint == bundledFingerprint) {
-            return InstallSystemCatalogResult(SystemCatalogStatus.ALREADY_CURRENT, bundledVersion)
-        }
-
-        // Existing install with drifted content — upgrade. `UpgradeCatalog`
-        // re-runs the install dispatch and bumps version + fingerprint.
-        val previousVersion = existing.installedReleaseVersion
-        UpgradeCatalog(tenantKey = command.tenantKey, catalogKey = existing.id).execute()
-        log.info(
-            "System catalog upgraded for tenant {}: {} -> {}",
-            command.tenantKey.value,
-            previousVersion,
-            bundledVersion,
+        InstallSystemCatalogResult(
+            status = when (result.status) {
+                EnsureCatalogStatus.INSTALLED -> SystemCatalogStatus.INSTALLED
+                EnsureCatalogStatus.UPGRADED -> SystemCatalogStatus.UPGRADED
+                EnsureCatalogStatus.ALREADY_CURRENT -> SystemCatalogStatus.ALREADY_CURRENT
+            },
+            installedVersion = result.newVersion,
         )
-        return InstallSystemCatalogResult(SystemCatalogStatus.UPGRADED, bundledVersion)
     }
 }

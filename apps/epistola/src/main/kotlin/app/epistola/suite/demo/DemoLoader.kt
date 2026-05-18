@@ -1,13 +1,7 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.catalog.CatalogClient
-import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.commands.InstallFromCatalog
-import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.UpgradeCatalog
-import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -38,7 +32,6 @@ import tools.jackson.databind.ObjectMapper
 )
 class DemoLoader(
     private val mediator: Mediator,
-    private val catalogClient: CatalogClient,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
     private val apiKeyService: ApiKeyService,
@@ -88,63 +81,21 @@ class DemoLoader(
     }
 
     /**
-     * Ensures the demo catalog is installed and up to date.
-     * Uses the catalog's release version from the manifest to detect changes.
+     * Ensures the demo catalog is installed and up to date via the shared
+     * [EnsureSubscribedCatalog] state machine (register+install / no-op /
+     * upgrade by content fingerprint) — same path the system catalog uses.
      */
     private fun ensureDemoCatalog() {
         val tenantKey = TenantKey.of(DEMO_TENANT_ID)
-
-        // Check if demo catalog is already installed
-        val existingCatalog = mediator.query(GetCatalog(tenantKey = tenantKey, catalogKey = CatalogKey.of(DEMO_CATALOG_SLUG)))
-
-        if (existingCatalog != null) {
-            // Fetch manifest to check version
-            val manifest = catalogClient.fetchManifest(DEMO_CATALOG_URL, app.epistola.suite.catalog.AuthType.NONE, null)
-            val remoteFingerprint = manifest.release.fingerprint
-            val installedFingerprint = existingCatalog.installedFingerprint
-
-            if (remoteFingerprint != null && remoteFingerprint == installedFingerprint) {
-                log.info("Demo catalog up to date (version {}, fingerprint {})", existingCatalog.installedReleaseVersion, installedFingerprint)
-                return
-            }
-
-            log.info(
-                "Demo catalog content changed: {} ({}) -> {} ({})",
-                existingCatalog.installedReleaseVersion,
-                installedFingerprint,
-                manifest.release.version,
-                remoteFingerprint,
-            )
-            transactionTemplate.executeWithoutResult {
-                val result = mediator.send(UpgradeCatalog(tenantKey = tenantKey, catalogKey = existingCatalog.id))
-                val installed = result.installResults.count { it.status == InstallStatus.INSTALLED }
-                val updated = result.installResults.count { it.status == InstallStatus.UPDATED }
-                val failed = result.installResults.count { it.status == InstallStatus.FAILED }
-                log.info(
-                    "Upgraded demo catalog: {} -> {}, {} installed, {} updated, {} failed, {} removed",
-                    result.previousVersion,
-                    result.newVersion,
-                    installed,
-                    updated,
-                    failed,
-                    result.removedResources.size,
-                )
-            }
-            return
-        }
-
-        // First-time registration
         transactionTemplate.executeWithoutResult {
-            val catalog = mediator.send(RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL))
-            log.info("Registered demo catalog: {} (version {})", catalog.name, catalog.installedReleaseVersion)
-
-            val results = mediator.send(InstallFromCatalog(tenantKey = tenantKey, catalogKey = catalog.id))
-            val installed = results.count { it.status == InstallStatus.INSTALLED }
-            val failed = results.count { it.status == InstallStatus.FAILED }
-            log.info("Installed {} resources from demo catalog ({} failed)", installed, failed)
-            results.filter { it.status == InstallStatus.FAILED }.forEach {
-                log.warn("Failed to install {} '{}': {}", it.type, it.slug, it.errorMessage)
-            }
+            val result = mediator.send(EnsureSubscribedCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL))
+            log.info(
+                "Demo catalog {} ({}): {} -> {}",
+                result.catalogKey.value,
+                result.status,
+                result.previousVersion,
+                result.newVersion,
+            )
         }
     }
 
@@ -176,7 +127,6 @@ class DemoLoader(
 
     companion object {
         private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
-        private const val DEMO_CATALOG_SLUG = "epistola-demo"
         private const val DEMO_TENANT_ID = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
         private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-100000000001"
