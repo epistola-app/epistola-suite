@@ -45,3 +45,25 @@
 
 2. Database: No database is configured. Set database.type or use config.env to configure manually.
 {{- end }}
+
+3. Migrations: mode "{{ .Values.migration.mode }}".
+{{- if eq .Values.migration.mode "job" }}
+   A pre-install/pre-upgrade Job runs Flyway once before app pods start; a
+   failed migration fails this release (the new Deployment is not rolled out).
+   App pods only validate the schema and fail fast if it is behind.
+   Inspect a failed run:
+   kubectl logs job/{{ include "epistola.fullname" . }}-migrate --namespace {{ .Release.Namespace }}
+{{- else if eq .Values.migration.mode "initContainer" }}
+   Every app pod migrates via an init container before serving; a failed
+   migration leaves the pod NotReady. App pods only validate the schema.
+   Inspect:
+   kubectl logs <pod> -c migrate --namespace {{ .Release.Namespace }}
+{{- else }}
+   The app runs Flyway at boot (embedded). Suitable for single-replica / dev;
+   for multi-replica use migration.mode=job.
+{{- end }}
+{{- if and (eq .Values.migration.mode "job") (eq $dbType "cnpg") }}
+   Note: on a FRESH install of a chart-managed CNPG cluster use
+   migration.mode=initContainer — the CNPG Cluster is created after Helm hooks,
+   so the pre-install Job cannot reach it on first install.
+{{- end }}
