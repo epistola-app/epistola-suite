@@ -10,17 +10,16 @@ import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.WebApplicationType
-import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.web.context.WebApplicationContext
 import org.testcontainers.postgresql.PostgreSQLContainer
 
 /**
- * Exercises the isolated migration context [MigrationLauncher.MigrationConfig]
- * against the shared Testcontainer (already migrated by the test context, so
- * `migrate` is idempotent and `validate` sees no pending migrations).
+ * Exercises the isolated migration context via the exact production
+ * construction [MigrationLauncher.migrationApplication] against the shared
+ * Testcontainer (already migrated by the test context, so `migrate` is
+ * idempotent and `validate` sees no pending migrations).
  *
- * We invoke the builder directly rather than [MigrationLauncher.run], which
+ * We run the builder directly rather than [MigrationLauncher.run], which
  * calls `exitProcess` and would kill the test JVM.
  */
 class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
@@ -31,10 +30,11 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    // Properties go through command-line args (high precedence) so they
-    // override application.yaml — mirrors how MigrationLauncher.run works.
-    private fun runMigrationContext(vararg props: String) = SpringApplicationBuilder(MigrationLauncher.MigrationConfig::class.java)
-        .web(WebApplicationType.NONE)
+    // Built via the exact production factory (web=NONE, banner off,
+    // LoggingApplicationListener stripped). Properties go through command-line
+    // args (high precedence) so they override application.yaml — mirrors
+    // MigrationLauncher.runMigration.
+    private fun runMigrationContext(vararg props: String) = MigrationLauncher.migrationApplication()
         .run(
             "--spring.datasource.url=${postgres.jdbcUrl}",
             "--spring.datasource.username=${postgres.username}",
@@ -76,6 +76,9 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
                 "spring.flyway.locations=classpath:db/migration,classpath:probe-migration",
             )
         }.hasStackTraceContaining("Database schema is behind")
+            // Locks in the ExitCodeGenerator path: validate fail-fast must be
+            // a SchemaBehindException so Spring Boot sets the non-zero exit.
+            .hasStackTraceContaining("SchemaBehindException")
     }
 
     @Test

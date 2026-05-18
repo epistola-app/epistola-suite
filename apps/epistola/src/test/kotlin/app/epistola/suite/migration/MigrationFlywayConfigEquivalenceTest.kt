@@ -6,8 +6,6 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.Configuration
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.WebApplicationType
-import org.springframework.boot.builder.SpringApplicationBuilder
 import org.testcontainers.postgresql.PostgreSQLContainer
 
 /**
@@ -36,8 +34,7 @@ class MigrationFlywayConfigEquivalenceTest : BaseIntegrationTest() {
 
     @Test
     fun `migration context resolves the same Flyway configuration as the app`() {
-        SpringApplicationBuilder(MigrationLauncher.MigrationConfig::class.java)
-            .web(WebApplicationType.NONE)
+        MigrationLauncher.migrationApplication()
             .run(
                 "--spring.datasource.url=${postgres.jdbcUrl}",
                 "--spring.datasource.username=${postgres.username}",

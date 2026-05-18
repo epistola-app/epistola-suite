@@ -113,8 +113,13 @@ For the first install of a chart-managed CNPG database, use
 
 ## Failure handling & exit codes
 
-`MigrationLauncher` exits **0** on success, **1** on failure; the app `main()`
-forces a non-zero exit on a validate-mode fail-fast. Consequently:
+`MigrationLauncher` exits **0** on success, **1** on failure. App pods in
+`validate` mode fail fast by throwing `SchemaBehindException`, which implements
+Spring Boot's `ExitCodeGenerator`; Spring Boot's `SpringBootExceptionHandler`
+then `System.exit`s with a non-zero code — there is no `try/catch` or manual
+exit in `main()`. (The isolated migration runner excludes Spring Boot's
+`LoggingApplicationListener`, so migration-job logs use Logback's default
+formatting; Flyway output and exit codes are unaffected.) Consequently:
 
 - **`job` mode:** a failed migration fails the Job, which fails
   `helm install`/`helm upgrade` — the new Deployment is never rolled out and old

@@ -145,7 +145,16 @@ server, schedulers, demo loader or catalog bootstrap — nothing to gate), runs
 `SPRING_DATASOURCE_*` config are identical to the embedded path — no Flyway-config
 duplication, no migrate/runtime drift. The migration step always forces
 `clean-disabled: true` (a failed migration must surface as a non-zero exit, never
-a destructive reset).
+a destructive reset). The isolated runner (`MigrationLauncher.migrationApplication()`,
+shared by production and the migration tests) deliberately excludes Spring Boot's
+`LoggingApplicationListener` so it never initialises or cleans the JVM-global
+Logback context — it logs at Logback's default formatting and never disturbs the
+app's shared logging/turbo-filter state.
+
+In `validate` mode the app pods never migrate; a behind schema throws
+`SchemaBehindException` (a Spring Boot `ExitCodeGenerator`) so the process exits
+non-zero through Spring Boot's own failure handling — `main()` is a bare
+`runApplication`, no `try/catch`/`exitProcess`.
 
 Kubernetes wiring is the Helm `migration.mode` value (`job` default /
 `initContainer` / `embedded`) — see [`deployment.md`](deployment.md).
