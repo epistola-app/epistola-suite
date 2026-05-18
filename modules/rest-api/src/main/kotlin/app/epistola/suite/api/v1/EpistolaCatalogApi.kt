@@ -3,11 +3,15 @@ package app.epistola.suite.api.v1
 import app.epistola.api.CatalogsApi
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
+import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
+import app.epistola.suite.catalog.queries.UpgradeResourceChange
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -36,6 +40,33 @@ class EpistolaCatalogApi : CatalogsApi {
                         fingerprint = if (authored) catalog.releasedFingerprint else catalog.installedFingerprint,
                     )
                 },
+            ),
+        )
+    }
+
+    override fun previewCatalogUpgrade(
+        tenantId: String,
+        catalogId: String,
+    ): ResponseEntity<CatalogUpgradeDiff> {
+        val diff = PreviewCatalogUpgrade(
+            tenantKey = TenantKey.of(tenantId),
+            catalogKey = CatalogKey.of(catalogId),
+        ).query()
+
+        fun keys(changes: List<UpgradeResourceChange>) = changes.map { "${it.type}/${it.slug}" }
+
+        return ResponseEntity.ok(
+            CatalogUpgradeDiff(
+                catalogId = diff.catalogKey.value,
+                newVersion = diff.newVersion,
+                upgradeAvailable = diff.hasChanges,
+                added = keys(diff.added),
+                removed = keys(diff.removed),
+                changed = keys(diff.changed),
+                unchanged = keys(diff.unchanged),
+                conflicts = diff.conflicts,
+                blockedByConflicts = diff.hasConflicts,
+                previousVersion = diff.previousVersion,
             ),
         )
     }

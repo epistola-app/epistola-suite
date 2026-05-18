@@ -152,8 +152,13 @@ added later if automation demand appears.
   (`CatalogCanonicalizer.perResourceFingerprints*`); cross-catalog conflicts on
   the removal set are computed by the shared `CatalogUpgradeAnalyzer` that
   `UpgradeCatalog` also throws on, so a blocking conflict surfaces in the
-  preview before Apply. Still open: UI (review-changes dialog + Apply, opt-in
-  install of ADDED resources), ZIP-import dry-run, and REST/MCP read parity.
+  preview before Apply. **UI:** lazy per-row upgrade indicator → "Review
+  catalog upgrade" dialog (version delta, change buckets, conflicts with a
+  server-rendered disabled Apply, opt-in "also install new resources" wired to
+  `UpgradeCatalog.includeNewSlugs`). **Read parity:** REST
+  `GET /tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview`
+  (`CatalogUpgradeDiff`) and MCP `preview_catalog_upgrade`; the upgrade
+  _action_ stays UI-only. Still open: ZIP-import dry-run.
 - **Phase 3 — dependency SemVer ranges.** Implement the reserved
   `DependencyRef.versionRange` (catalog-level, e.g. `system >=1.2.0 <2.0.0`),
   validated against the dependency catalog's installed/released version at
