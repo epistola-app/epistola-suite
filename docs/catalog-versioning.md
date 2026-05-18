@@ -106,28 +106,51 @@ bytes**. The version label encodes release state and export is never blocked:
 immutable release snapshot so subscribers never see in-progress edits is a
 Phase 2 hardening.)
 
-## Importing a ZIP (AUTHORED)
+## Importing a ZIP
 
-A release is an **authorship act**, so a ZIP import — which is content
-transport — only adopts a release in the one case where there is no authorship
-to protect:
+A ZIP import always targets a catalog **type**. A slug that already exists with
+a _different_ type is rejected (it would flip ownership semantics). What the
+import then means depends entirely on that type:
 
-- **Import that _creates_ the catalog** → it has no release history yet, so the
+### AUTHORED — content transport into your editable copy
+
+A release is an **authorship act**, so a ZIP import only adopts a release in
+the one case where there is no authorship to protect:
+
+- **Import that _creates_ the catalog** → no release history yet, so the
   manifest's version becomes the **initial release**, provided it is a clean
   SemVer (not a `-dev`/legacy label), a `release.fingerprint` is present, and
   every resource imported. The ZIP round-trip fingerprint is deterministic, so
   the recorded release row is real and consistent — not fabricated. Result: the
   catalog shows the published version, not "unreleased".
-- **Import into an _existing_ AUTHORED catalog** → this is an _edit_ to a
-  catalog you already version. Release state is **never** fabricated or
-  changed; the working copy shows as drift ("unreleased changes") and the owner
-  releases deliberately via the Release action. (Re-import is also an in-place
-  merge — it does not prune resources dropped from the new ZIP; only the
-  SUBSCRIBED `UpgradeCatalog` path removes stale resources.)
+- **Import into an _existing_ AUTHORED catalog** → an _edit_ to a catalog you
+  already version. Release state is **never** fabricated or changed; the
+  working copy shows as drift ("unreleased changes") and the owner releases
+  deliberately. Re-import is an in-place **merge** — it does **not** prune
+  resources the new ZIP dropped.
 - **`-dev`/never-released manifest** → nothing real to adopt; stays unreleased.
 
-Contrast SUBSCRIBED, where the version is fully derived state ("the upstream
-release I have installed") and is auto-managed by register/upgrade.
+### SUBSCRIBED — the ZIP _is_ the upgrade
+
+A SUBSCRIBED catalog is a managed mirror. With no source URL to poll, importing
+a newer ZIP **is** its upgrade — and it runs the **full `UpgradeCatalog`
+contract**, the ZIP merely being the transport instead of an HTTP source:
+
+- **conflict-checked before any mutation** — a stale resource still referenced
+  from another catalog blocks the whole import (`CatalogUpgradeConflictException`);
+- resources are installed/replaced, then **stale resources are pruned**
+  (shared `CatalogUpgradeAnalyzer.removeStale` — one definition with the URL
+  path);
+- **abort-on-failed-install** — if any resource fails, stale is _not_ pruned
+  and `installed_*` is _not_ advanced, so the catalog stays on its previous
+  release and a re-import retries (never a silent half-upgrade);
+- on success `installed_release_version` / `installed_fingerprint` /
+  `installed_resource_fingerprints` are advanced from the manifest, computed
+  with the **exact same** canonicalization as a URL source — so drift
+  detection and the upgrade preview are consistent regardless of transport.
+
+So SUBSCRIBED upgrade has two equivalent transports — re-fetch a source URL
+(`UpgradeCatalog`) or re-import a ZIP — with identical semantics.
 
 ## Bundled catalogs
 

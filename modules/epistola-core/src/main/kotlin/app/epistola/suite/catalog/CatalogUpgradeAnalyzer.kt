@@ -3,23 +3,31 @@ package app.epistola.suite.catalog
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /** A resource currently installed under a catalog. */
 data class InstalledResource(val type: String, val slug: String)
 
+/** A resource removed from a catalog during a stale-prune. */
+data class RemovedResource(val type: String, val slug: String)
+
 /**
- * Shared upgrade analysis — installed-resource discovery, stale computation and
- * cross-catalog conflict detection — used by both
- * [UpgradeCatalog][app.epistola.suite.catalog.commands.UpgradeCatalog] (at
- * apply time, where conflicts throw) and
- * [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade]
- * (so the same conflicts surface up front, not only at apply).
+ * Shared upgrade analysis — installed-resource discovery, stale computation,
+ * cross-catalog conflict detection and stale removal — used by
+ * [UpgradeCatalog][app.epistola.suite.catalog.commands.UpgradeCatalog] (URL
+ * source), the SUBSCRIBED ZIP-import path
+ * ([ImportCatalogZip][app.epistola.suite.catalog.commands.ImportCatalogZip])
+ * and [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade]
+ * (so the same conflicts surface up front, not only at apply). One definition
+ * of "what is stale and what removing it would break".
  */
 @Component
 class CatalogUpgradeAnalyzer(
     private val jdbi: Jdbi,
 ) {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     /** All resources installed under `(tenant, catalog)`, grouped by type. */
     fun installedByType(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, List<InstalledResource>> = jdbi.withHandle<Map<String, List<InstalledResource>>, Exception> { handle ->
@@ -140,5 +148,51 @@ class CatalogUpgradeAnalyzer(
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
+    }
+
+    /**
+     * Hard-deletes the given stale resources from their owning tables, in
+     * dependency order (templates first — they may reference themes/stencils —
+     * then the rest). Idempotent; returns what was removed. Callers must have
+     * already cleared [findConflicts]. Shared by `UpgradeCatalog` and the
+     * SUBSCRIBED ZIP-import path so "what stale-prune deletes" has one
+     * definition.
+     */
+    fun removeStale(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        staleResources: List<InstalledResource>,
+    ): List<RemovedResource> {
+        if (staleResources.isEmpty()) return emptyList()
+
+        val tableByType = mapOf(
+            "template" to "document_templates",
+            "stencil" to "stencils",
+            "attribute" to "variant_attribute_definitions",
+            "theme" to "themes",
+            "asset" to "assets",
+        )
+        val ordered = staleResources.sortedBy {
+            when (it.type) {
+                "template" -> 0
+                "stencil" -> 1
+                "attribute" -> 2
+                "asset" -> 3
+                "theme" -> 4
+                else -> 5
+            }
+        }
+
+        val removed = mutableListOf<RemovedResource>()
+        jdbi.useHandle<Exception> { handle ->
+            for (resource in ordered) {
+                val table = tableByType[resource.type] ?: continue
+                handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND catalog_key = :c AND id = :id")
+                    .bind("t", tenantKey).bind("c", catalogKey).bind("id", resource.slug).execute()
+                removed.add(RemovedResource(resource.type, resource.slug))
+                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalogKey)
+            }
+        }
+        return removed
     }
 }

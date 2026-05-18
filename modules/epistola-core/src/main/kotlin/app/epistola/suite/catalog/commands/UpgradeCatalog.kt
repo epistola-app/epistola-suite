@@ -5,7 +5,7 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
-import app.epistola.suite.catalog.InstalledResource
+import app.epistola.suite.catalog.RemovedResource
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -64,11 +64,6 @@ class CatalogUpgradeAbortedException(
 ) : RuntimeException(
     "Catalog '${catalogKey.value}' upgrade aborted — ${failed.size} resource(s) failed to install:\n" +
         failed.joinToString("\n") { "  - ${it.type}/${it.slug}: ${it.errorMessage}" },
-)
-
-data class RemovedResource(
-    val type: String,
-    val slug: String,
 )
 
 class CatalogUpgradeConflictException(
@@ -155,8 +150,8 @@ class UpgradeCatalogHandler(
             )
         }
 
-        // 6. Remove stale resources (already validated)
-        val removed = removeStaleResources(command.tenantKey, command.catalogKey, staleResources)
+        // 6. Remove stale resources (already validated) — shared definition.
+        val removed = analyzer.removeStale(command.tenantKey, command.catalogKey, staleResources)
 
         // 7. Bump version last — only reached when all installs succeeded.
         //    Re-capture the source-side per-resource baseline of the release we
@@ -196,50 +191,6 @@ class UpgradeCatalogHandler(
             installResults = installResults,
             removedResources = removed,
         )
-    }
-
-    // ── Stale resource removal ───────────────────────────────────────────────
-
-    private fun removeStaleResources(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        staleResources: List<InstalledResource>,
-    ): List<RemovedResource> {
-        if (staleResources.isEmpty()) return emptyList()
-
-        val removed = mutableListOf<RemovedResource>()
-
-        val tableByType = mapOf(
-            "template" to "document_templates",
-            "stencil" to "stencils",
-            "attribute" to "variant_attribute_definitions",
-            "theme" to "themes",
-            "asset" to "assets",
-        )
-
-        // Delete in dependency order: templates first (may reference themes/stencils), then the rest
-        val ordered = staleResources.sortedBy {
-            when (it.type) {
-                "template" -> 0
-                "stencil" -> 1
-                "attribute" -> 2
-                "asset" -> 3
-                "theme" -> 4
-                else -> 5
-            }
-        }
-
-        jdbi.useHandle<Exception> { handle ->
-            for (resource in ordered) {
-                val table = tableByType[resource.type] ?: continue
-                handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND catalog_key = :c AND id = :id")
-                    .bind("t", tenantKey).bind("c", catalogKey).bind("id", resource.slug).execute()
-                removed.add(RemovedResource(resource.type, resource.slug))
-                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalogKey)
-            }
-        }
-
-        return removed
     }
 
     private fun updateCatalogVersion(

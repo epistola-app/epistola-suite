@@ -8,12 +8,16 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -266,6 +270,160 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isNull()
             val reexport = ExportCatalogZip(tenantKey = consumer.id, catalogKey = catalogKey).execute().zipBytes
             assertThat(manifestOf(reexport).release.version).isEqualTo("0.0.0-dev")
+        }
+    }
+
+    // ── SUBSCRIBED: the ZIP is the upgrade transport (UpgradeCatalog parity) ──
+
+    /** Publisher-side helper: an AUTHORED catalog with the given themes, released. */
+    private fun publishZip(publisherTenant: app.epistola.suite.common.ids.TenantKey, slug: String, version: String, themes: Map<String, String>): ByteArray {
+        val catalogKey = CatalogKey.of(slug)
+        CreateCatalog(tenantKey = publisherTenant, id = catalogKey, name = slug).execute()
+        themes.forEach { (s, n) -> CreateTheme(id = ThemeId(ThemeKey.of(s), CatalogId(catalogKey, TenantId(publisherTenant))), name = n).execute() }
+        ReleaseCatalogVersion(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute()
+        return ExportCatalogZip(tenantKey = publisherTenant, catalogKey = catalogKey).execute().zipBytes
+    }
+
+    @Test
+    fun `importing a ZIP as SUBSCRIBED records installed state from the manifest (managed mirror)`() {
+        val pub = createTenant("Sub Mirror Pub")
+        val sub = createTenant("Sub Mirror Sub")
+        val catalogKey = CatalogKey.of("zipsub-mirror")
+
+        withMediator {
+            val zip = publishZip(pub.id, "zipsub-mirror", "1.0.0", mapOf("brand" to "Brand"))
+            val manifestFp = manifestOf(zip).release.fingerprint
+
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+
+            val catalog = GetCatalog(sub.id, catalogKey).query()!!
+            assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(catalog.sourceUrl).isNull() // ZIP-sourced, no URL
+            assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(catalog.installedFingerprint).isEqualTo(manifestFp)
+            assertThat(catalog.installedResourceFingerprints).isNotNull().containsKey("theme/brand")
+        }
+    }
+
+    @Test
+    fun `re-importing a SUBSCRIBED ZIP prunes resources the publisher dropped and advances the version`() {
+        val pub = createTenant("Sub Prune Pub")
+        val sub = createTenant("Sub Prune Sub")
+        val catalogKey = CatalogKey.of("zipsub-prune")
+
+        withMediator {
+            val v1 = publishZip(pub.id, "zipsub-prune", "1.0.0", mapOf("keep" to "Keep", "drop" to "Drop"))
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1, catalogType = CatalogType.SUBSCRIBED).execute()
+            assertThat(themeName(sub.id, catalogKey, "drop")).isEqualTo("Drop")
+
+            // Publisher's next release drops `drop`.
+            val entries = unzip(v1)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            val kept = objectMapper.createArrayNode()
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != "drop") kept.add(it) }
+            manifest.set("resources", kept)
+            (manifest.get("release") as ObjectNode).put("version", "2.0.0")
+            entries.remove("resources/theme/drop.json")
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries), catalogType = CatalogType.SUBSCRIBED).execute()
+
+            // Unlike AUTHORED re-import, SUBSCRIBED re-import prunes stale (full
+            // UpgradeCatalog parity) and advances the installed version.
+            assertThat(themeName(sub.id, catalogKey, "drop")).isNull()
+            assertThat(themeName(sub.id, catalogKey, "keep")).isEqualTo("Keep")
+            assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
+        }
+    }
+
+    @Test
+    fun `a cross-catalog conflict blocks a SUBSCRIBED ZIP upgrade and changes nothing`() {
+        val pub = createTenant("Sub Conflict Pub")
+        val sub = createTenant("Sub Conflict Sub")
+        val catalogKey = CatalogKey.of("zipsub-conflict")
+
+        withMediator {
+            val v1 = publishZip(pub.id, "zipsub-conflict", "1.0.0", mapOf("pinned" to "Pinned"))
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1, catalogType = CatalogType.SUBSCRIBED).execute()
+
+            // A template in another catalog pins the subscribed theme.
+            val tplId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(CatalogKey.DEFAULT, TenantId(sub.id)))
+            CreateDocumentTemplate(id = tplId, name = "Cross-Ref Template").execute()
+            UpdateDocumentTemplate(id = tplId, themeId = ThemeKey.of("pinned"), themeCatalogKey = catalogKey).execute()
+
+            // Publisher drops the still-referenced theme in the next release.
+            val entries = unzip(v1)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            manifest.set("resources", objectMapper.createArrayNode())
+            (manifest.get("release") as ObjectNode).put("version", "2.0.0")
+            entries.remove("resources/theme/pinned.json")
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            assertThatThrownBy {
+                ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries), catalogType = CatalogType.SUBSCRIBED).execute()
+            }.isInstanceOf(CatalogUpgradeConflictException::class.java).hasMessageContaining("pinned")
+
+            // Conflict thrown before any mutation: version + theme unchanged.
+            assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(themeName(sub.id, catalogKey, "pinned")).isEqualTo("Pinned")
+        }
+    }
+
+    @Test
+    fun `a failed resource aborts a SUBSCRIBED ZIP upgrade — installed version unchanged, stale not pruned`() {
+        val pub = createTenant("Sub Abort Pub")
+        val sub = createTenant("Sub Abort Sub")
+        val catalogKey = CatalogKey.of("zipsub-abort")
+
+        withMediator {
+            val v1 = publishZip(pub.id, "zipsub-abort", "1.0.0", mapOf("keep" to "Keep", "drop" to "Drop"))
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = v1, catalogType = CatalogType.SUBSCRIBED).execute()
+
+            // Next "release": drop `drop` (would be pruned on success) and bump
+            // to 2.0.0 — but corrupt `keep` by removing its detail file so its
+            // re-install FAILS.
+            val entries = unzip(v1)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            val kept = objectMapper.createArrayNode()
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != "drop") kept.add(it) }
+            manifest.set("resources", kept)
+            (manifest.get("release") as ObjectNode).put("version", "2.0.0")
+            entries.remove("resources/theme/drop.json")
+            entries.remove("resources/theme/keep.json") // referenced by manifest → install FAILS
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            val result = ImportCatalogZip(tenantKey = sub.id, zipBytes = rezip(entries), catalogType = CatalogType.SUBSCRIBED).execute()
+
+            assertThat(result.aborted).isTrue()
+            assertThat(result.results).anyMatch { it.status == InstallStatus.FAILED }
+            // Aborted: version not advanced, stale `drop` NOT pruned (retry-able).
+            assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(themeName(sub.id, catalogKey, "drop")).isEqualTo("Drop")
+        }
+    }
+
+    @Test
+    fun `importing over a catalog of a different type is rejected`() {
+        val pub = createTenant("Sub Mismatch Pub")
+        val sub = createTenant("Sub Mismatch Sub")
+        val catalogKey = CatalogKey.of("zipsub-mismatch")
+
+        withMediator {
+            val zip = publishZip(pub.id, "zipsub-mismatch", "1.0.0", mapOf("thm" to "Th"))
+
+            // Exists as SUBSCRIBED → importing as AUTHORED is rejected.
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+            assertThatThrownBy {
+                ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.AUTHORED).execute()
+            }.isInstanceOf(IllegalArgumentException::class.java).hasMessageContaining("already exists as SUBSCRIBED")
+
+            // And the reverse: an AUTHORED catalog can't be imported as SUBSCRIBED.
+            val pub2 = createTenant("Sub Mismatch Pub2")
+            val zip2 = publishZip(pub2.id, "zipsub-mismatch2", "1.0.0", mapOf("thm" to "Th"))
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip2, catalogType = CatalogType.AUTHORED).execute()
+            assertThatThrownBy {
+                ImportCatalogZip(tenantKey = sub.id, zipBytes = zip2, catalogType = CatalogType.SUBSCRIBED).execute()
+            }.isInstanceOf(IllegalArgumentException::class.java).hasMessageContaining("already exists as AUTHORED")
         }
     }
 }
