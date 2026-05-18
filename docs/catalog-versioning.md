@@ -22,11 +22,14 @@ there is never a parallel install of two versions.
   release records an **immutable boundary** in `catalog_releases`
   (author-set SemVer + content fingerprint + notes + a manifest snapshot) and
   advances the `catalogs.released_version` / `released_fingerprint` /
-  `released_at` pointer. `catalog_releases` is release **history** (changelog
-  and the Phase 2 upgrade-diff source), not parallel installs.
+  `released_at` pointer. `catalog_releases` is AUTHORED release **history**
+  (changelog), not parallel installs and **not** the consumer upgrade-diff
+  baseline (a SUBSCRIBED consumer's DB has no `catalog_releases` rows).
 - **SUBSCRIBED (consumer side)** — exactly one installed state.
   `installed_release_version` + `installed_fingerprint` record which release is
-  installed. `UpgradeCatalog` replaces resources **in place**.
+  installed; `installed_resource_fingerprints` (JSONB) records the per-resource
+  source-side digests of that release — the Phase 2 upgrade-diff baseline.
+  `UpgradeCatalog` replaces resources **in place**.
 
 `installed_*` (SUBSCRIBED) and `released_*` / `catalog_releases` (AUTHORED) are
 orthogonal — `CatalogType` is exclusive, so only one applies to a given
@@ -134,10 +137,23 @@ added later if automation demand appears.
 
 ## Roadmap
 
-- **Phase 2 — upgrade diff/preview.** Use the stored `catalog_releases`
-  snapshots + fingerprints to show added/removed/changed resources before
-  applying `UpgradeCatalog` (URL) or a ZIP import (dry-run); mirror in
-  REST/MCP. No new tables.
+- **Phase 2 — upgrade diff/preview.** _Backend landed._ A SUBSCRIBED consumer
+  has **no `catalog_releases` snapshot** (that table is AUTHORED/publisher
+  state), so the diff is **source-vs-source**, not snapshot-vs-installed: the
+  per-resource source-side digests are captured into
+  `catalogs.installed_resource_fingerprints` (JSONB) at `RegisterCatalog` /
+  `UpgradeCatalog`, exactly alongside `installed_fingerprint` and with the same
+  provenance (computed from the source manifest, never publisher-authored).
+  `PreviewCatalogUpgrade` re-fetches the manifest, recomputes the same
+  per-resource digests, and classifies every `(type, slug)` as
+  ADDED / REMOVED / CHANGED / UNCHANGED — so a CHANGED verdict means the
+  _publisher_ changed that resource, never install round-trip noise. The
+  per-resource digest reuses the **exact** whole-catalog fingerprint pipeline
+  (`CatalogCanonicalizer.perResourceFingerprints*`); cross-catalog conflicts on
+  the removal set are computed by the shared `CatalogUpgradeAnalyzer` that
+  `UpgradeCatalog` also throws on, so a blocking conflict surfaces in the
+  preview before Apply. Still open: UI (review-changes dialog + Apply, opt-in
+  install of ADDED resources), ZIP-import dry-run, and REST/MCP read parity.
 - **Phase 3 — dependency SemVer ranges.** Implement the reserved
   `DependencyRef.versionRange` (catalog-level, e.g. `system >=1.2.0 <2.0.0`),
   validated against the dependency catalog's installed/released version at
