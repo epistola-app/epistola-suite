@@ -15,16 +15,23 @@ import kotlin.system.exitProcess
 /**
  * Runs Flyway migrations in an isolated Spring context, then exits the JVM.
  *
- * Selected in `main()` — before the full application boots — by the
- * `EPISTOLA_RUN_MODE=migrate` environment variable (the Helm chart wires this in
- * `job` / `initContainer` modes) or a `--migrate` program argument.
+ * Selected in `main()` — before the full application boots — by the single
+ * `EPISTOLA_MIGRATION_MODE=migrate` environment variable (the Helm chart wires
+ * this in `job` / `initContainer` modes) or a `--migrate` program argument. This
+ * is the same knob [FlywayConfig] reads; `migrate` is reserved for "the
+ * dedicated migration step" and is never an `application.yaml` default, so the
+ * embedded default (`embedded`) can never accidentally trigger the launcher.
  *
  * The context imports only the datasource and Flyway auto-configuration plus
  * [FlywayConfig], so none of the application's components (web server, schedulers,
  * demo loader, catalog bootstrap) are ever loaded — there is nothing to gate. The
  * same `application.yaml` loads, so `spring.flyway.locations` and the
- * `SPRING_DATASOURCE_*` datasource config apply identically to the embedded path
- * (no Flyway-config duplication, no migrate/runtime drift).
+ * `SPRING_DATASOURCE_*` datasource config apply identically to the embedded path.
+ *
+ * NOTE: the *seam* ([FlywayConfig]) and the Flyway config inputs (locations,
+ * placeholders) are identical to the app, but the two contexts compose Flyway
+ * via different auto-config sets. `MigrationFlywayConfigEquivalenceTest` is the
+ * guardrail that fails loudly if those ever drift.
  *
  * Always migrates and never auto-cleans (`spring.flyway.clean-disabled=true`): a
  * failed migration must surface as a non-zero exit code so it gates the deploy,
@@ -34,46 +41,57 @@ object MigrationLauncher {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    private const val RUN_MODE_ENV = "EPISTOLA_RUN_MODE"
+    const val MIGRATION_MODE_ENV = "EPISTOLA_MIGRATION_MODE"
     private const val MIGRATE = "migrate"
 
     /**
-     * True when this process was launched to run migrations only. Checked before
-     * Spring starts so the full application context is never created.
+     * True when this process was launched as the dedicated migration step.
+     * Pure: the environment value is passed in so it is unit-testable without
+     * depending on the ambient JVM environment.
      */
-    fun requested(args: Array<String>): Boolean = System.getenv(RUN_MODE_ENV)?.equals(MIGRATE, ignoreCase = true) == true ||
+    fun requested(
+        args: Array<String>,
+        migrationModeEnv: String? = System.getenv(MIGRATION_MODE_ENV),
+    ): Boolean = migrationModeEnv?.equals(MIGRATE, ignoreCase = true) == true ||
         args.any { it == "--$MIGRATE" }
 
     /**
-     * Boot the isolated migration context, run Flyway, and terminate the JVM with
-     * exit code 0 on success or 1 on failure. Never returns.
+     * Boot the isolated migration context, run Flyway, and terminate the JVM
+     * with the exit code from [runMigration]. Never returns.
      */
-    fun run(args: Array<String>) {
+    fun run(args: Array<String>): Nothing {
+        // exitProcess (not just context close) guarantees JVM termination with
+        // the intended code even though virtual threads are enabled globally.
+        exitProcess(runMigration(args))
+    }
+
+    /**
+     * Boot the isolated migration context, run Flyway, close it, and return the
+     * process exit code (0 success / 1 failure). Pure of `exitProcess` so the
+     * exit contract — the thing the deploy gate depends on — is testable.
+     */
+    fun runMigration(args: Array<String>): Int {
         logger.info("Starting in migration mode — isolated context, no web server")
-        val exitCode =
-            try {
-                SpringApplicationBuilder(MigrationConfig::class.java)
-                    .web(WebApplicationType.NONE)
-                    .bannerMode(Banner.Mode.OFF)
-                    // Passed as command-line args (high precedence) so they
-                    // override application.yaml. `properties()` would register
-                    // them as *default* properties (lowest precedence) and
-                    // application.yaml's clean-disabled:false would win.
-                    .run(
-                        *args,
-                        "--epistola.migration.mode=migrate",
-                        "--spring.flyway.clean-disabled=true",
-                    )
-                    .close()
-                logger.info("Database migration completed successfully")
-                0
-            } catch (e: Throwable) {
-                logger.error("Database migration failed", e)
-                1
-            }
-        // exitProcess (not just context close) guarantees JVM termination with the
-        // intended code even though virtual threads are enabled globally.
-        exitProcess(exitCode)
+        return try {
+            SpringApplicationBuilder(MigrationConfig::class.java)
+                .web(WebApplicationType.NONE)
+                .bannerMode(Banner.Mode.OFF)
+                // Passed as command-line args (high precedence) so they
+                // override application.yaml. `properties()` would register
+                // them as *default* properties (lowest precedence) and
+                // application.yaml's clean-disabled:false would win.
+                .run(
+                    *args,
+                    "--epistola.migration.mode=migrate",
+                    "--spring.flyway.clean-disabled=true",
+                )
+                .close()
+            logger.info("Database migration completed successfully")
+            0
+        } catch (e: Throwable) {
+            logger.error("Database migration failed", e)
+            1
+        }
     }
 
     @Configuration(proxyBeanMethods = false)

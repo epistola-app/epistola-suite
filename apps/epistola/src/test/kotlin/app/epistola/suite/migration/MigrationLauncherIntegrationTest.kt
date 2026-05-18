@@ -78,6 +78,31 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
         }.hasStackTraceContaining("Database schema is behind")
     }
 
+    @Test
+    fun `runMigration returns 0 on success`() {
+        val code = MigrationLauncher.runMigration(
+            arrayOf(
+                "--spring.datasource.url=${postgres.jdbcUrl}",
+                "--spring.datasource.username=${postgres.username}",
+                "--spring.datasource.password=${postgres.password}",
+            ),
+        )
+        assertThat(code).isEqualTo(0)
+    }
+
+    @Test
+    fun `runMigration returns 1 when the database is unreachable`() {
+        val code = MigrationLauncher.runMigration(
+            arrayOf(
+                "--spring.datasource.url=jdbc:postgresql://localhost:1/nope",
+                "--spring.datasource.username=x",
+                "--spring.datasource.password=x",
+                "--spring.flyway.connect-retries=0",
+            ),
+        )
+        assertThat(code).isEqualTo(1)
+    }
+
     private fun appliedCount(): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery("SELECT count(*) FROM flyway_schema_history WHERE success")
             .mapTo(Int::class.java)

@@ -18,7 +18,7 @@ In `job` and `initContainer` modes the chart injects
 `EPISTOLA_MIGRATION_MODE=validate` into the app container, so app pods only
 **validate** the schema and fail fast if it is behind — they never migrate at
 boot. The migration workload reuses the **same image** with
-`EPISTOLA_RUN_MODE=migrate` and the same datasource credentials as the app
+`EPISTOLA_MIGRATION_MODE=migrate` and the same datasource credentials as the app
 (shared `epistola.databaseEnv` helper).
 
 `embedded` emits no Job, no init container, and no `EPISTOLA_MIGRATION_MODE` —

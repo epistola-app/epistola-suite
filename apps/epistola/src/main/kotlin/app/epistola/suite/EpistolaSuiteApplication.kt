@@ -12,11 +12,11 @@ import kotlin.system.exitProcess
 class EpistolaSuiteApplication
 
 fun main(args: Array<String>) {
-    // EPISTOLA_RUN_MODE=migrate (or --migrate): run migrations in an isolated
-    // context and exit, without ever creating the full application context.
+    // EPISTOLA_MIGRATION_MODE=migrate (or --migrate): run migrations in an
+    // isolated context and exit, without ever creating the full application
+    // context. run() never returns (it calls exitProcess).
     if (MigrationLauncher.requested(args)) {
         MigrationLauncher.run(args)
-        return
     }
     try {
         runApplication<EpistolaSuiteApplication>(*args)

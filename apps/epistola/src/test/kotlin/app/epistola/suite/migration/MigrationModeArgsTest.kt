@@ -11,6 +11,8 @@ class MigrationModeArgsTest {
 
     @Test
     fun `migration mode parses case-insensitively`() {
+        assertThat(MigrationMode.from("embedded")).isEqualTo(MigrationMode.EMBEDDED)
+        assertThat(MigrationMode.from("EMBEDDED")).isEqualTo(MigrationMode.EMBEDDED)
         assertThat(MigrationMode.from("migrate")).isEqualTo(MigrationMode.MIGRATE)
         assertThat(MigrationMode.from("MIGRATE")).isEqualTo(MigrationMode.MIGRATE)
         assertThat(MigrationMode.from("validate")).isEqualTo(MigrationMode.VALIDATE)
@@ -25,14 +27,22 @@ class MigrationModeArgsTest {
     }
 
     @Test
-    fun `migrate run is requested via the --migrate program arg`() {
-        assertThat(MigrationLauncher.requested(arrayOf("--migrate"))).isTrue()
-        assertThat(MigrationLauncher.requested(arrayOf("foo", "--migrate", "bar"))).isTrue()
+    fun `migrate step is requested via the --migrate program arg`() {
+        assertThat(MigrationLauncher.requested(arrayOf("--migrate"), migrationModeEnv = null)).isTrue()
+        assertThat(MigrationLauncher.requested(arrayOf("foo", "--migrate", "bar"), migrationModeEnv = null)).isTrue()
     }
 
     @Test
-    fun `migrate run is not requested without the arg (and EPISTOLA_RUN_MODE unset in tests)`() {
-        assertThat(MigrationLauncher.requested(emptyArray())).isFalse()
-        assertThat(MigrationLauncher.requested(arrayOf("--server", "foo"))).isFalse()
+    fun `migrate step is requested via EPISTOLA_MIGRATION_MODE=migrate (case-insensitive)`() {
+        assertThat(MigrationLauncher.requested(emptyArray(), migrationModeEnv = "migrate")).isTrue()
+        assertThat(MigrationLauncher.requested(emptyArray(), migrationModeEnv = "Migrate")).isTrue()
+    }
+
+    @Test
+    fun `migrate step is not requested for embedded or validate`() {
+        assertThat(MigrationLauncher.requested(emptyArray(), migrationModeEnv = null)).isFalse()
+        assertThat(MigrationLauncher.requested(emptyArray(), migrationModeEnv = "embedded")).isFalse()
+        assertThat(MigrationLauncher.requested(emptyArray(), migrationModeEnv = "validate")).isFalse()
+        assertThat(MigrationLauncher.requested(arrayOf("--server"), migrationModeEnv = "validate")).isFalse()
     }
 }

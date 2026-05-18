@@ -1,5 +1,16 @@
 {{- if eq .Values.migration.mode "job" }}
 {{- /*
+  Guard the known footgun: with a chart-managed CNPG cluster (database.type=
+  cnpg), the Cluster is a non-hook resource created AFTER hooks, so on a fresh
+  install the pre-install Job can never reach the database and would time out.
+  Fail with an actionable message instead of a confusing hang. (cnpgExisting /
+  external / upgrades are fine — the DB already exists; wait-for-db handles
+  CNPG's async provisioning there.)
+*/}}
+{{- if and (eq (include "epistola.database.effectiveType" .) "cnpg") .Release.IsInstall }}
+{{- fail "migration.mode=job cannot run on a fresh install with database.type=cnpg: the CNPG Cluster is created after Helm hooks, so the pre-install migration Job cannot reach the database. Use migration.mode=initContainer (or embedded) for the first install, or pre-create the cluster and use database.type=cnpgExisting." }}
+{{- end }}
+{{- /*
   Pre-install / pre-upgrade hook Job: runs DB migrations exactly once per
   release, before the Deployment is applied/updated. A failed migration fails
   `helm upgrade` (the new app version is never rolled out) and the failed Job

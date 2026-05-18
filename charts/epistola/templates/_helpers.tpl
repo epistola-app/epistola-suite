@@ -190,7 +190,7 @@ Rendered as a container list item.
   image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   env:
-    - name: EPISTOLA_RUN_MODE
+    - name: EPISTOLA_MIGRATION_MODE
       value: "migrate"
     {{- if .Values.jvm.options }}
     - name: JAVA_TOOL_OPTIONS

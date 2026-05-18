@@ -9,23 +9,29 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
- * Controls how Flyway behaves at context startup via `epistola.migration.mode`.
+ * Controls how Flyway behaves at context startup via the single
+ * `epistola.migration.mode` knob (env `EPISTOLA_MIGRATION_MODE`).
  *
  * Spring Boot's Flyway auto-configuration invokes this [FlywayMigrationStrategy]
  * bean instead of calling `flyway.migrate()` itself, so this single seam governs
  * both the embedded app path and the isolated migration context (which imports
  * this same bean — no duplicated Flyway config, no migrate/runtime drift).
  *
- * - `migrate` (default — local/dev embedded, and the isolated migration step):
- *   run `flyway.migrate()`. Replaces Flyway's removed `cleanOnValidationError`
- *   property: on a validation failure, if cleaning is allowed
- *   (`spring.flyway.clean-disabled=false`) the database is cleaned and migrations
- *   re-run; otherwise the failure propagates. `migrate()` is idempotent, so this
- *   is a no-op when the schema is already at head.
- * - `validate` (separated deployments — set by `application-prod.yaml` and by the
- *   Helm chart in `job`/`initContainer` modes): never migrate or clean. Validate
- *   the schema and fail fast if the database is behind, so app pods refuse to
+ * The mode is one knob with three unambiguous values (see [MigrationMode]):
+ *
+ * - `embedded` (default — local/dev): the app runs `flyway.migrate()` at boot.
+ * - `migrate`: the dedicated migration step (set via the env var by the Helm
+ *   Job / init container; `main()` detects it pre-Spring and runs the isolated
+ *   `MigrationLauncher`, whose context forces this value). Also `flyway.migrate()`.
+ * - `validate`: separated app pods (set by `application-prod.yaml` and by the
+ *   Helm chart in `job`/`initContainer` modes). Never migrate or clean —
+ *   validate and fail fast if the database is behind, so app pods refuse to
  *   start until the separate migration step has run.
+ *
+ * `embedded`/`migrate` replace Flyway's removed `cleanOnValidationError`: on a
+ * validation failure, if cleaning is allowed (`spring.flyway.clean-disabled=false`)
+ * the database is cleaned and migrations re-run; otherwise the failure
+ * propagates. `migrate()` is idempotent — a no-op when already at head.
  */
 @Configuration
 class FlywayConfig {
@@ -35,12 +41,12 @@ class FlywayConfig {
     @Bean
     fun flywayMigrationStrategy(
         @Value("\${spring.flyway.clean-disabled:true}") cleanDisabled: Boolean,
-        @Value("\${epistola.migration.mode:migrate}") mode: String,
+        @Value("\${epistola.migration.mode:embedded}") mode: String,
     ): FlywayMigrationStrategy {
         val migrationMode = MigrationMode.from(mode)
         return FlywayMigrationStrategy { flyway ->
             when (migrationMode) {
-                MigrationMode.MIGRATE -> migrate(flyway, cleanDisabled)
+                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, cleanDisabled)
                 MigrationMode.VALIDATE -> validate(flyway)
             }
         }
@@ -65,10 +71,12 @@ class FlywayConfig {
             "Flyway validate-only mode: the schema must be migrated by a separate step; " +
                 "this process will not migrate or clean the database",
         )
-        // Flyway's own validate() fails fast when the DB is behind (pending
-        // migrations). The explicit pending() check below is a belt-and-
-        // suspenders net for any Flyway config that tolerates pending. Both
-        // paths surface as one clear, actionable IllegalStateException.
+        // With default Flyway config, validate() itself fails fast on a behind
+        // DB ("Detected resolved migration not applied"). The explicit pending()
+        // check below is NOT dead code: it is the failure path when Flyway is
+        // configured to tolerate pending migrations (e.g.
+        // `spring.flyway.ignore-migration-patterns=*:pending`). Both paths
+        // surface as one clear, actionable IllegalStateException.
         try {
             flyway.validate()
         } catch (e: FlywayValidateException) {
@@ -86,18 +94,29 @@ class FlywayConfig {
         }.getOrDefault(emptyList())
         val detail = if (pending.isEmpty()) "" else " (${pending.size} pending: ${pending.joinToString(", ")})"
         return "Database schema is behind$detail. Run the migration step " +
-            "(EPISTOLA_RUN_MODE=migrate / Helm migration Job) before starting the application."
+            "(EPISTOLA_MIGRATION_MODE=migrate / Helm migration Job) before starting the application."
     }
 
+    /**
+     * The single migration knob. One name, three meanings — no overloaded
+     * tokens, so `migrate` always means "dedicated migration step" and never
+     * leaks in as a property default.
+     */
     enum class MigrationMode {
+        /** App migrates at boot (default; local/dev, single-process). */
+        EMBEDDED,
+
+        /** Dedicated migration step: isolated context migrates then exits. */
         MIGRATE,
+
+        /** App only validates the schema and fails fast if it is behind. */
         VALIDATE,
         ;
 
         companion object {
             fun from(value: String): MigrationMode = entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
                 ?: throw IllegalStateException(
-                    "Invalid epistola.migration.mode='$value' (expected 'migrate' or 'validate')",
+                    "Invalid epistola.migration.mode='$value' (expected 'embedded', 'migrate' or 'validate')",
                 )
         }
     }
