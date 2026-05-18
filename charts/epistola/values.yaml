@@ -245,7 +245,7 @@ config:
 migration:
   mode: job
   # Image for the wait-for-db init container (job / initContainer modes).
-  waitImage: busybox:1.36
+  waitImage: busybox:1.37
   # Resources for the migrate container.
   resources: {}
   # Helm hook Job tuning (job mode only).
