@@ -11,6 +11,12 @@ spring:
     timeout: 8h
 
 epistola:
+  # Migrations run as a separate step in production (Helm migration Job / init
+  # container, or a manual EPISTOLA_RUN_MODE=migrate run). App pods must only
+  # validate the schema and fail fast if it is behind — never migrate at boot.
+  migration:
+    mode: validate
+
   # Document generation configuration
   generation:
     polling:
