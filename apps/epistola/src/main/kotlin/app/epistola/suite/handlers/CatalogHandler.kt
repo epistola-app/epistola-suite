@@ -4,6 +4,7 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -12,10 +13,13 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UnregisterCatalog
+import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -239,6 +243,97 @@ class CatalogHandler {
         } catch (e: Exception) {
             logger.warn("Failed to release catalog: ${e.message}", e)
             reRenderWithError(e.message ?: "Failed to release catalog.")
+        }
+    }
+
+    /**
+     * Lazy per-row "upgrade available?" indicator (SUBSCRIBED only). Cheap —
+     * manifest fetch only. Renders nothing when up to date or unreachable, so a
+     * failed remote never breaks the list.
+     */
+    fun upgradeCheck(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            val availability = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
+            ServerResponse.ok().render(
+                "catalogs/list :: upgrade-indicator",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "catalogId" to catalogKey.value,
+                    "availability" to availability,
+                ),
+            )
+        } catch (e: Exception) {
+            logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
+            ServerResponse.ok().render(
+                "catalogs/list :: upgrade-indicator",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "catalogId" to catalogKey.value,
+                    "availability" to null,
+                ),
+            )
+        }
+    }
+
+    private fun upgradeDialog(tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null): ServerResponse {
+        val model = HashMap<String, Any?>()
+        model["tenantId"] = tenantId.key
+        model["catalogId"] = catalogKey.value
+        model["error"] = error
+        try {
+            model["diff"] = PreviewCatalogUpgrade(tenantId.key, catalogKey).query()
+        } catch (e: Exception) {
+            logger.warn("Upgrade preview failed for catalog {}: {}", catalogKey, e.message)
+            model["diff"] = null
+            if (error == null) model["error"] = e.message ?: "Failed to preview upgrade. The remote catalog may be unavailable."
+        }
+        return ServerResponse.ok().render("catalogs/list :: upgrade-dialog", model)
+    }
+
+    fun upgradePreview(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return upgradeDialog(tenantId, catalogKey)
+    }
+
+    fun upgrade(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val includeNewSlugs = request.servletRequest().getParameterValues("newSlugs")?.toList() ?: emptyList()
+
+        return try {
+            val result = UpgradeCatalog(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+                includeNewSlugs = includeNewSlugs,
+            ).execute()
+
+            if (result.aborted) {
+                val failed = result.installResults
+                    .filter { it.status == InstallStatus.FAILED }
+                    .joinToString(", ") { "${it.type}/${it.slug}" }
+                return upgradeDialog(tenantId, catalogKey, "Upgrade aborted — these resources failed to install (nothing was changed, the version was not advanced): $failed")
+            }
+
+            val catalogs = ListCatalogs(tenantId.key).query()
+            request.htmx {
+                fragment("catalogs/list", "upgrade-done") {}
+                oob("catalogs/list", "catalog-rows") {
+                    "tenantId" to tenantId.key
+                    "catalogs" to catalogs
+                    "oobRows" to true
+                }
+                onNonHtmx {
+                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                }
+            }
+        } catch (e: CatalogUpgradeConflictException) {
+            upgradeDialog(tenantId, catalogKey, e.message ?: "Upgrade blocked — resources are still in use.")
+        } catch (e: Exception) {
+            logger.warn("Failed to upgrade catalog: ${e.message}", e)
+            upgradeDialog(tenantId, catalogKey, e.message ?: "Failed to upgrade catalog.")
         }
     }
 

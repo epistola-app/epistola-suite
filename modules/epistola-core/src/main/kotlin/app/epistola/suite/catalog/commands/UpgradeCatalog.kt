@@ -28,11 +28,16 @@ import tools.jackson.databind.ObjectMapper
  * is rejected with a [CatalogUpgradeConflictException].
  *
  * Only resources that are already installed locally are upgraded — new
- * resources in the manifest are not automatically installed.
+ * resources in the manifest are not automatically installed, **unless** their
+ * slug is listed in [includeNewSlugs] (the opt-in "also install new resources"
+ * path, wired from the upgrade preview's ADDED bucket — same slug semantics as
+ * `InstallFromCatalog.resourceSlugs`). Empty = the default by-design
+ * behaviour (upgrade-in-place only).
  */
 data class UpgradeCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    val includeNewSlugs: List<String> = emptyList(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -111,8 +116,11 @@ class UpgradeCatalogHandler(
             }
         }
 
-        // 5. Install/update only previously installed resources
-        val slugsToUpgrade = installedSlugs.values.flatten().map { it.slug }
+        // 5. Install/update previously installed resources, plus any opted-in
+        //    new resources (filtered to slugs the new manifest actually ships).
+        val manifestSlugSet = manifest.resources.map { it.slug }.toSet()
+        val newSlugs = command.includeNewSlugs.filter { it in manifestSlugSet }
+        val slugsToUpgrade = (installedSlugs.values.flatten().map { it.slug } + newSlugs).distinct()
         val installResults = if (slugsToUpgrade.isNotEmpty()) {
             InstallFromCatalog(
                 tenantKey = command.tenantKey,
