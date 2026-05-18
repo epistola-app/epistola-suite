@@ -79,6 +79,23 @@ class ReleaseCatalogVersionTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `never-released catalog suggests distinct bumps from zero`() {
+        val tenant = createTenant("First Release Test")
+        val tenantKey = tenant.id
+        val catalogKey = CatalogKey.of("first-cat")
+
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "First Cat").execute()
+
+            val status = GetCatalogReleaseStatus(tenantKey, catalogKey).query()
+            assertThat(status.latestVersion).isNull()
+            assertThat(status.suggestedNext.patch).isEqualTo("0.0.1")
+            assertThat(status.suggestedNext.minor).isEqualTo("0.1.0")
+            assertThat(status.suggestedNext.major).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
     fun `editing a resource after release surfaces unreleased changes`() {
         val tenant = createTenant("Drift Test")
         val tenantKey = tenant.id

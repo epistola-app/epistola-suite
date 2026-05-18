@@ -86,15 +86,15 @@ class GetCatalogReleaseStatusHandler(
 
         val workingFingerprint = fingerprintService.fingerprint(query.tenantKey, query.catalogKey)
 
-        val suggested = if (latestSemVer == null) {
-            SuggestedBumps("1.0.0", "1.0.0", "1.0.0")
-        } else {
-            SuggestedBumps(
-                patch = latestSemVer.bumpPatch().toString(),
-                minor = latestSemVer.bumpMinor().toString(),
-                major = latestSemVer.bumpMajor().toString(),
-            )
-        }
+        // Bump from the current published version, or from 0.0.0 when never
+        // released — so the three buttons are always distinct and each is a
+        // genuine +1 in its component (never released => 0.0.1 / 0.1.0 / 1.0.0).
+        val base = latestSemVer ?: SemVer(0, 0, 0)
+        val suggested = SuggestedBumps(
+            patch = base.bumpPatch().toString(),
+            minor = base.bumpMinor().toString(),
+            major = base.bumpMajor().toString(),
+        )
 
         return CatalogReleaseStatus(
             latestVersion = latest?.version,

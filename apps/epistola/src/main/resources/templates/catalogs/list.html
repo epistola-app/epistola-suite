@@ -220,82 +220,6 @@
         <!-- Release dialog is loaded here on demand (hx-get) -->
         <div id="release-dialog-container"></div>
 
-        <!-- Release fragment (rendered into #release-dialog-container by hx-get) -->
-        <th:block th:fragment="release-dialog">
-            <dialog id="release-dialog" class="ep-dialog">
-                <div class="ep-dialog-header">
-                    <h3>Release new version</h3>
-                </div>
-                <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
-                      hx-target="#release-dialog-container" hx-swap="innerHTML">
-                    <div class="ep-dialog-body">
-                        <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
-                        <p class="form-hint" th:if="${status.latestVersion}">
-                            Current release <strong th:text="'v' + ${status.latestVersion}"></strong>.
-                            <span th:if="${status.hasUnreleasedChanges}">This working copy has unreleased changes.</span>
-                            <span th:unless="${status.hasUnreleasedChanges}">No changes since the last release.</span>
-                        </p>
-                        <p class="form-hint" th:unless="${status.latestVersion}">This catalog has not been released yet.</p>
-                        <div class="form-group">
-                            <label class="ep-label">Version bump</label>
-                            <div style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
-                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="bump-patch"
-                                        th:attr="data-version=${status.suggestedNext.patch}"
-                                        th:text="'Patch · ' + ${status.suggestedNext.patch}"></button>
-                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="bump-minor"
-                                        th:attr="data-version=${status.suggestedNext.minor}"
-                                        th:text="'Minor · ' + ${status.suggestedNext.minor}"></button>
-                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="bump-major"
-                                        th:attr="data-version=${status.suggestedNext.major}"
-                                        th:text="'Major · ' + ${status.suggestedNext.major}"></button>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="release-version">Version</label>
-                            <input type="text" id="release-version" name="version" class="ep-input"
-                                   required pattern="^\d+\.\d+\.\d+$"
-                                   th:value="${status.suggestedNext.patch}">
-                            <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
-                        </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="release-notes">Release notes</label>
-                            <textarea id="release-notes" name="notes" class="ep-input" rows="3"
-                                      placeholder="What changed in this release?"></textarea>
-                        </div>
-                    </div>
-                    <div class="ep-dialog-footer">
-                        <button type="button" class="ep-btn ep-btn-ghost"
-                                onclick="document.getElementById('release-dialog').close()">Cancel</button>
-                        <button type="submit" class="ep-btn ep-btn-primary">Release</button>
-                    </div>
-                </form>
-                <script>
-                    (function () {
-                        var dlg = document.getElementById('release-dialog');
-                        if (dlg && !dlg.open) dlg.showModal();
-                        ['patch', 'minor', 'major'].forEach(function (k) {
-                            var b = document.getElementById('bump-' + k);
-                            if (b) {
-                                b.addEventListener('click', function () {
-                                    document.getElementById('release-version').value = this.getAttribute('data-version');
-                                });
-                            }
-                        });
-                    })();
-                </script>
-            </dialog>
-        </th:block>
-
-        <!-- Returned on a successful release: clears the dialog container (rows update via OOB) -->
-        <th:block th:fragment="release-done">
-            <script>
-                (function () {
-                    var d = document.getElementById('release-dialog');
-                    if (d) { try { d.close(); } catch (e) {} d.remove(); }
-                })();
-            </script>
-        </th:block>
-
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
         <script>
@@ -303,7 +227,87 @@
                 document.getElementById('credential-group').style.display =
                     this.value === 'NONE' ? 'none' : 'block';
             });
+
+            // Release dialog: the fragment is injected on demand into
+            // #release-dialog-container (always present). Delegated + bound to
+            // the static container so it works regardless of htmx script
+            // execution, and CSP-safe (no eval, no hx-on).
+            (function () {
+                var box = document.getElementById('release-dialog-container');
+                box.addEventListener('htmx:afterSwap', function () {
+                    var dlg = document.getElementById('release-dialog');
+                    if (dlg && !dlg.open) dlg.showModal();
+                });
+                box.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-version]');
+                    if (!btn) return;
+                    var input = document.getElementById('release-version');
+                    if (input) input.value = btn.getAttribute('data-version');
+                });
+            })();
         </script>
     </th:block>
+
+    <!-- Release dialog fragments — OUTSIDE the content block so the catalog
+         list page never evaluates `status` (it is only in the model when the
+         fragment is rendered via the dedicated GET / re-render). Still
+         resolvable by name as `catalogs/list :: release-dialog`. -->
+    <th:block th:fragment="release-dialog">
+        <dialog id="release-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Release new version</h3>
+            </div>
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                  hx-target="#release-dialog-container" hx-swap="innerHTML">
+                <div class="ep-dialog-body">
+                    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+                    <div class="form-group">
+                        <span class="ep-label">Current published version</span>
+                        <p style="margin: var(--ep-space-1) 0 0;">
+                            <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
+                            <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
+                            <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
+                            <span class="form-hint" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
+                        </p>
+                    </div>
+                    <div class="form-group">
+                        <span class="ep-label">Bump</span>
+                        <div style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.patch}"
+                                    th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.minor}"
+                                    th:text="'Minor → ' + ${status.suggestedNext.minor}"></button>
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.major}"
+                                    th:text="'Major → ' + ${status.suggestedNext.major}"></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="release-version">Version</label>
+                        <input type="text" id="release-version" name="version" class="ep-input"
+                               required pattern="^\d+\.\d+\.\d+$"
+                               th:value="${status.suggestedNext.patch}">
+                        <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="release-notes">Release notes</label>
+                        <textarea id="release-notes" name="notes" class="ep-input" rows="3"
+                                  placeholder="What changed in this release?"></textarea>
+                    </div>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="ep-btn ep-btn-ghost"
+                            onclick="document.getElementById('release-dialog').close()">Cancel</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Release</button>
+                </div>
+            </form>
+        </dialog>
+    </th:block>
+
+    <!-- Returned on a successful release: empties the container (removing the
+         open dialog) while #catalog-rows updates via OOB. -->
+    <th:block th:fragment="release-done"></th:block>
 </body>
 </html>
