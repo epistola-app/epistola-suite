@@ -40,6 +40,22 @@ data class UpgradeCatalogResult(
     val newVersion: String,
     val installResults: List<InstallResult>,
     val removedResources: List<RemovedResource>,
+    /**
+     * True when one or more resource installs FAILED: stale resources were NOT
+     * removed and the installed version/fingerprint were NOT advanced, so the
+     * catalog stays on [previousVersion] and the next run retries. Never a
+     * silent partial upgrade.
+     */
+    val aborted: Boolean = false,
+)
+
+/** Thrown by the system reconciler when an upgrade aborted on a failed install. */
+class CatalogUpgradeAbortedException(
+    val catalogKey: CatalogKey,
+    val failed: List<InstallResult>,
+) : RuntimeException(
+    "Catalog '${catalogKey.value}' upgrade aborted — ${failed.size} resource(s) failed to install:\n" +
+        failed.joinToString("\n") { "  - ${it.type}/${it.slug}: ${it.errorMessage}" },
 )
 
 data class RemovedResource(
@@ -101,11 +117,34 @@ class UpgradeCatalogHandler(
             emptyList()
         }
 
+        // 5b. Abort before any destructive change if an install FAILED. The
+        //     per-resource try/catch swallows failures into InstallResult, so
+        //     without this an upgrade would still remove stale resources and
+        //     bump the version — a silent, permanent half-upgrade. Leave
+        //     version/fingerprint untouched so the next run retries.
+        val failedInstalls = installResults.filter { it.status == InstallStatus.FAILED }
+        if (failedInstalls.isNotEmpty()) {
+            logger.error(
+                "Catalog '{}' upgrade ABORTED for tenant {} — {} resource(s) failed; not removing stale resources, not bumping version (stays {}): {}",
+                command.catalogKey,
+                command.tenantKey.value,
+                failedInstalls.size,
+                previousVersion,
+                failedInstalls.joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
+            )
+            return@runAsImport UpgradeCatalogResult(
+                previousVersion = previousVersion,
+                newVersion = manifest.release.version,
+                installResults = installResults,
+                removedResources = emptyList(),
+                aborted = true,
+            )
+        }
+
         // 6. Remove stale resources (already validated)
         val removed = removeStaleResources(command.tenantKey, command.catalogKey, staleResources)
 
-        // 7. Bump version last — if any step above fails, version stays at the old value
-        //    and the next run will retry the upgrade.
+        // 7. Bump version last — only reached when all installs succeeded.
         updateCatalogVersion(command.tenantKey, command.catalogKey, manifest.release.version, manifest.release.fingerprint, manifest.catalog.name, manifest.catalog.description)
 
         val newVersion = manifest.release.version
