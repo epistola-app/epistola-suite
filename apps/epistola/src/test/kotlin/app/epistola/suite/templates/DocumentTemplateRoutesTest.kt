@@ -1211,4 +1211,70 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             }
         }
     }
+
+    @Nested
+    inner class DraftSaveTest {
+
+        @Test
+        fun `PUT draft returns validation error message for invalid stencil parameter binding`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val body = """{
+                    "templateModel": {
+                        "modelVersion": 1,
+                        "root": "root-1",
+                        "nodes": {
+                            "root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]},
+                            "stencil-1": {
+                                "id": "stencil-1",
+                                "type": "stencil",
+                                "slots": [],
+                                "props": {
+                                    "stencilId": "letter",
+                                    "version": 1,
+                                    "parameterSchemaSnapshot": {
+                                        "type": "object",
+                                        "properties": {"param1": {"type": "string"}},
+                                        "required": ["param1"]
+                                    },
+                                    "parameterBindings": {"param1": "'hello there' &"}
+                                }
+                            }
+                        },
+                        "slots": {
+                            "slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": ["stencil-1"]}
+                        },
+                        "themeRef": {"type": "inherit"}
+                    }
+                }"""
+                val request = HttpEntity(body, headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/draft",
+                    HttpMethod.PUT,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.body).contains("VALIDATION_ERROR")
+                assertThat(response.body).contains("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+                assertThat(response.body).contains("parameter binding 'param1' expression is invalid")
+                assertThat(response.body).doesNotContain("trace")
+            }
+        }
+    }
 }
