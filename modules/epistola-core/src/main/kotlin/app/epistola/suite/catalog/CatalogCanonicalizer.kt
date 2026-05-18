@@ -151,4 +151,45 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         }
         return hash(manifest.catalog, entries, manifest.dependencies)
     }
+
+    /**
+     * TEMP DIAGNOSTIC (catalog-versioning CI debug): per-component digest of the
+     * source-path fingerprint, so a macOS-vs-Linux divergence can be localized
+     * to a specific resource / the asset / identity / deps. Remove once the
+     * bundled-fingerprint nondeterminism is resolved.
+     */
+    fun auditFromSource(
+        catalogClient: CatalogClient,
+        manifestUrl: String,
+        authType: AuthType,
+        credential: String?,
+    ): String {
+        val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
+        val sb = StringBuilder()
+        sb.append("identity=").append(
+            sha256Hex("${manifest.catalog.slug} ${manifest.catalog.name} ${manifest.catalog.description ?: ""}".toByteArray(Charsets.UTF_8)),
+        ).append('\n')
+        val entries = manifest.resources.map { entry ->
+            val rawDetail = catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
+            val resourceNode = bigDecimalReader.readTree(rawDetail).get("resource")
+            val json = objectMapper.writeValueAsString(sortKeys(resourceNode))
+            val assetHash = if (entry.type == "asset") {
+                val contentUrl = resourceNode.get("contentUrl")?.asString() ?: ""
+                sha256Hex(catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential))
+            } else {
+                ""
+            }
+            Triple("${entry.type}/${entry.slug}", json, assetHash)
+        }
+        for (e in entries.sortedBy { it.first }) {
+            sb.append(e.first)
+                .append(" rawLen=").append(e.second.length)
+                .append(" jsonSha=").append(sha256Hex(e.second.toByteArray(Charsets.UTF_8)))
+                .append(" asset=").append(e.third)
+                .append('\n')
+        }
+        sb.append("deps=").append(manifest.dependencies.orEmpty().joinToString(";") { it.toString() }).append('\n')
+        sb.append("TOTAL=").append(hash(manifest.catalog, entries.map { Entry(it.first, it.second, it.third) }, manifest.dependencies))
+        return sb.toString()
+    }
 }
