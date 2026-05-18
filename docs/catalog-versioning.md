@@ -1,0 +1,136 @@
+# Catalog Versioning & Upgrading
+
+How catalogs declare a version, how "is this a new version?" is decided, and
+how that flows across the web UI, REST, MCP, catalog exchange and the bundled
+catalogs. Companion to [`docs/exchange.md`](exchange.md).
+
+## Why
+
+Authored catalogs had no real version: the ZIP export stamped
+`LocalDate.now()`, and every "changed?" decision (`DemoLoader`,
+`SystemCatalogBootstrap`, `UpgradeCatalog`) was an exact **string equality** on
+`installed_release_version` (a SUBSCRIBED-only column). An author could not say
+"this is now a new version" with any meaning, and re-export produced a
+different "version" even when nothing changed (or the same one when it did).
+
+## Model
+
+A catalog is **one row per `(tenant_key, slug)` with one live resource set** —
+there is never a parallel install of two versions.
+
+- **AUTHORED (publisher side)** — one live, editable working copy. Cutting a
+  release records an **immutable boundary** in `catalog_releases`
+  (author-set SemVer + content fingerprint + notes + a manifest snapshot) and
+  advances the `catalogs.released_version` / `released_fingerprint` /
+  `released_at` pointer. `catalog_releases` is release **history** (changelog
+  and the Phase 2 upgrade-diff source), not parallel installs.
+- **SUBSCRIBED (consumer side)** — exactly one installed state.
+  `installed_release_version` + `installed_fingerprint` record which release is
+  installed. `UpgradeCatalog` replaces resources **in place**.
+
+`installed_*` (SUBSCRIBED) and `released_*` / `catalog_releases` (AUTHORED) are
+orthogonal — `CatalogType` is exclusive, so only one applies to a given
+catalog. An authored `1.4.0` exported and subscribed elsewhere flows its
+version + fingerprint through the manifest into the subscriber's
+`installed_release_version` / `installed_fingerprint`, so values stay coherent
+end to end.
+
+## Versioning scheme: SemVer + content fingerprint
+
+- **SemVer** (`MAJOR.MINOR.PATCH`) is author-controlled, recorded per release.
+  Implemented by the dependency-free
+  [`SemVer`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/SemVer.kt)
+  value type (parse / compare / bump). Releases must strictly increase.
+- **Content fingerprint** is a deterministic lowercase-hex SHA-256 of the
+  catalog's canonical content, computed by
+  [`CatalogCanonicalizer`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogCanonicalizer.kt)
+  (wired by `CatalogFingerprintService`). It identifies _content_ independently
+  of the version label — "is this actually new?" is a fingerprint comparison,
+  not a string compare.
+
+### Fingerprint algorithm
+
+Hashes, in order: an identity line (`slug name description`); each resource
+sorted by `"$type/$slug"`, rendered as `key  <canonical resource JSON>  <asset
+bytes SHA-256 | "" | "MISSING">`; then a sorted, `;`-joined dependencies line.
+Resource JSON is canonical: serialized with the configured mapper, then every
+object's keys recursively sorted (array order preserved — arrays are ordered
+content). Excluded by construction: `release.*`, `schemaVersion`, every
+`updatedAt`, `detailUrl`. Asset _binary bytes_ are folded in via their own
+SHA-256 (mirrors the font-family fingerprint), so swapping an image flips the
+fingerprint even though the `AssetResource` JSON is unchanged.
+
+The export ZIP and the fingerprint are built from the **same**
+[`CatalogContentBuilder`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt),
+so "the bytes you export" ≡ "the bytes you fingerprint" by construction.
+
+## Cutting a release (AUTHORED)
+
+The web UI catalog list shows a **Release new version** action (AUTHORED only)
+opening a dialog: Patch / Minor / Major quick-picks, an editable SemVer field,
+release notes, and a drift line ("This working copy has unreleased changes" vs
+"No changes since the last release"). It dispatches
+[`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
+AUTHORED-only, parses + monotonic-checks the SemVer, computes the fingerprint,
+inserts the `catalog_releases` row (with the manifest snapshot) and advances
+the catalog pointer — one transaction. Releasing content byte-identical to a
+prior release is allowed (notes-only re-release) but logged.
+
+[`GetCatalogReleaseStatus`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogReleaseStatus.kt)
+is the shared primitive (latest version/fingerprint, working fingerprint,
+`hasUnreleasedChanges`, suggested next bumps, history).
+
+## Export drift policy
+
+`ExportCatalogZip` always emits a fingerprint describing the **actual exported
+bytes**. The version label encodes release state and export is never blocked:
+
+- never released → `0.0.0-dev` (logged WARN)
+- working copy differs from the latest release → `<version>-dev` (logged WARN)
+- working copy matches the latest release → the clean released version
+
+`-dev` makes drift unmistakable in the filename and manifest. (Serving an
+immutable release snapshot so subscribers never see in-progress edits is a
+Phase 2 hardening.)
+
+## Bundled catalogs
+
+`demo` and `system` ship a real SemVer and a committed `release.fingerprint` in
+their `catalog.json`.
+[`BundledCatalogFingerprintTest`](../modules/epistola-core/src/test/kotlin/app/epistola/suite/catalog/BundledCatalogFingerprintTest.kt)
+recomputes the fingerprint from classpath content and asserts it equals the
+committed value — the drift gate (analogous to the `pg_dump --schema-only`
+migration check). Editing a bundled resource without regenerating the committed
+fingerprint fails the build. `DemoLoader` and `InstallSystemCatalog` decide
+install/upgrade/no-op by **fingerprint** (`manifest.release.fingerprint` vs
+`catalogs.installed_fingerprint`), logging the SemVer transition for humans.
+
+To regenerate after an intentional change: run the test, paste the reported
+"actual" fingerprint into the catalog's `catalog.json`, and bump
+`release.version`.
+
+## Surfaces
+
+| Surface  | Exposure                                                                |
+| -------- | ----------------------------------------------------------------------- |
+| Web UI   | Version column (`v<version>` / `unreleased`); Release dialog (AUTHORED) |
+| REST     | `CatalogDto.releasedVersion` + `fingerprint` (read-only)                |
+| MCP      | `CatalogInfo.releasedVersion` + `fingerprint` (read-only)               |
+| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4            |
+
+The release **action** is intentionally UI-only in Phase 1 (deliberate, human;
+read-state parity is delivered everywhere). A REST/MCP release endpoint can be
+added later if automation demand appears.
+
+## Roadmap
+
+- **Phase 2 — upgrade diff/preview.** Use the stored `catalog_releases`
+  snapshots + fingerprints to show added/removed/changed resources before
+  applying `UpgradeCatalog` (URL) or a ZIP import (dry-run); mirror in
+  REST/MCP. No new tables.
+- **Phase 3 — dependency SemVer ranges.** Implement the reserved
+  `DependencyRef.versionRange` (catalog-level, e.g. `system >=1.2.0 <2.0.0`),
+  validated against the dependency catalog's installed/released version at
+  import/upgrade; surfaced in the Phase 2 preview. The snapshot JSON already
+  round-trips an unknown `versionRange` and `SemVer` is the comparison
+  primitive — no Phase 1 rework.

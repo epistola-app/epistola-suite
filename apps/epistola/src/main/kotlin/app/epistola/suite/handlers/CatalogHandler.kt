@@ -3,15 +3,18 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.FindResourceUsages
+import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.form
@@ -164,6 +167,78 @@ class CatalogHandler {
             } else {
                 listWithError(request, e.message ?: "Failed to remove catalog.")
             }
+        }
+    }
+
+    fun releaseDialog(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
+        return ServerResponse.ok().render(
+            "catalogs/list :: release-dialog",
+            mapOf(
+                "tenantId" to tenantId.key,
+                "catalogId" to catalogKey.value,
+                "status" to status,
+            ),
+        )
+    }
+
+    fun release(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+
+        val form = request.form {
+            field("version") {
+                required()
+                pattern("^\\d+\\.\\d+\\.\\d+$")
+            }
+        }
+
+        fun reRenderWithError(message: String): ServerResponse {
+            val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
+            return ServerResponse.ok().render(
+                "catalogs/list :: release-dialog",
+                mapOf(
+                    "tenantId" to tenantId.key,
+                    "catalogId" to catalogKey.value,
+                    "status" to status,
+                    "error" to message,
+                ),
+            )
+        }
+
+        if (form.hasErrors()) {
+            return reRenderWithError("Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
+        }
+
+        val notes = form.formData["notes"]?.ifBlank { null }
+
+        return try {
+            ReleaseCatalogVersion(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+                version = form["version"],
+                notes = notes,
+            ).execute()
+
+            val catalogs = ListCatalogs(tenantId.key).query()
+            request.htmx {
+                fragment("catalogs/list", "release-done") {}
+                oob("catalogs/list", "catalog-rows") {
+                    "tenantId" to tenantId.key
+                    "catalogs" to catalogs
+                    "oobRows" to true
+                }
+                onNonHtmx {
+                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                }
+            }
+        } catch (e: CatalogReleaseVersionException) {
+            reRenderWithError(e.message ?: "Invalid release version.")
+        } catch (e: Exception) {
+            logger.warn("Failed to release catalog: ${e.message}", e)
+            reRenderWithError(e.message ?: "Failed to release catalog.")
         }
     }
 

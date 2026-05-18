@@ -81,12 +81,24 @@ UI handlers and routes are in `apps/epistola`:
 | `source_url`                | text, nullable    | Remote catalog URL. Required for `SUBSCRIBED`.    |
 | `source_auth_type`          | varchar(20)       | `NONE`, `API_KEY`, or `BEARER`.                   |
 | `source_auth_credential`    | text, nullable    | Credential for authenticated remote catalogs.     |
-| `installed_release_version` | varchar(50)       | Installed release version. For `SUBSCRIBED` only. |
+| `installed_release_version` | varchar(50)       | Installed release version. `SUBSCRIBED` only.     |
+| `installed_fingerprint`     | char(64)          | Installed content fingerprint. `SUBSCRIBED` only. |
 | `installed_at`              | timestamptz       | Last install/upgrade timestamp.                   |
+| `released_version`          | varchar(50)       | Latest released SemVer. `AUTHORED` only.          |
+| `released_fingerprint`      | char(64)          | Latest released content fingerprint. `AUTHORED`.  |
+| `released_at`               | timestamptz       | When the latest `AUTHORED` release was cut.       |
 | `created_at`                | timestamptz       | Creation timestamp.                               |
-| `last_modified`             | timestamptz       | Last modification timestamp.                      |
+| `updated_at`                | timestamptz       | Last modification timestamp.                      |
 
 Primary key: `(tenant_key, id)`.
+
+### `catalog_releases`
+
+Immutable release history for `AUTHORED` catalogs — one row per **Release
+version** action. Not parallel installs; the changelog + Phase 2 upgrade-diff
+source. PK `(tenant_key, catalog_key, version)`, columns `version` (SemVer),
+`fingerprint`, `notes`, `manifest_snapshot` (jsonb), `released_at`,
+`released_by`. See [`catalog-versioning.md`](catalog-versioning.md).
 
 ### Resource Tables
 
@@ -109,7 +121,7 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 4,
   "catalog": {
     "slug": "acme-templates",
     "name": "Acme Corp Templates",
@@ -119,7 +131,8 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
     "name": "Acme Corp"
   },
   "release": {
-    "version": "1.0"
+    "version": "1.0.0",
+    "fingerprint": "9f3a1c2b…"
   },
   "resources": [
     {
@@ -149,22 +162,23 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 }
 ```
 
-| Field                       | Type    | Required    | Description                                                                               |
-| --------------------------- | ------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer | yes         | Protocol version. Currently `2`.                                                          |
-| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                       |
-| `catalog.name`              | string  | yes         | Display name.                                                                             |
-| `publisher.name`            | string  | yes         | Publisher name.                                                                           |
-| `release.version`           | string  | yes         | Release version label.                                                                    |
-| `resources`                 | array   | yes         | List of available resources.                                                              |
-| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                  |
-| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                     |
-| `resources[].name`          | string  | yes         | Display name.                                                                             |
-| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                            |
-| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                       |
-| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                           |
-| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global). |
-| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                |
+| Field                       | Type    | Required    | Description                                                                                                                                            |
+| --------------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `schemaVersion`             | integer | yes         | Protocol version. Currently `4`.                                                                                                                       |
+| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                                                                                    |
+| `catalog.name`              | string  | yes         | Display name.                                                                                                                                          |
+| `publisher.name`            | string  | yes         | Publisher name.                                                                                                                                        |
+| `release.version`           | string  | yes         | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.  |
+| `release.fingerprint`       | string  | no          | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](catalog-versioning.md). |
+| `resources`                 | array   | yes         | List of available resources.                                                                                                                           |
+| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                                                                               |
+| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                                                                                  |
+| `resources[].name`          | string  | yes         | Display name.                                                                                                                                          |
+| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                                                                                         |
+| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                    |
+| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                                                                                        |
+| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global).                                                              |
+| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                                                                             |
 
 ### Cross-Catalog Dependencies
 
@@ -297,6 +311,12 @@ resources/
 The ZIP structure matches the protocol layout, so it can be served as a static catalog. Available via `GET /tenants/{tenantId}/catalogs/{catalogId}/export`.
 
 Both authored and subscribed catalogs can be exported. For authored catalogs, all resources in the catalog are included. For subscribed catalogs, all installed resources are included.
+
+The export stamps `release.version` with the catalog's latest released SemVer
+and `release.fingerprint` with the fingerprint of the actual exported bytes. A
+never-released catalog exports as `0.0.0-dev`; a working copy that drifted from
+its latest release exports as `<version>-dev`. Export is never blocked — see
+[`catalog-versioning.md`](catalog-versioning.md).
 
 Cross-catalog dependencies are automatically detected during export by scanning template models against the catalog's own resource list. Any external reference is added to the `dependencies` field in `catalog.json`.
 

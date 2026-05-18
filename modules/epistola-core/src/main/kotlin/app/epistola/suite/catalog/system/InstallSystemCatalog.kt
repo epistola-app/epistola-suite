@@ -110,10 +110,11 @@ class InstallSystemCatalogHandler(
     }
 
     private fun installCatalog(command: InstallSystemCatalog): InstallSystemCatalogResult {
-        // Fetching once up front — the manifest's release.version is the
-        // gate that decides install / upgrade / no-op.
+        // Fetching once up front — the manifest's content fingerprint is the
+        // gate that decides install / upgrade / no-op (version is for humans).
         val manifest = catalogClient.fetchManifest(SYSTEM_CATALOG_URL, AuthType.NONE, null)
         val bundledVersion = manifest.release.version
+        val bundledFingerprint = manifest.release.fingerprint
 
         val existing = GetCatalog(command.tenantKey, SYSTEM_CATALOG_KEY).query()
 
@@ -143,12 +144,12 @@ class InstallSystemCatalogHandler(
             return InstallSystemCatalogResult(SystemCatalogStatus.INSTALLED, bundledVersion)
         }
 
-        if (existing.installedReleaseVersion == bundledVersion) {
+        if (bundledFingerprint != null && existing.installedFingerprint == bundledFingerprint) {
             return InstallSystemCatalogResult(SystemCatalogStatus.ALREADY_CURRENT, bundledVersion)
         }
 
-        // Existing install at an older version — upgrade. `UpgradeCatalog`
-        // re-runs the install dispatch and bumps `installed_release_version`.
+        // Existing install with drifted content — upgrade. `UpgradeCatalog`
+        // re-runs the install dispatch and bumps version + fingerprint.
         val previousVersion = existing.installedReleaseVersion
         UpgradeCatalog(tenantKey = command.tenantKey, catalogKey = existing.id).execute()
         log.info(

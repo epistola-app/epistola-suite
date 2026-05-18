@@ -1,6 +1,14 @@
 package app.epistola.suite.catalog
 
 /**
+ * Catalog exchange protocol version emitted by this instance. Bumped to 4 for
+ * catalog versioning (`ReleaseInfo.fingerprint`). The suite is pre-production
+ * and never imports against an older protocol, so a single current value is
+ * emitted unconditionally — no per-feature schema gating.
+ */
+const val CATALOG_MANIFEST_SCHEMA_VERSION: Int = 4
+
+/**
  * Installation order for catalog resources — dependencies must be installed
  * before dependents. `codeList` precedes `attribute` because an attribute can
  * bind to a code list (`AttributeResource.codeListBinding`), and the bound

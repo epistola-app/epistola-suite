@@ -47,7 +47,8 @@
                     <th></th>
                 </tr>
             </thead>
-            <tbody id="catalog-rows" th:fragment="catalog-rows">
+            <tbody id="catalog-rows" th:fragment="catalog-rows"
+                   th:attr="hx-swap-oob=${oobRows} ? 'true' : null">
                 <tr th:each="catalog : ${catalogs}">
                     <td style="font-weight: 500;">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
@@ -59,8 +60,14 @@
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
                     </td>
                     <td>
-                        <span th:if="${catalog.installedReleaseVersion}" th:text="${catalog.installedReleaseVersion}"></span>
-                        <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
+                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
+                            <span th:if="${catalog.releasedVersion}" th:text="'v' + ${catalog.releasedVersion}"></span>
+                            <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
+                        </th:block>
+                        <th:block th:unless="${catalog.type.name() == 'AUTHORED'}">
+                            <span th:if="${catalog.installedReleaseVersion}" th:text="'v' + ${catalog.installedReleaseVersion}"></span>
+                            <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
+                        </th:block>
                     </td>
                     <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td class="actions">
@@ -72,6 +79,12 @@
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP" hx-boost="false">
                             <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </a>
+                        <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                hx-target="#release-dialog-container" hx-swap="innerHTML">
+                            <th:block th:replace="~{fragments/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
+                        </button>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id.toString() == 'default'}"
@@ -203,6 +216,85 @@
                 </div>
             </form>
         </dialog>
+
+        <!-- Release dialog is loaded here on demand (hx-get) -->
+        <div id="release-dialog-container"></div>
+
+        <!-- Release fragment (rendered into #release-dialog-container by hx-get) -->
+        <th:block th:fragment="release-dialog">
+            <dialog id="release-dialog" class="ep-dialog">
+                <div class="ep-dialog-header">
+                    <h3>Release new version</h3>
+                </div>
+                <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                      hx-target="#release-dialog-container" hx-swap="innerHTML">
+                    <div class="ep-dialog-body">
+                        <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+                        <p class="form-hint" th:if="${status.latestVersion}">
+                            Current release <strong th:text="'v' + ${status.latestVersion}"></strong>.
+                            <span th:if="${status.hasUnreleasedChanges}">This working copy has unreleased changes.</span>
+                            <span th:unless="${status.hasUnreleasedChanges}">No changes since the last release.</span>
+                        </p>
+                        <p class="form-hint" th:unless="${status.latestVersion}">This catalog has not been released yet.</p>
+                        <div class="form-group">
+                            <label class="ep-label">Version bump</label>
+                            <div style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
+                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="bump-patch"
+                                        th:attr="data-version=${status.suggestedNext.patch}"
+                                        th:text="'Patch · ' + ${status.suggestedNext.patch}"></button>
+                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="bump-minor"
+                                        th:attr="data-version=${status.suggestedNext.minor}"
+                                        th:text="'Minor · ' + ${status.suggestedNext.minor}"></button>
+                                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="bump-major"
+                                        th:attr="data-version=${status.suggestedNext.major}"
+                                        th:text="'Major · ' + ${status.suggestedNext.major}"></button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="release-version">Version</label>
+                            <input type="text" id="release-version" name="version" class="ep-input"
+                                   required pattern="^\d+\.\d+\.\d+$"
+                                   th:value="${status.suggestedNext.patch}">
+                            <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="release-notes">Release notes</label>
+                            <textarea id="release-notes" name="notes" class="ep-input" rows="3"
+                                      placeholder="What changed in this release?"></textarea>
+                        </div>
+                    </div>
+                    <div class="ep-dialog-footer">
+                        <button type="button" class="ep-btn ep-btn-ghost"
+                                onclick="document.getElementById('release-dialog').close()">Cancel</button>
+                        <button type="submit" class="ep-btn ep-btn-primary">Release</button>
+                    </div>
+                </form>
+                <script>
+                    (function () {
+                        var dlg = document.getElementById('release-dialog');
+                        if (dlg && !dlg.open) dlg.showModal();
+                        ['patch', 'minor', 'major'].forEach(function (k) {
+                            var b = document.getElementById('bump-' + k);
+                            if (b) {
+                                b.addEventListener('click', function () {
+                                    document.getElementById('release-version').value = this.getAttribute('data-version');
+                                });
+                            }
+                        });
+                    })();
+                </script>
+            </dialog>
+        </th:block>
+
+        <!-- Returned on a successful release: clears the dialog container (rows update via OOB) -->
+        <th:block th:fragment="release-done">
+            <script>
+                (function () {
+                    var d = document.getElementById('release-dialog');
+                    if (d) { try { d.close(); } catch (e) {} d.remove(); }
+                })();
+            </script>
+        </th:block>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "catalog": {
     "slug": "system",
     "name": "System",
@@ -10,8 +10,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "1",
-    "releasedAt": "2026-05-11T00:00:00Z"
+    "version": "1.0.0",
+    "releasedAt": "2026-05-11T00:00:00Z",
+    "fingerprint": "0be5a1503d5d280b0e3eade9220ee18d55643f36789aa59175495ba4a8beecbf"
   },
   "resources": [
     {

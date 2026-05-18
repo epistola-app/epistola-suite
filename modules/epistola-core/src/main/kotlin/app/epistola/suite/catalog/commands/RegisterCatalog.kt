@@ -41,11 +41,12 @@ class RegisterCatalogHandler(
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, created_at, updated_at)
-                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, created_at, updated_at)
+                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, NOW(), NOW())
                 ON CONFLICT (tenant_key, id) DO UPDATE
                 SET name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
-                    source_auth_credential = :authCredential, installed_release_version = :releaseVersion, updated_at = NOW()
+                    source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
+                    installed_fingerprint = :fingerprint, updated_at = NOW()
                 """,
             )
                 .bind("id", catalogKey)
@@ -56,11 +57,12 @@ class RegisterCatalogHandler(
                 .bind("authType", command.authType.name)
                 .bind("authCredential", command.authCredential)
                 .bind("releaseVersion", manifest.release.version)
+                .bind("fingerprint", manifest.release.fingerprint)
                 .execute()
 
             handle.createQuery(
                 """
-                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, updated_at
+                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_at, released_version, released_fingerprint, released_at, created_at, updated_at
                 FROM catalogs
                 WHERE tenant_key = :tenantKey AND id = :id
                 """,

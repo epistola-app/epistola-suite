@@ -43,7 +43,7 @@ class CreateCatalogHandler(
 
             handle.createQuery(
                 """
-                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, updated_at
+                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_at, released_version, released_fingerprint, released_at, created_at, updated_at
                 FROM catalogs
                 WHERE tenant_key = :tenantKey AND id = :id
                 """,

@@ -100,15 +100,21 @@ class DemoLoader(
         if (existingCatalog != null) {
             // Fetch manifest to check version
             val manifest = catalogClient.fetchManifest(DEMO_CATALOG_URL, app.epistola.suite.catalog.AuthType.NONE, null)
-            val remoteVersion = manifest.release.version
-            val installedVersion = existingCatalog.installedReleaseVersion
+            val remoteFingerprint = manifest.release.fingerprint
+            val installedFingerprint = existingCatalog.installedFingerprint
 
-            if (remoteVersion == installedVersion) {
-                log.info("Demo catalog up to date (version {})", installedVersion)
+            if (remoteFingerprint != null && remoteFingerprint == installedFingerprint) {
+                log.info("Demo catalog up to date (version {}, fingerprint {})", existingCatalog.installedReleaseVersion, installedFingerprint)
                 return
             }
 
-            log.info("Demo catalog version changed: {} -> {}", installedVersion, remoteVersion)
+            log.info(
+                "Demo catalog content changed: {} ({}) -> {} ({})",
+                existingCatalog.installedReleaseVersion,
+                installedFingerprint,
+                manifest.release.version,
+                remoteFingerprint,
+            )
             transactionTemplate.executeWithoutResult {
                 val result = mediator.send(UpgradeCatalog(tenantKey = tenantKey, catalogKey = existingCatalog.id))
                 val installed = result.installResults.count { it.status == InstallStatus.INSTALLED }

@@ -16,6 +16,8 @@ class CatalogRoutes(private val handler: CatalogHandler) {
             POST("/create", handler::createCatalog)
             POST("/import", handler::importZip)
             POST("/{catalogId}/delete", handler::unregister)
+            GET("/{catalogId}/release", handler::releaseDialog)
+            POST("/{catalogId}/release", handler::release)
             GET("/{catalogId}/browse", handler::browse)
             GET("/{catalogId}/usages", handler::resourceUsages)
             GET("/{catalogId}/export", handler::export)
