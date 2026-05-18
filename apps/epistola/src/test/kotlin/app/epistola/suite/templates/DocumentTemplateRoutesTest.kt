@@ -1213,7 +1213,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Nested
-    inner class DraftSaveTest {
+    inner class DraftSaveEndpointTest {
 
         @Test
         fun `PUT draft returns validation error message for invalid stencil parameter binding`() = fixture {
@@ -1270,6 +1270,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_JSON)).isTrue()
                 assertThat(response.body).contains("VALIDATION_ERROR")
                 assertThat(response.body).contains("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
                 assertThat(response.body).contains("parameter binding 'param1' expression is invalid")
