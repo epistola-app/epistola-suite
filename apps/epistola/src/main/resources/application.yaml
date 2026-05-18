@@ -59,6 +59,18 @@ spring:
 # Tests use permit-all (see application-test.yaml)
 
 epistola:
+  migration:
+    # Single migration knob (env: EPISTOLA_MIGRATION_MODE). One name, three
+    # meanings — no overloaded tokens:
+    #   embedded — app runs Flyway at boot (local/dev default, single-process).
+    #   migrate  — the dedicated migration step: main() detects this env value
+    #              pre-Spring and runs the isolated MigrationLauncher (set by
+    #              the Helm Job / init container). Never an application.yaml
+    #              default, so embedded can't accidentally trigger it.
+    #   validate — never migrate/clean; only verify the schema is at head and
+    #              fail fast if behind. Set on separated app pods (Helm
+    #              job/initContainer modes, and the 'prod' profile).
+    mode: embedded
   storage:
     backend: postgres
   auth:

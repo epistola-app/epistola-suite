@@ -1,0 +1,76 @@
+{{- if eq .Values.migration.mode "job" }}
+{{- /*
+  Guard the known footgun: with a chart-managed CNPG cluster (database.type=
+  cnpg), the Cluster is a non-hook resource created AFTER hooks, so on a fresh
+  install the pre-install Job can never reach the database and would time out.
+  Fail with an actionable message instead of a confusing hang. (cnpgExisting /
+  external / upgrades are fine — the DB already exists; wait-for-db handles
+  CNPG's async provisioning there.)
+*/}}
+{{- if and (eq (include "epistola.database.effectiveType" .) "cnpg") .Release.IsInstall }}
+{{- fail "migration.mode=job cannot run on a fresh install with database.type=cnpg: the CNPG Cluster is created after Helm hooks, so the pre-install migration Job cannot reach the database. Use migration.mode=initContainer (or embedded) for the first install, or pre-create the cluster and use database.type=cnpgExisting." }}
+{{- end }}
+{{- /*
+  Pre-install / pre-upgrade hook Job: runs DB migrations exactly once per
+  release, before the Deployment is applied/updated. A failed migration fails
+  `helm upgrade` (the new app version is never rolled out) and the failed Job
+  is kept for log inspection. App pods boot in validate mode (wired by the
+  Deployment), so they refuse to serve traffic until this Job has succeeded.
+
+  NOTE: with database.type=cnpg the CNPG Cluster is a non-hook resource created
+  after hooks, so on a *fresh* install this Job cannot reach the DB. Use
+  migration.mode=initContainer (or embedded) for the first install of a managed
+  CNPG database, or use cnpgExisting / a pre-created cluster.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "epistola.fullname" . }}-migrate
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migration.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.job.activeDeadlineSeconds }}
+  {{- if .Values.migration.job.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.migration.job.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "epistola.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "epistola.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if ne (include "epistola.database.effectiveType" .) "none" }}
+      initContainers:
+        {{- include "epistola.waitForDb" . | nindent 8 }}
+      {{- end }}
+      containers:
+        {{- include "epistola.migrateContainer" . | nindent 8 }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

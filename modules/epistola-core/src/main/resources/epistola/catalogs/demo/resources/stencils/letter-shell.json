@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "stencil",
+    "slug": "letter-shell",
+    "name": "Letter Shell",
+    "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
+    "tags": ["layout", "letter"],
+    "content": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-ph-body": {
+          "id": "n-ph-body",
+          "type": "placeholder",
+          "slots": ["s-ph-body-default", "s-ph-body-fill"],
+          "props": {
+            "name": "body",
+            "description": "Body content",
+            "kind": "block"
+          }
+        },
+        "n-ph-body-default-text": {
+          "id": "n-ph-body-default-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Default body text" }]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-ph-body"]
+        },
+        "s-ph-body-default": {
+          "id": "s-ph-body-default",
+          "nodeId": "n-ph-body",
+          "name": "default",
+          "children": ["n-ph-body-default-text"]
+        },
+        "s-ph-body-fill": {
+          "id": "s-ph-body-fill",
+          "nodeId": "n-ph-body",
+          "name": "fill",
+          "children": []
+        }
+      }
+    }
+  }
+}
