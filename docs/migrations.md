@@ -117,13 +117,44 @@ integration-test coverage — `InstallationServiceIT` and
 5. Ensure the normal integration suite passes — a new migration is just appended
    to the history; there is no special gate to satisfy.
 
+## Running migrations: embedded vs separated
+
+How Flyway runs is controlled by `epistola.migration.mode`, branched in
+`FlywayConfig`'s `FlywayMigrationStrategy` (Spring Boot's only
+run-instead-of-`migrate()` seam):
+
+- **`migrate` (default — local/dev embedded).** The app runs `flyway.migrate()`
+  at boot, exactly as before. Idempotent: a no-op when the schema is at head.
+- **`validate` (separated deployments — set by the `prod` profile and the Helm
+  chart in `job`/`initContainer` modes).** The app **never migrates or cleans**.
+  It validates the schema and fails fast (non-zero exit) if the database is
+  behind, so pods refuse to serve traffic until the separate migration step has
+  run.
+
+The separate migration step is the **same image** launched with
+`EPISTOLA_RUN_MODE=migrate` (or `--migrate`). `main()` detects this before Spring
+starts and hands off to `MigrationLauncher`, which boots an isolated context
+importing only the datasource + Flyway auto-config + `FlywayConfig` (no web
+server, schedulers, demo loader or catalog bootstrap — nothing to gate), runs
+`flyway.migrate()`, and exits 0 on success / 1 on failure. The same
+`application.yaml` loads, so `spring.flyway.locations` and the
+`SPRING_DATASOURCE_*` config are identical to the embedded path — no Flyway-config
+duplication, no migrate/runtime drift. The migration step always forces
+`clean-disabled: true` (a failed migration must surface as a non-zero exit, never
+a destructive reset).
+
+Kubernetes wiring is the Helm `migration.mode` value (`job` default /
+`initContainer` / `embedded`) — see [`deployment.md`](deployment.md).
+
 ## Local dev: one-time reset after a consolidation
 
-`FlywayConfig` runs with `clean-disabled: false` in dev: if Flyway validation
-fails (which it does after a history rewrite — every checksum changed), it
-auto-`clean()`s and re-migrates from the new baseline. **Your local dev database
-will be wiped and rebuilt on the next app start** after pulling a consolidation
-change; `DemoLoader` repopulates demo data automatically. Tests use throwaway
-Testcontainers databases and are unaffected. Production runs with
-`clean-disabled: true` (rethrows instead) — irrelevant pre-1.0 since no
-production database exists.
+This applies only with `epistola.migration.mode=migrate` (the local/dev default)
+**and** `clean-disabled: false`. `FlywayConfig` runs with `clean-disabled: false`
+in dev: if Flyway validation fails (which it does after a history rewrite — every
+checksum changed), it auto-`clean()`s and re-migrates from the new baseline.
+**Your local dev database will be wiped and rebuilt on the next app start** after
+pulling a consolidation change; `DemoLoader` repopulates demo data automatically.
+Tests use throwaway Testcontainers databases and are unaffected. Production runs
+the separated migration step with `clean-disabled: true` (rethrows instead) and
+app pods in `validate` mode — irrelevant pre-1.0 since no production database
+exists.
