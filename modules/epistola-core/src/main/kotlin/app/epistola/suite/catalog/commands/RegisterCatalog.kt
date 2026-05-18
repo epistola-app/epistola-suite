@@ -5,12 +5,12 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class RegisterCatalog(
@@ -60,17 +60,7 @@ class RegisterCatalogHandler(
                 .bind("fingerprint", manifest.release.fingerprint)
                 .execute()
 
-            handle.createQuery(
-                """
-                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_at, released_version, released_fingerprint, released_at, created_at, updated_at
-                FROM catalogs
-                WHERE tenant_key = :tenantKey AND id = :id
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("id", catalogKey)
-                .mapTo<Catalog>()
-                .one()
+            handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, catalogKey.value)!!
         }
     }
 }
