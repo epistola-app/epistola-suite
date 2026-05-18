@@ -80,7 +80,7 @@ class CatalogHandler {
 
             val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
-                fragment("catalogs/list", "catalog-rows") {
+                fragment("catalogs/list", "catalog-list") {
                     "tenantId" to tenantId.key
                     "catalogs" to catalogs
                 }
@@ -144,7 +144,7 @@ class CatalogHandler {
 
             return request.htmx {
                 val catalogs = ListCatalogs(tenantId.key).query()
-                fragment("catalogs/list", "catalog-rows") {
+                fragment("catalogs/list", "catalog-list") {
                     "tenantId" to tenantId.key
                     "catalogs" to catalogs
                 }
@@ -229,10 +229,10 @@ class CatalogHandler {
             val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
                 fragment("catalogs/list", "release-done") {}
-                oob("catalogs/list", "catalog-rows") {
+                oob("catalogs/list", "catalog-list") {
                     "tenantId" to tenantId.key
                     "catalogs" to catalogs
-                    "oobRows" to true
+                    "oob" to true
                 }
                 onNonHtmx {
                     redirect("/tenants/${tenantId.key}/catalogs?saved=true")
@@ -320,10 +320,10 @@ class CatalogHandler {
             val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
                 fragment("catalogs/list", "upgrade-done") {}
-                oob("catalogs/list", "catalog-rows") {
+                oob("catalogs/list", "catalog-list") {
                     "tenantId" to tenantId.key
                     "catalogs" to catalogs
-                    "oobRows" to true
+                    "oob" to true
                 }
                 onNonHtmx {
                     redirect("/tenants/${tenantId.key}/catalogs?saved=true")

@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
@@ -424,6 +425,28 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThatThrownBy {
                 ImportCatalogZip(tenantKey = sub.id, zipBytes = zip2, catalogType = CatalogType.SUBSCRIBED).execute()
             }.isInstanceOf(IllegalArgumentException::class.java).hasMessageContaining("already exists as AUTHORED")
+        }
+    }
+
+    @Test
+    fun `browsing a ZIP-subscribed catalog lists installed resources instead of erroring (no source URL)`() {
+        val pub = createTenant("Sub Browse Pub")
+        val sub = createTenant("Sub Browse Sub")
+        val catalogKey = CatalogKey.of("zipsub-browse")
+
+        withMediator {
+            val zip = publishZip(pub.id, "zipsub-browse", "1.0.0", mapOf("brand" to "Brand", "alt" to "Alt"))
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+
+            // Regression: a ZIP-subscribed catalog has no source URL — browsing
+            // must NOT throw "Subscribed catalog has no source URL"; it lists
+            // the locally-installed resources.
+            val result = BrowseCatalog(sub.id, catalogKey).query()
+
+            assertThat(result.catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(result.resources).extracting<String> { it.slug }
+                .contains("brand", "alt")
+            assertThat(result.resources).allMatch { it.status.name == "INSTALLED" }
         }
     }
 }
