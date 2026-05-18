@@ -13,7 +13,11 @@ data class Catalog(
     val sourceAuthType: AuthType = AuthType.NONE,
     val sourceAuthCredential: String? = null,
     val installedReleaseVersion: String? = null,
+    val installedFingerprint: String? = null,
     val installedAt: OffsetDateTime? = null,
+    val releasedVersion: String? = null,
+    val releasedFingerprint: String? = null,
+    val releasedAt: OffsetDateTime? = null,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 )

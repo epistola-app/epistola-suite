@@ -26,11 +26,14 @@ class EpistolaCatalogApi : CatalogsApi {
         return ResponseEntity.ok(
             CatalogListResponse(
                 items = catalogs.map { catalog ->
+                    val authored = catalog.type == CatalogType.AUTHORED
                     CatalogDto(
                         id = catalog.id.value,
                         name = catalog.name,
                         description = catalog.description,
                         type = CatalogDto.Type.valueOf(catalog.type.name),
+                        releasedVersion = if (authored) catalog.releasedVersion else catalog.installedReleaseVersion,
+                        fingerprint = if (authored) catalog.releasedFingerprint else catalog.installedFingerprint,
                     )
                 },
             ),

@@ -1,51 +1,29 @@
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.protocol.AssetResource
-import app.epistola.catalog.protocol.AttributeResource
-import app.epistola.catalog.protocol.CatalogInfo
-import app.epistola.catalog.protocol.CatalogManifest
-import app.epistola.catalog.protocol.CatalogResource
-import app.epistola.catalog.protocol.DataExampleEntry
-import app.epistola.catalog.protocol.DependencyRef
-import app.epistola.catalog.protocol.FontRef
-import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
-import app.epistola.catalog.protocol.ResourceDetail
-import app.epistola.catalog.protocol.ResourceEntry
-import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.catalog.protocol.ThemeResource
-import app.epistola.catalog.protocol.VariantEntry
-import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.DependencyScanner
-import app.epistola.suite.catalog.queries.ExportAssets
-import app.epistola.suite.catalog.queries.ExportAttributes
-import app.epistola.suite.catalog.queries.ExportCodeLists
-import app.epistola.suite.catalog.queries.ExportFonts
-import app.epistola.suite.catalog.queries.ExportStencils
-import app.epistola.suite.catalog.queries.ExportThemes
-import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.common.ids.AssetKey
-import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.model.TemplateDocument
-import org.jdbi.v3.core.Jdbi
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
-import java.time.LocalDate
-import java.util.UUID
+import java.time.OffsetDateTime
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
  * Exports all resources in a catalog as a self-contained ZIP archive.
- * Queries all resources by `catalog_key` and includes asset binary content.
+ * Content is assembled by [CatalogContentBuilder] (shared with fingerprinting),
+ * so the exported bytes are exactly the fingerprinted bytes.
  */
 data class ExportCatalogZip(
     override val tenantKey: TenantKey,
@@ -63,93 +41,61 @@ data class ExportCatalogZipResult(
 @Component
 class ExportCatalogZipHandler(
     private val objectMapper: ObjectMapper,
-    private val jdbi: Jdbi,
+    private val contentBuilder: CatalogContentBuilder,
+    private val fingerprintService: CatalogFingerprintService,
     private val sizeLimits: CatalogSizeLimits,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
-            ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
+        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
 
-        val version = LocalDate.now().toString()
-
-        // Query ALL resources in this catalog
-        val templates = loadTemplates(command.tenantKey, command.catalogKey)
-        val themes = ExportThemes(command.tenantKey, catalogKey = command.catalogKey).query()
-        val stencils = ExportStencils(command.tenantKey, catalogKey = command.catalogKey).query()
-        val attributes = ExportAttributes(command.tenantKey, catalogKey = command.catalogKey).query()
-        val codeLists = ExportCodeLists(command.tenantKey, catalogKey = command.catalogKey).query()
-        val fonts = ExportFonts(command.tenantKey, catalogKey = command.catalogKey).query()
-
-        val assets = ExportAssets(command.tenantKey, catalogKey = command.catalogKey).query()
-
-        // Build resource entries and details
-        val resourceEntries = mutableListOf<ResourceEntry>()
-        val resourceDetails = mutableMapOf<String, ResourceDetail>()
-
-        // Manifest schemaVersion = 3 once the catalog ships a code list (or
-        // an attribute with a code-list binding), since older clients can't
-        // parse `CodeListResource` or `AttributeResource.codeListBinding`.
-        // Otherwise stay on `schemaVersion = 2` for backward compatibility.
-        val usesCodeListProtocol = codeLists.isNotEmpty() || attributes.any { it.codeListBinding != null }
-        val manifestSchemaVersion = if (usesCodeListProtocol) 3 else 2
-
-        fun addResource(type: String, slug: String, name: String, description: String?, resource: CatalogResource) {
-            resourceEntries.add(ResourceEntry(type = type, slug = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"))
-            resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = manifestSchemaVersion, resource = resource)
+        // The emitted fingerprint always describes the actual exported bytes.
+        // The version label encodes release state: a clean released version
+        // when the working copy matches the latest release, a `-dev`-suffixed
+        // label when it drifted (unreleased edits) or was never released.
+        // Export is never hard-blocked — `-dev` makes drift unmistakable.
+        val fingerprint = fingerprintService.fingerprint(content)
+        // Cheap release-pointer read — no second O(catalog-size) content build
+        // (the working-copy fingerprint we need is already `fingerprint`).
+        val release = GetLatestCatalogRelease(command.tenantKey, command.catalogKey).query()
+        val version = when {
+            release.latestVersion == null -> {
+                logger.warn("Exporting never-released catalog '{}' as 0.0.0-dev", command.catalogKey.value)
+                "0.0.0-dev"
+            }
+            release.latestFingerprint != fingerprint -> {
+                logger.warn(
+                    "Exporting catalog '{}' with unreleased changes — labelling {}-dev",
+                    command.catalogKey.value,
+                    release.latestVersion,
+                )
+                "${release.latestVersion}-dev"
+            }
+            else -> release.latestVersion
         }
-
-        for (codeList in codeLists) addResource("codeList", codeList.slug, codeList.name, codeList.description, codeList)
-        for (font in fonts) addResource("font", font.slug, font.name, null, font)
-        for (attr in attributes) addResource("attribute", attr.slug, attr.name, null, attr)
-        for (theme in themes) addResource("theme", theme.slug, theme.name, theme.description, theme)
-        for (stencil in stencils) addResource("stencil", stencil.slug, stencil.name, stencil.description, stencil)
-        for (asset in assets) addResource("asset", asset.slug, asset.name, null, asset)
-        for (template in templates) addResource("template", template.slug, template.name, null, template)
-
-        // Build manifest first (without dependencies)
-        val manifest = CatalogManifest(
-            schemaVersion = manifestSchemaVersion,
-            catalog = CatalogInfo(slug = command.catalogKey.value, name = catalog.name, description = catalog.description),
-            publisher = PublisherInfo(name = "Epistola"),
-            release = ReleaseInfo(version = version),
-            resources = resourceEntries,
-            dependencies = findCrossCatalogDependencies(templates, attributes, themes, resourceEntries, command.catalogKey.value),
+        val releasedAt = if (version.endsWith("-dev")) null else OffsetDateTime.now().toString()
+        val manifest = content.toManifest(
+            ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
         )
 
-        // Build the ZIP
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zip ->
             zip.putNextEntry(ZipEntry("catalog.json"))
             zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest))
             zip.closeEntry()
 
-            for ((key, detail) in resourceDetails) {
+            for ((key, detail) in content.resourceDetails) {
                 zip.putNextEntry(ZipEntry("resources/$key.json"))
                 zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(detail))
                 zip.closeEntry()
             }
 
-            // Asset binary content
-            for ((_, detail) in resourceDetails) {
-                val resource = detail.resource
-                if (resource is AssetResource) {
-                    val filename = resource.contentUrl.removePrefix("./resources/asset/")
-                    val uuidStr = filename.substringBefore(".")
-                    val assetId = try {
-                        AssetKey.of(UUID.fromString(uuidStr))
-                    } catch (_: Exception) {
-                        continue
-                    }
-                    val content = GetAssetContent(
-                        tenantId = command.tenantKey,
-                        assetId = assetId,
-                    ).query() ?: continue
-
-                    zip.putNextEntry(ZipEntry("resources/asset/$filename"))
-                    zip.write(content.content)
-                    zip.closeEntry()
-                }
+            for ((filename, bytes) in content.assetContents) {
+                zip.putNextEntry(ZipEntry("resources/asset/$filename"))
+                zip.write(bytes)
+                zip.closeEntry()
             }
         }
 
@@ -161,195 +107,5 @@ class ExportCatalogZipHandler(
 
         val filename = "${command.catalogKey.value}-$version.zip"
         return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)
-    }
-
-    private fun loadTemplates(tenantKey: TenantKey, catalogKey: CatalogKey): List<TemplateResource> {
-        data class TemplateRow(val id: String, val name: String, val themeKey: String?, val themeCatalogKey: String?, val dataModel: String?, val dataExamples: String?)
-        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: TemplateDocument?, val isDefault: Boolean)
-
-        val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key,
-                       cv.data_model::text, cv.data_examples::text
-                FROM document_templates dt
-                LEFT JOIN LATERAL (
-                    SELECT data_model, data_examples FROM contract_versions
-                    WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
-                    ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
-                    LIMIT 1
-                ) cv ON TRUE
-                WHERE dt.tenant_key = :tenantKey AND dt.catalog_key = :catalogKey
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
-                .map { rs, _ ->
-                    TemplateRow(
-                        id = rs.getString("id"),
-                        name = rs.getString("name"),
-                        themeKey = rs.getString("theme_key"),
-                        themeCatalogKey = rs.getString("theme_catalog_key"),
-                        dataModel = rs.getString("data_model"),
-                        dataExamples = rs.getString("data_examples"),
-                    )
-                }
-                .list()
-        }
-
-        return templates.mapNotNull { template ->
-            val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT v.id, v.title, v.attributes::text, v.is_default, vv.template_model
-                    FROM template_variants v
-                    LEFT JOIN LATERAL (
-                        SELECT template_model FROM template_versions
-                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey AND variant_key = v.id
-                          AND status = 'published'
-                        ORDER BY id DESC
-                        LIMIT 1
-                    ) vv ON TRUE
-                    WHERE v.tenant_key = :tenantKey AND v.catalog_key = :catalogKey AND v.template_key = :templateKey
-                    """,
-                )
-                    .bind("tenantKey", tenantKey)
-                    .bind("catalogKey", catalogKey)
-                    .bind("templateKey", template.id)
-                    .map { rs, _ ->
-                        VariantRow(
-                            id = rs.getString("id"),
-                            title = rs.getString("title"),
-                            attributes = rs.getString("attributes"),
-                            templateModel = rs.getString("template_model")?.let { objectMapper.readValue(it, TemplateDocument::class.java) },
-                            isDefault = rs.getBoolean("is_default"),
-                        )
-                    }
-                    .list()
-            }
-
-            val defaultVariant = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()
-                ?: return@mapNotNull null // Skip templates without variants
-
-            // Skip templates without a published version
-            val defaultModel = defaultVariant.templateModel ?: return@mapNotNull null
-
-            TemplateResource(
-                slug = template.id,
-                name = template.name,
-                themeId = template.themeKey,
-                themeCatalogKey = template.themeCatalogKey,
-                dataModel = template.dataModel?.let {
-                    objectMapper.readValue<Map<String, Any?>>(
-                        it,
-                        objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java),
-                    )
-                },
-                dataExamples = template.dataExamples?.let {
-                    objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, DataExampleEntry::class.java))
-                },
-                templateModel = defaultModel,
-                variants = variants.map { v ->
-                    VariantEntry(
-                        id = v.id,
-                        title = v.title,
-                        attributes = v.attributes?.let { objectMapper.readValue(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, String::class.java)) },
-                        templateModel = if (v.id == defaultVariant.id) null else v.templateModel,
-                        isDefault = v.isDefault,
-                    )
-                },
-            )
-        }
-    }
-
-    /**
-     * Scan template models for references to resources NOT in this catalog's manifest.
-     * Collect them as cross-catalog dependencies. No DB queries — purely in-memory.
-     */
-    private fun findCrossCatalogDependencies(
-        templates: List<TemplateResource>,
-        attributes: List<AttributeResource>,
-        themes: List<ThemeResource>,
-        manifestResources: List<ResourceEntry>,
-        catalogKey: String,
-    ): List<DependencyRef>? {
-        // Build a set of all resources included in this catalog
-        val ownResources = manifestResources.map { "${it.type}:${it.slug}" }.toSet()
-
-        val dependencies = mutableSetOf<DependencyRef>()
-
-        // Font refs that point outside this catalog. A `fontFamily` style value
-        // is `{ slug, catalogKey? }`; a non-null catalogKey other than this
-        // catalog (e.g. the bundled `system` catalog) is a cross-catalog
-        // reference consumers must satisfy at install time. Same-catalog refs
-        // are covered by the catalog's own `font` resources. Sources: theme
-        // documentStyles/blockStylePresets and template documentStylesOverride
-        // + inline node styles.
-        fun addFontRef(ref: FontRef) {
-            val target = ref.catalogKey ?: return
-            if (target == catalogKey) return
-            if ("font:${ref.slug}" in ownResources) return
-            dependencies.add(DependencyRef.Font(catalogKey = target, slug = ref.slug))
-        }
-        for (theme in themes) {
-            DependencyScanner.themeFontRefs(theme.documentStyles, theme.blockStylePresets).forEach(::addFontRef)
-        }
-
-        // Attribute → code-list bindings that point outside this catalog. The
-        // `ExportAttributes` query emits `catalogKey = null` for same-catalog
-        // bindings, so any non-null `catalogKey` here is a real cross-catalog
-        // reference that consumers need to satisfy at install time.
-        for (attribute in attributes) {
-            val binding = attribute.codeListBinding ?: continue
-            val target = binding.catalogKey ?: continue
-            if (target == catalogKey) continue
-            dependencies.add(DependencyRef.CodeList(catalogKey = target, slug = binding.slug))
-        }
-
-        for (template in templates) {
-            // Resource-level theme reference
-            val themeCatalog = template.themeCatalogKey
-            if (template.themeId != null && "theme:${template.themeId}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
-                dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, slug = template.themeId!!))
-            }
-
-            val docs = mutableListOf(template.templateModel)
-            template.variants.mapNotNull { it.templateModel }.forEach { docs.add(it) }
-
-            for (doc in docs) {
-                // Cross-catalog font refs in this template's style override / inline node styles
-                DependencyScanner.documentFontRefs(doc).forEach(::addFontRef)
-
-                // Theme override references inside template model
-                val themeRef = doc.themeRef
-                if (themeRef is app.epistola.template.model.ThemeRefOverride) {
-                    val refCatalog = themeRef.catalogKey
-                    if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeId}" !in ownResources) {
-                        dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, slug = themeRef.themeId))
-                    }
-                }
-
-                // Node references
-                for (node in doc.nodes.values) {
-                    when (node.type) {
-                        "stencil" -> {
-                            val refCatalog = node.props?.get("catalogKey") as? String
-                            val stencilId = node.props?.get("stencilId") as? String
-                            if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
-                                dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
-                            }
-                        }
-                        "image" -> {
-                            val assetId = node.props?.get("assetId") as? String
-                            if (assetId != null && "asset:$assetId" !in ownResources) {
-                                dependencies.add(DependencyRef.Asset(slug = assetId))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return dependencies.toList().ifEmpty { null }
     }
 }

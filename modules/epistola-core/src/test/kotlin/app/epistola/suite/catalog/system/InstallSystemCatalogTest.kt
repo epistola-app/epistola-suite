@@ -108,18 +108,19 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
 
     @Test
     fun `installer upgrades when installed version is older than bundled version`() {
-        // We can't easily mutate the bundled manifest mid-test, so simulate the
-        // "tenant is on an older version" state by stamping a fake older
-        // version into the catalogs row, then running the installer. If the
-        // upgrade path is wired correctly, it should call `UpgradeCatalog`
-        // and report `UPGRADED`, bringing the row back to the current bundle.
+        // We can't easily mutate the bundled manifest mid-test, so simulate a
+        // "tenant content has drifted from the bundle" state by stamping a
+        // stale fingerprint into the catalogs row (upgrade detection is
+        // fingerprint-based, not version-string-based). If the upgrade path is
+        // wired correctly, the installer should call `UpgradeCatalog` and
+        // report `UPGRADED`, bringing the row back to the current bundle.
         val tenant = createTenant("SysUpgrade")
 
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE catalogs
-                SET installed_release_version = '0'
+                SET installed_release_version = '0', installed_fingerprint = 'stale-fingerprint'
                 WHERE tenant_key = :tenantKey AND id = 'system'
                 """,
             )

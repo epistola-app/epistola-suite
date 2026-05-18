@@ -106,7 +106,7 @@ class UpgradeCatalogHandler(
 
         // 7. Bump version last — if any step above fails, version stays at the old value
         //    and the next run will retry the upgrade.
-        updateCatalogVersion(command.tenantKey, command.catalogKey, manifest.release.version, manifest.catalog.name, manifest.catalog.description)
+        updateCatalogVersion(command.tenantKey, command.catalogKey, manifest.release.version, manifest.release.fingerprint, manifest.catalog.name, manifest.catalog.description)
 
         val newVersion = manifest.release.version
         val installed = installResults.count { it.status == InstallStatus.INSTALLED }
@@ -309,18 +309,20 @@ class UpgradeCatalogHandler(
         return removed
     }
 
-    private fun updateCatalogVersion(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, name: String, description: String?) {
+    private fun updateCatalogVersion(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, fingerprint: String?, name: String, description: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE catalogs
-                SET installed_release_version = :version, name = :name, description = :description, updated_at = NOW()
+                SET installed_release_version = :version, installed_fingerprint = :fingerprint,
+                    name = :name, description = :description, updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
                 .bind("version", version)
+                .bind("fingerprint", fingerprint)
                 .bind("name", name)
                 .bind("description", description)
                 .execute()
