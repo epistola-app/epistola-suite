@@ -24,6 +24,78 @@ boot. The migration workload reuses the **same image** with
 `embedded` emits no Job, no init container, and no `EPISTOLA_MIGRATION_MODE` —
 the app migrates at boot exactly as before.
 
+## Usage
+
+### Production, external Postgres (default `job` mode)
+
+`migration.mode=job` is the default, so it can be omitted:
+
+```bash
+helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola \
+  --set image.tag=v0.20.0 \
+  --set config.profiles=prod,keycloak \
+  --set database.type=external \
+  --set database.external.host=pg.internal \
+  --set database.external.existingSecret=epistola-db \
+  --set replicaCount=3
+```
+
+The hook Job migrates once before the new Deployment rolls out; the 3 app
+replicas boot with `EPISTOLA_MIGRATION_MODE=validate` and refuse to start if the
+schema is behind. Equivalent `values.yaml`:
+
+```yaml
+migration:
+  mode: job # default — shown for clarity
+database:
+  type: external
+  external:
+    host: pg.internal
+    existingSecret: epistola-db
+config:
+  profiles: prod,keycloak
+replicaCount: 3
+```
+
+### Fresh install with a chart-managed CNPG cluster
+
+`job` mode is rejected here (see the caveat below) — use `initContainer` for the
+first install, then switch back to `job` for subsequent upgrades if desired:
+
+```bash
+helm install epistola oci://ghcr.io/epistola-app/charts/epistola \
+  --set database.type=cnpg \
+  --set migration.mode=initContainer
+```
+
+### Run the migration step standalone (outside Helm / CI / one-off)
+
+Same image, `EPISTOLA_MIGRATION_MODE=migrate` (or the `--migrate` arg). Exits
+`0` on success, non-zero on failure — usable as a CI/pipeline gate:
+
+```bash
+docker run --rm \
+  -e EPISTOLA_MIGRATION_MODE=migrate \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://pg.internal:5432/epistola \
+  -e SPRING_DATASOURCE_USERNAME=epistola \
+  -e SPRING_DATASOURCE_PASSWORD=… \
+  ghcr.io/epistola-app/epistola-suite:v0.20.0
+echo "exit: $?"
+
+# or from the built jar:
+java -jar epistola.jar --migrate \
+  --spring.datasource.url=jdbc:postgresql://localhost:5432/epistola
+```
+
+### Local development (embedded — unchanged)
+
+No configuration needed: `epistola.migration.mode` defaults to `embedded`, so
+the app migrates at boot as before.
+
+```bash
+./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'
+```
+
 ## CNPG ordering caveat
 
 With `database.type=cnpg`, the CloudNativePG `Cluster` is a normal (non-hook)
