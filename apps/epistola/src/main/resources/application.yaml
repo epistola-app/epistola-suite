@@ -59,6 +59,15 @@ spring:
 # Tests use permit-all (see application-test.yaml)
 
 epistola:
+  migration:
+    # How Flyway behaves at startup:
+    #   migrate  — run migrations at boot (embedded; local/dev default, and the
+    #              mode forced by the isolated EPISTOLA_RUN_MODE=migrate step).
+    #   validate — never migrate/clean; only verify the schema is at head and
+    #              fail fast if behind. Set this when migrations run as a
+    #              separate step (Helm migration Job / init container; also set
+    #              by the 'prod' profile).
+    mode: migrate
   storage:
     backend: postgres
   auth:
