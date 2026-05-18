@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -161,6 +162,46 @@ class ImportCatalogZipHandler(
             } catch (e: Exception) {
                 logger.error("Failed to import {} '{}': {}", entry.type, entry.slug, e.message, e)
                 InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
+            }
+        }
+
+        // Adopt the published version as the *initial* release — but only when
+        // this import created the catalog. A release is an authorship act:
+        //  - new catalog: no authorship history yet, so the manifest's clean
+        //    SemVer + fingerprint is a truthful initial baseline (round-trip is
+        //    deterministic, so the local fingerprint equals the manifest's —
+        //    it is a real, consistent release row, not a fabricated one);
+        //  - existing AUTHORED catalog: the import is just an edit to a catalog
+        //    you already version — never auto-cut a release or touch the
+        //    owner's release history; the drift/"unreleased changes" UX is the
+        //    correct signal and the owner releases deliberately;
+        //  - `-dev`/legacy manifest version: nothing real to adopt.
+        // Skipped if any resource failed (don't release incomplete content).
+        if (existingCatalog == null &&
+            manifest.release.fingerprint != null &&
+            SemVer.parseOrNull(manifest.release.version) != null &&
+            results.none { it.status == InstallStatus.FAILED }
+        ) {
+            try {
+                ReleaseCatalogVersion(
+                    tenantKey = command.tenantKey,
+                    catalogKey = catalogKey,
+                    version = manifest.release.version,
+                    notes = "Initial release imported from catalog ZIP (publisher: ${manifest.publisher.name})",
+                ).execute()
+                logger.info(
+                    "Catalog '{}' created from ZIP — adopted imported release {} as the initial release",
+                    catalogKey.value,
+                    manifest.release.version,
+                )
+            } catch (e: CatalogReleaseVersionException) {
+                // Defensive only — a brand-new catalog has no prior releases.
+                logger.info(
+                    "Did not adopt imported release {} for new catalog '{}': {}",
+                    manifest.release.version,
+                    catalogKey.value,
+                    e.message,
+                )
             }
         }
 

@@ -40,8 +40,11 @@ import java.util.zip.ZipOutputStream
  *  - a ZIP-imported catalog carries no SUBSCRIBED upgrade state and is not an
  *    upgrade target (`UpgradeCatalog`/preview don't apply — re-import is the
  *    only "upgrade from a ZIP");
- *  - release identity does NOT travel through a ZIP — the importer must
- *    re-release.
+ *  - release identity: a ZIP import that **creates** an AUTHORED catalog
+ *    adopts the manifest's clean released SemVer as the *initial* release;
+ *    a `-dev`/never-released manifest stays unreleased; and importing into an
+ *    **existing** AUTHORED catalog never fabricates or changes release state
+ *    (it's an edit — the owner releases deliberately).
  */
 class CatalogZipVersioningTest : IntegrationTestBase() {
 
@@ -194,24 +197,73 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `release identity does not travel through a ZIP — re-export from the importer is dev-labelled`() {
-        val publisher = createTenant("Zip Release Publisher")
-        val consumer = createTenant("Zip Release Consumer")
-        val catalogKey = CatalogKey.of("zipver-release")
+    fun `importing a released ZIP that creates a new AUTHORED catalog adopts it as the initial release`() {
+        val publisher = createTenant("Zip Rel Publisher")
+        val consumer = createTenant("Zip Rel Consumer")
+        val catalogKey = CatalogKey.of("zipver-adopt")
 
         withMediator {
-            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Release").execute()
+            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Rel").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Th").execute()
-
-            // Publisher cuts a real release → exported ZIP carries 1.0.0.
             ReleaseCatalogVersion(tenantKey = publisher.id, catalogKey = catalogKey, version = "1.0.0").execute()
             val publishedZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
             assertThat(manifestOf(publishedZip).release.version).isEqualTo("1.0.0")
 
-            // Consumer imports it. The catalog exists for them, but they never
-            // cut a release locally → re-export is `0.0.0-dev`. Release history
-            // is per-installation; the version label does not ride the ZIP.
+            // Consumer has no such catalog → the import *creates* it, so the
+            // published 1.0.0 becomes its initial release (no authorship
+            // history to protect; round-trip fingerprint is deterministic, so
+            // the release row is real and consistent — not fabricated).
             ImportCatalogZip(tenantKey = consumer.id, zipBytes = publishedZip, catalogType = CatalogType.AUTHORED).execute()
+
+            assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isEqualTo("1.0.0")
+            val reexport = ExportCatalogZip(tenantKey = consumer.id, catalogKey = catalogKey).execute().zipBytes
+            // Clean version (no `-dev`): the working copy matches the adopted release.
+            assertThat(manifestOf(reexport).release.version).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
+    fun `importing a never-released ZIP creates an unreleased catalog`() {
+        val publisher = createTenant("Zip Unrel Publisher")
+        val consumer = createTenant("Zip Unrel Consumer")
+        val catalogKey = CatalogKey.of("zipver-unrel")
+
+        withMediator {
+            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Unrel").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Th").execute()
+            // Publisher never cut a release → manifest carries 0.0.0-dev.
+            val devZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
+            assertThat(manifestOf(devZip).release.version).isEqualTo("0.0.0-dev")
+
+            // A `-dev` label is not a real release: nothing to adopt.
+            ImportCatalogZip(tenantKey = consumer.id, zipBytes = devZip, catalogType = CatalogType.AUTHORED).execute()
+            assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isNull()
+        }
+    }
+
+    @Test
+    fun `importing into an existing AUTHORED catalog does not fabricate or change release state`() {
+        val publisher = createTenant("Zip Exist Publisher")
+        val consumer = createTenant("Zip Exist Consumer")
+        val catalogKey = CatalogKey.of("zipver-exist")
+
+        withMediator {
+            // Publisher publishes 2.0.0.
+            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Exist").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Pub Th").execute()
+            ReleaseCatalogVersion(tenantKey = publisher.id, catalogKey = catalogKey, version = "2.0.0").execute()
+            val publishedZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
+
+            // Consumer already AUTHORS a catalog with the same slug, never released.
+            CreateCatalog(tenantKey = consumer.id, id = catalogKey, name = "Consumer's Own").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("own"), CatalogId(catalogKey, TenantId(consumer.id))), name = "Own Th").execute()
+
+            // Importing into the *existing* catalog is an edit, not a release
+            // act — the publisher's 2.0.0 is NOT adopted; the owner's release
+            // history (here: none) is untouched. It shows as drift, correctly.
+            ImportCatalogZip(tenantKey = consumer.id, zipBytes = publishedZip, catalogType = CatalogType.AUTHORED).execute()
+
+            assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isNull()
             val reexport = ExportCatalogZip(tenantKey = consumer.id, catalogKey = catalogKey).execute().zipBytes
             assertThat(manifestOf(reexport).release.version).isEqualTo("0.0.0-dev")
         }

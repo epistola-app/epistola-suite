@@ -106,6 +106,29 @@ bytes**. The version label encodes release state and export is never blocked:
 immutable release snapshot so subscribers never see in-progress edits is a
 Phase 2 hardening.)
 
+## Importing a ZIP (AUTHORED)
+
+A release is an **authorship act**, so a ZIP import — which is content
+transport — only adopts a release in the one case where there is no authorship
+to protect:
+
+- **Import that _creates_ the catalog** → it has no release history yet, so the
+  manifest's version becomes the **initial release**, provided it is a clean
+  SemVer (not a `-dev`/legacy label), a `release.fingerprint` is present, and
+  every resource imported. The ZIP round-trip fingerprint is deterministic, so
+  the recorded release row is real and consistent — not fabricated. Result: the
+  catalog shows the published version, not "unreleased".
+- **Import into an _existing_ AUTHORED catalog** → this is an _edit_ to a
+  catalog you already version. Release state is **never** fabricated or
+  changed; the working copy shows as drift ("unreleased changes") and the owner
+  releases deliberately via the Release action. (Re-import is also an in-place
+  merge — it does not prune resources dropped from the new ZIP; only the
+  SUBSCRIBED `UpgradeCatalog` path removes stale resources.)
+- **`-dev`/never-released manifest** → nothing real to adopt; stays unreleased.
+
+Contrast SUBSCRIBED, where the version is fully derived state ("the upstream
+release I have installed") and is auto-managed by register/upgrade.
+
 ## Bundled catalogs
 
 `demo` and `system` ship a real SemVer and a committed `release.fingerprint` in
