@@ -26,6 +26,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -114,11 +115,22 @@ class VersionRouteHandler(
             app.epistola.suite.templates.model.TemplateDocument::class.java,
         )
 
-        // Execute update command
-        UpdateDraft(
-            variantId = variantId,
-            templateModel = templateModel,
-        ).execute()
+        try {
+            UpdateDraft(
+                variantId = variantId,
+                templateModel = templateModel,
+            ).execute()
+        } catch (e: ValidationException) {
+            return ServerResponse.badRequest()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "code" to "VALIDATION_ERROR",
+                        "message" to e.message,
+                        "field" to e.field,
+                    ),
+                )
+        }
 
         // Return minimal success response (UI doesn't need full DTO)
         return ServerResponse.ok()

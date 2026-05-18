@@ -9,6 +9,7 @@
  */
 import type { JsonSchema } from '../../data-contract/types.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
+import { isValidExpression } from '../../engine/resolve-expression.js';
 import { renderBindingRow } from './binding-row.js';
 import { RESERVED_ALIASES } from '../../engine/node-parameter-keys.js';
 
@@ -111,7 +112,11 @@ export function openParameterBindingsDialog(
       const allBound = Array.from(required).every(
         (name) => (bindings[name] ?? '').trim().length > 0,
       );
-      saveBtn.disabled = !allBound || reserved;
+      const allValid = Object.values(bindings).every((expr) => {
+        const trimmed = expr.trim();
+        return trimmed.length === 0 || isValidExpression(trimmed);
+      });
+      saveBtn.disabled = !allBound || reserved || !allValid;
     }
     aliasInput.addEventListener('input', updateSaveState);
     updateSaveState();

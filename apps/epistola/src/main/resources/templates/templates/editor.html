@@ -275,7 +275,17 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to save draft: ' + response.statusText);
+                    let message = response.statusText || 'Failed to save draft';
+                    const text = await response.text().catch(() => '');
+                    if (text) {
+                        try {
+                            const body = JSON.parse(text);
+                            message = body.message || body.error || message;
+                        } catch (_) {
+                            message = text;
+                        }
+                    }
+                    throw new Error(message);
                 }
             },
             onFetchPreview: async (doc, data, signal) => {
