@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
@@ -23,13 +24,19 @@ import org.junit.jupiter.api.Test
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
 
 /**
- * The cheap AUTHORED working-copy drift signal (catalog list's "pending
- * changes" hint). Pins the timestamp baseline `GREATEST(released_at,
- * imported_at)` — in particular that a no-op re-import does **not** register
- * as drift (the false-positive the design was chosen to avoid), and that only
- * AUTHORED + released catalogs are ever considered.
+ * The catalog-management list query, focused on its only non-trivial column:
+ * the cheap AUTHORED working-copy drift flag (`CatalogListRow.pendingChanges`,
+ * the list's `· pending changes` hint). Pins the timestamp baseline
+ * `GREATEST(released_at, imported_at)` — in particular that a no-op re-import
+ * does **not** register as drift (the false-positive the design was chosen to
+ * avoid), and that only AUTHORED + released catalogs are ever flagged.
  */
-class FindCatalogsWithPendingChangesTest : IntegrationTestBase() {
+class ListCatalogsForManagementTest : IntegrationTestBase() {
+
+    /** Keys of catalogs the list query flags as drifted, for this tenant. */
+    private fun pendingKeys(tenantKey: TenantKey): List<CatalogKey> = ListCatalogsForManagement(tenantKey).query()
+        .filter { it.pendingChanges }
+        .map { it.catalog.id }
 
     @Test
     fun `released catalog with no edits is not pending`() {
@@ -40,7 +47,7 @@ class FindCatalogsWithPendingChangesTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
-            assertThat(FindCatalogsWithPendingChanges(tenant.id).query()).doesNotContain(key)
+            assertThat(pendingKeys(tenant.id)).doesNotContain(key)
         }
     }
 
@@ -57,7 +64,7 @@ class FindCatalogsWithPendingChangesTest : IntegrationTestBase() {
             // A resource changed after the release → working copy drifted.
             CreateTheme(id = ThemeId(ThemeKey.of("added"), catalogId), name = "Added After Release").execute()
 
-            assertThat(FindCatalogsWithPendingChanges(tenant.id).query()).contains(key)
+            assertThat(pendingKeys(tenant.id)).contains(key)
         }
     }
 
@@ -76,7 +83,7 @@ class FindCatalogsWithPendingChangesTest : IntegrationTestBase() {
             // mistaken for drift. (The regression the design targets.)
             ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip, catalogType = CatalogType.AUTHORED).execute()
 
-            assertThat(FindCatalogsWithPendingChanges(tenant.id).query()).doesNotContain(key)
+            assertThat(pendingKeys(tenant.id)).doesNotContain(key)
         }
     }
 
@@ -91,7 +98,7 @@ class FindCatalogsWithPendingChangesTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("more"), catalogId), name = "More").execute()
 
             // No release → you can't drift from one; the list shows "unreleased".
-            assertThat(FindCatalogsWithPendingChanges(tenant.id).query()).doesNotContain(key)
+            assertThat(pendingKeys(tenant.id)).doesNotContain(key)
         }
     }
 
@@ -102,8 +109,7 @@ class FindCatalogsWithPendingChangesTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            assertThat(FindCatalogsWithPendingChanges(tenant.id).query())
-                .doesNotContain(CatalogKey.of("epistola-demo"))
+            assertThat(pendingKeys(tenant.id)).doesNotContain(CatalogKey.of("epistola-demo"))
         }
     }
 }

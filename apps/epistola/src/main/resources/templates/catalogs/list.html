@@ -57,7 +57,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="catalog : ${catalogs}">
+                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
                     <td style="font-weight: 500;">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            th:text="${catalog.name}"></a>
@@ -71,7 +71,7 @@
                         <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
                             <th:block th:if="${catalog.releasedVersion}">
                                 <span th:text="'v' + ${catalog.releasedVersion}"></span>
-                                <span th:if="${pendingChangeCatalogIds != null and pendingChangeCatalogIds.contains(catalog.id.toString())}"
+                                <span th:if="${row.pendingChanges}"
                                       class="text-muted"
                                       th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
                             </th:block>

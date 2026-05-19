@@ -17,11 +17,10 @@ import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
-import app.epistola.suite.catalog.queries.FindCatalogsWithPendingChanges
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
-import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.ModelBuilder
@@ -582,21 +581,16 @@ class CatalogHandler {
      * page *and* the `catalog-list` fragment/OOB swaps. One source of truth so
      * no render path can forget the AUTHORED drift hint:
      *  - `tenantId`;
-     *  - `catalogs` (`ListCatalogs`);
-     *  - `pendingChangeCatalogIds` — AUTHORED catalogs whose working copy has
-     *    unreleased changes, as slug strings (not `CatalogKey`) so the
-     *    Thymeleaf `.contains(...)` check is a plain string compare. Cheap:
-     *    one set-based query, no content build.
+     *  - `catalogs` — `List<CatalogListRow>` from `ListCatalogsForManagement`:
+     *    each row is a `Catalog` plus the list-only `pendingChanges` flag
+     *    (AUTHORED working copy drifted since the last release/import),
+     *    computed in one SQL join. No parallel id set, no template-side
+     *    cross-reference, no content build.
      */
     private fun ModelBuilder.catalogListModel(request: ServerRequest) {
         val tenantKey = request.tenantId().key
         "tenantId" to tenantKey
-        "catalogs" to ListCatalogs(tenantKey).query()
-        // toHashSet() (a real java.util.HashSet) — NOT toSet(): an empty
-        // result yields Kotlin's EmptySet singleton, on which SpEL cannot
-        // resolve .contains(...), 500-ing the template for clean catalogs.
-        "pendingChangeCatalogIds" to
-            FindCatalogsWithPendingChanges(tenantKey).query().map { it.value }.toHashSet()
+        "catalogs" to ListCatalogsForManagement(tenantKey).query()
     }
 
     private fun listWithError(request: ServerRequest, error: String): ServerResponse = ServerResponse.ok().page("catalogs/list") {

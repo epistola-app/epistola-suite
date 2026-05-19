@@ -111,9 +111,20 @@ Phase 2 hardening.)
 So the `-dev` outcome isn't only discovered at download time, the catalog
 list shows `v0.1.0 · pending changes` for an AUTHORED, released catalog whose
 working copy drifted. This is a **cheap heuristic, not the fingerprint** (the
-export `-dev`/fingerprint stays authoritative): `FindCatalogsWithPendingChanges`
-compares `MAX(updated_at | published_at | created_at)` across the catalog's
-resource/version tables to the baseline `GREATEST(released_at, imported_at)`.
+export `-dev`/fingerprint stays authoritative): the catalog-management list
+query `ListCatalogsForManagement` returns each catalog as a `CatalogListRow`
+(the shared `Catalog` plus a list-only `pendingChanges` flag), the flag
+computed in one `LEFT JOIN` comparing `MAX(updated_at | published_at |
+created_at)` across the catalog's resource/version tables to the baseline
+`GREATEST(released_at, imported_at)`. The flag is **not** on `Catalog` itself
+(browse/REST/MCP read that shared model and don't show drift); it is purely a
+list-page concern, so the list-page query owns it and the template reads
+`row.pendingChanges` — no parallel id set, no template-side cross-reference.
+
+All three timestamps share the **database** clock: resource `updated_at` and
+`catalogs.imported_at` are Postgres `NOW()`, and `ReleaseCatalogVersion`
+stamps `released_at` via `SELECT NOW()` (not JVM time) precisely so this
+comparison is exact and not skewed by JVM↔DB clock drift.
 
 `catalogs.imported_at` is set at the **end** of `ImportCatalogZip` (after the
 resource upserts, so ≥ their `updated_at`). It exists specifically so a no-op
