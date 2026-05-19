@@ -241,11 +241,6 @@ class CatalogHandler {
     }
 
     /**
-     * Lazy per-row "upgrade available?" indicator (SUBSCRIBED only). Cheap —
-     * manifest fetch only. Renders nothing when up to date or unreachable, so a
-     * failed remote never breaks the list.
-     */
-    /**
      * Explicit per-row upgrade check (user clicks "Check for updates"). Returns
      * the `upgrade-indicator` fragment in one of:
      * `UP_TO_DATE` / `UPDATE_AVAILABLE` / `ZIP_MANAGED` / `CHECK_FAILED`.

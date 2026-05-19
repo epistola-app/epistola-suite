@@ -2,6 +2,9 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.CatalogNotUpgradeableException
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
@@ -17,6 +20,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
@@ -189,6 +193,30 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             assertThat(diff.removed).contains(UpgradeResourceChange("theme", "test-theme"))
             assertThat(diff.hasConflicts).isTrue()
             assertThat(diff.conflicts).anyMatch { it.contains("test-theme") && it.contains("Cross-Ref Template") }
+        }
+    }
+
+    @Test
+    fun `unknown catalog throws CatalogNotFoundException (maps to 404, not a 500)`() {
+        val tenant = createTenant("Preview Missing")
+        withMediator {
+            assertThrows<CatalogNotFoundException> {
+                PreviewCatalogUpgrade(tenant.id, CatalogKey.of("no-such-catalog")).query()
+            }
+        }
+    }
+
+    @Test
+    fun `AUTHORED catalog (no source URL) throws CatalogNotUpgradeableException (maps to 409, not a 500)`() {
+        val tenant = createTenant("Preview Authored")
+        val key = CatalogKey.of("authored-cat")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = key, name = "Authored Cat").execute()
+
+            val ex = assertThrows<CatalogNotUpgradeableException> {
+                PreviewCatalogUpgrade(tenant.id, key).query()
+            }
+            assertThat(ex.catalogKey).isEqualTo(key)
         }
     }
 }

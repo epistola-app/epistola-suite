@@ -3,6 +3,8 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.InstalledResource
 import app.epistola.suite.common.ids.TenantKey
@@ -69,10 +71,13 @@ class PreviewCatalogUpgradeHandler(
 
     override fun handle(query: PreviewCatalogUpgrade): UpgradeDiff {
         val catalog = GetCatalog(query.tenantKey, query.catalogKey).query()
-            ?: throw IllegalArgumentException("Catalog not found: ${query.catalogKey}")
+            ?: throw CatalogNotFoundException(query.catalogKey)
 
         val sourceUrl = catalog.sourceUrl
-            ?: throw IllegalStateException("Catalog '${query.catalogKey}' has no source URL — only subscribed catalogs can be upgraded")
+            ?: throw CatalogNotUpgradeableException(
+                query.catalogKey,
+                "not a subscribed catalog (no source URL) — only subscribed catalogs can be upgraded",
+            )
 
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
 
@@ -87,8 +92,9 @@ class PreviewCatalogUpgradeHandler(
         // CHANGED verdict means the publisher changed that resource — never
         // install round-trip noise. SUBSCRIBED catalogs always have it.
         val installed = catalog.installedResourceFingerprints
-            ?: throw IllegalStateException(
-                "Catalog '${query.catalogKey}' has no per-resource baseline — re-register or upgrade it to capture one",
+            ?: throw CatalogNotUpgradeableException(
+                query.catalogKey,
+                "no per-resource baseline captured yet — re-register or upgrade it to capture one",
             )
 
         fun parse(key: String) = UpgradeResourceChange(
