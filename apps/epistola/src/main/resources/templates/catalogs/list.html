@@ -93,9 +93,13 @@
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{fragments/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}"
-                              th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
-                              hx-trigger="load" hx-target="this" hx-swap="outerHTML"></span>
+                        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}"
+                                  th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
+                                           catalogId=${catalog.id},
+                                           installedVersion=${catalog.installedReleaseVersion},
+                                           availableVersion=null">
+                            <th:block th:replace="~{catalogs/list :: upgrade-indicator}"></th:block>
+                        </th:block>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id.toString() == 'default'}"
@@ -337,20 +341,60 @@
          open dialog) while #catalog-list updates via OOB. -->
     <th:block th:fragment="release-done"></th:block>
 
-    <!-- Lazy per-row upgrade indicator (SUBSCRIBED). Renders a "Review
-         changes" button only when an upgrade is available; otherwise an empty
-         span so the row stays clean (also when the remote was unreachable). -->
+    <!-- Per-row SUBSCRIBED upgrade indicator. Explicit, user-driven: it never
+         polls the source on its own — the user clicks "Check for updates"
+         (and "Check again"). `state` ∈ UNCHECKED | UP_TO_DATE |
+         UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED. The fragment is
+         rendered inline (initial UNCHECKED/ZIP_MANAGED via th:with on the row)
+         and returned by `upgrade-check` for the post-check states; every
+         self-replacing action targets `closest .upgrade-indicator`. CSP-safe
+         (hx-get only, no hx-on / inline JS). -->
     <th:block th:fragment="upgrade-indicator">
-        <button type="button"
-                th:if="${availability != null and availability.available}"
-                class="ep-btn ep-btn-outline ep-btn-sm"
-                th:title="${'Upgrade available' + (availability.availableVersion != null ? ' — v' + availability.availableVersion : '')}"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
-                hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
-            <th:block th:replace="~{fragments/icon :: icon(name='arrow-up-circle', class='ep-icon ep-icon-sm')}" />
-            <span th:text="${'Upgrade' + (availability.availableVersion != null ? ' → v' + availability.availableVersion : '')}">Upgrade</span>
-        </button>
-        <span th:unless="${availability != null and availability.available}"></span>
+        <span class="upgrade-indicator" th:switch="${state}"
+              style="display: inline-flex; align-items: center; gap: var(--ep-space-2);">
+
+            <button th:case="'UNCHECKED'" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                    title="Check the source for a newer release"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
+                    hx-target="closest .upgrade-indicator" hx-swap="outerHTML">
+                Check for updates
+            </button>
+
+            <th:block th:case="'UP_TO_DATE'">
+                <span class="text-muted"
+                      th:text="${installedVersion != null ? 'Up to date · v' + installedVersion : 'Up to date'}">Up to date</span>
+                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" title="Check again"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="closest .upgrade-indicator" hx-swap="outerHTML">Recheck</button>
+            </th:block>
+
+            <th:block th:case="'UPDATE_AVAILABLE'">
+                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                        th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
+                    <th:block th:replace="~{fragments/icon :: icon(name='arrow-up-circle', class='ep-icon ep-icon-sm')}" />
+                    <span th:text="${availableVersion != null ? 'Update → v' + availableVersion : 'Update available'}">Update available</span>
+                </button>
+                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" title="Check again"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="closest .upgrade-indicator" hx-swap="outerHTML">Recheck</button>
+            </th:block>
+
+            <span th:case="'ZIP_MANAGED'" class="text-muted"
+                  title="No source URL — this mirror is managed via ZIP. Import a newer ZIP as a Subscribed catalog to upgrade it.">
+                ZIP-managed
+            </span>
+
+            <th:block th:case="'CHECK_FAILED'">
+                <span class="text-muted">Source unreachable</span>
+                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" title="Retry"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="closest .upgrade-indicator" hx-swap="outerHTML">Retry</button>
+            </th:block>
+
+            <span th:case="*"></span>
+        </span>
     </th:block>
 
     <!-- Upgrade preview/apply dialog. Rendered via the dedicated GET/POST so

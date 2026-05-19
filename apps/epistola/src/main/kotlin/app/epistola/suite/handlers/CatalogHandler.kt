@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
@@ -251,30 +252,39 @@ class CatalogHandler {
      * manifest fetch only. Renders nothing when up to date or unreachable, so a
      * failed remote never breaks the list.
      */
+    /**
+     * Explicit per-row upgrade check (user clicks "Check for updates"). Returns
+     * the `upgrade-indicator` fragment in one of:
+     * `UP_TO_DATE` / `UPDATE_AVAILABLE` / `ZIP_MANAGED` / `CHECK_FAILED`.
+     * Cheap — `CheckCatalogUpgrade` fetches only the manifest. ZIP-managed
+     * (no source URL) catalogs can't be polled — they upgrade by re-importing
+     * a newer ZIP, so we say so instead of erroring.
+     */
     fun upgradeCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        return try {
-            val availability = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
-            ServerResponse.ok().render(
-                "catalogs/list :: upgrade-indicator",
-                mapOf(
-                    "tenantId" to tenantId.key,
-                    "catalogId" to catalogKey.value,
-                    "availability" to availability,
-                ),
-            )
-        } catch (e: Exception) {
-            logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
-            ServerResponse.ok().render(
-                "catalogs/list :: upgrade-indicator",
-                mapOf(
-                    "tenantId" to tenantId.key,
-                    "catalogId" to catalogKey.value,
-                    "availability" to null,
-                ),
-            )
+        val catalog = GetCatalog(tenantId.key, catalogKey).query()
+
+        val model = HashMap<String, Any?>()
+        model["tenantId"] = tenantId.key
+        model["catalogId"] = catalogKey.value
+        model["installedVersion"] = catalog?.installedReleaseVersion
+        model["availableVersion"] = null
+
+        when {
+            catalog == null -> model["state"] = "CHECK_FAILED"
+            catalog.sourceUrl == null -> model["state"] = "ZIP_MANAGED"
+            else -> try {
+                val a = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
+                model["state"] = if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
+                model["installedVersion"] = a.installedVersion
+                model["availableVersion"] = a.availableVersion
+            } catch (e: Exception) {
+                logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
+                model["state"] = "CHECK_FAILED"
+            }
         }
+        return ServerResponse.ok().render("catalogs/list :: upgrade-indicator", model)
     }
 
     private fun upgradeDialog(tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null): ServerResponse {

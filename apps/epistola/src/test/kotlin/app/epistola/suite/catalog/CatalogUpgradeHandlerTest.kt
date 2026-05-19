@@ -3,6 +3,8 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogKey
@@ -128,6 +130,96 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("alert alert-danger")
             // No diff → no Apply button rendered.
             assertThat(response.body).doesNotContain("Apply upgrade")
+        }
+    }
+
+    @Test
+    fun `the catalog list shows an explicit check-for-updates control and does not auto-poll`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade List Explicit")
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // Explicit, user-driven: a "Check for updates" button is rendered
+            // for the subscribed catalog and the indicator never auto-polls
+            // the source on page load.
+            assertThat(body).contains("Check for updates")
+            assertThat(body).doesNotContain("hx-trigger=\"load\"")
+        }
+    }
+
+    @Test
+    fun `upgrade-check reports UP_TO_DATE for a freshly registered + installed catalog`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Upgrade Check Current")
+            withMediator {
+                RegisterCatalog(testTenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/epistola-demo/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Up to date")
+            assertThat(response.body).doesNotContain("Update →")
+        }
+    }
+
+    @Test
+    fun `upgrade-check reports ZIP-managed for a ZIP-imported subscribed catalog (no source URL)`() = fixture {
+        lateinit var consumer: Tenant
+        given {
+            // Produce a valid catalog ZIP from the demo…
+            val publisher = tenant("Zip Mirror Publisher")
+            lateinit var zip: ByteArray
+            withMediator {
+                RegisterCatalog(publisher.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+                zip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute().zipBytes
+            }
+            // …then import it as SUBSCRIBED into a fresh tenant → a mirror with
+            // no source URL.
+            consumer = tenant("Zip Mirror Consumer")
+            withMediator {
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${consumer.id}/catalogs/epistola-demo/upgrade-check",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("ZIP-managed")
         }
     }
 }
