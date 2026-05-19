@@ -41,10 +41,19 @@ import java.util.zip.ZipInputStream
  * A slug that already exists with a *different* type is rejected (it would flip
  * ownership semantics). Otherwise:
  *
- * - **AUTHORED** — your editable copy. Resources are upserted in place (no
- *   stale-prune). When the import *creates* the catalog and the manifest
- *   carries a clean released SemVer + fingerprint, that becomes the initial
- *   release; importing into an existing AUTHORED catalog is just an edit.
+ * - **AUTHORED** — your editable copy. When the import *creates* the catalog
+ *   and the manifest carries a clean released SemVer + fingerprint, that
+ *   becomes the initial release. Importing into an **existing** AUTHORED
+ *   catalog is an *edit* (release state is never touched — drift shows and the
+ *   owner re-releases deliberately); [authoredMode] decides what happens to
+ *   your local-only resources:
+ *     - `MERGE` (default) — upsert the ZIP's resources over your copy, **keep**
+ *       resources you have locally that the ZIP doesn't (overlay);
+ *     - `REPLACE` — make the catalog *exactly* the ZIP: also **delete**
+ *       local-only resources, conflict-checked before mutating (a pruned
+ *       resource still referenced from another catalog blocks the import,
+ *       same as the SUBSCRIBED path); release state still untouched.
+ *   (Ignored when the import creates the catalog, or for SUBSCRIBED.)
  * - **SUBSCRIBED** — a managed mirror. The ZIP *is* the upgrade transport
  *   (instead of a source URL): full `UpgradeCatalog` parity — conflict-checked
  *   before mutating, resources replaced, stale pruned, abort-on-failed-install
@@ -54,9 +63,19 @@ data class ImportCatalogZip(
     override val tenantKey: TenantKey,
     val zipBytes: ByteArray,
     val catalogType: CatalogType,
+    val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
+}
+
+/** What an AUTHORED ZIP import does with resources you have locally but the ZIP doesn't. */
+enum class AuthoredImportMode {
+    /** Overlay: upsert the ZIP's resources, keep local-only ones (default). */
+    MERGE,
+
+    /** Mirror: also delete local-only resources (conflict-checked). */
+    REPLACE,
 }
 
 data class ImportCatalogZipResult(
@@ -155,11 +174,19 @@ class ImportCatalogZipHandler(
         val tenantId = TenantId(command.tenantKey)
         val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
 
-        // SUBSCRIBED parity with UpgradeCatalog: validate cross-catalog
-        // conflicts BEFORE any mutation (a stale resource still referenced from
-        // another catalog blocks the whole import). New catalog ⇒ nothing
-        // installed ⇒ no stale ⇒ no conflicts.
-        val staleBefore = if (command.catalogType == CatalogType.SUBSCRIBED) {
+        // Stale-prune cases: SUBSCRIBED (always — the ZIP is the upgrade), and
+        // AUTHORED REPLACE into an existing catalog (mirror it exactly). Both
+        // validate cross-catalog conflicts BEFORE any mutation — a stale
+        // resource still referenced from another catalog blocks the whole
+        // import. (New catalog ⇒ nothing installed ⇒ no stale ⇒ no conflicts;
+        // AUTHORED MERGE keeps local-only resources, so never prunes.)
+        val prunesStale = command.catalogType == CatalogType.SUBSCRIBED ||
+            (
+                command.catalogType == CatalogType.AUTHORED &&
+                    existingCatalog != null &&
+                    command.authoredMode == AuthoredImportMode.REPLACE
+                )
+        val staleBefore = if (prunesStale) {
             val installed = analyzer.installedByType(command.tenantKey, catalogKey)
             val stale = analyzer.computeStale(installed, manifestSlugs)
             if (stale.isNotEmpty()) {
@@ -273,6 +300,29 @@ class ImportCatalogZipHandler(
                     manifest.release.version,
                     catalogKey.value,
                     e.message,
+                )
+            }
+        } else if (command.catalogType == CatalogType.AUTHORED &&
+            existingCatalog != null &&
+            command.authoredMode == AuthoredImportMode.REPLACE
+        ) {
+            // REPLACE an existing AUTHORED catalog: make it exactly the ZIP by
+            // pruning local-only resources (already conflict-checked above).
+            // Release state is deliberately untouched — this is an edit; the
+            // working copy drifts and the owner re-releases via the Release
+            // action. On a failed install we DON'T prune (avoid a half-replace).
+            if (anyFailed) {
+                logger.warn(
+                    "AUTHORED REPLACE of '{}' — {} resource(s) failed; NOT pruning local-only resources (avoiding a half-replace)",
+                    catalogKey.value,
+                    results.count { it.status == InstallStatus.FAILED },
+                )
+            } else {
+                val removed = analyzer.removeStale(command.tenantKey, catalogKey, staleBefore)
+                logger.info(
+                    "AUTHORED REPLACE of '{}' — {} local-only resource(s) pruned; release state unchanged",
+                    catalogKey.value,
+                    removed.size,
                 )
             }
         }

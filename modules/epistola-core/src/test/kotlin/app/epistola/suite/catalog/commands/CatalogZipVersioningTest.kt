@@ -484,4 +484,78 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThat(codeList.name).isEqualTo("BCP-47 Language Tags")
         }
     }
+
+    // ── AUTHORED re-import: MERGE (default) vs REPLACE ────────────────────────
+
+    @Test
+    fun `AUTHORED re-import with REPLACE prunes local-only resources (release untouched)`() {
+        val tenant = createTenant("Authored Replace")
+        val catalogKey = CatalogKey.of("authored-replace")
+        val catalogId = CatalogId(catalogKey, TenantId(tenant.id))
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Authored Replace").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("keep"), catalogId), name = "Keep").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("local-only"), catalogId), name = "Local Only").execute()
+
+            // Build a "next" ZIP without `local-only`.
+            val entries = unzip(ExportCatalogZip(tenantKey = tenant.id, catalogKey = catalogKey).execute().zipBytes)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            val kept = objectMapper.createArrayNode()
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != "local-only") kept.add(it) }
+            manifest.set("resources", kept)
+            entries.remove("resources/theme/local-only.json")
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            ImportCatalogZip(
+                tenantKey = tenant.id,
+                zipBytes = rezip(entries),
+                catalogType = CatalogType.AUTHORED,
+                authoredMode = AuthoredImportMode.REPLACE,
+            ).execute()
+
+            // REPLACE mirrors the ZIP: local-only theme is pruned, kept theme stays.
+            // (Contrast `MERGE` which keeps local-only — covered separately.)
+            assertThat(themeName(tenant.id, catalogKey, "local-only")).isNull()
+            assertThat(themeName(tenant.id, catalogKey, "keep")).isEqualTo("Keep")
+            // Release state untouched — an edit, never an authorship act.
+            assertThat(GetCatalog(tenant.id, catalogKey).query()!!.releasedVersion).isNull()
+        }
+    }
+
+    @Test
+    fun `AUTHORED REPLACE blocks on a cross-catalog conflict and changes nothing`() {
+        val tenant = createTenant("Authored Replace Conflict")
+        val catalogKey = CatalogKey.of("authored-replace-conflict")
+        val catalogId = CatalogId(catalogKey, TenantId(tenant.id))
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Authored Replace Conflict").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("pinned"), catalogId), name = "Pinned").execute()
+
+            // A template in another catalog pins the theme REPLACE would prune.
+            val tplId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(CatalogKey.DEFAULT, TenantId(tenant.id)))
+            CreateDocumentTemplate(id = tplId, name = "Cross-Ref Template").execute()
+            UpdateDocumentTemplate(id = tplId, themeId = ThemeKey.of("pinned"), themeCatalogKey = catalogKey).execute()
+
+            // Next ZIP drops the still-referenced theme.
+            val entries = unzip(ExportCatalogZip(tenantKey = tenant.id, catalogKey = catalogKey).execute().zipBytes)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            manifest.set("resources", objectMapper.createArrayNode())
+            entries.remove("resources/theme/pinned.json")
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+
+            assertThatThrownBy {
+                ImportCatalogZip(
+                    tenantKey = tenant.id,
+                    zipBytes = rezip(entries),
+                    catalogType = CatalogType.AUTHORED,
+                    authoredMode = AuthoredImportMode.REPLACE,
+                ).execute()
+            }.isInstanceOf(CatalogUpgradeConflictException::class.java).hasMessageContaining("pinned")
+
+            // Conflict thrown before any mutation — theme still there.
+            assertThat(themeName(tenant.id, catalogKey, "pinned")).isEqualTo("Pinned")
+        }
+    }
 }

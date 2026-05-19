@@ -3,6 +3,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -508,11 +509,20 @@ class CatalogHandler {
             return importError(request, "Invalid catalog type: $catalogTypeStr")
         }
 
+        // Only consulted when the catalog already exists as AUTHORED; ignored
+        // for a new catalog or SUBSCRIBED. MERGE = keep local-only resources;
+        // REPLACE = mirror the ZIP (delete local-only, conflict-checked).
+        val authoredMode = multipartData["authoredMode"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        }?.let { runCatching { AuthoredImportMode.valueOf(it) }.getOrNull() }
+            ?: AuthoredImportMode.MERGE
+
         return try {
             val result = ImportCatalogZip(
                 tenantKey = tenantId.key,
                 zipBytes = zipBytes,
                 catalogType = catalogType,
+                authoredMode = authoredMode,
             ).execute()
 
             val failed = result.results.count { it.status == InstallStatus.FAILED }

@@ -126,8 +126,21 @@ the one case where there is no authorship to protect:
 - **Import into an _existing_ AUTHORED catalog** → an _edit_ to a catalog you
   already version. Release state is **never** fabricated or changed; the
   working copy shows as drift ("unreleased changes") and the owner releases
-  deliberately. Re-import is an in-place **merge** — it does **not** prune
-  resources the new ZIP dropped.
+  deliberately. The import dialog's **"If this catalog already exists"** choice
+  (`ImportCatalogZip.authoredMode`) decides what happens to resources you have
+  locally that the ZIP doesn't:
+  - **`MERGE`** (default) — upsert the ZIP's resources, **keep** local-only
+    resources (overlay);
+  - **`REPLACE`** — make the catalog _exactly_ the ZIP: also **delete**
+    local-only resources. Conflict-checked **before mutating** — a pruned
+    resource still referenced from another catalog blocks the whole import
+    (`CatalogUpgradeConflictException`), the same shared
+    `CatalogUpgradeAnalyzer` the SUBSCRIBED path uses. A failed install skips
+    the prune (no half-replace). Release state is _still_ untouched.
+
+  (Either way, resources present in the ZIP overwrite the local copy — that is
+  inherent to importing them; the choice is only about local-_only_ resources.)
+
 - **`-dev`/never-released manifest** → nothing real to adopt; stays unreleased.
 
 ### SUBSCRIBED — the ZIP _is_ the upgrade
