@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -73,7 +74,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validatePlaceholderNamesUnique(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_NAME_DUPLICATE")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_DUPLICATE)
     }
 
     // ---------- per-stencil name uniqueness (template-level) ----------
@@ -115,7 +116,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validatePlaceholderNamesUniquePerStencil(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_NAME_DUPLICATE")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_DUPLICATE)
     }
 
     // ---------- name slug ----------
@@ -144,7 +145,7 @@ class PlaceholderValidatorTest {
             assertThatThrownBy { validator.validatePlaceholderNameSlug(full) }
                 .`as`("name '%s' should be rejected", name)
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PLACEHOLDER_NAME_INVALID")
+                .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_INVALID)
         }
     }
 
@@ -158,7 +159,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validatePlaceholderNameSlug(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_NAME_INVALID")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_INVALID)
     }
 
     // ---------- nested placeholder definition ----------
@@ -178,7 +179,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validateNoNestedPlaceholderDefinition(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_NESTED_DEFINITION")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_NESTED_DEFINITION)
     }
 
     @Test
@@ -225,7 +226,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validatePlaceholdersHaveStencilAncestor(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_OUTSIDE_STENCIL")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL)
     }
 
     // ---------- recursion ----------
@@ -245,7 +246,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validateNoStencilRecursion(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("STENCIL_RECURSION")
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
     }
 
     @Test
@@ -269,7 +270,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validateNoStencilRecursion(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("STENCIL_RECURSION")
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
     }
 
     @Test
@@ -325,7 +326,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validateStencilBindingShape(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDINGS_INVALID_SHAPE")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
 
     @Test
@@ -345,7 +346,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validateStencilBindingShape(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_NAME_INVALID")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID)
     }
 
     @Test
@@ -365,7 +366,7 @@ class PlaceholderValidatorTest {
         )
         assertThatThrownBy { validator.validateStencilBindingShape(full) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_EMPTY")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_EMPTY)
     }
 
     @Test
@@ -404,7 +405,7 @@ class PlaceholderValidatorTest {
             )
             assertThatThrownBy { validator.validateStencilBindingShape(full) }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("NODE_PARAMS_ALIAS_RESERVED")
+                .hasValidationCode(ValidationCode.NODE_PARAMS_ALIAS_RESERVED)
                 .hasMessageContaining(reserved)
         }
     }

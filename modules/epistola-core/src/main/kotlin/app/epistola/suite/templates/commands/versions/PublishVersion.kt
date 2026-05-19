@@ -1,10 +1,14 @@
 package app.epistola.suite.templates.commands.versions
 
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.fonts.queries.GetFontFamilyFingerprint
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Mediator
@@ -166,7 +170,47 @@ class PublishVersionHandler(
             else -> null
         } ?: template?.themeKey ?: tenant?.defaultThemeKey
 
-        return ResolvedThemeSnapshot.from(resolvedStyles, effectiveThemeKey)
+        val snapshot = ResolvedThemeSnapshot.from(resolvedStyles, effectiveThemeKey)
+        return snapshot.copy(fontFingerprints = captureFontFingerprints(versionId, snapshot, template, tenant))
+    }
+
+    /**
+     * Pins a per-family font fingerprint for every font family the published
+     * snapshot references, so a later delete+re-upload of a face (different
+     * bytes, same slug) is detected at render and fails loudly.
+     *
+     * Owning catalog for an *unqualified* font ref mirrors the render-path
+     * cascade exactly (`DocumentGenerationExecutor` / `DocumentPreviewRenderer`):
+     * the template's theme catalog → the tenant's default theme catalog → the
+     * version's own catalog. Resilient: a blank slug or null fingerprint
+     * (family has no faces) is skipped — never fails the publish.
+     */
+    private fun captureFontFingerprints(
+        versionId: VersionId,
+        snapshot: ResolvedThemeSnapshot,
+        template: app.epistola.suite.templates.DocumentTemplate?,
+        tenant: app.epistola.suite.tenants.Tenant?,
+    ): Map<String, String> {
+        @Suppress("UNCHECKED_CAST")
+        val refs = DependencyScanner.themeFontRefs(
+            documentStyles = snapshot.documentStyles,
+            blockStylePresets = snapshot.blockStylePresets as Map<String, Any?>,
+        )
+        if (refs.isEmpty()) return emptyMap()
+
+        val owningCatalogKey: CatalogKey =
+            template?.themeCatalogKey ?: tenant?.defaultThemeCatalogKey ?: versionId.catalogKey
+
+        return buildMap {
+            for (ref in refs) {
+                val slug = FontKey.validateOrNull(ref.slug) ?: continue
+                val effCatalog = ref.catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
+                val fingerprint = runCatching {
+                    GetFontFamilyFingerprint(versionId.tenantKey, effCatalog, slug).query()
+                }.getOrNull() ?: continue
+                put("${ref.catalogKey ?: ""}/${ref.slug}", fingerprint)
+            }
+        }
     }
 
     private data class StencilRef(val catalogKey: String, val stencilId: String, val pinnedVersion: Int?)

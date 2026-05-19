@@ -1,8 +1,11 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogClient
+import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
+import app.epistola.suite.catalog.RemovedResource
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -11,10 +14,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Upgrades a subscribed catalog by re-fetching from its source URL.
@@ -25,11 +28,16 @@ import org.springframework.stereotype.Component
  * is rejected with a [CatalogUpgradeConflictException].
  *
  * Only resources that are already installed locally are upgraded — new
- * resources in the manifest are not automatically installed.
+ * resources in the manifest are not automatically installed, **unless** their
+ * slug is listed in [includeNewSlugs] (the opt-in "also install new resources"
+ * path, wired from the upgrade preview's ADDED bucket — same slug semantics as
+ * `InstallFromCatalog.resourceSlugs`). Empty = the default by-design
+ * behaviour (upgrade-in-place only).
  */
 data class UpgradeCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    val includeNewSlugs: List<String> = emptyList(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -40,11 +48,22 @@ data class UpgradeCatalogResult(
     val newVersion: String,
     val installResults: List<InstallResult>,
     val removedResources: List<RemovedResource>,
+    /**
+     * True when one or more resource installs FAILED: stale resources were NOT
+     * removed and the installed version/fingerprint were NOT advanced, so the
+     * catalog stays on [previousVersion] and the next run retries. Never a
+     * silent partial upgrade.
+     */
+    val aborted: Boolean = false,
 )
 
-data class RemovedResource(
-    val type: String,
-    val slug: String,
+/** Thrown by the system reconciler when an upgrade aborted on a failed install. */
+class CatalogUpgradeAbortedException(
+    val catalogKey: CatalogKey,
+    val failed: List<InstallResult>,
+) : RuntimeException(
+    "Catalog '${catalogKey.value}' upgrade aborted — ${failed.size} resource(s) failed to install:\n" +
+        failed.joinToString("\n") { "  - ${it.type}/${it.slug}: ${it.errorMessage}" },
 )
 
 class CatalogUpgradeConflictException(
@@ -58,6 +77,9 @@ class CatalogUpgradeConflictException(
 class UpgradeCatalogHandler(
     private val jdbi: Jdbi,
     private val catalogClient: CatalogClient,
+    private val analyzer: CatalogUpgradeAnalyzer,
+    private val fingerprintService: CatalogFingerprintService,
+    private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -76,21 +98,24 @@ class UpgradeCatalogHandler(
         val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
 
         // 2. Find which resources are currently installed locally
-        val installedSlugs = findInstalledResourceSlugs(command.tenantKey, command.catalogKey)
+        val installedSlugs = analyzer.installedByType(command.tenantKey, command.catalogKey)
 
         // 3. Compute what would be removed
-        val staleResources = computeStaleResources(installedSlugs, manifestSlugs)
+        val staleResources = analyzer.computeStale(installedSlugs, manifestSlugs)
 
         // 4. Validate: fail if any stale resource is still referenced
         if (staleResources.isNotEmpty()) {
-            val conflicts = findConflicts(command.tenantKey, command.catalogKey, staleResources)
+            val conflicts = analyzer.findConflicts(command.tenantKey, command.catalogKey, staleResources)
             if (conflicts.isNotEmpty()) {
                 throw CatalogUpgradeConflictException(conflicts)
             }
         }
 
-        // 5. Install/update only previously installed resources
-        val slugsToUpgrade = installedSlugs.values.flatten().map { it.slug }
+        // 5. Install/update previously installed resources, plus any opted-in
+        //    new resources (filtered to slugs the new manifest actually ships).
+        val manifestSlugSet = manifest.resources.map { it.slug }.toSet()
+        val newSlugs = command.includeNewSlugs.filter { it in manifestSlugSet }
+        val slugsToUpgrade = (installedSlugs.values.flatten().map { it.slug } + newSlugs).distinct()
         val installResults = if (slugsToUpgrade.isNotEmpty()) {
             InstallFromCatalog(
                 tenantKey = command.tenantKey,
@@ -101,12 +126,49 @@ class UpgradeCatalogHandler(
             emptyList()
         }
 
-        // 6. Remove stale resources (already validated)
-        val removed = removeStaleResources(command.tenantKey, command.catalogKey, staleResources)
+        // 5b. Abort before any destructive change if an install FAILED. The
+        //     per-resource try/catch swallows failures into InstallResult, so
+        //     without this an upgrade would still remove stale resources and
+        //     bump the version — a silent, permanent half-upgrade. Leave
+        //     version/fingerprint untouched so the next run retries.
+        val failedInstalls = installResults.filter { it.status == InstallStatus.FAILED }
+        if (failedInstalls.isNotEmpty()) {
+            logger.error(
+                "Catalog '{}' upgrade ABORTED for tenant {} — {} resource(s) failed; not removing stale resources, not bumping version (stays {}): {}",
+                command.catalogKey,
+                command.tenantKey.value,
+                failedInstalls.size,
+                previousVersion,
+                failedInstalls.joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
+            )
+            return@runAsImport UpgradeCatalogResult(
+                previousVersion = previousVersion,
+                newVersion = manifest.release.version,
+                installResults = installResults,
+                removedResources = emptyList(),
+                aborted = true,
+            )
+        }
 
-        // 7. Bump version last — if any step above fails, version stays at the old value
-        //    and the next run will retry the upgrade.
-        updateCatalogVersion(command.tenantKey, command.catalogKey, manifest.release.version, manifest.catalog.name, manifest.catalog.description)
+        // 6. Remove stale resources (already validated) — shared definition.
+        val removed = analyzer.removeStale(command.tenantKey, command.catalogKey, staleResources)
+
+        // 7. Bump version last — only reached when all installs succeeded.
+        //    Re-capture the source-side per-resource baseline of the release we
+        //    just moved to (same provenance as installed_fingerprint), so the
+        //    next preview diffs against this release, not the old one.
+        val resourceFingerprintsJson = objectMapper.writeValueAsString(
+            fingerprintService.perResourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential),
+        )
+        updateCatalogVersion(
+            command.tenantKey,
+            command.catalogKey,
+            manifest.release.version,
+            manifest.release.fingerprint,
+            resourceFingerprintsJson,
+            manifest.catalog.name,
+            manifest.catalog.description,
+        )
 
         val newVersion = manifest.release.version
         val installed = installResults.count { it.status == InstallStatus.INSTALLED }
@@ -131,196 +193,30 @@ class UpgradeCatalogHandler(
         )
     }
 
-    // ── Installed resource discovery ──────────────────────────────────────────
-
-    private data class InstalledResource(val type: String, val slug: String)
-
-    private fun findInstalledResourceSlugs(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, List<InstalledResource>> = jdbi.withHandle<Map<String, List<InstalledResource>>, Exception> { handle ->
-        val resources = mutableListOf<InstalledResource>()
-
-        data class TableType(val type: String, val table: String)
-
-        val tables = listOf(
-            TableType("template", "document_templates"),
-            TableType("theme", "themes"),
-            TableType("stencil", "stencils"),
-            TableType("attribute", "variant_attribute_definitions"),
-            TableType("asset", "assets"),
-        )
-
-        for ((type, table) in tables) {
-            handle.createQuery("SELECT id FROM $table WHERE tenant_key = :t AND catalog_key = :c")
-                .bind("t", tenantKey).bind("c", catalogKey).mapTo(String::class.java).list()
-                .forEach { resources.add(InstalledResource(type, it)) }
-        }
-
-        resources.groupBy { it.type }
-    }
-
-    // ── Stale resource computation ───────────────────────────────────────────
-
-    private fun computeStaleResources(
-        installedSlugs: Map<String, List<InstalledResource>>,
-        manifestSlugs: Map<String, List<String>>,
-    ): List<InstalledResource> {
-        val stale = mutableListOf<InstalledResource>()
-        for ((type, installed) in installedSlugs) {
-            val inManifest = manifestSlugs[type]?.toSet() ?: emptySet()
-            installed.filter { it.slug !in inManifest }.forEach { stale.add(it) }
-        }
-        return stale
-    }
-
-    // ── Conflict validation ──────────────────────────────────────────────────
-
-    /**
-     * Checks all stale resources for cross-catalog references.
-     * Returns human-readable conflict descriptions. Empty list = safe to proceed.
-     */
-    private fun findConflicts(
+    private fun updateCatalogVersion(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
-        staleResources: List<InstalledResource>,
-    ): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        val conflicts = mutableListOf<String>()
-
-        for (resource in staleResources) {
-            when (resource.type) {
-                "theme" -> findThemeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
-                "stencil" -> findStencilConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
-                "template" -> findTemplateConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
-                "attribute" -> findAttributeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
-            }
-        }
-
-        conflicts
-    }
-
-    private fun findThemeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
-        // Templates in other catalogs referencing this theme
-        handle.createQuery(
-            """
-            SELECT name, catalog_key FROM document_templates
-            WHERE tenant_key = :t AND theme_catalog_key = :c AND theme_key = :slug AND catalog_key != :c
-            """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
-            .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
-            .list().let { conflicts.addAll(it) }
-
-        // Tenant default theme
-        handle.createQuery(
-            "SELECT id FROM tenants WHERE id = :t AND default_theme_catalog_key = :c AND default_theme_key = :slug",
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
-            .mapTo(String::class.java).findOne().ifPresent {
-                conflicts.add("Theme '$slug' is the tenant default theme")
-            }
-    }
-
-    private fun findStencilConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
-        // Templates in other catalogs that embed this stencil in their template model
-        handle.createQuery(
-            """
-            SELECT DISTINCT dt.name, tv.catalog_key
-            FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
-            CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-            WHERE tv.tenant_key = :t AND tv.catalog_key != :c
-              AND tv.status IN ('draft', 'published')
-              AND n.value ->> 'type' = 'stencil'
-              AND n.value -> 'props' ->> 'catalogKey' = :cStr
-              AND n.value -> 'props' ->> 'stencilId' = :slug
-            """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("cStr", catalogKey.value).bind("slug", slug)
-            .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
-            .list().let { conflicts.addAll(it) }
-    }
-
-    private fun findTemplateConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
-        // Template has active environment activations
-        val activationCount = handle.createQuery(
-            """
-            SELECT COUNT(*) FROM environment_activations
-            WHERE tenant_key = :t AND catalog_key = :c AND template_key = :slug
-            """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
-            .mapTo(Long::class.java).one()
-
-        if (activationCount > 0) {
-            conflicts.add("Template '$slug' has $activationCount environment activation(s) — removing it would break document generation")
-        }
-    }
-
-    private fun findAttributeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
-        // Variants in other catalogs that use this attribute
-        handle.createQuery(
-            """
-            SELECT DISTINCT dt.name, v.catalog_key
-            FROM template_variants v
-            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.catalog_key = v.catalog_key AND dt.id = v.template_key
-            WHERE v.tenant_key = :t AND v.catalog_key != :c
-              AND v.attributes::jsonb ? :slug
-            """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
-            .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
-            .list().let { conflicts.addAll(it) }
-    }
-
-    // ── Stale resource removal ───────────────────────────────────────────────
-
-    private fun removeStaleResources(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        staleResources: List<InstalledResource>,
-    ): List<RemovedResource> {
-        if (staleResources.isEmpty()) return emptyList()
-
-        val removed = mutableListOf<RemovedResource>()
-
-        val tableByType = mapOf(
-            "template" to "document_templates",
-            "stencil" to "stencils",
-            "attribute" to "variant_attribute_definitions",
-            "theme" to "themes",
-            "asset" to "assets",
-        )
-
-        // Delete in dependency order: templates first (may reference themes/stencils), then the rest
-        val ordered = staleResources.sortedBy {
-            when (it.type) {
-                "template" -> 0
-                "stencil" -> 1
-                "attribute" -> 2
-                "asset" -> 3
-                "theme" -> 4
-                else -> 5
-            }
-        }
-
-        jdbi.useHandle<Exception> { handle ->
-            for (resource in ordered) {
-                val table = tableByType[resource.type] ?: continue
-                handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND catalog_key = :c AND id = :id")
-                    .bind("t", tenantKey).bind("c", catalogKey).bind("id", resource.slug).execute()
-                removed.add(RemovedResource(resource.type, resource.slug))
-                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalogKey)
-            }
-        }
-
-        return removed
-    }
-
-    private fun updateCatalogVersion(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, name: String, description: String?) {
+        version: String,
+        fingerprint: String?,
+        resourceFingerprintsJson: String,
+        name: String,
+        description: String?,
+    ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
                 UPDATE catalogs
-                SET installed_release_version = :version, name = :name, description = :description, updated_at = NOW()
+                SET installed_release_version = :version, installed_fingerprint = :fingerprint,
+                    installed_resource_fingerprints = :resourceFingerprints::jsonb,
+                    name = :name, description = :description, updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
                 .bind("version", version)
+                .bind("fingerprint", fingerprint)
+                .bind("resourceFingerprints", resourceFingerprintsJson)
                 .bind("name", name)
                 .bind("description", description)
                 .execute()

@@ -226,6 +226,36 @@ config:
   # Example:
   #   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
 
+# Database migration strategy. Migrations can run as a separate, explicit step
+# (recommended for multi-replica / production) or embedded at app startup.
+#   job           — a Helm pre-install/pre-upgrade hook Job runs migrations once
+#                    per release before app pods start; a failed migration fails
+#                    the release with its own logs/exit code. App pods then only
+#                    validate the schema and fail fast if it is behind.
+#   initContainer — every app pod runs an init container that migrates
+#                    (idempotent) before the app container starts. App pods
+#                    validate the schema as with `job`.
+#   embedded      — the app runs Flyway at boot (single-process convenience,
+#                    e.g. local/dev or single-replica).
+#
+# NOTE: with database.type=cnpg the CNPG Cluster is created after Helm hooks, so
+# on a *fresh* install the `job` mode cannot reach the database yet. Use
+# `initContainer` (or `embedded`) for the first install of a managed CNPG
+# database, or pre-create the cluster / use cnpgExisting.
+migration:
+  mode: job
+  # Image for the wait-for-db init container (job / initContainer modes).
+  waitImage: busybox:1.37
+  # Resources for the migrate container.
+  resources: {}
+  # Helm hook Job tuning (job mode only).
+  job:
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    # Requires the TTL-after-finished controller. Succeeded Jobs are also
+    # removed by the hook-delete-policy on the next release.
+    ttlSecondsAfterFinished: 600
+
 # Database configuration
 # Supported types:
 #   - none: No database configuration (use config.env for manual setup)

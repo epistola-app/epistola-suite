@@ -62,6 +62,15 @@
                 container: container,
                 theme: themeData,
                 readonly: !editable,
+                fontOptions: {
+                    listFonts: async () => {
+                        const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
+                            headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        });
+                        if (!resp.ok) throw new Error('Failed to list fonts');
+                        return await resp.json();
+                    },
+                },
                 onSave: async (payload) => {
                     const response = await fetch('/tenants/' + tenantId + '/themes/' + catalogId + '/' + themeId, {
                         method: 'PATCH',

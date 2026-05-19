@@ -2,6 +2,7 @@ package app.epistola.suite.generation
 
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
+import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
@@ -69,6 +70,7 @@ class GenerationService(
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
+        fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         templateCatalogKey: CatalogKey? = null,
         tenantDefaultThemeCatalogKey: CatalogKey? = null,
@@ -96,6 +98,7 @@ class GenerationService(
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = RenderMode.PREVIEW,
         )
@@ -120,6 +123,7 @@ class GenerationService(
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
+        fontFamilyResolver: FontFamilyResolver? = null,
     ) {
         pdfRenderer.render(
             document = templateModel,
@@ -134,6 +138,7 @@ class GenerationService(
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
         )
     }

@@ -153,4 +153,44 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
         // The example's description should mention expressions to help the AI find it
         assertThat(withExpression!!.description.lowercase()).contains("expression")
     }
+
+    @Test
+    fun `image component is present in the registry`() {
+        val image = componentTools.getComponentType("image")
+        assertThat(image).isNotNull
+        assertThat(image!!.label).isEqualTo("Image")
+        assertThat(image.category).isEqualTo("content")
+        assertThat(image.slots).isEmpty()
+        assertThat(image.allowedChildren.mode).isEqualTo("none")
+        assertThat(image.examples).isNotEmpty
+    }
+
+    /**
+     * The `parameters` field on ComponentTypeInfo uses a three-state encoding:
+     *   - Java null        → field absent in JSON → component has no parameter support
+     *   - NullNode         → "parameters": null   → dynamic per-instance (call get_stencil_version)
+     *   - ObjectNode       → "parameters": {...}  → static schema (same for every instance)
+     */
+
+    @Test
+    fun `stencil component carries dynamic parameters marker`() {
+        val stencil = componentTools.getComponentType("stencil")
+        assertThat(stencil).isNotNull
+        // Stencil declares parameters as a function (dynamic per-instance).
+        // The dump serializes this as JSON null, which Jackson parses into a NullNode.
+        // NullNode is NOT Java null — it is a real JsonNode whose isNull() returns true.
+        assertThat(stencil!!.parameters).isNotNull
+        assertThat(stencil.parameters!!.isNull).isTrue()
+    }
+
+    @Test
+    fun `image component has no parameters support`() {
+        val image = componentTools.getComponentType("image")
+        assertThat(image).isNotNull
+        // Image omits the parameters field entirely (undefined in TypeScript).
+        // The dump omits the field from JSON, so node.get("parameters") returns Java null.
+        // This is DISTINCT from stencil's NullNode: Java null means "no parameter support",
+        // whereas NullNode means "dynamic per-instance parameters".
+        assertThat(image!!.parameters).isNull()
+    }
 }

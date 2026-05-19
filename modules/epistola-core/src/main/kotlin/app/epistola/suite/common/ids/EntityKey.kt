@@ -493,6 +493,35 @@ value class CodeListKey(@JsonValue override val value: String) : SlugKey<CodeLis
 }
 
 /**
+ * Typed key (slug) for Font families.
+ */
+@JvmInline
+value class FontKey(@JsonValue override val value: String) : SlugKey<FontKey> {
+    init {
+        require(value.length in 2..64) {
+            "Font slug must be 2-64 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Font slug must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+    }
+
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+
+        fun of(value: String): FontKey = FontKey(value)
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FontKey = FontKey(value)
+
+        fun validateOrNull(value: String): FontKey? = runCatching { FontKey(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Typed key for Catalog entities.
  */
 @JvmInline

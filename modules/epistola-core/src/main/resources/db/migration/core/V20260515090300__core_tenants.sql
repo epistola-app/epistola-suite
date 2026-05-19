@@ -66,7 +66,13 @@ CREATE TABLE catalogs (
     source_auth_type VARCHAR(20) DEFAULT 'NONE' CHECK (source_auth_type IN ('NONE', 'API_KEY', 'BEARER')),
     source_auth_credential TEXT,
     installed_release_version VARCHAR(50),
+    installed_fingerprint CHAR(64),
+    installed_resource_fingerprints JSONB,
     installed_at TIMESTAMPTZ,
+    released_version VARCHAR(50),
+    released_fingerprint CHAR(64),
+    released_at TIMESTAMPTZ,
+    imported_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, id)
@@ -76,6 +82,12 @@ COMMENT ON TABLE catalogs IS 'Organizational containers for resources. Every res
 COMMENT ON COLUMN catalogs.type IS 'AUTHORED = created locally and editable, SUBSCRIBED = installed from external source and read-only';
 COMMENT ON COLUMN catalogs.source_url IS 'Remote catalog manifest URL (SUBSCRIBED only)';
 COMMENT ON COLUMN catalogs.installed_release_version IS 'Version of the currently installed release (SUBSCRIBED only)';
+COMMENT ON COLUMN catalogs.installed_fingerprint IS 'Content fingerprint (SHA-256 hex) of the currently installed release (SUBSCRIBED only). Drift/upgrade detection: differs from the source manifest fingerprint => content changed.';
+COMMENT ON COLUMN catalogs.installed_resource_fingerprints IS 'Per-resource source-side digests ("type/slug" -> SHA-256 hex) of the installed release, captured from the source manifest at register/upgrade (mirrors installed_fingerprint, never publisher-authored). Source-vs-source baseline for the upgrade preview''s ADDED/REMOVED/CHANGED/UNCHANGED diff. SUBSCRIBED only.';
+COMMENT ON COLUMN catalogs.released_version IS 'Latest released SemVer of an AUTHORED catalog (pointer into catalog_releases). NULL = never released. SUBSCRIBED catalogs use installed_release_version instead.';
+COMMENT ON COLUMN catalogs.released_fingerprint IS 'Content fingerprint of the latest AUTHORED release (denormalized from catalog_releases for O(1) read surfaces). NULL = never released.';
+COMMENT ON COLUMN catalogs.released_at IS 'When the latest AUTHORED release was cut (mirrors the catalog_releases row).';
+COMMENT ON COLUMN catalogs.imported_at IS 'When catalog content was last set wholesale by a ZIP import (set at the end of ImportCatalogZip, after resource upserts). With released_at it forms the AUTHORED drift baseline GREATEST(released_at, imported_at): a resource updated_at beyond it = unreleased working-copy changes. Set to NOW() by every import so a no-op re-import does not register as drift.';
 COMMENT ON COLUMN catalogs.created_at IS 'When the catalog was created';
 COMMENT ON COLUMN catalogs.updated_at IS 'When the catalog was last updated';
 
@@ -83,3 +95,34 @@ COMMENT ON COLUMN catalogs.updated_at IS 'When the catalog was last updated';
 CREATE TRIGGER trg_catalogs_updated_at
     BEFORE UPDATE ON catalogs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================================
+-- CATALOG RELEASES
+-- ============================================================================
+
+-- Immutable release boundaries for AUTHORED catalogs. One row per explicit
+-- "Release version" action: author-set SemVer + deterministic content
+-- fingerprint + notes + a manifest snapshot captured at release time. This is
+-- release *history* (changelog / upgrade-diff source), NOT parallel installs —
+-- a catalog still has exactly one live working copy.
+CREATE TABLE catalog_releases (
+    tenant_key TENANT_KEY NOT NULL,
+    catalog_key CATALOG_KEY NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    fingerprint CHAR(64) NOT NULL,
+    notes TEXT,
+    manifest_snapshot JSONB NOT NULL,
+    released_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    released_by UUID,
+    PRIMARY KEY (tenant_key, catalog_key, version),
+    FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs (tenant_key, id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_catalog_releases_lookup
+    ON catalog_releases (tenant_key, catalog_key, released_at DESC);
+
+COMMENT ON TABLE catalog_releases IS 'Immutable release boundaries for AUTHORED catalogs: author-set SemVer + content fingerprint + notes + manifest snapshot. One row per Release action; release history, not parallel installs.';
+COMMENT ON COLUMN catalog_releases.version IS 'Author-set SemVer (MAJOR.MINOR.PATCH). Strictly increases per catalog.';
+COMMENT ON COLUMN catalog_releases.fingerprint IS 'Lowercase hex SHA-256 of the catalog canonical content at release time.';
+COMMENT ON COLUMN catalog_releases.manifest_snapshot IS 'Full CatalogManifest + resource details captured at release (Phase 2 upgrade-diff source).';
+COMMENT ON COLUMN catalog_releases.released_by IS 'users.id of the releasing user; NULL for system/bootstrap releases. No FK to avoid cross-table ordering coupling.';

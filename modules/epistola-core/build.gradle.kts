@@ -42,8 +42,15 @@ dependencies {
     // Validation
     implementation(libs.json.schema.validator)
 
+    // JSONata expression language (already in :modules:generation; declared here
+    // for compile-time visibility in epistola-core validators)
+    implementation(libs.jsonata)
+
     // UUID generation
     implementation(libs.uuid.creator)
+
+    // In-process font byte cache (version managed by the Spring Boot BOM)
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     // AWS SDK v2 (S3 content storage backend)
     implementation(platform(libs.aws.bom))

@@ -17,6 +17,7 @@ import { createDefaultRegistry } from './engine/registry.js';
 import type { EditorFeatureFlags } from './engine/feature-flags.js';
 import { createImageDefinition } from './components/image/image-registration.js';
 import type { AssetInfo } from './components/image/asset-picker-dialog.js';
+import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
 import type { StencilCallbacks } from './components/stencil/types.js';
 import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
@@ -26,6 +27,7 @@ validateCoreShortcutRegistriesOnStartup();
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js';
 export type { AssetInfo } from './components/image/asset-picker-dialog.js';
+export type { FontInfo } from './engine/font-catalog.js';
 export type {
   StencilCallbacks,
   StencilSummary,
@@ -80,6 +82,15 @@ export interface EditorOptions {
     listAssets: () => Promise<AssetInfo[]>;
     uploadAsset: (file: File) => Promise<AssetInfo>;
     contentUrlPattern: string;
+  };
+  /**
+   * Optional backend-driven font picker. The host fetches the tenant's font
+   * catalog (bundled `system` fonts + customer fonts in the editing
+   * catalog); the editor builds the `fontFamily` options and injects the
+   * matching `@font-face` rules from it.
+   */
+  fontOptions?: {
+    listFonts: () => Promise<FontInfo[]>;
   };
   /** Optional stencil support with search/get/upgrade callbacks. */
   stencilOptions?: StencilCallbacks;
@@ -166,6 +177,19 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   }
   if (plugins) {
     editorEl.plugins = plugins;
+  }
+
+  // Backend-driven font picker. Loaded asynchronously; the font-family
+  // select options and `@font-face` rules are mutated in place when the
+  // catalog arrives, so a re-render picks them up without re-mounting.
+  if (options.fontOptions) {
+    options.fontOptions
+      .listFonts()
+      .then((fonts) => {
+        setFontCatalog(fonts);
+        editorEl.requestUpdate();
+      })
+      .catch((e) => console.warn('Failed to load font catalog:', e));
   }
 
   // Build registry with optional image support

@@ -22,6 +22,7 @@ Build-time dump is decoupled, deterministic, and fails loudly: if the editor bui
 - `type`, `label`, `icon`, `category`
 - `slots`, `allowedChildren`, `applicableStyles`, `inspector`, `defaultStyles`, `defaultProps`
 - Optional `examples` — hand-curated `TemplateDocument` fragments showing realistic usage
+- Optional `parameters` — parameter schema: `null` for dynamic per-instance, JSON Schema object for static, absent for no parameter support
 - Optional render hooks (`renderCanvas`, `renderInspector`, …) that are NOT serializable and are dropped from the snapshot
 
 Several block types have their definitions in dedicated files under `modules/editor/src/main/typescript/components/*/` — they're factory-imported into `registry.ts`.

@@ -1,8 +1,10 @@
 package app.epistola.generation
 
+import app.epistola.catalog.protocol.FontRef
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.generation.pdf.StyleApplicator
 import app.epistola.template.model.ExpressionLanguage
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.kernel.pdf.action.PdfAction
@@ -71,12 +73,31 @@ class ProseMirrorConverter(
     ): kotlin.collections.List<IBlockElement> {
         val type = node["type"] as? String ?: return emptyList()
 
+        val face = FaceContext.from(resolvedStyles)
         return when (type) {
-            "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles)
-            "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles, bookmarkCollector)
-            "bulletList", "bullet_list" -> listOf(convertBulletList(node, data, loopContext, fontCache))
-            "orderedList", "ordered_list" -> listOf(convertOrderedList(node, data, loopContext, fontCache))
+            "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles, face)
+            "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles, bookmarkCollector, face)
+            "bulletList", "bullet_list" -> listOf(convertBulletList(node, data, loopContext, fontCache, face))
+            "orderedList", "ordered_list" -> listOf(convertOrderedList(node, data, loopContext, fontCache, face))
             else -> emptyList()
+        }
+    }
+
+    /**
+     * The font face the surrounding text node resolves to: the selected
+     * family ([ref]) plus the base CSS [weight]/[italic] from the resolved
+     * style cascade. Rich-text marks and headings derive their effective
+     * face from this so bold/italic and headings render in the *selected*
+     * family (via [app.epistola.generation.pdf.FontCache.font]) instead of
+     * the built-in Liberation/Helvetica fallback.
+     */
+    private data class FaceContext(val ref: FontRef?, val baseWeight: Int, val baseItalic: Boolean) {
+        companion object {
+            fun from(resolvedStyles: Map<String, Any>): FaceContext = FaceContext(
+                ref = StyleApplicator.parseFontRef(resolvedStyles["fontFamily"]),
+                baseWeight = StyleApplicator.parseFontWeight(resolvedStyles["fontWeight"]),
+                baseItalic = resolvedStyles["fontStyle"] == "italic",
+            )
         }
     }
 
@@ -90,6 +111,7 @@ class ProseMirrorConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
         resolvedStyles: Map<String, Any>,
+        face: FaceContext,
     ): kotlin.collections.List<Paragraph> {
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
@@ -118,7 +140,7 @@ class ProseMirrorConverter(
             paragraph.setPaddingBottom(0f)
             paragraph.setSpacingRatio(0f)
             if (segment.isNotEmpty()) {
-                addInlineContent(paragraph, segment, data, loopContext, fontCache)
+                addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
             }
             paragraph
         }
@@ -131,6 +153,7 @@ class ProseMirrorConverter(
         fontCache: app.epistola.generation.pdf.FontCache,
         resolvedStyles: Map<String, Any>,
         bookmarkCollector: MutableList<BookmarkEntry>?,
+        face: FaceContext,
     ): kotlin.collections.List<Paragraph> {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
@@ -168,7 +191,14 @@ class ProseMirrorConverter(
 
         val paragraphs = segments.mapIndexed { index, segment ->
             val paragraph = Paragraph()
-            paragraph.setFont(fontCache.bold)
+            // Headings are bold by default, but in the *selected* family.
+            paragraph.setFont(
+                fontCache.font(
+                    face.ref,
+                    maxOf(face.baseWeight, app.epistola.generation.pdf.FontCache.BOLD_THRESHOLD),
+                    face.baseItalic,
+                ),
+            )
             paragraph.setFontSize(fontSize)
             applyTextStyles(paragraph, resolvedStyles)
             // Hard break lines: tight spacing, only first/last get heading margins
@@ -184,7 +214,7 @@ class ProseMirrorConverter(
                 paragraph.setDestination(destinationName)
             }
             if (segment.isNotEmpty()) {
-                addInlineContent(paragraph, segment, data, loopContext, fontCache)
+                addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
             }
             paragraph
         }
@@ -242,6 +272,7 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        face: FaceContext,
     ): List {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
@@ -257,7 +288,7 @@ class ProseMirrorConverter(
 
         for (item in items) {
             if (item["type"] == "listItem" || item["type"] == "list_item") {
-                val listItem = convertListItem(item, data, loopContext, fontCache)
+                val listItem = convertListItem(item, data, loopContext, fontCache, face)
                 list.add(listItem)
             }
         }
@@ -270,6 +301,7 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        face: FaceContext,
     ): List {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
@@ -294,7 +326,7 @@ class ProseMirrorConverter(
 
         for (item in items) {
             if (item["type"] == "listItem" || item["type"] == "list_item") {
-                val listItem = convertListItem(item, data, loopContext, fontCache)
+                val listItem = convertListItem(item, data, loopContext, fontCache, face)
                 list.add(listItem)
             }
         }
@@ -307,6 +339,7 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        face: FaceContext,
     ): ListItem {
         val listItem = ListItem()
         listItem.setMarginBottom(renderingDefaults.listItemMarginBottom)
@@ -321,7 +354,7 @@ class ProseMirrorConverter(
                 val paragraphContent = child["content"] as? kotlin.collections.List<Map<String, Any>>
                 if (paragraphContent != null) {
                     val paragraph = Paragraph()
-                    addInlineContent(paragraph, paragraphContent, data, loopContext, fontCache)
+                    addInlineContent(paragraph, paragraphContent, data, loopContext, fontCache, face)
                     listItem.add(paragraph)
                 }
             }
@@ -336,6 +369,7 @@ class ProseMirrorConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        face: FaceContext,
     ) {
         for (child in content) {
             val type = child["type"] as? String ?: continue
@@ -369,7 +403,7 @@ class ProseMirrorConverter(
 
                     // Apply marks (formatting)
                     if (marks != null) {
-                        applyMarks(text, marks, fontCache)
+                        applyMarks(text, marks, fontCache, face)
                     }
 
                     paragraph.add(text)
@@ -396,7 +430,7 @@ class ProseMirrorConverter(
                         loopContext,
                     )
                     if (isRichTextDoc(value)) {
-                        addRichTextInline(paragraph, value, fontCache)
+                        addRichTextInline(paragraph, value, fontCache, face)
                     } else {
                         paragraph.add(Text(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value)))
                     }
@@ -432,6 +466,7 @@ class ProseMirrorConverter(
         paragraph: Paragraph,
         doc: Any?,
         fontCache: app.epistola.generation.pdf.FontCache,
+        face: FaceContext,
     ) {
         val docMap = doc as? Map<String, Any?> ?: return
         val blocks = docMap["content"] as? kotlin.collections.List<Map<String, Any>> ?: return
@@ -458,7 +493,7 @@ class ProseMirrorConverter(
                         } else {
                             Text(textContent)
                         }
-                        if (marks != null) applyMarks(text, marks, fontCache)
+                        if (marks != null) applyMarks(text, marks, fontCache, face)
                         paragraph.add(text)
                     }
                     "hard_break", "hardBreak" -> {
@@ -471,7 +506,7 @@ class ProseMirrorConverter(
         }
     }
 
-    private fun applyMarks(text: Text, marks: kotlin.collections.List<Map<String, Any>>, fontCache: app.epistola.generation.pdf.FontCache) {
+    private fun applyMarks(text: Text, marks: kotlin.collections.List<Map<String, Any>>, fontCache: app.epistola.generation.pdf.FontCache, face: FaceContext) {
         var isBold = false
         var isItalic = false
 
@@ -505,14 +540,20 @@ class ProseMirrorConverter(
             }
         }
 
-        // Apply appropriate font based on bold/italic combination
-        val font = when {
-            isBold && isItalic -> fontCache.boldItalic
-            isBold -> fontCache.bold
-            isItalic -> fontCache.italic
-            else -> null
+        // A bold/italic mark changes the face relative to the surrounding
+        // text's base. Resolve through the *selected* family (via FontCache;
+        // a null family falls back to the built-in by weight/italic). When no
+        // weight/italic-affecting mark is present, leave the font unset so the
+        // run inherits the container's already-resolved family face.
+        if (isBold || isItalic) {
+            val effectiveWeight = if (isBold) {
+                maxOf(face.baseWeight, app.epistola.generation.pdf.FontCache.BOLD_THRESHOLD)
+            } else {
+                face.baseWeight
+            }
+            val effectiveItalic = face.baseItalic || isItalic
+            text.setFont(fontCache.font(face.ref, effectiveWeight, effectiveItalic))
         }
-        font?.let { text.setFont(it) }
     }
 
     companion object {

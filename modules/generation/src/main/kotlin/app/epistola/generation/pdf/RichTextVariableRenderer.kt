@@ -87,6 +87,11 @@ class RichTextVariableRenderer : NodeRenderer {
             rawStyles["lineHeight"]?.toString()?.toFloatOrNull()?.let {
                 put("lineHeight", it)
             }
+            // Forward the resolved font face so bound rich-text headings and
+            // bold/italic marks render in the selected family (see TextNodeRenderer).
+            rawStyles["fontFamily"]?.let { put("fontFamily", it) }
+            rawStyles["fontWeight"]?.let { put("fontWeight", it) }
+            rawStyles["fontStyle"]?.let { put("fontStyle", it) }
         }
 
         val elements = context.proseMirrorConverter.convert(

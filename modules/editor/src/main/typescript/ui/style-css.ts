@@ -8,6 +8,8 @@
  * preview matches the PDF output.
  */
 
+import { fontFamilyValueToCss } from '../engine/font-catalog.js';
+
 /** Default spacing unit in points; mirrors backend SpacingScale.DEFAULT_BASE_UNIT. */
 export const DEFAULT_SPACING_UNIT_PT = 4;
 
@@ -41,6 +43,15 @@ export function toStyleMap(
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(styles)) {
     if (value == null) continue;
+    // `fontFamily` is stored as a structured `{ slug, catalogKey }` reference
+    // (the canonical form the backend reads), not a CSS string. Map it to the
+    // injected `@font-face` family. This is the single canvas-CSS funnel, so
+    // the object → CSS translation lives here only.
+    if (key === 'fontFamily') {
+      const css = fontFamilyValueToCss(value);
+      if (css) result['font-family'] = css;
+      continue;
+    }
     result[camelToKebab(key)] = convertSpToPt(String(value), baseUnitPt);
   }
   return result;

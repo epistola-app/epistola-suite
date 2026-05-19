@@ -72,6 +72,8 @@ class DirectPdfRenderer(
      * @param pdfaCompliant Whether to produce PDF/A-2b compliant output (default: false)
      * @param assetResolver Optional resolver for image/SVG assets referenced
      *   from the document.
+     * @param fontFamilyResolver Optional resolver for font families referenced
+     *   from theme/template/block styles. Null falls back to the built-in font.
      * @param renderingDefaults Engine defaults that supply the final fallback
      *   for page settings, document styles, font sizes and component defaults.
      * @param renderMode STRICT to fail on missing resources; tolerant modes
@@ -85,6 +87,7 @@ class DirectPdfRenderer(
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
+        fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         renderMode: RenderMode = RenderMode.STRICT,
     ) {
@@ -101,6 +104,7 @@ class DirectPdfRenderer(
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontFamilyResolver,
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
                 headerNodes = headerNodes,
@@ -115,6 +119,7 @@ class DirectPdfRenderer(
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontFamilyResolver,
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
             )
@@ -128,10 +133,11 @@ class DirectPdfRenderer(
         resolvedTheme: ResolvedTheme,
         pdfaCompliant: Boolean,
         assetResolver: AssetResolver?,
+        fontFamilyResolver: FontFamilyResolver?,
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
     ): RenderContext {
-        val fontCache = FontCache(pdfaCompliant)
+        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver)
         val proseMirrorConverter = ProseMirrorConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
         return RenderContext(
             data = data,
@@ -161,6 +167,7 @@ class DirectPdfRenderer(
         metadata: PdfMetadata,
         pdfaCompliant: Boolean,
         assetResolver: AssetResolver?,
+        fontFamilyResolver: FontFamilyResolver?,
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
     ) {
@@ -179,6 +186,7 @@ class DirectPdfRenderer(
             resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
         )
@@ -234,6 +242,7 @@ class DirectPdfRenderer(
         metadata: PdfMetadata,
         pdfaCompliant: Boolean,
         assetResolver: AssetResolver?,
+        fontFamilyResolver: FontFamilyResolver?,
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         headerNodes: List<Node>,
@@ -255,6 +264,7 @@ class DirectPdfRenderer(
             resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
         )
@@ -289,6 +299,7 @@ class DirectPdfRenderer(
             resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
@@ -319,6 +330,7 @@ class DirectPdfRenderer(
             resolvedTheme = resolvedTheme,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
         ).withTotalPages(totalPages)

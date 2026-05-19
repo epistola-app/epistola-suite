@@ -37,6 +37,13 @@ spec:
       serviceAccountName: {{ include "epistola.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if eq .Values.migration.mode "initContainer" }}
+      initContainers:
+        {{- if ne (include "epistola.database.effectiveType" .) "none" }}
+        {{- include "epistola.waitForDb" . | nindent 8 }}
+        {{- end }}
+        {{- include "epistola.migrateContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -154,36 +161,13 @@ spec:
             {{- end }}
             {{- end }}
 
-            {{- /* Database configuration */}}
-            {{- $dbType := include "epistola.database.effectiveType" . }}
-            {{- /* CNPG mode - use CNPG secret with jdbc-uri */}}
-            {{- if or (eq $dbType "cnpg") (eq $dbType "cnpgExisting") }}
-            - name: SPRING_DATASOURCE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "epistola.cnpg.secretName" . }}
-                  key: jdbc-uri
-            - name: SPRING_DATASOURCE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "epistola.cnpg.secretName" . }}
-                  key: username
-            - name: SPRING_DATASOURCE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "epistola.cnpg.secretName" . }}
-                  key: password
-            {{- /* External PostgreSQL mode */}}
-            {{- else if eq $dbType "external" }}
-            - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
-            - name: SPRING_DATASOURCE_USERNAME
-              value: {{ .Values.database.external.username | quote }}
-            - name: SPRING_DATASOURCE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ required "database.external.existingSecret is required when database.type is 'external'" .Values.database.external.existingSecret }}
-                  key: {{ .Values.database.external.secretKey }}
+            {{- /* Database configuration (shared with the migration Job / init container) */}}
+            {{- include "epistola.databaseEnv" . | nindent 12 }}
+            {{- /* When migrations run as a separate step, app pods must only
+                   validate the schema and fail fast if it is behind. */}}
+            {{- if ne .Values.migration.mode "embedded" }}
+            - name: EPISTOLA_MIGRATION_MODE
+              value: "validate"
             {{- end }}
             {{- range $key, $value := .Values.config.env }}
             - name: {{ $key }}

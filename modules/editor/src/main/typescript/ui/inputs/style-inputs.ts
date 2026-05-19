@@ -615,12 +615,42 @@ export const COMPOUND_STYLE_TYPES: Record<
 
 export function renderSelectInput(
   value: unknown,
-  options: { label: string; value: string }[],
+  options: { label: string; value: string; group?: string }[],
   onChange: (value: string) => void,
   selectId?: string,
   readOnly = false,
 ): unknown {
   const currentValue = value != null ? String(value) : '';
+
+  const renderOption = (opt: { label: string; value: string }) => html`
+    <option .value=${opt.value} ?selected=${currentValue === opt.value}>${opt.label}</option>
+  `;
+
+  // When options carry a `group` (e.g. the font picker grouping fonts by
+  // catalog) render `<optgroup>` sections in first-seen group order;
+  // ungrouped selects (font-weight, text-align, …) render flat exactly as
+  // before. Options without a group render outside any optgroup.
+  const grouped = options.some((o) => o.group != null && o.group !== '');
+  let body: unknown;
+  if (grouped) {
+    const order: string[] = [];
+    const byGroup = new Map<string, typeof options>();
+    for (const opt of options) {
+      const g = opt.group ?? '';
+      if (!byGroup.has(g)) {
+        byGroup.set(g, []);
+        order.push(g);
+      }
+      byGroup.get(g)?.push(opt);
+    }
+    body = order.map((g) =>
+      g === ''
+        ? (byGroup.get(g) ?? []).map(renderOption)
+        : html`<optgroup label=${g}>${(byGroup.get(g) ?? []).map(renderOption)}</optgroup>`,
+    );
+  } else {
+    body = options.map(renderOption);
+  }
 
   return html`
     <select
@@ -630,11 +660,7 @@ export function renderSelectInput(
       @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
     >
       <option value="" ?selected=${!currentValue}>—</option>
-      ${options.map(
-        (opt) => html`
-          <option .value=${opt.value} ?selected=${currentValue === opt.value}>${opt.label}</option>
-        `,
-      )}
+      ${body}
     </select>
   `;
 }

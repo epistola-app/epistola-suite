@@ -6,7 +6,10 @@ import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.FontSnapshotVerifier
+import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.TemplateVersion
@@ -29,6 +32,8 @@ class DocumentPreviewRenderer(
     private val mediator: Mediator,
     private val generationService: GenerationService,
     private val objectMapper: ObjectMapper,
+    private val fontSnapshotVerifier: FontSnapshotVerifier,
+    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
 ) {
 
     /**
@@ -61,11 +66,20 @@ class DocumentPreviewRenderer(
             mediator.query(GetAssetContent(tenantId, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
+        // Owning catalog for unqualified font refs: same cascade the theme
+        // resolution + asset binding use (template theme catalog → tenant
+        // default theme catalog → the tenant's default catalog).
+        val owningCatalogKey =
+            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
+        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, fontByteCache)
 
         // Use snapshot rendering for published versions that have it, live cascade otherwise
         val resolvedTheme = version?.resolvedTheme
         val renderingDefaultsVersion = version?.renderingDefaultsVersion
         if (resolvedTheme != null && renderingDefaultsVersion != null) {
+            // Deterministic-or-nothing: a published version must render with the
+            // exact font bytes pinned at publish. Fail loudly on drift.
+            fontSnapshotVerifier.verify(tenantId, owningCatalogKey, resolvedTheme)
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
             val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
             generationService.renderPdfWithSnapshot(
@@ -77,6 +91,7 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -92,6 +107,7 @@ class DocumentPreviewRenderer(
                 metadataWithEngine,
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
+                fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             )

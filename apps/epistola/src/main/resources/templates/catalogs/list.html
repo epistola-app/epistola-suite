@@ -28,6 +28,15 @@
         </div>
         <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
 
+        <!-- Single, always-present swap region for every list mutation
+             (create / remove / release / upgrade). It contains *either* the
+             empty state *or* the table, so an empty→first-catalog transition
+             has a stable target and HTMX never has to splice a bare <tbody>
+             (which the browser's fragment parser relocates). `oob` toggles
+             out-of-band replacement when the dialog fragment is the primary
+             response. -->
+        <div id="catalog-list" th:fragment="catalog-list"
+             th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div th:if="${catalogs.isEmpty()}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
@@ -47,8 +56,8 @@
                     <th></th>
                 </tr>
             </thead>
-            <tbody id="catalog-rows" th:fragment="catalog-rows">
-                <tr th:each="catalog : ${catalogs}">
+            <tbody>
+                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
                     <td style="font-weight: 500;">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            th:text="${catalog.name}"></a>
@@ -59,8 +68,24 @@
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
                     </td>
                     <td>
-                        <span th:if="${catalog.installedReleaseVersion}" th:text="${catalog.installedReleaseVersion}"></span>
-                        <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
+                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
+                            <th:block th:if="${catalog.releasedVersion}">
+                                <span th:text="'v' + ${catalog.releasedVersion}"></span>
+                                <span th:if="${row.pendingChanges}"
+                                      class="text-muted"
+                                      th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
+                            </th:block>
+                            <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
+                        </th:block>
+                        <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"
+                                  th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
+                                           catalogId=${catalog.id},
+                                           installedVersion=${catalog.installedReleaseVersion},
+                                           availableVersion=null">
+                            <span th:id="${'catver-' + catalog.id}">
+                                <th:block th:replace="~{catalogs/list :: version-status}"></th:block>
+                            </span>
+                        </th:block>
                     </td>
                     <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td class="actions">
@@ -72,6 +97,19 @@
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP" hx-boost="false">
                             <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </a>
+                        <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                hx-target="#release-dialog-container" hx-swap="innerHTML">
+                            <th:block th:replace="~{fragments/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                        <button type="button"
+                                th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
+                            <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                        </button>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id.toString() == 'default'}"
@@ -79,7 +117,7 @@
                                 th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
                                 data-confirm-title="Delete Catalog"
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                data-confirm-target="#catalog-rows"
+                                data-confirm-target="#catalog-list"
                                 onclick="openConfirmDialog(this)">
                             <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
@@ -87,6 +125,8 @@
                 </tr>
             </tbody>
         </table>
+        </div>
+        <!-- /#catalog-list -->
 
         <!-- Create Catalog Dialog -->
         <dialog id="create-dialog" class="ep-dialog">
@@ -94,7 +134,7 @@
                 <h3>New Catalog</h3>
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
-                  hx-target="#catalog-rows"
+                  hx-target="#catalog-list"
                   hx-swap="outerHTML">
                 <div class="ep-dialog-body">
                     <div class="form-group">
@@ -195,6 +235,20 @@
                         </div>
                         <span class="form-hint">Authored catalogs can be edited. Subscribed catalogs are read-only.</span>
                     </div>
+                    <div class="form-group">
+                        <label class="ep-label">If this catalog already exists (Authored)</label>
+                        <div style="display: flex; gap: var(--ep-space-4); margin-top: var(--ep-space-2);">
+                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                <input type="radio" name="authoredMode" value="MERGE" checked />
+                                Merge
+                            </label>
+                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                <input type="radio" name="authoredMode" value="REPLACE" />
+                                Replace
+                            </label>
+                        </div>
+                        <span class="form-hint">Merge: update from the ZIP, keep resources you have locally that the ZIP doesn't. Replace: make the catalog exactly the ZIP (deletes local-only resources). Ignored for new or subscribed catalogs; your release history is never changed.</span>
+                    </div>
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
@@ -204,6 +258,12 @@
             </form>
         </dialog>
 
+        <!-- Release dialog is loaded here on demand (hx-get) -->
+        <div id="release-dialog-container"></div>
+
+        <!-- Upgrade preview dialog is loaded here on demand (hx-get) -->
+        <div id="upgrade-dialog-container"></div>
+
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
         <script>
@@ -211,7 +271,225 @@
                 document.getElementById('credential-group').style.display =
                     this.value === 'NONE' ? 'none' : 'block';
             });
+
+            // Release dialog: the fragment is injected on demand into
+            // #release-dialog-container (always present). Delegated + bound to
+            // the static container so it works regardless of htmx script
+            // execution, and CSP-safe (no eval, no hx-on).
+            (function () {
+                var box = document.getElementById('release-dialog-container');
+                box.addEventListener('htmx:afterSwap', function () {
+                    var dlg = document.getElementById('release-dialog');
+                    if (dlg && !dlg.open) dlg.showModal();
+                });
+                box.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-version]');
+                    if (!btn) return;
+                    var input = document.getElementById('release-version');
+                    if (input) input.value = btn.getAttribute('data-version');
+                });
+            })();
+
+            // Upgrade preview dialog: same pattern as the release dialog —
+            // fragment injected on demand into #upgrade-dialog-container, opened
+            // on swap. CSP-safe (delegated, no eval, no hx-on).
+            (function () {
+                var box = document.getElementById('upgrade-dialog-container');
+                box.addEventListener('htmx:afterSwap', function () {
+                    var dlg = document.getElementById('upgrade-dialog');
+                    if (dlg && !dlg.open) dlg.showModal();
+                });
+            })();
         </script>
     </th:block>
+
+    <!-- Release dialog fragments — OUTSIDE the content block so the catalog
+         list page never evaluates `status` (it is only in the model when the
+         fragment is rendered via the dedicated GET / re-render). Still
+         resolvable by name as `catalogs/list :: release-dialog`. -->
+    <th:block th:fragment="release-dialog">
+        <dialog id="release-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Release new version</h3>
+            </div>
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                  hx-target="#release-dialog-container" hx-swap="innerHTML">
+                <div class="ep-dialog-body">
+                    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+                    <div class="form-group">
+                        <span class="ep-label">Current published version</span>
+                        <p style="margin: var(--ep-space-1) 0 0;">
+                            <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
+                            <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
+                            <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
+                            <span class="form-hint" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
+                        </p>
+                    </div>
+                    <div class="form-group">
+                        <span class="ep-label">Bump</span>
+                        <div style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.patch}"
+                                    th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.minor}"
+                                    th:text="'Minor → ' + ${status.suggestedNext.minor}"></button>
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.major}"
+                                    th:text="'Major → ' + ${status.suggestedNext.major}"></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="release-version">Version</label>
+                        <input type="text" id="release-version" name="version" class="ep-input"
+                               required pattern="^\d+\.\d+\.\d+$"
+                               th:value="${status.suggestedNext.patch}">
+                        <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="release-notes">Release notes</label>
+                        <textarea id="release-notes" name="notes" class="ep-input" rows="3"
+                                  placeholder="What changed in this release?"></textarea>
+                    </div>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="ep-btn ep-btn-ghost"
+                            onclick="document.getElementById('release-dialog').close()">Cancel</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Release</button>
+                </div>
+            </form>
+        </dialog>
+    </th:block>
+
+    <!-- Returned on a successful release: empties the container (removing the
+         open dialog) while #catalog-list updates via OOB. -->
+    <th:block th:fragment="release-done"></th:block>
+
+    <!-- Per-row SUBSCRIBED version + update status, rendered into the Version
+         cell's #catver-<id> span. Explicit/user-driven: the row's
+         "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
+         returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
+         UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED. Up to date
+         is green; an available update is grey + the new version, which is the
+         clickable entry to the Review dialog. CSP-safe (hx-get only). -->
+    <th:block th:fragment="version-status" th:switch="${state}">
+
+        <span th:case="'UNCHECKED'"
+              th:classappend="${installedVersion == null ? 'text-muted' : ''}"
+              th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+
+        <span th:case="'UP_TO_DATE'" title="Up to date"
+              style="color: var(--ep-green-700); font-weight: 500;"
+              th:text="${installedVersion != null ? 'v' + installedVersion : 'Up to date'}">v1.0.0</span>
+
+        <span th:case="'UPDATE_AVAILABLE'"
+              style="display: inline-flex; align-items: baseline; gap: var(--ep-space-1);">
+            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="font-weight: 500;"
+                    th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
+                    hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
+                    th:text="${availableVersion != null ? '→ v' + availableVersion : '→ update available'}">→ v1.1.0</button>
+        </span>
+
+        <span th:case="'ZIP_MANAGED'" class="text-muted"
+              title="ZIP-managed — no source URL. Import a newer ZIP as a Subscribed catalog to upgrade it.">
+            <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span style="font-size: var(--ep-text-xs);">· ZIP</span>
+        </span>
+
+        <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
+            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span class="text-muted" style="font-size: var(--ep-text-xs);">· check failed</span>
+        </span>
+
+        <span th:case="*" class="text-muted"
+              th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+    </th:block>
+
+    <!-- Upgrade preview/apply dialog. Rendered via the dedicated GET/POST so
+         the list page never evaluates `diff`. Server-rendered disabled Apply
+         when conflicts exist (no client logic). -->
+    <th:block th:fragment="upgrade-dialog">
+        <dialog id="upgrade-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3>Review catalog upgrade</h3>
+            </div>
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+                  hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
+                <div class="ep-dialog-body">
+                    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
+                    <th:block th:if="${diff != null}">
+                        <div class="form-group">
+                            <span class="ep-label">Version</span>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                <strong th:text="${diff.previousVersion != null ? 'v' + diff.previousVersion : '—'}"></strong>
+                                →
+                                <strong th:text="${'v' + diff.newVersion}"></strong>
+                            </p>
+                        </div>
+
+                        <div class="alert alert-danger" th:if="${diff.hasConflicts}">
+                            <strong>Cannot apply — resources are still in use:</strong>
+                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                                <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>
+                            </ul>
+                        </div>
+
+                        <p th:if="${!diff.hasChanges}" class="text-muted">
+                            This catalog is already up to date — nothing to apply.
+                        </p>
+
+                        <div class="form-group" th:if="${diff.hasChanges}">
+                            <span class="ep-label">Changes</span>
+                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                                <li th:if="${!diff.changed.isEmpty()}">
+                                    <strong th:text="${diff.changed.size()}"></strong> changed
+                                    <span class="form-hint"
+                                          th:text="${'(' + #strings.listJoin(diff.changed.![type + '/' + slug], ', ') + ')'}"></span>
+                                </li>
+                                <li th:if="${!diff.removed.isEmpty()}">
+                                    <strong th:text="${diff.removed.size()}"></strong> removed
+                                    <span class="form-hint"
+                                          th:text="${'(' + #strings.listJoin(diff.removed.![type + '/' + slug], ', ') + ')'}"></span>
+                                </li>
+                                <li th:if="${!diff.added.isEmpty()}">
+                                    <strong th:text="${diff.added.size()}"></strong> new (not installed by default)
+                                </li>
+                                <li th:if="${!diff.unchanged.isEmpty()}" class="text-muted">
+                                    <span th:text="${diff.unchanged.size()}"></span> unchanged
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="form-group" th:if="${!diff.added.isEmpty()}">
+                            <span class="ep-label">Also install new resources</span>
+                            <div style="margin-top: var(--ep-space-1); display: flex; flex-direction: column; gap: var(--ep-space-1);">
+                                <label th:each="a : ${diff.added}"
+                                       style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                    <input type="checkbox" name="newSlugs" th:value="${a.slug}" />
+                                    <span th:text="${a.type} + '/' + ${a.slug}"></span>
+                                </label>
+                            </div>
+                            <span class="form-hint">By default an upgrade only updates resources you already installed.</span>
+                        </div>
+                    </th:block>
+                </div>
+                <div class="ep-dialog-footer">
+                    <button type="button" class="ep-btn ep-btn-ghost"
+                            onclick="document.getElementById('upgrade-dialog').close()">Cancel</button>
+                    <button type="submit" class="ep-btn ep-btn-primary"
+                            th:if="${diff != null and diff.hasChanges}"
+                            th:disabled="${diff.hasConflicts}">Apply upgrade</button>
+                </div>
+            </form>
+        </dialog>
+    </th:block>
+
+    <!-- Returned on a successful upgrade: empties the container (closing the
+         dialog) while #catalog-list updates via OOB (the row's lazy indicator
+         re-checks on load and clears itself). -->
+    <th:block th:fragment="upgrade-done"></th:block>
 </body>
 </html>
