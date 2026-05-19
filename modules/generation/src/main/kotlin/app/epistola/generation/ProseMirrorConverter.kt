@@ -111,39 +111,11 @@ class ProseMirrorConverter(
     ): kotlin.collections.List<Paragraph> {
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
-
-        // Split content at hard breaks into segments
-        val segments = mutableListOf<kotlin.collections.List<Map<String, Any>>>()
-        var current = mutableListOf<Map<String, Any>>()
-        for (child in content) {
-            val childType = child["type"] as? String
-            if (childType == "hard_break" || childType == "hardBreak") {
-                segments.add(current)
-                current = mutableListOf()
-            } else {
-                current.add(child)
-            }
-        }
-        segments.add(current)
-
-        return segments.mapIndexed { index, segment ->
-            val paragraph = Paragraph()
+        return renderHardBreakSegments(content, data, loopContext, fontCache, face) { paragraph, index, lastIndex ->
             applyTextStyles(paragraph, resolvedStyles)
             // Hard break lines: no spacing between them, only the last gets paragraph margin
             paragraph.setMarginTop(0f)
-            paragraph.setMarginBottom(if (index == segments.size - 1) renderingDefaults.paragraphMarginBottom else 0f)
-            paragraph.setPaddingTop(0f)
-            paragraph.setPaddingBottom(0f)
-            paragraph.setSpacingRatio(0f)
-            if (segment.isNotEmpty()) {
-                addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
-            } else {
-                // Empty paragraph or hard-break-only segment: editor shows a blank
-                // line, but a content-less iText Paragraph collapses to zero height.
-                // A NBSP gives the paragraph one line of vertical space.
-                paragraph.add(Text(BLANK_LINE_PLACEHOLDER))
-            }
-            paragraph
+            paragraph.setMarginBottom(if (index == lastIndex) renderingDefaults.paragraphMarginBottom else 0f)
         }
     }
 
@@ -164,22 +136,7 @@ class ProseMirrorConverter(
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
-        // Split at hard breaks
-        val segments = mutableListOf<kotlin.collections.List<Map<String, Any>>>()
-        var current = mutableListOf<Map<String, Any>>()
-        for (child in content) {
-            val childType = child["type"] as? String
-            if (childType == "hard_break" || childType == "hardBreak") {
-                segments.add(current)
-                current = mutableListOf()
-            } else {
-                current.add(child)
-            }
-        }
-        segments.add(current)
-
-        return segments.mapIndexed { index, segment ->
-            val paragraph = Paragraph()
+        return renderHardBreakSegments(content, data, loopContext, fontCache, face) { paragraph, index, lastIndex ->
             // Headings are bold by default, but in the *selected* family.
             paragraph.setFont(
                 fontCache.font(
@@ -192,13 +149,63 @@ class ProseMirrorConverter(
             applyTextStyles(paragraph, resolvedStyles)
             // Hard break lines: tight spacing, only first/last get heading margins
             paragraph.setMarginTop(if (index == 0) marginVertical else 0f)
-            paragraph.setMarginBottom(if (index == segments.size - 1) marginVertical else 0f)
+            paragraph.setMarginBottom(if (index == lastIndex) marginVertical else 0f)
+        }
+    }
+
+    /**
+     * Split inline content at `hard_break` nodes. Each returned list is the
+     * inline run for one rendered line; an empty list represents a blank line
+     * (the segment is either between consecutive hard breaks or sits on the
+     * start/end of a paragraph that begins/ends with a hard break).
+     */
+    private fun splitAtHardBreaks(
+        content: kotlin.collections.List<Map<String, Any>>,
+    ): kotlin.collections.List<kotlin.collections.List<Map<String, Any>>> {
+        val segments = mutableListOf<kotlin.collections.List<Map<String, Any>>>()
+        var current = mutableListOf<Map<String, Any>>()
+        for (child in content) {
+            val childType = child["type"] as? String
+            if (childType == "hard_break" || childType == "hardBreak") {
+                segments.add(current)
+                current = mutableListOf()
+            } else {
+                current.add(child)
+            }
+        }
+        segments.add(current)
+        return segments
+    }
+
+    /**
+     * Render a paragraph- or heading-shaped node as one iText `Paragraph` per
+     * hard-break segment. The caller provides [decorate] with the per-segment
+     * font / margin / style policy (the only thing paragraphs and headings
+     * actually differ on); padding, spacing-ratio and the empty-segment
+     * placeholder are handled centrally so the two node types can't drift.
+     */
+    private fun renderHardBreakSegments(
+        content: kotlin.collections.List<Map<String, Any>>,
+        data: Map<String, Any?>,
+        loopContext: Map<String, Any?>,
+        fontCache: app.epistola.generation.pdf.FontCache,
+        face: FaceContext,
+        decorate: (paragraph: Paragraph, segmentIndex: Int, lastSegmentIndex: Int) -> Unit,
+    ): kotlin.collections.List<Paragraph> {
+        val segments = splitAtHardBreaks(content)
+        val lastIndex = segments.size - 1
+        return segments.mapIndexed { index, segment ->
+            val paragraph = Paragraph()
+            decorate(paragraph, index, lastIndex)
             paragraph.setPaddingTop(0f)
             paragraph.setPaddingBottom(0f)
             paragraph.setSpacingRatio(0f)
             if (segment.isNotEmpty()) {
                 addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
             } else {
+                // Empty paragraph or hard-break-only segment: editor shows a blank
+                // line, but a content-less iText Paragraph collapses to zero height.
+                // A NBSP gives the paragraph one line of vertical space.
                 paragraph.add(Text(BLANK_LINE_PLACEHOLDER))
             }
             paragraph
