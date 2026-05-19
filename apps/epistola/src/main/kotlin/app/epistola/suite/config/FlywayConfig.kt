@@ -4,9 +4,27 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.exception.FlywayValidateException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.ExitCodeGenerator
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+
+/**
+ * Validate-mode fail-fast: the database schema is behind and this process must
+ * not start. Implements [ExitCodeGenerator] so Spring Boot deterministically
+ * `System.exit`s with a non-zero code when this propagates out of a failed
+ * `SpringApplication.run()` (the K8s deploy gate) — no `try/catch` or manual
+ * `exitProcess` in `main()`. Spring Boot's exit-code resolver walks the
+ * exception cause chain, so the surrounding `BeanCreationException` wrapper
+ * does not hide it. Still an [IllegalStateException] for source compatibility.
+ */
+class SchemaBehindException(
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause),
+    ExitCodeGenerator {
+    override fun getExitCode(): Int = 1
+}
 
 /**
  * Controls how Flyway behaves at context startup via the single
@@ -81,10 +99,10 @@ class FlywayConfig {
             flyway.validate()
         } catch (e: FlywayValidateException) {
             logger.error("Flyway validation failed: {}", e.message)
-            throw IllegalStateException(schemaBehindMessage(flyway), e)
+            throw SchemaBehindException(schemaBehindMessage(flyway), e)
         }
         if (flyway.info().pending().isNotEmpty()) {
-            throw IllegalStateException(schemaBehindMessage(flyway))
+            throw SchemaBehindException(schemaBehindMessage(flyway))
         }
     }
 
