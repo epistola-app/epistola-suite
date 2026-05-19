@@ -69,7 +69,12 @@
                     </td>
                     <td>
                         <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
-                            <span th:if="${catalog.releasedVersion}" th:text="'v' + ${catalog.releasedVersion}"></span>
+                            <th:block th:if="${catalog.releasedVersion}">
+                                <span th:text="'v' + ${catalog.releasedVersion}"></span>
+                                <span th:if="${pendingChangeCatalogIds != null and pendingChangeCatalogIds.contains(catalog.id.toString())}"
+                                      class="text-muted"
+                                      th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
+                            </th:block>
                             <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
                         </th:block>
                         <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"

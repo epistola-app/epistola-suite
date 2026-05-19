@@ -72,6 +72,7 @@ CREATE TABLE catalogs (
     released_version VARCHAR(50),
     released_fingerprint CHAR(64),
     released_at TIMESTAMPTZ,
+    imported_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, id)
@@ -86,6 +87,7 @@ COMMENT ON COLUMN catalogs.installed_resource_fingerprints IS 'Per-resource sour
 COMMENT ON COLUMN catalogs.released_version IS 'Latest released SemVer of an AUTHORED catalog (pointer into catalog_releases). NULL = never released. SUBSCRIBED catalogs use installed_release_version instead.';
 COMMENT ON COLUMN catalogs.released_fingerprint IS 'Content fingerprint of the latest AUTHORED release (denormalized from catalog_releases for O(1) read surfaces). NULL = never released.';
 COMMENT ON COLUMN catalogs.released_at IS 'When the latest AUTHORED release was cut (mirrors the catalog_releases row).';
+COMMENT ON COLUMN catalogs.imported_at IS 'When catalog content was last set wholesale by a ZIP import (set at the end of ImportCatalogZip, after resource upserts). With released_at it forms the AUTHORED drift baseline GREATEST(released_at, imported_at): a resource updated_at beyond it = unreleased working-copy changes. Set to NOW() by every import so a no-op re-import does not register as drift.';
 COMMENT ON COLUMN catalogs.created_at IS 'When the catalog was created';
 COMMENT ON COLUMN catalogs.updated_at IS 'When the catalog was last updated';
 

@@ -17,12 +17,14 @@ import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
+import app.epistola.suite.catalog.queries.FindCatalogsWithPendingChanges
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -41,15 +43,12 @@ class CatalogHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query()
         val saved = request.param("saved").isPresent
 
         return ServerResponse.ok().page("catalogs/list") {
             "pageTitle" to "Catalogs - Epistola"
-            "tenantId" to tenantId.key
             "activeNavSection" to "catalogs"
-            "catalogs" to catalogs
+            catalogListModel(request)
             if (saved) "saved" to true
         }
     }
@@ -80,11 +79,9 @@ class CatalogHandler {
                 name = form["name"],
             ).execute()
 
-            val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
                 fragment("catalogs/list", "catalog-list") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
+                    catalogListModel(request)
                 }
                 onNonHtmx {
                     redirect("/tenants/${tenantId.key}/catalogs?saved=true")
@@ -145,10 +142,8 @@ class CatalogHandler {
             UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey, force = force).execute()
 
             return request.htmx {
-                val catalogs = ListCatalogs(tenantId.key).query()
                 fragment("catalogs/list", "catalog-list") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
+                    catalogListModel(request)
                 }
                 onNonHtmx {
                     ServerResponse.status(303)
@@ -228,12 +223,10 @@ class CatalogHandler {
                 notes = notes,
             ).execute()
 
-            val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
                 fragment("catalogs/list", "release-done") {}
                 oob("catalogs/list", "catalog-list") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
+                    catalogListModel(request)
                     "oob" to true
                 }
                 onNonHtmx {
@@ -328,12 +321,10 @@ class CatalogHandler {
                 return upgradeDialog(tenantId, catalogKey, "Upgrade aborted — these resources failed to install (nothing was changed, the version was not advanced): $failed")
             }
 
-            val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
                 fragment("catalogs/list", "upgrade-done") {}
                 oob("catalogs/list", "catalog-list") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
+                    catalogListModel(request)
                     "oob" to true
                 }
                 onNonHtmx {
@@ -586,16 +577,32 @@ class CatalogHandler {
         }
     }
 
-    private fun listWithError(request: ServerRequest, error: String): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query()
+    /**
+     * The shared model for **every** render of the catalog list — the full
+     * page *and* the `catalog-list` fragment/OOB swaps. One source of truth so
+     * no render path can forget the AUTHORED drift hint:
+     *  - `tenantId`;
+     *  - `catalogs` (`ListCatalogs`);
+     *  - `pendingChangeCatalogIds` — AUTHORED catalogs whose working copy has
+     *    unreleased changes, as slug strings (not `CatalogKey`) so the
+     *    Thymeleaf `.contains(...)` check is a plain string compare. Cheap:
+     *    one set-based query, no content build.
+     */
+    private fun ModelBuilder.catalogListModel(request: ServerRequest) {
+        val tenantKey = request.tenantId().key
+        "tenantId" to tenantKey
+        "catalogs" to ListCatalogs(tenantKey).query()
+        // toHashSet() (a real java.util.HashSet) — NOT toSet(): an empty
+        // result yields Kotlin's EmptySet singleton, on which SpEL cannot
+        // resolve .contains(...), 500-ing the template for clean catalogs.
+        "pendingChangeCatalogIds" to
+            FindCatalogsWithPendingChanges(tenantKey).query().map { it.value }.toHashSet()
+    }
 
-        return ServerResponse.ok().page("catalogs/list") {
-            "pageTitle" to "Catalogs - Epistola"
-            "tenantId" to tenantId.key
-            "activeNavSection" to "catalogs"
-            "catalogs" to catalogs
-            "error" to error
-        }
+    private fun listWithError(request: ServerRequest, error: String): ServerResponse = ServerResponse.ok().page("catalogs/list") {
+        "pageTitle" to "Catalogs - Epistola"
+        "activeNavSection" to "catalogs"
+        catalogListModel(request)
+        "error" to error
     }
 }

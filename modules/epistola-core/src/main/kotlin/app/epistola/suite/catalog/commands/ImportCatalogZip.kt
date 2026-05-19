@@ -327,11 +327,28 @@ class ImportCatalogZipHandler(
             }
         }
 
+        // Record the wholesale content-set point — reached only on non-aborted
+        // paths (the SUBSCRIBED abort returns early above). NOW() here is after
+        // the resource-install loop, so it is ≥ every imported resource's
+        // updated_at: a no-op re-import advances this in lockstep and does NOT
+        // register as AUTHORED drift; only a later edit does. With released_at
+        // it is the GREATEST(released_at, imported_at) drift baseline.
+        touchImportedAt(command.tenantKey, catalogKey)
+
         ImportCatalogZipResult(
             catalogKey = catalogKey,
             catalogName = manifest.catalog.name,
             results = results,
         )
+    }
+
+    private fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND id = :c")
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .execute()
+        }
     }
 
     /** Inserts an empty SUBSCRIBED catalog row (no source URL — ZIP-sourced). */

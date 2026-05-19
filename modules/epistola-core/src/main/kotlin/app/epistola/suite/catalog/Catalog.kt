@@ -26,6 +26,15 @@ data class Catalog(
     val releasedVersion: String? = null,
     val releasedFingerprint: String? = null,
     val releasedAt: OffsetDateTime? = null,
+    /**
+     * When catalog content was last set wholesale by a ZIP import. With
+     * [releasedAt] it forms the AUTHORED drift baseline
+     * `GREATEST(releasedAt, importedAt)`: a resource changed after it = the
+     * working copy has unreleased changes (the catalog list's "pending
+     * changes" hint). A no-op re-import advances this in lockstep with the
+     * imported resources, so it does not register as drift.
+     */
+    val importedAt: OffsetDateTime? = null,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 )

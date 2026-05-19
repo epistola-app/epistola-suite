@@ -106,6 +106,28 @@ bytes**. The version label encodes release state and export is never blocked:
 immutable release snapshot so subscribers never see in-progress edits is a
 Phase 2 hardening.)
 
+### Drift hint in the catalog list
+
+So the `-dev` outcome isn't only discovered at download time, the catalog
+list shows `v0.1.0 · pending changes` for an AUTHORED, released catalog whose
+working copy drifted. This is a **cheap heuristic, not the fingerprint** (the
+export `-dev`/fingerprint stays authoritative): `FindCatalogsWithPendingChanges`
+compares `MAX(updated_at | published_at | created_at)` across the catalog's
+resource/version tables to the baseline `GREATEST(released_at, imported_at)`.
+
+`catalogs.imported_at` is set at the **end** of `ImportCatalogZip` (after the
+resource upserts, so ≥ their `updated_at`). It exists specifically so a no-op
+ZIP **re-import** — which bumps every resource's `updated_at` — advances the
+baseline in lockstep and is **not** mistaken for an edit. Column choice
+mirrors what the fingerprint sees: `updated_at` for live rows, `published_at`
+for `*_versions` (a draft-only edit doesn't change the published export, so it
+correctly stays clean), `created_at` for `assets`.
+
+Conservative by construction: it can **over-warn** (edit-then-revert to
+byte-identical, a re-publish of unchanged content) and the only **under-warn**
+is a deletion-only change (no surviving row's timestamp moves) — in every case
+the export's `-dev` label/fingerprint is the authoritative backstop.
+
 ## Importing a ZIP
 
 A ZIP import always targets a catalog **type**. A slug that already exists with

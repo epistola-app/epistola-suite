@@ -2,7 +2,16 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -97,6 +106,44 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("<table").contains("</table>")
             assertThat(body).contains("Keep Cat")
             assertThat(body).doesNotContain("Gone Cat")
+        }
+    }
+
+    @Test
+    fun `a drifted AUTHORED catalog shows 'pending changes' in the Version column - a clean one does not`() = fixture {
+        lateinit var t: Tenant
+        given {
+            t = tenant("Catalog List Drift")
+            withMediator {
+                // Clean: released, untouched.
+                val clean = CatalogKey.of("clean-cat")
+                CreateCatalog(tenantKey = t.id, id = clean, name = "Clean Cat").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("ct1"), CatalogId(clean, TenantId(t.id))), name = "C1").execute()
+                ReleaseCatalogVersion(tenantKey = t.id, catalogKey = clean, version = "1.0.0").execute()
+
+                // Drifted: released, then edited.
+                val drift = CatalogKey.of("drift-cat")
+                CreateCatalog(tenantKey = t.id, id = drift, name = "Drift Cat").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("dt1"), CatalogId(drift, TenantId(t.id))), name = "D1").execute()
+                ReleaseCatalogVersion(tenantKey = t.id, catalogKey = drift, version = "2.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("dt2"), CatalogId(drift, TenantId(t.id))), name = "D2 (post-release)").execute()
+            }
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            // Drifted catalog: version + the pending-changes hint with the
+            // "exports as v2.0.0-dev" title.
+            assertThat(body).contains("pending changes")
+            assertThat(body).contains("v2.0.0-dev")
+            // Clean catalog's row carries no pending hint (only the drifted one).
+            assertThat(body.split("pending changes")).hasSize(2) // exactly one occurrence
         }
     }
 }
