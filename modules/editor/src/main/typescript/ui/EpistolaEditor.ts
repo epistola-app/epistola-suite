@@ -10,7 +10,10 @@ import {
   PAGE_FOOTER_TYPE,
   isAnchoredPageBlock,
 } from '../engine/registry.js';
-import { parseBindingSaveError } from '../components/stencil/binding-errors.js';
+import {
+  STENCIL_BINDING_ERRORS_KEY,
+  bindingErrorsForSaveState,
+} from '../components/stencil/binding-errors.js';
 import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.js';
 import type { FetchPreviewFn } from './preview-service.js';
 import { SaveService, type SaveState, type SaveFn } from './save-service.js';
@@ -243,15 +246,9 @@ export class EpistolaEditor extends LitElement {
     if (this.onSave) {
       this._saveService = new SaveService(this.onSave, (state) => {
         this._saveState = state;
-        if (state.status === 'saved') {
-          this._engine?.setComponentState('stencil:binding-errors', null);
-        } else if (state.status === 'error') {
-          const parsed = parseBindingSaveError(state);
-          if (parsed) {
-            this._engine?.setComponentState('stencil:binding-errors', {
-              [parsed.paramName]: parsed.message,
-            });
-          }
+        const next = bindingErrorsForSaveState(state);
+        if (next !== undefined) {
+          this._engine?.setComponentState(STENCIL_BINDING_ERRORS_KEY, next);
         }
       });
     }

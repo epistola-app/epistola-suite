@@ -93,6 +93,9 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
   let hasBackendError = !!error;
 
   function validate() {
+    // A deferred (debounced / setTimeout(0)) call can fire after the dialog
+    // DOM is torn down — touching detached nodes then is pointless.
+    if (!row.isConnected) return;
     const val = input.value.trim();
     const valid = val.length === 0 || isValidExpression(val);
     input.classList.toggle('binding-row-valid', val.length > 0 && valid);

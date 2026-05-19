@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseBindingSaveError } from './binding-errors.js';
+import { bindingErrorsForSaveState, parseBindingSaveError } from './binding-errors.js';
+import type { SaveState } from '../../ui/save-service.js';
 
 describe('parseBindingSaveError', () => {
   it('extracts parameter name from the structured field and parser message from the detail', () => {
@@ -63,5 +64,32 @@ describe('parseBindingSaveError', () => {
       paramName: 'greeting',
       message: 'the real detail',
     });
+  });
+});
+
+describe('bindingErrorsForSaveState (editor↔inspector channel)', () => {
+  it('clears stored errors on a successful save', () => {
+    expect(bindingErrorsForSaveState({ status: 'saved' })).toBeNull();
+  });
+
+  it('maps a binding syntax error to a per-parameter record', () => {
+    const state: SaveState = {
+      status: 'error',
+      code: 'NODE_PARAMETER_BINDING_SYNTAX_INVALID',
+      field: 'content.stencil.props.parameterBindings.param1',
+      message: "parameter binding 'param1' expression is invalid — bad token",
+    };
+    expect(bindingErrorsForSaveState(state)).toEqual({ param1: 'bad token' });
+  });
+
+  it('leaves state untouched for a non-binding error', () => {
+    const state: SaveState = { status: 'error', message: 'Network error' };
+    expect(bindingErrorsForSaveState(state)).toBeUndefined();
+  });
+
+  it('leaves state untouched for non-terminal statuses', () => {
+    expect(bindingErrorsForSaveState({ status: 'saving' })).toBeUndefined();
+    expect(bindingErrorsForSaveState({ status: 'dirty' })).toBeUndefined();
+    expect(bindingErrorsForSaveState({ status: 'idle' })).toBeUndefined();
   });
 });

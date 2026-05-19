@@ -7,6 +7,17 @@
  * free-text message. This module reads those structured fields — no regex over
  * human text — so a reworded backend message never breaks the editor.
  */
+import type { SaveState } from '../../ui/save-service.js';
+
+/**
+ * Component-state key for the per-parameter binding errors the editor hands to
+ * the stencil inspector. Exported so producer (EpistolaEditor) and consumer
+ * (StencilInspector) share one symbol instead of duplicating a string literal.
+ */
+export const STENCIL_BINDING_ERRORS_KEY = 'stencil:binding-errors';
+
+/** Per-parameter inline error map keyed by parameter name. */
+export type BindingErrors = Record<string, string>;
 
 /** Wire value of the JSONata binding syntax error code (see backend ValidationCode). */
 export const NODE_PARAMETER_BINDING_SYNTAX_INVALID = 'NODE_PARAMETER_BINDING_SYNTAX_INVALID';
@@ -46,4 +57,20 @@ export function parseBindingSaveError(error: SaveErrorInfo): BindingSaveError | 
       : 'Invalid JSONata expression';
 
   return { paramName, message };
+}
+
+/**
+ * Derives the next `stencil:binding-errors` component-state value from a save
+ * state. Pure so the editor↔inspector channel logic is unit-testable without
+ * the editor/engine:
+ *  - `null`      → a successful save: clear any stored errors
+ *  - `{...}`     → a binding syntax error: show it on that parameter's row
+ *  - `undefined` → leave existing state untouched (non-binding error, or a
+ *                  non-terminal status like saving/dirty)
+ */
+export function bindingErrorsForSaveState(state: SaveState): BindingErrors | null | undefined {
+  if (state.status === 'saved') return null;
+  if (state.status !== 'error') return undefined;
+  const parsed = parseBindingSaveError(state);
+  return parsed ? { [parsed.paramName]: parsed.message } : undefined;
 }
