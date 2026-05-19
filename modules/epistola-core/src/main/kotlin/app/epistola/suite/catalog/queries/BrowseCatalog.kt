@@ -78,6 +78,10 @@ class BrowseCatalogHandler(
             SELECT 'attribute', id, display_name, NULL FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
             UNION ALL
             SELECT 'asset', id::text, name, NULL FROM assets WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            UNION ALL
+            SELECT 'codeList', slug::text, display_name, description FROM code_lists WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            UNION ALL
+            SELECT 'font', slug::text, name, NULL FROM fonts WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -132,6 +136,10 @@ class BrowseCatalogHandler(
                 SELECT 'attribute:' || id FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                 UNION ALL
                 SELECT 'asset:' || id FROM assets WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'codeList:' || slug FROM code_lists WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                UNION ALL
+                SELECT 'font:' || slug FROM fonts WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                 """,
             )
                 .bind("tenantKey", query.tenantKey)

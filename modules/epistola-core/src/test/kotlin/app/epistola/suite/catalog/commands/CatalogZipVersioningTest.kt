@@ -1,6 +1,9 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.BrowseCatalog
@@ -9,6 +12,8 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -447,6 +452,36 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThat(result.resources).extracting<String> { it.slug }
                 .contains("brand", "alt")
             assertThat(result.resources).allMatch { it.status.name == "INSTALLED" }
+        }
+    }
+
+    @Test
+    fun `browse reports an installed code list as INSTALLED, not Available (codeList + font included)`() {
+        val pub = createTenant("CL Browse Pub")
+        val sub = createTenant("CL Browse Sub")
+        val catalogKey = CatalogKey.of("zipsub-codelist")
+
+        withMediator {
+            CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "CL Browse").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(pub.id))), name = "Brand").execute()
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of("bcp-47"), CatalogId(catalogKey, TenantId(pub.id))),
+                displayName = "BCP-47 Language Tags",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
+            ).execute()
+            ReleaseCatalogVersion(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute()
+            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
+
+            ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+
+            // Regression: BrowseCatalog's installed-detection union omitted
+            // code_lists (and fonts), so an installed code list showed as
+            // "Available" (the BCP-47-in-system bug).
+            val codeList = BrowseCatalog(sub.id, catalogKey).query().resources
+                .single { it.type == "codeList" && it.slug == "bcp-47" }
+            assertThat(codeList.status.name).isEqualTo("INSTALLED")
+            assertThat(codeList.name).isEqualTo("BCP-47 Language Tags")
         }
     }
 }
