@@ -1271,9 +1271,15 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
                 assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_JSON)).isTrue()
-                assertThat(response.body).contains("VALIDATION_ERROR")
-                assertThat(response.body).contains("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+                // Machine-readable code is a first-class field (the shared
+                // ValidationErrorResponse mapper), not flattened to a generic
+                // VALIDATION_ERROR nor smuggled as a message prefix.
+                assertThat(response.body).contains("\"code\":\"NODE_PARAMETER_BINDING_SYNTAX_INVALID\"")
                 assertThat(response.body).contains("parameter binding 'param1' expression is invalid")
+                // Field path is carried structurally under errors[].
+                assertThat(response.body).contains("content.stencil.props.parameterBindings.param1")
+                // The old SCREAMING_CODE: message prefix is gone.
+                assertThat(response.body).doesNotContain("SYNTAX_INVALID: parameter")
                 assertThat(response.body).doesNotContain("trace")
             }
         }

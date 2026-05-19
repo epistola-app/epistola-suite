@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -89,7 +90,7 @@ class NodeParameterBindingValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc(node)) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_UNKNOWN")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN)
             .hasMessageContaining("'ghost'")
     }
 
@@ -118,7 +119,7 @@ class NodeParameterBindingValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc(node)) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_MISSING_REQUIRED")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED)
             .hasMessageContaining("'name'")
     }
 
@@ -152,7 +153,7 @@ class NodeParameterBindingValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc(ok, bad)) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_UNKNOWN")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN)
     }
 
     @Test
@@ -202,29 +203,28 @@ class NodeParameterBindingValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc(node)) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID)
             .hasMessageContaining("'name'")
     }
 
     @Test
-    fun `jsonata syntax error includes the parser message`() {
+    fun `jsonata syntax error includes the parser message but no code prefix`() {
         val node = stencilNode(
             "s1",
             schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
             bindings = mapOf("name" to "recipient.firstName & '"),
         )
-        try {
-            validator.validate(doc(node))
-            error("expected ValidationException")
-        } catch (e: ValidationException) {
-            val prefix = "NODE_PARAMETER_BINDING_SYNTAX_INVALID: parameter binding 'name' expression is invalid — "
-            assertThat(e.message).startsWith(prefix)
-            assertThat(e.message.length).isGreaterThan(prefix.length)
-        }
+        val ex = catchValidationException { validator.validate(doc(node)) }
+        // Code is a first-class field; the message is human-only (no SCREAMING prefix).
+        assertThat(ex.code).isEqualTo(ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID)
+        val prefix = "parameter binding 'name' expression is invalid — "
+        assertThat(ex.message).startsWith(prefix)
+        assertThat(ex.message.length).isGreaterThan(prefix.length)
+        assertThat(ex.message).doesNotContain("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
     }
 
     @Test
-    fun `field path in syntax error message points at the offending binding`() {
+    fun `field path in syntax error points at the offending binding`() {
         val node = stencilNode(
             "s1",
             schema = mapOf("properties" to mapOf("a" to mapOf("type" to "string"))),
@@ -232,36 +232,34 @@ class NodeParameterBindingValidatorTest {
         )
         val ex = catchValidationException { validator.validate(doc(node)) }
         assertThat(ex.field).endsWith(".a")
-        assertThat(ex.message).contains("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+        assertThat(ex.code).isEqualTo(ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID)
     }
 
     // -- edge cases for non-string / empty binding values -------------------
+    // Blank / empty / non-string values are not well-formed bindings; their
+    // shape is PlaceholderValidator's job (NODE_PARAMETER_BINDING_EMPTY, which
+    // runs first in the real pipeline). This validator skips them so a blank
+    // *required* binding surfaces as MISSING_REQUIRED, not a misleading syntax
+    // error.
 
     @Test
-    fun `empty binding expression is rejected as invalid jsonata`() {
-        // jsonata("") throws — empty expressions are not skipped
+    fun `empty binding on an optional parameter is skipped (not a syntax error)`() {
         val node = stencilNode(
             "s1",
             schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
             bindings = mapOf("name" to ""),
         )
-        assertThatThrownBy { validator.validate(doc(node)) }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
-            .hasMessageContaining("'name'")
+        assertThatCode { validator.validate(doc(node)) }.doesNotThrowAnyException()
     }
 
     @Test
-    fun `blank binding expression is rejected as invalid jsonata`() {
+    fun `blank binding on an optional parameter is skipped (not a syntax error)`() {
         val node = stencilNode(
             "s1",
             schema = mapOf("properties" to mapOf("name" to mapOf("type" to "string"))),
             bindings = mapOf("name" to "   "),
         )
-        assertThatThrownBy { validator.validate(doc(node)) }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
-            .hasMessageContaining("'name'")
+        assertThatCode { validator.validate(doc(node)) }.doesNotThrowAnyException()
     }
 
     @Test
@@ -287,8 +285,9 @@ class NodeParameterBindingValidatorTest {
     }
 
     @Test
-    fun `empty binding on required parameter without default is caught by syntax check first`() {
-        // jsonata("") throws SYNTAX_INVALID before the required-parameter check runs
+    fun `blank binding on a required parameter without default reports MISSING_REQUIRED`() {
+        // A present-but-blank value is treated as no binding, so the precise
+        // MISSING_REQUIRED code wins over a misleading SYNTAX_INVALID.
         val node = stencilNode(
             "s1",
             schema = mapOf(
@@ -299,7 +298,7 @@ class NodeParameterBindingValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc(node)) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDING_SYNTAX_INVALID")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED)
             .hasMessageContaining("'name'")
     }
 }
