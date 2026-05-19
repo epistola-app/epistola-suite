@@ -954,9 +954,10 @@ class ProseMirrorConverterTest {
         val result = converter.convert(content, emptyMap(), fontCache = fontCache)
         assertEquals(3, result.size)
         val empty = assertIs<Paragraph>(result[1])
-        assertTrue(
-            empty.children.isNotEmpty(),
-            "empty paragraph must hold placeholder inline content so it renders one line tall",
+        assertEquals(
+            " ",
+            (empty.children.single() as Text).text,
+            "empty paragraph must hold a NBSP placeholder so it renders one line tall",
         )
     }
 
@@ -976,11 +977,39 @@ class ProseMirrorConverterTest {
         assertEquals(2, result.size)
         result.forEach { p ->
             val paragraph = assertIs<Paragraph>(p)
-            assertTrue(
-                paragraph.children.isNotEmpty(),
-                "blank segment of a hard-break-only paragraph must reserve one line of height",
+            assertEquals(
+                " ",
+                (paragraph.children.single() as Text).text,
+                "blank segment of a hard-break-only paragraph must hold a NBSP placeholder",
             )
         }
+    }
+
+    @Test
+    fun `empty heading between filled paragraphs reserves a blank line`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(mapOf("type" to "text", "text" to "Before")),
+                ),
+                mapOf("type" to "heading", "attrs" to mapOf("level" to 2)),
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(mapOf("type" to "text", "text" to "After")),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(3, result.size)
+        val empty = assertIs<Paragraph>(result[1])
+        assertEquals(
+            " ",
+            (empty.children.single() as Text).text,
+            "empty heading must hold a NBSP placeholder so it renders one line tall",
+        )
     }
 
     @Test
