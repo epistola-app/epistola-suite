@@ -16,6 +16,12 @@ if (buildNativeImage) {
     apply(plugin = "org.graalvm.buildtools.native")
 }
 
+// Security override: Spring Boot 4.0.6 manages tomcat-embed-core 11.0.21,
+// affected by CVE-2026-41293 and CVE-2026-43512 (both CRITICAL). Pin the
+// embedded Tomcat to the fixed 11.0.22 until the Spring Boot BOM catches up.
+// Read by io.spring.dependency-management to override the managed version.
+extra["tomcat.version"] = "11.0.22"
+
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
