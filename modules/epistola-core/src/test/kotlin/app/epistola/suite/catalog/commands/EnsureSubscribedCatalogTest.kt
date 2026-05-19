@@ -54,4 +54,24 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
             assertThat(third.newVersion).isNotBlank()
         }
     }
+
+    @Test
+    fun `manifest without fingerprint falls back to version compare (no re-upgrade loop)`() {
+        // dependency-test's manifest has release.version "1.0" and NO
+        // release.fingerprint — the legacy/hand-rolled case.
+        val tenant = createTenant("Ensure NoFp")
+        val noFpUrl = "classpath:test-catalogs/dependency-test/catalog.json"
+
+        withMediator {
+            val first = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = noFpUrl).execute()
+            assertThat(first.status).isEqualTo(EnsureCatalogStatus.INSTALLED)
+            assertThat(first.catalogKey).isEqualTo(CatalogKey.of("dep-test"))
+
+            // Re-run: no fingerprint to compare → version fallback → no
+            // UpgradeCatalog (would loop on every boot before A1).
+            val second = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = noFpUrl).execute()
+            assertThat(second.status).isEqualTo(EnsureCatalogStatus.ALREADY_CURRENT)
+            assertThat(second.newVersion).isEqualTo(first.newVersion)
+        }
+    }
 }

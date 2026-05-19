@@ -10,10 +10,13 @@ import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -33,25 +36,59 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 /**
- * Imports a catalog from a ZIP archive.
+ * Imports a catalog from a ZIP archive into a catalog of [catalogType].
  *
- * - If the catalog slug already exists and is AUTHORED: updates resources in place
- * - If the catalog slug already exists and is SUBSCRIBED: rejects the import
- * - If the catalog slug is new: creates the catalog with the chosen type
+ * A slug that already exists with a *different* type is rejected (it would flip
+ * ownership semantics). Otherwise:
+ *
+ * - **AUTHORED** — your editable copy. When the import *creates* the catalog
+ *   and the manifest carries a clean released SemVer + fingerprint, that
+ *   becomes the initial release. Importing into an **existing** AUTHORED
+ *   catalog is an *edit* (release state is never touched — drift shows and the
+ *   owner re-releases deliberately); [authoredMode] decides what happens to
+ *   your local-only resources:
+ *     - `MERGE` (default) — upsert the ZIP's resources over your copy, **keep**
+ *       resources you have locally that the ZIP doesn't (overlay);
+ *     - `REPLACE` — make the catalog *exactly* the ZIP: also **delete**
+ *       local-only resources, conflict-checked before mutating (a pruned
+ *       resource still referenced from another catalog blocks the import,
+ *       same as the SUBSCRIBED path); release state still untouched.
+ *   (Ignored when the import creates the catalog, or for SUBSCRIBED.)
+ * - **SUBSCRIBED** — a managed mirror. The ZIP *is* the upgrade transport
+ *   (instead of a source URL): full `UpgradeCatalog` parity — conflict-checked
+ *   before mutating, resources replaced, stale pruned, abort-on-failed-install
+ *   (no silent half-upgrade), and `installed_*` advanced from the manifest.
  */
 data class ImportCatalogZip(
     override val tenantKey: TenantKey,
     val zipBytes: ByteArray,
     val catalogType: CatalogType,
+    val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
+}
+
+/** What an AUTHORED ZIP import does with resources you have locally but the ZIP doesn't. */
+enum class AuthoredImportMode {
+    /** Overlay: upsert the ZIP's resources, keep local-only ones (default). */
+    MERGE,
+
+    /** Mirror: also delete local-only resources (conflict-checked). */
+    REPLACE,
 }
 
 data class ImportCatalogZipResult(
     val catalogKey: CatalogKey,
     val catalogName: String,
     val results: List<InstallResult>,
+    /**
+     * SUBSCRIBED only: true when a resource install FAILED, so stale resources
+     * were NOT pruned and `installed_*` was NOT advanced — the catalog stays on
+     * its previous release and a re-import retries (parity with `UpgradeCatalog`,
+     * never a silent half-upgrade).
+     */
+    val aborted: Boolean = false,
 )
 
 @Component
@@ -60,9 +97,11 @@ class ImportCatalogZipHandler(
     private val protocolMapper: ProtocolMapper,
     private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
     private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val analyzer: CatalogUpgradeAnalyzer,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
+    private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
         // Size checks: compressed ZIP and decompressed total
@@ -98,12 +137,16 @@ class ImportCatalogZipHandler(
         val manifest = objectMapper.readValue(manifestBytes, CatalogManifest::class.java)
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
-        // Check if catalog already exists
+        // A ZIP import targets a catalog *type*. A slug that already exists
+        // with a different type is a conflict — importing AUTHORED content over
+        // a SUBSCRIBED mirror (or vice-versa) would silently flip ownership
+        // semantics. Same type is fine: AUTHORED ⇒ in-place edit; SUBSCRIBED ⇒
+        // an upgrade (the ZIP is the transport instead of a source URL).
         val existingCatalog = GetCatalog(command.tenantKey, catalogKey).query()
-        if (existingCatalog != null && existingCatalog.type == CatalogType.SUBSCRIBED) {
+        if (existingCatalog != null && existingCatalog.type != command.catalogType) {
             throw IllegalArgumentException(
-                "Catalog '${catalogKey.value}' is subscribed and cannot be updated from a ZIP. " +
-                    "Only authored catalogs can be updated.",
+                "Catalog '${catalogKey.value}' already exists as ${existingCatalog.type} — " +
+                    "cannot import it as ${command.catalogType}.",
             )
         }
 
@@ -128,20 +171,54 @@ class ImportCatalogZipHandler(
             }
         }
 
-        // Create catalog if it doesn't exist
+        val tenantId = TenantId(command.tenantKey)
+        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
+
+        // Stale-prune cases: SUBSCRIBED (always — the ZIP is the upgrade), and
+        // AUTHORED REPLACE into an existing catalog (mirror it exactly). Both
+        // validate cross-catalog conflicts BEFORE any mutation — a stale
+        // resource still referenced from another catalog blocks the whole
+        // import. (New catalog ⇒ nothing installed ⇒ no stale ⇒ no conflicts;
+        // AUTHORED MERGE keeps local-only resources, so never prunes.)
+        val prunesStale = command.catalogType == CatalogType.SUBSCRIBED ||
+            (
+                command.catalogType == CatalogType.AUTHORED &&
+                    existingCatalog != null &&
+                    command.authoredMode == AuthoredImportMode.REPLACE
+                )
+        val staleBefore = if (prunesStale) {
+            val installed = analyzer.installedByType(command.tenantKey, catalogKey)
+            val stale = analyzer.computeStale(installed, manifestSlugs)
+            if (stale.isNotEmpty()) {
+                val conflicts = analyzer.findConflicts(command.tenantKey, catalogKey, stale)
+                if (conflicts.isNotEmpty()) throw CatalogUpgradeConflictException(conflicts)
+            }
+            stale
+        } else {
+            emptyList()
+        }
+
+        // Ensure the catalog row exists with the requested type before install.
         if (existingCatalog == null) {
-            CreateCatalog(
-                tenantKey = command.tenantKey,
-                id = catalogKey,
-                name = manifest.catalog.name,
-                description = manifest.catalog.description,
-            ).execute()
+            when (command.catalogType) {
+                CatalogType.AUTHORED -> CreateCatalog(
+                    tenantKey = command.tenantKey,
+                    id = catalogKey,
+                    name = manifest.catalog.name,
+                    description = manifest.catalog.description,
+                ).execute()
+
+                CatalogType.SUBSCRIBED -> insertSubscribedCatalog(
+                    command.tenantKey,
+                    catalogKey,
+                    manifest.catalog.name,
+                    manifest.catalog.description,
+                )
+            }
         }
 
         // Install resources in dependency order
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
-        val tenantId = TenantId(command.tenantKey)
-
         val results = ordered.map { entry ->
             try {
                 val detailPath = entry.detailUrl.removePrefix("./")
@@ -164,11 +241,191 @@ class ImportCatalogZipHandler(
             }
         }
 
+        val anyFailed = results.any { it.status == InstallStatus.FAILED }
+
+        if (command.catalogType == CatalogType.SUBSCRIBED) {
+            // A ZIP import of a SUBSCRIBED catalog IS its upgrade — same
+            // contract as a URL `UpgradeCatalog`, the ZIP just being the
+            // transport instead of a source URL.
+            if (anyFailed) {
+                // Abort: do NOT prune stale or advance installed_* — the
+                // catalog stays on its previous release and a re-import
+                // retries (never a silent half-upgrade).
+                val failed = results.filter { it.status == InstallStatus.FAILED }
+                logger.error(
+                    "SUBSCRIBED ZIP import of '{}' ABORTED — {} resource(s) failed; not pruning stale, not advancing installed version: {}",
+                    catalogKey.value,
+                    failed.size,
+                    failed.joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
+                )
+                return@runAsImport ImportCatalogZipResult(catalogKey, manifest.catalog.name, results, aborted = true)
+            }
+            analyzer.removeStale(command.tenantKey, catalogKey, staleBefore)
+            updateSubscribedInstalledState(
+                command.tenantKey,
+                catalogKey,
+                manifest.release.version,
+                manifest.release.fingerprint,
+                objectMapper.writeValueAsString(subscribedPerResourceFingerprints(manifest, entries)),
+                manifest.catalog.name,
+                manifest.catalog.description,
+            )
+        } else if (existingCatalog == null &&
+            manifest.release.fingerprint != null &&
+            SemVer.parseOrNull(manifest.release.version) != null &&
+            !anyFailed
+        ) {
+            // AUTHORED: adopt the published version as the *initial* release
+            // only when this import created the catalog. A release is an
+            // authorship act — importing into an existing AUTHORED catalog is
+            // an edit (drift/"unreleased changes" is the correct signal and
+            // the owner releases deliberately); `-dev`/legacy versions are
+            // nothing real to adopt. Skipped if any resource failed.
+            try {
+                ReleaseCatalogVersion(
+                    tenantKey = command.tenantKey,
+                    catalogKey = catalogKey,
+                    version = manifest.release.version,
+                    notes = "Initial release imported from catalog ZIP (publisher: ${manifest.publisher.name})",
+                ).execute()
+                logger.info(
+                    "Catalog '{}' created from ZIP — adopted imported release {} as the initial release",
+                    catalogKey.value,
+                    manifest.release.version,
+                )
+            } catch (e: CatalogReleaseVersionException) {
+                // Defensive only — a brand-new catalog has no prior releases.
+                logger.info(
+                    "Did not adopt imported release {} for new catalog '{}': {}",
+                    manifest.release.version,
+                    catalogKey.value,
+                    e.message,
+                )
+            }
+        } else if (command.catalogType == CatalogType.AUTHORED &&
+            existingCatalog != null &&
+            command.authoredMode == AuthoredImportMode.REPLACE
+        ) {
+            // REPLACE an existing AUTHORED catalog: make it exactly the ZIP by
+            // pruning local-only resources (already conflict-checked above).
+            // Release state is deliberately untouched — this is an edit; the
+            // working copy drifts and the owner re-releases via the Release
+            // action. On a failed install we DON'T prune (avoid a half-replace).
+            if (anyFailed) {
+                logger.warn(
+                    "AUTHORED REPLACE of '{}' — {} resource(s) failed; NOT pruning local-only resources (avoiding a half-replace)",
+                    catalogKey.value,
+                    results.count { it.status == InstallStatus.FAILED },
+                )
+            } else {
+                val removed = analyzer.removeStale(command.tenantKey, catalogKey, staleBefore)
+                logger.info(
+                    "AUTHORED REPLACE of '{}' — {} local-only resource(s) pruned; release state unchanged",
+                    catalogKey.value,
+                    removed.size,
+                )
+            }
+        }
+
+        // Record the wholesale content-set point — reached only on non-aborted
+        // paths (the SUBSCRIBED abort returns early above). NOW() here is after
+        // the resource-install loop, so it is ≥ every imported resource's
+        // updated_at: a no-op re-import advances this in lockstep and does NOT
+        // register as AUTHORED drift; only a later edit does. With released_at
+        // it is the GREATEST(released_at, imported_at) drift baseline.
+        touchImportedAt(command.tenantKey, catalogKey)
+
         ImportCatalogZipResult(
             catalogKey = catalogKey,
             catalogName = manifest.catalog.name,
             results = results,
         )
+    }
+
+    private fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND id = :c")
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .execute()
+        }
+    }
+
+    /** Inserts an empty SUBSCRIBED catalog row (no source URL — ZIP-sourced). */
+    private fun insertSubscribedCatalog(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        name: String,
+        description: String?,
+    ) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO catalogs (id, tenant_key, name, description, type, created_at, updated_at)
+                VALUES (:c, :t, :name, :description, 'SUBSCRIBED', NOW(), NOW())
+                """,
+            )
+                .bind("c", catalogKey)
+                .bind("t", tenantKey)
+                .bind("name", name)
+                .bind("description", description)
+                .execute()
+        }
+    }
+
+    /**
+     * Advances the SUBSCRIBED install pointer from the imported ZIP — the same
+     * `installed_*` state a URL [RegisterCatalog]/[UpgradeCatalog] records,
+     * so the upgrade preview / drift detection work identically. Run last,
+     * only on a fully successful import.
+     */
+    private fun updateSubscribedInstalledState(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        version: String,
+        fingerprint: String?,
+        resourceFingerprintsJson: String,
+        name: String,
+        description: String?,
+    ) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE catalogs
+                SET installed_release_version = :version, installed_fingerprint = :fingerprint,
+                    installed_resource_fingerprints = :resourceFingerprints::jsonb,
+                    name = :name, description = :description, updated_at = NOW()
+                WHERE tenant_key = :t AND id = :c
+                """,
+            )
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .bind("version", version)
+                .bind("fingerprint", fingerprint)
+                .bind("resourceFingerprints", resourceFingerprintsJson)
+                .bind("name", name)
+                .bind("description", description)
+                .execute()
+        }
+    }
+
+    /**
+     * Per-resource source-side digests from the ZIP bytes — the SUBSCRIBED
+     * upgrade-diff baseline, computed with the **exact same** canonicalization
+     * as a URL source ([CatalogCanonicalizer.perResourceFingerprintsFromSerializedDetails]),
+     * keyed `"$type/$slug"`, asset bytes folded in. Equals what the publisher
+     * stamped (deterministic round-trip).
+     */
+    private fun subscribedPerResourceFingerprints(
+        manifest: CatalogManifest,
+        entries: Map<String, ByteArray>,
+    ): Map<String, String> {
+        val detailBytesByKey = manifest.resources.mapNotNull { entry ->
+            entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.slug}" to it }
+        }.toMap()
+        return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytesByKey) { contentUrl ->
+            entries[contentUrl.removePrefix("./")]
+        }
     }
 
     private fun installResource(
