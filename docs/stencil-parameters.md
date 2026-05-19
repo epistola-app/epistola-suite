@@ -159,7 +159,25 @@ Three validators run on every content-mutating command:
    syntactically valid JSONata (`NODE_PARAMETER_BINDING_SYNTAX_INVALID`).
    Resolves the schema via `NodeParameterSchemaProviderRegistry`, which
    dispatches by node type to a provider Spring-bean. Runs from
-   `UpdateDraft` and `UpdateStencilInTemplate`.
+   `UpdateDraft` and `UpdateStencilInTemplate`. Blank/empty/non-string
+   binding values are skipped here (validator #2 rejects them first via
+   `NODE_PARAMETER_BINDING_EMPTY`), so a blank **required** binding reports
+   the precise `NODE_PARAMETER_BINDING_MISSING_REQUIRED` rather than a
+   misleading syntax error.
+
+Each failure carries a first-class machine code (`ValidationException.code`,
+a `ValidationCode` enum value) — no longer a `SCREAMING_CODE:` prefix inside
+the message. A single mapper (`ValidationException.toValidationErrorResponse()`)
+emits the same `{ code, message, errors[] }` body on both the REST
+`ApiExceptionHandler` and the UI draft-save route, and the editor switches on
+`code` (never regex-parsing the message). That mapper is the seam for the
+planned RFC 7807 `application/problem+json` migration.
+
+> **Dual-parser note.** The backend parses JSONata with `com.dashjoin:jsonata`
+> (Java) while the editor uses the `jsonata` npm package. The two grammars can
+> disagree on edge cases; the backend is authoritative and surfaces any
+> mismatch inline at save time. This divergence is a known, accepted trade-off
+> of the SSR + client-editor split.
 
 ## 4. Render-time evaluation
 
