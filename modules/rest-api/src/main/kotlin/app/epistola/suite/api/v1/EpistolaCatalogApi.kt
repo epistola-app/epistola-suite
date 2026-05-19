@@ -7,6 +7,7 @@ import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -75,14 +76,17 @@ class EpistolaCatalogApi : CatalogsApi {
         tenantId: String,
         file: MultipartFile,
         catalogType: String,
+        authoredMode: String,
     ): ResponseEntity<ImportCatalogResponse> {
         val tenantKey = TenantKey.of(tenantId)
         val type = CatalogType.valueOf(catalogType.ifBlank { "AUTHORED" })
+        val mode = AuthoredImportMode.valueOf(authoredMode.ifBlank { "MERGE" })
 
         val result = ImportCatalogZip(
             tenantKey = tenantKey,
             zipBytes = file.bytes,
             catalogType = type,
+            authoredMode = mode,
         ).execute()
 
         val installed = result.results.count { it.status == InstallStatus.INSTALLED }
@@ -97,6 +101,7 @@ class EpistolaCatalogApi : CatalogsApi {
                 updated = updated,
                 failed = failed,
                 total = result.results.size,
+                aborted = result.aborted,
             ),
         )
     }

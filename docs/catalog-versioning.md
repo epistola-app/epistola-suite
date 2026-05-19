@@ -174,6 +174,14 @@ the one case where there is no authorship to protect:
   (Either way, resources present in the ZIP overwrite the local copy — that is
   inherent to importing them; the choice is only about local-_only_ resources.)
 
+  The REST `importCatalog` operation exposes the same choice as an optional
+  `authoredMode` form field (`MERGE` default, `REPLACE`), and its
+  `ImportCatalogResponse.aborted` boolean reports whether a SUBSCRIBED-ZIP
+  upgrade aborted on a failed install (catalog left on its previous release —
+  a retry-safe outcome the `installed`/`updated`/`failed`/`total` counts alone
+  cannot express). There is no MCP import tool yet, so import is not an MCP
+  surface.
+
 - **`-dev`/never-released manifest** → nothing real to adopt; stays unreleased.
 
 ### SUBSCRIBED — the ZIP _is_ the upgrade
