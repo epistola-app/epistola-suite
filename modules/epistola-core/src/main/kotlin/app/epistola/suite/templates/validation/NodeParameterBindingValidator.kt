@@ -1,6 +1,7 @@
 package app.epistola.suite.templates.validation
 
 import app.epistola.suite.templates.model.NodeParameterKeys
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import com.dashjoin.jsonata.Jsonata.jsonata
@@ -44,16 +45,24 @@ class NodeParameterBindingValidator(
                 if (key !in declaredNames) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$key",
-                        "NODE_PARAMETER_BINDING_UNKNOWN: parameter '$key' is not declared in the node's schema",
+                        "parameter '$key' is not declared in the node's schema",
+                        ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN,
                     )
                 }
-                val expr = (rawValue as? String)?.trim() ?: return@forEach
+                // Blank / non-string values are not well-formed bindings; their shape is
+                // PlaceholderValidator's job (NODE_PARAMETER_BINDING_EMPTY, runs first).
+                // Skip them here so a blank required binding surfaces as
+                // NODE_PARAMETER_BINDING_MISSING_REQUIRED rather than a misleading
+                // syntax error.
+                val expr = (rawValue as? String)?.trim()
+                if (expr.isNullOrEmpty()) return@forEach
                 try {
                     jsonata(expr)
                 } catch (e: Exception) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$key",
-                        "NODE_PARAMETER_BINDING_SYNTAX_INVALID: parameter binding '$key' expression is invalid — ${e.message}",
+                        "parameter binding '$key' expression is invalid — ${e.message}",
+                        ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID,
                     )
                 }
             }
@@ -61,14 +70,17 @@ class NodeParameterBindingValidator(
             // Required parameters with neither a binding nor a default.
             val required = (schema["required"] as? List<Any?>)?.filterIsInstance<String>().orEmpty()
             for (name in required) {
-                val hasBinding = rawBindings?.containsKey(name) == true
+                // A present-but-blank value is not a usable binding — treat it as
+                // absent so the precise MISSING_REQUIRED code wins over a syntax error.
+                val hasBinding = (rawBindings?.get(name) as? String)?.isNotBlank() == true
                 if (hasBinding) continue
                 val prop = properties[name] as? Map<String, Any?>
                 val hasDefault = prop?.containsKey("default") == true
                 if (!hasDefault) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$name",
-                        "NODE_PARAMETER_BINDING_MISSING_REQUIRED: required parameter '$name' has no binding and no default",
+                        "required parameter '$name' has no binding and no default",
+                        ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED,
                     )
                 }
             }

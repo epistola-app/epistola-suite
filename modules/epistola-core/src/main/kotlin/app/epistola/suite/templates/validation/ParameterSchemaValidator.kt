@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -39,21 +40,24 @@ class ParameterSchemaValidator {
         if (schema !is ObjectNode) {
             throw ValidationException(
                 fieldPrefix,
-                "PARAMETER_SCHEMA_INVALID_TYPE: parameter schema must be a JSON object",
+                "parameter schema must be a JSON object",
+                ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
             )
         }
         val type = schema.get("type")?.asString()
         if (type != "object") {
             throw ValidationException(
                 "$fieldPrefix.type",
-                "PARAMETER_SCHEMA_INVALID_TYPE: parameter schema 'type' must be 'object'; got '${type ?: "<missing>"}'",
+                "parameter schema 'type' must be 'object'; got '${type ?: "<missing>"}'",
+                ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
             )
         }
         val properties = schema.get("properties")
         if (properties != null && !properties.isNull && properties !is ObjectNode) {
             throw ValidationException(
                 "$fieldPrefix.properties",
-                "PARAMETER_SCHEMA_INVALID_TYPE: 'properties' must be an object",
+                "'properties' must be an object",
+                ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
             )
         }
         val propertiesObj = properties as? ObjectNode
@@ -70,7 +74,8 @@ class ParameterSchemaValidator {
             if (required !is ArrayNode) {
                 throw ValidationException(
                     "$fieldPrefix.required",
-                    "PARAMETER_SCHEMA_INVALID_TYPE: 'required' must be an array",
+                    "'required' must be an array",
+                    ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE,
                 )
             }
             for (item in required) {
@@ -78,7 +83,8 @@ class ParameterSchemaValidator {
                 if (req !in declaredNames) {
                     throw ValidationException(
                         "$fieldPrefix.required",
-                        "PARAMETER_REQUIRED_UNKNOWN: required parameter '$req' is not declared in 'properties'",
+                        "required parameter '$req' is not declared in 'properties'",
+                        ValidationCode.PARAMETER_REQUIRED_UNKNOWN,
                     )
                 }
             }
@@ -89,13 +95,15 @@ class ParameterSchemaValidator {
         if (!nameRegex.matches(name)) {
             throw ValidationException(
                 "$fieldPrefix.properties",
-                "PARAMETER_NAME_INVALID: parameter name '$name' must match ^[a-z][a-zA-Z0-9_]{0,63}\$",
+                "parameter name '$name' must match ^[a-z][a-zA-Z0-9_]{0,63}\$",
+                ValidationCode.PARAMETER_NAME_INVALID,
             )
         }
         if (name in reservedNames || reservedSuffixes.any { name.endsWith(it) }) {
             throw ValidationException(
                 "$fieldPrefix.properties",
-                "PARAMETER_NAME_RESERVED: parameter name '$name' collides with a reserved scope name",
+                "parameter name '$name' collides with a reserved scope name",
+                ValidationCode.PARAMETER_NAME_RESERVED,
             )
         }
     }
@@ -104,13 +112,15 @@ class ParameterSchemaValidator {
         if (propSchema !is ObjectNode) {
             throw ValidationException(
                 fieldPath,
-                "PARAMETER_TYPE_UNSUPPORTED: parameter '$name' must be a schema object",
+                "parameter '$name' must be a schema object",
+                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
             )
         }
         val type = propSchema.get("type")?.asString()
             ?: throw ValidationException(
                 "$fieldPath.type",
-                "PARAMETER_TYPE_UNSUPPORTED: parameter '$name' is missing 'type'",
+                "parameter '$name' is missing 'type'",
+                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
             )
 
         when (type) {
@@ -118,8 +128,9 @@ class ParameterSchemaValidator {
             "array" -> validateArray(name, propSchema, fieldPath)
             else -> throw ValidationException(
                 "$fieldPath.type",
-                "PARAMETER_TYPE_UNSUPPORTED: parameter '$name' has unsupported type '$type' " +
+                "parameter '$name' has unsupported type '$type' " +
                     "(v1 supports: string, number, integer, boolean, array of those)",
+                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
             )
         }
     }
@@ -130,8 +141,9 @@ class ParameterSchemaValidator {
             if (format != null && format !in supportedStringFormats) {
                 throw ValidationException(
                     "$fieldPath.format",
-                    "PARAMETER_TYPE_UNSUPPORTED: parameter '$name' has unsupported string format '$format' " +
+                    "parameter '$name' has unsupported string format '$format' " +
                         "(v1 supports: date, date-time)",
+                    ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
                 )
             }
         }
@@ -142,19 +154,22 @@ class ParameterSchemaValidator {
         val items = propSchema.get("items")
             ?: throw ValidationException(
                 "$fieldPath.items",
-                "PARAMETER_TYPE_UNSUPPORTED: array parameter '$name' is missing 'items'",
+                "array parameter '$name' is missing 'items'",
+                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
             )
         if (items !is ObjectNode) {
             throw ValidationException(
                 "$fieldPath.items",
-                "PARAMETER_TYPE_UNSUPPORTED: array parameter '$name' 'items' must be a schema object",
+                "array parameter '$name' 'items' must be a schema object",
+                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
             )
         }
         val itemType = items.get("type")?.asString()
         if (itemType !in supportedPrimitives) {
             throw ValidationException(
                 "$fieldPath.items.type",
-                "PARAMETER_TYPE_UNSUPPORTED: array parameter '$name' must contain primitives; got '${itemType ?: "<missing>"}'",
+                "array parameter '$name' must contain primitives; got '${itemType ?: "<missing>"}'",
+                ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
             )
         }
         if (itemType == "string") {
@@ -162,7 +177,8 @@ class ParameterSchemaValidator {
             if (format != null && format !in supportedStringFormats) {
                 throw ValidationException(
                     "$fieldPath.items.format",
-                    "PARAMETER_TYPE_UNSUPPORTED: array parameter '$name' items have unsupported string format '$format'",
+                    "array parameter '$name' items have unsupported string format '$format'",
+                    ValidationCode.PARAMETER_TYPE_UNSUPPORTED,
                 )
             }
         }
@@ -181,7 +197,8 @@ class ParameterSchemaValidator {
         if (!ok) {
             throw ValidationException(
                 "$fieldPath.default",
-                "PARAMETER_DEFAULT_TYPE_MISMATCH: parameter '$name' default does not match declared type '$type'",
+                "parameter '$name' default does not match declared type '$type'",
+                ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH,
             )
         }
     }
@@ -191,7 +208,8 @@ class ParameterSchemaValidator {
         if (def !is ArrayNode) {
             throw ValidationException(
                 "$fieldPath.default",
-                "PARAMETER_DEFAULT_TYPE_MISMATCH: parameter '$name' default must be an array",
+                "parameter '$name' default must be an array",
+                ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH,
             )
         }
         if (itemType == null) return
@@ -206,7 +224,8 @@ class ParameterSchemaValidator {
             if (!ok) {
                 throw ValidationException(
                     "$fieldPath.default",
-                    "PARAMETER_DEFAULT_TYPE_MISMATCH: parameter '$name' default items must be of type '$itemType'",
+                    "parameter '$name' default items must be of type '$itemType'",
+                    ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH,
                 )
             }
         }
