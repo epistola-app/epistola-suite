@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.api.v1.toValidationErrorResponse
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -121,15 +122,11 @@ class VersionRouteHandler(
                 templateModel = templateModel,
             ).execute()
         } catch (e: ValidationException) {
+            // Same body the REST surface returns (shared mapper) so the editor
+            // can switch on `code` instead of regex-parsing the message.
             return ServerResponse.badRequest()
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(
-                    mapOf(
-                        "code" to "VALIDATION_ERROR",
-                        "message" to e.message,
-                        "field" to e.field,
-                    ),
-                )
+                .body(e.toValidationErrorResponse())
         }
 
         // Return minimal success response (UI doesn't need full DTO)
