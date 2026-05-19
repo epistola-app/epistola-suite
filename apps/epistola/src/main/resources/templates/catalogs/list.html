@@ -72,9 +72,14 @@
                             <span th:if="${catalog.releasedVersion}" th:text="'v' + ${catalog.releasedVersion}"></span>
                             <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
                         </th:block>
-                        <th:block th:unless="${catalog.type.name() == 'AUTHORED'}">
-                            <span th:if="${catalog.installedReleaseVersion}" th:text="'v' + ${catalog.installedReleaseVersion}"></span>
-                            <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
+                        <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"
+                                  th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
+                                           catalogId=${catalog.id},
+                                           installedVersion=${catalog.installedReleaseVersion},
+                                           availableVersion=null">
+                            <span th:id="${'catver-' + catalog.id}">
+                                <th:block th:replace="~{catalogs/list :: version-status}"></th:block>
+                            </span>
                         </th:block>
                     </td>
                     <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
@@ -93,13 +98,13 @@
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{fragments/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
-                        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}"
-                                  th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
-                                           catalogId=${catalog.id},
-                                           installedVersion=${catalog.installedReleaseVersion},
-                                           availableVersion=null">
-                            <th:block th:replace="~{catalogs/list :: upgrade-indicator}"></th:block>
-                        </th:block>
+                        <button type="button"
+                                th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
+                            <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                        </button>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id.toString() == 'default'}"
@@ -341,60 +346,46 @@
          open dialog) while #catalog-list updates via OOB. -->
     <th:block th:fragment="release-done"></th:block>
 
-    <!-- Per-row SUBSCRIBED upgrade indicator. Explicit, user-driven: it never
-         polls the source on its own — the user clicks "Check for updates"
-         (and "Check again"). `state` ∈ UNCHECKED | UP_TO_DATE |
-         UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED. The fragment is
-         rendered inline (initial UNCHECKED/ZIP_MANAGED via th:with on the row)
-         and returned by `upgrade-check` for the post-check states; every
-         self-replacing action targets `closest .upgrade-indicator`. CSP-safe
-         (hx-get only, no hx-on / inline JS). -->
-    <th:block th:fragment="upgrade-indicator">
-        <span class="upgrade-indicator" th:switch="${state}"
-              style="display: inline-flex; align-items: center; gap: var(--ep-space-2);">
+    <!-- Per-row SUBSCRIBED version + update status, rendered into the Version
+         cell's #catver-<id> span. Explicit/user-driven: the row's
+         "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
+         returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
+         UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED. Up to date
+         is green; an available update is grey + the new version, which is the
+         clickable entry to the Review dialog. CSP-safe (hx-get only). -->
+    <th:block th:fragment="version-status" th:switch="${state}">
 
-            <button th:case="'UNCHECKED'" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                    title="Check the source for a newer release"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
-                    hx-target="closest .upgrade-indicator" hx-swap="outerHTML">
-                Check for updates
-            </button>
+        <span th:case="'UNCHECKED'"
+              th:classappend="${installedVersion == null ? 'text-muted' : ''}"
+              th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
 
-            <th:block th:case="'UP_TO_DATE'">
-                <span class="text-muted"
-                      th:text="${installedVersion != null ? 'Up to date · v' + installedVersion : 'Up to date'}">Up to date</span>
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" title="Check again"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
-                        hx-target="closest .upgrade-indicator" hx-swap="outerHTML">Recheck</button>
-            </th:block>
+        <span th:case="'UP_TO_DATE'" title="Up to date"
+              style="color: var(--ep-green-700); font-weight: 500;"
+              th:text="${installedVersion != null ? 'v' + installedVersion : 'Up to date'}">v1.0.0</span>
 
-            <th:block th:case="'UPDATE_AVAILABLE'">
-                <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
-                        hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
-                    <th:block th:replace="~{fragments/icon :: icon(name='arrow-up-circle', class='ep-icon ep-icon-sm')}" />
-                    <span th:text="${availableVersion != null ? 'Update → v' + availableVersion : 'Update available'}">Update available</span>
-                </button>
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" title="Check again"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
-                        hx-target="closest .upgrade-indicator" hx-swap="outerHTML">Recheck</button>
-            </th:block>
-
-            <span th:case="'ZIP_MANAGED'" class="text-muted"
-                  title="No source URL — this mirror is managed via ZIP. Import a newer ZIP as a Subscribed catalog to upgrade it.">
-                ZIP-managed
-            </span>
-
-            <th:block th:case="'CHECK_FAILED'">
-                <span class="text-muted">Source unreachable</span>
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" title="Retry"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalogId})}"
-                        hx-target="closest .upgrade-indicator" hx-swap="outerHTML">Retry</button>
-            </th:block>
-
-            <span th:case="*"></span>
+        <span th:case="'UPDATE_AVAILABLE'"
+              style="display: inline-flex; align-items: baseline; gap: var(--ep-space-1);">
+            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="font-weight: 500;"
+                    th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
+                    hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
+                    th:text="${availableVersion != null ? '→ v' + availableVersion : '→ update available'}">→ v1.1.0</button>
         </span>
+
+        <span th:case="'ZIP_MANAGED'" class="text-muted"
+              title="ZIP-managed — no source URL. Import a newer ZIP as a Subscribed catalog to upgrade it.">
+            <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span style="font-size: var(--ep-text-xs);">· ZIP</span>
+        </span>
+
+        <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
+            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span class="text-muted" style="font-size: var(--ep-text-xs);">· check failed</span>
+        </span>
+
+        <span th:case="*" class="text-muted"
+              th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
     </th:block>
 
     <!-- Upgrade preview/apply dialog. Rendered via the dedicated GET/POST so

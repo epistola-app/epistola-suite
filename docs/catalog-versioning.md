@@ -198,13 +198,15 @@ added later if automation demand appears.
   (`CatalogCanonicalizer.perResourceFingerprints*`); cross-catalog conflicts on
   the removal set are computed by the shared `CatalogUpgradeAnalyzer` that
   `UpgradeCatalog` also throws on, so a blocking conflict surfaces in the
-  preview before Apply. **UI:** an **explicit, user-driven** per-row upgrade
-  indicator (never auto-polls): the user clicks **Check for updates** and the
-  row shows _Up to date_ / _Update → vX_ / _ZIP-managed_ / _Source
-  unreachable_; "Update" opens the "Review catalog upgrade" dialog (version
-  delta, change buckets, conflicts with a server-rendered disabled Apply,
-  opt-in "also install new resources" wired to
-  `UpgradeCatalog.includeNewSlugs`). **Read parity:** REST
+  preview before Apply. **UI:** an **explicit, user-driven** check — a refresh
+  **icon** in the row's actions cell (never auto-polls) renders the result in
+  the **Version column**: green `vX` (up to date), greyed `vX` + clickable
+  `→ vY` (update available — the new version named; opens the Review dialog),
+  `vX · ZIP` (ZIP-managed mirror — no source URL, upgrade by re-importing),
+  or `vX · check failed` (source unreachable). The "Review catalog upgrade"
+  dialog shows the version delta, change buckets, conflicts with a
+  server-rendered disabled Apply, and an opt-in "also install new resources"
+  wired to `UpgradeCatalog.includeNewSlugs`. **Read parity:** REST
   `GET /tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview`
   (`CatalogUpgradeDiff`) and MCP `preview_catalog_upgrade`; the upgrade
   _action_ stays UI-only. Still open: ZIP-import dry-run.

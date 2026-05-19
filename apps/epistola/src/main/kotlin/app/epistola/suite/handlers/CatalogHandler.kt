@@ -284,7 +284,7 @@ class CatalogHandler {
                 model["state"] = "CHECK_FAILED"
             }
         }
-        return ServerResponse.ok().render("catalogs/list :: upgrade-indicator", model)
+        return ServerResponse.ok().render("catalogs/list :: version-status", model)
     }
 
     private fun upgradeDialog(tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null): ServerResponse {
