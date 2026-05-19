@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.kernel.pdf.tagging.StandardRoles
 import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.IElement
@@ -119,9 +120,11 @@ class TableNodeRenderer : NodeRenderer {
                     cell.setPadding(context.renderingDefaults.tableCellPadding)
                 }
 
-                // Bold for header rows
+                // Bold + TH role for header rows so screen readers associate
+                // data cells with their headers (WCAG PDF6)
                 if (isHeaderRow) {
                     cell.setFont(context.fontCache.bold)
+                    cell.accessibilityProperties.setRole(StandardRoles.TH)
                 }
 
                 // Render cell slot children (from the anchor cell's slot)
@@ -137,7 +140,11 @@ class TableNodeRenderer : NodeRenderer {
                     }
                 }
 
-                table.addCell(cell)
+                if (isHeaderRow) {
+                    table.addHeaderCell(cell)
+                } else {
+                    table.addCell(cell)
+                }
             }
         }
 

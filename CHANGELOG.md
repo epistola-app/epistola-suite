@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Accessible (WCAG 2.x / PDF-UA-1) PDF generation.** Generated PDFs are now tagged documents with a logical structure tree. Headings carry semantic `H1`–`H6` roles and feed a nested document outline whose bookmarks navigate to each heading's actual page (via named destinations anchored during layout). Hyperlinks get an accessible description; images expose their alt text, or are marked as artifacts when flagged decorative (new "Decorative Image" toggle in the editor image inspector, `decorative` prop); table header cells are tagged `TH` and emitted as table headers so screen readers associate them with data cells; running page headers and footers are marked as artifacts so assistive tech skips them. Document-level metadata sets the catalog language (`/Lang`, new `PdfMetadata.language`, default `nl-NL`), shows the document title in the viewer title bar, declares PDF/UA-1 in XMP, and applies decimal page labels.
+
 ## [0.20.0] - 2026-05-16
 
 ### Added

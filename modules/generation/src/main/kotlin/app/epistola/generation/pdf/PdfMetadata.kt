@@ -15,4 +15,9 @@ data class PdfMetadata(
      * e.g., `"epistola-gen-1+itext-9.5.0"`
      */
     val engineVersion: String? = null,
+    /**
+     * BCP 47 language tag for the document (e.g., "nl-NL", "en-US").
+     * Written to the PDF catalog /Lang entry for accessibility (WCAG PDF16).
+     */
+    val language: String = "nl-NL",
 )

@@ -3,6 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.io.image.ImageDataFactory
+import com.itextpdf.kernel.pdf.tagging.StandardRoles
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
@@ -78,6 +79,16 @@ class ImageNodeRenderer(
                 )
                 RenderMode.PREVIEW -> ErrorPlaceholder.render("Image failed: ${e.message}")
             }
+        }
+
+        // Accessibility: decorative images are artifacts (skipped by screen
+        // readers); otherwise expose the alt text (WCAG PDF1/PDF4)
+        val decorative = props["decorative"] as? Boolean ?: false
+        val altText = props["alt"] as? String
+        if (decorative) {
+            image.accessibilityProperties.setRole(StandardRoles.ARTIFACT)
+        } else if (!altText.isNullOrBlank()) {
+            image.accessibilityProperties.setAlternateDescription(altText)
         }
 
         // Apply width/height from props

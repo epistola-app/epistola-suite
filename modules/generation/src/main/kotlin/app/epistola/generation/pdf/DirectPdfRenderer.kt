@@ -10,11 +10,17 @@ import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.PageSize
+import com.itextpdf.kernel.pdf.PageLabelNumberingStyle
 import com.itextpdf.kernel.pdf.PdfAConformance
 import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfOutline
 import com.itextpdf.kernel.pdf.PdfOutputIntent
+import com.itextpdf.kernel.pdf.PdfString
+import com.itextpdf.kernel.pdf.PdfViewerPreferences
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
+import com.itextpdf.kernel.pdf.navigation.PdfNamedDestination
+import com.itextpdf.kernel.xmp.XMPMetaFactory
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
 import java.io.OutputStream
@@ -354,7 +360,13 @@ class DirectPdfRenderer(
     ): Int {
         val writer = PdfWriter(outputStream)
         val pdfDocument = createPdfDocument(writer, enablePdfA)
-        if (enableMetadata) applyMetadata(pdfDocument, metadata)
+        if (enableMetadata) {
+            // Enable tagged PDF so screen readers get a structure tree
+            // (WCAG PDF3/PDF9/PDF11/PDF21). Skipped on the discarded
+            // first counting pass.
+            pdfDocument.setTagged()
+            applyMetadata(pdfDocument, metadata)
+        }
 
         val nodeRendererRegistry = createDefaultRegistry(pdfDocument)
 
@@ -425,8 +437,39 @@ class DirectPdfRenderer(
         }
 
         val totalPages = pdfDocument.numberOfPages
+        if (enableMetadata) {
+            // Consistent page numbering for assistive tech (WCAG PDF17)
+            if (pdfDocument.numberOfPages > 0) {
+                pdfDocument.getPage(1).setPageLabel(PageLabelNumberingStyle.DECIMAL_ARABIC_NUMERALS, null, 1)
+            }
+            // Document outline / bookmarks from collected headings (WCAG PDF2)
+            buildOutline(pdfDocument, context.bookmarkCollector)
+        }
         iTextDocument.close()
         return totalPages
+    }
+
+    /**
+     * Builds a nested document outline from the headings collected during
+     * rendering (WCAG PDF2). Outlines are nested by heading level and each
+     * points to a named destination anchored at the heading, so bookmarks
+     * navigate to the heading's actual page.
+     */
+    private fun buildOutline(pdfDocument: PdfDocument, bookmarks: List<BookmarkEntry>) {
+        if (bookmarks.isEmpty()) return
+
+        val root = pdfDocument.getOutlines(true)
+        // Stack of (level, outline) tracking the current ancestor chain.
+        val stack = ArrayDeque<Pair<Int, PdfOutline>>()
+        for (bookmark in bookmarks) {
+            while (stack.isNotEmpty() && stack.last().first >= bookmark.level) {
+                stack.removeLast()
+            }
+            val parent = if (stack.isEmpty()) root else stack.last().second
+            val outline = parent.addOutline(bookmark.title)
+            outline.addDestination(PdfNamedDestination(bookmark.destinationName))
+            stack.addLast(bookmark.level to outline)
+        }
     }
 
     private fun createPdfDocument(writer: PdfWriter, pdfaCompliant: Boolean): PdfDocument = if (pdfaCompliant) {
@@ -455,6 +498,19 @@ class DirectPdfRenderer(
         metadata.subject?.let { info.setSubject(it) }
         info.setCreator(metadata.creator)
         metadata.engineVersion?.let { info.setMoreInfo("EngineVersion", it) }
+
+        // Document language for assistive technology (WCAG PDF16)
+        pdfDocument.catalog.lang = PdfString(metadata.language)
+
+        // Show the document title (not the filename) in the viewer title bar (WCAG PDF18)
+        if (metadata.title != null) {
+            pdfDocument.catalog.viewerPreferences = PdfViewerPreferences().setDisplayDocTitle(true)
+        }
+
+        // PDF/UA-1 identification in XMP metadata (ISO 14289-1 §5)
+        val xmpMeta = XMPMetaFactory.create()
+        xmpMeta.setPropertyInteger("http://www.aiim.org/pdfua/ns/id/", "pdfuaid:part", 1)
+        pdfDocument.xmpMetadata = xmpMeta
     }
 
     private fun getPageSize(format: PageFormat, orientation: Orientation): PageSize {
