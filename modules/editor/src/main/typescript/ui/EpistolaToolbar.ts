@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { EditorEngine } from '../engine/EditorEngine.js';
 import type { SaveState } from './save-service.js';
 import type { ToolbarAction } from '../plugins/types.js';
-import { parseBindingSaveError } from '../components/stencil/binding-row.js';
+import { parseBindingSaveError } from '../components/stencil/binding-errors.js';
 import { icon } from './icons.js';
 import { buildShortcutGroupsProjection, type ShortcutGroup } from './shortcuts.js';
 import { normalizeShortcutEvent } from '../shortcuts/resolver.js';
@@ -728,11 +728,11 @@ export class EpistolaToolbar extends LitElement {
   }
 
   private _renderSaveButton() {
-    const status = this.saveState?.status ?? 'idle';
+    const ss = this.saveState;
+    const status = ss?.status ?? 'idle';
     const isError = status === 'error';
-    const errorMsg = isError
-      ? (this.saveState as { status: 'error'; message: string }).message
-      : '';
+    const errorState = ss && ss.status === 'error' ? ss : null;
+    const errorMsg = errorState?.message ?? '';
 
     // Determine button attributes based on state
     const disabled = status === 'idle' || status === 'saving' || status === 'saved';
@@ -771,7 +771,7 @@ export class EpistolaToolbar extends LitElement {
     }
 
     // Parse binding validation errors for a more visible inline message
-    const bindingError = isError ? parseBindingSaveError(errorMsg) : null;
+    const bindingError = errorState ? parseBindingSaveError(errorState) : null;
     const displayError = bindingError
       ? `Invalid binding for "${bindingError.paramName}": ${bindingError.message}`
       : null;

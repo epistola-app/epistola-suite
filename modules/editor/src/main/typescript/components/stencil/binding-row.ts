@@ -198,30 +198,6 @@ function typeOf(prop: JsonSchemaProperty | undefined): string {
   return t ?? 'string';
 }
 
-/**
- * Parse a save error message for known binding-validation error codes.
- * Returns structured info when the message matches, null otherwise.
- *
- * Handles:
- *  - NODE_PARAMETER_BINDING_SYNTAX_INVALID: parameter binding 'X' expression is invalid — {msg}
- */
-export function parseBindingSaveError(
-  message: string,
-): { paramName: string; message: string } | null {
-  const syntaxMatch = message.match(
-    /^NODE_PARAMETER_BINDING_SYNTAX_INVALID:\s*parameter binding '([^']+)' expression is invalid/u,
-  );
-  if (syntaxMatch) {
-    const paramName = syntaxMatch[1];
-    // Extract the parser message after the " — " separator
-    const parserMsg = message.includes(' — ')
-      ? message.slice(message.indexOf(' — ') + 3)
-      : 'Invalid JSONata expression';
-    return { paramName, message: parserMsg };
-  }
-  return null;
-}
-
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!;
