@@ -123,7 +123,7 @@ epistola:
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
     feedback: true
-    stencil-parameters: false
+    stencil-parameters: true
 
   # Feedback sync configuration (provider-agnostic)
   # Controls outbound sync retry and inbound polling.

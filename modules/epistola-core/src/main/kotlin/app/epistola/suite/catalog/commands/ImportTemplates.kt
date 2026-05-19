@@ -135,7 +135,7 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_key, theme_catalog_key, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, FALSE, NOW(), NOW(), :createdBy, :updatedBy)
+                    VALUES (:id, :tenantId, :catalogKey, :name, :themeKey, :themeCatalogKey, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                     SET name = :name, theme_key = :themeKey, theme_catalog_key = :themeCatalogKey, updated_at = NOW(), updated_by = :updatedBy
                     """,

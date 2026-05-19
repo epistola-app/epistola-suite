@@ -10,6 +10,6 @@ object KnownFeatures {
 
     val descriptions: Map<FeatureKey, String> = mapOf(
         FEEDBACK to "Enables feedback option.",
-        STENCIL_PARAMETERS to "Enables typed parameters on stencils (preview).",
+        STENCIL_PARAMETERS to "Enables typed parameters on stencils.",
     )
 }
