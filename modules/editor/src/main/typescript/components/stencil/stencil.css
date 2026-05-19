@@ -213,4 +213,23 @@
   .stencil-btn {
     width: 100%;
   }
+
+  /* ── Binding row ─────────────────────────────────────────────────────── */
+
+  .binding-row-input.binding-row-valid {
+    border-color: var(--ep-green-500, #22c55e);
+  }
+
+  .binding-row-input.binding-row-invalid {
+    border-color: var(--ep-destructive, #dc2626);
+    background: var(--ep-red-50, #fef2f2);
+  }
+
+  .binding-row-input.binding-row-valid:focus {
+    box-shadow: 0 0 0 2px var(--ep-green-200, #bbf7d0);
+  }
+
+  .binding-row-input.binding-row-invalid:focus {
+    box-shadow: 0 0 0 2px var(--ep-red-200, #fecaca);
+  }
 }

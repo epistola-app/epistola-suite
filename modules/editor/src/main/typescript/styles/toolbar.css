@@ -117,6 +117,16 @@
     }
   }
 
+  .toolbar-save-error-text {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600, #dc2626);
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: default;
+  }
+
   .toolbar-example-selector {
     display: flex;
     align-items: center;

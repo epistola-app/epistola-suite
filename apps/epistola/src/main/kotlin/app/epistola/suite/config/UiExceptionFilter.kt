@@ -9,6 +9,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Catches all exceptions from UI request processing and translates them into
@@ -21,7 +22,9 @@ import org.springframework.web.filter.OncePerRequestFilter
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE)
-class UiExceptionFilter : OncePerRequestFilter() {
+class UiExceptionFilter(
+    private val objectMapper: ObjectMapper,
+) : OncePerRequestFilter() {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean = request.requestURI.startsWith("/api/")
@@ -43,7 +46,10 @@ class UiExceptionFilter : OncePerRequestFilter() {
             if (acceptsJson || isHtmx) {
                 response.status = status
                 response.contentType = MediaType.APPLICATION_JSON_VALUE
-                response.writer.write("""{"error":"$message"}""")
+                // Encode via Jackson — messages can contain quotes/backslashes/
+                // newlines (e.g. domain messages, parser text) that would break
+                // hand-built JSON.
+                response.writer.write(objectMapper.writeValueAsString(mapOf("error" to message)))
             } else {
                 response.sendError(status, message)
             }

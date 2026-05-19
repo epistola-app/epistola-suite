@@ -24,7 +24,21 @@ export type SaveState =
   | { status: 'dirty' }
   | { status: 'saving' }
   | { status: 'saved' }
-  | { status: 'error'; message: string };
+  | {
+      status: 'error';
+      message: string;
+      /** Machine-readable validation code (e.g. NODE_PARAMETER_BINDING_SYNTAX_INVALID). */
+      code?: string;
+      /** Field path the validation error points at, when available. */
+      field?: string;
+    };
+
+/**
+ * Error optionally carrying the structured validation code/field a save route
+ * returned. The host `onSave` attaches `code`/`field` to the thrown Error so
+ * consumers never have to regex-parse the human message.
+ */
+type SaveErrorLike = Error & { code?: unknown; field?: unknown };
 
 export type SaveFn = (doc: TemplateDocument) => Promise<void>;
 
@@ -190,7 +204,10 @@ export class SaveService {
       this._saving = false;
       this._pendingDoc = null;
       const message = err instanceof Error ? err.message : 'Save failed';
-      this._setState({ status: 'error', message });
+      const e = err as SaveErrorLike;
+      const code = typeof e?.code === 'string' ? e.code : undefined;
+      const field = typeof e?.field === 'string' ? e.field : undefined;
+      this._setState({ status: 'error', message, code, field });
     }
   }
 }

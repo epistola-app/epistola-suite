@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -97,14 +98,14 @@ class ParameterSchemaValidatorTest {
         fun `non-object schema is rejected`() {
             assertThatThrownBy { validator.validate(objectMapper.readTree("[]")) }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_SCHEMA_INVALID_TYPE")
+                .hasValidationCode(ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE)
         }
 
         @Test
         fun `schema with type other than 'object' is rejected`() {
             assertThatThrownBy { validator.validate(schema("""{"type":"array"}""")) }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_SCHEMA_INVALID_TYPE")
+                .hasValidationCode(ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE)
                 .hasMessageContaining("must be 'object'")
         }
 
@@ -112,7 +113,7 @@ class ParameterSchemaValidatorTest {
         fun `properties as a non-object is rejected`() {
             assertThatThrownBy { validator.validate(schema("""{"type":"object","properties":[]}""")) }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_SCHEMA_INVALID_TYPE")
+                .hasValidationCode(ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE)
                 .hasMessageContaining("'properties' must be an object")
         }
 
@@ -120,7 +121,7 @@ class ParameterSchemaValidatorTest {
         fun `required as a non-array is rejected`() {
             assertThatThrownBy { validator.validate(schema("""{"type":"object","properties":{},"required":"a"}""")) }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_SCHEMA_INVALID_TYPE")
+                .hasValidationCode(ValidationCode.PARAMETER_SCHEMA_INVALID_TYPE)
                 .hasMessageContaining("'required' must be an array")
         }
     }
@@ -133,7 +134,7 @@ class ParameterSchemaValidatorTest {
                 validator.validate(schema("""{"type":"object","properties":{"recipient-name":{"type":"string"}}}"""))
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_NAME_INVALID")
+                .hasValidationCode(ValidationCode.PARAMETER_NAME_INVALID)
         }
 
         @Test
@@ -142,7 +143,7 @@ class ParameterSchemaValidatorTest {
                 validator.validate(schema("""{"type":"object","properties":{"Foo":{"type":"string"}}}"""))
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_NAME_INVALID")
+                .hasValidationCode(ValidationCode.PARAMETER_NAME_INVALID)
         }
 
         @Test
@@ -151,7 +152,7 @@ class ParameterSchemaValidatorTest {
                 validator.validate(schema("""{"type":"object","properties":{"1foo":{"type":"string"}}}"""))
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_NAME_INVALID")
+                .hasValidationCode(ValidationCode.PARAMETER_NAME_INVALID)
         }
 
         @Test
@@ -160,7 +161,7 @@ class ParameterSchemaValidatorTest {
                 validator.validate(schema("""{"type":"object","properties":{"params":{"type":"string"}}}"""))
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_NAME_RESERVED")
+                .hasValidationCode(ValidationCode.PARAMETER_NAME_RESERVED)
         }
 
         @Test
@@ -170,7 +171,7 @@ class ParameterSchemaValidatorTest {
                     validator.validate(schema("""{"type":"object","properties":{"$name":{"type":"string"}}}"""))
                 }
                     .isInstanceOf(ValidationException::class.java)
-                    .hasMessageContaining("PARAMETER_NAME_RESERVED")
+                    .hasValidationCode(ValidationCode.PARAMETER_NAME_RESERVED)
             }
         }
 
@@ -181,7 +182,7 @@ class ParameterSchemaValidatorTest {
                     validator.validate(schema("""{"type":"object","properties":{"$name":{"type":"string"}}}"""))
                 }
                     .isInstanceOf(ValidationException::class.java)
-                    .hasMessageContaining("PARAMETER_NAME_RESERVED")
+                    .hasValidationCode(ValidationCode.PARAMETER_NAME_RESERVED)
             }
         }
     }
@@ -196,7 +197,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_TYPE_UNSUPPORTED")
+                .hasValidationCode(ValidationCode.PARAMETER_TYPE_UNSUPPORTED)
                 .hasMessageContaining("type 'object'")
         }
 
@@ -206,7 +207,7 @@ class ParameterSchemaValidatorTest {
                 validator.validate(schema("""{"type":"object","properties":{"x":{}}}"""))
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_TYPE_UNSUPPORTED")
+                .hasValidationCode(ValidationCode.PARAMETER_TYPE_UNSUPPORTED)
                 .hasMessageContaining("missing 'type'")
         }
 
@@ -218,7 +219,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_TYPE_UNSUPPORTED")
+                .hasValidationCode(ValidationCode.PARAMETER_TYPE_UNSUPPORTED)
                 .hasMessageContaining("format 'email'")
         }
 
@@ -228,7 +229,7 @@ class ParameterSchemaValidatorTest {
                 validator.validate(schema("""{"type":"object","properties":{"x":{"type":"array"}}}"""))
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_TYPE_UNSUPPORTED")
+                .hasValidationCode(ValidationCode.PARAMETER_TYPE_UNSUPPORTED)
                 .hasMessageContaining("missing 'items'")
         }
 
@@ -244,7 +245,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_TYPE_UNSUPPORTED")
+                .hasValidationCode(ValidationCode.PARAMETER_TYPE_UNSUPPORTED)
         }
     }
 
@@ -258,7 +259,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_REQUIRED_UNKNOWN")
+                .hasValidationCode(ValidationCode.PARAMETER_REQUIRED_UNKNOWN)
                 .hasMessageContaining("'b'")
         }
     }
@@ -273,7 +274,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_DEFAULT_TYPE_MISMATCH")
+                .hasValidationCode(ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH)
         }
 
         @Test
@@ -284,7 +285,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_DEFAULT_TYPE_MISMATCH")
+                .hasValidationCode(ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH)
         }
 
         @Test
@@ -299,7 +300,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_DEFAULT_TYPE_MISMATCH")
+                .hasValidationCode(ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH)
         }
 
         @Test
@@ -314,7 +315,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_DEFAULT_TYPE_MISMATCH")
+                .hasValidationCode(ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH)
         }
 
         @Test
@@ -336,7 +337,7 @@ class ParameterSchemaValidatorTest {
                 )
             }
                 .isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("PARAMETER_DEFAULT_TYPE_MISMATCH")
+                .hasValidationCode(ValidationCode.PARAMETER_DEFAULT_TYPE_MISMATCH)
         }
     }
 

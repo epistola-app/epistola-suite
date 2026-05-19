@@ -1,8 +1,10 @@
 package app.epistola.suite.templates.validation
 
 import app.epistola.suite.templates.model.NodeParameterKeys
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
+import com.dashjoin.jsonata.Jsonata.jsonata
 import org.springframework.stereotype.Component
 
 /**
@@ -11,16 +13,13 @@ import org.springframework.stereotype.Component
  * via [NodeParameterSchemaProviderRegistry], then verifies:
  *  - every binding key references a declared parameter (`NODE_PARAMETER_BINDING_UNKNOWN`);
  *  - every required parameter has a binding (or a `default` declared on its schema)
- *    (`NODE_PARAMETER_BINDING_MISSING_REQUIRED`).
+ *    (`NODE_PARAMETER_BINDING_MISSING_REQUIRED`);
+ *  - every binding expression is syntactically valid JSONata
+ *    (`NODE_PARAMETER_BINDING_SYNTAX_INVALID`).
  *
  * Structural shape is checked separately by
  * [PlaceholderValidator.validateStencilBindingShape] and runs first; this validator
  * assumes the bindings map is already well-formed.
- *
- * JSONata syntax of binding values is not validated here in v1 — the editor
- * validates at edit time, and the renderer fails gracefully on bad expressions.
- * If we later want defence-in-depth, `com.dashjoin:jsonata` can be added as a
- * dependency and the parse called on each value.
  */
 @Component
 class NodeParameterBindingValidator(
@@ -40,13 +39,30 @@ class NodeParameterBindingValidator(
             val properties = schema["properties"] as? Map<String, Any?> ?: continue
             val declaredNames = properties.keys
 
-            // Unknown keys in bindings.
-            rawBindings?.keys?.forEach { rawKey ->
+            // Unknown keys in bindings + JSONata syntax check.
+            rawBindings?.forEach { (rawKey, rawValue) ->
                 val key = rawKey as? String ?: return@forEach
                 if (key !in declaredNames) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$key",
-                        "NODE_PARAMETER_BINDING_UNKNOWN: parameter '$key' is not declared in the node's schema",
+                        "parameter '$key' is not declared in the node's schema",
+                        ValidationCode.NODE_PARAMETER_BINDING_UNKNOWN,
+                    )
+                }
+                // Blank / non-string values are not well-formed bindings; their shape is
+                // PlaceholderValidator's job (NODE_PARAMETER_BINDING_EMPTY, runs first).
+                // Skip them here so a blank required binding surfaces as
+                // NODE_PARAMETER_BINDING_MISSING_REQUIRED rather than a misleading
+                // syntax error.
+                val expr = (rawValue as? String)?.trim()
+                if (expr.isNullOrEmpty()) return@forEach
+                try {
+                    jsonata(expr)
+                } catch (e: Exception) {
+                    throw ValidationException(
+                        "content.${node.type}.props.parameterBindings.$key",
+                        "parameter binding '$key' expression is invalid — ${e.message}",
+                        ValidationCode.NODE_PARAMETER_BINDING_SYNTAX_INVALID,
                     )
                 }
             }
@@ -54,14 +70,17 @@ class NodeParameterBindingValidator(
             // Required parameters with neither a binding nor a default.
             val required = (schema["required"] as? List<Any?>)?.filterIsInstance<String>().orEmpty()
             for (name in required) {
-                val hasBinding = rawBindings?.containsKey(name) == true
+                // A present-but-blank value is not a usable binding — treat it as
+                // absent so the precise MISSING_REQUIRED code wins over a syntax error.
+                val hasBinding = (rawBindings?.get(name) as? String)?.isNotBlank() == true
                 if (hasBinding) continue
                 val prop = properties[name] as? Map<String, Any?>
                 val hasDefault = prop?.containsKey("default") == true
                 if (!hasDefault) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$name",
-                        "NODE_PARAMETER_BINDING_MISSING_REQUIRED: required parameter '$name' has no binding and no default",
+                        "required parameter '$name' has no binding and no default",
+                        ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED,
                     )
                 }
             }

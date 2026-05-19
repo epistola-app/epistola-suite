@@ -490,21 +490,9 @@ class ApiExceptionHandler {
      */
     @ExceptionHandler(ValidationException::class)
     fun handleValidationException(ex: ValidationException): ResponseEntity<ValidationErrorResponse> {
-        logger.warn("Validation failed for field '{}': {}", ex.field, ex.message)
+        logger.warn("Validation failed [{}] for field '{}': {}", ex.code.wire, ex.field, ex.message)
 
-        val response = ValidationErrorResponse(
-            code = "VALIDATION_ERROR",
-            message = ex.message,
-            errors = listOf(
-                FieldError(
-                    field = ex.field,
-                    message = ex.message,
-                    rejectedValue = null,
-                ),
-            ),
-        )
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.toValidationErrorResponse())
     }
 
     /**
