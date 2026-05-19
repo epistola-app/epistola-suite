@@ -137,6 +137,11 @@ class ProseMirrorConverter(
             paragraph.setSpacingRatio(0f)
             if (segment.isNotEmpty()) {
                 addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
+            } else {
+                // Empty paragraph or hard-break-only segment: editor shows a blank
+                // line, but a content-less iText Paragraph collapses to zero height.
+                // A NBSP gives the paragraph one line of vertical space.
+                paragraph.add(Text(BLANK_LINE_PLACEHOLDER))
             }
             paragraph
         }
@@ -193,6 +198,8 @@ class ProseMirrorConverter(
             paragraph.setSpacingRatio(0f)
             if (segment.isNotEmpty()) {
                 addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
+            } else {
+                paragraph.add(Text(BLANK_LINE_PLACEHOLDER))
             }
             paragraph
         }
@@ -486,6 +493,9 @@ class ProseMirrorConverter(
 
         /** Standard link color (blue) used for hyperlinks in PDF output. */
         private val LINK_COLOR = DeviceRgb(0, 0, 238)
+
+        /** Non-breaking space used to give an empty paragraph one line of height. */
+        private const val BLANK_LINE_PLACEHOLDER = " "
 
         /** Extracts the href from a link mark, if present. */
         private fun kotlin.collections.List<Map<String, Any>>.findLinkHref(): String? {

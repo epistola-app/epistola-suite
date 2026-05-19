@@ -930,6 +930,59 @@ class ProseMirrorConverterTest {
         assertEquals(2, result.size)
     }
 
+    // Empty paragraph (Enter pressed twice in the editor): the editor shows a
+    // visible blank line, but a content-less iText Paragraph collapses to zero
+    // height. The converter must give an empty paragraph placeholder inline
+    // content so it reserves one line of vertical space — see issue #400.
+    @Test
+    fun `empty paragraph between filled paragraphs reserves a blank line`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(mapOf("type" to "text", "text" to "Line 1")),
+                ),
+                mapOf("type" to "paragraph"),
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(mapOf("type" to "text", "text" to "Line 2")),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(3, result.size)
+        val empty = assertIs<Paragraph>(result[1])
+        assertTrue(
+            empty.children.isNotEmpty(),
+            "empty paragraph must hold placeholder inline content so it renders one line tall",
+        )
+    }
+
+    @Test
+    fun `paragraph with only a hard break produces two blank-line segments`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(mapOf("type" to "hard_break")),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        assertEquals(2, result.size)
+        result.forEach { p ->
+            val paragraph = assertIs<Paragraph>(p)
+            assertTrue(
+                paragraph.children.isNotEmpty(),
+                "blank segment of a hard-break-only paragraph must reserve one line of height",
+            )
+        }
+    }
+
     @Test
     fun `expression resolving to a rich-text doc inlines its inline content with marks`() {
         // Template paragraph with an inline expression chip bound to "bio".
