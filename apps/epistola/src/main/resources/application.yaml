@@ -125,6 +125,12 @@ epistola:
     feedback: true
     stencil-parameters: false
 
+  # Application-wide default locale used for date/number formatting.
+  # Tenants may override this per tenant on /tenants/{tenantId}/settings;
+  # valid values are entries of the bundled `system.bcp-47` code list.
+  i18n:
+    default-locale: "en-US"
+
   # Feedback sync configuration (provider-agnostic)
   # Controls outbound sync retry and inbound polling.
   feedback:
