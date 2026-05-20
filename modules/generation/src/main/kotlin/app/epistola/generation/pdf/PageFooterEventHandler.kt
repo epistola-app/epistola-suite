@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.Rectangle
+import com.itextpdf.kernel.pdf.canvas.CanvasArtifact
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
@@ -50,44 +51,52 @@ class PageFooterEventHandler(
         // Write after normal page content
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
 
-        val canvas = Canvas(pdfCanvas, footerRect)
+        // Mark the footer as an artifact so screen readers skip running content (WCAG PDF14).
+        // try/finally guarantees the marked-content sequence is balanced and the
+        // canvas released even on the hideOnFirstPage early return.
+        pdfCanvas.openTag(CanvasArtifact())
+        try {
+            val canvas = Canvas(pdfCanvas, footerRect)
 
-        // Render the footer node's slots with page-scoped system parameters
-        if (footerNode != null) {
-            val pageNumber = pdfDoc.getPageNumber(page)
-            val hideOnFirstPage = footerNode.props?.get("hideOnFirstPage") == true
-            if (hideOnFirstPage && pageNumber == 1) return
-            val totalPages = context.totalPages ?: pdfDoc.numberOfPages
-            val pageContext = context.withInheritedStylesFrom(footerNode).withPageParams(pageNumber, totalPages)
-            val elements = registry.renderSlots(footerNode, document, pageContext)
+            // Render the footer node's slots with page-scoped system parameters
+            if (footerNode != null) {
+                val pageNumber = pdfDoc.getPageNumber(page)
+                val hideOnFirstPage = footerNode.props?.get("hideOnFirstPage") == true
+                if (hideOnFirstPage && pageNumber == 1) return
+                val totalPages = context.totalPages ?: pdfDoc.numberOfPages
+                val pageContext = context.withInheritedStylesFrom(footerNode).withPageParams(pageNumber, totalPages)
+                val elements = registry.renderSlots(footerNode, document, pageContext)
 
-            // Wrap slot children in a Div so footer node styles (borders, background, padding) apply.
-            // The margin sides consumed above for rectangle positioning are stripped from the
-            // wrapper styles so the same values aren't applied again inside the rectangle.
-            val wrapper = Div()
-            val wrapperStyles = footerNode.styleMapExcluding(setOf("marginBottom", "marginLeft", "marginRight"))
-            StyleApplicator.applyStylesWithPreset(
-                wrapper,
-                wrapperStyles,
-                footerNode.stylePreset,
-                context.blockStylePresets,
-                context.inheritedStyles,
-                context.fontCache,
-                context.renderingDefaults.componentDefaults("pagefooter"),
-                context.renderingDefaults.baseFontSizePt,
-                context.spacingUnit,
-            )
-            for (element in elements) {
-                when (element) {
-                    is IBlockElement -> wrapper.add(element)
-                    is Image -> wrapper.add(element)
-                    is AreaBreak -> Unit
+                // Wrap slot children in a Div so footer node styles (borders, background, padding) apply.
+                // The margin sides consumed above for rectangle positioning are stripped from the
+                // wrapper styles so the same values aren't applied again inside the rectangle.
+                val wrapper = Div()
+                val wrapperStyles = footerNode.styleMapExcluding(setOf("marginBottom", "marginLeft", "marginRight"))
+                StyleApplicator.applyStylesWithPreset(
+                    wrapper,
+                    wrapperStyles,
+                    footerNode.stylePreset,
+                    context.blockStylePresets,
+                    context.inheritedStyles,
+                    context.fontCache,
+                    context.renderingDefaults.componentDefaults("pagefooter"),
+                    context.renderingDefaults.baseFontSizePt,
+                    context.spacingUnit,
+                )
+                for (element in elements) {
+                    when (element) {
+                        is IBlockElement -> wrapper.add(element)
+                        is Image -> wrapper.add(element)
+                        is AreaBreak -> Unit
+                    }
                 }
+                canvas.add(wrapper)
             }
-            canvas.add(wrapper)
-        }
 
-        canvas.close()
-        pdfCanvas.release()
+            canvas.close()
+        } finally {
+            pdfCanvas.closeTag()
+            pdfCanvas.release()
+        }
     }
 }

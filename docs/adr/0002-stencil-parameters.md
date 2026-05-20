@@ -192,7 +192,6 @@ bad surprise.
   `epistola-catalog` lose their schema. Tracked.
 - Public REST API contract (`epistola-contract`) doesn't expose
   `parameterSchema` yet. The internal handler does.
-- No backend JSONata-syntax validation on save (deferred to v2).
 - No alias-collision warnings against ancestor scopes (deferred).
 - Snapshot drift in draft mode is by design but worth documenting in
   the "Define parameters…" UI.

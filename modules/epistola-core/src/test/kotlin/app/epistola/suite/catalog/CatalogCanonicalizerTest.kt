@@ -77,4 +77,26 @@ class CatalogCanonicalizerTest {
             canonicalizer.fingerprint(catalog.copy(name = "Renamed"), details, null) { null },
         )
     }
+
+    @Test
+    fun `per-resource fingerprints are stable, isolate change, and fold asset bytes`() {
+        val v1 = linkedMapOf("theme/x" to theme("x", 4f), "asset/logo" to asset("logo"))
+        val fp1 = canonicalizer.perResourceFingerprints(v1) { "AAA".toByteArray() }
+        val fp1Reordered = canonicalizer.perResourceFingerprints(
+            linkedMapOf("asset/logo" to asset("logo"), "theme/x" to theme("x", 4f)),
+        ) { "AAA".toByteArray() }
+        assertEquals(fp1, fp1Reordered, "order-independent and deterministic")
+        assertEquals(setOf("theme/x", "asset/logo"), fp1.keys)
+
+        // Change only the theme → only theme/x digest changes.
+        val v2 = linkedMapOf("theme/x" to theme("x", 8f), "asset/logo" to asset("logo"))
+        val fp2 = canonicalizer.perResourceFingerprints(v2) { "AAA".toByteArray() }
+        assertNotEquals(fp1["theme/x"], fp2["theme/x"])
+        assertEquals(fp1["asset/logo"], fp2["asset/logo"])
+
+        // Swapped asset bytes → only the asset digest changes.
+        val fp3 = canonicalizer.perResourceFingerprints(v1) { "BBB".toByteArray() }
+        assertNotEquals(fp1["asset/logo"], fp3["asset/logo"])
+        assertEquals(fp1["theme/x"], fp3["theme/x"])
+    }
 }

@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -94,7 +95,7 @@ class PageHeaderCardinalityValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PAGEHEADER_TOO_MANY")
+            .hasValidationCode(ValidationCode.PAGEHEADER_TOO_MANY)
     }
 
     @Test
@@ -114,6 +115,6 @@ class PageHeaderCardinalityValidatorTest {
         )
         assertThatThrownBy { validator.validate(doc) }
             .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PAGEHEADER_NOT_AT_ROOT")
+            .hasValidationCode(ValidationCode.PAGEHEADER_NOT_AT_ROOT)
     }
 }

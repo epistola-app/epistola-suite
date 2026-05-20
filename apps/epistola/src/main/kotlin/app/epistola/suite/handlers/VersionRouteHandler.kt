@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.api.v1.toValidationErrorResponse
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -26,6 +27,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -114,11 +116,18 @@ class VersionRouteHandler(
             app.epistola.suite.templates.model.TemplateDocument::class.java,
         )
 
-        // Execute update command
-        UpdateDraft(
-            variantId = variantId,
-            templateModel = templateModel,
-        ).execute()
+        try {
+            UpdateDraft(
+                variantId = variantId,
+                templateModel = templateModel,
+            ).execute()
+        } catch (e: ValidationException) {
+            // Same body the REST surface returns (shared mapper) so the editor
+            // can switch on `code` instead of regex-parsing the message.
+            return ServerResponse.badRequest()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(e.toValidationErrorResponse())
+        }
 
         // Return minimal success response (UI doesn't need full DTO)
         return ServerResponse.ok()

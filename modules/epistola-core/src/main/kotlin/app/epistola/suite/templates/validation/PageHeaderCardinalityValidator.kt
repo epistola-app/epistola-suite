@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.validation
 
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Component
@@ -29,14 +30,16 @@ class PageHeaderCardinalityValidator {
         if (pageHeaderIds.size > 2) {
             throw ValidationException(
                 "content.pageheader.cardinality",
-                "PAGEHEADER_TOO_MANY: a template may declare at most two 'pageheader' nodes, found ${pageHeaderIds.size}",
+                "a template may declare at most two 'pageheader' nodes, found ${pageHeaderIds.size}",
+                ValidationCode.PAGEHEADER_TOO_MANY,
             )
         }
 
         val rootNode = doc.nodes[doc.root]
             ?: throw ValidationException(
                 "content.root",
-                "PAGEHEADER_ROOT_MISSING: cannot validate pageheader placement without a root node",
+                "cannot validate pageheader placement without a root node",
+                ValidationCode.PAGEHEADER_ROOT_MISSING,
             )
         val rootChildren: Set<String> = rootNode.slots
             .asSequence()
@@ -48,7 +51,8 @@ class PageHeaderCardinalityValidator {
             if (id !in rootChildren) {
                 throw ValidationException(
                     "content.pageheader.placement",
-                    "PAGEHEADER_NOT_AT_ROOT: pageheader node '$id' must be a direct child of the root slot",
+                    "pageheader node '$id' must be a direct child of the root slot",
+                    ValidationCode.PAGEHEADER_NOT_AT_ROOT,
                 )
             }
         }

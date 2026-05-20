@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
+import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.findByTenantAndId
@@ -12,6 +13,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 data class RegisterCatalog(
     override val tenantKey: TenantKey,
@@ -27,6 +29,8 @@ data class RegisterCatalog(
 class RegisterCatalogHandler(
     private val jdbi: Jdbi,
     private val catalogClient: CatalogClient,
+    private val fingerprintService: CatalogFingerprintService,
+    private val objectMapper: ObjectMapper,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -38,15 +42,27 @@ class RegisterCatalogHandler(
 
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
+        // Source-side per-resource baseline, captured at register exactly like
+        // installed_fingerprint (never publisher-authored). The upgrade preview
+        // diffs this against the re-fetched manifest — source-vs-source, so a
+        // CHANGED verdict means the publisher changed that resource.
+        val resourceFingerprintsJson = objectMapper.writeValueAsString(
+            fingerprintService.perResourceFingerprintsFromSource(
+                command.sourceUrl,
+                command.authType,
+                command.authCredential,
+            ),
+        )
+
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, created_at, updated_at)
-                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, created_at, updated_at)
+                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), NOW())
                 ON CONFLICT (tenant_key, id) DO UPDATE
                 SET name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
                     source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
-                    installed_fingerprint = :fingerprint, updated_at = NOW()
+                    installed_fingerprint = :fingerprint, installed_resource_fingerprints = :resourceFingerprints::jsonb, updated_at = NOW()
                 """,
             )
                 .bind("id", catalogKey)
@@ -58,6 +74,7 @@ class RegisterCatalogHandler(
                 .bind("authCredential", command.authCredential)
                 .bind("releaseVersion", manifest.release.version)
                 .bind("fingerprint", manifest.release.fingerprint)
+                .bind("resourceFingerprints", resourceFingerprintsJson)
                 .execute()
 
             handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, catalogKey.value)!!

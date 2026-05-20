@@ -46,6 +46,48 @@ class ApiKeyAuthenticationFilterAsyncTest {
     }
 
     @Test
+    fun `reads from custom header name when configured`() {
+        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key")
+        val plaintext = "epk_unit_test_key_value"
+        val key = sampleApiKey()
+        fakeMediator.lookupResponse = key
+
+        val request = MockHttpServletRequest("POST", "/api/mcp").apply {
+            addHeader("X-Custom-Api-Key", plaintext)
+        }
+        val response = MockHttpServletResponse()
+
+        MediatorContext.runWithMediator(fakeMediator) {
+            customFilter.doFilter(request, response, FilterChain { _, _ -> })
+        }
+
+        assertThat(fakeMediator.lookupQueries).isEqualTo(1)
+        assertThat(SecurityContextHolder.getContext().authentication)
+            .isInstanceOf(ApiKeyAuthenticationToken::class.java)
+    }
+
+    @Test
+    fun `ignores default X-API-Key header when custom header is configured`() {
+        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key")
+        val key = sampleApiKey()
+        fakeMediator.lookupResponse = key
+
+        val request = MockHttpServletRequest("POST", "/api/mcp").apply {
+            // The default header is present but the custom one is not
+            addHeader("X-API-Key", "epk_some_key")
+        }
+        val response = MockHttpServletResponse()
+
+        MediatorContext.runWithMediator(fakeMediator) {
+            customFilter.doFilter(request, response, FilterChain { _, _ -> })
+        }
+
+        // Should pass through without validating because the custom header is missing
+        assertThat(fakeMediator.lookupQueries).isEqualTo(0)
+        assertThat(SecurityContextHolder.getContext().authentication).isNull()
+    }
+
+    @Test
     fun `validates on REQUEST and restores from cache on ASYNC dispatch without re-querying`() {
         val plaintext = "epk_unit_test_key_value"
         val key = sampleApiKey()

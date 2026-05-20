@@ -1,6 +1,6 @@
 # PDF/A-2b Compliance
 
-Epistola Suite supports generating PDF/A-2b (ISO 19005-2, Level B) compliant documents for long-term archival. This is an opt-in setting per template, disabled by default.
+Epistola Suite supports generating PDF/A-2b (ISO 19005-2, Level B) compliant documents for long-term archival. This is a per-template setting, **enabled by default** for new templates (it can be turned off per template). Existing templates keep their stored setting.
 
 ## What is PDF/A?
 
@@ -15,7 +15,7 @@ This matters for regulated industries (finance, healthcare, government) and any 
 
 ## Standard vs PDF/A output
 
-| Aspect        | Standard PDF (default)                | PDF/A-2b                                |
+| Aspect        | Standard PDF                          | PDF/A-2b (default)                      |
 | ------------- | ------------------------------------- | --------------------------------------- |
 | Fonts         | Helvetica (non-embedded, standard 14) | Liberation Sans (embedded TTF)          |
 | Color profile | None                                  | sRGB ICC profile embedded               |

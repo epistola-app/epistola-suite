@@ -23,6 +23,7 @@ import * as stencilActions from './stencil-actions.js';
 import { isStencil } from './node-types.js';
 import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.js';
 import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
+import { STENCIL_BINDING_ERRORS_KEY, type BindingErrors } from './binding-errors.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -228,12 +229,17 @@ export class StencilInspector extends LitElement {
       parentNodeId
         ? this.engine.getEvaluationContextAt(parentNodeId)
         : this.engine.getEvaluationContextAt(this.node.id);
+    // Retrieve any stored binding errors from a failed save and clear them
+    const bindingErrors = this.engine.getComponentState<BindingErrors>(STENCIL_BINDING_ERRORS_KEY);
+    this.engine.setComponentState(STENCIL_BINDING_ERRORS_KEY, null);
+
     const result = await openParameterBindingsDialog({
       schema,
       initialBindings: (this.node.props.parameterBindings ?? {}) as Record<string, string>,
       initialAlias: this.node.props.paramsAlias ?? 'params',
       fieldPaths,
       getExampleData,
+      bindingErrors,
     });
     if (!result) return;
 
