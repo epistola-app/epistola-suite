@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.Rectangle
+import com.itextpdf.kernel.pdf.canvas.CanvasArtifact
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
@@ -71,6 +72,9 @@ class PageHeaderEventHandler(
         // Draw after normal page content (overlay)
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
 
+        // Mark the running header as an artifact so screen readers skip it (WCAG PDF14)
+        pdfCanvas.openTag(CanvasArtifact())
+
         // Constrain layout to the header rectangle
         val canvas = Canvas(pdfCanvas, headerRect)
 
@@ -105,6 +109,7 @@ class PageHeaderEventHandler(
         canvas.add(wrapper)
 
         canvas.close()
+        pdfCanvas.closeTag()
         pdfCanvas.release()
     }
 }

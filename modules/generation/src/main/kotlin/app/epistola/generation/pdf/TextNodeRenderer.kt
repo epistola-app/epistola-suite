@@ -56,7 +56,14 @@ class TextNodeRenderer : NodeRenderer {
         // Convert ProseMirror content to iText elements
         @Suppress("UNCHECKED_CAST")
         val content = node.props?.get("content") as? Map<String, Any>
-        val elements = context.proseMirrorConverter.convert(content, context.effectiveData, context.loopContext, context.fontCache, resolvedStyles)
+        val elements = context.proseMirrorConverter.convert(
+            content,
+            context.effectiveData,
+            context.loopContext,
+            context.fontCache,
+            resolvedStyles,
+            context.bookmarkCollector,
+        )
 
         for (element in elements) {
             div.add(element)

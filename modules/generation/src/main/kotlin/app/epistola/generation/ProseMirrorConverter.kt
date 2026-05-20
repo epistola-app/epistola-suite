@@ -2,11 +2,13 @@ package app.epistola.generation
 
 import app.epistola.catalog.protocol.FontRef
 import app.epistola.generation.expression.CompositeExpressionEvaluator
+import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.StyleApplicator
 import app.epistola.template.model.ExpressionLanguage
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.kernel.pdf.action.PdfAction
+import com.itextpdf.kernel.pdf.tagging.StandardRoles
 import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.Link
 import com.itextpdf.layout.element.List
@@ -51,13 +53,14 @@ class ProseMirrorConverter(
         loopContext: Map<String, Any?> = emptyMap(),
         fontCache: app.epistola.generation.pdf.FontCache,
         resolvedStyles: Map<String, Any> = emptyMap(),
+        bookmarkCollector: MutableList<BookmarkEntry>? = null,
     ): kotlin.collections.List<IBlockElement> {
         if (content == null) return emptyList()
 
         @Suppress("UNCHECKED_CAST")
         val nodes = content["content"] as? kotlin.collections.List<Map<String, Any>> ?: return emptyList()
 
-        return nodes.flatMap { node -> convertNode(node, data, loopContext, fontCache, resolvedStyles) }
+        return nodes.flatMap { node -> convertNode(node, data, loopContext, fontCache, resolvedStyles, bookmarkCollector) }
     }
 
     private fun convertNode(
@@ -66,13 +69,14 @@ class ProseMirrorConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
         resolvedStyles: Map<String, Any>,
+        bookmarkCollector: MutableList<BookmarkEntry>?,
     ): kotlin.collections.List<IBlockElement> {
         val type = node["type"] as? String ?: return emptyList()
 
         val face = FaceContext.from(resolvedStyles)
         return when (type) {
             "paragraph" -> convertParagraph(node, data, loopContext, fontCache, resolvedStyles, face)
-            "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles, face)
+            "heading" -> convertHeading(node, data, loopContext, fontCache, resolvedStyles, bookmarkCollector, face)
             "bulletList", "bullet_list" -> listOf(convertBulletList(node, data, loopContext, fontCache, face))
             "orderedList", "ordered_list" -> listOf(convertOrderedList(node, data, loopContext, fontCache, face))
             else -> emptyList()
@@ -148,6 +152,7 @@ class ProseMirrorConverter(
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
         resolvedStyles: Map<String, Any>,
+        bookmarkCollector: MutableList<BookmarkEntry>?,
         face: FaceContext,
     ): kotlin.collections.List<Paragraph> {
         @Suppress("UNCHECKED_CAST")
@@ -155,9 +160,20 @@ class ProseMirrorConverter(
         val level = (attrs?.get("level") as? Number)?.toInt() ?: 1
         val fontSize = renderingDefaults.headingFontSize(level)
         val marginVertical = renderingDefaults.headingMargin(level)
+        val headingRole = getHeadingRole(level)
 
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
+
+        // Collect a single outline/bookmark entry for the whole heading (WCAG PDF2).
+        // The destination is anchored on the first segment so the bookmark
+        // navigates to the heading's actual page.
+        val headingText = if (bookmarkCollector != null) extractPlainText(content, data, loopContext) else ""
+        val destinationName = if (bookmarkCollector != null && headingText.isNotBlank()) {
+            "h_${bookmarkCollector.size}"
+        } else {
+            null
+        }
 
         // Split at hard breaks
         val segments = mutableListOf<kotlin.collections.List<Map<String, Any>>>()
@@ -173,7 +189,7 @@ class ProseMirrorConverter(
         }
         segments.add(current)
 
-        return segments.mapIndexed { index, segment ->
+        val paragraphs = segments.mapIndexed { index, segment ->
             val paragraph = Paragraph()
             // Headings are bold by default, but in the *selected* family.
             paragraph.setFont(
@@ -191,12 +207,65 @@ class ProseMirrorConverter(
             paragraph.setPaddingTop(0f)
             paragraph.setPaddingBottom(0f)
             paragraph.setSpacingRatio(0f)
+            // Tag as a semantic heading for screen readers (WCAG PDF9)
+            paragraph.accessibilityProperties.role = headingRole
+            // Anchor the bookmark destination at the heading start (WCAG PDF2)
+            if (index == 0 && destinationName != null) {
+                paragraph.setDestination(destinationName)
+            }
             if (segment.isNotEmpty()) {
                 addInlineContent(paragraph, segment, data, loopContext, fontCache, face)
             }
             paragraph
         }
+
+        if (destinationName != null) {
+            bookmarkCollector!!.add(BookmarkEntry(level, headingText, destinationName))
+        }
+
+        return paragraphs
     }
+
+    private fun getHeadingRole(level: Int): String = when (level) {
+        1 -> StandardRoles.H1
+        2 -> StandardRoles.H2
+        3 -> StandardRoles.H3
+        4 -> StandardRoles.H4
+        5 -> StandardRoles.H5
+        6 -> StandardRoles.H6
+        else -> StandardRoles.H1
+    }
+
+    /**
+     * Flattens a heading's inline content to plain text for the document
+     * outline, resolving embedded expressions the same way [addInlineContent]
+     * does so the bookmark label matches the rendered heading.
+     */
+    private fun extractPlainText(
+        content: kotlin.collections.List<Map<String, Any>>,
+        data: Map<String, Any?>,
+        loopContext: Map<String, Any?>,
+    ): String = buildString {
+        for (child in content) {
+            when (child["type"] as? String) {
+                "text" -> {
+                    val textContent = child["text"] as? String ?: ""
+                    append(expressionEvaluator.processTemplate(textContent, defaultLanguage, data, loopContext))
+                }
+                "expression" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val exprAttrs = child["attrs"] as? Map<String, Any>
+                    val expressionRaw = exprAttrs?.get("expression") as? String ?: ""
+                    val language = when (exprAttrs?.get("language") as? String) {
+                        "javascript" -> ExpressionLanguage.javascript
+                        else -> defaultLanguage
+                    }
+                    val value = expressionEvaluator.evaluate(expressionRaw, language, data, loopContext)
+                    append(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value))
+                }
+            }
+        }
+    }.trim()
 
     private fun convertBulletList(
         node: Map<String, Any>,
@@ -322,9 +391,12 @@ class ProseMirrorConverter(
                     val linkHref = marks?.findLinkHref()
 
                     val text: Text = if (linkHref != null) {
-                        Link(processedText, PdfAction.createURI(linkHref))
+                        val link = Link(processedText, PdfAction.createURI(linkHref))
                             .setUnderline()
                             .setFontColor(LINK_COLOR)
+                        // Accessible description for the link (WCAG PDF13)
+                        link.accessibilityProperties.setAlternateDescription(processedText)
+                        link
                     } else {
                         Text(processedText)
                     }
@@ -412,9 +484,12 @@ class ProseMirrorConverter(
                         val marks = child["marks"] as? kotlin.collections.List<Map<String, Any>>
                         val linkHref = marks?.findLinkHref()
                         val text: Text = if (linkHref != null) {
-                            Link(textContent, PdfAction.createURI(linkHref))
+                            val link = Link(textContent, PdfAction.createURI(linkHref))
                                 .setUnderline()
                                 .setFontColor(LINK_COLOR)
+                            // Accessible description for the link (WCAG PDF13)
+                            link.accessibilityProperties.setAlternateDescription(textContent)
+                            link
                         } else {
                             Text(textContent)
                         }

@@ -2,6 +2,7 @@ package app.epistola.generation
 
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
+import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.FontCache
 import com.itextpdf.layout.element.Link
 import com.itextpdf.layout.element.List
@@ -1036,5 +1037,136 @@ class ProseMirrorConverterTest {
         // Still one host paragraph; the list did NOT spawn a new block element.
         assertEquals(1, result.size)
         assertIs<Paragraph>(result[0])
+    }
+
+    // -----------------------------------------------------------------------
+    // Accessibility: heading roles + outline bookmark collection (WCAG PDF9/PDF2)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `heading paragraphs get the matching Hn accessibility role`() {
+        for (level in 1..6) {
+            val content = mapOf(
+                "type" to "doc",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "heading",
+                        "attrs" to mapOf("level" to level),
+                        "content" to listOf(mapOf("type" to "text", "text" to "Heading $level")),
+                    ),
+                ),
+            )
+
+            val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+            val paragraph = assertIs<Paragraph>(result[0])
+            assertEquals("H$level", paragraph.accessibilityProperties.role)
+        }
+    }
+
+    @Test
+    fun `heading with out-of-range level falls back to H1 role`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 9),
+                    "content" to listOf(mapOf("type" to "text", "text" to "Weird")),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals("H1", assertIs<Paragraph>(result[0]).accessibilityProperties.role)
+    }
+
+    @Test
+    fun `convert collects one bookmark per heading with level title and unique destination`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 1),
+                    "content" to listOf(mapOf("type" to "text", "text" to "Intro")),
+                ),
+                mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "body"))),
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 2),
+                    "content" to listOf(mapOf("type" to "text", "text" to "Details")),
+                ),
+            ),
+        )
+
+        val collector = mutableListOf<BookmarkEntry>()
+        converter.convert(content, emptyMap(), fontCache = fontCache, bookmarkCollector = collector)
+
+        assertEquals(2, collector.size)
+        assertEquals(1, collector[0].level)
+        assertEquals("Intro", collector[0].title)
+        assertEquals(2, collector[1].level)
+        assertEquals("Details", collector[1].title)
+        assertTrue(collector[0].destinationName.isNotBlank())
+        assertEquals(2, collector.map { it.destinationName }.toSet().size, "destination names are unique")
+    }
+
+    @Test
+    fun `heading bookmark title resolves embedded expressions`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 1),
+                    "content" to listOf(mapOf("type" to "text", "text" to "Report for {{name}}")),
+                ),
+            ),
+        )
+
+        val collector = mutableListOf<BookmarkEntry>()
+        converter.convert(content, mapOf("name" to "Acme"), fontCache = fontCache, bookmarkCollector = collector)
+
+        assertEquals(1, collector.size)
+        assertEquals("Report for Acme", collector[0].title)
+    }
+
+    @Test
+    fun `blank heading does not produce a bookmark`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 1),
+                    "content" to listOf(mapOf("type" to "text", "text" to "   ")),
+                ),
+            ),
+        )
+
+        val collector = mutableListOf<BookmarkEntry>()
+        converter.convert(content, emptyMap(), fontCache = fontCache, bookmarkCollector = collector)
+
+        assertTrue(collector.isEmpty())
+    }
+
+    @Test
+    fun `convert without a bookmark collector still tags heading roles`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 3),
+                    "content" to listOf(mapOf("type" to "text", "text" to "No collector")),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals("H3", assertIs<Paragraph>(result[0]).accessibilityProperties.role)
     }
 }

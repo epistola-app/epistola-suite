@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.kernel.pdf.tagging.StandardRoles
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Paragraph
@@ -91,13 +92,15 @@ class DatatableNodeRenderer : NodeRenderer {
                 val cell = Cell()
                 cell.setPadding(context.renderingDefaults.tableCellPadding)
                 cell.setFont(context.fontCache.bold)
+                // TH role so screen readers associate data cells with headers (WCAG PDF6)
+                cell.accessibilityProperties.setRole(StandardRoles.TH)
                 cell.add(Paragraph(headerText))
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)
 
                 // Apply column-level styles
                 applyColumnStyles(cell, columnNode, context)
 
-                table.addCell(cell)
+                table.addHeaderCell(cell)
             }
         }
 
