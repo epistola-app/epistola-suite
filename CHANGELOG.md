@@ -14,6 +14,11 @@
 
 - **[`docs/keycloak-setup.md`](docs/keycloak-setup.md)** is rewritten to describe both supported claim shapes (`groups` and the flat-roles claim), documents the new auto-provisioned `epistola-realm-roles` mapper, adds a "Flat Roles (for IdPs without groups)" section, and rewrites the "Using a Non-Keycloak IDP" section so direct integration via a prefix-encoded flat `roles` claim is offered as the primary path (with the brokered-Keycloak pattern still documented as the fallback for IDPs that can't emit the required claim shape).
 - **`EpistolaJwtAuthenticationConverter` and `OAuth2UserProvisioningService` now take `AuthProperties` as a constructor dependency** to read the configurable flat-roles claim name. `ParsedGroupMemberships` is renamed to `ParsedMemberships` (source-agnostic — both parsers produce it) and gains a `plus` operator for set-union merging.
+- **Themes are now fully optional.** `CreateTenant` no longer auto-creates a "Tenant Default" theme and no longer pre-populates `tenants.default_theme_key` — new tenants start with no default theme, and templates without a theme render with engine defaults (A4 portrait, 20mm margins, Helvetica/Liberation Sans fallback). The bundled `system` catalog now ships a `default` theme (Inter, 11pt, A4) that any tenant can opt into as its default. `SetTenantDefaultTheme` accepts a nullable `themeId` to clear the tenant default (UI: a new "Clear default theme" action on the themes list); `default_theme_catalog_key` is written alongside `default_theme_key`. The system catalog manifest version bumps to `1.1.0`; `SystemCatalogBootstrap` installs the new theme on next boot for existing tenants via the regular fingerprint-driven upgrade path.
+
+### Removed
+
+- **`LastThemeException`** is gone. Themes are optional, so zero themes is a valid state — `DeleteTheme` only refuses when the theme is the tenant's current default (clear it first, then delete). The REST `LAST_THEME` error code and the corresponding UI guard are dropped accordingly.
 
 ## [0.21.0] - 2026-05-20
 
