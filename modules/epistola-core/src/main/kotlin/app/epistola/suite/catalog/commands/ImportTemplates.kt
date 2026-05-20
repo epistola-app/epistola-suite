@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -12,6 +13,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -38,7 +40,7 @@ data class ImportTemplates(
      * (riding the same ZIP) must follow so their pins still resolve.
      * Cross-catalog stencil refs are not in the map and are left alone.
      */
-    val stencilRenumbers: Map<app.epistola.suite.common.ids.StencilKey, StencilRenumber> = emptyMap(),
+    val stencilRenumbers: Map<StencilKey, StencilRenumber> = emptyMap(),
 ) : Command<List<ImportTemplateResult>>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -131,23 +133,23 @@ class ImportTemplatesHandler(
      */
     private fun rewriteStencilPins(
         document: TemplateDocument,
-        renumbers: Map<app.epistola.suite.common.ids.StencilKey, StencilRenumber>,
+        renumbers: Map<StencilKey, StencilRenumber>,
         ownCatalog: CatalogKey,
     ): TemplateDocument {
         val rewrittenNodes = document.nodes.mapValues { (_, node) ->
-            if (node.type != app.epistola.suite.stencils.StencilNodeKeys.NODE_TYPE) return@mapValues node
+            if (node.type != StencilNodeKeys.NODE_TYPE) return@mapValues node
             val props = node.props ?: return@mapValues node
-            val stencilSlug = props[app.epistola.suite.stencils.StencilNodeKeys.PROP_STENCIL_ID] as? String
+            val stencilSlug = props[StencilNodeKeys.PROP_STENCIL_ID] as? String
                 ?: return@mapValues node
-            val refCatalog = props[app.epistola.suite.stencils.StencilNodeKeys.PROP_CATALOG_KEY] as? String
+            val refCatalog = props[StencilNodeKeys.PROP_CATALOG_KEY] as? String
             // Only own-catalog stencil refs participate. A ref with explicit
             // catalogKey pointing elsewhere is a cross-catalog dependency.
             if (refCatalog != null && refCatalog != ownCatalog.value) return@mapValues node
-            val pinned = (props[app.epistola.suite.stencils.StencilNodeKeys.PROP_VERSION] as? Number)?.toInt()
+            val pinned = (props[StencilNodeKeys.PROP_VERSION] as? Number)?.toInt()
                 ?: return@mapValues node
-            val mapping = renumbers[app.epistola.suite.common.ids.StencilKey.of(stencilSlug)] ?: return@mapValues node
+            val mapping = renumbers[StencilKey.of(stencilSlug)] ?: return@mapValues node
             if (pinned != mapping.sourceVersion) return@mapValues node
-            node.copy(props = props + (app.epistola.suite.stencils.StencilNodeKeys.PROP_VERSION to mapping.assignedVersion))
+            node.copy(props = props + (StencilNodeKeys.PROP_VERSION to mapping.assignedVersion))
         }
         return document.copy(nodes = rewrittenNodes)
     }

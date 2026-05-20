@@ -12,6 +12,7 @@ import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
@@ -20,6 +21,8 @@ import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -108,7 +111,7 @@ data class ImportCatalogZipResult(
 class ImportCatalogZipHandler(
     private val objectMapper: ObjectMapper,
     private val protocolMapper: ProtocolMapper,
-    private val sizeLimits: app.epistola.suite.catalog.CatalogSizeLimits,
+    private val sizeLimits: CatalogSizeLimits,
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val analyzer: CatalogUpgradeAnalyzer,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
@@ -245,17 +248,31 @@ class ImportCatalogZipHandler(
 
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
-        // Pre-scan stencil-version conflicts before any mutation. Only the
-        // stencil details are parsed up front — other resource types stay in
-        // the per-resource try/catch below so a missing/corrupt detail
-        // surfaces as a single failed install rather than aborting the whole
-        // import. Stencil-version conflicts are a deliberate group-decision
-        // (FAIL vs RENUMBER) and the operator sees the full list at once.
-        val incomingStencils = ordered.filter { it.type == "stencil" }.mapNotNull { entry ->
-            val detailBytes = entries[entry.detailUrl.removePrefix("./")] ?: return@mapNotNull null
-            (objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource as? StencilResource)
-        }
-        val stencilConflicts = scanStencilVersionConflicts(command.tenantKey, catalogKey, incomingStencils)
+        // Pre-parse every stencil detail once. Surfaces missing/corrupt stencil
+        // JSON (including pre-0.6.0 ZIPs without `version`) as a hard import
+        // failure before any mutation, and the parsed StencilResource objects
+        // are reused by the install loop below so each stencil detail is
+        // deserialized only once. Other resource types stay in the per-resource
+        // try/catch so a missing/corrupt detail surfaces as a single failed
+        // install rather than aborting the whole import — stencil-version
+        // conflicts are the only deliberate group-decision (FAIL vs RENUMBER).
+        val parsedStencilsBySlug: Map<String, StencilResource> = ordered
+            .filter { it.type == "stencil" }
+            .associate { entry ->
+                val detailBytes = entries[entry.detailUrl.removePrefix("./")]
+                    ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
+                val parsed = objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                val stencil = parsed as? StencilResource
+                    ?: throw IllegalArgumentException(
+                        "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
+                    )
+                entry.slug to stencil
+            }
+        val stencilConflicts = scanStencilVersionConflicts(
+            command.tenantKey,
+            catalogKey,
+            parsedStencilsBySlug.values.toList(),
+        )
         if (stencilConflicts.isNotEmpty() && command.onStencilConflict == OnStencilConflict.FAIL) {
             throw StencilVersionImportConflictsException(catalogKey, stencilConflicts)
         }
@@ -263,21 +280,26 @@ class ImportCatalogZipHandler(
         // Renumber decisions collected as stencils install — handed to
         // ImportTemplates so template stencil-node pins from the same ZIP can
         // be rewritten in lockstep. Filled in the install loop below.
-        val stencilRenumbers: MutableMap<app.epistola.suite.common.ids.StencilKey, StencilRenumber> = mutableMapOf()
+        val stencilRenumbers: MutableMap<StencilKey, StencilRenumber> = mutableMapOf()
 
         // Install resources in dependency order
         val results = ordered.map { entry ->
             try {
-                val detailPath = entry.detailUrl.removePrefix("./")
-                val detailBytes = entries[detailPath]
-                    ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val detail = objectMapper.readValue(detailBytes, ResourceDetail::class.java)
+                val resource: CatalogResource = if (entry.type == "stencil") {
+                    parsedStencilsBySlug[entry.slug]
+                        ?: error("Pre-scan produced no stencil for slug '${entry.slug}' (manifest/pre-scan out of sync)")
+                } else {
+                    val detailPath = entry.detailUrl.removePrefix("./")
+                    val detailBytes = entries[detailPath]
+                        ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
+                    objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                }
 
                 val status = installResource(
                     tenantKey = command.tenantKey,
                     tenantId = tenantId,
                     catalogKey = catalogKey,
-                    resource = detail.resource,
+                    resource = resource,
                     version = manifest.release.version,
                     entries = entries,
                     onStencilConflict = command.onStencilConflict,
@@ -485,7 +507,7 @@ class ImportCatalogZipHandler(
         version: String,
         entries: Map<String, ByteArray>,
         onStencilConflict: OnStencilConflict,
-        stencilRenumbers: MutableMap<app.epistola.suite.common.ids.StencilKey, StencilRenumber>,
+        stencilRenumbers: MutableMap<StencilKey, StencilRenumber>,
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
             val input = ImportTemplateInput(
@@ -548,7 +570,7 @@ class ImportCatalogZipHandler(
                 onConflict = onStencilConflict,
             ).execute()
             if (result.wasRenumbered) {
-                stencilRenumbers[app.epistola.suite.common.ids.StencilKey.of(resource.slug)] = StencilRenumber(
+                stencilRenumbers[StencilKey.of(resource.slug)] = StencilRenumber(
                     sourceVersion = resource.version,
                     assignedVersion = result.assignedVersion,
                 )
@@ -560,7 +582,7 @@ class ImportCatalogZipHandler(
             val bindingCatalog = resource.codeListBinding?.let {
                 it.catalogKey?.let(CatalogKey::of) ?: catalogKey
             }
-            val bindingSlug = resource.codeListBinding?.slug?.let(app.epistola.suite.common.ids.CodeListKey::of)
+            val bindingSlug = resource.codeListBinding?.slug?.let(CodeListKey::of)
             ImportAttribute(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
@@ -717,6 +739,9 @@ class ImportCatalogZipHandler(
      * stencil where target has a row with **different content** — same content
      * is idempotent, missing rows are installable. No mutation; safe to run
      * before deciding whether to proceed (FAIL aborts; RENUMBER overlays).
+     *
+     * All `(slug, version, content)` tuples are sent in a single batched query
+     * via a `VALUES` CTE, so the round-trip cost is O(1) instead of O(N).
      */
     private fun scanStencilVersionConflicts(
         tenantKey: TenantKey,
@@ -724,37 +749,51 @@ class ImportCatalogZipHandler(
         stencils: List<StencilResource>,
     ): List<StencilVersionImportConflictsException.StencilImportConflict> {
         if (stencils.isEmpty()) return emptyList()
-        return jdbi.withHandle<List<StencilVersionImportConflictsException.StencilImportConflict>, Exception> { handle ->
-            stencils.mapNotNull { resource ->
-                val contentJson = objectMapper.writeValueAsString(resource.content)
-                val matchesOrNull = handle.createQuery(
-                    """
-                    SELECT (content = :content::jsonb) AS matches
-                    FROM stencil_versions
-                    WHERE tenant_key = :tenantKey
-                      AND catalog_key = :catalogKey
-                      AND stencil_key = :slug
-                      AND id = :version
-                    """,
-                )
-                    .bind("tenantKey", tenantKey)
-                    .bind("catalogKey", catalogKey)
-                    .bind("slug", app.epistola.suite.common.ids.StencilKey.of(resource.slug))
-                    .bind("version", app.epistola.suite.common.ids.VersionKey.of(resource.version))
-                    .bind("content", contentJson)
-                    .mapTo(Boolean::class.java)
-                    .findOne()
-                    .orElse(null)
-                if (matchesOrNull == false) {
-                    StencilVersionImportConflictsException.StencilImportConflict(
-                        stencilKey = app.epistola.suite.common.ids.StencilKey.of(resource.slug),
-                        stencilName = resource.name,
-                        version = resource.version,
-                    )
-                } else {
-                    null
-                }
-            }
+
+        val valuesPlaceholders = stencils.indices.joinToString(", ") { idx ->
+            "(:slug$idx, :ver$idx, :content$idx)"
         }
+        val sql = """
+            WITH incoming AS (
+                SELECT
+                    slug::text   AS slug,
+                    version::int AS version,
+                    content::jsonb AS content
+                FROM (VALUES $valuesPlaceholders) AS t(slug, version, content)
+            )
+            SELECT i.slug AS slug, i.version AS version
+            FROM incoming i
+            JOIN stencil_versions sv
+              ON sv.tenant_key  = :tenantKey
+             AND sv.catalog_key = :catalogKey
+             AND sv.stencil_key = i.slug
+             AND sv.id          = i.version
+            WHERE sv.content <> i.content
+        """.trimIndent()
+
+        val conflictKeys: Set<Pair<String, Int>> = jdbi.withHandle<Set<Pair<String, Int>>, Exception> { handle ->
+            val query = handle.createQuery(sql)
+                .bind("tenantKey", tenantKey)
+                .bind("catalogKey", catalogKey)
+            stencils.forEachIndexed { idx, resource ->
+                query
+                    .bind("slug$idx", resource.slug)
+                    .bind("ver$idx", resource.version)
+                    .bind("content$idx", objectMapper.writeValueAsString(resource.content))
+            }
+            query.map { rs, _ -> rs.getString("slug") to rs.getInt("version") }
+                .list()
+                .toSet()
+        }
+
+        return stencils
+            .filter { (it.slug to it.version) in conflictKeys }
+            .map { resource ->
+                StencilVersionImportConflictsException.StencilImportConflict(
+                    stencilKey = StencilKey.of(resource.slug),
+                    stencilName = resource.name,
+                    version = resource.version,
+                )
+            }
     }
 }

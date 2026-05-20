@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.PublishStencilVersion
@@ -241,6 +242,83 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `renumber leaves cross-catalog stencil pins alone`() {
+        // Same RENUMBER scenario as above, but the imported template carries
+        // TWO stencil refs to the same slug — one own-catalog (no explicit
+        // `catalogKey` prop) and one cross-catalog (`catalogKey` pointing at a
+        // different catalog). RENUMBER must rewrite ONLY the own-catalog pin;
+        // the cross-catalog ref belongs to another catalog's versioning and
+        // must be left untouched. Built with a manual ZIP so we control the
+        // template node shape directly (no round-trip export).
+        val tenant = createTenant("CrossCat Renumber")
+        val tenantKey = tenant.id
+        val tenantId = TenantId(tenantKey)
+        val key = CatalogKey.of("cc-${tenantKey.value.take(8)}")
+        val cat = CatalogId(key, tenantId)
+
+        withMediator {
+            // Target already has the own-catalog stencil at v1 with content X
+            CreateCatalog(tenantKey = tenantKey, id = key, name = "CC Target").execute()
+            val stencilKey = StencilKey.of("cc-stencil")
+            CreateStencil(id = StencilId(stencilKey, cat), name = "CC", content = simpleStencil("local-v1")).execute()
+            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), StencilId(stencilKey, cat))).execute()
+
+            // ZIP carries stencil v1 with DIFFERENT content (RENUMBER target)
+            // and a template with two stencil refs: an own-catalog one (will
+            // be rewritten) and a cross-catalog one (must be left alone).
+            val zip = buildManualZip(
+                catalogSlug = key.value,
+                stencil = StencilResource(
+                    slug = stencilKey.value,
+                    name = "CC",
+                    version = 1,
+                    content = simpleStencil("remote-v1"),
+                ),
+                template = templateWithOwnAndCrossStencilRefs(stencilKey),
+            )
+
+            ImportCatalogZip(
+                tenantKey = tenantKey,
+                zipBytes = zip,
+                catalogType = CatalogType.AUTHORED,
+                authoredMode = AuthoredImportMode.MERGE,
+                onStencilConflict = OnStencilConflict.RENUMBER,
+            ).execute()
+
+            // Source's v1 landed at v2; local v1 untouched
+            val versions = ListStencilVersions(stencilId = StencilId(stencilKey, cat)).query()
+                .sortedBy { it.id.value }
+            assertThat(versions.map { it.id.value }).containsExactly(1, 2)
+
+            val templateModelJson = jdbi.withHandle<String, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT template_model::text
+                    FROM template_versions
+                    WHERE tenant_key = :t AND catalog_key = :c AND template_key = :tpl
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                )
+                    .bind("t", tenantKey)
+                    .bind("c", key)
+                    .bind("tpl", TemplateKey.of("manual-template"))
+                    .mapTo(String::class.java)
+                    .one()
+            }
+
+            val doc = objectMapper.readValue(templateModelJson, TemplateDocument::class.java)
+            val ownPin = (doc.nodes["own-ref"]?.props?.get(StencilNodeKeys.PROP_VERSION) as? Number)?.toInt()
+            val crossPin = (doc.nodes["cross-ref"]?.props?.get(StencilNodeKeys.PROP_VERSION) as? Number)?.toInt()
+            assertThat(ownPin)
+                .describedAs("own-catalog stencil pin rewritten by RENUMBER")
+                .isEqualTo(2)
+            assertThat(crossPin)
+                .describedAs("cross-catalog stencil pin must be left alone")
+                .isEqualTo(1)
+        }
+    }
+
+    @Test
     fun `renumber rejected for AUTHORED REPLACE`() {
         val tenant = createTenant("Reject Replace")
         val tenantKey = tenant.id
@@ -358,6 +436,46 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         slots = mapOf(
             "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("s")),
             "s-children" to Slot(id = "s-children", nodeId = "s", name = "children", children = emptyList()),
+        ),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    /**
+     * Template with two stencil nodes referencing the same slug. The first
+     * (`own-ref`) has no explicit `catalogKey` prop — it resolves against the
+     * importing catalog. The second (`cross-ref`) carries an explicit
+     * `catalogKey` pointing at a different catalog and must therefore be
+     * skipped by the RENUMBER pin rewrite.
+     */
+    private fun templateWithOwnAndCrossStencilRefs(stencilKey: StencilKey): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "own-ref" to Node(
+                id = "own-ref",
+                type = "stencil",
+                slots = listOf("own-children"),
+                props = mapOf(
+                    StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
+                    StencilNodeKeys.PROP_VERSION to 1,
+                ),
+            ),
+            "cross-ref" to Node(
+                id = "cross-ref",
+                type = "stencil",
+                slots = listOf("cross-children"),
+                props = mapOf(
+                    StencilNodeKeys.PROP_STENCIL_ID to stencilKey.value,
+                    StencilNodeKeys.PROP_VERSION to 1,
+                    StencilNodeKeys.PROP_CATALOG_KEY to "some-other-catalog",
+                ),
+            ),
+        ),
+        slots = mapOf(
+            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("own-ref", "cross-ref")),
+            "own-children" to Slot(id = "own-children", nodeId = "own-ref", name = "children", children = emptyList()),
+            "cross-children" to Slot(id = "cross-children", nodeId = "cross-ref", name = "children", children = emptyList()),
         ),
         themeRef = ThemeRef.Inherit,
     )
