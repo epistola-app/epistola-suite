@@ -247,10 +247,6 @@ class ThemeHandler(
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("error" to e.message))
-        } catch (e: LastThemeException) {
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
         }
 
         // Return updated rows for HTMX
@@ -267,19 +263,23 @@ class ThemeHandler(
     }
 
     /**
-     * Sets the default theme for a tenant.
+     * Sets (or clears) the default theme for a tenant. An empty/missing
+     * `themeId` form param clears the default; templates without their own
+     * theme then render with engine defaults.
      */
     fun setDefault(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val themeIdStr = request.params().getFirst("themeId")
-            ?: return ServerResponse.badRequest().build()
-        val themeKey = ThemeKey.validateOrNull(themeIdStr)
-            ?: return ServerResponse.badRequest().build()
+        val themeIdStr = request.params().getFirst("themeId")?.takeIf { it.isNotBlank() }
+        val catalogKeyStr = request.params().getFirst("catalogKey")?.takeIf { it.isNotBlank() }
+
+        val themeKey = themeIdStr?.let { ThemeKey.validateOrNull(it) ?: return ServerResponse.badRequest().build() }
+        val catalogKey = catalogKeyStr?.let { CatalogKey.of(it) }
 
         try {
             SetTenantDefaultTheme(
                 tenantId = tenantId.key,
                 themeId = themeKey,
+                catalogKey = catalogKey,
             ).execute()
         } catch (e: ThemeNotFoundException) {
             return ServerResponse.notFound().build()

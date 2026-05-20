@@ -21,6 +21,20 @@ class TenantCommandsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `CreateTenant does not assign a default theme`() = fixture {
+        whenever {
+            createTenant("No Theme Co")
+        }
+
+        then {
+            val tenant = result<Tenant>()
+            assertThat(tenant.defaultThemeKey)
+                .describedAs("themes are optional — new tenants have no default theme")
+                .isNull()
+        }
+    }
+
+    @Test
     fun `DeleteTenant removes tenant by id`() = fixture {
         var tenantId: TenantKey? = null
 

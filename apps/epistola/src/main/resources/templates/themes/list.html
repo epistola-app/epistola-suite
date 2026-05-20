@@ -62,11 +62,12 @@
             </thead>
             <tbody id="theme-rows">
                 <th:block th:fragment="rows">
-                    <tr th:each="theme : ${themes}">
+                    <tr th:each="theme : ${themes}"
+                        th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
-                            <span th:if="${tenant?.defaultThemeKey == theme.id}" class="badge badge-primary" style="margin-left: var(--ep-space-2);">Default</span>
+                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-left: var(--ep-space-2);">Default</span>
                         </td>
                         <td><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
                         <td>
@@ -75,24 +76,34 @@
                         </td>
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <span th:if="${theme.catalogType.name() == 'SUBSCRIBED' and !isDefault}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"
+                                  th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
+                                  hx-target="#theme-rows"
+                                  hx-swap="innerHTML"
+                                  style="display: inline;">
+                                <input type="hidden" name="themeId" th:value="${theme.id}">
+                                <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </form>
+                            <form th:if="${auth.has('TENANT_SETTINGS') and isDefault}"
+                                  th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
+                                  hx-target="#theme-rows"
+                                  hx-swap="innerHTML"
+                                  style="display: inline;">
+                                <input type="hidden" name="themeId" value="">
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Clear default theme">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </form>
                             <th:block th:if="${theme.catalogType.name() == 'AUTHORED'}">
                                 <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
                                     <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
-                                <form th:if="${auth.has('TENANT_SETTINGS')}"
-                                      th:unless="${tenant?.defaultThemeKey == theme.id}"
-                                      th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
-                                      hx-target="#theme-rows"
-                                      hx-swap="innerHTML"
-                                      style="display: inline;">
-                                    <input type="hidden" name="themeId" th:value="${theme.id}">
-                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
-                                        <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
-                                    </button>
-                                </form>
-                                <button th:if="${auth.has('THEME_EDIT') and tenant?.defaultThemeKey != theme.id and #lists.size(themes) > 1}"
+                                <button th:if="${auth.has('THEME_EDIT') and !isDefault}"
                                         type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete theme"
