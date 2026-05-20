@@ -76,7 +76,7 @@
                         </td>
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <span th:if="${theme.catalogType.name() == 'SUBSCRIBED' and !isDefault}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
