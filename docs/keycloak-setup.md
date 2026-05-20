@@ -121,15 +121,15 @@ managed-Keycloak setup.
 
 Add a protocol mapper to the `epistola-suite` client:
 
-| Setting             | Value                     |
-| ------------------- | ------------------------- |
-| Name                | `epistola-groups`         |
-| Mapper type         | `Group Membership`        |
-| Token claim name    | `groups`                  |
-| Full group path     | **ON**                    |
-| Add to ID token     | ON                        |
-| Add to access token | ON                        |
-| Add to userinfo     | ON                        |
+| Setting             | Value              |
+| ------------------- | ------------------ |
+| Name                | `epistola-groups`  |
+| Mapper type         | `Group Membership` |
+| Token claim name    | `groups`           |
+| Full group path     | **ON**             |
+| Add to ID token     | ON                 |
+| Add to access token | ON                 |
+| Add to userinfo     | ON                 |
 
 **Important:** `Full group path` must be ON so the JWT contains full paths like `/epistola/tenants/demo/reader`.
 
@@ -196,7 +196,7 @@ What it does:
   `epistola-groups` with `full.path=true`, included in ID/access/userinfo tokens.
 - If a mapper named `epistola-groups` already exists but its config has drifted → updates it
   back to the canonical config (self-heal).
-- If a mapper with a *different* name already writes `claim.name=groups` → logs a WARN and
+- If a mapper with a _different_ name already writes `claim.name=groups` → logs a WARN and
   leaves it alone, so deliberate operator config is not clobbered. Inspect the warning and
   reconcile manually if the `groups` claim isn't behaving as expected.
 
@@ -319,10 +319,10 @@ itself only ever sees Keycloak-issued tokens with the expected claim shape.
 
 For any IDP integration, the token Epistola Suite receives must contain:
 
-| Claim   | Type             | Example values                                                                  |
-| ------- | ---------------- | ------------------------------------------------------------------------------- |
-| `sub`   | string           | stable user identifier                                                          |
-| `email` | string           | user's email                                                                    |
+| Claim    | Type            | Example values                                                                                                                                                                                   |
+| -------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sub`    | string          | stable user identifier                                                                                                                                                                           |
+| `email`  | string          | user's email                                                                                                                                                                                     |
 | `groups` | array of string | `["/epistola/tenants/acme-corp/reader", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
 
 Anything outside the `/epistola/` prefix is ignored by the parser. Short-name groups
