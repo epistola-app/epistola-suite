@@ -69,6 +69,15 @@
                                 </th:block>
                                 <!-- Subscribed: plain text -->
                                 <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
+                                <!-- Multiple-versions-in-use warning: shown when published templates
+                                     in this catalog pin the same own-catalog stencil at multiple
+                                     versions. The exported wire format carries only one version per
+                                     stencil, so this stencil currently blocks export. -->
+                                <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
+                                      class="badge badge-warning"
+                                      style="margin-left: var(--ep-space-2);"
+                                      th:title="'Multiple published versions in use across templates: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Upgrade all template usages to a single version before exporting.'"
+                                      th:text="'Multiple versions in use: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
                             <td><code th:text="${resource.slug}"></code></td>
                             <td>

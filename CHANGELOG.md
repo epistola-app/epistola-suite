@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Stencil version preservation across catalog export/import.** Exported catalog ZIPs now carry the published version number of each stencil (`epistola-model` `0.5.3` → `0.6.0`, new required `StencilResource.version`). On import, `ImportStencil` installs the stencil at the wire-format version instead of always assigning `MAX(id)+1`, so templates pinning a specific version still resolve after a round-trip. Idempotent re-imports (same content at same version) are a no-op; conflicts (same version, different content) abort the whole import by default with a structured per-stencil report (`StencilVersionImportConflictsException`). An opt-in `OnStencilConflict.RENUMBER` mode (AUTHORED MERGE only — rejected for SUBSCRIBED and AUTHORED REPLACE since those are mirror semantics) installs the conflicting source version at `MAX(target.version) + 1` and rewrites stencil-node `props.version` on the templates from the same ZIP so their pins still resolve. The UI's Import dialog gains a checkbox to opt in; the conflict report renders inline in the dialog when the option was off. Pre-0.6.0 ZIPs lack the version field and fail import explicitly ("missing version, please re-export") — pre-release breaking change, no migration path. Bundled demo catalog bumped `5.5.0` → `5.6.0`.
+- **Stricter export precheck for stencil version pins.** `FindStencilVersionExportConflicts` now flags any own-catalog stencil whose published templates pin **anything other than the latest published version** — catches both multi-version usage (the existing check) and consistent-but-stale single-version pins. The export-blocked dialog and the catalog-browse stencil badge now show "pinned vX (latest vY)" so the operator sees exactly what to fix. Without this, the stale-pin case would slip past the precheck and resolve to a stencil version that doesn't exist in the target after import.
+
 ## [0.21.0] - 2026-05-20
 
 ### Added

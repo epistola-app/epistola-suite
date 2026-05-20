@@ -64,6 +64,19 @@ data class ImportCatalogZip(
     val zipBytes: ByteArray,
     val catalogType: CatalogType,
     val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
+    /**
+     * What to do when an imported stencil version collides with an
+     * already-installed version of the same (slug, version) carrying
+     * different content. `FAIL` (default) aborts the whole import with a
+     * structured report so the operator can decide. `RENUMBER` is only
+     * accepted for **AUTHORED MERGE** imports — the conflicting source
+     * stencil version is installed at `MAX(target.version) + 1` and the
+     * matching pins in templates from the same ZIP are rewritten to the
+     * new number. SUBSCRIBED and AUTHORED REPLACE are mirror-semantic
+     * imports — renumber there would silently diverge the mirror from
+     * source, so the orchestrator rejects it.
+     */
+    val onStencilConflict: OnStencilConflict = OnStencilConflict.FAIL,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -150,6 +163,19 @@ class ImportCatalogZipHandler(
             )
         }
 
+        // Renumber-on-stencil-conflict is mirror-incompatible. SUBSCRIBED *is*
+        // a mirror by definition (source wins); AUTHORED REPLACE is the explicit
+        // "make my catalog exactly this ZIP" mode. Allowing renumber there would
+        // silently let target diverge from source. Restrict to AUTHORED MERGE.
+        if (command.onStencilConflict == OnStencilConflict.RENUMBER &&
+            !(command.catalogType == CatalogType.AUTHORED && command.authoredMode == AuthoredImportMode.MERGE)
+        ) {
+            throw IllegalArgumentException(
+                "onStencilConflict=RENUMBER is only supported for AUTHORED MERGE imports " +
+                    "(got catalogType=${command.catalogType}, authoredMode=${command.authoredMode}).",
+            )
+        }
+
         // Validate cross-catalog dependencies exist (batch check)
         val dependencies = manifest.dependencies.orEmpty()
         if (dependencies.isNotEmpty()) {
@@ -217,8 +243,29 @@ class ImportCatalogZipHandler(
             }
         }
 
-        // Install resources in dependency order
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
+
+        // Pre-scan stencil-version conflicts before any mutation. Only the
+        // stencil details are parsed up front — other resource types stay in
+        // the per-resource try/catch below so a missing/corrupt detail
+        // surfaces as a single failed install rather than aborting the whole
+        // import. Stencil-version conflicts are a deliberate group-decision
+        // (FAIL vs RENUMBER) and the operator sees the full list at once.
+        val incomingStencils = ordered.filter { it.type == "stencil" }.mapNotNull { entry ->
+            val detailBytes = entries[entry.detailUrl.removePrefix("./")] ?: return@mapNotNull null
+            (objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource as? StencilResource)
+        }
+        val stencilConflicts = scanStencilVersionConflicts(command.tenantKey, catalogKey, incomingStencils)
+        if (stencilConflicts.isNotEmpty() && command.onStencilConflict == OnStencilConflict.FAIL) {
+            throw StencilVersionImportConflictsException(catalogKey, stencilConflicts)
+        }
+
+        // Renumber decisions collected as stencils install — handed to
+        // ImportTemplates so template stencil-node pins from the same ZIP can
+        // be rewritten in lockstep. Filled in the install loop below.
+        val stencilRenumbers: MutableMap<app.epistola.suite.common.ids.StencilKey, StencilRenumber> = mutableMapOf()
+
+        // Install resources in dependency order
         val results = ordered.map { entry ->
             try {
                 val detailPath = entry.detailUrl.removePrefix("./")
@@ -233,6 +280,8 @@ class ImportCatalogZipHandler(
                     resource = detail.resource,
                     version = manifest.release.version,
                     entries = entries,
+                    onStencilConflict = command.onStencilConflict,
+                    stencilRenumbers = stencilRenumbers,
                 )
                 InstallResult(type = entry.type, slug = entry.slug, status = status)
             } catch (e: Exception) {
@@ -435,6 +484,8 @@ class ImportCatalogZipHandler(
         resource: CatalogResource,
         version: String,
         entries: Map<String, ByteArray>,
+        onStencilConflict: OnStencilConflict,
+        stencilRenumbers: MutableMap<app.epistola.suite.common.ids.StencilKey, StencilRenumber>,
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
             val input = ImportTemplateInput(
@@ -463,6 +514,7 @@ class ImportCatalogZipHandler(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
                 templates = listOf(input),
+                stencilRenumbers = stencilRenumbers.toMap(),
             ).execute()
             val result = results.first()
             if (result.status == ImportStatus.FAILED) {
@@ -483,15 +535,26 @@ class ImportCatalogZipHandler(
             spacingUnit = resource.spacingUnit,
         ).execute()
 
-        is StencilResource -> ImportStencil(
-            tenantId = tenantId,
-            catalogKey = catalogKey,
-            slug = resource.slug,
-            name = resource.name,
-            description = resource.description,
-            tags = resource.tags ?: emptyList(),
-            content = resource.content,
-        ).execute()
+        is StencilResource -> {
+            val result = ImportStencil(
+                tenantId = tenantId,
+                catalogKey = catalogKey,
+                slug = resource.slug,
+                name = resource.name,
+                version = resource.version,
+                description = resource.description,
+                tags = resource.tags ?: emptyList(),
+                content = resource.content,
+                onConflict = onStencilConflict,
+            ).execute()
+            if (result.wasRenumbered) {
+                stencilRenumbers[app.epistola.suite.common.ids.StencilKey.of(resource.slug)] = StencilRenumber(
+                    sourceVersion = resource.version,
+                    assignedVersion = result.assignedVersion,
+                )
+            }
+            result.status
+        }
 
         is AttributeResource -> {
             val bindingCatalog = resource.codeListBinding?.let {
@@ -643,6 +706,54 @@ class ImportCatalogZipHandler(
                 is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.slug}" !in found
+            }
+        }
+    }
+
+    /**
+     * Read-only conflict scan over every stencil in the manifest. For each
+     * (slug, version) carried by the ZIP, compares the source content against
+     * what target already has at that exact version. Returns one entry per
+     * stencil where target has a row with **different content** — same content
+     * is idempotent, missing rows are installable. No mutation; safe to run
+     * before deciding whether to proceed (FAIL aborts; RENUMBER overlays).
+     */
+    private fun scanStencilVersionConflicts(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        stencils: List<StencilResource>,
+    ): List<StencilVersionImportConflictsException.StencilImportConflict> {
+        if (stencils.isEmpty()) return emptyList()
+        return jdbi.withHandle<List<StencilVersionImportConflictsException.StencilImportConflict>, Exception> { handle ->
+            stencils.mapNotNull { resource ->
+                val contentJson = objectMapper.writeValueAsString(resource.content)
+                val matchesOrNull = handle.createQuery(
+                    """
+                    SELECT (content = :content::jsonb) AS matches
+                    FROM stencil_versions
+                    WHERE tenant_key = :tenantKey
+                      AND catalog_key = :catalogKey
+                      AND stencil_key = :slug
+                      AND id = :version
+                    """,
+                )
+                    .bind("tenantKey", tenantKey)
+                    .bind("catalogKey", catalogKey)
+                    .bind("slug", app.epistola.suite.common.ids.StencilKey.of(resource.slug))
+                    .bind("version", app.epistola.suite.common.ids.VersionKey.of(resource.version))
+                    .bind("content", contentJson)
+                    .mapTo(Boolean::class.java)
+                    .findOne()
+                    .orElse(null)
+                if (matchesOrNull == false) {
+                    StencilVersionImportConflictsException.StencilImportConflict(
+                        stencilKey = app.epistola.suite.common.ids.StencilKey.of(resource.slug),
+                        stencilName = resource.name,
+                        version = resource.version,
+                    )
+                } else {
+                    null
+                }
             }
         }
     }
