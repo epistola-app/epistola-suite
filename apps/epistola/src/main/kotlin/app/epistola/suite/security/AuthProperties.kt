@@ -32,6 +32,22 @@ data class AuthProperties(
      * Override credentials via environment variables for non-local environments.
      */
     val localUsers: List<LocalUserProperties> = emptyList(),
+
+    /**
+     * Flat-role JWT claim settings — for IdPs that cannot emit hierarchical groups.
+     */
+    val flatRoles: FlatRolesProperties = FlatRolesProperties(),
+)
+
+data class FlatRolesProperties(
+    /**
+     * JWT claim name to read flat-role strings from. Default: `roles`.
+     *
+     * The strings are parsed using the `epg_` / `ept_` / `eps_` prefix convention
+     * (see `FlatRoleParser`). Results are merged with anything parsed from the
+     * hierarchical `groups` claim.
+     */
+    val claimName: String = "roles",
 )
 
 data class LocalUserProperties(

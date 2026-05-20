@@ -11,7 +11,7 @@ import java.time.Instant
 @Tag("unit")
 class EpistolaJwtAuthenticationConverterTest {
 
-    private val converter = EpistolaJwtAuthenticationConverter()
+    private val converter = EpistolaJwtAuthenticationConverter(AuthProperties())
 
     private fun jwt(claims: Map<String, Any>): Jwt {
         val builder = Jwt.withTokenValue("test-token")
@@ -139,5 +139,68 @@ class EpistolaJwtAuthenticationConverterTest {
             .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
         assertThat(principal.globalRoles).containsExactly(TenantRole.READER)
         assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
+    }
+
+    @Test
+    fun `extracts memberships from flat roles claim alone`() {
+        val token = converter.convert(
+            jwt(
+                mapOf(
+                    "roles" to listOf(
+                        "ept_acme-corp_reader",
+                        "ept_acme-corp_editor",
+                        "epg_generator",
+                        "eps_tenant_manager",
+                    ),
+                ),
+            ),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.GENERATOR)
+        assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
+    }
+
+    @Test
+    fun `merges groups and flat-roles claim into a single principal`() {
+        val token = converter.convert(
+            jwt(
+                mapOf(
+                    "groups" to listOf("/epistola/tenants/acme-corp/reader"),
+                    "roles" to listOf("ept_acme-corp_editor", "epg_generator"),
+                ),
+            ),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.GENERATOR)
+    }
+
+    @Test
+    fun `honours a custom flat-roles claim name`() {
+        val customConverter = EpistolaJwtAuthenticationConverter(
+            AuthProperties(flatRoles = FlatRolesProperties(claimName = "myroles")),
+        )
+
+        val token = customConverter.convert(
+            jwt(mapOf("myroles" to listOf("ept_acme-corp_manager"))),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactly(TenantRole.MANAGER)
+    }
+
+    @Test
+    fun `ignores flat-roles claim when it uses the wrong configured name`() {
+        // Default config reads "roles" — strings in "myroles" should be ignored.
+        val token = converter.convert(jwt(mapOf("myroles" to listOf("ept_acme-corp_reader"))))
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships).isEmpty()
     }
 }
