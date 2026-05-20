@@ -115,11 +115,15 @@ Create an OpenID Connect client named `epistola-suite`:
 
 ### 2. Group Membership Mapper
 
+This can be configured manually via the admin UI (steps below), or auto-provisioned by the
+app — see [Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning) for the
+managed-Keycloak setup.
+
 Add a protocol mapper to the `epistola-suite` client:
 
 | Setting             | Value                     |
 | ------------------- | ------------------------- |
-| Name                | `group-membership-mapper` |
+| Name                | `epistola-groups`         |
 | Mapper type         | `Group Membership`        |
 | Token claim name    | `groups`                  |
 | Full group path     | **ON**                    |
@@ -179,6 +183,27 @@ keycloakAdmin:
 
 This creates `/epistola/tenants`, `/epistola/global/*`, and `/epistola/platform/*` if they don't exist. The operation is idempotent.
 
+### Automatic Client Mapper Provisioning
+
+With `ensureGroups: true`, Epistola also ensures the Group Membership protocol mapper on its
+own client (`clientId`) is configured correctly on startup. This removes a manual setup step
+and prevents misconfigured deployments where the `groups` claim is missing or contains
+short-name groups (without `full.path=true`).
+
+What it does:
+
+- If no mapper writing `claim.name=groups` exists on the client → creates one named
+  `epistola-groups` with `full.path=true`, included in ID/access/userinfo tokens.
+- If a mapper named `epistola-groups` already exists but its config has drifted → updates it
+  back to the canonical config (self-heal).
+- If a mapper with a *different* name already writes `claim.name=groups` → logs a WARN and
+  leaves it alone, so deliberate operator config is not clobbered. Inspect the warning and
+  reconcile manually if the `groups` claim isn't behaving as expected.
+
+If the service account is missing the `manage-clients` realm-management role, the app logs a
+warning and the rest of startup continues. In that case, configure the mapper manually
+(Step 2 above) or grant the role.
+
 ### Configuration
 
 ```yaml
@@ -202,6 +227,8 @@ The `epistola-suite` client's service account needs `realm-management` client ro
 - `manage-users` — required for creating and deleting groups
 - `view-users` — required for listing groups
 - `query-users` — required for searching groups
+- `manage-clients` — required when `ensureGroups: true` so the app can manage its own
+  client's Group Membership protocol mapper (see [Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning))
 
 ## Local Development
 
@@ -250,3 +277,62 @@ After login, the JWT will contain:
   ]
 }
 ```
+
+## Using a Non-Keycloak IDP (BYO IDP)
+
+Epistola's `GroupMembershipParser` expects the `groups` claim to contain **full
+hierarchical paths** matching `/epistola/{tenants|global|platform}/...`. Most enterprise
+IdPs (Entra ID, Okta, ADFS, etc.) do not produce hierarchical group claims natively — they
+emit flat group names or object IDs.
+
+The supported integration pattern is therefore:
+
+```
+[ Customer IDP (Entra/Okta/ADFS) ]
+            │
+            │ OIDC / SAML identity brokering
+            ▼
+[ Keycloak ] ── issues tokens to ──► [ Epistola Suite ]
+   (broker)                                  ▲
+                                             │
+                                Token contains `/epistola/...`
+                                groups via Group Membership mapper
+```
+
+Keycloak acts as a broker: it federates authentication to the customer's IDP, then maps
+the brokered identity onto Epistola's group structure inside the realm. The application
+itself only ever sees Keycloak-issued tokens with the expected claim shape.
+
+### Setup outline
+
+1. In the Epistola Keycloak realm, configure the customer's IDP under **Identity Providers**
+   (OIDC v1 / SAML v2). Trust is established with the customer's IDP admins.
+2. Add identity-provider **claim mappers** that derive Epistola group memberships from
+   whatever the customer IDP emits — typically:
+   - Static group assignment, e.g. all brokered users land in `/epistola/global/reader`.
+   - Conditional / attribute-based assignment, e.g. users in the IDP's "Tenant Admins"
+     group are mapped into `/epistola/platform/tenant-manager`.
+3. Users authenticate via their corporate IDP. Keycloak provisions a local shadow user on
+   first login and issues a token that conforms to the contract documented above.
+
+### Token contract (read this first)
+
+For any IDP integration, the token Epistola Suite receives must contain:
+
+| Claim   | Type             | Example values                                                                  |
+| ------- | ---------------- | ------------------------------------------------------------------------------- |
+| `sub`   | string           | stable user identifier                                                          |
+| `email` | string           | user's email                                                                    |
+| `groups` | array of string | `["/epistola/tenants/acme-corp/reader", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
+
+Anything outside the `/epistola/` prefix is ignored by the parser. Short-name groups
+(e.g. `"tenant-manager"` without the path prefix) are also ignored — `full.path=true` on
+the Group Membership mapper is what produces the expected shape.
+
+### When to keep Keycloak in the loop vs. integrate directly
+
+Direct integration (no Keycloak broker) is technically possible if the customer's IDP can
+emit a `groups` claim with full Epistola-style paths. In practice this is rare — corporate
+IDP teams are reluctant to model another app's authorization hierarchy inside their
+identity store, and the result is brittle. The brokered pattern keeps Epistola's group
+model owned by the app deployment, while letting the customer's IDP own authentication.

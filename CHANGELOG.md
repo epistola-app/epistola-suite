@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Keycloak Group Membership mapper auto-provisioning.** When `epistola.keycloak.ensure-groups=true`, the app now ensures a correctly-configured Group Membership protocol mapper exists on its own Keycloak client at startup (claim name `groups`, `full.path=true`, included in ID/access/userinfo tokens). Self-heals only mappers it created itself (`name=epistola-groups`); warns and leaves alone any foreign mapper that already emits a `groups` claim, so operator-intentional config is preserved. Without this, a missing or misconfigured `full.path` setting silently drops group memberships from the JWT — meaning users in `/epistola/platform/tenant-manager` (and similar) failed to gain the corresponding platform role. Requires the realm-management role `manage-clients` on the service account; if absent the app logs a warning and the rest of startup continues. See [`docs/keycloak-setup.md`](docs/keycloak-setup.md).
+
+### Changed
+
+- **[`docs/keycloak-setup.md`](docs/keycloak-setup.md)** documents the new auto-provisioning behaviour, updates the list of required service-account roles to include `manage-clients`, and adds a new "Using a Non-Keycloak IDP (BYO IDP)" section describing the Keycloak-as-broker integration pattern and the token contract Epistola expects (full hierarchical group paths under `/epistola/...`).
+
 ## [0.21.0] - 2026-05-20
 
 ### Added
