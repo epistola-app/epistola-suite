@@ -123,6 +123,112 @@ class KeycloakAdminClient(
             .toBodilessEntity()
     }
 
+    /**
+     * Finds an OIDC client by its `clientId` attribute.
+     *
+     * @return the client representation map, or null if no client with that clientId exists
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun findClientByClientId(clientId: String): Map<String, Any>? {
+        val results = restClient.get()
+            .uri("/admin/realms/{realm}/clients?clientId={clientId}", properties.realm, clientId)
+            .headers { it.setBearerAuth(obtainAccessToken()) }
+            .retrieve()
+            .body(List::class.java) as? List<Map<String, Any>>
+            ?: return null
+
+        return results.firstOrNull()
+    }
+
+    /**
+     * Lists all protocol mappers configured directly on a client.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun listClientProtocolMappers(clientUuid: String): List<Map<String, Any>> {
+        val mappers = restClient.get()
+            .uri(
+                "/admin/realms/{realm}/clients/{clientUuid}/protocol-mappers/models",
+                properties.realm,
+                clientUuid,
+            )
+            .headers { it.setBearerAuth(obtainAccessToken()) }
+            .retrieve()
+            .body(List::class.java) as? List<Map<String, Any>>
+            ?: return emptyList()
+
+        return mappers
+    }
+
+    /**
+     * Ensures a Group Membership protocol mapper named [mapperName] exists on the given client,
+     * emitting full hierarchical group paths into the `groups` claim of all token types.
+     *
+     * Behaviour:
+     * - No mapper writing `claim.name=groups` exists → creates one with the canonical config.
+     * - A mapper named [mapperName] exists but its config differs from canonical → updates it (self-heal).
+     * - A mapper with a *different* name already writes `claim.name=groups` → leaves it alone and
+     *   logs a WARN, so operator-intentional config is not clobbered.
+     */
+    fun ensureGroupMembershipMapper(clientUuid: String, mapperName: String = DEFAULT_GROUPS_MAPPER_NAME) {
+        val existing = listClientProtocolMappers(clientUuid)
+        when (val action = decideMapperAction(existing, mapperName)) {
+            is MapperAction.Create -> {
+                log.info("Creating Group Membership mapper '{}' on client {}", mapperName, clientUuid)
+                createProtocolMapper(clientUuid, canonicalGroupsMapper(mapperName))
+            }
+            is MapperAction.Update -> {
+                log.info(
+                    "Updating Group Membership mapper '{}' on client {} (self-heal: config drifted from canonical)",
+                    mapperName,
+                    clientUuid,
+                )
+                updateProtocolMapper(clientUuid, action.mapperId, canonicalGroupsMapper(mapperName) + ("id" to action.mapperId))
+            }
+            is MapperAction.SkipForeign -> {
+                log.warn(
+                    "Found existing protocol mapper '{}' on client {} writing claim.name=groups. " +
+                        "Expected mapper name '{}'. Leaving foreign mapper alone — review manually if " +
+                        "the groups claim is not behaving as expected.",
+                    action.foreignName,
+                    clientUuid,
+                    mapperName,
+                )
+            }
+            is MapperAction.SkipUpToDate -> {
+                log.info("Group Membership mapper '{}' on client {} already matches canonical config", mapperName, clientUuid)
+            }
+        }
+    }
+
+    private fun createProtocolMapper(clientUuid: String, body: Map<String, Any>) {
+        restClient.post()
+            .uri(
+                "/admin/realms/{realm}/clients/{clientUuid}/protocol-mappers/models",
+                properties.realm,
+                clientUuid,
+            )
+            .contentType(MediaType.APPLICATION_JSON)
+            .headers { it.setBearerAuth(obtainAccessToken()) }
+            .body(body)
+            .retrieve()
+            .toBodilessEntity()
+    }
+
+    private fun updateProtocolMapper(clientUuid: String, mapperId: String, body: Map<String, Any>) {
+        restClient.put()
+            .uri(
+                "/admin/realms/{realm}/clients/{clientUuid}/protocol-mappers/models/{mapperId}",
+                properties.realm,
+                clientUuid,
+                mapperId,
+            )
+            .contentType(MediaType.APPLICATION_JSON)
+            .headers { it.setBearerAuth(obtainAccessToken()) }
+            .body(body)
+            .retrieve()
+            .toBodilessEntity()
+    }
+
     private fun extractGroupIdFromLocation(response: org.springframework.http.ResponseEntity<Void>, name: String): UUID {
         val location = response.headers.location
             ?: throw KeycloakAdminException("No Location header in group creation response for: $name")
@@ -150,6 +256,60 @@ class KeycloakAdminClient(
 }
 
 class KeycloakAdminException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+
+internal const val DEFAULT_GROUPS_MAPPER_NAME: String = "epistola-groups"
+
+internal sealed interface MapperAction {
+    data object Create : MapperAction
+    data class Update(val mapperId: String) : MapperAction
+    data class SkipForeign(val foreignName: String) : MapperAction
+    data object SkipUpToDate : MapperAction
+}
+
+internal fun canonicalGroupsMapper(mapperName: String): Map<String, Any> = mapOf(
+    "name" to mapperName,
+    "protocol" to "openid-connect",
+    "protocolMapper" to "oidc-group-membership-mapper",
+    "consentRequired" to false,
+    "config" to canonicalGroupsMapperConfig(),
+)
+
+private fun canonicalGroupsMapperConfig(): Map<String, String> = mapOf(
+    "full.path" to "true",
+    "id.token.claim" to "true",
+    "access.token.claim" to "true",
+    "claim.name" to "groups",
+    "userinfo.token.claim" to "true",
+)
+
+internal fun decideMapperAction(existing: List<Map<String, Any>>, expectedName: String): MapperAction {
+    val groupsMappers = existing.filter { mapper ->
+        @Suppress("UNCHECKED_CAST")
+        val config = mapper["config"] as? Map<String, Any> ?: emptyMap()
+        mapper["protocolMapper"] == "oidc-group-membership-mapper" &&
+            config["claim.name"]?.toString() == "groups"
+    }
+
+    val ours = groupsMappers.firstOrNull { it["name"]?.toString() == expectedName }
+    if (ours != null) {
+        @Suppress("UNCHECKED_CAST")
+        val config = (ours["config"] as? Map<String, Any>).orEmpty()
+        val canonical = canonicalGroupsMapperConfig()
+        val matches = canonical.all { (k, v) -> config[k]?.toString() == v }
+        return if (matches) {
+            MapperAction.SkipUpToDate
+        } else {
+            MapperAction.Update(ours["id"].toString())
+        }
+    }
+
+    val foreign = groupsMappers.firstOrNull()
+    if (foreign != null) {
+        return MapperAction.SkipForeign(foreign["name"]?.toString() ?: "<unnamed>")
+    }
+
+    return MapperAction.Create
+}
 
 @Configuration
 @EnableConfigurationProperties(KeycloakAdminProperties::class)
