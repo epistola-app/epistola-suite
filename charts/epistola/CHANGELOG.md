@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`oidc.flatRolesClaimName`** — sets `EPISTOLA_AUTH_FLATROLES_CLAIMNAME`, overriding the JWT claim the app reads flat role labels (`epg_*` / `ept_*_*` / `eps_*`) from. Default empty → the app uses its own default (`roles`). Set it when integrating with a non-Keycloak IdP that emits the flat-role list under a different claim name. The same value re-points the auto-provisioned Keycloak `epistola-realm-roles` protocol mapper when `keycloakAdmin.ensureGroups=true`, so chart and Keycloak stay in sync.
+
 ## [0.4.0] - 2026-05-20
 
 ### Added

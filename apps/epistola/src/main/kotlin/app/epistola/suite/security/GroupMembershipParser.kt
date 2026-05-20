@@ -10,41 +10,51 @@ private const val TENANTS_SEGMENT = "tenants"
 private const val GLOBAL_SEGMENT = "global"
 private const val PLATFORM_SEGMENT = "platform"
 
-/** All known tenant role names (lowercase with hyphens, matching group convention). */
-private val KNOWN_TENANT_ROLES = mapOf(
+/** All known tenant role names (lowercase with hyphens, matching the Keycloak group convention). */
+internal val KNOWN_TENANT_ROLES = mapOf(
     "reader" to TenantRole.READER,
     "editor" to TenantRole.EDITOR,
     "generator" to TenantRole.GENERATOR,
     "manager" to TenantRole.MANAGER,
 )
 
-/** All known platform role names (lowercase with hyphens, matching group convention). */
-private val KNOWN_PLATFORM_ROLES = mapOf(
+/** All known platform role names (lowercase with hyphens, matching the Keycloak group convention). */
+internal val KNOWN_PLATFORM_ROLES = mapOf(
     "tenant-manager" to PlatformRole.TENANT_MANAGER,
 )
 
 /**
- * Result of parsing Keycloak group memberships from a JWT `groups` claim.
- *
- * All Epistola groups live under the `/epistola` root group in Keycloak. The path convention:
- * - `/epistola/tenants/{tenant}/{role}` → per-tenant role (e.g., `/epistola/tenants/acme-corp/reader`)
- * - `/epistola/global/{role}` → global role applying to all tenants (e.g., `/epistola/global/reader`)
- * - `/epistola/platform/{role}` → platform role (e.g., `/epistola/platform/tenant-manager`)
- *
- * Groups not matching these patterns are silently ignored.
+ * Result of parsing memberships from a JWT — produced by [GroupMembershipParser] (hierarchical
+ * `/epistola/...` groups) and by [FlatRoleParser] (flat `epg_`/`ept_`/`eps_`-prefixed roles).
+ * Both produce the same shape so callers can merge them with [plus].
  */
-data class ParsedGroupMemberships(
+data class ParsedMemberships(
     val tenantRoles: Map<TenantKey, Set<TenantRole>>,
     val globalRoles: Set<TenantRole>,
     val platformRoles: Set<PlatformRole>,
-)
+) {
+    operator fun plus(other: ParsedMemberships): ParsedMemberships {
+        val mergedTenants = (tenantRoles.keys + other.tenantRoles.keys).associateWith { key ->
+            (tenantRoles[key].orEmpty() + other.tenantRoles[key].orEmpty())
+        }
+        return ParsedMemberships(
+            tenantRoles = mergedTenants,
+            globalRoles = globalRoles + other.globalRoles,
+            platformRoles = platformRoles + other.platformRoles,
+        )
+    }
+
+    companion object {
+        val EMPTY = ParsedMemberships(emptyMap(), emptySet(), emptySet())
+    }
+}
 
 /**
  * Parses group names (from a JWT `groups` claim) into structured memberships.
  *
  * Uses the [GroupMembershipParser] singleton for the actual parsing logic.
  */
-fun parseGroupMemberships(groups: List<String>): ParsedGroupMemberships = GroupMembershipParser.parse(groups)
+fun parseGroupMemberships(groups: List<String>): ParsedMemberships = GroupMembershipParser.parse(groups)
 
 /**
  * Parser for Keycloak hierarchical group memberships using path-based convention.
@@ -60,7 +70,7 @@ fun parseGroupMemberships(groups: List<String>): ParsedGroupMemberships = GroupM
  */
 object GroupMembershipParser {
 
-    fun parse(groups: List<String>): ParsedGroupMemberships {
+    fun parse(groups: List<String>): ParsedMemberships {
         val tenantRoles = mutableMapOf<TenantKey, MutableSet<TenantRole>>()
         val globalRoles = mutableSetOf<TenantRole>()
         val platformRoles = mutableSetOf<PlatformRole>()
@@ -134,7 +144,7 @@ object GroupMembershipParser {
             }
         }
 
-        return ParsedGroupMemberships(
+        return ParsedMemberships(
             tenantRoles = tenantRoles.mapValues { it.value.toSet() },
             globalRoles = globalRoles.toSet(),
             platformRoles = platformRoles.toSet(),

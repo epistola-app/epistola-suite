@@ -18,18 +18,18 @@ import org.springframework.stereotype.Component
  * - `sub`: user external ID
  * - `email`: user email
  * - `preferred_username` or `name`: display name
- * - `groups`: Keycloak group memberships (parsed via [parseGroupMemberships])
+ * - `groups`: Keycloak hierarchical group memberships (parsed via [parseGroupMemberships])
+ * - configurable flat-roles claim (default `roles`): prefix-encoded role labels
+ *   (parsed via [parseFlatRoles]) for IdPs that cannot emit hierarchical groups
  *
- * The `groups` claim contains hierarchical Keycloak group paths:
- * - `/epistola/tenants/{tenant}/{role}` → per-tenant role (e.g., `/epistola/tenants/acme-corp/reader`)
- * - `/epistola/global/{role}` → global role for all tenants (e.g., `/epistola/global/reader`)
- * - `/epistola/platform/{role}` → platform role (e.g., `/epistola/platform/tenant-manager`)
- *
- * Only active when an OAuth2 ClientRegistrationRepository is present.
+ * Memberships from both sources are merged (union). Only active when an OAuth2
+ * ClientRegistrationRepository is present.
  */
 @Component
 @ConditionalOnBean(ClientRegistrationRepository::class)
-class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthenticationToken> {
+class EpistolaJwtAuthenticationConverter(
+    private val authProperties: AuthProperties,
+) : Converter<Jwt, AbstractAuthenticationToken> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -41,7 +41,8 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
             ?: subject
 
         val groups = jwt.getClaimAsStringList("groups") ?: emptyList()
-        val parsed = parseGroupMemberships(groups)
+        val flatRoles = jwt.getClaimAsStringList(authProperties.flatRoles.claimName) ?: emptyList()
+        val parsed = parseGroupMemberships(groups) + parseFlatRoles(flatRoles)
 
         val principal = EpistolaPrincipal(
             userId = UserKey.of(deriveUserId(subject)),

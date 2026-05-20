@@ -4,25 +4,39 @@ This document explains how to configure Keycloak for use with Epistola Suite.
 
 ## Overview
 
-Epistola uses Keycloak's **Group Membership Mapper** to derive tenant roles, global roles, and platform roles from hierarchical group paths in the JWT `groups` claim. All Epistola groups live under the `/epistola` root group.
+Epistola accepts memberships from **two JWT claim shapes**, in parallel — pick whichever
+your IdP can produce; the app reads both and takes the union:
 
-## Keycloak Roles vs Groups
+1. **Hierarchical groups** (`/epistola/...` paths in the `groups` claim) — the recommended
+   path when you control Keycloak. Mapped via Keycloak's **Group Membership Mapper**.
+2. **Flat roles** (prefix-encoded strings in a configurable claim, default `roles`) — for
+   IdPs that cannot emit hierarchical groups (Auth0, Cognito, AD-federated, …). Mapped
+   via Keycloak's **Realm Role Mapper**, or by any IdP that can put a list of role labels
+   in a JWT claim.
 
-Keycloak has two user assignment mechanisms. Epistola uses **groups**, not realm roles.
+Both mappers are auto-provisioned on startup when running against Keycloak (see
+[Automatic Client Mapper Provisioning](#automatic-client-mapper-provisioning)).
 
-| Concept         | What it is                                                                                                                     | Used by                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| **Realm roles** | Flat labels (e.g., `ROLE_USER`, `ROLE_ADMIN`). Spring Security auto-maps them to `GrantedAuthority`.                           | Valtimo (for its own authorization) |
-| **Groups**      | Organizational containers for users. No built-in Spring Security meaning — require a **protocol mapper** to appear in the JWT. | Epistola (via `groups` claim)       |
+## Choosing a claim shape
 
-**Why groups instead of roles?** Groups support hierarchical tenant-scoped authorization. With flat realm roles, you'd need a separate role per tenant per permission, which doesn't scale. Hierarchical groups make the tenant/role structure explicit and navigable in the Keycloak admin UI.
+| Concept                 | What it is                                                                                                   | When to use it                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| **Hierarchical groups** | Keycloak group paths under `/epistola/...` — surfaced as `groups: [String]` via the Group Membership mapper. | Default for Keycloak deployments; navigable in admin UI |
+| **Flat roles**          | Prefix-encoded strings (`epg_*`, `ept_*_*`, `eps_*`) in a configurable claim, default `roles`.               | IdPs that emit only flat realm roles or scopes          |
+
+Both produce the same effective memberships. A user can be granted access via either
+mechanism, or both — duplicates are de-duped via set union.
 
 **How it works:**
 
 1. Admin assigns users to Keycloak groups (e.g., `/epistola/tenants/acme-corp/reader`)
-2. The `oidc-group-membership-mapper` (with `full.path=true`) puts full group paths into the JWT `groups` claim
-3. Epistola's `parseGroupMemberships()` extracts tenant roles, global roles, and platform roles
-4. The `EpistolaPrincipal` is constructed with the parsed memberships
+   **and/or** to realm roles (e.g., `ept_acme-corp_reader`).
+2. The `oidc-group-membership-mapper` (with `full.path=true`) puts full group paths into
+   the JWT `groups` claim; the `oidc-usermodel-realm-role-mapper` puts realm role names
+   into the configured flat-roles claim (default `roles`).
+3. Epistola's `parseGroupMemberships()` and `parseFlatRoles()` each extract tenant
+   roles, global roles, and platform roles. The two results are merged.
+4. The `EpistolaPrincipal` is constructed with the union of parsed memberships.
 
 ## Group Hierarchy
 
@@ -101,6 +115,40 @@ Effective roles:
   acme-corp: {READER, EDITOR}   (per-tenant EDITOR + global READER)
   any-tenant: {READER}          (from global)
 ```
+
+## Flat Roles (for IdPs without groups)
+
+When an IdP cannot emit hierarchical group paths, Epistola accepts a **flat string-array
+claim** (default name `roles`, configurable via `epistola.auth.flat-roles.claim-name`).
+Each entry uses one of three prefixes:
+
+| Prefix | Pattern                  | Example                | Meaning                                     |
+| ------ | ------------------------ | ---------------------- | ------------------------------------------- |
+| `epg_` | `epg_<role>`             | `epg_reader`           | Global tenant role (applies to all tenants) |
+| `ept_` | `ept_<tenantKey>_<role>` | `ept_acme-corp_editor` | Per-tenant role                             |
+| `eps_` | `eps_<platformRole>`     | `eps_tenant_manager`   | Platform role                               |
+
+Role names match the existing vocabulary: `reader`, `editor`, `generator`, `manager`
+(tenant roles) and `tenant_manager` (platform role — `_` is normalised to `-` for lookup,
+so both `eps_tenant_manager` and `eps_tenant-manager` resolve correctly). Tenant keys
+follow the existing slug rules (lowercase letters/digits/hyphens, never underscores), so
+`_` is unambiguously the segment separator.
+
+Strings that don't match a prefix, or that reference an unknown role / invalid tenant
+key, are silently ignored — so unrelated IdP roles (`ROLE_USER`, etc.) don't break login.
+
+**Configuration:**
+
+```yaml
+epistola:
+  auth:
+    flat-roles:
+      claim-name: roles # default; override if your IdP emits a different claim
+```
+
+Memberships from `groups` and from the flat-roles claim are merged (union), so an
+operator can mix-and-match — useful during migrations or for users granted roles via
+different mechanisms.
 
 ## Keycloak Configuration
 
@@ -185,24 +233,27 @@ This creates `/epistola/tenants`, `/epistola/global/*`, and `/epistola/platform/
 
 ### Automatic Client Mapper Provisioning
 
-With `ensureGroups: true`, Epistola also ensures the Group Membership protocol mapper on its
-own client (`clientId`) is configured correctly on startup. This removes a manual setup step
-and prevents misconfigured deployments where the `groups` claim is missing or contains
-short-name groups (without `full.path=true`).
+With `ensureGroups: true`, Epistola ensures **two** protocol mappers exist on its own
+client (`clientId`) on startup, so the JWT carries both supported claim shapes out of
+the box:
 
-What it does:
+- `epistola-groups` — Group Membership mapper writing `claim.name=groups`, with
+  `full.path=true`, included in ID/access/userinfo tokens.
+- `epistola-realm-roles` — User Realm Role mapper writing the configured flat-roles
+  claim (default `roles`), `multivalued=true`, included in ID/access/userinfo tokens.
 
-- If no mapper writing `claim.name=groups` exists on the client → creates one named
-  `epistola-groups` with `full.path=true`, included in ID/access/userinfo tokens.
-- If a mapper named `epistola-groups` already exists but its config has drifted → updates it
+For each mapper:
+
+- If no mapper writing the target claim exists → creates the canonical one.
+- If a mapper with the canonical name exists but its config has drifted → updates it
   back to the canonical config (self-heal).
-- If a mapper with a _different_ name already writes `claim.name=groups` → logs a WARN and
-  leaves it alone, so deliberate operator config is not clobbered. Inspect the warning and
-  reconcile manually if the `groups` claim isn't behaving as expected.
+- If a mapper with a _different_ name already writes the target claim → logs a WARN and
+  leaves it alone, so deliberate operator config is not clobbered.
 
-If the service account is missing the `manage-clients` realm-management role, the app logs a
-warning and the rest of startup continues. In that case, configure the mapper manually
-(Step 2 above) or grant the role.
+If the service account is missing the `manage-clients` realm-management role, the app
+logs a warning and the rest of startup continues. In that case, configure the mappers
+manually (see [Group Membership Mapper](#2-group-membership-mapper) above) or grant the
+role.
 
 ### Configuration
 
@@ -264,7 +315,8 @@ Logging out of Epistola also ends the Keycloak SSO session (via OIDC RP-Initiate
 
 ## JWT Claim Example
 
-After login, the JWT will contain:
+After login against an auto-provisioned Keycloak, the JWT contains both shapes for the
+same effective memberships:
 
 ```json
 {
@@ -274,18 +326,37 @@ After login, the JWT will contain:
     "/epistola/tenants/demo/generator",
     "/epistola/tenants/demo/manager",
     "/epistola/platform/tenant-manager"
+  ],
+  "roles": [
+    "ept_demo_reader",
+    "ept_demo_editor",
+    "ept_demo_generator",
+    "ept_demo_manager",
+    "eps_tenant_manager"
   ]
 }
 ```
 
+An IdP that emits only one of these — say, only `roles` — is fully supported. The
+unused parser simply contributes the empty membership set.
+
 ## Using a Non-Keycloak IDP (BYO IDP)
 
-Epistola's `GroupMembershipParser` expects the `groups` claim to contain **full
-hierarchical paths** matching `/epistola/{tenants|global|platform}/...`. Most enterprise
-IdPs (Entra ID, Okta, ADFS, etc.) do not produce hierarchical group claims natively — they
-emit flat group names or object IDs.
+Two paths are supported:
 
-The supported integration pattern is therefore:
+1. **Flat roles directly from the customer IDP** — if the IDP can emit a flat string-array
+   claim, map the relevant roles to the `epg_*` / `ept_*_*` / `eps_*` convention
+   (see [Flat Roles](#flat-roles-for-idps-without-groups)) and point
+   `epistola.auth.flat-roles.claim-name` at it. No Keycloak in the loop.
+2. **Keycloak as a broker** — the customer IDP federates into Keycloak, which then maps
+   the brokered identity onto Epistola's group structure. Recommended when the customer
+   IDP team doesn't want to model another app's authorization hierarchy.
+
+Option 1 is the simplest path when it works. Option 2 (described below) is the
+historical recommendation and remains useful when the customer IDP can't emit the
+required claim shape.
+
+### Brokered pattern (recommended for complex enterprise IdPs)
 
 ```
 [ Customer IDP (Entra/Okta/ADFS) ]
@@ -317,22 +388,23 @@ itself only ever sees Keycloak-issued tokens with the expected claim shape.
 
 ### Token contract (read this first)
 
-For any IDP integration, the token Epistola Suite receives must contain:
+For any IDP integration, the token Epistola Suite receives must contain `sub` and
+`email`, plus **at least one** of the following claim shapes:
 
-| Claim    | Type            | Example values                                                                                                                                                                                   |
-| -------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sub`    | string          | stable user identifier                                                                                                                                                                           |
-| `email`  | string          | user's email                                                                                                                                                                                     |
-| `groups` | array of string | `["/epistola/tenants/acme-corp/reader", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
+| Claim                                  | Type            | Example values                                                                                                                                                                                   |
+| -------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `groups`                               | array of string | `["/epistola/tenants/acme-corp/reader", "/epistola/platform/tenant-manager"]` — paths must start with `/epistola/` and follow the conventions in [Group Path Convention](#group-path-convention) |
+| `roles` (or the configured equivalent) | array of string | `["ept_acme-corp_reader", "eps_tenant_manager"]` — see [Flat Roles](#flat-roles-for-idps-without-groups)                                                                                         |
 
-Anything outside the `/epistola/` prefix is ignored by the parser. Short-name groups
-(e.g. `"tenant-manager"` without the path prefix) are also ignored — `full.path=true` on
-the Group Membership mapper is what produces the expected shape.
+Anything outside the recognised prefixes / paths is ignored by the parsers — short-name
+groups (e.g. `"tenant-manager"` without the path prefix) and unknown role labels alike.
+Both claims can be present at once; their results are merged.
 
 ### When to keep Keycloak in the loop vs. integrate directly
 
-Direct integration (no Keycloak broker) is technically possible if the customer's IDP can
-emit a `groups` claim with full Epistola-style paths. In practice this is rare — corporate
-IDP teams are reluctant to model another app's authorization hierarchy inside their
-identity store, and the result is brittle. The brokered pattern keeps Epistola's group
-model owned by the app deployment, while letting the customer's IDP own authentication.
+Direct integration is straightforward when the customer IDP can emit a flat
+prefix-encoded `roles` claim — see Option 1 above. Direct integration with the
+hierarchical `groups` shape is also possible but rare, because corporate IDP teams are
+reluctant to model another app's authorization hierarchy inside their identity store.
+The brokered pattern keeps Epistola's group model owned by the app deployment, while
+letting the customer's IDP own authentication.

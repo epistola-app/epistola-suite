@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test
 @Tag("unit")
 class KeycloakAdminClientMapperLogicTest {
 
+    private val canonicalGroups = canonicalGroupsMapper(DEFAULT_GROUPS_MAPPER_NAME)
+    private val canonicalRealmRoles = canonicalRealmRolesMapper(DEFAULT_REALM_ROLES_MAPPER_NAME, "roles")
+
     @Test
     fun `creates mapper when no existing groups-claim mapper is present`() {
         val existing = listOf(
@@ -18,7 +21,7 @@ class KeycloakAdminClientMapperLogicTest {
             ),
         )
 
-        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME)
+        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME, canonicalGroups)
 
         assertThat(action).isEqualTo(MapperAction.Create)
     }
@@ -40,7 +43,7 @@ class KeycloakAdminClientMapperLogicTest {
             ),
         )
 
-        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME)
+        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME, canonicalGroups)
 
         assertThat(action).isEqualTo(MapperAction.Update("mapper-uuid"))
     }
@@ -52,11 +55,11 @@ class KeycloakAdminClientMapperLogicTest {
                 "id" to "mapper-uuid",
                 "name" to DEFAULT_GROUPS_MAPPER_NAME,
                 "protocolMapper" to "oidc-group-membership-mapper",
-                "config" to canonicalGroupsMapper(DEFAULT_GROUPS_MAPPER_NAME)["config"] as Map<*, *>,
+                "config" to canonicalGroups["config"] as Map<*, *>,
             ),
         )
 
-        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME)
+        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME, canonicalGroups)
 
         assertThat(action).isEqualTo(MapperAction.SkipUpToDate)
     }
@@ -72,7 +75,7 @@ class KeycloakAdminClientMapperLogicTest {
             ),
         )
 
-        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME)
+        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME, canonicalGroups)
 
         assertThat(action).isEqualTo(MapperAction.SkipForeign("group-membership-mapper"))
     }
@@ -88,8 +91,102 @@ class KeycloakAdminClientMapperLogicTest {
             ),
         )
 
-        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME)
+        val action = decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME, canonicalGroups)
 
         assertThat(action).isEqualTo(MapperAction.Create)
+    }
+
+    @Test
+    fun `creates realm-roles mapper when none exists`() {
+        val existing = listOf(
+            mapOf<String, Any>(
+                "id" to "groups-uuid",
+                "name" to DEFAULT_GROUPS_MAPPER_NAME,
+                "protocolMapper" to "oidc-group-membership-mapper",
+                "config" to canonicalGroups["config"] as Map<*, *>,
+            ),
+        )
+
+        val action = decideMapperAction(existing, DEFAULT_REALM_ROLES_MAPPER_NAME, canonicalRealmRoles)
+
+        assertThat(action).isEqualTo(MapperAction.Create)
+    }
+
+    @Test
+    fun `updates realm-roles mapper when its config drifts`() {
+        val existing = listOf(
+            mapOf<String, Any>(
+                "id" to "rr-uuid",
+                "name" to DEFAULT_REALM_ROLES_MAPPER_NAME,
+                "protocolMapper" to "oidc-usermodel-realm-role-mapper",
+                "config" to mapOf(
+                    "multivalued" to "false",
+                    "claim.name" to "roles",
+                    "id.token.claim" to "true",
+                    "access.token.claim" to "true",
+                    "userinfo.token.claim" to "true",
+                    "jsonType.label" to "String",
+                ),
+            ),
+        )
+
+        val action = decideMapperAction(existing, DEFAULT_REALM_ROLES_MAPPER_NAME, canonicalRealmRoles)
+
+        assertThat(action).isEqualTo(MapperAction.Update("rr-uuid"))
+    }
+
+    @Test
+    fun `skips realm-roles mapper when canonical`() {
+        val existing = listOf(
+            mapOf<String, Any>(
+                "id" to "rr-uuid",
+                "name" to DEFAULT_REALM_ROLES_MAPPER_NAME,
+                "protocolMapper" to "oidc-usermodel-realm-role-mapper",
+                "config" to canonicalRealmRoles["config"] as Map<*, *>,
+            ),
+        )
+
+        val action = decideMapperAction(existing, DEFAULT_REALM_ROLES_MAPPER_NAME, canonicalRealmRoles)
+
+        assertThat(action).isEqualTo(MapperAction.SkipUpToDate)
+    }
+
+    @Test
+    fun `warns when foreign realm-role mapper writes the same claim`() {
+        val existing = listOf(
+            mapOf<String, Any>(
+                "id" to "foreign-rr",
+                "name" to "legacy-realm-roles",
+                "protocolMapper" to "oidc-usermodel-realm-role-mapper",
+                "config" to mapOf("multivalued" to "true", "claim.name" to "roles"),
+            ),
+        )
+
+        val action = decideMapperAction(existing, DEFAULT_REALM_ROLES_MAPPER_NAME, canonicalRealmRoles)
+
+        assertThat(action).isEqualTo(MapperAction.SkipForeign("legacy-realm-roles"))
+    }
+
+    @Test
+    fun `groups mapper and realm-roles mapper coexist independently`() {
+        val existing = listOf(
+            mapOf<String, Any>(
+                "id" to "groups-uuid",
+                "name" to DEFAULT_GROUPS_MAPPER_NAME,
+                "protocolMapper" to "oidc-group-membership-mapper",
+                "config" to canonicalGroups["config"] as Map<*, *>,
+            ),
+            mapOf<String, Any>(
+                "id" to "rr-uuid",
+                "name" to DEFAULT_REALM_ROLES_MAPPER_NAME,
+                "protocolMapper" to "oidc-usermodel-realm-role-mapper",
+                "config" to canonicalRealmRoles["config"] as Map<*, *>,
+            ),
+        )
+
+        assertThat(decideMapperAction(existing, DEFAULT_GROUPS_MAPPER_NAME, canonicalGroups))
+            .isEqualTo(MapperAction.SkipUpToDate)
+        assertThat(decideMapperAction(existing, DEFAULT_REALM_ROLES_MAPPER_NAME, canonicalRealmRoles))
+            .isEqualTo(MapperAction.SkipUpToDate)
     }
 }

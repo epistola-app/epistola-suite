@@ -162,6 +162,12 @@ oidc:
   # Use when Keycloak is reachable at a different URL from within the cluster
   # than from the browser (e.g., http://keycloak-svc/auth vs https://auth.example.com/auth).
   backchannelBaseUrl: ""
+  # JWT claim name to read flat-role strings (`epg_*` / `ept_*_*` / `eps_*`) from.
+  # Leave blank to use the application default (`roles`). Override when your IdP
+  # emits the flat-role list under a different claim name (e.g., `app_roles`).
+  # Also re-points the Keycloak `epistola-realm-roles` mapper when
+  # `keycloakAdmin.ensureGroups=true`. See docs/keycloak-setup.md.
+  flatRolesClaimName: ""
 
 # Keycloak admin/provisioning configuration (optional, for group bootstrap)
 keycloakAdmin:

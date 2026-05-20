@@ -170,32 +170,70 @@ class KeycloakAdminClient(
      *   logs a WARN, so operator-intentional config is not clobbered.
      */
     fun ensureGroupMembershipMapper(clientUuid: String, mapperName: String = DEFAULT_GROUPS_MAPPER_NAME) {
+        ensureProtocolMapper(
+            clientUuid = clientUuid,
+            mapperName = mapperName,
+            description = "Group Membership",
+            canonical = canonicalGroupsMapper(mapperName),
+        )
+    }
+
+    /**
+     * Ensures a Realm Role protocol mapper exists on the given client, emitting realm role
+     * names into the configured flat-roles claim. The mapper is required for
+     * [app.epistola.suite.security.FlatRoleParser] to map Keycloak realm roles
+     * (e.g. `ept_acme_reader`) onto Epistola memberships.
+     *
+     * Same self-heal / SkipForeign behaviour as [ensureGroupMembershipMapper].
+     */
+    fun ensureRealmRolesMapper(
+        clientUuid: String,
+        claimName: String,
+        mapperName: String = DEFAULT_REALM_ROLES_MAPPER_NAME,
+    ) {
+        ensureProtocolMapper(
+            clientUuid = clientUuid,
+            mapperName = mapperName,
+            description = "Realm Role",
+            canonical = canonicalRealmRolesMapper(mapperName, claimName),
+        )
+    }
+
+    private fun ensureProtocolMapper(
+        clientUuid: String,
+        mapperName: String,
+        description: String,
+        canonical: Map<String, Any>,
+    ) {
         val existing = listClientProtocolMappers(clientUuid)
-        when (val action = decideMapperAction(existing, mapperName)) {
+        when (val action = decideMapperAction(existing, mapperName, canonical)) {
             is MapperAction.Create -> {
-                log.info("Creating Group Membership mapper '{}' on client {}", mapperName, clientUuid)
-                createProtocolMapper(clientUuid, canonicalGroupsMapper(mapperName))
+                log.info("Creating {} mapper '{}' on client {}", description, mapperName, clientUuid)
+                createProtocolMapper(clientUuid, canonical)
             }
             is MapperAction.Update -> {
                 log.info(
-                    "Updating Group Membership mapper '{}' on client {} (self-heal: config drifted from canonical)",
+                    "Updating {} mapper '{}' on client {} (self-heal: config drifted from canonical)",
+                    description,
                     mapperName,
                     clientUuid,
                 )
-                updateProtocolMapper(clientUuid, action.mapperId, canonicalGroupsMapper(mapperName) + ("id" to action.mapperId))
+                updateProtocolMapper(clientUuid, action.mapperId, canonical + ("id" to action.mapperId))
             }
             is MapperAction.SkipForeign -> {
+                val claimName = (canonical["config"] as? Map<*, *>)?.get("claim.name")
                 log.warn(
-                    "Found existing protocol mapper '{}' on client {} writing claim.name=groups. " +
+                    "Found existing protocol mapper '{}' on client {} writing claim.name={}. " +
                         "Expected mapper name '{}'. Leaving foreign mapper alone — review manually if " +
-                        "the groups claim is not behaving as expected.",
+                        "the claim is not behaving as expected.",
                     action.foreignName,
                     clientUuid,
+                    claimName,
                     mapperName,
                 )
             }
             is MapperAction.SkipUpToDate -> {
-                log.info("Group Membership mapper '{}' on client {} already matches canonical config", mapperName, clientUuid)
+                log.info("{} mapper '{}' on client {} already matches canonical config", description, mapperName, clientUuid)
             }
         }
     }
@@ -258,6 +296,7 @@ class KeycloakAdminClient(
 class KeycloakAdminException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
 internal const val DEFAULT_GROUPS_MAPPER_NAME: String = "epistola-groups"
+internal const val DEFAULT_REALM_ROLES_MAPPER_NAME: String = "epistola-realm-roles"
 
 internal sealed interface MapperAction {
     data object Create : MapperAction
@@ -282,20 +321,43 @@ private fun canonicalGroupsMapperConfig(): Map<String, String> = mapOf(
     "userinfo.token.claim" to "true",
 )
 
-internal fun decideMapperAction(existing: List<Map<String, Any>>, expectedName: String): MapperAction {
-    val groupsMappers = existing.filter { mapper ->
-        @Suppress("UNCHECKED_CAST")
+internal fun canonicalRealmRolesMapper(mapperName: String, claimName: String): Map<String, Any> = mapOf(
+    "name" to mapperName,
+    "protocol" to "openid-connect",
+    "protocolMapper" to "oidc-usermodel-realm-role-mapper",
+    "consentRequired" to false,
+    "config" to canonicalRealmRolesMapperConfig(claimName),
+)
+
+private fun canonicalRealmRolesMapperConfig(claimName: String): Map<String, String> = mapOf(
+    "multivalued" to "true",
+    "id.token.claim" to "true",
+    "access.token.claim" to "true",
+    "claim.name" to claimName,
+    "userinfo.token.claim" to "true",
+    "jsonType.label" to "String",
+)
+
+@Suppress("UNCHECKED_CAST")
+internal fun decideMapperAction(
+    existing: List<Map<String, Any>>,
+    expectedName: String,
+    canonical: Map<String, Any>,
+): MapperAction {
+    val canonicalProtocolMapper = canonical["protocolMapper"]?.toString()
+    val canonicalConfig = (canonical["config"] as? Map<String, Any>).orEmpty()
+    val canonicalClaim = canonicalConfig["claim.name"]?.toString()
+
+    val sameKind = existing.filter { mapper ->
         val config = mapper["config"] as? Map<String, Any> ?: emptyMap()
-        mapper["protocolMapper"] == "oidc-group-membership-mapper" &&
-            config["claim.name"]?.toString() == "groups"
+        mapper["protocolMapper"]?.toString() == canonicalProtocolMapper &&
+            config["claim.name"]?.toString() == canonicalClaim
     }
 
-    val ours = groupsMappers.firstOrNull { it["name"]?.toString() == expectedName }
+    val ours = sameKind.firstOrNull { it["name"]?.toString() == expectedName }
     if (ours != null) {
-        @Suppress("UNCHECKED_CAST")
         val config = (ours["config"] as? Map<String, Any>).orEmpty()
-        val canonical = canonicalGroupsMapperConfig()
-        val matches = canonical.all { (k, v) -> config[k]?.toString() == v }
+        val matches = canonicalConfig.all { (k, v) -> config[k]?.toString() == v.toString() }
         return if (matches) {
             MapperAction.SkipUpToDate
         } else {
@@ -303,7 +365,7 @@ internal fun decideMapperAction(existing: List<Map<String, Any>>, expectedName: 
         }
     }
 
-    val foreign = groupsMappers.firstOrNull()
+    val foreign = sameKind.firstOrNull()
     if (foreign != null) {
         return MapperAction.SkipForeign(foreign["name"]?.toString() ?: "<unnamed>")
     }
