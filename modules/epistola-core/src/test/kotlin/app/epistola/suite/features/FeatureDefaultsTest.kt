@@ -32,14 +32,14 @@ class FeatureDefaultsTest {
     }
 
     @Test
-    fun `stencil-parameters defaults to disabled`() {
+    fun `stencil-parameters defaults to enabled`() {
         val defaults = FeatureDefaults()
-        assertFalse(defaults.isEnabled(KnownFeatures.STENCIL_PARAMETERS))
+        assertTrue(defaults.isEnabled(KnownFeatures.STENCIL_PARAMETERS))
     }
 
     @Test
-    fun `stencil-parameters returns configured value when enabled`() {
-        val defaults = FeatureDefaults(stencilParameters = true)
-        assertTrue(defaults.isEnabled(KnownFeatures.STENCIL_PARAMETERS))
+    fun `stencil-parameters returns configured value when disabled`() {
+        val defaults = FeatureDefaults(stencilParameters = false)
+        assertFalse(defaults.isEnabled(KnownFeatures.STENCIL_PARAMETERS))
     }
 }
