@@ -69,6 +69,18 @@
                                 </th:block>
                                 <!-- Subscribed: plain text -->
                                 <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
+                                <!-- Version-pin drift warning: shown when published templates in this
+                                     catalog pin a stencil version that is not the latest published —
+                                     either because different templates pin different versions
+                                     ("inconsistent") or because all templates agree on a non-latest
+                                     version ("stale"). The wire format ships only the latest
+                                     published version, so any non-latest pin would be unresolvable
+                                     in the target after import; this stencil currently blocks export. -->
+                                <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
+                                      class="badge badge-warning"
+                                      style="margin-left: var(--ep-space-2);"
+                                      th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
+                                      th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
                             <td><code th:text="${resource.slug}"></code></td>
                             <td>

@@ -7,7 +7,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.themes.LastThemeException
 import app.epistola.suite.themes.ThemeInUseException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -16,9 +15,8 @@ import org.springframework.stereotype.Component
 /**
  * Deletes a theme by ID.
  *
- * Constraints:
- * - Cannot delete the tenant's current default theme
- * - Cannot delete the last theme for a tenant (at least one must exist)
+ * Constraint: cannot delete the tenant's current default theme — clear the
+ * tenant default first (themes are optional, so zero themes is a valid state).
  *
  * Templates referencing this theme will gracefully fall back to their own styles.
  */
@@ -38,20 +36,21 @@ class DeleteThemeHandler(
      * Deletes a theme by ID.
      * Returns true if a theme was deleted, false if not found.
      * @throws ThemeInUseException if the theme is the tenant's default theme
-     * @throws LastThemeException if this is the last theme for the tenant
      */
     override fun handle(command: DeleteTheme): Boolean {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.withHandle<Boolean, Exception> { handle ->
-            // Check if this is the tenant's default theme
             val isDefaultTheme = handle.createQuery(
                 """
-            SELECT COUNT(*) FROM tenants
-            WHERE id = :tenantId AND default_theme_key = :themeId
-            """,
+                SELECT COUNT(*) FROM tenants
+                WHERE id = :tenantId
+                  AND default_theme_key = :themeId
+                  AND default_theme_catalog_key = :catalogKey
+                """,
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("themeId", command.id.key)
+                .bind("catalogKey", command.id.catalogKey)
                 .mapTo<Long>()
                 .one() > 0
 
@@ -59,26 +58,10 @@ class DeleteThemeHandler(
                 throw ThemeInUseException(command.id.key, "it is the tenant's default theme")
             }
 
-            // Check if this is the last theme for the tenant
-            val themeCount = handle.createQuery(
-                """
-            SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-            """,
-            )
-                .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
-                .mapTo<Long>()
-                .one()
-
-            if (themeCount <= 1) {
-                throw LastThemeException(command.id.key)
-            }
-
-            // Delete the theme
             val deleted = handle.createUpdate(
                 """
-            DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
-            """,
+                DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                """,
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)

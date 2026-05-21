@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "theme",
+    "slug": "default",
+    "name": "Default",
+    "description": "Minimal default theme shipped with Epistola. Sensible defaults for A4 documents.",
+    "documentStyles": {
+      "fontFamily": { "slug": "inter", "catalogKey": "system" },
+      "fontSize": "11pt",
+      "lineHeight": 1.5,
+      "color": "#333333"
+    },
+    "pageSettings": {
+      "format": "A4",
+      "orientation": "portrait",
+      "margins": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      }
+    }
+  }
+}

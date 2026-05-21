@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component
 data class ListDocumentTemplates(
     val tenantId: TenantId,
     val searchTerm: String? = null,
+    val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<DocumentTemplate>>,
@@ -29,6 +31,9 @@ class ListDocumentTemplatesHandler(
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
             append("SELECT dt.id, dt.tenant_key, dt.catalog_key, c.type AS catalog_type, dt.name, dt.theme_key, dt.theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by FROM document_templates dt JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key WHERE dt.tenant_key = :tenantId")
+            if (query.catalogKey != null) {
+                append(" AND dt.catalog_key = :catalogKey")
+            }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")
             }
@@ -38,6 +43,9 @@ class ListDocumentTemplatesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

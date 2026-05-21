@@ -229,10 +229,11 @@ class ExportStencilsHandler(
         val sql = buildString {
             append(
                 """
-                SELECT s.id, s.name, s.description, s.tags::text, sv.content::text
+                SELECT s.id, s.name, s.description, s.tags::text,
+                       sv.id AS version, sv.content::text
                 FROM stencils s
                 JOIN LATERAL (
-                    SELECT content FROM stencil_versions
+                    SELECT id, content FROM stencil_versions
                     WHERE tenant_key = s.tenant_key AND stencil_key = s.id
                       AND status = 'published'
                     ORDER BY id DESC
@@ -254,6 +255,7 @@ class ExportStencilsHandler(
             StencilResource(
                 slug = rs.getString("id"),
                 name = rs.getString("name"),
+                version = rs.getInt("version"),
                 description = rs.getString("description"),
                 tags = tags,
                 content = objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java),
