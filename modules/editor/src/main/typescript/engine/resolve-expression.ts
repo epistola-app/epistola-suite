@@ -11,41 +11,50 @@ import jsonata from 'jsonata';
 // Custom JSONata functions
 // ---------------------------------------------------------------------------
 
-const MONTH_NAMES_FULL = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-const MONTH_NAMES_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+/**
+ * Default locale used when the editor host doesn't supply one. Kept as English
+ * to preserve the pre-locale behaviour for screenshots / golden tests.
+ */
+const DEFAULT_LOCALE = 'en-US';
 
 /**
- * Format an ISO date or datetime string using a pattern.
+ * Cache of `{ locale -> {full: [...], short: [...]} }` localized month names,
+ * built lazily via `Intl.DateTimeFormat`. Computing month names is not cheap
+ * (the formatter is instantiated under the hood) and `formatDateValue` is
+ * called once per ExpressionNodeView on every preview render, so caching by
+ * locale is worth it.
+ */
+const monthNameCache = new Map<string, { full: string[]; short: string[] }>();
+
+function localizedMonthNames(locale: string): { full: string[]; short: string[] } {
+  const cached = monthNameCache.get(locale);
+  if (cached) return cached;
+  const full = new Intl.DateTimeFormat(locale, { month: 'long' });
+  const short = new Intl.DateTimeFormat(locale, { month: 'short' });
+  const fullNames: string[] = [];
+  const shortNames: string[] = [];
+  for (let m = 0; m < 12; m++) {
+    // Use day 15 to dodge DST/calendar edge cases at month boundaries.
+    const d = new Date(Date.UTC(2024, m, 15));
+    fullNames.push(full.format(d));
+    shortNames.push(short.format(d));
+  }
+  const entry = { full: fullNames, short: shortNames };
+  monthNameCache.set(locale, entry);
+  return entry;
+}
+
+/**
+ * Format an ISO date or datetime string using a pattern, localized.
  *
  * Supported date tokens: `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`.
  * Supported time tokens: `HH`, `mm`, `ss`.
+ *
+ * `locale` is a BCP-47 tag (e.g. `"nl-NL"`, `"en-US"`, `"de-DE"`); it controls
+ * the spelling of `MMMM`/`MMM` (month name). Numeric tokens are locale-agnostic
+ * by design — the Java `DateTimeFormatter` on the renderer side behaves the
+ * same way for these tokens. Editor preview now matches the PDF render exactly
+ * for the locale chain (variant attribute → tenant default → app default).
  *
  * Accepts plain dates (`2024-01-15`), local datetimes (`2024-01-15T14:30:00`),
  * UTC datetimes (`2024-01-15T14:30:00Z`), and offset datetimes
@@ -59,17 +68,22 @@ const MONTH_NAMES_SHORT = [
  *
  * Returns the original value if it cannot be parsed.
  */
-export function formatDateValue(value: string, pattern: string): string {
+export function formatDateValue(
+  value: string,
+  pattern: string,
+  locale: string = DEFAULT_LOCALE,
+): string {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if (!match) return value;
   const [, yyyy, mm, dd, HH = '00', min = '00', ss = '00'] = match;
   const month = parseInt(mm, 10);
   const day = parseInt(dd, 10);
+  const { full, short } = localizedMonthNames(locale);
 
   return pattern
     .replace('yyyy', yyyy)
-    .replace('MMMM', MONTH_NAMES_FULL[month - 1] ?? '')
-    .replace('MMM', MONTH_NAMES_SHORT[month - 1] ?? '')
+    .replace('MMMM', full[month - 1] ?? '')
+    .replace('MMM', short[month - 1] ?? '')
     .replace('MM', mm)
     .replace('dd', dd)
     .replace('HH', HH)
@@ -82,27 +96,33 @@ export function formatDateValue(value: string, pattern: string): string {
  * Register custom functions on a JSONata expression instance.
  * Must be called before `expr.evaluate()`.
  */
-function registerCustomFunctions(expr: jsonata.Expression): void {
+function registerCustomFunctions(expr: jsonata.Expression, locale: string): void {
   expr.registerFunction('formatDate', (value: unknown, pattern: unknown) => {
     if (typeof value !== 'string' || typeof pattern !== 'string') return value;
-    return formatDateValue(value, pattern);
+    return formatDateValue(value, pattern, locale);
   });
 }
 
 /**
  * Evaluate a JSONata expression against the given data.
  * Returns `undefined` on empty expression, evaluation error, or missing path.
+ *
+ * [locale] (BCP-47, default `"en-US"`) is the locale used to spell `MMMM`/`MMM`
+ * tokens in `$formatDate`. The host (editor mount) should pass the value
+ * resolved by the locale chain (variant attribute → tenant default → app default)
+ * so the inline preview matches the PDF.
  */
 export async function evaluateExpression(
   expression: string,
   data: Record<string, unknown>,
+  locale: string = 'en-US',
 ): Promise<unknown> {
   const trimmed = expression.trim();
   if (!trimmed) return undefined;
 
   try {
     const expr = jsonata(trimmed);
-    registerCustomFunctions(expr);
+    registerCustomFunctions(expr, locale);
     return await expr.evaluate(data);
   } catch {
     return undefined;
@@ -138,13 +158,14 @@ export type ExpressionResult = { ok: true; value: unknown } | { ok: false; error
 export async function tryEvaluateExpression(
   expression: string,
   data: Record<string, unknown>,
+  locale: string = 'en-US',
 ): Promise<ExpressionResult> {
   const trimmed = expression.trim();
   if (!trimmed) return { ok: false, error: 'Expression is empty' };
 
   try {
     const expr = jsonata(trimmed);
-    registerCustomFunctions(expr);
+    registerCustomFunctions(expr, locale);
     const value = await expr.evaluate(data);
     return { ok: true, value };
   } catch (e: unknown) {

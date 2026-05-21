@@ -1,20 +1,45 @@
 package app.epistola.generation.expression
 
+import app.epistola.generation.DEFAULT_RENDER_TIMEZONE
 import app.epistola.generation.SimplePathEvaluator
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
+import java.time.ZoneId
+import java.util.Locale
 
 /**
  * Dispatches expression evaluation to the appropriate evaluator based on the expression language.
  *
  * This is the main entry point for expression evaluation in the generation module.
  * It delegates to JSONata, JavaScript, or SimplePath evaluators based on the Expression model.
+ *
+ * Fields are intentionally public `val` so a renderer can build a locale-scoped
+ * variant via [forLocale] without paying the price of constructing a fresh
+ * GraalJS engine for every PDF.
  */
 class CompositeExpressionEvaluator(
-    private val jsonataEvaluator: ExpressionEvaluator = JsonataEvaluator(),
-    private val javaScriptEvaluator: ExpressionEvaluator = JavaScriptEvaluator(),
-    private val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
+    val jsonataEvaluator: ExpressionEvaluator = JsonataEvaluator(),
+    val javaScriptEvaluator: ExpressionEvaluator = JavaScriptEvaluator(),
+    val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
 ) {
+    /**
+     * Render-scoped copy with a fresh [JsonataEvaluator] bound to [locale]
+     * (and [timeZone]). The other evaluators are reused — only JSONata cares
+     * about locale today (via `$formatDate`), and re-creating [JavaScriptEvaluator]
+     * would re-init the GraalJS engine on every render.
+     *
+     * Returns `this` if [locale] matches the default — no allocation for the
+     * untouched English path.
+     */
+    fun forLocale(locale: Locale, timeZone: ZoneId = DEFAULT_RENDER_TIMEZONE): CompositeExpressionEvaluator {
+        if (locale == Locale.ENGLISH && timeZone == DEFAULT_RENDER_TIMEZONE) return this
+        return CompositeExpressionEvaluator(
+            jsonataEvaluator = JsonataEvaluator(locale = locale, timeZone = timeZone),
+            javaScriptEvaluator = this.javaScriptEvaluator,
+            simplePathEvaluator = this.simplePathEvaluator,
+        )
+    }
+
     /**
      * Evaluates an Expression model against the provided data context.
      */

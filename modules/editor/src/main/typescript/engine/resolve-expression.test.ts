@@ -440,6 +440,32 @@ describe('formatDateValue', () => {
   it('defaults time tokens to 00 for date-only values', () => {
     expect(formatDateValue('2024-01-15', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 00:00');
   });
+
+  // --- locale-aware month names ---
+
+  it('formats d MMMM yyyy in Dutch (lowercase month, the canonical "04 april 2026" case)', () => {
+    expect(formatDateValue('2026-04-04', 'dd MMMM yyyy', 'nl-NL')).toBe('04 april 2026');
+  });
+
+  it('formats d MMM yyyy in Dutch (short lowercase month)', () => {
+    // Dutch short months are lowercase in CLDR: jan, feb, mrt, apr, …
+    const out = formatDateValue('2024-04-15', 'd MMM yyyy', 'nl-NL');
+    // CLDR has used both "apr" and "apr." over time; assert it starts with "apr"
+    // and contains the day + year so the test is stable across ICU versions.
+    expect(out.toLowerCase()).toMatch(/^15 apr\.? 2024$/);
+  });
+
+  it('formats MMMM in German (capitalized as German convention requires)', () => {
+    expect(formatDateValue('2024-03-15', 'dd MMMM yyyy', 'de-DE')).toBe('15 März 2024');
+  });
+
+  it('locale defaults to en-US when not provided (back-compat with pre-locale callers)', () => {
+    expect(formatDateValue('2024-01-15', 'd MMMM yyyy')).toBe('15 January 2024');
+  });
+
+  it('numeric tokens are unaffected by locale (yyyy/MM/dd stay numeric)', () => {
+    expect(formatDateValue('2026-04-04', 'yyyy-MM-dd', 'nl-NL')).toBe('2026-04-04');
+  });
 });
 
 // ---------------------------------------------------------------------------
