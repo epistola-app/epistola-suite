@@ -4,6 +4,7 @@
     "type": "stencil",
     "slug": "header-with-logo",
     "name": "Header With Logo",
+    "version": 1,
     "tags": ["header"],
     "content": {
       "modelVersion": 1,

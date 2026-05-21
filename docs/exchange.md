@@ -37,29 +37,32 @@ All catalog logic lives in `modules/epistola-core` under `app.epistola.suite.cat
 
 ```
 catalog/
-  Catalog.kt                      # Data model (CatalogType, AuthType)
-  CatalogClient.kt                # HTTP/file/classpath fetching
-  CatalogImportContext.kt          # ScopedValue for import bypass
-  CatalogReadOnlyException.kt     # requireCatalogEditable()
-  DependencyResolver.kt           # Transitive dependency resolution
-  DependencyScanner.kt            # Scan template model for refs
+  Catalog.kt                          # Data model (CatalogType, AuthType)
+  CatalogClient.kt                    # HTTP/file/classpath fetching
+  CatalogImportContext.kt             # ScopedValue for import bypass
+  CatalogReadOnlyException.kt         # requireCatalogEditable()
+  DependencyResolver.kt               # Transitive dependency resolution
+  DependencyScanner.kt                # Scan template model for refs
+  MultipleStencilVersionsInUseException.kt  # Export-side stencil pin drift
   commands/
-    CreateCatalog.kt               # Create authored catalog
-    RegisterCatalog.kt             # Subscribe to remote catalog
-    UnregisterCatalog.kt           # Remove catalog + all resources
-    InstallFromCatalog.kt          # Import orchestrator
-    ExportCatalog.kt               # Export by template dependencies
-    ExportCatalogZip.kt            # Export entire catalog as ZIP
-    Import*.kt                     # Per-type importers
+    CreateCatalog.kt                  # Create authored catalog
+    RegisterCatalog.kt                # Subscribe to remote catalog
+    UnregisterCatalog.kt              # Remove catalog + all resources
+    InstallFromCatalog.kt             # Import orchestrator
+    ExportCatalog.kt                  # Export by template dependencies
+    ExportCatalogZip.kt               # Export entire catalog as ZIP
+    OnStencilConflict.kt              # Import conflict policy + renumber map
+    Import*.kt                        # Per-type importers
   queries/
-    BrowseCatalog.kt               # List resources in catalog
-    ExportAssets.kt                # Query assets for export
-    ExportResources.kt             # Query themes/stencils/attributes for export
+    BrowseCatalog.kt                  # List resources in catalog
+    ExportAssets.kt                   # Query assets for export
+    ExportResources.kt                # Query themes/stencils/attributes for export
+    FindStencilVersionExportConflicts.kt  # Export precheck
     GetCatalog.kt, ListCatalogs.kt
-    PreviewInstall.kt              # Dependency resolution preview
+    PreviewInstall.kt                 # Dependency resolution preview
   protocol/
-    CatalogManifest.kt            # Wire format
-    ResourceDetail.kt             # Resource detail wire format
+    CatalogManifest.kt                # Wire format
+    ResourceDetail.kt                 # Resource detail wire format
 ```
 
 UI handlers and routes are in `apps/epistola`:
@@ -223,7 +226,7 @@ Resource types use Jackson polymorphic serialization (`@JsonTypeInfo` on `Catalo
 
 - **TemplateResource**: `templateModel`, `variants` (with per-variant `templateModel`, `attributes`, `isDefault`), `dataModel`, `dataExamples`
 - **ThemeResource**: `documentStyles`, `pageSettings`, `blockStylePresets`, `spacingUnit`
-- **StencilResource**: `content` (TemplateDocument), `tags`
+- **StencilResource**: `content` (TemplateDocument), `version` (Int, required — the published version number of the carried content), `tags`
 - **AttributeResource**: `allowedValues`
 - **AssetResource**: `mediaType`, `width`, `height`, `contentUrl` (relative path to binary file)
 
@@ -315,8 +318,10 @@ Both authored and subscribed catalogs can be exported. For authored catalogs, al
 The export stamps `release.version` with the catalog's latest released SemVer
 and `release.fingerprint` with the fingerprint of the actual exported bytes. A
 never-released catalog exports as `0.0.0-dev`; a working copy that drifted from
-its latest release exports as `<version>-dev`. Export is never blocked — see
-[`catalog-versioning.md`](catalog-versioning.md).
+its latest release exports as `<version>-dev`. Catalog-version drift is never
+blocked — see [`catalog-versioning.md`](catalog-versioning.md). Stencil-version
+drift _is_ blocked at export time — see [Stencil version
+preservation](#stencil-version-preservation) below.
 
 Cross-catalog dependencies are automatically detected during export by scanning template models against the catalog's own resource list. Any external reference is added to the `dependencies` field in `catalog.json`.
 
@@ -324,6 +329,57 @@ Configurable size limits protect against oversized exports:
 
 - `epistola.catalog.max-zip-size`: Maximum compressed ZIP size (default 10MB)
 - `epistola.catalog.max-decompressed-size`: Maximum decompressed size (default 20MB)
+
+### Stencil version preservation
+
+Templates reference stencils through a stencil node whose
+`props.version: Int` pins the consumer to a specific published version of
+that stencil. To preserve those pins across an export/import round-trip, the
+wire format carries the published version number alongside the content
+(`StencilResource.version`, required since `epistola-model 0.6.0`). The
+exporter ships the **latest** published version of each stencil and stamps
+its number; the importer installs the stencil at that exact number in
+target. The architecture and rationale are recorded in
+[ADR 0003](adr/0003-stencil-version-in-export.md).
+
+#### Export precheck
+
+Because each catalog ZIP carries only the latest published version of each
+stencil, every template in the catalog must pin **that** version for the
+round-trip to be safe. Before assembling the ZIP, `ExportCatalogZip` runs
+`FindStencilVersionExportConflicts` over the catalog's latest-published
+template versions and flags any own-catalog stencil where some template
+pins a version other than the latest published. The check fires in two
+failure modes — folded into the same rejection:
+
+- **Inconsistent** — different templates pin different versions of the same
+  stencil.
+- **Stale** — every template pins the same version, but that version is not
+  the latest published.
+
+When the check finds anything, the export is blocked with
+`MultipleStencilVersionsInUseException` carrying every affected stencil
+along with the pinned versions and the latest-published version. The UI
+surfaces this:
+
+- The **catalog browse** view marks every affected stencil with a
+  `badge-warning` (`pinned vX (latest vY)`) so the operator sees the
+  problem at-a-glance before clicking export.
+- The **Export as ZIP** button runs a precheck endpoint
+  (`GET /tenants/{tenantId}/catalogs/{catalogId}/export-check`) that
+  either returns `HX-Redirect` to the real download URL (no conflicts) or
+  opens a modal listing the affected stencils with remediation guidance
+  (republish the templates against the latest stencil version).
+
+To fix a conflict, open the affected templates and republish them with the
+stencil instance upgraded to the latest published version. No content needs
+to be re-typed — the upgrade is structural.
+
+The exception is also thrown by `ExportCatalogZip` itself, so REST or MCP
+callers that hit `/api/tenants/{tenantId}/catalogs/{catalogId}/export`
+directly (without going through the UI precheck) still get the same hard
+block as a JSON 400. The cheap conflict check runs before any ZIP bytes
+are assembled.
 
 ### ZIP Import
 
@@ -339,6 +395,101 @@ Available via:
 - REST API: `POST /api/tenants/{tenantId}/catalogs/import` (multipart, API key auth)
 
 The REST API endpoint is used by the Valtimo plugin for catalog sync on startup.
+
+### Stencil version conflict handling
+
+`ImportStencil` installs each stencil at the version number carried on the
+wire (`StencilResource.version`), not at `MAX(target.version) + 1`. This
+keeps templates from the same ZIP that pinned that version still resolving
+in target. Pre-`0.6.0` ZIPs lack the field, fail Jackson deserialisation,
+and abort the import explicitly — they must be re-exported before they can
+be imported. There is no compatibility shim.
+
+For each `(slug, version)` pair carried in the ZIP, the importer checks
+target for a row with the same key:
+
+| Target state                                    | Behaviour                                                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Missing                                         | Install at the carried version. `InstallStatus.INSTALLED` (or `UPDATED` if the stencil row already existed). |
+| Present, **byte-identical** content (JSONB `=`) | No-op; idempotent. `InstallStatus.SKIPPED`. A re-import of an unchanged ZIP never churns.                    |
+| Present, **different** content                  | **Conflict** — resolution depends on `onStencilConflict` (see below).                                        |
+
+Conflicts are collected in one read-only pre-scan **before any mutation** so
+the operator sees every affected stencil at once rather than failing on the
+first one.
+
+#### Resolution policy: `OnStencilConflict`
+
+`ImportCatalogZip` takes an `onStencilConflict: OnStencilConflict`
+parameter that controls what happens when a conflict is detected. The
+default is `FAIL`. The `RENUMBER` mode is opt-in and **only valid for
+AUTHORED MERGE** imports; the orchestrator rejects it for SUBSCRIBED and
+AUTHORED REPLACE up front with a clear `IllegalArgumentException`. Those
+modes are mirror semantics — letting the target diverge from source would
+contradict their import contract.
+
+##### `FAIL` (default)
+
+The whole import aborts before any mutation. The catalog is left exactly
+as it was. The operator receives a `StencilVersionImportConflictsException`
+listing every conflicting stencil:
+
+```text
+Cannot import catalog 'shared': 2 stencil version-conflict(s) —
+  'company-header' v3
+  'letter-shell' v2
+```
+
+The web UI renders this inline in the Import dialog as a structured alert
+that names every affected stencil. To resolve, the operator either:
+
+1. Fixes the divergence at source (republishing the source catalog so the
+   conflicting versions match target's, then re-exporting), or
+2. Re-uploads the ZIP with **Allow renumber on stencil version conflict**
+   enabled (see below).
+
+##### `RENUMBER` (opt-in, AUTHORED MERGE only)
+
+For every conflicting stencil, the importer assigns
+`MAX(target.stencil_versions.id) + 1` and writes the source content at that
+new version. `ImportStencil` reports the assignment back; the orchestrator
+collects a `Map<StencilKey, StencilRenumber>` across the install pass and
+hands it to `ImportTemplates`.
+
+`ImportTemplates` then walks every imported template document's nodes and
+rewrites `props.version` for any stencil node whose `stencilId` is in the
+map **and** whose source pin equals the recorded `sourceVersion`. The
+templates from the same ZIP now point at the freshly-renumbered target
+version. Cross-catalog stencil refs (those with `props.catalogKey !=
+ownCatalog`) and templates that were already in target are deliberately not
+touched — they continue to resolve their own pre-renumber version.
+
+Worked example. Target has `stencil-a` at `v1` with content `X`. The ZIP
+brings `stencil-a` at `v1` with content `Y`, plus a template `T` whose
+stencil node pins `stencil-a@v1`:
+
+- Without renumber (FAIL): import aborts, catalog unchanged.
+- With renumber: target now has `stencil-a@v1` (still content `X`) and
+  `stencil-a@v2` (content `Y`). Template `T` is imported with its pin
+  rewritten to `stencil-a@v2`. Any pre-existing template in target that
+  pinned `stencil-a@v1` keeps that pin — it still renders content `X`.
+
+##### UI flow
+
+The Import dialog exposes the policy via a checkbox: **Allow renumber on
+stencil version conflict** (default off). When the checkbox is off and a
+conflict happens, the dialog stays open and the response renders inline
+inside `#import-error` as an `alert-error` structured list. The user can
+then either close the dialog and fix the source, or re-tick the checkbox
+and re-upload the ZIP for a one-shot renumber-and-retry. There is no
+server-side stash of the upload bytes; a single-click retry would need one
+and is out of scope for this iteration.
+
+For non-UI callers (REST / MCP), the behaviour is identical: the command
+takes the same `onStencilConflict` parameter, `FAIL` raises
+`StencilVersionImportConflictsException`, and `RENUMBER` performs the
+renumber + template rewrite. SUBSCRIBED and AUTHORED REPLACE imports
+reject `RENUMBER` with `IllegalArgumentException`.
 
 ## UI
 

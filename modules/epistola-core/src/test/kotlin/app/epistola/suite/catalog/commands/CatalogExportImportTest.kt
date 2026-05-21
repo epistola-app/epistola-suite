@@ -660,6 +660,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 tenantId = tenantId,
                 catalogKey = targetCatalogKey,
                 slug = resource.slug,
+                version = resource.version,
                 name = resource.name,
                 description = resource.description,
                 tags = resource.tags,
@@ -695,10 +696,13 @@ class CatalogExportImportTest : IntegrationTestBase() {
             CreateStencilVersion(stencilId = stencilId, content = stencilContentWithRoot("local-draft-root")).execute()
 
             // Simulate a re-import with new content (e.g. from an updated remote catalog).
+            // The wire format now carries the source version: this represents a
+            // republish of v2 from the source catalog, replacing the local draft.
             ImportStencil(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
                 slug = stencilSlug.value,
+                version = 2,
                 name = "Supersedes",
                 content = stencilContentWithRoot("imported-root"),
             ).execute()
