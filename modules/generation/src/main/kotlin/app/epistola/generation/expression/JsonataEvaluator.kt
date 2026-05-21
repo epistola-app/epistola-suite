@@ -1,5 +1,6 @@
 package app.epistola.generation.expression
 
+import app.epistola.generation.DEFAULT_LOCALE
 import app.epistola.generation.DEFAULT_RENDER_TIMEZONE
 import com.dashjoin.jsonata.Jsonata.Fn2
 import com.dashjoin.jsonata.Jsonata.jsonata
@@ -33,7 +34,7 @@ import java.util.Locale
  * @see <a href="https://jsonata.org">JSONata Documentation</a>
  */
 class JsonataEvaluator(
-    private val locale: Locale = Locale.ENGLISH,
+    private val locale: Locale = DEFAULT_LOCALE,
     private val timeZone: ZoneId = DEFAULT_RENDER_TIMEZONE,
 ) : ExpressionEvaluator {
     override fun evaluate(

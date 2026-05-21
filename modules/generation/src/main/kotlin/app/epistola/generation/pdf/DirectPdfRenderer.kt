@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.DEFAULT_LOCALE
 import app.epistola.generation.ProseMirrorConverter
 import app.epistola.generation.SystemParameterRegistry
 import app.epistola.generation.expression.CompositeExpressionEvaluator
@@ -91,12 +92,12 @@ class DirectPdfRenderer(
         fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         renderMode: RenderMode = RenderMode.STRICT,
-        locale: Locale = Locale.ENGLISH,
+        locale: Locale = DEFAULT_LOCALE,
     ) {
         TwoPassAnalyzer.validate(document)
 
         // Build a render-scoped evaluator chain bound to the effective locale.
-        // `forLocale` is a no-op when `locale == Locale.ENGLISH`, so the
+        // `forLocale` is a no-op when `locale == DEFAULT_LOCALE`, so the
         // untouched English path costs nothing — we only allocate when a
         // tenant/variant has actually opted into a different locale.
         val scopedEvaluator = expressionEvaluator.forLocale(locale)

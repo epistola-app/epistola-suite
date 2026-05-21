@@ -1,5 +1,6 @@
 package app.epistola.generation.expression
 
+import app.epistola.generation.DEFAULT_LOCALE
 import app.epistola.generation.DEFAULT_RENDER_TIMEZONE
 import app.epistola.generation.SimplePathEvaluator
 import app.epistola.template.model.Expression
@@ -32,7 +33,7 @@ class CompositeExpressionEvaluator(
      * untouched English path.
      */
     fun forLocale(locale: Locale, timeZone: ZoneId = DEFAULT_RENDER_TIMEZONE): CompositeExpressionEvaluator {
-        if (locale == Locale.ENGLISH && timeZone == DEFAULT_RENDER_TIMEZONE) return this
+        if (locale == DEFAULT_LOCALE && timeZone == DEFAULT_RENDER_TIMEZONE) return this
         return CompositeExpressionEvaluator(
             jsonataEvaluator = JsonataEvaluator(locale = locale, timeZone = timeZone),
             javaScriptEvaluator = this.javaScriptEvaluator,

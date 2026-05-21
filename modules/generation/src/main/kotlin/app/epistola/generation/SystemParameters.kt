@@ -3,6 +3,7 @@ package app.epistola.generation
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Scope at which a system parameter is available.
@@ -39,6 +40,19 @@ data class SystemParameterDescriptor(
 
 /** Default timezone used for date-related rendering (e.g., sys.render.time, $formatDate). */
 val DEFAULT_RENDER_TIMEZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
+
+/**
+ * Compile-time `Locale` fallback for renderer / evaluator method signatures
+ * that need a default but never see one used in production: the real chain
+ * is `system.locale` variant attribute → `tenants.default_locale` → the
+ * `epistola.i18n.default-locale` Spring property, resolved by
+ * `TenantLocaleResolver` in `epistola-core` and threaded through every
+ * `renderPdf*` call. This constant only kicks in for tests / direct
+ * `DirectPdfRenderer` use that doesn't pass a locale.
+ *
+ * Sibling of [DEFAULT_RENDER_TIMEZONE]: rendering-layer defaults live here.
+ */
+val DEFAULT_LOCALE: Locale = Locale.ENGLISH
 
 /**
  * Registry of system parameters available to templates at render time.

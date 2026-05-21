@@ -1,5 +1,6 @@
 package app.epistola.suite.generation
 
+import app.epistola.generation.DEFAULT_LOCALE
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
@@ -54,7 +55,7 @@ class DocumentPreviewRenderer(
         template: DocumentTemplate,
         tenant: Tenant,
         data: ObjectNode,
-        locale: Locale = Locale.ENGLISH,
+        locale: Locale = DEFAULT_LOCALE,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
 
