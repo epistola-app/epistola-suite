@@ -86,7 +86,11 @@ class EpistolaTemplateApi(
         catalogId: String,
         q: String?,
     ): ResponseEntity<TemplateListResponse> {
-        val templates = ListDocumentTemplates(tenantId = TenantId(TenantKey.of(tenantId)), searchTerm = q).query()
+        val templates = ListDocumentTemplates(
+            tenantId = TenantId(TenantKey.of(tenantId)),
+            catalogKey = CatalogKey.of(catalogId),
+            searchTerm = q,
+        ).query()
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
