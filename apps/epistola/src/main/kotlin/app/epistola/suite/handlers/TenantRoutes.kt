@@ -16,9 +16,6 @@ class TenantRoutes(private val handler: TenantHandler) {
             POST("", handler::create)
             GET("/{tenantId}", handler::home)
             POST("/{tenantId}/delete", handler::delete)
-            GET("/{tenantId}/settings", handler::settings)
-            POST("/{tenantId}/settings/locale", handler::updateLocale)
-            POST("/{tenantId}/settings/features", handler::updateFeatures)
         }
     }
 }

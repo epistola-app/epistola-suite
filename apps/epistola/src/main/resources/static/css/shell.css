@@ -211,26 +211,6 @@
   text-decoration: none;
 }
 
-/* Icon-only nav links (e.g. Settings between tenant and user) */
-.app-nav-icon-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--ep-space-1);
-  color: var(--ep-muted-foreground);
-  text-decoration: none;
-  border: 1px solid transparent;
-  border-radius: var(--ep-radius-md);
-  transition: var(--ep-transition-colors);
-}
-
-.app-nav-icon-link:hover,
-.app-nav-icon-link.active {
-  color: var(--ep-foreground);
-  border-color: var(--ep-border-color);
-  text-decoration: none;
-}
-
 /* User section */
 .app-nav-user {
   display: flex;

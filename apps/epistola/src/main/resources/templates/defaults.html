@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <h1>Defaults</h1>
+
+        <div class="alert alert-success" th:if="${param.saved}">
+            Defaults saved successfully.
+        </div>
+
+        <div class="alert alert-error" th:if="${error}" th:text="${error}"></div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Default locale</h2>
+                <p class="subtitle">
+                    Used to format dates and numbers in generated documents.
+                    Leave blank to use the application default
+                    (<span th:text="${applicationDefault}">en-US</span>).
+                </p>
+            </div>
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/defaults/locale(tenantId=${tenantId})}" method="post">
+                    <p class="form-hint">
+                        <strong>Effective locale:</strong>
+                        <span th:text="${effectiveLocale}">en-US</span>
+                        <span th:if="${tenant.defaultLocale != null}">(tenant override)</span>
+                        <span th:if="${tenant.defaultLocale == null}"
+                              th:text="'(application default: ' + ${applicationDefault} + ')'">
+                            (application default: en-US)
+                        </span>
+                    </p>
+
+                    <div class="form-group">
+                        <label class="ep-label" for="locale">Locale override</label>
+                        <select id="locale" name="locale" class="ep-input">
+                            <option value="" th:selected="${tenant.defaultLocale == null}">
+                                — Use application default —
+                            </option>
+                            <option th:each="entry : ${entries}"
+                                    th:value="${entry.code}"
+                                    th:text="${entry.label + ' (' + entry.code + ')'}"
+                                    th:selected="${entry.code == tenant.defaultLocale}">en-US</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary">Save</button>
+                        <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>
