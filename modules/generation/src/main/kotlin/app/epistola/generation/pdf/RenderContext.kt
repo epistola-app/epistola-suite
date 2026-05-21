@@ -64,6 +64,12 @@ data class RenderContext(
     /** Pre-calculated total page count from two-pass rendering. Null during first pass or single-pass rendering. */
     val totalPages: Int? = null,
     /**
+     * Collects headings encountered during rendering so the renderer can
+     * build a nested document outline / bookmarks for accessibility
+     * (WCAG PDF2). Shared (mutable) across the node tree for one render.
+     */
+    val bookmarkCollector: MutableList<BookmarkEntry> = mutableListOf(),
+    /**
      * Stencil IDs of every stencil node we are currently inside. Pushed by
      * [StencilNodeRenderer] when entering a stencil. A duplicate is the
      * defence-in-depth recursion catch; the editor and server-side validator

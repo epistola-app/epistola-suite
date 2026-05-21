@@ -200,7 +200,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `import into existing subscribed catalog is rejected`() {
+    fun `importing an AUTHORED ZIP over an existing SUBSCRIBED catalog is rejected (type mismatch)`() {
         val tenant = createTenant("Subscribed Reject")
         val tenantKey = tenant.id
 
@@ -218,7 +218,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
-            // Try to import with the same slug into the subscribed catalog
+            // Same slug already exists as SUBSCRIBED → importing it as AUTHORED
+            // is a type mismatch (would flip ownership). Re-importing it as
+            // SUBSCRIBED is the supported "upgrade from ZIP" path instead.
             assertThatThrownBy {
                 ImportCatalogZip(
                     tenantKey = tenantKey,
@@ -226,7 +228,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     catalogType = CatalogType.AUTHORED,
                 ).execute()
             }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("subscribed")
+                .hasMessageContaining("already exists as SUBSCRIBED")
         }
     }
 

@@ -83,7 +83,20 @@ class EnsureSubscribedCatalogHandler(
             return@runAsImport EnsureSubscribedCatalogResult(EnsureCatalogStatus.INSTALLED, catalogKey, null, bundledVersion)
         }
 
-        if (bundledFingerprint != null && existing.installedFingerprint == bundledFingerprint) {
+        // Fingerprint is the change gate. A manifest without a fingerprint
+        // (legacy / hand-rolled external) can't be drift-detected, so fall
+        // back to the version string instead of re-upgrading on every boot.
+        val alreadyCurrent = if (bundledFingerprint != null) {
+            existing.installedFingerprint == bundledFingerprint
+        } else {
+            log.warn(
+                "Catalog '{}' manifest has no release.fingerprint — using version-string change detection (no content drift detection) for tenant {}",
+                catalogKey.value,
+                command.tenantKey.value,
+            )
+            existing.installedReleaseVersion == bundledVersion
+        }
+        if (alreadyCurrent) {
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
                 catalogKey,
@@ -93,7 +106,12 @@ class EnsureSubscribedCatalogHandler(
         }
 
         val previousVersion = existing.installedReleaseVersion
-        UpgradeCatalog(tenantKey = command.tenantKey, catalogKey = existing.id).execute()
+        val upgrade = UpgradeCatalog(tenantKey = command.tenantKey, catalogKey = existing.id).execute()
+        if (upgrade.aborted) {
+            // Loud + self-retrying: SystemCatalogBootstrap's catch counts this
+            // as failed; the version stayed put so the next boot retries.
+            throw CatalogUpgradeAbortedException(catalogKey, upgrade.installResults.filter { it.status == InstallStatus.FAILED })
+        }
         log.info(
             "Catalog '{}' upgraded for tenant {}: {} -> {}",
             catalogKey.value,

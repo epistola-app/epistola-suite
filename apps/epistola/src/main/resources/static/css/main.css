@@ -60,7 +60,10 @@ main.regular section {
   color: var(--ep-foreground);
 }
 
-.form-group input,
+/* Text-like fields stretch; radios/checkboxes keep their intrinsic size
+   (they are full-width otherwise — e.g. the import-type radios and the
+   upgrade-dialog opt-in checkboxes). */
+.form-group input:not([type='radio']):not([type='checkbox']),
 .form-group textarea,
 .form-group select {
   width: 100%;

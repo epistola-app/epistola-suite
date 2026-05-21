@@ -51,6 +51,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
     defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
       { key: 'alt', label: 'Alt Text', type: 'text' },
+      { key: 'decorative', label: 'Decorative Image', type: 'boolean', defaultValue: false },
       { key: 'width', label: 'Width', type: 'unit', units: ['pt', 'sp', '%'] },
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp', '%'] },
       { key: 'aspectRatioLocked', label: 'Lock Aspect Ratio', type: 'boolean', defaultValue: true },
@@ -58,6 +59,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
     defaultProps: {
       assetId: null,
       alt: '',
+      decorative: false,
       width: '',
       height: '',
       aspectRatioLocked: true,

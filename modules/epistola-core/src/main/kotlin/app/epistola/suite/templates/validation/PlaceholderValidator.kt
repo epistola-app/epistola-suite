@@ -3,6 +3,7 @@ package app.epistola.suite.templates.validation
 import app.epistola.suite.stencils.PlaceholderNodeKeys
 import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.NodeParameterKeys
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
@@ -62,7 +63,8 @@ class PlaceholderValidator {
             if (!seen.add(name)) {
                 throw ValidationException(
                     "content.placeholder.name",
-                    "PLACEHOLDER_NAME_DUPLICATE: placeholder name '$name' is used more than once",
+                    "placeholder name '$name' is used more than once",
+                    ValidationCode.PLACEHOLDER_NAME_DUPLICATE,
                 )
             }
         }
@@ -86,8 +88,8 @@ class PlaceholderValidator {
             if (!seen.add(name)) {
                 throw ValidationException(
                     "content.placeholder.name",
-                    "PLACEHOLDER_NAME_DUPLICATE: placeholder name '$name' is used more than once " +
-                        "in the same stencil",
+                    "placeholder name '$name' is used more than once in the same stencil",
+                    ValidationCode.PLACEHOLDER_NAME_DUPLICATE,
                 )
             }
         }
@@ -106,8 +108,9 @@ class PlaceholderValidator {
             if (name == null || !slugRegex.matches(name)) {
                 throw ValidationException(
                     "content.placeholder.name",
-                    "PLACEHOLDER_NAME_INVALID: placeholder name must be a kebab-case slug " +
+                    "placeholder name must be a kebab-case slug " +
                         "(^[a-z][a-z0-9-]{0,63}\$); got '${name ?: "<missing>"}'",
+                    ValidationCode.PLACEHOLDER_NAME_INVALID,
                 )
             }
         }
@@ -128,8 +131,9 @@ class PlaceholderValidator {
                     val innerName = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                     throw ValidationException(
                         "content.placeholder",
-                        "PLACEHOLDER_NESTED_DEFINITION: placeholder '$innerName' is nested " +
+                        "placeholder '$innerName' is nested " +
                             "inside placeholder '$outerName' at the stencil-definition level",
+                        ValidationCode.PLACEHOLDER_NESTED_DEFINITION,
                     )
                 }
             }
@@ -149,8 +153,8 @@ class PlaceholderValidator {
                 val name = node.props?.get(PlaceholderNodeKeys.PROP_NAME) as? String ?: "<unnamed>"
                 throw ValidationException(
                     "content.placeholder",
-                    "PLACEHOLDER_OUTSIDE_STENCIL: placeholder '$name' must be a descendant " +
-                        "of a stencil node",
+                    "placeholder '$name' must be a descendant of a stencil node",
+                    ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL,
                 )
             }
         }
@@ -173,7 +177,8 @@ class PlaceholderValidator {
                 if (ancestors.contains(sid)) {
                     throw ValidationException(
                         "content.stencil.stencilId",
-                        "STENCIL_RECURSION: stencil '$sid' would contain itself transitively",
+                        "stencil '$sid' would contain itself transitively",
+                        ValidationCode.STENCIL_RECURSION,
                     )
                 }
                 ancestors = ancestors + sid
@@ -204,14 +209,16 @@ class PlaceholderValidator {
             if (alias != null && alias !is String) {
                 throw ValidationException(
                     "content.${node.type}.props.paramsAlias",
-                    "NODE_PARAMETER_BINDINGS_INVALID_SHAPE: paramsAlias must be a string",
+                    "paramsAlias must be a string",
+                    ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
                 )
             }
             if (alias is String && alias in NodeParameterKeys.RESERVED_ALIASES) {
                 throw ValidationException(
                     "content.${node.type}.props.paramsAlias",
-                    "NODE_PARAMS_ALIAS_RESERVED: paramsAlias '$alias' collides with a " +
+                    "paramsAlias '$alias' collides with a " +
                         "reserved scope name (${NodeParameterKeys.RESERVED_ALIASES.joinToString()})",
+                    ValidationCode.NODE_PARAMS_ALIAS_RESERVED,
                 )
             }
 
@@ -219,27 +226,29 @@ class PlaceholderValidator {
             if (rawBindings !is Map<*, *>) {
                 throw ValidationException(
                     "content.${node.type}.props.parameterBindings",
-                    "NODE_PARAMETER_BINDINGS_INVALID_SHAPE: parameterBindings must be an object " +
+                    "parameterBindings must be an object " +
                         "of paramName → expression entries",
+                    ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE,
                 )
             }
             for ((rawName, rawExpr) in rawBindings) {
                 val name = rawName as? String ?: throw ValidationException(
                     "content.${node.type}.props.parameterBindings",
-                    "NODE_PARAMETER_BINDING_NAME_INVALID: parameter binding keys must be strings",
+                    "parameter binding keys must be strings",
+                    ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID,
                 )
                 if (!parameterNameRegex.matches(name)) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$name",
-                        "NODE_PARAMETER_BINDING_NAME_INVALID: parameter binding name '$name' must match " +
-                            "^[a-z][a-zA-Z0-9_]{0,63}\$",
+                        "parameter binding name '$name' must match ^[a-z][a-zA-Z0-9_]{0,63}\$",
+                        ValidationCode.NODE_PARAMETER_BINDING_NAME_INVALID,
                     )
                 }
                 if (rawExpr !is String || rawExpr.isBlank()) {
                     throw ValidationException(
                         "content.${node.type}.props.parameterBindings.$name",
-                        "NODE_PARAMETER_BINDING_EMPTY: parameter binding '$name' must be a non-blank " +
-                            "JSONata expression",
+                        "parameter binding '$name' must be a non-blank JSONata expression",
+                        ValidationCode.NODE_PARAMETER_BINDING_EMPTY,
                     )
                 }
             }

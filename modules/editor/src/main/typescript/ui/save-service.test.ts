@@ -190,6 +190,36 @@ describe('SaveService', () => {
     service.dispose();
   });
 
+  it('carries structured code/field from the thrown error into the error state', async () => {
+    const states: SaveState[] = [];
+    const failingFn: SaveFn = async () => {
+      await Promise.resolve();
+      const err = new Error(
+        "parameter binding 'param1' expression is invalid — bad token",
+      ) as Error & {
+        code?: string;
+        field?: string;
+      };
+      err.code = 'NODE_PARAMETER_BINDING_SYNTAX_INVALID';
+      err.field = 'content.stencil.props.parameterBindings.param1';
+      throw err;
+    };
+    const service = new SaveService(failingFn, (s) => states.push({ ...s }), 0);
+
+    service.markDirty();
+    service.forceSave(DOC);
+    await vi.runAllTimersAsync();
+
+    const errorState = states.find((s) => s.status === 'error');
+    expect(errorState).toMatchObject({
+      status: 'error',
+      code: 'NODE_PARAMETER_BINDING_SYNTAX_INVALID',
+      field: 'content.stencil.props.parameterBindings.param1',
+    });
+
+    service.dispose();
+  });
+
   it('handles non-Error thrown values gracefully', async () => {
     const states: SaveState[] = [];
     const throwStringFn: SaveFn = async () => {

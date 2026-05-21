@@ -284,6 +284,75 @@ data class EpistolaPrincipal(
 )
 ```
 
+## API Key Authentication
+
+API key authentication allows machine-to-machine access to the REST API without a browser login. Each key is scoped to a single tenant and carries the full set of tenant roles.
+
+### Managing API Keys
+
+API keys are managed per-tenant via the web UI at `/tenants/{tenantId}/api-keys`:
+
+- **Create:** Name the key and optionally set an expiration date. The plaintext key is shown **exactly once** — store it immediately.
+- **List:** View all active keys with name, prefix, creation date, last used, and expiration.
+- **Revoke:** Delete a key to immediately invalidate it.
+
+Keys are created as **non-personal accounts (NPAs)** — the key itself becomes the actor identity for audit trails.
+
+### Using an API Key
+
+Include the key in every REST API request via the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: epk_abc123..." https://epistola.example.com/api/v1/...
+```
+
+The header name is configurable via `epistola.auth.api-key.header-name` (defaults to `X-API-Key`).
+
+### Key Format
+
+- Prefix: `epk_`
+- Total length: ~47 characters
+- Stored as SHA-256 hash (plaintext never persisted)
+- Display prefix in UI: `epk_ABC12345...` (first 8 chars after prefix)
+
+### Expiration & Revocation
+
+- **Expiration:** Optionally set at creation. Expired keys return 401.
+- **Revocation:** Deleting a key immediately invalidates it. Disabled keys also return 401.
+- **Last-used tracking:** Updated asynchronously on each authentication.
+
+### How It Works
+
+```
+Client                    ApiKeyAuthenticationFilter            Database
+  │                              │                                │
+  │  X-API-Key: epk_...          │                                │
+  │ ─────────────────────────►   │                                │
+  │                              │  SHA-256(key)                  │
+  │                              │  LookupApiKeyByHash(hash)      │
+  │                              │ ───────────────────────────►   │
+  │                              │  ◄───────────────────────────  │
+  │                              │                                │
+  │                              │  ├─ Not found    → 401         │
+  │                              │  ├─ Expired      → 401         │
+  │                              │  ├─ Disabled     → 401         │
+  │                              │  └─ Valid        → proceed     │
+  │                              │                                │
+  │  ◄─────────────────────────  │                                │
+```
+
+The filter is registered in the `/api/**` security chain. Unlike session-based auth, API key requests are **stateless** — every request is validated independently.
+
+### When to Use
+
+API key auth is intended for:
+
+- External system integrations (CI/CD, ETL pipelines, etc.)
+- MCP (Model Context Protocol) clients
+- Any application that needs to call the REST API without a user session
+
+For interactive browser usage, use form login or OAuth2/OIDC instead.
+
 ## Testing
 
 ### Integration Tests
@@ -348,3 +417,11 @@ This error means code is trying to access `SecurityContext.current()` outside of
 - In HTTP requests: Ensure `SecurityFilter` is running
 - In background tasks: Use `SecurityContext.runWithPrincipal()` to set context
 - In tests: Use `withTestUser { }` helper
+
+### API Key Requests Return 401
+
+1. Verify the key is correctly included in the `X-API-Key` header (not `Authorization: Bearer`)
+2. Check that the key has not expired
+3. Confirm the key was not revoked (check the API keys list in the UI)
+4. If using a custom header name, verify `epistola.auth.api-key.header-name` matches
+5. Ensure the request path starts with `/api` — API key auth only applies to the API security chain

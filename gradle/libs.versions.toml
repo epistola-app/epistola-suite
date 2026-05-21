@@ -9,12 +9,13 @@ cyclonedx = "3.2.4"
 kover = "0.9.7"
 jdbi = "3.53.0"
 json-schema-validator = "3.0.2"
+jsonata = "0.9.10"
 uuid-creator = "6.1.1"
 spring-web = "7.0.7"
-playwright = "1.59.0"
-epistola-contract = "0.5.1"
-epistola-model = "0.5.1"
-aws-sdk = "2.44.7"
+playwright = "1.60.0"
+epistola-contract = "0.5.3"
+epistola-model = "0.5.3"
+aws-sdk = "2.44.9"
 guava = "33.6.0-jre"
 spring-ai = "2.0.0-M6"
 
@@ -27,6 +28,7 @@ jdbi-postgres = { module = "org.jdbi:jdbi3-postgres", version.ref = "jdbi" }
 jdbi-jackson3 = { module = "org.jdbi:jdbi3-jackson3", version.ref = "jdbi" }
 jdbi-spring = { module = "org.jdbi:jdbi3-spring", version.ref = "jdbi" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
+jsonata = { module = "com.dashjoin:jsonata", version.ref = "jsonata" }
 uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-creator" }
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }

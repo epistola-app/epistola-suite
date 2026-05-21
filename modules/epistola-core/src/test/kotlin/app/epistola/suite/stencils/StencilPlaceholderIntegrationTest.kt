@@ -14,8 +14,10 @@ import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -283,7 +285,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy {
             UpdateDraft(variantId = variantId, templateModel = recursive).execute()
         }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("STENCIL_RECURSION")
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
     }
 
     @Test
@@ -319,7 +321,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy {
             UpdateDraft(variantId = variantId, templateModel = invalid).execute()
         }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_OUTSIDE_STENCIL")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL)
     }
 
     @Test
@@ -357,7 +359,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy {
             CreateStencil(id = sId, name = "Dup", content = duplicate).execute()
         }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("PLACEHOLDER_NAME_DUPLICATE")
+            .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_DUPLICATE)
     }
 
     @Test
@@ -527,6 +529,6 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy {
             CreateStencil(id = sId, name = "Malformed", content = malformed).execute()
         }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("NODE_PARAMETER_BINDINGS_INVALID_SHAPE")
+            .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
 }

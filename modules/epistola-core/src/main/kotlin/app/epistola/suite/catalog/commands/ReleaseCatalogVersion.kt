@@ -92,7 +92,15 @@ class ReleaseCatalogVersionHandler(
             )
         }
 
-        val releasedAt = OffsetDateTime.now()
+        // released_at MUST come from the database clock — the same clock that
+        // stamps resource updated_at / imported_at — so the AUTHORED
+        // working-copy drift comparison (max(resource.updated_at) >
+        // GREATEST(released_at, imported_at)) is exact. A JVM
+        // OffsetDateTime.now() here drifts vs the DB clock and can make a
+        // freshly released, unedited catalog look "pending".
+        val releasedAt = jdbi.withHandle<OffsetDateTime, Exception> { handle ->
+            handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
+        }
         val manifest = content.toManifest(
             ReleaseInfo(version = newVersion.toString(), releasedAt = releasedAt.toString(), fingerprint = fingerprint),
         )

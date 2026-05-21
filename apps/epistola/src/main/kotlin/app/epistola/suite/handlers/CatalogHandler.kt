@@ -3,7 +3,9 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -12,11 +14,16 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UnregisterCatalog
+import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
-import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListCatalogsForManagement
+import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -35,15 +42,12 @@ class CatalogHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query()
         val saved = request.param("saved").isPresent
 
         return ServerResponse.ok().page("catalogs/list") {
             "pageTitle" to "Catalogs - Epistola"
-            "tenantId" to tenantId.key
             "activeNavSection" to "catalogs"
-            "catalogs" to catalogs
+            catalogListModel(request)
             if (saved) "saved" to true
         }
     }
@@ -74,11 +78,9 @@ class CatalogHandler {
                 name = form["name"],
             ).execute()
 
-            val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
-                fragment("catalogs/list", "catalog-rows") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
+                fragment("catalogs/list", "catalog-list") {
+                    catalogListModel(request)
                 }
                 onNonHtmx {
                     redirect("/tenants/${tenantId.key}/catalogs?saved=true")
@@ -139,10 +141,8 @@ class CatalogHandler {
             UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey, force = force).execute()
 
             return request.htmx {
-                val catalogs = ListCatalogs(tenantId.key).query()
-                fragment("catalogs/list", "catalog-rows") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
+                fragment("catalogs/list", "catalog-list") {
+                    catalogListModel(request)
                 }
                 onNonHtmx {
                     ServerResponse.status(303)
@@ -222,13 +222,11 @@ class CatalogHandler {
                 notes = notes,
             ).execute()
 
-            val catalogs = ListCatalogs(tenantId.key).query()
             request.htmx {
                 fragment("catalogs/list", "release-done") {}
-                oob("catalogs/list", "catalog-rows") {
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
-                    "oobRows" to true
+                oob("catalogs/list", "catalog-list") {
+                    catalogListModel(request)
+                    "oob" to true
                 }
                 onNonHtmx {
                     redirect("/tenants/${tenantId.key}/catalogs?saved=true")
@@ -239,6 +237,99 @@ class CatalogHandler {
         } catch (e: Exception) {
             logger.warn("Failed to release catalog: ${e.message}", e)
             reRenderWithError(e.message ?: "Failed to release catalog.")
+        }
+    }
+
+    /**
+     * Explicit per-row upgrade check (user clicks "Check for updates"). Returns
+     * the `upgrade-indicator` fragment in one of:
+     * `UP_TO_DATE` / `UPDATE_AVAILABLE` / `ZIP_MANAGED` / `CHECK_FAILED`.
+     * Cheap — `CheckCatalogUpgrade` fetches only the manifest. ZIP-managed
+     * (no source URL) catalogs can't be polled — they upgrade by re-importing
+     * a newer ZIP, so we say so instead of erroring.
+     */
+    fun upgradeCheck(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val catalog = GetCatalog(tenantId.key, catalogKey).query()
+
+        val model = HashMap<String, Any?>()
+        model["tenantId"] = tenantId.key
+        model["catalogId"] = catalogKey.value
+        model["installedVersion"] = catalog?.installedReleaseVersion
+        model["availableVersion"] = null
+
+        when {
+            catalog == null -> model["state"] = "CHECK_FAILED"
+            catalog.sourceUrl == null -> model["state"] = "ZIP_MANAGED"
+            else -> try {
+                val a = CheckCatalogUpgrade(tenantId.key, catalogKey).query()
+                model["state"] = if (a.available) "UPDATE_AVAILABLE" else "UP_TO_DATE"
+                model["installedVersion"] = a.installedVersion
+                model["availableVersion"] = a.availableVersion
+            } catch (e: Exception) {
+                logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
+                model["state"] = "CHECK_FAILED"
+            }
+        }
+        return ServerResponse.ok().render("catalogs/list :: version-status", model)
+    }
+
+    private fun upgradeDialog(tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null): ServerResponse {
+        val model = HashMap<String, Any?>()
+        model["tenantId"] = tenantId.key
+        model["catalogId"] = catalogKey.value
+        model["error"] = error
+        try {
+            model["diff"] = PreviewCatalogUpgrade(tenantId.key, catalogKey).query()
+        } catch (e: Exception) {
+            logger.warn("Upgrade preview failed for catalog {}: {}", catalogKey, e.message)
+            model["diff"] = null
+            if (error == null) model["error"] = e.message ?: "Failed to preview upgrade. The remote catalog may be unavailable."
+        }
+        return ServerResponse.ok().render("catalogs/list :: upgrade-dialog", model)
+    }
+
+    fun upgradePreview(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return upgradeDialog(tenantId, catalogKey)
+    }
+
+    fun upgrade(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val includeNewSlugs = request.servletRequest().getParameterValues("newSlugs")?.toList() ?: emptyList()
+
+        return try {
+            val result = UpgradeCatalog(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+                includeNewSlugs = includeNewSlugs,
+            ).execute()
+
+            if (result.aborted) {
+                val failed = result.installResults
+                    .filter { it.status == InstallStatus.FAILED }
+                    .joinToString(", ") { "${it.type}/${it.slug}" }
+                return upgradeDialog(tenantId, catalogKey, "Upgrade aborted — these resources failed to install (nothing was changed, the version was not advanced): $failed")
+            }
+
+            request.htmx {
+                fragment("catalogs/list", "upgrade-done") {}
+                oob("catalogs/list", "catalog-list") {
+                    catalogListModel(request)
+                    "oob" to true
+                }
+                onNonHtmx {
+                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                }
+            }
+        } catch (e: CatalogUpgradeConflictException) {
+            upgradeDialog(tenantId, catalogKey, e.message ?: "Upgrade blocked — resources are still in use.")
+        } catch (e: Exception) {
+            logger.warn("Failed to upgrade catalog: ${e.message}", e)
+            upgradeDialog(tenantId, catalogKey, e.message ?: "Failed to upgrade catalog.")
         }
     }
 
@@ -403,11 +494,20 @@ class CatalogHandler {
             return importError(request, "Invalid catalog type: $catalogTypeStr")
         }
 
+        // Only consulted when the catalog already exists as AUTHORED; ignored
+        // for a new catalog or SUBSCRIBED. MERGE = keep local-only resources;
+        // REPLACE = mirror the ZIP (delete local-only, conflict-checked).
+        val authoredMode = multipartData["authoredMode"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        }?.let { runCatching { AuthoredImportMode.valueOf(it) }.getOrNull() }
+            ?: AuthoredImportMode.MERGE
+
         return try {
             val result = ImportCatalogZip(
                 tenantKey = tenantId.key,
                 zipBytes = zipBytes,
                 catalogType = catalogType,
+                authoredMode = authoredMode,
             ).execute()
 
             val failed = result.results.count { it.status == InstallStatus.FAILED }
@@ -471,16 +571,27 @@ class CatalogHandler {
         }
     }
 
-    private fun listWithError(request: ServerRequest, error: String): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogs = ListCatalogs(tenantId.key).query()
+    /**
+     * The shared model for **every** render of the catalog list — the full
+     * page *and* the `catalog-list` fragment/OOB swaps. One source of truth so
+     * no render path can forget the AUTHORED drift hint:
+     *  - `tenantId`;
+     *  - `catalogs` — `List<CatalogListRow>` from `ListCatalogsForManagement`:
+     *    each row is a `Catalog` plus the list-only `pendingChanges` flag
+     *    (AUTHORED working copy drifted since the last release/import),
+     *    computed in one SQL join. No parallel id set, no template-side
+     *    cross-reference, no content build.
+     */
+    private fun ModelBuilder.catalogListModel(request: ServerRequest) {
+        val tenantKey = request.tenantId().key
+        "tenantId" to tenantKey
+        "catalogs" to ListCatalogsForManagement(tenantKey).query()
+    }
 
-        return ServerResponse.ok().page("catalogs/list") {
-            "pageTitle" to "Catalogs - Epistola"
-            "tenantId" to tenantId.key
-            "activeNavSection" to "catalogs"
-            "catalogs" to catalogs
-            "error" to error
-        }
+    private fun listWithError(request: ServerRequest, error: String): ServerResponse = ServerResponse.ok().page("catalogs/list") {
+        "pageTitle" to "Catalogs - Epistola"
+        "activeNavSection" to "catalogs"
+        catalogListModel(request)
+        "error" to error
     }
 }

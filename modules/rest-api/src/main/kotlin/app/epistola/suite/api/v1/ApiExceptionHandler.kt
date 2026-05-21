@@ -10,6 +10,8 @@ import app.epistola.suite.attributes.codelists.commands.CodeListInUseException
 import app.epistola.suite.attributes.codelists.commands.CodeListNotRefreshableException
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
@@ -488,21 +490,9 @@ class ApiExceptionHandler {
      */
     @ExceptionHandler(ValidationException::class)
     fun handleValidationException(ex: ValidationException): ResponseEntity<ValidationErrorResponse> {
-        logger.warn("Validation failed for field '{}': {}", ex.field, ex.message)
+        logger.warn("Validation failed [{}] for field '{}': {}", ex.code.wire, ex.field, ex.message)
 
-        val response = ValidationErrorResponse(
-            code = "VALIDATION_ERROR",
-            message = ex.message,
-            errors = listOf(
-                FieldError(
-                    field = ex.field,
-                    message = ex.message,
-                    rejectedValue = null,
-                ),
-            ),
-        )
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.toValidationErrorResponse())
     }
 
     /**
@@ -598,6 +588,43 @@ class ApiExceptionHandler {
             ApiErrorResponse(
                 code = "CATALOG_READ_ONLY",
                 message = ex.message ?: "Catalog is subscribed and cannot be modified through this API",
+            ),
+        )
+    }
+
+    /**
+     * Handles a lookup for a catalog that does not exist (e.g. upgrade
+     * preview for an unknown slug). Returns 404 Not Found — was a misleading
+     * 400 via the generic `IllegalArgumentException` handler.
+     */
+    @ExceptionHandler(CatalogNotFoundException::class)
+    fun handleCatalogNotFoundException(ex: CatalogNotFoundException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Catalog not found: {}", ex.catalogKey)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "CATALOG_NOT_FOUND",
+                message = ex.message ?: "Catalog not found",
+                details = mapOf("catalogId" to ex.catalogKey.value),
+            ),
+        )
+    }
+
+    /**
+     * Handles an upgrade/upgrade-preview requested for a catalog that cannot
+     * be upgraded (not subscribed / no per-resource baseline). Returns 409
+     * Conflict — wrong catalog state for the operation, not client input;
+     * was a generic 500.
+     */
+    @ExceptionHandler(CatalogNotUpgradeableException::class)
+    fun handleCatalogNotUpgradeableException(ex: CatalogNotUpgradeableException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Catalog not upgradeable: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "CATALOG_NOT_UPGRADEABLE",
+                message = ex.message ?: "Catalog cannot be upgraded",
+                details = mapOf("catalogId" to ex.catalogKey.value),
             ),
         )
     }

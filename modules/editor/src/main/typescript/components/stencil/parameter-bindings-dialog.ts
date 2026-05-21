@@ -9,6 +9,7 @@
  */
 import type { JsonSchema } from '../../data-contract/types.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
+import { isValidExpression } from '../../engine/resolve-expression.js';
 import { renderBindingRow } from './binding-row.js';
 import { RESERVED_ALIASES } from '../../engine/node-parameter-keys.js';
 
@@ -26,11 +27,14 @@ export interface BindingsDialogOptions {
   fieldPaths?: FieldPath[];
   /** Example data for live preview inside openExpressionDialog. */
   getExampleData?: () => Record<string, unknown> | undefined;
+  /** Per-parameter backend validation errors to display inline (e.g. from a failed save). */
+  bindingErrors?: Record<string, string>;
 }
 
 export function openParameterBindingsDialog(
   options: BindingsDialogOptions,
 ): Promise<BindingsDialogResult | null> {
+  const bindingErrors = options.bindingErrors;
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'stencil-picker-dialog';
@@ -88,6 +92,7 @@ export function openParameterBindingsDialog(
           else delete bindings[name];
           updateSaveState();
         },
+        error: bindingErrors?.[name],
       });
       rowsContainer.appendChild(row.element);
     }
@@ -107,7 +112,11 @@ export function openParameterBindingsDialog(
       const allBound = Array.from(required).every(
         (name) => (bindings[name] ?? '').trim().length > 0,
       );
-      saveBtn.disabled = !allBound || reserved;
+      const allValid = Object.values(bindings).every((expr) => {
+        const trimmed = expr.trim();
+        return trimmed.length === 0 || isValidExpression(trimmed);
+      });
+      saveBtn.disabled = !allBound || reserved || !allValid;
     }
     aliasInput.addEventListener('input', updateSaveState);
     updateSaveState();
