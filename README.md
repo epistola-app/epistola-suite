@@ -5,6 +5,9 @@
 [![Security Scan](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/epistola-app/epistola-suite/main/.github/badges/trivy.json)](https://github.com/epistola-app/epistola-suite/actions/workflows/security-scan.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+> [!NOTE]
+> **1.0 release scheduled for 25 June 2026.**
+
 > [!WARNING]
 > **Pre-1.0 — Expect Breaking Changes**
 >
