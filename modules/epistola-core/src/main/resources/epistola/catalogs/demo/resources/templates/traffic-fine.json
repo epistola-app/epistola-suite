@@ -1,0 +1,493 @@
+{
+  "schemaVersion": 2,
+  "resource": {
+    "type": "template",
+    "slug": "traffic-fine",
+    "name": "Verkeersboete",
+    "themeId": "corporate",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "caseNumber": { "type": "string" },
+        "issueDate": { "type": "string", "format": "date" },
+        "recipient": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "postalCode": { "type": "string" },
+            "city": { "type": "string" }
+          }
+        },
+        "violation": {
+          "type": "object",
+          "properties": {
+            "datetime": { "type": "string", "format": "date-time" },
+            "location": { "type": "string" },
+            "description": { "type": "string" },
+            "licensePlate": { "type": "string" },
+            "speedMeasured": { "type": "integer" },
+            "speedLimit": { "type": "integer" }
+          }
+        },
+        "amounts": {
+          "type": "object",
+          "properties": {
+            "fine": { "type": "number" },
+            "adminFee": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        },
+        "paymentDeadline": { "type": "string", "format": "date" },
+        "appealDeadline": { "type": "string", "format": "date" },
+        "iban": { "type": "string" },
+        "paymentReference": { "type": "string" }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Snelheidsovertreding A2",
+        "data": {
+          "caseNumber": "WAHV-2026-08742193",
+          "issueDate": "2026-10-14",
+          "recipient": {
+            "name": "Pieter J. de Vries",
+            "address": "Hoofdstraat 12",
+            "postalCode": "3811 AA",
+            "city": "Amersfoort"
+          },
+          "violation": {
+            "datetime": "2026-10-07T14:32:00",
+            "location": "A2 (Utrecht → Den Bosch), hectometerpaal 73,8",
+            "description": "Overschrijding van de maximumsnelheid binnen de bebouwde kom",
+            "licensePlate": "12-ABC-3",
+            "speedMeasured": 82,
+            "speedLimit": 50
+          },
+          "amounts": {
+            "fine": 245.0,
+            "adminFee": 9.0,
+            "total": 254.0
+          },
+          "paymentDeadline": "2026-12-09",
+          "appealDeadline": "2026-11-25",
+          "iban": "NL90 INGB 0000 7100 00",
+          "paymentReference": "5126 0874 2193 0042"
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": { "type": "inherit" },
+      "pageSettingsOverride": {
+        "format": "A4",
+        "orientation": "portrait",
+        "margins": { "top": 50, "right": 40, "bottom": 40, "left": 40 }
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-addressblock": {
+          "id": "n-addressblock",
+          "type": "addressblock",
+          "slots": ["s-address", "s-aside"],
+          "props": { "align": "left", "top": 45, "sideDistance": 20, "addressWidth": 85, "height": 45 }
+        },
+        "n-address-text": {
+          "id": "n-address-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.address" } },
+                    { "type": "hard_break" },
+                    { "type": "expression", "attrs": { "expression": "recipient.postalCode" } },
+                    { "type": "text", "text": "  " },
+                    { "type": "expression", "attrs": { "expression": "recipient.city" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-aside-text": {
+          "id": "n-aside-text",
+          "type": "text",
+          "slots": [],
+          "styles": { "fontSize": "9pt", "color": "#555" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "CJIB", "marks": [{ "type": "bold" }] },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Postbus 1794" },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "8901 CB Leeuwarden" }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Beschikkingsnummer: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "caseNumber" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Beschikkingsdatum: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(issueDate, 'dd MMMM yyyy')" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-title": {
+          "id": "n-title",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "6sp", "marginTop": "8sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                { "type": "heading", "attrs": { "level": 1 }, "content": [{ "type": "text", "text": "Beschikking" }] },
+                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Administratiefrechtelijke sanctie inzake een verkeersovertreding" }] }
+              ]
+            }
+          }
+        },
+        "n-greeting": {
+          "id": "n-greeting",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "8sp", "marginBottom": "4sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Geachte " },
+                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
+                    { "type": "text", "text": "," }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-intro": {
+          "id": "n-intro",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Op " },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(violation.datetime, 'd MMMM yyyy')" } },
+                    { "type": "text", "text": " om " },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(violation.datetime, 'HH:mm')" } },
+                    { "type": "text", "text": " uur is een verkeersovertreding geconstateerd waarvoor u op grond van de Wet administratiefrechtelijke handhaving verkeersvoorschriften (Wahv) een administratieve sanctie wordt opgelegd. De gegevens van de overtreding zijn hieronder opgenomen." }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-violation-heading": {
+          "id": "n-violation-heading",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Gegevens van de overtreding" }] }
+              ]
+            }
+          }
+        },
+        "n-violation-table": {
+          "id": "n-violation-table",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginBottom": "6sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Kenteken: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "violation.licensePlate" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Datum en tijd: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(violation.datetime, 'dd-MM-yyyy HH:mm')" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Locatie: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "violation.location" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Overtreding: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "violation.description" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Gemeten snelheid: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(violation.speedMeasured, '0')" } },
+                    { "type": "text", "text": " km/h" },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Toegestane snelheid: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(violation.speedLimit, '0')" } },
+                    { "type": "text", "text": " km/h" },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Overschrijding: ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(violation.speedMeasured - violation.speedLimit, '0')" } },
+                    { "type": "text", "text": " km/h" }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-amount-heading": {
+          "id": "n-amount-heading",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Sanctiebedrag" }] }
+              ]
+            }
+          }
+        },
+        "n-amount-breakdown": {
+          "id": "n-amount-breakdown",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Sanctiebedrag" },
+                    { "type": "text", "text": "  €  " },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.fine, '#,##0.00')" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Administratiekosten" },
+                    { "type": "text", "text": "  €  " },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.adminFee, '#,##0.00')" } },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Totaal te betalen", "marks": [{ "type": "bold" }] },
+                    { "type": "text", "text": "  €  ", "marks": [{ "type": "bold" }] },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.total, '#,##0.00')", "marks": [{ "type": "bold" }] } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-payment-heading": {
+          "id": "n-payment-heading",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Betaling" }] }
+              ]
+            }
+          }
+        },
+        "n-payment-body": {
+          "id": "n-payment-body",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Wij verzoeken u het totaalbedrag van € " },
+                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.total, '#,##0.00')" } },
+                    { "type": "text", "text": " uiterlijk op " },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(paymentDeadline, 'd MMMM yyyy')", "marks": [{ "type": "bold" }] } },
+                    { "type": "text", "text": " over te maken op rekeningnummer " },
+                    { "type": "expression", "attrs": { "expression": "iban" } },
+                    { "type": "text", "text": " onder vermelding van betalingskenmerk " },
+                    { "type": "expression", "attrs": { "expression": "paymentReference" } },
+                    { "type": "text", "text": "." }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-appeal-heading": {
+          "id": "n-appeal-heading",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Bezwaar" }] }
+              ]
+            }
+          }
+        },
+        "n-appeal-body": {
+          "id": "n-appeal-body",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Bent u het niet eens met deze beschikking? Dan kunt u tot " },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(appealDeadline, 'dd-MM-yyyy')" } },
+                    { "type": "text", "text": " bezwaar maken bij de officier van justitie. Vermeld bij uw bezwaar altijd het beschikkingsnummer " },
+                    { "type": "expression", "attrs": { "expression": "caseNumber" } },
+                    { "type": "text", "text": "." }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-signature": {
+          "id": "n-signature",
+          "type": "text",
+          "slots": [],
+          "styles": { "marginTop": "8sp", "color": "#555" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Met vriendelijke groet," },
+                    { "type": "hard_break" },
+                    { "type": "text", "text": "Centraal Justitieel Incassobureau" }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-footer": {
+          "id": "n-footer",
+          "type": "pagefooter",
+          "slots": ["s-footer-children"],
+          "props": { "height": "30pt" }
+        },
+        "n-footer-text": {
+          "id": "n-footer-text",
+          "type": "text",
+          "slots": [],
+          "styles": { "fontSize": "9pt", "color": "#999999", "textAlign": "center" },
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "Beschikking " },
+                    { "type": "expression", "attrs": { "expression": "caseNumber" } },
+                    { "type": "text", "text": " — opgesteld op " },
+                    { "type": "expression", "attrs": { "expression": "$formatDate(issueDate, 'd MMMM yyyy')" } },
+                    { "type": "text", "text": " — pagina " },
+                    { "type": "expression", "attrs": { "expression": "sys.pages.current" } },
+                    { "type": "text", "text": " van " },
+                    { "type": "expression", "attrs": { "expression": "sys.pages.total" } }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": [
+            "n-footer",
+            "n-addressblock",
+            "n-title",
+            "n-greeting",
+            "n-intro",
+            "n-violation-heading",
+            "n-violation-table",
+            "n-amount-heading",
+            "n-amount-breakdown",
+            "n-payment-heading",
+            "n-payment-body",
+            "n-appeal-heading",
+            "n-appeal-body",
+            "n-signature"
+          ]
+        },
+        "s-address": { "id": "s-address", "nodeId": "n-addressblock", "name": "address", "children": ["n-address-text"] },
+        "s-aside": { "id": "s-aside", "nodeId": "n-addressblock", "name": "aside", "children": ["n-aside-text"] },
+        "s-footer-children": { "id": "s-footer-children", "nodeId": "n-footer", "name": "children", "children": ["n-footer-text"] }
+      }
+    },
+    "variants": [
+      {
+        "id": "default",
+        "title": "Standaard (locale via tenant/app)",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      },
+      {
+        "id": "nl-nl",
+        "title": "Nederlands",
+        "attributes": { "system.locale": "nl-NL" },
+        "templateModel": null,
+        "isDefault": false
+      },
+      {
+        "id": "en-us",
+        "title": "English (for contrast)",
+        "attributes": { "system.locale": "en-US" },
+        "templateModel": null,
+        "isDefault": false
+      }
+    ]
+  }
+}
