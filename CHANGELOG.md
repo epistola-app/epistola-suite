@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-05-21
+
 ### Fixed
 
 - **Catalog-scoped list endpoints now filter by catalog.** `GET /api/tenants/{tenantId}/catalogs/{catalogId}/templates` and `GET /api/tenants/{tenantId}/catalogs/{catalogId}/stencils` were silently dropping the `catalogId` path parameter and returning every template/stencil owned by the tenant across all catalogs. The same defect existed on the JSON branch of the UI stencil-search handler (`GET /tenants/{tenantId}/stencils/search?catalog=…` with `Accept: application/json` — used by the template editor's inline stencil picker), which parsed the `catalog` query param and then discarded it. Both `ListDocumentTemplates` and `ListStencilSummaries` gain an optional `catalogKey` filter; the REST controllers and `StencilHandler.search` (JSON branch) now pass it through. Cross-catalog tenant-wide callers (e.g. `TenantHandler` template count, load-test fixtures) are unaffected because `catalogKey` defaults to `null`. Regression coverage in `EpistolaTemplateApiIT.list templates is scoped to the requested catalog`, `ListStencilSummariesCatalogScopeTest`, and `StencilHandlerHtmxTest.JSON search honours the catalog query param`. Closes #466.
