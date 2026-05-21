@@ -2,8 +2,11 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -179,6 +182,52 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             assertThat(response.body).contains("catalogKey is required")
+        }
+    }
+
+    /**
+     * Regression for #466: the JSON branch of `StencilHandler.search` parsed the
+     * `?catalog=` query parameter and then discarded it before calling
+     * `ListStencilSummaries`, so the inline stencil picker in the template editor
+     * could not be scoped to a single catalog. The HTMX branch already honoured
+     * the same parameter; this asserts the JSON path now does too.
+     */
+    @Test
+    fun `JSON search honours the catalog query param`() = fixture {
+        data class Seed(val tenantId: TenantId, val catalogA: String, val catalogB: String, val slugA: String, val slugB: String)
+        lateinit var seed: Seed
+
+        given {
+            seed = withMediator {
+                val tenant = createTenant("Stencil JSON Catalog Filter")
+                val tenantId = TenantId(tenant.id)
+                val catalogA = CatalogKey.of("json-cat-a")
+                val catalogB = CatalogKey.of("json-cat-b")
+                CreateCatalog(tenantKey = tenant.id, id = catalogA, name = "JSON A").execute()
+                CreateCatalog(tenantKey = tenant.id, id = catalogB, name = "JSON B").execute()
+                val stencilA = StencilId(StencilKey.of("json-a"), CatalogId(catalogA, tenantId))
+                val stencilB = StencilId(StencilKey.of("json-b"), CatalogId(catalogB, tenantId))
+                CreateStencil(id = stencilA, name = "Stencil in A").execute()
+                CreateStencil(id = stencilB, name = "Stencil in B").execute()
+                Seed(tenantId, catalogA.value, catalogB.value, stencilA.key.value, stencilB.key.value)
+            }
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
+            restTemplate.exchange(
+                "/tenants/${seed.tenantId.key}/stencils/search?catalog=${seed.catalogA}",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains(seed.slugA)
+            assertThat(response.body).doesNotContain(seed.slugB)
         }
     }
 

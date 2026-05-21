@@ -16,10 +16,8 @@ import org.junit.jupiter.api.Test
 /** Regression test for #466: list endpoints must filter by catalog, not just tenant. */
 class ListStencilSummariesCatalogScopeTest : IntegrationTestBase() {
 
-    private fun test(block: () -> Unit) = withMediator(block)
-
     @Test
-    fun `list filters by catalogKey when set`() = test {
+    fun `list filters by catalogKey when set`(): Unit = withMediator {
         val tenant = createTenant("Stencil Catalog Scope")
         val tenantId = TenantId(tenant.id)
         val catalogA = CatalogKey.of("cat-a")
