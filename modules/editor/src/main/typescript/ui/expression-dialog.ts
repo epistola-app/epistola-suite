@@ -30,6 +30,7 @@ export const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
   { code: 'items[price > 100]', desc: 'Filter array' },
   { code: '$number(value)', desc: 'Convert to number' },
   { code: "$formatDate(date, 'dd-MM-yyyy')", desc: 'Format a date' },
+  { code: "$formatLocaleNumber(value, '#,##0.00')", desc: 'Format a number (locale-aware)' },
 ];
 
 export interface ExpressionDialogOptions {

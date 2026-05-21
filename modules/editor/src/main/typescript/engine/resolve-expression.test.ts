@@ -8,6 +8,7 @@ import {
   validateArrayResult,
   validateBooleanResult,
   formatDateValue,
+  formatLocaleNumberValue,
 } from './resolve-expression.js';
 
 // ---------------------------------------------------------------------------
@@ -495,5 +496,93 @@ describe('evaluateExpression with $formatDate', () => {
   it('returns undefined for missing field', async () => {
     const data = { other: '2024-01-15' };
     expect(await evaluateExpression("$formatDate(missing, 'dd-MM-yyyy')", data)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatLocaleNumberValue
+// ---------------------------------------------------------------------------
+
+describe('formatLocaleNumberValue', () => {
+  it('formats with en-US grouping and decimal (default)', () => {
+    expect(formatLocaleNumberValue(1234.56, '#,##0.00')).toBe('1,234.56');
+  });
+
+  it('formats with nl-NL grouping and decimal (the canonical case)', () => {
+    expect(formatLocaleNumberValue(1234.56, '#,##0.00', 'nl-NL')).toBe('1.234,56');
+  });
+
+  it('formats with de-DE grouping and decimal', () => {
+    expect(formatLocaleNumberValue(1234.56, '#,##0.00', 'de-DE')).toBe('1.234,56');
+  });
+
+  it('formats an integer with no decimals', () => {
+    expect(formatLocaleNumberValue(1234, '#,##0', 'nl-NL')).toBe('1.234');
+  });
+
+  it('formats with optional fraction digits (#)', () => {
+    // # = optional digit, so trailing zeros are suppressed
+    expect(formatLocaleNumberValue(1234.5, '#,##0.##', 'nl-NL')).toBe('1.234,5');
+  });
+
+  it('formats with mixed required + optional fraction digits', () => {
+    // 0 = required digit, # = optional → exactly 1 fraction shown, up to 2 max
+    expect(formatLocaleNumberValue(1234.5, '#,##0.0#', 'nl-NL')).toBe('1.234,5');
+    expect(formatLocaleNumberValue(1234.56, '#,##0.0#', 'nl-NL')).toBe('1.234,56');
+  });
+
+  it('formats a percent (multiplies by 100, appends locale percent sign)', () => {
+    expect(formatLocaleNumberValue(0.21, '0.0%', 'nl-NL')).toBe('21,0%');
+    expect(formatLocaleNumberValue(0.21, '0.0%', 'en-US')).toBe('21.0%');
+  });
+
+  it('formats a per-mille (multiplies by 1000)', () => {
+    expect(formatLocaleNumberValue(0.0042, '0.00‰', 'en-US')).toBe('4.20‰');
+  });
+
+  it('handles a negative number with a locale-aware minus sign', () => {
+    expect(formatLocaleNumberValue(-1234.5, '#,##0.00', 'nl-NL')).toBe('-1.234,50');
+  });
+
+  it('honours an explicit negative subpattern (parens style)', () => {
+    expect(formatLocaleNumberValue(-12.5, '#,##0.00;(#,##0.00)', 'en-US')).toBe('(12.50)');
+  });
+
+  it('emits literal characters around the digit block', () => {
+    // '$' prefix is a literal in the picture; the digit block slots in after it
+    expect(formatLocaleNumberValue(1234.5, '$#,##0.00', 'en-US')).toBe('$1,234.50');
+  });
+
+  it('numeric tokens are scale-agnostic (zero comes out as a single 0)', () => {
+    expect(formatLocaleNumberValue(0, '#,##0.00', 'nl-NL')).toBe('0,00');
+  });
+
+  it('returns the input as a string when value is not a number', () => {
+    expect(formatLocaleNumberValue('not-a-number', '#,##0.00')).toBe('not-a-number');
+    expect(formatLocaleNumberValue(NaN, '#,##0.00')).toBe('NaN');
+  });
+
+  it('locale defaults to en-US when not provided (back-compat)', () => {
+    expect(formatLocaleNumberValue(1234.5, '#,##0.00')).toBe('1,234.50');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// $formatLocaleNumber in evaluateExpression
+// ---------------------------------------------------------------------------
+
+describe('evaluateExpression with $formatLocaleNumber', () => {
+  it("formats a number field with the resolver's locale", async () => {
+    const data = { invoiceTotal: 1234.56 };
+    expect(
+      await evaluateExpression("$formatLocaleNumber(invoiceTotal, '#,##0.00')", data, 'nl-NL'),
+    ).toBe('1.234,56');
+  });
+
+  it('returns the input when the field is missing', async () => {
+    const data = { other: 1 };
+    expect(
+      await evaluateExpression("$formatLocaleNumber(missing, '#,##0.00')", data, 'nl-NL'),
+    ).toBeUndefined();
   });
 });

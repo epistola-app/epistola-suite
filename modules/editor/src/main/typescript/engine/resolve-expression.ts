@@ -88,6 +88,131 @@ export function formatDateValue(
 }
 
 /**
+ * Format a number using a `DecimalFormat`-style picture with locale-aware
+ * separators. Companion to [formatDateValue] — deliberately a *separate*
+ * function from JSONata's W3C `$formatNumber` so existing call sites keep
+ * the spec-defined behaviour while templates that want localized output
+ * can opt in with `$formatLocaleNumber`.
+ *
+ * Supported picture grammar (the subset templates use day-to-day):
+ *  - `0` / `#` digits (zero-padded / optional)
+ *  - `,` grouping separator placeholder (renders as the locale's grouping char)
+ *  - `.` decimal separator placeholder (renders as the locale's decimal char)
+ *  - `;` separator between positive and negative subpatterns
+ *  - `%` percent (auto-multiplies value by 100, appends locale's percent char)
+ *  - `‰` per-mille (auto-multiplies value by 1000, appends locale's per-mille char)
+ *  - any other character is treated as a literal and emitted as-is
+ *
+ * What's *not* supported (use `$formatNumber(value, picture, options)` for these):
+ *  - scientific notation (`E0`)
+ *  - explicit pattern options (`zero-digit`, `infinity`, `NaN`)
+ *
+ * Examples (locale `'nl-NL'`):
+ *  - `formatLocaleNumberValue(1234.56, '#,##0.00', 'nl-NL')` → `'1.234,56'`
+ *  - `formatLocaleNumberValue(0.21, '0.0%', 'nl-NL')` → `'21,0%'`
+ *  - `formatLocaleNumberValue(-12.5, '#,##0.00;(#,##0.00)', 'nl-NL')` → `'(12,50)'`
+ *
+ * Returns the input as a string when [value] can't be parsed as a number,
+ * matching the spirit of [formatDateValue].
+ */
+export function formatLocaleNumberValue(
+  value: unknown,
+  picture: string,
+  locale: string = DEFAULT_LOCALE,
+): string {
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!isFinite(num)) return String(value);
+
+  // Split positive;negative subpatterns. If only positive given, derive
+  // negative by prepending the locale's minus sign (matches DecimalFormat).
+  const [posPattern, negPatternRaw] = picture.split(';', 2);
+  const isNegative = num < 0;
+  const pattern = isNegative && negPatternRaw ? negPatternRaw : posPattern;
+  const abs = Math.abs(num);
+
+  // Scale: % multiplies by 100, ‰ by 1000. Detected on the active pattern.
+  const isPercent = pattern.includes('%');
+  const isPermille = pattern.includes('‰');
+  const scaled = isPercent ? abs * 100 : isPermille ? abs * 1000 : abs;
+
+  // Strip the % / ‰ marker so they don't enter the digit-parsing logic.
+  // We re-attach them at the end as the locale's localised symbol.
+  const stripped = pattern.replace(/[%‰]/g, '');
+
+  // Find the decimal point in the picture (if any) to drive fraction digits.
+  const dot = stripped.indexOf('.');
+  const intPart = dot >= 0 ? stripped.slice(0, dot) : stripped;
+  const fracPart = dot >= 0 ? stripped.slice(dot + 1) : '';
+  const minFractionDigits = (fracPart.match(/0/g) ?? []).length;
+  const maxFractionDigits = (fracPart.match(/[0#]/g) ?? []).length;
+  const useGrouping = intPart.includes(',');
+  const minIntDigits = (intPart.match(/0/g) ?? []).length;
+
+  const formatted = new Intl.NumberFormat(locale, {
+    useGrouping,
+    minimumIntegerDigits: Math.max(1, minIntDigits),
+    minimumFractionDigits: minFractionDigits,
+    maximumFractionDigits: Math.max(minFractionDigits, maxFractionDigits),
+  }).format(scaled);
+
+  // Locale-correct % / ‰ symbol via formatToParts. Falls back to the raw
+  // character if Intl doesn't surface it for this locale.
+  let suffix = '';
+  if (isPercent) {
+    const parts = new Intl.NumberFormat(locale, { style: 'percent' }).formatToParts(0);
+    suffix = parts.find((p) => p.type === 'percentSign')?.value ?? '%';
+  } else if (isPermille) {
+    // Intl doesn't have a 'permille' style; the per-mille glyph is the same
+    // in every locale CLDR ships (U+2030).
+    suffix = '‰';
+  }
+
+  // Re-apply the negative subpattern wrapping. If the user supplied an
+  // explicit negative subpattern, we already chose it above; the formatted
+  // string is the unsigned magnitude. If they only supplied a positive one,
+  // prepend the locale's minus sign manually.
+  if (isNegative) {
+    if (negPatternRaw) {
+      // Negative subpattern owns the wrapping; format the digits then
+      // splice into the literal text of the negative pattern.
+      return composeFromPattern(negPatternRaw, formatted + suffix);
+    }
+    const minusSign =
+      new Intl.NumberFormat(locale, { signDisplay: 'always' })
+        .formatToParts(-1)
+        .find((p) => p.type === 'minusSign')?.value ?? '-';
+    return minusSign + formatted + suffix;
+  }
+  return composeFromPattern(posPattern, formatted + suffix);
+}
+
+/**
+ * Splice [digits] (a fully formatted number, with suffix) into [pattern]'s
+ * literal scaffolding. Any character in [pattern] that isn't part of the
+ * number-shape vocabulary (`0 # , . % ‰`) is emitted verbatim, with the
+ * `digits` block inserted where the first number-shape character occurs.
+ * Used so a picture like `'$#,##0.00'` keeps its leading `$` and
+ * `'(#,##0.00)'` (negative subpattern) gets the surrounding parens.
+ */
+function composeFromPattern(pattern: string, digits: string): string {
+  const shapeChars = new Set(['0', '#', ',', '.', '%', '‰']);
+  let result = '';
+  let inserted = false;
+  for (const ch of pattern) {
+    if (shapeChars.has(ch)) {
+      if (!inserted) {
+        result += digits;
+        inserted = true;
+      }
+      // Skip subsequent shape characters — `digits` already contains them.
+    } else {
+      result += ch;
+    }
+  }
+  return inserted ? result : digits;
+}
+
+/**
  * Register custom functions on a JSONata expression instance.
  * Must be called before `expr.evaluate()`.
  */
@@ -95,6 +220,14 @@ function registerCustomFunctions(expr: jsonata.Expression, locale: string): void
   expr.registerFunction('formatDate', (value: unknown, pattern: unknown) => {
     if (typeof value !== 'string' || typeof pattern !== 'string') return value;
     return formatDateValue(value, pattern, locale);
+  });
+  expr.registerFunction('formatLocaleNumber', (value: unknown, picture: unknown) => {
+    // Missing-field semantics match $formatDate: a `null`/`undefined` value
+    // (e.g. an unbound path) passes through unchanged so the expression chip
+    // can fall back to its raw label rather than rendering "undefined".
+    if (value === undefined || value === null) return value;
+    if (typeof picture !== 'string') return value;
+    return formatLocaleNumberValue(value, picture, locale);
   });
 }
 
