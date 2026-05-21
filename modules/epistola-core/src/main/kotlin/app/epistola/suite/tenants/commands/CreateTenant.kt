@@ -3,27 +3,19 @@ package app.epistola.suite.tenants.commands
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
-import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
-import app.epistola.template.model.Margins
-import app.epistola.template.model.Orientation
-import app.epistola.template.model.PageFormat
-import app.epistola.template.model.PageSettings
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import tools.jackson.databind.ObjectMapper
 
 data class CreateTenant(
     val id: TenantKey,
@@ -44,21 +36,28 @@ data class CreateTenant(
 @Component
 class CreateTenantHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
-        val auditUser = currentUserIdOrNull()?.value
         val tenant = jdbi.withHandle<Tenant, Exception> { handle ->
-            // 1. Insert tenant with NULL default_theme_key
-            handle.createUpdate(
-                "INSERT INTO tenants (id, name, created_at) VALUES (:id, :name, NOW())",
+            // Insert tenant. Themes are optional — `default_theme_key` stays NULL
+            // until a user (or future tenant setting) picks one. Templates without
+            // a theme render with engine defaults (A4 portrait, 20mm margins,
+            // Helvetica fallback). The bundled `system` catalog ships a `default`
+            // theme that can be opted into.
+            val inserted = handle.createQuery(
+                """
+                INSERT INTO tenants (id, name, created_at)
+                VALUES (:id, :name, NOW())
+                RETURNING *
+                """,
             )
                 .bind("id", command.id)
                 .bind("name", command.name)
-                .execute()
+                .mapTo<Tenant>()
+                .one()
 
-            // 2. Create default catalog for this tenant
+            // Create the tenant's default catalog so authored resources have a home.
             handle.createUpdate(
                 """
                 INSERT INTO catalogs (id, tenant_key, name, type, created_at, updated_at)
@@ -68,74 +67,16 @@ class CreateTenantHandler(
                 .bind("tenantKey", command.id)
                 .execute()
 
-            // 3. Create default "Tenant Default" theme with sensible defaults
-            // Theme IDs are globally unique, so scope to tenant using tenant ID as base
-            // Use "-d" suffix instead of "-default" to maximize space for tenant ID uniqueness
-            // Max length: 20 chars, "-d" = 2 chars, so max tenant ID = 18 chars
-            val suffix = "-d"
-            val maxTenantIdLength = 18
-            val prefix = if (command.id.value.length <= maxTenantIdLength) {
-                command.id.value
-            } else {
-                // Truncate and remove trailing hyphen to avoid consecutive hyphens
-                command.id.value.take(maxTenantIdLength).trimEnd('-')
-            }
-            val themeSlug = "$prefix$suffix"
-            val themeId = ThemeKey.of(themeSlug)
-            val documentStyles = mapOf(
-                // Structured ref into the bundled `system` catalog font family.
-                "fontFamily" to mapOf("slug" to "inter", "catalogKey" to "system"),
-                "fontSize" to "11pt",
-                "color" to "#333333",
-                "lineHeight" to 1.5,
-            )
-            val pageSettings = PageSettings(
-                format = PageFormat.A4,
-                orientation = Orientation.portrait,
-                margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
-            )
-
-            handle.createUpdate(
-                """
-                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                """,
-            )
-                .bind("id", themeId)
-                .bind("tenantId", command.id)
-                .bind("name", TENANT_DEFAULT_THEME_NAME)
-                .bind("description", "Default theme automatically created for this tenant")
-                .bindJsonb("documentStyles", documentStyles, objectMapper)
-                .bindJsonb("pageSettings", pageSettings, objectMapper)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
-
-            // 3. Update tenant's default_theme_key to point to the new theme
-            handle.createQuery(
-                """
-                UPDATE tenants
-                SET default_theme_key = :themeId
-                WHERE id = :id
-                RETURNING *
-                """,
-            )
-                .bind("id", command.id)
-                .bind("themeId", themeId)
-                .mapTo<Tenant>()
-                .one()
+            inserted
         }
 
-        // 4. Install the bundled system catalog (reserved attributes + canonical
-        // code lists). Runs in the same `@Transactional` boundary, so a failure
-        // to install rolls back the tenant creation — a tenant should never
-        // exist without its system catalog. `InstallSystemCatalog` is
-        // idempotent, so a retry after a transient failure won't double-install.
+        // Install the bundled system catalog (reserved attributes, canonical code
+        // lists, and the `default` theme). Runs in the same `@Transactional`
+        // boundary, so a failure to install rolls back the tenant creation — a
+        // tenant should never exist without its system catalog.
+        // `InstallSystemCatalog` is idempotent.
         InstallSystemCatalog(tenantKey = command.id).execute()
 
         tenant
-    }
-
-    companion object {
-        const val TENANT_DEFAULT_THEME_NAME = "Tenant Default"
     }
 }

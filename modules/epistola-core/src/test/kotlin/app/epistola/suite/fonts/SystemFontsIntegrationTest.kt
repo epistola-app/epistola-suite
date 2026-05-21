@@ -6,6 +6,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.fonts.queries.GetFontFamilyFingerprint
@@ -27,8 +28,8 @@ import tools.jackson.databind.node.ObjectNode
  * End-to-end coverage for the bundled system fonts: every tenant gets the
  * eight OFL families seeded into its `system` catalog on creation, the
  * classpath-backed binaries resolve to real TTF bytes, and the structured
- * `fontFamily` ref is honoured by the live render path (the tenant default
- * theme now points at `inter`/`system`).
+ * `fontFamily` ref is honoured by the live render path (the `system/default`
+ * theme points at `inter`/`system`).
  */
 @Timeout(60)
 class SystemFontsIntegrationTest : IntegrationTestBase() {
@@ -167,14 +168,22 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         given {
             val tenant = tenant("Fonts Render Tenant")
             val tenantId = TenantId(tenant.id)
+            // Point the tenant at the bundled `system/default` theme (Inter font).
+            // Themes are optional — without a default the render path falls back
+            // to engine defaults (Helvetica), which would not embed Inter.
+            app.epistola.suite.tenants.commands.SetTenantDefaultTheme(
+                tenantId = tenant.id,
+                themeId = ThemeKey.of("default"),
+                catalogKey = SYSTEM_CATALOG_KEY,
+            ).execute()
             val template = template(tenant.id, "Fonts Render Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(compositeTemplateId, "Default")
             val compositeVariantId = VariantId(variant.id, compositeTemplateId)
 
             // Template: root → richTextVariable bound to "body". This renders
-            // visible glyphs, which forces the resolved fontFamily (the tenant
-            // default theme now references inter/system) to be embedded.
+            // visible glyphs, which forces the resolved fontFamily (the
+            // `system/default` theme references inter/system) to be embedded.
             val rootId = "root-fr"
             val rootSlot = "root-slot-fr"
             val rtvId = "rtv-fr"

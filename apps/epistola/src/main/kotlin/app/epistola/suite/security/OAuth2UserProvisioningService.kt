@@ -100,13 +100,19 @@ class OAuth2UserProvisioningService(
      * Extracts the groups list from the OAuth2 user's attributes.
      * The `groups` attribute may be a List<String> from the OIDC userinfo endpoint.
      */
-    @Suppress("UNCHECKED_CAST")
-    private fun extractGroupsList(oauth2User: OAuth2User): List<String> {
-        val groups = oauth2User.getAttribute<Any>("groups") ?: return emptyList()
-        return when (groups) {
-            is List<*> -> groups.filterIsInstance<String>()
+    private fun extractGroupsList(oauth2User: OAuth2User): List<String> = extractStringList(oauth2User, "groups")
+
+    /**
+     * Extracts the configured flat-roles claim as a list of strings.
+     */
+    private fun extractFlatRolesList(oauth2User: OAuth2User): List<String> = extractStringList(oauth2User, authProperties.flatRoles.claimName)
+
+    private fun extractStringList(oauth2User: OAuth2User, attributeName: String): List<String> {
+        val raw = oauth2User.getAttribute<Any>(attributeName) ?: return emptyList()
+        return when (raw) {
+            is List<*> -> raw.filterIsInstance<String>()
             else -> {
-                logger.warn("Unexpected groups attribute type: {}", groups::class.simpleName)
+                logger.warn("Unexpected '{}' attribute type: {}", attributeName, raw::class.simpleName)
                 emptyList()
             }
         }
@@ -145,7 +151,8 @@ class OAuth2UserProvisioningService(
         updateLastLogin(user.id)
 
         val groups = extractGroupsList(oauth2User)
-        val parsed = parseGroupMemberships(groups)
+        val flatRoles = extractFlatRolesList(oauth2User)
+        val parsed = parseGroupMemberships(groups) + parseFlatRoles(flatRoles)
 
         val tokenMemberships = parsed.tenantRoles
         val mergedMemberships = if (tokenMemberships.isNotEmpty() || parsed.globalRoles.isNotEmpty()) {
