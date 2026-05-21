@@ -6,16 +6,11 @@
  */
 
 import jsonata from 'jsonata';
+import { DEFAULT_LOCALE } from './locale.js';
 
 // ---------------------------------------------------------------------------
 // Custom JSONata functions
 // ---------------------------------------------------------------------------
-
-/**
- * Default locale used when the editor host doesn't supply one. Kept as English
- * to preserve the pre-locale behaviour for screenshots / golden tests.
- */
-const DEFAULT_LOCALE = 'en-US';
 
 /**
  * Cache of `{ locale -> {full: [...], short: [...]} }` localized month names,
@@ -115,7 +110,7 @@ function registerCustomFunctions(expr: jsonata.Expression, locale: string): void
 export async function evaluateExpression(
   expression: string,
   data: Record<string, unknown>,
-  locale: string = 'en-US',
+  locale: string = DEFAULT_LOCALE,
 ): Promise<unknown> {
   const trimmed = expression.trim();
   if (!trimmed) return undefined;
@@ -158,7 +153,7 @@ export type ExpressionResult = { ok: true; value: unknown } | { ok: false; error
 export async function tryEvaluateExpression(
   expression: string,
   data: Record<string, unknown>,
-  locale: string = 'en-US',
+  locale: string = DEFAULT_LOCALE,
 ): Promise<ExpressionResult> {
   const trimmed = expression.trim();
   if (!trimmed) return { ok: false, error: 'Expression is empty' };

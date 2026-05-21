@@ -16,6 +16,7 @@ import type { Node as ProsemirrorNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { FieldPath } from '../engine/schema-paths.js';
 import { evaluateExpression, formatResolvedValue } from '../engine/resolve-expression.js';
+import { DEFAULT_LOCALE } from '../engine/locale.js';
 import { inlineExpressionPathDisabled } from '../data-contract/binding-compatibility.js';
 import { isRichTextDoc, renderInlineRichText } from './inline-rich-text-rendering.js';
 import { openExpressionDialog } from '../ui/expression-dialog.js';
@@ -155,7 +156,7 @@ export class ExpressionNodeView implements NodeView {
 
   private _resolveAndDisplay(expr: string, data: Record<string, unknown>): void {
     const generation = ++this._displayGeneration;
-    const locale = this._getLocale?.() ?? 'en-US';
+    const locale = this._getLocale?.() ?? DEFAULT_LOCALE;
 
     evaluateExpression(expr, data, locale).then((result) => {
       // Discard stale result (example switched or node destroyed since we started)

@@ -19,6 +19,7 @@ import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
 import type { EditorFeatureFlags, EditorFeatureFlag } from './feature-flags.js';
+import { DEFAULT_LOCALE } from './locale.js';
 import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
 import { EventEmitter, type EngineEvents } from './events.js';
@@ -108,7 +109,8 @@ export class EditorEngine {
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
     this.featureFlags = Object.freeze({ ...(options?.featureFlags ?? {}) });
-    this.locale = options?.locale && options.locale.trim().length > 0 ? options.locale : 'en-US';
+    this.locale =
+      options?.locale && options.locale.trim().length > 0 ? options.locale : DEFAULT_LOCALE;
     this._recomputeStyles();
 
     // Build the ChangeContext that Change implementations use
