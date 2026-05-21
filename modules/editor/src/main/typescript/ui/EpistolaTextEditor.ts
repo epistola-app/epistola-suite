@@ -205,9 +205,13 @@ export class EpistolaTextEditor extends LitElement {
     const getExampleData = engine
       ? () => (nodeId ? engine.getEvaluationContextAt(nodeId) : engine.getExampleData())
       : undefined;
+    // Effective BCP-47 locale the host resolved (variant attribute → tenant
+    // default → app default). Read fresh per call so a future locale change
+    // mid-session would re-format on the next refresh.
+    const getLocale = engine ? () => engine.locale : undefined;
 
     const plugins = createPlugins(epistolaSchema, {
-      expressionNodeViewOptions: { getFieldPaths, getExampleData },
+      expressionNodeViewOptions: { getFieldPaths, getExampleData, getLocale },
     });
 
     // Check for cached PM state (preserved across delete/undo cycles)
@@ -236,7 +240,7 @@ export class EpistolaTextEditor extends LitElement {
       state: editorState,
       nodeViews: {
         expression: (node, view, getPos) =>
-          new ExpressionNodeView(node, view, getPos, { getFieldPaths, getExampleData }),
+          new ExpressionNodeView(node, view, getPos, { getFieldPaths, getExampleData, getLocale }),
       },
       dispatchTransaction: (tr) => {
         if (!this._pmView) return;

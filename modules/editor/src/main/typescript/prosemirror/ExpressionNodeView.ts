@@ -23,6 +23,13 @@ import { openExpressionDialog } from '../ui/expression-dialog.js';
 export interface ExpressionNodeViewOptions {
   getFieldPaths: () => FieldPath[];
   getExampleData?: () => Record<string, unknown> | undefined;
+  /**
+   * Returns the BCP-47 locale the editor session resolved (variant attribute
+   * → tenant default → app default). Read on every `evaluateExpression` call
+   * so locale changes during a session would re-format on the next refresh.
+   * Optional — falls back to `"en-US"` when absent.
+   */
+  getLocale?: () => string;
 }
 
 export class ExpressionNodeView implements NodeView {
@@ -46,6 +53,7 @@ export class ExpressionNodeView implements NodeView {
   private _dialogOpen = false;
   private _getFieldPaths: () => FieldPath[];
   private _getExampleData: (() => Record<string, unknown> | undefined) | undefined;
+  private _getLocale: (() => string) | undefined;
 
   /** Monotonic counter to discard stale async resolution results. */
   private _displayGeneration = 0;
@@ -61,6 +69,7 @@ export class ExpressionNodeView implements NodeView {
     this._getPos = getPos;
     this._getFieldPaths = options.getFieldPaths;
     this._getExampleData = options.getExampleData;
+    this._getLocale = options.getLocale;
 
     // Create the chip element
     this.dom = document.createElement('span');
@@ -146,8 +155,9 @@ export class ExpressionNodeView implements NodeView {
 
   private _resolveAndDisplay(expr: string, data: Record<string, unknown>): void {
     const generation = ++this._displayGeneration;
+    const locale = this._getLocale?.() ?? 'en-US';
 
-    evaluateExpression(expr, data).then((result) => {
+    evaluateExpression(expr, data, locale).then((result) => {
       // Discard stale result (example switched or node destroyed since we started)
       if (generation !== this._displayGeneration) return;
 

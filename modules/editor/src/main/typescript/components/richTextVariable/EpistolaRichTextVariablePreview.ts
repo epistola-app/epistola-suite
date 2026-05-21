@@ -59,7 +59,7 @@ export class EpistolaRichTextVariablePreview extends LitElement {
     }
     const token = ++this._refreshToken;
     const ctx = this.engine.getEvaluationContextAt(this.nodeId);
-    const value = await evaluateExpression(this.binding, ctx);
+    const value = await evaluateExpression(this.binding, ctx, this.engine.locale);
     if (token !== this._refreshToken) return;
     this._resolved = value;
   }
