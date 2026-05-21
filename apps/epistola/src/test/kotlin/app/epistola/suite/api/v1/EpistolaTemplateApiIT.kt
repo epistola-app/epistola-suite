@@ -2,6 +2,8 @@ package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -311,6 +313,50 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val ids: List<String> = JsonPath.read(response.body!!, "$.items[*].id")
         assertThat(ids).containsExactly("beta-$suffix")
+    }
+
+    @Test
+    fun `list templates is scoped to the requested catalog`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val secondCatalog = "second-${randomSuffix()}"
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = CatalogKey.of(secondCatalog), name = "Second").execute()
+        }
+        val defaultSlug = "default-${randomSuffix()}"
+        val secondSlug = "second-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$defaultSlug", "name": "Default Catalog Template"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/$secondCatalog/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$secondSlug", "name": "Second Catalog Template"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        val defaultList = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(defaultList.statusCode).isEqualTo(HttpStatus.OK)
+        val defaultIds: List<String> = JsonPath.read(defaultList.body!!, "$.items[*].id")
+        assertThat(defaultIds).contains(defaultSlug).doesNotContain(secondSlug)
+
+        val secondList = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/$secondCatalog/templates",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(secondList.statusCode).isEqualTo(HttpStatus.OK)
+        val secondIds: List<String> = JsonPath.read(secondList.body!!, "$.items[*].id")
+        assertThat(secondIds).contains(secondSlug).doesNotContain(defaultSlug)
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {

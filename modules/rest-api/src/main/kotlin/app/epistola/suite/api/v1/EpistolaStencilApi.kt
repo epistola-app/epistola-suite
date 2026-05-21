@@ -61,6 +61,7 @@ class EpistolaStencilApi(
             tenantId = tenantIdComposite,
             searchTerm = q,
             tag = tag,
+            catalogKey = CatalogKey.of(catalogId),
         ).query()
 
         return ResponseEntity.ok(
