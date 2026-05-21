@@ -15,40 +15,72 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * Installs one stencil-version row carried in a catalog ZIP. The stencil's
+ * `version` is taken from the wire format (no longer renumbered to `MAX+1`)
+ * so that templates pinning a specific version survive a round-trip.
+ *
+ * Idempotency / conflict semantics:
+ *  - target has no row for (slug, version) → insert at the given version
+ *  - target has (slug, version) and content is **byte-identical** (JSONB `=`)
+ *    → no-op, returns `SKIPPED` with `assignedVersion = version`
+ *  - target has (slug, version) but content **differs** → behaviour depends on
+ *    [ImportStencil.onConflict]:
+ *      - `FAIL` (default) — throws [StencilVersionConflictException]; the
+ *        orchestrator collects all conflicts in one pass
+ *      - `RENUMBER` — inserts as `MAX(version)+1`, returns the new number;
+ *        the orchestrator uses this to rewrite stencil-node pins in the
+ *        templates from the same ZIP
+ */
 data class ImportStencil(
     val tenantId: TenantId,
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val slug: String,
+    val version: Int,
     val name: String,
     val description: String? = null,
     val tags: List<String> = emptyList(),
     val content: TemplateDocument,
-) : Command<InstallStatus>,
+    val onConflict: OnStencilConflict = OnStencilConflict.FAIL,
+) : Command<ImportStencilResult>,
     RequiresPermission {
     override val permission get() = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 }
 
+/**
+ * Outcome of a single [ImportStencil] invocation. [assignedVersion] is the
+ * version actually written to the target — equal to [ImportStencil.version]
+ * on the happy path, set to a fresh `MAX+1` only when [OnStencilConflict.RENUMBER]
+ * resolved a content conflict.
+ */
+data class ImportStencilResult(
+    val status: InstallStatus,
+    val assignedVersion: Int,
+    val wasRenumbered: Boolean,
+)
+
 @Component
 class ImportStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-) : CommandHandler<ImportStencil, InstallStatus> {
+) : CommandHandler<ImportStencil, ImportStencilResult> {
 
-    override fun handle(command: ImportStencil): InstallStatus {
+    override fun handle(command: ImportStencil): ImportStencilResult {
         val stencilKey = StencilKey.of(command.slug)
         val tagsJson = objectMapper.writeValueAsString(command.tags)
         val contentJson = objectMapper.writeValueAsString(command.content)
         val auditUser = currentUserIdOrNull()?.value
 
-        return jdbi.inTransaction<InstallStatus, Exception> { handle ->
-            val exists = handle.createQuery("SELECT COUNT(*) > 0 FROM stencils WHERE id = :id AND tenant_key = :tenantKey")
+        return jdbi.inTransaction<ImportStencilResult, Exception> { handle ->
+            val stencilRowExisted = handle.createQuery("SELECT COUNT(*) > 0 FROM stencils WHERE id = :id AND tenant_key = :tenantKey")
                 .bind("id", stencilKey)
                 .bind("tenantKey", command.tenantKey)
                 .mapTo(Boolean::class.java)
                 .one()
 
-            // Upsert stencil
+            // Upsert stencil row (name/description/tags). Versions are handled
+            // separately below.
             handle.createUpdate(
                 """
                 INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by)
@@ -66,12 +98,8 @@ class ImportStencilHandler(
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
 
-            // Import supersedes local edits: drop any existing draft, then insert
-            // the imported content as the next published version. Mirrors
-            // ImportTemplates.upsertPublishedVersion so the export → import
-            // round-trip preserves publish status (ExportStencils filters to
-            // status='published', so anything we receive here was published
-            // on the source side).
+            // Drop any draft for this stencil — imports supersede local
+            // work-in-progress regardless of which version we end up writing.
             handle.createUpdate(
                 """
                 DELETE FROM stencil_versions
@@ -83,30 +111,94 @@ class ImportStencilHandler(
                 .bind("stencilKey", stencilKey)
                 .execute()
 
-            val nextId = handle.createQuery(
-                "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .bind("stencilKey", stencilKey)
-                .mapTo(Int::class.java)
-                .one()
-
-            handle.createUpdate(
+            // Is there already a published row for the requested (stencil, version)?
+            // Compare JSONB by value, not text — postgres normalises whitespace and
+            // object-key order so semantic equality is the right call.
+            val existingMatchOrNull = handle.createQuery(
                 """
-                INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at, created_at, created_by)
-                VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'published', NOW(), NOW(), :createdBy)
+                SELECT (content = :content::jsonb) AS matches
+                FROM stencil_versions
+                WHERE tenant_key = :tenantKey
+                  AND catalog_key = :catalogKey
+                  AND stencil_key = :stencilKey
+                  AND id = :version
                 """,
             )
-                .bind("id", VersionKey.of(nextId))
                 .bind("tenantKey", command.tenantKey)
                 .bind("catalogKey", command.catalogKey)
                 .bind("stencilKey", stencilKey)
+                .bind("version", VersionKey.of(command.version))
                 .bind("content", contentJson)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
+                .mapTo(Boolean::class.java)
+                .findOne()
+                .orElse(null)
 
-            if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED
+            when {
+                existingMatchOrNull == null -> {
+                    // No row at this (slug, version) — install at the requested version.
+                    insertVersion(handle, command, stencilKey, command.version, contentJson, auditUser)
+                    ImportStencilResult(
+                        status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
+                        assignedVersion = command.version,
+                        wasRenumbered = false,
+                    )
+                }
+                existingMatchOrNull -> {
+                    // Idempotent re-import — same (slug, version) with identical
+                    // content. Stencil row metadata was already upserted above.
+                    ImportStencilResult(
+                        status = InstallStatus.SKIPPED,
+                        assignedVersion = command.version,
+                        wasRenumbered = false,
+                    )
+                }
+                else -> when (command.onConflict) {
+                    OnStencilConflict.FAIL -> throw StencilVersionConflictException(
+                        catalogKey = command.catalogKey,
+                        stencilKey = stencilKey,
+                        version = command.version,
+                    )
+                    OnStencilConflict.RENUMBER -> {
+                        val newVersion = handle.createQuery(
+                            "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
+                        )
+                            .bind("tenantKey", command.tenantKey)
+                            .bind("catalogKey", command.catalogKey)
+                            .bind("stencilKey", stencilKey)
+                            .mapTo(Int::class.java)
+                            .one()
+                        insertVersion(handle, command, stencilKey, newVersion, contentJson, auditUser)
+                        ImportStencilResult(
+                            status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
+                            assignedVersion = newVersion,
+                            wasRenumbered = true,
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    private fun insertVersion(
+        handle: org.jdbi.v3.core.Handle,
+        command: ImportStencil,
+        stencilKey: StencilKey,
+        version: Int,
+        contentJson: String,
+        auditUser: java.util.UUID?,
+    ) {
+        handle.createUpdate(
+            """
+            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, content, status, published_at, created_at, created_by)
+            VALUES (:id, :tenantKey, :catalogKey, :stencilKey, :content::jsonb, 'published', NOW(), NOW(), :createdBy)
+            """,
+        )
+            .bind("id", VersionKey.of(version))
+            .bind("tenantKey", command.tenantKey)
+            .bind("catalogKey", command.catalogKey)
+            .bind("stencilKey", stencilKey)
+            .bind("content", contentJson)
+            .bind("createdBy", auditUser)
+            .execute()
     }
 }

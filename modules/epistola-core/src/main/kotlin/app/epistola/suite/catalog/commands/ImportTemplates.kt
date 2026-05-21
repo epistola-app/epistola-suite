@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -12,6 +13,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -29,6 +31,16 @@ data class ImportTemplates(
     val tenantId: TenantId,
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templates: List<ImportTemplateInput>,
+    /**
+     * Renumber map applied to stencil-node `props.version` during import.
+     * Keyed by stencil slug, value is the (source→target) version pair.
+     * Populated by [ImportCatalogZip] only when a `RENUMBER`-mode import
+     * resolved a stencil-version conflict — `ImportStencil` installed the
+     * conflicting source version at a fresh number, and these templates
+     * (riding the same ZIP) must follow so their pins still resolve.
+     * Cross-catalog stencil refs are not in the map and are left alone.
+     */
+    val stencilRenumbers: Map<StencilKey, StencilRenumber> = emptyMap(),
 ) : Command<List<ImportTemplateResult>>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -84,7 +96,21 @@ class ImportTemplatesHandler(
 
     override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
         try {
-            importSingleTemplate(command.tenantId, command.catalogKey, input)
+            val rewritten = if (command.stencilRenumbers.isEmpty()) {
+                input
+            } else {
+                input.copy(
+                    templateModel = rewriteStencilPins(input.templateModel, command.stencilRenumbers, command.catalogKey),
+                    variants = input.variants.map { variant ->
+                        variant.copy(
+                            templateModel = variant.templateModel?.let {
+                                rewriteStencilPins(it, command.stencilRenumbers, command.catalogKey)
+                            },
+                        )
+                    },
+                )
+            }
+            importSingleTemplate(command.tenantId, command.catalogKey, rewritten)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
             ImportTemplateResult(
@@ -95,6 +121,37 @@ class ImportTemplatesHandler(
                 errorMessage = e.message ?: "Unknown error",
             )
         }
+    }
+
+    /**
+     * Walks a [TemplateDocument]'s nodes and rewrites the `props.version` of
+     * any stencil node whose `stencilId` is in [renumbers] AND whose source
+     * pin equals the renumber map's `sourceVersion`. Cross-catalog stencil
+     * refs (with a `props.catalogKey` that is not [ownCatalog]) are left
+     * alone — they target a different catalog's stencil and that catalog's
+     * versioning is independent.
+     */
+    private fun rewriteStencilPins(
+        document: TemplateDocument,
+        renumbers: Map<StencilKey, StencilRenumber>,
+        ownCatalog: CatalogKey,
+    ): TemplateDocument {
+        val rewrittenNodes = document.nodes.mapValues { (_, node) ->
+            if (node.type != StencilNodeKeys.NODE_TYPE) return@mapValues node
+            val props = node.props ?: return@mapValues node
+            val stencilSlug = props[StencilNodeKeys.PROP_STENCIL_ID] as? String
+                ?: return@mapValues node
+            val refCatalog = props[StencilNodeKeys.PROP_CATALOG_KEY] as? String
+            // Only own-catalog stencil refs participate. A ref with explicit
+            // catalogKey pointing elsewhere is a cross-catalog dependency.
+            if (refCatalog != null && refCatalog != ownCatalog.value) return@mapValues node
+            val pinned = (props[StencilNodeKeys.PROP_VERSION] as? Number)?.toInt()
+                ?: return@mapValues node
+            val mapping = renumbers[StencilKey.of(stencilSlug)] ?: return@mapValues node
+            if (pinned != mapping.sourceVersion) return@mapValues node
+            node.copy(props = props + (StencilNodeKeys.PROP_VERSION to mapping.assignedVersion))
+        }
+        return document.copy(nodes = rewrittenNodes)
     }
 
     private fun importSingleTemplate(tenantId: TenantId, catalogKey: CatalogKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
