@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.OutputStream
+import java.util.Locale
 
 /**
  * Result of preview data validation.
@@ -74,6 +75,7 @@ class GenerationService(
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         templateCatalogKey: CatalogKey? = null,
         tenantDefaultThemeCatalogKey: CatalogKey? = null,
+        locale: Locale = Locale.ENGLISH,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -101,6 +103,7 @@ class GenerationService(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = RenderMode.PREVIEW,
+            locale = locale,
         )
     }
 
@@ -124,6 +127,7 @@ class GenerationService(
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         fontFamilyResolver: FontFamilyResolver? = null,
+        locale: Locale = Locale.ENGLISH,
     ) {
         pdfRenderer.render(
             document = templateModel,
@@ -140,6 +144,7 @@ class GenerationService(
             assetResolver = assetResolver,
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
+            locale = locale,
         )
     }
 

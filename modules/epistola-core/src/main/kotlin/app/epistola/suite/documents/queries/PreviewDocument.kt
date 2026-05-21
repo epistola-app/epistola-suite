@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.generation.DocumentPreviewRenderer
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -19,6 +20,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
@@ -78,6 +80,7 @@ class PreviewDocumentHandler(
     private val schemaValidator: JsonSchemaValidator,
     private val variantResolver: VariantResolver,
     private val renderer: DocumentPreviewRenderer,
+    private val localeResolver: TenantLocaleResolver,
 ) : QueryHandler<PreviewDocument, ByteArray> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -150,7 +153,11 @@ class PreviewDocumentHandler(
             }
         }
 
-        // 5. Render
+        // 5. Resolve locale via variant attribute → tenant default → app default
+        val variant = mediator.query(GetVariant(variantId = variantId))
+        val locale = localeResolver.resolveLocale(tenant, variant?.attributes ?: emptyMap())
+
+        // 6. Render
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = version.templateModel,
@@ -158,6 +165,7 @@ class PreviewDocumentHandler(
             template = template,
             tenant = tenant,
             data = effectiveData,
+            locale = locale,
         )
     }
 

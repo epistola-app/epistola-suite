@@ -23,12 +23,14 @@ import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -64,6 +66,7 @@ class DocumentGenerationExecutor(
     private val meterRegistry: MeterRegistry,
     private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
     private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
+    private val localeResolver: TenantLocaleResolver,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -265,6 +268,10 @@ class DocumentGenerationExecutor(
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
         val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
 
+        // Resolve locale via variant attribute → tenant default → app default
+        val variant = mediator.query(GetVariant(variantId = variantId))
+        val locale = localeResolver.resolveLocale(tenant, variant?.attributes ?: emptyMap())
+
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme
         val renderingDefaultsVersion = version.renderingDefaultsVersion
@@ -287,6 +294,7 @@ class DocumentGenerationExecutor(
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
+                locale = locale,
             )
         } else {
             renderPath = "legacy"
@@ -307,6 +315,7 @@ class DocumentGenerationExecutor(
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+                locale = locale,
             )
         }
 

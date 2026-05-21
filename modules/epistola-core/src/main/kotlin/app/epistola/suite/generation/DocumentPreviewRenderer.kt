@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 
 /**
  * Renders a preview PDF from resolved inputs.
@@ -53,6 +54,7 @@ class DocumentPreviewRenderer(
         template: DocumentTemplate,
         tenant: Tenant,
         data: ObjectNode,
+        locale: Locale = Locale.ENGLISH,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
 
@@ -92,6 +94,7 @@ class DocumentPreviewRenderer(
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
+                locale = locale,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -110,6 +113,7 @@ class DocumentPreviewRenderer(
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+                locale = locale,
             )
         }
 

@@ -24,6 +24,7 @@ import com.itextpdf.kernel.xmp.XMPMetaFactory
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
 import java.io.OutputStream
+import java.util.Locale
 
 /**
  * Main PDF renderer that orchestrates node rendering and outputs to a stream.
@@ -90,8 +91,15 @@ class DirectPdfRenderer(
         fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         renderMode: RenderMode = RenderMode.STRICT,
+        locale: Locale = Locale.ENGLISH,
     ) {
         TwoPassAnalyzer.validate(document)
+
+        // Build a render-scoped evaluator chain bound to the effective locale.
+        // `forLocale` is a no-op when `locale == Locale.ENGLISH`, so the
+        // untouched English path costs nothing — we only allocate when a
+        // tenant/variant has actually opted into a different locale.
+        val scopedEvaluator = expressionEvaluator.forLocale(locale)
 
         if (TwoPassAnalyzer.requiresTwoPassRendering(document)) {
             val headerNodes = pageHeaderNodesInDocumentOrder(document)
@@ -109,6 +117,7 @@ class DirectPdfRenderer(
                 renderMode = renderMode,
                 headerNodes = headerNodes,
                 footerNode = footerNode,
+                scopedEvaluator = scopedEvaluator,
             )
         } else {
             renderSinglePass(
@@ -122,6 +131,7 @@ class DirectPdfRenderer(
                 fontFamilyResolver = fontFamilyResolver,
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
+                scopedEvaluator = scopedEvaluator,
             )
         }
     }
@@ -136,14 +146,15 @@ class DirectPdfRenderer(
         fontFamilyResolver: FontFamilyResolver?,
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
+        scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant, fontFamilyResolver)
-        val proseMirrorConverter = ProseMirrorConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
+        val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults)
         return RenderContext(
             data = data,
             loopContext = emptyMap(),
             documentStyles = effectiveDocumentStyles,
-            expressionEvaluator = expressionEvaluator,
+            expressionEvaluator = scopedEvaluator,
             proseMirrorConverter = proseMirrorConverter,
             defaultExpressionLanguage = defaultExpressionLanguage,
             fontCache = fontCache,
@@ -170,6 +181,7 @@ class DirectPdfRenderer(
         fontFamilyResolver: FontFamilyResolver?,
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
+        scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -189,6 +201,7 @@ class DirectPdfRenderer(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
+            scopedEvaluator = scopedEvaluator,
         )
 
         val headerNodes = pageHeaderNodesInDocumentOrder(document)
@@ -247,6 +260,7 @@ class DirectPdfRenderer(
         renderMode: RenderMode,
         headerNodes: List<Node>,
         footerNode: Node?,
+        scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -267,6 +281,7 @@ class DirectPdfRenderer(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
+            scopedEvaluator = scopedEvaluator,
         )
 
         val footerHeight = footerNode?.let {
@@ -302,6 +317,7 @@ class DirectPdfRenderer(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
+            scopedEvaluator = scopedEvaluator,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
@@ -333,6 +349,7 @@ class DirectPdfRenderer(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
+            scopedEvaluator = scopedEvaluator,
         ).withTotalPages(totalPages)
 
         performRenderWithContext(
