@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-22
+
 ### Added
 
 - **`migration.job.annotations`** — extra annotations merged onto the migration Job's metadata (`job` mode), with keys overriding the chart's `helm.sh/hook` defaults. Plain `helm` and Flux's helm-controller run Helm directly, so the hooks fire natively and need nothing here. When the chart is rendered to manifests and applied by a tool that ignores Helm hooks — Argo CD, or Flux's kustomize-controller — set this to that tool's hook annotation (e.g. `argocd.argoproj.io/hook: PreSync` plus `argocd.argoproj.io/hook-delete-policy: BeforeHookCreation`) so migrations still gate the app rollout.
