@@ -21,6 +21,7 @@
 <div class="search-box" th:fragment="search-box(placeholder, searchUrl, targetId)">
     <input type="search"
            name="q"
+           data-testid="search-input"
            th:placeholder="${placeholder}"
            th:hx-get="${searchUrl}"
            hx-trigger="input changed delay:300ms, search"

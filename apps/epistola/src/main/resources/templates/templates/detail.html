@@ -8,7 +8,7 @@
         <div class="page-header">
             <div>
                 <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
-                <h1 th:text="${template.name}">Template Name</h1>
+                <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
                 <p th:if="${!editable}" class="text-muted" style="margin-top: var(--ep-space-1); font-size: var(--ep-text-sm);">
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>

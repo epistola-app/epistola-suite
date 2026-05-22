@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`data-testid` anchors for the external test suite (batch 1).** Added stable test-id attributes to load-bearing UI landmarks so the website-repo Playwright scenarios can stop depending on brittle CSS/text selectors: `confirm-dialog-confirm` (the destructive button built dynamically in `fragments/htmx.html` — covers every delete flow), `search-input` (the shared `fragments/search.html` input), and `page-title` on the page-header `<h1>` of the tenants list/home, template detail, theme detail, generation-history, and consumers pages. Purely additive markup; no behaviour change. Naming convention and the remaining batches are tracked in the website repo's `src/content/tests/testid-changes.md`.
+
 ## [0.22.1] - 2026-05-21
 
 ### Fixed
