@@ -29,9 +29,14 @@ metadata:
   labels:
     {{- include "epistola.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "5"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- /* The helm.sh/hook annotations order this Job under plain `helm` and
+           Flux's helm-controller (both run Helm, so the hooks fire natively).
+           When the chart is rendered to manifests and applied by a tool that
+           ignores Helm hooks — Argo CD, or Flux's kustomize-controller — set
+           migration.job.annotations to that tool's own hook annotation; keys
+           set there override these defaults. */}}
+    {{- $hookDefaults := dict "helm.sh/hook" "pre-install,pre-upgrade" "helm.sh/hook-weight" "5" "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded" }}
+    {{- toYaml (merge (deepCopy (default dict .Values.migration.job.annotations)) $hookDefaults) | nindent 4 }}
 spec:
   backoffLimit: {{ .Values.migration.job.backoffLimit }}
   activeDeadlineSeconds: {{ .Values.migration.job.activeDeadlineSeconds }}

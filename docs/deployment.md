@@ -24,6 +24,30 @@ boot. The migration workload reuses the **same image** with
 `embedded` emits no Job, no init container, and no `EPISTOLA_MIGRATION_MODE` —
 the app migrates at boot exactly as before.
 
+### GitOps tools (Argo CD / Flux)
+
+`job` mode orders the migration via `helm.sh/hook` annotations, which only fire
+when **Helm itself** runs the release — plain `helm upgrade --install` and Flux's
+**helm-controller** (a `HelmRelease`) honor them natively, nothing extra needed.
+
+Tools that apply the chart's **rendered manifests** ignore Helm hooks: Argo CD
+(it only acts on its own `argocd.argoproj.io/hook` annotations) and Flux's
+**kustomize-controller**. There the Job would apply as an ordinary resource and
+lose its run-before-the-app ordering. Re-attach the gate with
+`migration.job.annotations`, e.g. for Argo CD:
+
+```yaml
+migration:
+  mode: job
+  job:
+    annotations:
+      argocd.argoproj.io/hook: PreSync
+      argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+```
+
+(`BeforeHookCreation` lets re-syncs replace the fixed-name Job.) If your GitOps
+tool has no resource-level hook, prefer `initContainer` or `embedded`.
+
 ## Usage
 
 ### Production, external Postgres (default `job` mode)

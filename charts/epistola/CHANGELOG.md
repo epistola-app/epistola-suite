@@ -4,6 +4,8 @@
 
 ### Added
 
+- **`migration.job.annotations`** — extra annotations merged onto the migration Job's metadata (`job` mode), with keys overriding the chart's `helm.sh/hook` defaults. Plain `helm` and Flux's helm-controller run Helm directly, so the hooks fire natively and need nothing here. When the chart is rendered to manifests and applied by a tool that ignores Helm hooks — Argo CD, or Flux's kustomize-controller — set this to that tool's hook annotation (e.g. `argocd.argoproj.io/hook: PreSync` plus `argocd.argoproj.io/hook-delete-policy: BeforeHookCreation`) so migrations still gate the app rollout.
+
 - **`oidc.flatRolesClaimName`** — sets `EPISTOLA_AUTH_FLATROLES_CLAIMNAME`, overriding the JWT claim the app reads flat role labels (`epg_*` / `ept_*_*` / `eps_*`) from. Default empty → the app uses its own default (`roles`). Set it when integrating with a non-Keycloak IdP that emits the flat-role list under a different claim name. The same value re-points the auto-provisioned Keycloak `epistola-realm-roles` protocol mapper when `keycloakAdmin.ensureGroups=true`, so chart and Keycloak stay in sync.
 
 ## [0.4.0] - 2026-05-20
