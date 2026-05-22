@@ -261,6 +261,16 @@ migration:
     # Requires the TTL-after-finished controller. Succeeded Jobs are also
     # removed by the hook-delete-policy on the next release.
     ttlSecondsAfterFinished: 600
+    # Extra annotations merged onto the migration Job's metadata (keys here
+    # override the chart's helm.sh/hook defaults). Plain `helm` and Flux's
+    # helm-controller need nothing here — they run Helm, so the hooks fire
+    # natively. When the chart is rendered to manifests and applied by a tool
+    # that ignores Helm hooks, add that tool's hook annotation so the migration
+    # still runs before the app, e.g. Argo CD:
+    #   annotations:
+    #     argocd.argoproj.io/hook: PreSync
+    #     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    annotations: {}
 
 # Database configuration
 # Supported types:
