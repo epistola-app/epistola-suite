@@ -5,6 +5,8 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogSizeLimits
+import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
+import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -49,6 +51,14 @@ class ExportCatalogZipHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
+        // Block export when published templates pin the same own-catalog stencil
+        // at more than one version — the wire format only carries one version per
+        // stencil, so a downstream import would silently break the divergent uses.
+        val conflicts = FindStencilVersionExportConflicts(command.tenantKey, command.catalogKey).query()
+        if (conflicts.isNotEmpty()) {
+            throw MultipleStencilVersionsInUseException(command.catalogKey, conflicts)
+        }
+
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
 
         // The emitted fingerprint always describes the actual exported bytes.

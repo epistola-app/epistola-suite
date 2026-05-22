@@ -102,6 +102,10 @@ spec:
             - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
               value: {{ .Values.oidc.backchannelBaseUrl | quote }}
             {{- end }}
+            {{- if .Values.oidc.flatRolesClaimName }}
+            - name: EPISTOLA_AUTH_FLATROLES_CLAIMNAME
+              value: {{ .Values.oidc.flatRolesClaimName | quote }}
+            {{- end }}
             {{- end }}
 
             {{- /* Keycloak admin / provisioning */}}

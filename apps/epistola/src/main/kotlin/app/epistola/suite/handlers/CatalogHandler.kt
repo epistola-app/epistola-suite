@@ -3,6 +3,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
@@ -11,13 +12,16 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.commands.OnStencilConflict
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.FindResourceUsages
+import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
@@ -341,6 +345,18 @@ class CatalogHandler {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usageCounts = usages.mapValues { it.value.size }
+            // Per-stencil version-conflict map (slug → "pinned v1, v2 (latest v3)").
+            // Empty when the catalog is exportable. Used by the browse view to flag
+            // stencils that block export — mirrors the precheck the export endpoint
+            // runs. The check also fires when templates pin a single stale version
+            // (not just multi-version usage), hence the explicit `latest` callout.
+            val stencilVersionConflicts = FindStencilVersionExportConflicts(
+                tenantKey = tenantId.key,
+                catalogKey = catalogKey,
+            ).query().associate { c ->
+                c.stencilKey.value to
+                    "pinned v${c.versions.joinToString(", v")} (latest v${c.latestPublishedVersion})"
+            }
 
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
@@ -349,6 +365,7 @@ class CatalogHandler {
                 "catalog" to result.catalog
                 "resources" to result.resources
                 "usageCounts" to usageCounts
+                "stencilVersionConflicts" to stencilVersionConflicts
             }
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)
@@ -502,12 +519,21 @@ class CatalogHandler {
         }?.let { runCatching { AuthoredImportMode.valueOf(it) }.getOrNull() }
             ?: AuthoredImportMode.MERGE
 
+        // Opt-in: install conflicting stencil versions at MAX(version)+1 and
+        // rewrite stencil-node pins in the same ZIP's templates. Only meaningful
+        // for AUTHORED MERGE — the ImportCatalogZip handler rejects it elsewhere.
+        val onStencilConflict = multipartData["onStencilConflict"]?.firstOrNull()?.let {
+            String(it.inputStream.readAllBytes()).trim()
+        }?.let { runCatching { OnStencilConflict.valueOf(it) }.getOrNull() }
+            ?: OnStencilConflict.FAIL
+
         return try {
             val result = ImportCatalogZip(
                 tenantKey = tenantId.key,
                 zipBytes = zipBytes,
                 catalogType = catalogType,
                 authoredMode = authoredMode,
+                onStencilConflict = onStencilConflict,
             ).execute()
 
             val failed = result.results.count { it.status == InstallStatus.FAILED }
@@ -533,11 +559,36 @@ class CatalogHandler {
                     .header("Location", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
                     .build()
             }
+        } catch (e: StencilVersionImportConflictsException) {
+            // Render a structured dialog listing every conflicting stencil
+            // version so the operator can see the full picture and choose
+            // whether to retry with the "Allow renumber" option enabled.
+            logger.warn("Import blocked by stencil-version conflicts: ${e.message}")
+            val conflicts = e.conflicts.map { c ->
+                StencilImportConflictView(
+                    name = c.stencilName,
+                    slug = c.stencilKey.value,
+                    version = "v${c.version}",
+                )
+            }
+            ServerResponse.ok().render(
+                "catalogs/list :: import-conflict-content",
+                mapOf(
+                    "catalogId" to e.catalogKey.value,
+                    "stencilImportConflicts" to conflicts,
+                ),
+            )
         } catch (e: Exception) {
             logger.warn("Failed to import catalog from ZIP: ${e.message}", e)
             importError(request, e.message ?: "Failed to import catalog")
         }
     }
+
+    data class StencilImportConflictView(
+        val name: String,
+        val slug: String,
+        val version: String,
+    )
 
     private fun importError(request: ServerRequest, error: String): ServerResponse {
         if (request.isHtmx) {
@@ -547,6 +598,40 @@ class CatalogHandler {
                 .body("""<div class="alert alert-danger">$escaped</div>""")
         }
         return listWithError(request, error)
+    }
+
+    /**
+     * HTMX precheck for the export button. Runs the cheap conflict query and
+     * either:
+     *  - returns the export-conflict dialog fragment when conflicts exist;
+     *  - returns `HX-Redirect` to the real export URL so the browser starts the
+     *    ZIP download. The `MultipleStencilVersionsInUseException` thrown by
+     *    [ExportCatalogZip] is the backstop for non-UI callers (REST, MCP).
+     */
+    fun exportCheck(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+
+        val conflicts = FindStencilVersionExportConflicts(tenantId.key, catalogKey).query()
+        if (conflicts.isEmpty()) {
+            return ServerResponse.noContent()
+                .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/export")
+                .build()
+        }
+
+        val model = mapOf(
+            "tenantId" to tenantId.key,
+            "catalogId" to catalogKey.value,
+            "stencilVersionExportConflicts" to conflicts.map { s ->
+                StencilConflictView(
+                    name = s.stencilName,
+                    slug = s.stencilKey.value,
+                    versionsDisplay = s.versions.joinToString(", ") { "v$it" },
+                    latestPublishedVersion = "v${s.latestPublishedVersion}",
+                )
+            },
+        )
+        return ServerResponse.ok().render("catalogs/list :: export-conflict-dialog", model)
     }
 
     fun export(request: ServerRequest): ServerResponse {
@@ -563,6 +648,14 @@ class CatalogHandler {
                 .header("Content-Type", "application/zip")
                 .header("Content-Disposition", "attachment; filename=\"${result.filename}\"")
                 .body(result.zipBytes)
+        } catch (e: MultipleStencilVersionsInUseException) {
+            // The UI calls `exportCheck` first, so this path is only reached
+            // when a non-UI client (REST/MCP) hits /export directly without
+            // having run the precheck. Surface a plain JSON 400.
+            logger.warn("Export blocked: ${e.message}")
+            ServerResponse.badRequest()
+                .header("Content-Type", "application/json")
+                .body(mapOf("error" to e.message))
         } catch (e: Exception) {
             logger.warn("Failed to export catalog: ${e.message}", e)
             ServerResponse.badRequest()
@@ -570,6 +663,13 @@ class CatalogHandler {
                 .body(mapOf("error" to (e.message ?: "Failed to export catalog")))
         }
     }
+
+    data class StencilConflictView(
+        val name: String,
+        val slug: String,
+        val versionsDisplay: String,
+        val latestPublishedVersion: String,
+    )
 
     /**
      * The shared model for **every** render of the catalog list — the full

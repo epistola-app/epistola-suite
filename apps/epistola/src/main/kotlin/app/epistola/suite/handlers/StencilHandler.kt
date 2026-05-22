@@ -75,7 +75,7 @@ class StencilHandler(
         val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
 
         if (!request.isHtmx()) {
-            val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
+            val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
             val items = summaries.map { s ->
                 mapOf(
                     "id" to s.id.value,

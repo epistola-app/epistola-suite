@@ -10,11 +10,18 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "1.0.0",
-    "releasedAt": "2026-05-11T00:00:00Z",
-    "fingerprint": "e0205d878a6528a860951c841ba8e0712b25d7d9096c2a9e83b0f2efcc94f381"
+    "version": "1.1.0",
+    "releasedAt": "2026-05-20T00:00:00Z",
+    "fingerprint": "debc55ccdcfe2a08cae5bb7903edb087a2d89b908a0dabe74fa03690c02c945b"
   },
   "resources": [
+    {
+      "type": "theme",
+      "slug": "default",
+      "name": "Default",
+      "description": "Minimal default theme shipped with Epistola. Sensible defaults for A4 documents.",
+      "detailUrl": "./resources/themes/default.json"
+    },
     {
       "type": "codeList",
       "slug": "bcp-47",

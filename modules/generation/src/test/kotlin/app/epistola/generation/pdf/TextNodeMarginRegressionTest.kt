@@ -39,6 +39,69 @@ class TextNodeMarginRegressionTest {
         assertGapDeltaApprox(value = "5sp", expectedDeltaPt = 20f)
     }
 
+    // Pressing Enter twice in the editor inserts an empty paragraph between
+    // two filled paragraphs. The editor renders this as a visible blank line;
+    // the PDF must mirror that behavior. See issue #400.
+    @Test
+    fun `empty paragraph between two filled paragraphs renders as a visible blank line`() {
+        val baselineGap = renderAndMeasureInternalGap(includeBlankParagraph = false)
+        val withBlankGap = renderAndMeasureInternalGap(includeBlankParagraph = true)
+        val delta = withBlankGap - baselineGap
+        // One line of body text at 12pt with ProseMirror's 1.6 line-height is
+        // roughly 14pt — we assert a generous lower bound that distinguishes
+        // "blank line visible" from "iText collapsed the empty paragraph".
+        assertTrue(
+            delta >= 8f,
+            "Expected an empty paragraph between filled paragraphs to add at least ~8pt of vertical space, got delta=${delta}pt (baseline=$baselineGap, with=$withBlankGap)",
+        )
+    }
+
+    private fun renderAndMeasureInternalGap(includeBlankParagraph: Boolean): Float {
+        val rootId = "root"
+        val rootSlotId = "slot-root"
+
+        val paragraphs = buildList<Map<String, Any>> {
+            add(mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "AAA"))))
+            if (includeBlankParagraph) {
+                add(mapOf("type" to "paragraph"))
+            }
+            add(mapOf("type" to "paragraph", "content" to listOf(mapOf("type" to "text", "text" to "BBB"))))
+        }
+
+        val textNode = Node(
+            id = "t1",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to paragraphs,
+                ),
+            ),
+        )
+
+        val document = TemplateDocument(
+            root = rootId,
+            nodes = mapOf(
+                rootId to Node(id = rootId, type = "root", slots = listOf(rootSlotId)),
+                textNode.id to textNode,
+            ),
+            slots = mapOf(
+                rootSlotId to Slot(
+                    id = rootSlotId,
+                    nodeId = rootId,
+                    name = "children",
+                    children = listOf(textNode.id),
+                ),
+            ),
+        )
+
+        val out = ByteArrayOutputStream()
+        DirectPdfRenderer().render(document, emptyMap(), out)
+
+        val baselines = extractBaselines(out.toByteArray())
+        return baselines["AAA"]!! - baselines["BBB"]!!
+    }
+
     private fun assertGapDeltaApprox(value: String, expectedDeltaPt: Float) {
         val baselineGap = renderAndMeasureGap(secondTextMarginTop = null)
         val withMarginGap = renderAndMeasureGap(secondTextMarginTop = value)

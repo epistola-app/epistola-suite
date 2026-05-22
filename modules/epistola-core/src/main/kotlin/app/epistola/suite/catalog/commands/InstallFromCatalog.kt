@@ -171,15 +171,20 @@ class InstallFromCatalogHandler(
 
     private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
+        // `InstallFromCatalog` installs one resource without orchestrating cross-
+        // resource renumber rewrites, so it cannot wire RENUMBER into templates.
+        // Surface FAIL conflicts as-is; the operator must use the multi-resource
+        // ZIP import path to renumber.
         return ImportStencil(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
             slug = resource.slug,
             name = resource.name,
+            version = resource.version,
             description = resource.description,
             tags = resource.tags,
             content = resource.content,
-        ).execute()
+        ).execute().status
     }
 
     private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource): InstallStatus {

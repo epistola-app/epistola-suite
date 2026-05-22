@@ -1,5 +1,6 @@
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -21,6 +22,7 @@ data class ListStencilSummaries(
     val tenantId: TenantId,
     val searchTerm: String? = null,
     val tag: String? = null,
+    val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<StencilSummaryWithVersionInfo>>,
@@ -47,6 +49,9 @@ class ListStencilSummariesHandler(
                     WHERE s.tenant_key = :tenantId
                     """,
             )
+            if (query.catalogKey != null) {
+                append(" AND s.catalog_key = :catalogKey")
+            }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND (s.name ILIKE :searchTerm OR s.description ILIKE :searchTerm)")
             }
@@ -60,6 +65,9 @@ class ListStencilSummariesHandler(
 
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
+        if (query.catalogKey != null) {
+            jdbiQuery.bind("catalogKey", query.catalogKey)
+        }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

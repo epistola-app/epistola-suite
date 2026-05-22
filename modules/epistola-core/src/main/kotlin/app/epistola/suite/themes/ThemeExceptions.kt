@@ -17,11 +17,3 @@ class ThemeInUseException(
     val themeId: ThemeKey,
     reason: String,
 ) : RuntimeException("Cannot delete theme $themeId: $reason")
-
-/**
- * Thrown when attempting to delete the last theme for a tenant.
- * At least one theme must always exist per tenant.
- */
-class LastThemeException(
-    val themeId: ThemeKey,
-) : RuntimeException("Cannot delete theme $themeId: it is the last theme for this tenant")
