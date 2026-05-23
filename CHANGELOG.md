@@ -6,7 +6,10 @@
 
 ### Added
 
-- **`data-testid` anchors for the external test suite (batch 1).** Added stable test-id attributes to load-bearing UI landmarks so the website-repo Playwright scenarios can stop depending on brittle CSS/text selectors: `confirm-dialog-confirm` (the destructive button built dynamically in `fragments/htmx.html` — covers every delete flow), `search-input` (the shared `fragments/search.html` input), and `page-title` on the page-header `<h1>` of the tenants list/home, template detail, theme detail, generation-history, and consumers pages. Purely additive markup; no behaviour change. Naming convention and the remaining batches are tracked in the website repo's `src/content/tests/testid-changes.md`.
+- **`data-testid` anchors for the external test suite (batches 1–3).** Added stable test-id attributes to load-bearing UI landmarks so the website-repo Playwright scenarios can stop depending on brittle CSS/text selectors.
+  - **Batch 1** — `confirm-dialog-confirm` (every delete flow), `search-input` (shared search fragment), `page-title` (page-header `<h1>` on tenants list/home, template detail, theme detail, generation-history, and consumers).
+  - **Batch 2** — `create-form-submit` on the submit button in `.create-form-card` for themes, templates, fonts, environments, attributes, and API keys.
+  - **Batch 3** — `template-tab` (+ `data-tab-name`) on the template detail tab strip; `template-row` (+ `data-template-slug`) on template list rows; `delete-action` on danger-zone delete buttons (theme detail, template settings); `theme-default-badge` on the themes list; `variant-create-open` / `variant-create-submit` on the variant create dialog; `catalog-create-open` / `catalog-create-submit` on the catalog create dialog; `feature-toggle` (+ `data-feature-key`) / `feature-toggle-switch` on feature toggle items; `api-key-row` (+ `data-api-key-name`) / `api-key-delete` on API key list rows; `api-key-name` on the created key details page; `alert-success` on success alert banners (login, catalogs, features). Purely additive markup; no behaviour change.
 
 ## [0.22.1] - 2026-05-21
 

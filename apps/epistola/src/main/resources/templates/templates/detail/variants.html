@@ -4,7 +4,7 @@
     <th:block th:fragment="tab-content">
         <!-- Button to open create variant dialog -->
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
-            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()">+ New Variant</button>
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()" data-testid="variant-create-open">+ New Variant</button>
         </div>
 
         <!-- Create variant dialog -->
@@ -67,7 +67,7 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost" onclick="document.getElementById('create-variant-dialog').close()">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary">Create Variant</button>
+                    <button type="submit" class="ep-btn ep-btn-primary" data-testid="variant-create-submit">Create Variant</button>
                 </div>
             </form>
         </dialog>

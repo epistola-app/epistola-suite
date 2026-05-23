@@ -72,7 +72,7 @@
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                       method="post" hx-boost="false"
                       onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.')">
-                    <button type="submit" class="ep-btn ep-btn-destructive ep-btn-sm">Delete Template</button>
+                    <button type="submit" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action">Delete Template</button>
                 </form>
             </div>
         </div>

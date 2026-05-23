@@ -57,6 +57,7 @@ repo's `src/demo-reel/` repeatedly hit issues like "two buttons match
 `.ep-btn-primary` and one of them is Logout".
 
 **Proposal.**
+
 - Adopt a naming convention: `data-testid="<area>-<element>"` (e.g.
   `tenant-create-submit`, `theme-list-row-{slug}`, `template-tab-variants`).
   No camelCase, no per-row stable IDs unless deletion is in scope.
@@ -79,6 +80,7 @@ The implicit message is "tests are heavy". For business logic that doesn't
 need Spring + DB, that's a self-imposed tax.
 
 **Proposal.**
+
 - Document (in `docs/testing.md`) when to choose unit vs integration.
   Rule of thumb: pure functions and command/query validation get unit tests;
   anything that touches the mediator or the DB gets integration.
@@ -101,6 +103,7 @@ but are slow and broad. The middle layer — "this POST swaps the right
 fragment with the right content" — is sparse.
 
 **Proposal.**
+
 - Define a `BaseHandlerTest` extending `IntegrationTestBase` with
   `TestRestTemplate` pre-wired and a couple of helpers (`postFormAndExpectSwap`,
   `getAndExpectFragment`). Make the first handler test for a new
@@ -121,6 +124,7 @@ the browser level. It's pinned by its dependency on selectors that don't
 have a contract.
 
 **Proposal.**
+
 - Treat `data-testid` attributes referenced by the external suite as a
   **soft contract**. Removing one is a breaking change for that consumer;
   call it out in PR review.
@@ -143,6 +147,7 @@ The test is asserting future behavior that doesn't exist yet — confusing
 for new contributors and a silent blocker on actual coverage.
 
 **Proposal.**
+
 - Decide: ship the validation, or remove the TODOs and document the
   intentional gap. Both are fine; the limbo state isn't.
 - If shipping: design the validation in JSON-schema (the
@@ -160,6 +165,7 @@ ProseMirror integration, paste handling, schema marshalling. Visual
 regressions here are subtle and easy to miss.
 
 **Proposal.**
+
 - Add a `vitest --coverage` job to CI (alongside Kover for Kotlin) so the
   number is visible and starts trending up rather than down.
 - Identify the 5 highest-risk untested files (the ones with the most LOC
@@ -170,11 +176,11 @@ regressions here are subtle and easy to miss.
 
 ## Phasing
 
-| Phase | What | Effort | Why first/later |
-|---|---|---|---|
-| 1 | Proposal #1 (data-testids) + Proposal #2 (unit-test starter examples) | ~2 weeks | Unblocks the external suite + lowers friction immediately |
-| 2 | Proposal #3 (handler test density) + Proposal #5 (schema validation decision) | ~2 weeks | Builds on Phase 1; decision on #5 informs scope |
-| 3 | Proposal #4 (external suite as CI consumer) + Proposal #6 (editor coverage) | ~2 weeks | Lower urgency, harder to land cleanly |
+| Phase | What                                                                          | Effort   | Why first/later                                           |
+| ----- | ----------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| 1     | Proposal #1 (data-testids) + Proposal #2 (unit-test starter examples)         | ~2 weeks | Unblocks the external suite + lowers friction immediately |
+| 2     | Proposal #3 (handler test density) + Proposal #5 (schema validation decision) | ~2 weeks | Builds on Phase 1; decision on #5 informs scope           |
+| 3     | Proposal #4 (external suite as CI consumer) + Proposal #6 (editor coverage)   | ~2 weeks | Lower urgency, harder to land cleanly                     |
 
 Each phase is one PR or a small stack — none of these need to land all at
 once. Phase 1 in particular is two independent efforts that can be
@@ -197,7 +203,7 @@ After all three phases:
 - New contributors can find "how to write a test" in `docs/testing.md`
   without asking.
 
-## What this plan is *not* doing
+## What this plan is _not_ doing
 
 - Not introducing MockK/Mockito by default. The integration-first culture
   stays.
