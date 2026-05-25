@@ -15,6 +15,7 @@
                     <div class="app-nav-dropdown"
                          th:classappend="${#lists.contains({'templates','themes','stencils','catalogs'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
+                                data-testid="nav-dropdown-authoring"
                                 aria-expanded="false" aria-haspopup="true">
                             Authoring
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
@@ -47,6 +48,7 @@
                     <div class="app-nav-dropdown"
                          th:classappend="${#lists.contains({'environments','assets','fonts','attributes','code-lists'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
+                                data-testid="nav-dropdown-resources"
                                 aria-expanded="false" aria-haspopup="true">
                             Resources
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
@@ -84,6 +86,7 @@
                     <div class="app-nav-dropdown"
                          th:classappend="${#lists.contains({'generation-history','load-tests','consumers','feedback','api-keys'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
+                                data-testid="nav-dropdown-operations"
                                 aria-expanded="false" aria-haspopup="true">
                             Operations
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
@@ -127,6 +130,7 @@
                          class="app-nav-dropdown"
                          th:classappend="${#lists.contains({'features'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
+                                data-testid="nav-dropdown-settings"
                                 aria-expanded="false" aria-haspopup="true">
                             Settings
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />

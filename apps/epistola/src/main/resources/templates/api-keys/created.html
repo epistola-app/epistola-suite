@@ -35,7 +35,7 @@
 
             <dl class="ep-dl" style="margin-top: var(--ep-space-4);">
                 <dt>Name</dt>
-                <dd th:text="${apiKey.name}"></dd>
+                <dd th:text="${apiKey.name}" data-testid="api-key-name"></dd>
                 <dt>Created</dt>
                 <dd th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
                 <dt th:if="${apiKey.expiresAt != null}">Expires</dt>

@@ -69,7 +69,7 @@
                         <span id="font-upload-error" class="form-error" th:text="${error}"></span>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
+                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Upload</button>
                         <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>

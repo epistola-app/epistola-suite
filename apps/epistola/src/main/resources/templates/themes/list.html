@@ -67,7 +67,7 @@
                         <td>
                             <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
-                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-left: var(--ep-space-2);">Default</span>
+                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-left: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
                         </td>
                         <td><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
                         <td>
