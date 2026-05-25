@@ -138,7 +138,7 @@
 
                     var confirmBtn = document.createElement('button');
                     confirmBtn.type = 'button';
-                    confirmBtn.className = options.confirmClass || 'ep-btn ep-btn-destructive';
+                    confirmBtn.className = 'ep-btn ' + (options.confirmClass || 'ep-btn-destructive');
                     confirmBtn.textContent = options.confirmLabel || 'Delete';
                     confirmBtn.setAttribute('data-testid', 'confirm-dialog-confirm');
                     footerEl.appendChild(confirmBtn);
