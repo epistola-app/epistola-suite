@@ -54,7 +54,6 @@ object ApiProblemTypes {
 
     val THEME_NOT_FOUND = problem("THEME_NOT_FOUND", "Theme Not Found", HttpStatus.NOT_FOUND, "The requested theme does not exist or is not visible to the caller.", listOf("code", "themeId"))
     val THEME_IN_USE = problem("THEME_IN_USE", "Theme In Use", HttpStatus.CONFLICT, "The theme cannot be deleted because other resources still reference it.", listOf("code", "themeId"))
-    val LAST_THEME = problem("LAST_THEME", "Last Theme", HttpStatus.BAD_REQUEST, "The last theme for a tenant cannot be deleted.", listOf("code", "themeId"))
     val DEFAULT_VARIANT_DELETION = problem("DEFAULT_VARIANT_DELETION", "Default Variant Deletion", HttpStatus.CONFLICT, "The default variant cannot be deleted.", listOf("code", "variantId"))
     val VERSION_STILL_ACTIVE = problem("VERSION_STILL_ACTIVE", "Version Still Active", HttpStatus.CONFLICT, "The version cannot be archived while it is active in one or more environments.", listOf("code", "versionId", "variantId", "activeEnvironments"))
     val NO_MATCHING_VARIANT = problem("NO_MATCHING_VARIANT", "No Matching Variant", HttpStatus.NOT_FOUND, "No template variant matches the requested criteria.", listOf("code", "templateId", "requiredAttributes"))
@@ -114,7 +113,6 @@ object ApiProblemTypes {
         TYPE_MISMATCH,
         THEME_NOT_FOUND,
         THEME_IN_USE,
-        LAST_THEME,
         DEFAULT_VARIANT_DELETION,
         VERSION_STILL_ACTIVE,
         NO_MATCHING_VARIANT,

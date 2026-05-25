@@ -44,7 +44,6 @@ import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.tenants.TenantNotFoundException
-import app.epistola.suite.themes.LastThemeException
 import app.epistola.suite.themes.ThemeInUseException
 import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.validation.ValidationCode
@@ -375,17 +374,6 @@ class ApiExceptionHandler {
         logger.warn("Theme in use, cannot delete: {}", ex.themeId)
 
         return problemResponse(request, ApiProblemTypes.THEME_IN_USE, ex.message ?: "Theme is in use and cannot be deleted", mapOf("themeId" to ex.themeId.value))
-    }
-
-    /**
-     * Handles attempts to delete the last theme for a tenant.
-     * Returns 400 Bad Request.
-     */
-    @ExceptionHandler(LastThemeException::class)
-    fun handleLastThemeException(ex: LastThemeException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Cannot delete last theme: {}", ex.themeId)
-
-        return problemResponse(request, ApiProblemTypes.LAST_THEME, ex.message ?: "Cannot delete the last theme for a tenant", mapOf("themeId" to ex.themeId.value))
     }
 
     /**
