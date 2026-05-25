@@ -294,6 +294,72 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(dialog.locator("#edit-add-attr")).isVisible()
     }
 
+    @Test
+    fun `filter bar appears after HTMX create of variant with attributes`() {
+        val (tenant, template) = withMediator {
+            val (tenant, template) = createTenantAndTemplate()
+            CreateAttributeDefinition(
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
+                displayName = "Language",
+                allowedValues = listOf("en", "nl"),
+            ).execute()
+            tenant to template
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        assertThat(page.locator("#variant-filter-bar")).isHidden()
+
+        val dialog = page.openDialogByTrigger(
+            page.locator("button:has-text('New Variant')"),
+            "#create-variant-dialog",
+        )
+        dialog.locator("#slug").fill(TestIdHelpers.nextVariantId().value)
+        dialog.locator("#title").fill("With Attr")
+        dialog.locator("#create-add-attr").selectOption("default.lang")
+        dialog.locator("button:has-text('Add')").click()
+        dialog.locator("select[name='attr_default.lang']").selectOption("en")
+        dialog.locator("button[type='submit']").click()
+        page.htmxSettle()
+
+        assertThat(page.locator("#variant-filter-bar")).isVisible()
+        assertThat(page.locator("select[data-filter-key='default.lang']")).isVisible()
+    }
+
+    @Test
+    fun `filter bar disappears after HTMX delete of last variant with attributes`() {
+        val (tenant, template) = withMediator {
+            val (tenant, template) = createTenantAndTemplate()
+            val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
+            CreateAttributeDefinition(
+                id = AttributeId(AttributeKey.of("lang"), CatalogId.default(TenantId(tenant.id))),
+                displayName = "Language",
+                allowedValues = listOf("en", "nl"),
+            ).execute()
+            CreateVariant(
+                id = VariantId(TestIdHelpers.nextVariantId(), templateId),
+                title = "With Attr",
+                description = null,
+                attributes = mapOf("lang" to "en"),
+            ).execute()
+            tenant to template
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        assertThat(page.locator("#variant-filter-bar")).isVisible()
+
+        // Delete the non-default variant.
+        val nonDefaultCard = page.locator(".variant-card:not(.variant-card-default)")
+        val confirm = page.openDialogByTrigger(
+            nonDefaultCard.locator("button.ep-btn-destructive"),
+            "#confirm-dialog",
+        )
+        confirm.locator("button.ep-btn-destructive").click()
+        page.htmxSettle()
+
+        assertThat(page.locator(".variant-card")).hasCount(1)
+        assertThat(page.locator("#variant-filter-bar")).isHidden()
+    }
+
     /**
      * Helper to create a tenant + template. Creating a template auto-creates a default variant.
      */
