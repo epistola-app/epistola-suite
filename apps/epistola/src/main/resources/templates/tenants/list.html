@@ -9,7 +9,7 @@
 </head>
 <body>
     <main class="regular">
-        <h1>Tenants</h1>
+        <h1 data-testid="page-title">Tenants</h1>
 
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="form-section">

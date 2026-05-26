@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div class="page-header">
             <div>
-                <h1 th:text="${tenant.name}">Tenant Name</h1>
+                <h1 data-testid="page-title" th:text="${tenant.name}">Tenant Name</h1>
                 <p class="subtitle" th:text="'ID: ' + ${tenant.id}">ID: tenant-id</p>
             </div>
         </div>

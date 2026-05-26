@@ -16,14 +16,15 @@
                     Subscribe
                 </button>
                 <button type="button" class="ep-btn ep-btn-primary"
-                        onclick="document.getElementById('create-dialog').showModal()">
+                        onclick="document.getElementById('create-dialog').showModal()"
+                        data-testid="catalog-create-open">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Catalog
                 </button>
             </div>
         </div>
 
-        <div class="alert alert-success" th:if="${saved}">
+        <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
             Catalog settings updated successfully.
         </div>
         <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
@@ -156,7 +157,7 @@
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
                             onclick="document.getElementById('create-dialog').close()">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary">Create</button>
+                    <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
                 </div>
             </form>
             <script>

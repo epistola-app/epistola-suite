@@ -37,7 +37,7 @@
                         <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary">Create Template</button>
+                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Template</button>
                         <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>

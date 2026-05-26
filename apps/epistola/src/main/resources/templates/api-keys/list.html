@@ -44,7 +44,7 @@
             </thead>
             <tbody id="api-key-rows">
                 <th:block th:fragment="rows">
-                    <tr th:each="apiKey : ${apiKeys}">
+                    <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
                         <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
                         <td>
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
@@ -69,6 +69,7 @@
                                     type="button"
                                     class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                     title="Delete API key"
+                                    data-testid="api-key-delete"
                                     data-confirm-title="Delete API key"
                                     th:attr="data-confirm-message='Delete API key &quot;' + ${apiKey.name} + '&quot;? Any system using it will stop working immediately.',data-confirm-url=@{/tenants/{tenantId}/api-keys/{apiKeyId}/delete(tenantId=${tenantId},apiKeyId=${apiKey.id})}"
                                     data-confirm-target="#api-key-rows"
