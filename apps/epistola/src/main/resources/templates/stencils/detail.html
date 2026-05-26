@@ -209,7 +209,11 @@
                             }
 
                             const versionLabel = document.getElementById('upgrade-version-select').selectedOptions[0].textContent;
-                            if (!confirm(`This will modify ${selected.length} template draft(s) to use stencil ${versionLabel}.\n\nThis operation modifies drafts only — published versions in environments are not affected.\n\nContinue?`)) {
+                            if (!await epistolaConfirm(`This will modify ${selected.length} template draft(s) to use stencil ${versionLabel}.\n\nThis operation modifies drafts only — published versions in environments are not affected.\n\nContinue?`, {
+                                title: 'Upgrade Stencil',
+                                confirmLabel: 'Upgrade',
+                                confirmClass: 'ep-btn-primary',
+                            })) {
                                 return;
                             }
 
@@ -268,6 +272,7 @@
                 </th:block>
             </div>
         </div>
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
 </body>
 </html>

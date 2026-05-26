@@ -4,7 +4,7 @@
     <th:block th:fragment="tab-content">
         <!-- Button to open create variant dialog -->
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
-            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()">+ New Variant</button>
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()" data-testid="variant-create-open">+ New Variant</button>
         </div>
 
         <!-- Create variant dialog -->
@@ -67,35 +67,30 @@
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost" onclick="document.getElementById('create-variant-dialog').close()">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary">Create Variant</button>
+                    <button type="submit" class="ep-btn ep-btn-primary" data-testid="variant-create-submit">Create Variant</button>
                 </div>
             </form>
         </dialog>
 
-        <!-- Attribute filter bar: shows only attributes that at least one
-             variant actually uses. The filter key matches the variant card's
-             `data-attr-key`, which carries the qualified form (`system.locale`)
-             after the catalog-qualified-references rollout. -->
-        <div id="variant-filter-bar" class="variant-filter-bar"
-             th:if="${usedAttributeDescriptors != null and !#lists.isEmpty(usedAttributeDescriptors)}">
-            <div class="form-group" th:each="d : ${usedAttributeDescriptors}">
-                <label th:for="'attr-filter-' + ${d.qualifiedKey}">
-                    <span th:text="${d.displayName}"></span>
-                    <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
-                          th:text="${d.qualifiedKey}"></code>
-                </label>
-                <select class="ep-select" th:id="'attr-filter-' + ${d.qualifiedKey}"
-                        th:data-filter-key="${d.qualifiedKey}" onchange="filterVariants()">
-                    <option value="">All</option>
-                    <option th:each="opt : ${d.options}"
-                            th:value="${opt.code}"
-                            th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"></option>
-                </select>
-            </div>
-        </div>
-
         <!-- Variant card grid -->
         <div id="variants-section" th:fragment="variants-section">
+            <div id="variant-filter-bar" class="variant-filter-bar"
+                 th:if="${usedAttributeDescriptors != null and !#lists.isEmpty(usedAttributeDescriptors)}">
+                <div class="form-group" th:each="d : ${usedAttributeDescriptors}">
+                    <label th:for="'attr-filter-' + ${d.qualifiedKey}">
+                        <span th:text="${d.displayName}"></span>
+                        <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
+                              th:text="${d.qualifiedKey}"></code>
+                    </label>
+                    <select class="ep-select" th:id="'attr-filter-' + ${d.qualifiedKey}"
+                            th:data-filter-key="${d.qualifiedKey}" onchange="filterVariants()">
+                        <option value="">All</option>
+                        <option th:each="opt : ${d.options}"
+                                th:value="${opt.code}"
+                                th:text="${opt.code == opt.label ? opt.code : (opt.code + ' — ' + opt.label)}"></option>
+                    </select>
+                </div>
+            </div>
             <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
                 <span th:text="${error}"></span>
             </div>

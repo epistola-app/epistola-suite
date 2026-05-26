@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <h1>Feature Toggles</h1>
 
-        <div class="alert alert-success" th:if="${param.saved}">
+        <div class="alert alert-success" th:if="${param.saved}" data-testid="alert-success">
             Feature toggle settings saved successfully.
         </div>
 
@@ -12,7 +12,7 @@
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/features(tenantId=${tenantId})}" method="post">
 
-                    <div class="feature-toggle-item" th:each="feature : ${features}">
+                    <div class="feature-toggle-item" th:each="feature : ${features}" data-testid="feature-toggle" th:data-feature-key="${feature['key']}">
                         <div class="feature-toggle-info">
                             <div class="feature-toggle-name" th:text="${feature['key']}">feature-key</div>
                             <div class="feature-toggle-description" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
@@ -21,7 +21,7 @@
                             <input type="checkbox"
                                    th:name="${feature['key']}"
                                    th:checked="${feature['enabled']}">
-                            <span class="toggle-switch-slider"></span>
+                            <span class="toggle-switch-slider" data-testid="feature-toggle-switch"></span>
                         </label>
                     </div>
 

@@ -26,7 +26,7 @@
             </div>
 
             <!-- Logout success message (don't show in popup mode) -->
-            <div th:if="${param.logout != null and param.popup == null}" class="alert alert-success">
+            <div th:if="${param.logout != null and param.popup == null}" class="alert alert-success" data-testid="alert-success">
                 <p>You have been logged out successfully.</p>
             </div>
 

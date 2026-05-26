@@ -55,6 +55,7 @@
                 submitBtn.type = 'submit';
                 submitBtn.className = 'ep-btn ep-btn-destructive';
                 submitBtn.textContent = 'Delete';
+                submitBtn.setAttribute('data-testid', 'confirm-dialog-confirm');
                 form.appendChild(submitBtn);
 
                 footerEl.innerHTML = '';
@@ -94,6 +95,92 @@
             // ── Close any open dialog on HX-Trigger: closeDialog ───────────
             document.addEventListener('closeDialog', function() {
                 document.querySelectorAll('dialog[open]').forEach(function(d) { d.close(); });
+            });
+
+            // ── Promise-based confirm (replaces native confirm()) ─────────
+            //
+            // Returns a Promise<boolean> that resolves true when the user
+            // clicks confirm, false on cancel / ESC / backdrop click.
+            //
+            // Options:
+            //   title        — dialog heading (default "Confirm")
+            //   confirmLabel — confirm button text (default "Delete")
+            //   confirmClass — confirm button class (default "ep-btn-destructive")
+            //   cancelLabel  — cancel button text (default "Cancel")
+            //
+            window.epistolaConfirm = function(message, options) {
+                if (!options) options = {};
+                return new Promise(function(resolve) {
+                    var dialog = document.getElementById('confirm-dialog');
+                    if (!dialog) {
+                        resolve(window.confirm(message));
+                        return;
+                    }
+
+                    var titleEl = document.getElementById('confirm-dialog-title');
+                    var messageEl = document.getElementById('confirm-dialog-message');
+                    var errorEl = document.getElementById('confirm-dialog-error');
+                    var footerEl = document.getElementById('confirm-dialog-footer');
+
+                    titleEl.textContent = options.title || 'Confirm';
+                    messageEl.textContent = message;
+                    errorEl.style.display = 'none';
+                    errorEl.textContent = '';
+
+                    footerEl.innerHTML = '';
+
+                    var cancelBtn = document.createElement('button');
+                    cancelBtn.type = 'button';
+                    cancelBtn.className = 'ep-btn ep-btn-ghost';
+                    cancelBtn.textContent = options.cancelLabel || 'Cancel';
+                    cancelBtn.setAttribute('data-testid', 'confirm-dialog-cancel');
+                    footerEl.appendChild(cancelBtn);
+
+                    var confirmBtn = document.createElement('button');
+                    confirmBtn.type = 'button';
+                    confirmBtn.className = 'ep-btn ' + (options.confirmClass || 'ep-btn-destructive');
+                    confirmBtn.textContent = options.confirmLabel || 'Delete';
+                    confirmBtn.setAttribute('data-testid', 'confirm-dialog-confirm');
+                    footerEl.appendChild(confirmBtn);
+
+                    var resolved = false;
+
+                    function done(value) {
+                        if (resolved) return;
+                        resolved = true;
+                        dialog.removeEventListener('close', onClose);
+                        dialog.close();
+                        resolve(value);
+                    }
+
+                    function onCancel() { done(false); }
+                    function onConfirm() { done(true); }
+                    function onClose() { done(false); }
+
+                    cancelBtn.addEventListener('click', onCancel);
+                    confirmBtn.addEventListener('click', onConfirm);
+                    dialog.addEventListener('close', onClose);
+
+                    dialog.showModal();
+                });
+            };
+
+            // ── Intercept hx-confirm to use our dialog instead of native ──
+            document.addEventListener('htmx:confirm', function(event) {
+                var question = event.detail && event.detail.question;
+                if (!question) return;
+
+                event.preventDefault();
+
+                window.epistolaConfirm(question, {
+                    title: 'Confirm',
+                    confirmLabel: 'Confirm',
+                    confirmClass: 'ep-btn-primary',
+                }).then(function(ok) {
+                    if (ok) {
+                        event.detail.issueRequest(true);
+                    }
+                });
             });
 
             // ── Global safety net for unhandled errors ──────────────────────

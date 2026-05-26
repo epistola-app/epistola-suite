@@ -257,7 +257,7 @@
     <!-- OOB alert fragment -->
     <th:block th:fragment="alert">
         <div id="catalog-alert" hx-swap-oob="true">
-            <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+            <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-testid="alert-success"></div>
             <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
         </div>
     </th:block>

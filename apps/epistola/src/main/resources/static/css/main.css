@@ -967,6 +967,11 @@ a.stat-card:hover {
   border-top: 1px solid var(--ep-border-color);
 }
 
+#confirm-dialog-footer {
+  display: flex;
+  gap: var(--ep-space-3);
+}
+
 /* ── Changelog dialog ─────────────────────────────────────────────────── */
 
 .changelog-content {
