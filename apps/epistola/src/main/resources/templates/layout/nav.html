@@ -128,7 +128,7 @@
                     <!-- Settings dropdown (managers only) -->
                     <div th:if="${auth.has('TENANT_SETTINGS')}"
                          class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'features'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'features','defaults'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 data-testid="nav-dropdown-settings"
                                 aria-expanded="false" aria-haspopup="true">
@@ -141,8 +141,14 @@
                                th:classappend="${activeNavSection == 'features'} ? ' active' : ''">
                                 Features
                             </a>
+                            <a th:href="@{/tenants/{id}/defaults(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'defaults'} ? ' active' : ''">
+                                Defaults
+                            </a>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- Mobile hamburger toggle -->
@@ -219,6 +225,8 @@
                     <div class="app-nav-mobile-label">Settings</div>
                     <a th:href="@{/tenants/{id}/features(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'features'} ? ' active' : ''" role="menuitem">Features</a>
+                    <a th:href="@{/tenants/{id}/defaults(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'defaults'} ? ' active' : ''" role="menuitem">Defaults</a>
                 </div>
                 <div class="app-nav-mobile-footer">
                     <a th:href="@{/}" class="app-nav-mobile-item" role="menuitem">
