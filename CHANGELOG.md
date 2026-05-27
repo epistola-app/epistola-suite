@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **End-to-end test for 403 `accessDeniedHandler` returning `application/problem+json`.** Added `ForbiddenTestController` (test-only `@RestController` with a `@PreAuthorize`-restricted endpoint) and a `CollectEndpointSmokeIT` test that asserts the 403 response carries `application/problem+json` content type, `type` URI, and `code: ACCESS_DENIED`.
+
 ### Changed
 
 - **Refactor RFC 7807 error handling to use Spring's `ProblemDetail` internally.** The REST API error response pipeline now builds responses through `ProblemDetail` objects (converted to `Map` for Jackson 3 wire serialization since Spring's `ProblemDetailJacksonMixin` targets Jackson 2 annotations). The central registry `ApiProblemTypes` and the shared `problemDetail()` builder ensure a single source of truth for type URIs, titles, and codes. The pre-dispatch exception resolver (`ApiFrameworkExceptionResolver`) was replaced by `ApiHandlerExceptionResolver`, which delegates to the same builder, eliminating code duplication. Both filters (`ClientIdentityFilter`, `ApiKeyAuthenticationFilter`) now require an explicit `ObjectMapper` parameter (no default). Added test coverage for `instance` without a query string. Related: ADR 0004.

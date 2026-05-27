@@ -303,8 +303,26 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
     }
 
-    /**
-     * Create an isolated tenant + API key pair for one test. The API key has the
+    @Test
+    fun `access denied returns 403 problem details with ACCESS_DENIED code`() {
+        val (_, key) = seedTenantAndKey()
+        val headers = baseHeaders().apply { add("X-API-Key", key) }
+        val response = restTemplate.exchange(
+            "/api/test/forbidden",
+            HttpMethod.GET,
+            HttpEntity(null, headers),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/access-denied")
+        assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(403)
+        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("ACCESS_DENIED")
+    }
+
+    /** + API key pair for one test. The API key has the
      * full permission set granted to NPA principals (see ApiKeyAuthenticationFilter,
      * which assigns every TenantRole), so DOCUMENT_GENERATE on /generation/collect
      * is satisfied without any extra grant juggling.
