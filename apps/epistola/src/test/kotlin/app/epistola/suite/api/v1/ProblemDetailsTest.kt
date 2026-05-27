@@ -29,6 +29,17 @@ class ProblemDetailsTest {
     }
 
     @Test
+    fun `instance omits query string when absent`() {
+        val body = problemBody(
+            request = request("/api/tenants/acme/templates"),
+            type = ApiProblemTypes.TENANT_NOT_FOUND,
+            detail = "Tenant not found.",
+        )
+
+        assertThat(body["instance"]).isEqualTo("/api/tenants/acme/templates")
+    }
+
+    @Test
     fun `validation problems expose errors at top level`() {
         val body = ValidationException(
             code = ValidationCode.PARAMETER_NAME_INVALID,
