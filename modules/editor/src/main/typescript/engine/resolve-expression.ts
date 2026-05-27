@@ -24,15 +24,15 @@ const monthNameCache = new Map<string, { full: string[]; short: string[] }>();
 function localizedMonthNames(locale: string): { full: string[]; short: string[] } {
   const cached = monthNameCache.get(locale);
   if (cached) return cached;
-  const full = new Intl.DateTimeFormat(locale, { month: 'long' });
-  const short = new Intl.DateTimeFormat(locale, { month: 'short' });
+  const longFormatter = new Intl.DateTimeFormat(locale, { month: 'long' });
+  const shortFormatter = new Intl.DateTimeFormat(locale, { month: 'short' });
   const fullNames: string[] = [];
   const shortNames: string[] = [];
-  for (let m = 0; m < 12; m++) {
+  for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
     // Use day 15 to dodge DST/calendar edge cases at month boundaries.
-    const d = new Date(Date.UTC(2024, m, 15));
-    fullNames.push(full.format(d));
-    shortNames.push(short.format(d));
+    const date = new Date(Date.UTC(2024, monthIndex, 15));
+    fullNames.push(longFormatter.format(date));
+    shortNames.push(shortFormatter.format(date));
   }
   const entry = { full: fullNames, short: shortNames };
   monthNameCache.set(locale, entry);
@@ -40,16 +40,43 @@ function localizedMonthNames(locale: string): { full: string[]; short: string[] 
 }
 
 /**
+ * Cache of `{ locale -> {full: [...7], short: [...7]} }` localized weekday
+ * names, indexed by `Date.getUTCDay()` (0 = Sunday). Same lazy/caching rationale
+ * as [localizedMonthNames] — drives the `EEEE`/`EEE` tokens.
+ */
+const weekdayNameCache = new Map<string, { full: string[]; short: string[] }>();
+
+function localizedWeekdayNames(locale: string): { full: string[]; short: string[] } {
+  const cached = weekdayNameCache.get(locale);
+  if (cached) return cached;
+  const longFormatter = new Intl.DateTimeFormat(locale, { weekday: 'long' });
+  const shortFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  const fullNames: string[] = [];
+  const shortNames: string[] = [];
+  // 2024-01-07 is a Sunday; walk the seven following days so the array index
+  // lines up with `Date.getUTCDay()` (0 = Sunday … 6 = Saturday).
+  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+    const date = new Date(Date.UTC(2024, 0, 7 + dayOffset));
+    fullNames.push(longFormatter.format(date));
+    shortNames.push(shortFormatter.format(date));
+  }
+  const entry = { full: fullNames, short: shortNames };
+  weekdayNameCache.set(locale, entry);
+  return entry;
+}
+
+/**
  * Format an ISO date or datetime string using a pattern, localized.
  *
- * Supported date tokens: `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`.
+ * Supported date tokens: `EEEE`, `EEE`, `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`.
  * Supported time tokens: `HH`, `mm`, `ss`.
  *
  * `locale` is a BCP-47 tag (e.g. `"nl-NL"`, `"en-US"`, `"de-DE"`); it controls
- * the spelling of `MMMM`/`MMM` (month name). Numeric tokens are locale-agnostic
- * by design — the Java `DateTimeFormatter` on the renderer side behaves the
- * same way for these tokens. Editor preview now matches the PDF render exactly
- * for the locale chain (variant attribute → tenant default → app default).
+ * the spelling of `EEEE`/`EEE` (weekday name) and `MMMM`/`MMM` (month name). The
+ * numeric tokens are locale-agnostic by design — the Java `DateTimeFormatter` on
+ * the renderer side behaves the same way for those — so editor preview matches
+ * the PDF render for the locale chain (variant attribute → tenant default → app
+ * default).
  *
  * Accepts plain dates (`2024-01-15`), local datetimes (`2024-01-15T14:30:00`),
  * UTC datetimes (`2024-01-15T14:30:00Z`), and offset datetimes
@@ -70,20 +97,27 @@ export function formatDateValue(
 ): string {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if (!match) return value;
-  const [, yyyy, mm, dd, HH = '00', min = '00', ss = '00'] = match;
-  const month = parseInt(mm, 10);
-  const day = parseInt(dd, 10);
+  const [, year, monthDigits, dayDigits, hours = '00', minutes = '00', seconds = '00'] = match;
+  const month = parseInt(monthDigits, 10);
+  const day = parseInt(dayDigits, 10);
   const { full, short } = localizedMonthNames(locale);
 
+  // Weekday names are only needed (and only computed) when the pattern asks for
+  // them — keeps the common numeric-pattern path from building the cache.
+  const weekday = pattern.includes('E') ? localizedWeekdayNames(locale) : null;
+  const weekdayIndex = weekday ? new Date(Date.UTC(Number(year), month - 1, day)).getUTCDay() : 0;
+
   return pattern
-    .replace('yyyy', yyyy)
+    .replace('yyyy', year)
     .replace('MMMM', full[month - 1] ?? '')
     .replace('MMM', short[month - 1] ?? '')
-    .replace('MM', mm)
-    .replace('dd', dd)
-    .replace('HH', HH)
-    .replace(/(?<![a-zA-Z])mm(?![a-zA-Z])/, min)
-    .replace('ss', ss)
+    .replace('EEEE', weekday?.full[weekdayIndex] ?? '')
+    .replace('EEE', weekday?.short[weekdayIndex] ?? '')
+    .replace('MM', monthDigits)
+    .replace('dd', dayDigits)
+    .replace('HH', hours)
+    .replace(/(?<![a-zA-Z])mm(?![a-zA-Z])/, minutes)
+    .replace('ss', seconds)
     .replace(/(?<![a-zA-Z])d(?![a-zA-Z])/, String(day));
 }
 
@@ -120,39 +154,48 @@ export function formatLocaleNumberValue(
   picture: string,
   locale: string = DEFAULT_LOCALE,
 ): string {
-  const num = typeof value === 'number' ? value : Number(value);
-  if (!isFinite(num)) return String(value);
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!isFinite(numericValue)) return String(value);
 
   // Split positive;negative subpatterns. If only positive given, derive
   // negative by prepending the locale's minus sign (matches DecimalFormat).
-  const [posPattern, negPatternRaw] = picture.split(';', 2);
-  const isNegative = num < 0;
-  const pattern = isNegative && negPatternRaw ? negPatternRaw : posPattern;
-  const abs = Math.abs(num);
+  const [positivePattern, negativePatternRaw] = picture.split(';', 2);
+  const isNegative = numericValue < 0;
+  const pattern = isNegative && negativePatternRaw ? negativePatternRaw : positivePattern;
+  const absoluteValue = Math.abs(numericValue);
 
   // Scale: % multiplies by 100, ‰ by 1000. Detected on the active pattern.
   const isPercent = pattern.includes('%');
   const isPermille = pattern.includes('‰');
-  const scaled = isPercent ? abs * 100 : isPermille ? abs * 1000 : abs;
+  const scaled = isPercent
+    ? absoluteValue * 100
+    : isPermille
+      ? absoluteValue * 1000
+      : absoluteValue;
 
   // Strip the % / ‰ marker so they don't enter the digit-parsing logic.
   // We re-attach them at the end as the locale's localised symbol.
   const stripped = pattern.replace(/[%‰]/g, '');
 
   // Find the decimal point in the picture (if any) to drive fraction digits.
-  const dot = stripped.indexOf('.');
-  const intPart = dot >= 0 ? stripped.slice(0, dot) : stripped;
-  const fracPart = dot >= 0 ? stripped.slice(dot + 1) : '';
-  const minFractionDigits = (fracPart.match(/0/g) ?? []).length;
-  const maxFractionDigits = (fracPart.match(/[0#]/g) ?? []).length;
-  const useGrouping = intPart.includes(',');
-  const minIntDigits = (intPart.match(/0/g) ?? []).length;
+  const decimalIndex = stripped.indexOf('.');
+  const integerPart = decimalIndex >= 0 ? stripped.slice(0, decimalIndex) : stripped;
+  const fractionPart = decimalIndex >= 0 ? stripped.slice(decimalIndex + 1) : '';
+  const minFractionDigits = (fractionPart.match(/0/g) ?? []).length;
+  const maxFractionDigits = (fractionPart.match(/[0#]/g) ?? []).length;
+  const useGrouping = integerPart.includes(',');
+  const minIntegerDigits = (integerPart.match(/0/g) ?? []).length;
 
   const formatted = new Intl.NumberFormat(locale, {
     useGrouping,
-    minimumIntegerDigits: Math.max(1, minIntDigits),
+    minimumIntegerDigits: Math.max(1, minIntegerDigits),
     minimumFractionDigits: minFractionDigits,
     maximumFractionDigits: Math.max(minFractionDigits, maxFractionDigits),
+    // Match the PDF renderer: Java's DecimalFormat rounds HALF_EVEN (banker's
+    // rounding) by default, whereas Intl.NumberFormat defaults to 'halfExpand'.
+    // Without this the editor preview would round 8.5 → 9 while the generated
+    // PDF rounds 8.5 → 8. See JsonataEvaluator.formatLocaleNumber (Kotlin).
+    roundingMode: 'halfEven',
   }).format(scaled);
 
   // Locale-correct % / ‰ symbol via formatToParts. Falls back to the raw
@@ -160,7 +203,7 @@ export function formatLocaleNumberValue(
   let suffix = '';
   if (isPercent) {
     const parts = new Intl.NumberFormat(locale, { style: 'percent' }).formatToParts(0);
-    suffix = parts.find((p) => p.type === 'percentSign')?.value ?? '%';
+    suffix = parts.find((part) => part.type === 'percentSign')?.value ?? '%';
   } else if (isPermille) {
     // Intl doesn't have a 'permille' style; the per-mille glyph is the same
     // in every locale CLDR ships (U+2030).
@@ -172,18 +215,18 @@ export function formatLocaleNumberValue(
   // string is the unsigned magnitude. If they only supplied a positive one,
   // prepend the locale's minus sign manually.
   if (isNegative) {
-    if (negPatternRaw) {
+    if (negativePatternRaw) {
       // Negative subpattern owns the wrapping; format the digits then
       // splice into the literal text of the negative pattern.
-      return composeFromPattern(negPatternRaw, formatted + suffix);
+      return composeFromPattern(negativePatternRaw, formatted + suffix);
     }
     const minusSign =
       new Intl.NumberFormat(locale, { signDisplay: 'always' })
         .formatToParts(-1)
-        .find((p) => p.type === 'minusSign')?.value ?? '-';
+        .find((part) => part.type === 'minusSign')?.value ?? '-';
     return minusSign + formatted + suffix;
   }
-  return composeFromPattern(posPattern, formatted + suffix);
+  return composeFromPattern(positivePattern, formatted + suffix);
 }
 
 /**
@@ -195,18 +238,18 @@ export function formatLocaleNumberValue(
  * `'(#,##0.00)'` (negative subpattern) gets the surrounding parens.
  */
 function composeFromPattern(pattern: string, digits: string): string {
-  const shapeChars = new Set(['0', '#', ',', '.', '%', '‰']);
+  const shapeCharacters = new Set(['0', '#', ',', '.', '%', '‰']);
   let result = '';
   let inserted = false;
-  for (const ch of pattern) {
-    if (shapeChars.has(ch)) {
+  for (const character of pattern) {
+    if (shapeCharacters.has(character)) {
       if (!inserted) {
         result += digits;
         inserted = true;
       }
       // Skip subsequent shape characters — `digits` already contains them.
     } else {
-      result += ch;
+      result += character;
     }
   }
   return inserted ? result : digits;
@@ -296,8 +339,8 @@ export async function tryEvaluateExpression(
     registerCustomFunctions(expr, locale);
     const value = await expr.evaluate(data);
     return { ok: true, value };
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: message };
   }
 }

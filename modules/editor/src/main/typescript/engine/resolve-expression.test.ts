@@ -412,6 +412,24 @@ describe('formatDateValue', () => {
     expect(formatDateValue('2024-01-15', 'd MMM yyyy')).toBe('15 Jan 2024');
   });
 
+  it('formats EEEE (full weekday name) — 2024-01-15 is a Monday', () => {
+    expect(formatDateValue('2024-01-15', 'EEEE MMMM d yyyy')).toBe('Monday January 15 2024');
+    expect(formatDateValue('2024-01-15', 'EEEE d MMMM yyyy')).toBe('Monday 15 January 2024');
+  });
+
+  it('formats EEE (short weekday name)', () => {
+    expect(formatDateValue('2024-01-15', 'EEE d MMM yyyy')).toBe('Mon 15 Jan 2024');
+  });
+
+  it('localizes weekday and month names together (nl-NL)', () => {
+    expect(formatDateValue('2024-01-15', 'EEEE MMMM d yyyy', 'nl-NL')).toBe(
+      'maandag januari 15 2024',
+    );
+    expect(formatDateValue('2024-01-15', 'EEEE d MMMM yyyy', 'nl-NL')).toBe(
+      'maandag 15 januari 2024',
+    );
+  });
+
   it('returns raw value for non-date string', () => {
     expect(formatDateValue('not-a-date', 'dd-MM-yyyy')).toBe('not-a-date');
   });
@@ -518,6 +536,16 @@ describe('formatLocaleNumberValue', () => {
 
   it('formats an integer with no decimals', () => {
     expect(formatLocaleNumberValue(1234, '#,##0', 'nl-NL')).toBe('1.234');
+  });
+
+  it('rounds HALF_EVEN to match the PDF renderer (Java DecimalFormat default)', () => {
+    // Banker's rounding: ties go to the nearest even digit, NOT half-up.
+    // Java's DecimalFormat (the PDF renderer) does this by default, so the
+    // editor preview must agree: 8.5 → 8, not 9.
+    expect(formatLocaleNumberValue(8.5, '#,##0', 'nl-NL')).toBe('8');
+    expect(formatLocaleNumberValue(9.5, '#,##0', 'nl-NL')).toBe('10');
+    expect(formatLocaleNumberValue(2.5, '#,##0', 'nl-NL')).toBe('2');
+    expect(formatLocaleNumberValue(2.125, '#,##0.00', 'nl-NL')).toBe('2,12');
   });
 
   it('formats with optional fraction digits (#)', () => {

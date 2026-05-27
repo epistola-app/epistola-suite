@@ -27,6 +27,8 @@ export interface BindingsDialogOptions {
   fieldPaths?: FieldPath[];
   /** Example data for live preview inside openExpressionDialog. */
   getExampleData?: () => Record<string, unknown> | undefined;
+  /** BCP-47 locale passed through to openExpressionDialog (preview + number examples). */
+  locale?: string;
   /** Per-parameter backend validation errors to display inline (e.g. from a failed save). */
   bindingErrors?: Record<string, string>;
 }
@@ -87,6 +89,7 @@ export function openParameterBindingsDialog(
         initialValue: bindings[name] ?? '',
         fieldPaths,
         getExampleData: options.getExampleData,
+        locale: options.locale,
         onChange: (newValue) => {
           if (newValue) bindings[name] = newValue;
           else delete bindings[name];

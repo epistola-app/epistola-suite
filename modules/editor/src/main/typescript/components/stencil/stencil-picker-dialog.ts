@@ -57,6 +57,11 @@ export interface StencilPickerOptions {
    */
   getExampleData?: () => Record<string, unknown> | undefined;
   /**
+   * BCP-47 locale passed through to the advanced expression dialog so its
+   * preview and number-format examples use the session's culture.
+   */
+  locale?: string;
+  /**
    * When false (default), the binding step is skipped even if the picked
    * stencil version declares parameters — the stencil is inserted with
    * empty bindings. Existing data still renders; only authoring is gated.
@@ -344,6 +349,7 @@ export async function openStencilPickerDialog(
           initialValue: bindingValues[name] ?? '',
           fieldPaths,
           getExampleData: options.getExampleData,
+          locale: options.locale,
           onChange: (newValue) => {
             if (newValue) bindingValues[name] = newValue;
             else delete bindingValues[name];

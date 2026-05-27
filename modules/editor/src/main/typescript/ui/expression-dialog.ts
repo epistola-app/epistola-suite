@@ -39,6 +39,12 @@ export interface ExpressionDialogOptions {
   getExampleData?: () => Record<string, unknown> | undefined;
   label?: string;
   placeholder?: string;
+  /**
+   * BCP-47 locale (variant attribute → tenant default → app default) used to
+   * format the live preview and number-format example labels so they match the
+   * generated PDF. Defaults to `"en-US"` when omitted.
+   */
+  locale?: string;
   /** Enable builder/code toggle (default: false — code only). */
   enableBuilderMode?: boolean;
   /** Optional filter to highlight certain field paths (e.g., array fields for loops). */
@@ -78,6 +84,7 @@ export async function openExpressionDialog(
   dialog.getExampleData = options.getExampleData;
   dialog.label = options.label ?? 'Expression';
   dialog.placeholder = options.placeholder ?? 'e.g. customer.name';
+  if (options.locale !== undefined) dialog.locale = options.locale;
   dialog.enableBuilderMode = options.enableBuilderMode ?? false;
   dialog.fieldPathFilter = options.fieldPathFilter;
   dialog.resultValidator = options.resultValidator;

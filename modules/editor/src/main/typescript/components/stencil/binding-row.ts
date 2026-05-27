@@ -29,6 +29,8 @@ export interface BindingRowOptions {
   fieldPaths: FieldPath[];
   /** Live preview source for the advanced dialog. */
   getExampleData?: () => Record<string, unknown> | undefined;
+  /** BCP-47 locale for the advanced dialog's preview + number-format examples. */
+  locale?: string;
   /** Notified when the binding's expression changes (input or advanced dialog). */
   onChange: (newValue: string) => void;
   /**
@@ -59,6 +61,7 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
     initialValue,
     fieldPaths,
     getExampleData,
+    locale,
     onChange,
     paramDatasetKey,
     error,
@@ -142,6 +145,7 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
       initialValue: input.value,
       fieldPaths,
       getExampleData,
+      locale,
       label: `Expression for ${name}`,
       placeholder: 'e.g. recipient.name',
       enableBuilderMode: true,

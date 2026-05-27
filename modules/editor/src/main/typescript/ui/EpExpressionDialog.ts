@@ -10,10 +10,15 @@ import {
   isValidExpression,
   tryEvaluateExpression,
   formatForPreview,
+  formatDateValue,
+  formatLocaleNumberValue,
 } from '../engine/resolve-expression.js';
+import { DEFAULT_LOCALE } from '../engine/locale.js';
 import {
   parseFormatDateExpression,
   wrapFormatDate,
+  parseFormatLocaleNumberExpression,
+  wrapFormatLocaleNumber,
   tryParseAsBuilderExpression,
   buildExpression,
   isStaleFieldReference,
@@ -30,21 +35,45 @@ import type { ExpressionDialogResult } from './expression-dialog.js';
  */
 /* eslint-disable unbound-method */
 
-/** Date format presets for the format dropdown. */
-const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
-  { value: '', label: 'No formatting' },
-  { value: 'dd-MM-yyyy', label: 'dd-MM-yyyy (15-01-2024)' },
-  { value: 'yyyy-MM-dd', label: 'yyyy-MM-dd (2024-01-15)' },
-  { value: 'dd/MM/yyyy', label: 'dd/MM/yyyy (15/01/2024)' },
-  { value: 'MM/dd/yyyy', label: 'MM/dd/yyyy (01/15/2024)' },
-  { value: 'd MMMM yyyy', label: 'd MMMM yyyy (15 January 2024)' },
-  { value: 'dd-MM-yyyy HH:mm', label: 'dd-MM-yyyy HH:mm (15-01-2024 14:30)' },
-  { value: 'yyyy-MM-dd HH:mm', label: 'yyyy-MM-dd HH:mm (2024-01-15 14:30)' },
+/** Sample instant used to render locale-aware date format examples. */
+const DATE_FORMAT_SAMPLE = '2024-01-15T14:30:00';
+
+/** Date format patterns offered by the format dropdown, in display order. */
+const DATE_FORMAT_PATTERNS: string[] = [
+  'dd-MM-yyyy',
+  'yyyy-MM-dd',
+  'dd/MM/yyyy',
+  'MM/dd/yyyy',
+  'd MMMM yyyy',
+  'EEEE MMMM d yyyy',
+  'EEEE d MMMM yyyy',
+  'dd-MM-yyyy HH:mm',
+  'yyyy-MM-dd HH:mm',
 ];
 
 /** Non-empty date patterns the builder's Format dropdown can represent. */
-const BUILDER_FORMAT_PATTERNS: ReadonlySet<string> = new Set(
-  DATE_FORMAT_PRESETS.map((p) => p.value).filter((v) => v !== ''),
+const BUILDER_FORMAT_PATTERNS: ReadonlySet<string> = new Set(DATE_FORMAT_PATTERNS);
+
+/**
+ * Number format presets for the format dropdown. `value` is the
+ * `$formatLocaleNumber` picture; `name` is the human-readable label; `sample`
+ * is a representative number used to render a *live, locale-aware* example next
+ * to the name (so a Dutch session sees `1.234,56` where an en-US session sees
+ * `1,234.56` — the separators follow the culture, exactly like the output).
+ */
+const NUMBER_FORMAT_PRESET_DEFS: { value: string; name: string; sample?: number }[] = [
+  { value: '', name: 'No formatting' },
+  { value: '#,##0', name: 'Whole number', sample: 1234 },
+  { value: '#,##0.00', name: 'Decimal, grouped', sample: 1234.5 },
+  { value: '0', name: 'Whole number, no grouping', sample: 1234 },
+  { value: '0.00', name: 'Decimal, no grouping', sample: 1234.5 },
+  { value: '0%', name: 'Percentage', sample: 0.21 },
+  { value: '0.0%', name: 'Percentage, 1 decimal', sample: 0.21 },
+];
+
+/** Non-empty number pictures the builder's Format dropdown can represent. */
+const BUILDER_NUMBER_FORMAT_PATTERNS: ReadonlySet<string> = new Set(
+  NUMBER_FORMAT_PRESET_DEFS.map((p) => p.value).filter((v) => v !== ''),
 );
 
 type PreviewState = 'empty' | 'loading' | 'no-data' | 'success' | 'error';
@@ -70,6 +99,12 @@ export class EpExpressionDialog extends LitElement {
   @property({ attribute: false }) public getExampleData?: () => Record<string, unknown> | undefined;
   @property({ type: String }) public label = 'Expression';
   @property({ type: String }) public placeholder = 'e.g. customer.name';
+  /**
+   * BCP-47 locale (variant attribute → tenant default → app default) used to
+   * format the live preview and the number-format example labels, so both
+   * match the generated PDF. Falls back to `"en-US"` when absent.
+   */
+  @property({ type: String }) public locale = DEFAULT_LOCALE;
   @property({ type: Boolean }) public enableBuilderMode = false;
   @property({ attribute: false }) public fieldPathFilter?: (fp: FieldPath) => boolean;
   @property({ attribute: false }) public resultValidator?: (value: unknown) => string | null;
@@ -120,6 +155,14 @@ export class EpExpressionDialog extends LitElement {
     );
   }
 
+  private get _numberFieldPaths(): Set<string> {
+    return new Set(
+      this.fieldPaths
+        .filter((fp) => fp.type === 'number' || fp.type === 'integer')
+        .map((fp) => fp.path),
+    );
+  }
+
   private get _isPickableForBuilder(): (fp: FieldPath) => boolean {
     return (fp: FieldPath) => {
       if (fp.type === 'array' || fp.type === 'object') return false;
@@ -153,12 +196,66 @@ export class EpExpressionDialog extends LitElement {
     return type === 'date' || type === 'datetime';
   }
 
+  private get _isNumberFieldSelected(): boolean {
+    const type = this._selectedFieldType;
+    return type === 'number' || type === 'integer';
+  }
+
+  /** The format kind offered for the currently selected builder field. */
+  private get _selectedFormatType(): 'none' | 'date' | 'number' {
+    if (this._isDateFieldSelected) return 'date';
+    if (this._isNumberFieldSelected) return 'number';
+    return 'none';
+  }
+
+  /**
+   * Number-format presets with locale-aware example labels, e.g.
+   * `Decimal, grouped (1.234,50)` for `nl-NL` and `(1,234.50)` for `en-US`.
+   */
+  private _numberFormatPresets(): { value: string; label: string }[] {
+    return NUMBER_FORMAT_PRESET_DEFS.map((preset) => {
+      if (preset.sample === undefined) return { value: preset.value, label: preset.name };
+      const example = formatLocaleNumberValue(preset.sample, preset.value, this.locale);
+      return { value: preset.value, label: `${preset.name} (${example})` };
+    });
+  }
+
+  /**
+   * Date-format presets with locale-aware example labels, e.g.
+   * `d MMMM yyyy (15 januari 2024)` for `nl-NL`. Numeric patterns render the
+   * same in every locale (by design — only month-name tokens localize, mirroring
+   * the PDF renderer), so those examples don't change between cultures.
+   */
+  private _dateFormatPresets(): { value: string; label: string }[] {
+    return [
+      { value: '', label: 'No formatting' },
+      ...DATE_FORMAT_PATTERNS.map((pattern) => ({
+        value: pattern,
+        label: `${pattern} (${formatDateValue(DATE_FORMAT_SAMPLE, pattern, this.locale)})`,
+      })),
+    ];
+  }
+
+  /** The preset list matching the selected field's format kind. */
+  private get _selectedFormatPresets(): { value: string; label: string }[] {
+    return this._selectedFormatType === 'number'
+      ? this._numberFormatPresets()
+      : this._dateFormatPresets();
+  }
+
+  /** Non-empty patterns the builder can represent for the selected field's format kind. */
+  private get _selectedFormatPatterns(): ReadonlySet<string> {
+    if (this._selectedFormatType === 'date') return BUILDER_FORMAT_PATTERNS;
+    if (this._selectedFormatType === 'number') return BUILDER_NUMBER_FORMAT_PATTERNS;
+    return new Set();
+  }
+
   private get _builderExpression(): string {
     if (!this._builderFieldPath) return '';
     return buildExpression({
       fieldPath: this._builderFieldPath,
       fieldType: this._selectedFieldType,
-      formatType: this._isDateFieldSelected && this._builderFormatPattern ? 'date' : 'none',
+      formatType: this._builderFormatPattern ? this._selectedFormatType : 'none',
       formatPattern: this._builderFormatPattern,
     });
   }
@@ -330,7 +427,7 @@ export class EpExpressionDialog extends LitElement {
     const generation = this._previewGeneration + 1;
     this._previewGeneration = generation;
 
-    tryEvaluateExpression(expression, data)
+    tryEvaluateExpression(expression, data, this.locale)
       .then((result) => {
         // Stale check — discard if a newer preview was scheduled
         if (generation !== this._previewGeneration) return;
@@ -373,7 +470,10 @@ export class EpExpressionDialog extends LitElement {
 
       if (trimmed && !parsed) {
         if (this._hasUnsupportedBuilderFormat(trimmed)) {
-          this._modeWarning = "This date format isn't available in Builder mode — edit it in Code.";
+          const isNumberFormat = parseFormatLocaleNumberExpression(trimmed) !== null;
+          this._modeWarning = isNumberFormat
+            ? "This number format isn't available in Builder mode — edit it in Code."
+            : "This date format isn't available in Builder mode — edit it in Code.";
         } else {
           const stale = isStaleFieldReference(trimmed, this.fieldPaths);
           this._modeWarning = stale
@@ -429,6 +529,12 @@ export class EpExpressionDialog extends LitElement {
     if (parsed.formatType === 'date' && !BUILDER_FORMAT_PATTERNS.has(parsed.formatPattern)) {
       return null;
     }
+    if (
+      parsed.formatType === 'number' &&
+      !BUILDER_NUMBER_FORMAT_PATTERNS.has(parsed.formatPattern)
+    ) {
+      return null;
+    }
     return parsed;
   }
 
@@ -471,7 +577,10 @@ export class EpExpressionDialog extends LitElement {
     const target = e.target;
     if (!(target instanceof HTMLSelectElement)) return;
     this._builderFieldPath = target.value;
-    if (!this._isDateFieldSelected) {
+    // Drop the chosen pattern unless it's still valid for the new field's
+    // format kind — switching date↔number (or to an unformattable type)
+    // must not leave a stale pattern that builds a nonsensical expression.
+    if (!this._selectedFormatPatterns.has(this._builderFormatPattern)) {
       this._builderFormatPattern = '';
     }
     this._syncBuilderToCode();
@@ -508,32 +617,52 @@ export class EpExpressionDialog extends LitElement {
     ta.style.height = `${Math.min(ta.scrollHeight, maxHeight)}px`;
   }
 
-  private _onDateFormatChange(e: Event): void {
+  private _onCodeFormatChange(e: Event): void {
     const target = e.target;
     if (!(target instanceof HTMLSelectElement)) return;
     const pattern = target.value;
     const barePath = this._getBarePath(this._expression.trim());
-    this._expression = pattern ? wrapFormatDate(barePath, pattern) : barePath;
+    if (!pattern) {
+      this._expression = barePath;
+    } else if (this._codeFormatType() === 'number') {
+      this._expression = wrapFormatLocaleNumber(barePath, pattern);
+    } else {
+      this._expression = wrapFormatDate(barePath, pattern);
+    }
     this._schedulePreview(this._expression);
   }
 
   private _getBarePath(val: string): string {
-    const parsed = parseFormatDateExpression(val);
-    return parsed ? parsed.fieldPath : val;
+    const date = parseFormatDateExpression(val);
+    if (date) return date.fieldPath;
+    const number = parseFormatLocaleNumberExpression(val);
+    if (number) return number.fieldPath;
+    return val;
   }
 
-  private _codeDateFormatValue(): string {
-    const parsed = parseFormatDateExpression(this._expression.trim());
-    return parsed ? parsed.pattern : '';
+  private _codeFormatValue(): string {
+    const trimmed = this._expression.trim();
+    const date = parseFormatDateExpression(trimmed);
+    if (date) return date.pattern;
+    const number = parseFormatLocaleNumberExpression(trimmed);
+    if (number) return number.pattern;
+    return '';
   }
 
-  private _showCodeDateFormat(): boolean {
-    // Date formatting is the builder's job when builder mode is available.
+  /** The format kind offered in the code box for the current bare path. */
+  private _codeFormatType(): 'none' | 'date' | 'number' {
+    const barePath = this._getBarePath(this._expression.trim());
+    if (this._dateFieldPaths.has(barePath)) return 'date';
+    if (this._numberFieldPaths.has(barePath)) return 'number';
+    return 'none';
+  }
+
+  private _showCodeFormat(): boolean {
+    // Formatting is the builder's job when builder mode is available.
     // The code box only offers it for code-only dialogs (no builder), which
     // is the inspector's conditional/loop expression fields.
     if (this.enableBuilderMode) return false;
-    const barePath = this._getBarePath(this._expression.trim());
-    return this._dateFieldPaths.has(barePath);
+    return this._codeFormatType() !== 'none';
   }
 
   // -----------------------------------------------------------------------
@@ -615,8 +744,17 @@ export class EpExpressionDialog extends LitElement {
     `;
   }
 
-  private _renderFormatOptions(): TemplateResult[] {
-    return DATE_FORMAT_PRESETS.map((p) => html`<option value="${p.value}">${p.label}</option>`);
+  private _renderFormatOptions(
+    presets: { value: string; label: string }[],
+    selected: string,
+  ): TemplateResult[] {
+    // Mark the selected option explicitly rather than relying solely on the
+    // <select>'s `.value` binding: when the preset list itself changes
+    // (date↔number), Lit commits `.value` against the previous options and the
+    // value fails to stick. `?selected` is set as the options render, so it wins.
+    return presets.map(
+      (p) => html`<option value="${p.value}" ?selected=${p.value === selected}>${p.label}</option>`,
+    );
   }
 
   private _renderModeToggle(): TemplateResult {
@@ -669,7 +807,7 @@ export class EpExpressionDialog extends LitElement {
           </div>
           <div
             class="expression-dialog-builder-format"
-            style="display: ${this._isDateFieldSelected ? '' : 'none'}"
+            style="display: ${this._selectedFormatType !== 'none' ? '' : 'none'}"
           >
             <label class="expression-dialog-field-label" for="expression-dialog-builder-format">
               Format
@@ -680,7 +818,7 @@ export class EpExpressionDialog extends LitElement {
               .value=${this._builderFormatPattern}
               @change=${this._onBuilderFormatChange}
             >
-              ${this._renderFormatOptions()}
+              ${this._renderFormatOptions(this._selectedFormatPresets, this._builderFormatPattern)}
             </select>
           </div>
         </div>
@@ -739,18 +877,23 @@ export class EpExpressionDialog extends LitElement {
         ></textarea>
         <div
           class="expression-dialog-format-row"
-          style="display: ${this._showCodeDateFormat() ? '' : 'none'}"
+          style="display: ${this._showCodeFormat() ? '' : 'none'}"
         >
           <label class="expression-dialog-format-label" for="expression-dialog-date-format">
-            Date format
+            ${this._codeFormatType() === 'number' ? 'Number format' : 'Date format'}
           </label>
           <select
             class="expression-dialog-format-select"
             id="expression-dialog-date-format"
-            .value=${this._codeDateFormatValue()}
-            @change=${this._onDateFormatChange}
+            .value=${this._codeFormatValue()}
+            @change=${this._onCodeFormatChange}
           >
-            ${this._renderFormatOptions()}
+            ${this._renderFormatOptions(
+              this._codeFormatType() === 'number'
+                ? this._numberFormatPresets()
+                : this._dateFormatPresets(),
+              this._codeFormatValue(),
+            )}
           </select>
         </div>
       </div>

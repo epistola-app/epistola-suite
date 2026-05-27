@@ -825,6 +825,7 @@ export class EpistolaInspector extends LitElement {
       initialValue: currentValue,
       fieldPaths: this.engine.getAvailableVariablesAt(this.selectedNodeId!),
       getExampleData: () => this.engine?.getEvaluationContextAt(this.selectedNodeId!) ?? {},
+      locale: this.engine.locale,
       label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',
       placeholder,
       fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,

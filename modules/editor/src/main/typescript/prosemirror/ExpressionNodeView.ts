@@ -227,6 +227,7 @@ export class ExpressionNodeView implements NodeView {
       initialValue: expr,
       fieldPaths: this._getFieldPaths(),
       getExampleData: this._getExampleData,
+      locale: this._getLocale?.() ?? DEFAULT_LOCALE,
       enableBuilderMode: true,
       label: 'Expression',
       placeholder: 'e.g. customer.name',
