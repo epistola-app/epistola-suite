@@ -12,6 +12,10 @@
   - **Batch 2** — `create-form-submit` on the submit button in `.create-form-card` for themes, templates, fonts, environments, attributes, and API keys.
   - **Batch 3** — `template-tab` (+ `data-tab-name`) on the template detail tab strip; `template-row` (+ `data-template-slug`) on template list rows; `delete-action` on danger-zone delete buttons (theme detail, template settings); `theme-default-badge` on the themes list; `variant-create-open` / `variant-create-submit` on the variant create dialog; `catalog-create-open` / `catalog-create-submit` on the catalog create dialog; `feature-toggle` (+ `data-feature-key`) / `feature-toggle-switch` on feature toggle items; `api-key-row` (+ `data-api-key-name`) / `api-key-delete` on API key list rows; `api-key-name` on the created key details page; `alert-success` on success alert banners (login, catalogs, features). Purely additive markup; no behaviour change.
 
+### Fixed
+
+- **Template name cannot be changed after creation.** The backend `UpdateDocumentTemplate` command already accepted a `name` parameter, but the settings tab had no UI to edit it — the template name was only settable in the create form. Added an inline-editable name input to the template settings tab that saves on blur/Enter via the existing `PATCH` endpoint, reverts on Escape or failure, and updates the page heading on success. Disabled for templates in read-only (subscribed) catalogs. Closes #333.
+
 ## [0.22.1] - 2026-05-21
 
 ### Fixed

@@ -7,6 +7,15 @@
             <div class="detail-section-header"><h3>Details</h3></div>
             <div class="detail-section-body">
                 <dl class="description-list">
+                    <dt>Name</dt>
+                    <dd>
+                        <input type="text" id="template-name-input" class="ep-input"
+                               th:value="${template.name}" th:disabled="${!editable}"
+                               th:attr="data-original-name=${template.name}"
+                               style="max-width: 300px;"
+                               onblur="updateTemplateName(this)"
+                               onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.originalName;this.blur();}">
+                    </dd>
                     <dt>ID</dt>
                     <dd><code th:text="${template.id}"></code></dd>
                     <dt>Created</dt>
@@ -90,6 +99,29 @@
                     headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
                     body: JSON.stringify({ pdfaEnabled: enabled })
                 }).then(r => { if (!r.ok) document.getElementById('pdfa-toggle').checked = !enabled; });
+            }
+
+            function updateTemplateName(input) {
+                const newName = input.value.trim();
+                if (!newName || newName === input.dataset.originalName) {
+                    input.value = input.dataset.originalName;
+                    return;
+                }
+                const url = `/tenants/${TENANT_ID}/templates/${CATALOG_ID}/${TEMPLATE_ID}`;
+                const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
+                    body: JSON.stringify({ name: newName })
+                }).then(r => {
+                    if (r.ok) {
+                        input.dataset.originalName = newName;
+                        const h1 = document.querySelector('.page-header h1');
+                        if (h1) h1.textContent = newName;
+                    } else {
+                        input.value = input.dataset.originalName;
+                    }
+                });
             }
 
             function updateTheme(select) {
