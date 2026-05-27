@@ -7,6 +7,8 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilVersionNotDraftException
+import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.model.StencilVersion
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
@@ -19,13 +21,13 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Updates the content of a draft stencil version. Only drafts can be updated.
- * Returns null if the version doesn't exist or is not a draft.
+ * Throws if the version doesn't exist or is not a draft.
  */
 data class UpdateStencilDraft(
     val versionId: StencilVersionId,
     val content: TemplateDocument,
     val parameterSchema: JsonNode? = null,
-) : Command<StencilVersion?>,
+) : Command<StencilVersion>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = versionId.tenantKey
@@ -37,12 +39,12 @@ class UpdateStencilDraftHandler(
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
-) : CommandHandler<UpdateStencilDraft, StencilVersion?> {
-    override fun handle(command: UpdateStencilDraft): StencilVersion? {
+) : CommandHandler<UpdateStencilDraft, StencilVersion> {
+    override fun handle(command: UpdateStencilDraft): StencilVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
         placeholderValidator.validateAsStencilDefinition(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
-        return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
+        return jdbi.inTransaction<StencilVersion, Exception> { handle ->
             val contentJson = objectMapper.writeValueAsString(command.content)
             val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
 
@@ -65,6 +67,29 @@ class UpdateStencilDraftHandler(
                 .mapTo<StencilVersion>()
                 .findOne()
                 .orElse(null)
+                ?: throw checkVersionExists(handle, command.versionId)
+        }
+    }
+
+    private fun checkVersionExists(handle: org.jdbi.v3.core.Handle, versionId: StencilVersionId): RuntimeException {
+        val exists = handle.createQuery(
+            """
+            SELECT 1 FROM stencil_versions
+            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
+            """,
+        )
+            .bind("tenantId", versionId.tenantKey)
+            .bind("catalogKey", versionId.catalogKey)
+            .bind("stencilId", versionId.stencilKey)
+            .bind("versionId", versionId.key)
+            .mapTo(Int::class.java)
+            .findOne()
+            .isPresent
+
+        return if (exists) {
+            StencilVersionNotDraftException(versionId.tenantKey, versionId.stencilKey, versionId.catalogKey, versionId.key)
+        } else {
+            StencilVersionNotFoundException(versionId.tenantKey, versionId.stencilKey, versionId.catalogKey, versionId.key)
         }
     }
 }

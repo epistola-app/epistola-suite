@@ -158,7 +158,7 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `publish to non-existent environment returns null`(): Unit = withMediator {
+    fun `publish to non-existent environment throws EnvironmentNotFoundException`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -174,12 +174,12 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         // Publish the contract first (guard rejects draft contracts)
         PublishContractVersion(templateId = templateId).execute()
 
-        val result = PublishToEnvironment(
-            versionId = versionId,
-            environmentId = EnvironmentId(EnvironmentKey.of("non-existent"), tenantId),
-        ).execute()
-
-        assertThat(result).isNull()
+        assertThatThrownBy {
+            PublishToEnvironment(
+                versionId = versionId,
+                environmentId = EnvironmentId(EnvironmentKey.of("non-existent"), tenantId),
+            ).execute()
+        }.isInstanceOf(app.epistola.suite.documents.EnvironmentNotFoundException::class.java)
     }
 
     @Test
@@ -216,12 +216,13 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         // Try publishing archived version to another environment
         val anotherEnvId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
         val anotherEnv = CreateEnvironment(id = anotherEnvId, name = "Production").execute()
-        val result = PublishToEnvironment(
-            versionId = versionId,
-            environmentId = anotherEnvId,
-        ).execute()
 
-        assertThat(result).isNull()
+        assertThatThrownBy {
+            PublishToEnvironment(
+                versionId = versionId,
+                environmentId = anotherEnvId,
+            ).execute()
+        }.isInstanceOf(app.epistola.suite.templates.VersionArchivedException::class.java)
     }
 
     @Test
