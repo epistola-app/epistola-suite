@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.query
@@ -63,7 +64,7 @@ class EpistolaFontApi : FontsApi {
         val slug = FontKey.of(fontSlug)
         val font = ListFonts(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
             .firstOrNull { it.slug == slug }
-            ?: return ResponseEntity.notFound().build()
+            ?: throw FontNotFoundException(tenantIdComposite.key, catalogKey, slug)
         val variants = GetFontVariants(
             fontId = FontId(slug, CatalogId(catalogKey, tenantIdComposite)),
         ).query().map { FontVariantDto(it.weight, it.italic) }

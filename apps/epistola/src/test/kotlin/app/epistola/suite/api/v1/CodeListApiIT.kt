@@ -129,8 +129,79 @@ class CodeListApiIT : IntegrationTestBase() {
             String::class.java,
         )
         // SUBSCRIBED catalog → `requireCatalogEditable` throws
-        // `CatalogReadOnlyException`, surfaced as 409 by the global handler.
-        assertThat(response.statusCode).isIn(HttpStatus.CONFLICT, HttpStatus.FORBIDDEN, HttpStatus.BAD_REQUEST)
+        // `CatalogReadOnlyException`, surfaced as RFC 7807 problem details.
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = response.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Read Only")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(409)
+        assertThat(JsonPath.read<String>(problem, "$.code")).isEqualTo("CATALOG_READ_ONLY")
+        assertThat(JsonPath.read<String>(problem, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/catalogs/system/code-lists")
+        assertThat(JsonPath.read<String>(problem, "$.detail")).contains("read-only catalog")
+    }
+
+    @Test
+    fun `refresh inline code list returns 400 problem details`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val createBody = """
+            {
+              "slug": "inline-refresh-test",
+              "displayName": "Inline Refresh Test",
+              "sourceType": "INLINE",
+              "entries": [{ "code": "x", "label": "X" }]
+            }
+        """.trimIndent()
+        val createResp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists",
+            HttpMethod.POST,
+            HttpEntity(createBody, baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(createResp.statusCode).isEqualTo(HttpStatus.CREATED)
+
+        val refreshResp = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/inline-refresh-test/refresh",
+            HttpMethod.POST,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(refreshResp.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(refreshResp.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = refreshResp.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/code-list-not-refreshable")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Code List Not Refreshable")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(problem, "$.code")).isEqualTo("CODE_LIST_NOT_REFRESHABLE")
+        assertThat(JsonPath.read<String>(problem, "$.instance"))
+            .isEqualTo("/api/tenants/${tenantKey.value}/catalogs/default/code-lists/inline-refresh-test/refresh")
+        assertThat(JsonPath.read<String>(problem, "$.detail")).contains("not refreshed from a source")
+        assertThat(problem).doesNotContain("\"details\":")
+    }
+
+    @Test
+    fun `get missing code list returns 404 problem details`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/missing-list",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = response.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/code-list-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Code List Not Found")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(404)
+        assertThat(JsonPath.read<String>(problem, "$.code")).isEqualTo("CODE_LIST_NOT_FOUND")
+        assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(problem, "$.catalogId")).isEqualTo("default")
+        assertThat(JsonPath.read<String>(problem, "$.codeListId")).isEqualTo("missing-list")
+        assertThat(JsonPath.read<String>(problem, "$.instance"))
+            .isEqualTo("/api/tenants/${tenantKey.value}/catalogs/default/code-lists/missing-list")
     }
 
     @Test

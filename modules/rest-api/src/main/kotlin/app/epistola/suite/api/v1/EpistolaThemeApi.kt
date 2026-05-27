@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -84,7 +85,7 @@ class EpistolaThemeApi(
         val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val theme = GetTheme(
             id = themeIdComposite,
-        ).query() ?: return ResponseEntity.notFound().build()
+        ).query() ?: throw ThemeNotFoundException(ThemeKey.of(themeId))
 
         return ResponseEntity.ok(theme.toDto(objectMapper))
     }
@@ -105,7 +106,7 @@ class EpistolaThemeApi(
             pageSettings = updateThemeRequest.pageSettings?.toDomain(),
             blockStylePresets = updateThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
             spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw ThemeNotFoundException(ThemeKey.of(themeId))
 
         return ResponseEntity.ok(theme.toDto(objectMapper))
     }
@@ -124,7 +125,7 @@ class EpistolaThemeApi(
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw ThemeNotFoundException(ThemeKey.of(themeId))
         }
     }
 }

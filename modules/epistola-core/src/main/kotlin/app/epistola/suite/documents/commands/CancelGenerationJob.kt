@@ -2,6 +2,8 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.GenerationJobNotCancellableException
+import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -50,18 +52,18 @@ class CancelGenerationJobHandler(
                 .mapTo(String::class.java)
                 .findOne()
                 .orElse(null)
-
-            if (status == null) {
-                logger.warn("Request {} not found for tenant {}", command.requestId, command.tenantId)
-                return@inTransaction false
-            }
+                ?: throw GenerationJobNotFoundException(command.tenantId, command.requestId)
 
             val requestStatus = RequestStatus.valueOf(status)
 
             // 2. Check if request can be cancelled
             if (requestStatus !in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)) {
                 logger.warn("Request {} cannot be cancelled (status: {})", command.requestId, requestStatus)
-                return@inTransaction false
+                throw GenerationJobNotCancellableException(
+                    command.tenantId,
+                    command.requestId,
+                    "Status is $requestStatus",
+                )
             }
 
             // 3. Mark request as cancelled
@@ -80,13 +82,17 @@ class CancelGenerationJobHandler(
                 .bind("status", RequestStatus.CANCELLED.name)
                 .execute()
 
-            if (updated > 0) {
-                logger.info("Cancelled generation job {}", command.requestId)
-                true
-            } else {
+            if (updated == 0) {
                 logger.warn("Request {} was already completed or cancelled", command.requestId)
-                false
+                throw GenerationJobNotCancellableException(
+                    command.tenantId,
+                    command.requestId,
+                    "Job was already completed or cancelled",
+                )
             }
+
+            logger.info("Cancelled generation job {}", command.requestId)
+            true
         }
     }
 }

@@ -41,6 +41,9 @@
 ### Removed
 
 - **`LastThemeException`** is gone. Themes are optional, so zero themes is a valid state — `DeleteTheme` only refuses when the theme is the tenant's current default (clear it first, then delete). The REST `LAST_THEME` error code and the corresponding UI guard are dropped accordingly.
+### Changed
+
+- **REST API errors now use RFC 7807 Problem Details.** API failures return `application/problem+json` with `type`, `title`, `status`, `detail`, `instance`, and a top-level `code` extension; former `details` entries are exposed as top-level extension members. Validation responses include field-level `errors`, API security failures use the same shape, and public HTML documentation is available at `/errors/{slug}` for each problem type.
 
 ## [0.21.0] - 2026-05-20
 

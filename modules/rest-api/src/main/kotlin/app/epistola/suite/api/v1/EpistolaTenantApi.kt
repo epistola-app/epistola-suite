@@ -16,6 +16,7 @@ import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
 import app.epistola.suite.api.v1.shared.toDto
+import app.epistola.suite.attributes.AttributeNotFoundException
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -31,6 +32,7 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.commands.UpdateEnvironment
@@ -38,10 +40,12 @@ import app.epistola.suite.environments.queries.GetEnvironment
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
@@ -90,8 +94,9 @@ class EpistolaTenantApi :
     override fun getTenant(
         tenantId: String,
     ): ResponseEntity<TenantDto> {
-        val tenant = GetTenant(id = TenantKey.of(tenantId)).query()
-            ?: return ResponseEntity.notFound().build()
+        val typedTenantId = TenantKey.of(tenantId)
+        val tenant = GetTenant(id = typedTenantId).query()
+            ?: throw TenantNotFoundException(typedTenantId)
         return ResponseEntity.ok(tenant.toDto())
     }
 
@@ -99,8 +104,8 @@ class EpistolaTenantApi :
         tenantId: String,
         updateTenantRequest: UpdateTenantRequest,
     ): ResponseEntity<TenantDto> {
-        // TODO: Implement UpdateTenant command
-        return ResponseEntity.notFound().build()
+        // TODO: implement tenant rename through an UpdateTenant command in epistola-core.
+        throw ApiOperationNotImplementedException("updateTenant")
     }
 
     override fun deleteTenant(
@@ -110,7 +115,7 @@ class EpistolaTenantApi :
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw TenantNotFoundException(TenantKey.of(tenantId))
         }
     }
 
@@ -160,7 +165,7 @@ class EpistolaTenantApi :
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val attribute = GetAttributeDefinition(id = attributeIdComposite).query()
-            ?: return ResponseEntity.notFound().build()
+            ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
         return ResponseEntity.ok(attribute.toDto())
     }
 
@@ -177,7 +182,7 @@ class EpistolaTenantApi :
         // full UpdateAttributeDefinition that only changes the fields the
         // client sent. UpdateAttributeDefinition isn't itself partial.
         val current = GetAttributeDefinition(id = attributeIdComposite).query()
-            ?: return ResponseEntity.notFound().build()
+            ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
         val codeListId = if (updateAttributeRequest.codeListBinding != null) {
             CodeListId(
                 key = CodeListKey.of(updateAttributeRequest.codeListBinding!!.slug),
@@ -191,7 +196,7 @@ class EpistolaTenantApi :
             displayName = updateAttributeRequest.displayName ?: current.displayName,
             allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
             codeListId = codeListId,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
         return ResponseEntity.ok(attribute.toDto())
     }
 
@@ -206,7 +211,7 @@ class EpistolaTenantApi :
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
         }
     }
 
@@ -240,7 +245,7 @@ class EpistolaTenantApi :
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
         val environment = GetEnvironment(id = environmentIdComposite).query()
-            ?: return ResponseEntity.notFound().build()
+            ?: throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
         return ResponseEntity.ok(environment.toDto())
     }
 
@@ -250,13 +255,13 @@ class EpistolaTenantApi :
         updateEnvironmentRequest: UpdateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val name = updateEnvironmentRequest.name
-            ?: return ResponseEntity.badRequest().build()
+            ?: throw ValidationException(field = "name", message = "Environment name is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
         val environment = UpdateEnvironment(
             id = environmentIdComposite,
             name = name,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
         return ResponseEntity.ok(environment.toDto())
     }
 
@@ -270,7 +275,7 @@ class EpistolaTenantApi :
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
         }
     }
 }

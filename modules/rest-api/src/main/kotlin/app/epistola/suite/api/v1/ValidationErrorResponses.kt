@@ -6,19 +6,16 @@ import app.epistola.suite.validation.ValidationException
 
 /**
  * Single translation point from a [ValidationException] to the wire
- * [ValidationErrorResponse]. Every surface that surfaces validation failures
- * funnels through here so the machine-readable [ValidationException.code] is
- * reported consistently (REST `ApiExceptionHandler`, the UI draft-save route).
+ * [ValidationErrorResponse]. The editor draft-save UI route still consumes this
+ * pre-RFC 7807 shape, so keep it separate from the REST API Problem Details
+ * mapper in [ValidationException.toValidationProblemBody].
  *
  * The historical generic `"VALIDATION_ERROR"` wire value is preserved for
  * non-coded sites via [app.epistola.suite.validation.ValidationCode.GENERIC];
  * coded sites now emit their specific code instead of being flattened.
  *
- * RFC 7807 — this is the seam. The next step is to return
- * `org.springframework.http.ProblemDetail` (`application/problem+json`) with
- * `type` derived from `ex.code.wire`, `title` from the code, `status` from the
- * surface, `detail` = `ex.message`, and `errors` as an extension member. Because
- * both surfaces call this one function, that swap is local to this file.
+ * Do not change this mapper to Problem Details unless the editor/UI consumer is
+ * migrated at the same time.
  */
 fun ValidationException.toValidationErrorResponse(): ValidationErrorResponse = ValidationErrorResponse(
     code = code.wire,

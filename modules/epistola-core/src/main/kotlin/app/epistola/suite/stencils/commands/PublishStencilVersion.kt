@@ -6,7 +6,10 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilVersionNotDraftException
+import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.PlaceholderValidator
 import app.epistola.suite.validation.ValidationException
@@ -18,11 +21,11 @@ import tools.jackson.databind.ObjectMapper
 /**
  * Publishes a draft stencil version, making it available for insertion into templates.
  * Validates that the content does not contain nested stencil references.
- * Returns null if the version doesn't exist or is not a draft.
+ * Throws if the version doesn't exist or is not a draft.
  */
 data class PublishStencilVersion(
     val versionId: StencilVersionId,
-) : Command<StencilVersion?>,
+) : Command<StencilVersion>,
     RequiresPermission {
     override val permission = Permission.STENCIL_PUBLISH
     override val tenantKey: TenantKey get() = versionId.tenantKey
@@ -34,14 +37,13 @@ class PublishStencilVersionHandler(
     private val objectMapper: ObjectMapper,
     private val placeholderValidator: PlaceholderValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
-) : CommandHandler<PublishStencilVersion, StencilVersion?> {
-    override fun handle(command: PublishStencilVersion): StencilVersion? = jdbi.inTransaction<StencilVersion?, Exception> { handle ->
+) : CommandHandler<PublishStencilVersion, StencilVersion> {
+    override fun handle(command: PublishStencilVersion): StencilVersion = jdbi.inTransaction<StencilVersion, Exception> { handle ->
         // Fetch the draft version
         val version = handle.createQuery(
             """
             SELECT * FROM stencil_versions
             WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
-              AND status = 'draft'
             """,
         )
             .bind("tenantId", command.versionId.tenantKey)
@@ -50,7 +52,22 @@ class PublishStencilVersionHandler(
             .bind("versionId", command.versionId.key)
             .mapTo<StencilVersion>()
             .findOne()
-            .orElse(null) ?: return@inTransaction null
+            .orElse(null)
+            ?: throw StencilVersionNotFoundException(
+                command.versionId.tenantKey,
+                command.versionId.stencilKey,
+                command.versionId.catalogKey,
+                command.versionId.key,
+            )
+
+        if (version.status != StencilVersionStatus.DRAFT) {
+            throw StencilVersionNotDraftException(
+                command.versionId.tenantKey,
+                command.versionId.stencilKey,
+                command.versionId.catalogKey,
+                command.versionId.key,
+            )
+        }
 
         // Validate no nested stencil components
         validateNoNestedStencilRefs(version)

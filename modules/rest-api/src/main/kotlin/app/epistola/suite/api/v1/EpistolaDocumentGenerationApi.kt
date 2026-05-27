@@ -18,6 +18,8 @@ import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.DocumentNotFoundException
+import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
@@ -27,8 +29,10 @@ import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.validation.ValidationException
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -132,8 +136,10 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         requestId: UUID,
     ): ResponseEntity<GenerationJobDetail> {
-        val jobResult = GetGenerationJob(TenantKey.of(tenantId), GenerationRequestKey.of(requestId)).query()
-            ?: return ResponseEntity.notFound().build()
+        val typedTenantId = TenantKey.of(tenantId)
+        val typedRequestId = GenerationRequestKey.of(requestId)
+        val jobResult = GetGenerationJob(typedTenantId, typedRequestId).query()
+            ?: throw GenerationJobNotFoundException(typedTenantId, typedRequestId)
 
         return ResponseEntity.ok(jobResult.toDto(objectMapper))
     }
@@ -143,14 +149,9 @@ class EpistolaDocumentGenerationApi(
         requestId: UUID,
     ): ResponseEntity<Unit> {
         val typedTenantId = TenantKey.of(tenantId)
-        val cancelled = CancelGenerationJob(typedTenantId, GenerationRequestKey.of(requestId)).execute()
+        CancelGenerationJob(typedTenantId, GenerationRequestKey.of(requestId)).execute()
 
-        return if (cancelled) {
-            ResponseEntity.noContent().build()
-        } else {
-            // Job not found or cannot be cancelled
-            ResponseEntity.status(HttpStatus.CONFLICT).build()
-        }
+        return ResponseEntity.noContent().build()
     }
 
     // ================== Document Download ==================
@@ -163,10 +164,10 @@ class EpistolaDocumentGenerationApi(
         val did = DocumentKey.of(documentId)
 
         val metadata = GetDocumentMetadata(tid, did).query()
-            ?: return ResponseEntity.notFound().build()
+            ?: throw DocumentNotFoundException(tid, did)
 
         val stored = contentStore.get(ContentKey.document(tid, did))
-            ?: return ResponseEntity.notFound().build()
+            ?: throw DocumentNotFoundException(tid, did)
 
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_PDF)
@@ -180,12 +181,13 @@ class EpistolaDocumentGenerationApi(
         documentId: UUID,
     ): ResponseEntity<Unit> {
         val typedTenantId = TenantKey.of(tenantId)
-        val deleted = DeleteDocument(typedTenantId, DocumentKey.of(documentId)).execute()
+        val typedDocumentId = DocumentKey.of(documentId)
+        val deleted = DeleteDocument(typedTenantId, typedDocumentId).execute()
 
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw DocumentNotFoundException(typedTenantId, typedDocumentId)
         }
     }
 
@@ -220,11 +222,11 @@ class EpistolaDocumentGenerationApi(
         if (principal.currentTenantId != null && principal.currentTenantId != tenantKey) {
             // Defense-in-depth: the api-key auth filter sets currentTenantId from
             // api_keys.tenantKey. The path tenant must match.
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+            throw TenantAccessDeniedException(tenantKey, principal.email)
         }
         val consumerId = principal.userId.value.toString()
         val nodeId = currentRequest()?.getHeader(HEADER_NODE_ID)?.takeIf { it.isNotBlank() }
-            ?: return ResponseEntity.badRequest().build()
+            ?: throw ValidationException(field = HEADER_NODE_ID, message = "Header $HEADER_NODE_ID is required")
 
         // Touch returns this node's PartitionAssignment from the consistent hash ring.
         val assignment = app.epistola.suite.generation.collect.commands.TouchConsumerNode(
@@ -263,7 +265,7 @@ class EpistolaDocumentGenerationApi(
 
         val encoding = ndjsonResultStream.negotiateEncoding(acceptEncoding)
         val response = currentResponse()
-            ?: return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+            ?: throw IllegalStateException("Current HTTP response is not available")
         response.status = HttpStatus.OK.value()
         response.contentType = NDJSON_CONTENT_TYPE
         if (encoding == app.epistola.suite.generation.collect.ndjson.NdjsonResultStream.Encoding.GZIP) {

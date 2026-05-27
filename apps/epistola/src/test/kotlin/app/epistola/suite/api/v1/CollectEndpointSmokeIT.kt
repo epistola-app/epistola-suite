@@ -65,8 +65,12 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `ping without auth returns UP without partition info`() {
-        val headers = baseHeaders()
+    fun `ping without auth or client identity returns UP without partition info`() {
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.parseMediaType(EPISTOLA_JSON)
+            accept = listOf(MediaType.parseMediaType(EPISTOLA_JSON))
+            set(HttpHeaders.USER_AGENT, "curl/8.0")
+        }
         val response = restTemplate.exchange(
             "/api/ping",
             HttpMethod.POST,
@@ -125,9 +129,42 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
-        assertThat(JsonPath.read<String>(body, "$.message")).contains("X-EP-Node-Id")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
+        assertThat(JsonPath.read<String>(body, "$.title")).isEqualTo("Bad Request")
+        assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(body, "$.detail")).contains("X-EP-Node-Id")
+        assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/generation/collect")
+    }
+
+    @Test
+    fun `collect problem details include query string and top-level RFC 7807 fields`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.parseMediaType(EPISTOLA_JSON)
+            accept = listOf(MediaType.parseMediaType(EPISTOLA_JSON), MediaType.parseMediaType(EPISTOLA_NDJSON))
+            set(HttpHeaders.USER_AGENT, "epistola-contract/0.3.0 smoke-test")
+            add("X-API-Key", key)
+        }
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/generation/collect?limit=25",
+            HttpMethod.POST,
+            HttpEntity("{}", headers),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
+        assertThat(JsonPath.read<String>(body, "$.title")).isEqualTo("Bad Request")
+        assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
+        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
+        assertThat(JsonPath.read<String>(body, "$.detail")).contains("X-EP-Node-Id")
+        assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/generation/collect?limit=25")
+        assertThat(body).doesNotContain("\"details\":")
     }
 
     @Test
@@ -145,8 +182,10 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.message")).contains("User-Agent")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
+        assertThat(JsonPath.read<String>(body, "$.detail")).contains("User-Agent")
     }
 
     @Test
@@ -238,6 +277,16 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         // Filter chain: ClientIdentityFilter passes (headers present) →
         // auth chain rejects (no API key, no JWT) → 401.
         assertThat(response.statusCode).isIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isIn(
+            "https://epistola.app/errors/unauthorized",
+            "https://epistola.app/errors/access-denied",
+        )
+        assertThat(JsonPath.read<String>(body, "$.code")).isIn("UNAUTHORIZED", "ACCESS_DENIED")
+        assertThat(JsonPath.read<Int>(body, "$.status")).isIn(401, 403)
+        assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/generation/collect")
+        assertThat(body).doesNotContain("\"details\":")
     }
 
     /**
