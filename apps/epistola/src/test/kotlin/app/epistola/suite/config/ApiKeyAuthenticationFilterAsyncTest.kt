@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
+import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.util.UUID
 
@@ -32,7 +33,7 @@ class ApiKeyAuthenticationFilterAsyncTest {
 
     private val service = ApiKeyService()
     private val meterRegistry = SimpleMeterRegistry()
-    private val filter = ApiKeyAuthenticationFilter(service, meterRegistry)
+    private val filter = ApiKeyAuthenticationFilter(service, meterRegistry, objectMapper = ObjectMapper())
     private lateinit var fakeMediator: RecordingMediator
 
     @BeforeEach
@@ -47,7 +48,7 @@ class ApiKeyAuthenticationFilterAsyncTest {
 
     @Test
     fun `reads from custom header name when configured`() {
-        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key")
+        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key", objectMapper = ObjectMapper())
         val plaintext = "epk_unit_test_key_value"
         val key = sampleApiKey()
         fakeMediator.lookupResponse = key
@@ -68,7 +69,7 @@ class ApiKeyAuthenticationFilterAsyncTest {
 
     @Test
     fun `ignores default X-API-Key header when custom header is configured`() {
-        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key")
+        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key", objectMapper = ObjectMapper())
         val key = sampleApiKey()
         fakeMediator.lookupResponse = key
 

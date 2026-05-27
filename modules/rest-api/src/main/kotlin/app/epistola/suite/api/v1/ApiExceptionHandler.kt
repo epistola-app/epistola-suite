@@ -55,6 +55,9 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.HttpMediaTypeNotAcceptableException
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingPathVariableException
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -66,7 +69,16 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
 
 /**
  * Global exception handler for REST API controllers.
- * Provides consistent error responses across all API endpoints.
+ *
+ * Provides consistent RFC 7807 problem-detail responses for both framework
+ * exceptions (405/415/406/404/400) and domain exceptions. Uses
+ * [problemDetail] as the centralized builder so that every error response
+ * carries the correct type URI, title, status, instance, and structured
+ * code extension.
+ *
+ * Pre-dispatch framework exceptions are handled by the
+ * [ApiExceptionHandlerResolver] which produces the same problem-detail
+ * format, avoiding the duplication addressed in ADR 0004.
  */
 @RestControllerAdvice(basePackages = ["app.epistola.suite.api.v1"])
 class ApiExceptionHandler {
@@ -811,6 +823,120 @@ class ApiExceptionHandler {
     /**
      * Handles refresh attempts on non-URL-sourced code lists. Returns 400.
      */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotSupported(
+        ex: HttpRequestMethodNotSupportedException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("Method not allowed: {} on {}", ex.method, request.requestURI)
+        val supportedMethods = ex.supportedMethods?.toList() ?: emptyList()
+        val pd = problemDetail(
+            request,
+            ApiProblemTypes.METHOD_NOT_ALLOWED,
+            "HTTP method ${ex.method} is not supported for this resource",
+            mapOf("method" to ex.method, "supportedMethods" to supportedMethods),
+        )
+        val responseHeaders = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_PROBLEM_JSON
+            if (supportedMethods.isNotEmpty()) set(HttpHeaders.ALLOW, supportedMethods.joinToString(", "))
+        }
+        return ResponseEntity(pd.toProblemMap(), responseHeaders, ApiProblemTypes.METHOD_NOT_ALLOWED.status)
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
+    fun handleMediaTypeNotSupported(
+        ex: HttpMediaTypeNotSupportedException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("Unsupported media type: {}", ex.contentType)
+        return problemResponse(
+            request,
+            ApiProblemTypes.UNSUPPORTED_MEDIA_TYPE,
+            "Media type ${ex.contentType} is not supported",
+            mapOf(
+                "contentType" to ex.contentType.toString(),
+                "supportedTypes" to ex.supportedMediaTypes.map { it.toString() },
+            ),
+        )
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException::class)
+    fun handleMediaTypeNotAcceptable(
+        ex: HttpMediaTypeNotAcceptableException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("Not acceptable: Accept={}", request.getHeader("Accept"))
+        return problemResponse(
+            request,
+            ApiProblemTypes.NOT_ACCEPTABLE,
+            "The requested representation is not available",
+            mapOf(
+                "acceptHeader" to (request.getHeader("Accept") ?: ""),
+                "supportedTypes" to ex.supportedMediaTypes.map { it.toString() },
+            ),
+        )
+    }
+
+    @ExceptionHandler(NoHandlerFoundException::class)
+    fun handleNoHandlerFound(
+        ex: NoHandlerFoundException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("No handler found for {} {}", ex.httpMethod, ex.requestURL)
+        return problemResponse(
+            request,
+            ApiProblemTypes.NOT_FOUND,
+            "No endpoint exists for ${ex.httpMethod} ${ex.requestURL}",
+            mapOf("path" to ex.requestURL),
+        )
+    }
+
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResourceFound(
+        ex: NoResourceFoundException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("Resource not found: {}", ex.resourcePath)
+        return problemResponse(
+            request,
+            ApiProblemTypes.NOT_FOUND,
+            "Resource not found: ${ex.resourcePath}",
+            mapOf("path" to ex.resourcePath),
+        )
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException::class)
+    fun handleMissingServletRequestParameter(
+        ex: MissingServletRequestParameterException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("Missing parameter: {} ({})", ex.parameterName, ex.parameterType)
+        return problemResponse(
+            request,
+            ApiProblemTypes.MISSING_PARAMETER,
+            "Required parameter '${ex.parameterName}' is missing",
+            mapOf("parameterName" to ex.parameterName, "parameterType" to ex.parameterType),
+        )
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatch(
+        ex: MethodArgumentTypeMismatchException,
+        request: HttpServletRequest,
+    ): ResponseEntity<Map<String, Any?>> {
+        logger.warn("Type mismatch for parameter '{}': expected {}, got {}", ex.name, ex.requiredType?.simpleName, ex.value)
+        return problemResponse(
+            request,
+            ApiProblemTypes.TYPE_MISMATCH,
+            "Parameter '${ex.name}' could not be converted to the expected type",
+            mapOf(
+                "parameterName" to ex.name,
+                "expectedType" to (ex.requiredType?.simpleName ?: ""),
+                "actualValue" to (ex.value?.toString() ?: ""),
+            ),
+        )
+    }
+
     @ExceptionHandler(CodeListNotRefreshableException::class)
     fun handleCodeListNotRefreshableException(ex: CodeListNotRefreshableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
         logger.warn("Code list refresh rejected: {}", ex.message)
@@ -818,10 +944,6 @@ class ApiExceptionHandler {
         return problemResponse(request, ApiProblemTypes.CODE_LIST_NOT_REFRESHABLE, ex.message ?: "Code list is not URL-sourced and cannot be refreshed")
     }
 
-    /**
-     * Handles Spring `@Valid` validation failures on controller method parameters.
-     * Returns 400 Bad Request.
-     */
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleMethodArgumentNotValidException(ex: MethodArgumentNotValidException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
         logger.warn("Validation failed on request body: {} errors", ex.bindingResult.errorCount)
@@ -848,66 +970,6 @@ class ApiExceptionHandler {
         )
     }
 
-    /**
-     * Handles unsupported HTTP methods (e.g., POST to a GET-only endpoint).
-     * Returns 405 Method Not Allowed.
-     */
-    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException::class)
-    fun handleMethodNotSupportedException(ex: org.springframework.web.HttpRequestMethodNotSupportedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Method not allowed: {} on {}", ex.method, request.requestURI)
-        val supportedMethods = ex.supportedMethods?.toList() ?: emptyList()
-
-        val response = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-        if (supportedMethods.isNotEmpty()) {
-            response.header(HttpHeaders.ALLOW, supportedMethods.joinToString(", "))
-        }
-        return response.body(
-            problemBody(
-                request,
-                ApiProblemTypes.METHOD_NOT_ALLOWED,
-                "HTTP method ${ex.method} is not supported for this resource",
-                mapOf("method" to ex.method, "supportedMethods" to supportedMethods),
-            ),
-        )
-    }
-
-    /**
-     * Handles unsupported media types in request bodies.
-     * Returns 415 Unsupported Media Type.
-     */
-    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException::class)
-    fun handleMediaTypeNotSupportedException(ex: org.springframework.web.HttpMediaTypeNotSupportedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Unsupported media type: {}", ex.contentType)
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.UNSUPPORTED_MEDIA_TYPE,
-            "Media type ${ex.contentType} is not supported",
-            mapOf("contentType" to ex.contentType.toString(), "supportedTypes" to ex.supportedMediaTypes.map { it.toString() }),
-        )
-    }
-
-    /**
-     * Handles cases where the Accept header requests a representation we cannot produce.
-     * Returns 406 Not Acceptable.
-     */
-    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotAcceptableException::class)
-    fun handleMediaTypeNotAcceptableException(ex: org.springframework.web.HttpMediaTypeNotAcceptableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Not acceptable: Accept={}", request.getHeader("Accept"))
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.NOT_ACCEPTABLE,
-            "The requested representation is not available",
-            mapOf("acceptHeader" to (request.getHeader("Accept") ?: ""), "supportedTypes" to ex.supportedMediaTypes.map { it.toString() }),
-        )
-    }
-
-    /**
-     * Handles unreadable request bodies (e.g., malformed JSON).
-     * Returns 400 Bad Request.
-     */
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleMessageNotReadableException(ex: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
         logger.warn("Unreadable request body: {}", ex.message)
@@ -915,26 +977,6 @@ class ApiExceptionHandler {
         return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "Request body is malformed or unreadable")
     }
 
-    /**
-     * Handles missing required query / form parameters.
-     * Returns 400 Bad Request.
-     */
-    @ExceptionHandler(MissingServletRequestParameterException::class)
-    fun handleMissingServletRequestParameterException(ex: MissingServletRequestParameterException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Missing parameter: {} ({})", ex.parameterName, ex.parameterType)
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.MISSING_PARAMETER,
-            "Required parameter '${ex.parameterName}' is missing",
-            mapOf("parameterName" to ex.parameterName, "parameterType" to ex.parameterType),
-        )
-    }
-
-    /**
-     * Handles missing required path variables.
-     * Returns 400 Bad Request.
-     */
     @ExceptionHandler(MissingPathVariableException::class)
     fun handleMissingPathVariableException(ex: MissingPathVariableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
         logger.warn("Missing path variable: {}", ex.variableName)
@@ -947,58 +989,6 @@ class ApiExceptionHandler {
         )
     }
 
-    /**
-     * Handles type mismatches in path / query parameters (e.g., string where UUID expected).
-     * Returns 400 Bad Request.
-     */
-    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun handleTypeMismatchException(ex: MethodArgumentTypeMismatchException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Type mismatch for parameter '{}': expected {}, got {}", ex.name, ex.requiredType?.simpleName, ex.value)
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.TYPE_MISMATCH,
-            "Parameter '${ex.name}' could not be converted to the expected type",
-            mapOf("parameterName" to ex.name, "expectedType" to (ex.requiredType?.simpleName ?: ""), "actualValue" to (ex.value?.toString() ?: "")),
-        )
-    }
-
-    /**
-     * Handles requests to non-existent endpoints (no handler mapped).
-     * Returns 404 Not Found.
-     */
-    @ExceptionHandler(NoHandlerFoundException::class)
-    fun handleNoHandlerFoundException(ex: NoHandlerFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("No handler found for {} {}", ex.httpMethod, ex.requestURL)
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.NOT_FOUND,
-            "No endpoint exists for ${ex.httpMethod} ${ex.requestURL}",
-            mapOf("path" to ex.requestURL),
-        )
-    }
-
-    /**
-     * Handles requests to non-existent static resources.
-     * Returns 404 Not Found.
-     */
-    @ExceptionHandler(NoResourceFoundException::class)
-    fun handleNoResourceFoundException(ex: NoResourceFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Resource not found: {}", ex.resourcePath)
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.NOT_FOUND,
-            "Resource not found: ${ex.resourcePath}",
-            mapOf("path" to ex.resourcePath),
-        )
-    }
-
-    /**
-     * Handles unexpected exceptions.
-     * Returns 500 Internal Server Error.
-     */
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
         logger.error("Unexpected error in API controller", ex)

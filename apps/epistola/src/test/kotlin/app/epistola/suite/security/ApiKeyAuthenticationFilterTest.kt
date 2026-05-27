@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
+import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 
 /**
@@ -38,7 +39,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
     private lateinit var apiKeyService: ApiKeyService
 
     private val meterRegistry = SimpleMeterRegistry()
-    private val filter by lazy { ApiKeyAuthenticationFilter(apiKeyService, meterRegistry) }
+    private val filter by lazy { ApiKeyAuthenticationFilter(apiKeyService, meterRegistry, objectMapper = ObjectMapper()) }
 
     private lateinit var request: MockHttpServletRequest
     private lateinit var response: MockHttpServletResponse

@@ -30,7 +30,7 @@ import tools.jackson.databind.ObjectMapper
  * (paths under `/api`).
  */
 class ClientIdentityFilter(
-    private val objectMapper: ObjectMapper = ObjectMapper(),
+    private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
 
     private val logger = LoggerFactory.getLogger(javaClass)

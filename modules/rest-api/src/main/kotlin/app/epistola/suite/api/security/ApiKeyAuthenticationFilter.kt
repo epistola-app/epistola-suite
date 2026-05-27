@@ -56,7 +56,7 @@ class ApiKeyAuthenticationFilter(
     private val apiKeyService: ApiKeyService,
     private val meterRegistry: MeterRegistry,
     private val headerName: String = DEFAULT_HEADER_NAME,
-    private val objectMapper: ObjectMapper = ObjectMapper(),
+    private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)

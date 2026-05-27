@@ -8,7 +8,9 @@ import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import tools.jackson.databind.ObjectMapper
 import java.net.URI
@@ -180,36 +182,68 @@ object ApiProblemTypes {
     ): ApiProblemType = ApiProblemType(code, title, status, description, extensionFields)
 }
 
+fun problemDetail(
+    request: HttpServletRequest,
+    type: ApiProblemType,
+    detail: String,
+    extensions: Map<String, Any?> = emptyMap(),
+): ProblemDetail = ProblemDetail.forStatusAndDetail(type.status, detail).apply {
+    this.type = type.type
+    this.title = type.title
+    this.instance = request.problemInstance()
+    setProperty("code", type.code)
+    extensions.forEach { (k, v) -> setProperty(k, v) }
+}
+
+fun ProblemDetail.toProblemMap(): Map<String, Any?> {
+    val body = linkedMapOf<String, Any?>(
+        "type" to (type?.toString() ?: "about:blank"),
+        "title" to (title ?: ""),
+        "status" to status,
+        "detail" to (detail ?: ""),
+        "instance" to (instance?.toString() ?: ""),
+    )
+    properties?.forEach { (k, v) -> body[k] = v }
+    return body
+}
+
+fun HttpServletRequest.problemInstance(): URI = URI.create(requestUriWithQuery())
+
+fun ApiProblemTypes.forStatus(statusCode: HttpStatusCode): ApiProblemType = when (statusCode.value()) {
+    400 -> BAD_REQUEST
+    401 -> UNAUTHORIZED
+    403 -> ACCESS_DENIED
+    404 -> NOT_FOUND
+    405 -> METHOD_NOT_ALLOWED
+    406 -> NOT_ACCEPTABLE
+    415 -> UNSUPPORTED_MEDIA_TYPE
+    500 -> INTERNAL_ERROR
+    501 -> OPERATION_NOT_IMPLEMENTED
+    else -> INTERNAL_ERROR
+}
+
 fun problemResponse(
     request: HttpServletRequest,
     type: ApiProblemType,
     detail: String,
     extensions: Map<String, Any?> = emptyMap(),
-): ResponseEntity<Map<String, Any?>> = ResponseEntity.status(type.status)
-    .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-    .body(problemBody(request, type, detail, extensions))
+): ResponseEntity<Map<String, Any?>> {
+    val pd = problemDetail(request, type, detail, extensions)
+    return ResponseEntity.status(type.status)
+        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .body(pd.toProblemMap())
+}
 
 fun problemBody(
     request: HttpServletRequest,
     type: ApiProblemType,
     detail: String,
     extensions: Map<String, Any?> = emptyMap(),
-): Map<String, Any?> {
-    val body = linkedMapOf<String, Any?>(
-        "type" to type.type.toString(),
-        "title" to type.title,
-        "status" to type.status.value(),
-        "detail" to detail,
-        "instance" to request.requestUriWithQuery(),
-        "code" to type.code,
-    )
-    body.putAll(extensions)
-    return body
-}
+): Map<String, Any?> = problemDetail(request, type, detail, extensions).toProblemMap()
 
 fun ValidationException.toValidationProblemBody(request: HttpServletRequest): Map<String, Any?> {
     val type = ApiProblemTypes.validationProblemType(code)
-    return problemBody(
+    return problemDetail(
         request = request,
         type = type,
         detail = message,
@@ -222,7 +256,7 @@ fun ValidationException.toValidationProblemBody(request: HttpServletRequest): Ma
                 ),
             ),
         ),
-    )
+    ).toProblemMap()
 }
 
 fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> {
@@ -233,20 +267,20 @@ fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<Str
     duplicateFilenames.forEach { filename ->
         errors.add(FieldError("filename", "Duplicate filename in batch: $filename", filename))
     }
-    return problemBody(
+    return problemDetail(
         request = request,
         type = ApiProblemTypes.BATCH_VALIDATION_ERROR,
         detail = message ?: "Batch validation failed",
         extensions = mapOf("errors" to errors),
-    )
+    ).toProblemMap()
 }
 
-fun DataModelValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = problemBody(
+fun DataModelValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = problemDetail(
     request = request,
     type = ApiProblemTypes.DATA_MODEL_VALIDATION_ERROR,
     detail = "Data examples failed validation against schema",
     extensions = mapOf("validationErrors" to validationErrors),
-)
+).toProblemMap()
 
 fun writeProblemDetail(
     response: HttpServletResponse,
@@ -258,7 +292,8 @@ fun writeProblemDetail(
 ) {
     response.status = type.status.value()
     response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
-    objectMapper.writeValue(response.writer, problemBody(request, type, detail, extensions))
+    val body = problemDetail(request, type, detail, extensions).toProblemMap()
+    objectMapper.writeValue(response.writer, body)
 }
 
 fun String.toProblemSlug(): String = lowercase().replace('_', '-')
