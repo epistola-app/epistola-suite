@@ -20,7 +20,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
-import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
@@ -153,9 +152,8 @@ class PreviewDocumentHandler(
             }
         }
 
-        // 5. Resolve locale via variant attribute → tenant default → app default
-        val variant = mediator.query(GetVariant(variantId = variantId))
-        val locale = localeResolver.resolveLocale(tenant, variant?.attributes ?: emptyMap())
+        // 5. Resolve formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, variantId)
 
         // 6. Render
         return renderer.render(
@@ -165,7 +163,7 @@ class PreviewDocumentHandler(
             template = template,
             tenant = tenant,
             data = effectiveData,
-            locale = locale,
+            culture = culture,
         )
     }
 

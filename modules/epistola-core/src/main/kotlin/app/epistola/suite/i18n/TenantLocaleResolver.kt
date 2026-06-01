@@ -1,7 +1,10 @@
 package app.epistola.suite.i18n
 
+import app.epistola.generation.RenderCulture
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
@@ -55,6 +58,23 @@ class TenantLocaleResolver(
 
     /** [Locale] flavour of [resolve]`(tenant)`. */
     fun resolveLocale(tenant: Tenant): Locale = Locale.forLanguageTag(resolve(tenant))
+
+    /**
+     * [RenderCulture] for a render: bundles the resolved locale with the
+     * timezone so the renderer threads one value instead of a growing list of
+     * culture parameters. Timezone is the engine default today — per-tenant
+     * timezone resolution slots in here when it lands, without touching any
+     * `renderPdf*` signature.
+     */
+    fun resolveCulture(tenant: Tenant, variantAttributes: Map<String, String>): RenderCulture = RenderCulture(locale = resolveLocale(tenant, variantAttributes))
+
+    /**
+     * [resolveCulture] that loads the variant's attributes itself, so the three
+     * render call sites (preview, variant-preview, batch executor) don't each
+     * repeat the `GetVariant` + null-handling dance. A missing variant resolves
+     * to the tenant/app chain.
+     */
+    fun resolveCulture(tenant: Tenant, variantId: VariantId): RenderCulture = resolveCulture(tenant, GetVariant(variantId = variantId).query()?.attributes ?: emptyMap())
 
     val applicationDefault: String get() = properties.defaultLocale
 

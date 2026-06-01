@@ -1,9 +1,13 @@
 package app.epistola.generation.expression
 
+import app.epistola.generation.RenderCulture
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 
 class CompositeExpressionEvaluatorTest {
     private val evaluator = CompositeExpressionEvaluator()
@@ -177,5 +181,47 @@ class CompositeExpressionEvaluatorTest {
         assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.jsonata, data))
         assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.javascript, data))
         assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.simple_path, data))
+    }
+
+    // --- forCulture ---
+
+    @Test
+    fun `forCulture returns the same instance for the default culture (no allocation)`() {
+        assertSame(evaluator, evaluator.forCulture(RenderCulture.DEFAULT))
+    }
+
+    @Test
+    fun `forCulture short-circuits for the resolved app-default locale`() {
+        // Regression: the resolver yields forLanguageTag("en-US") for the shipped
+        // default; that must equal RenderCulture.DEFAULT so the fast path engages.
+        val appDefault = RenderCulture(locale = Locale.forLanguageTag("en-US"))
+        assertSame(evaluator, evaluator.forCulture(appDefault))
+    }
+
+    @Test
+    fun `forCulture builds a fresh instance for a non-default locale`() {
+        val dutch = evaluator.forCulture(RenderCulture(locale = Locale.forLanguageTag("nl-NL")))
+        assertNotSame(evaluator, dutch)
+    }
+
+    @Test
+    fun `forCulture reuses the JavaScript and SimplePath evaluators (only JSONata is rebuilt)`() {
+        val dutch = evaluator.forCulture(RenderCulture(locale = Locale.forLanguageTag("nl-NL")))
+        assertSame(evaluator.javaScriptEvaluator, dutch.javaScriptEvaluator)
+        assertSame(evaluator.simplePathEvaluator, dutch.simplePathEvaluator)
+        assertNotSame(evaluator.jsonataEvaluator, dutch.jsonataEvaluator)
+    }
+
+    @Test
+    fun `forCulture binds the locale into JSONata number formatting`() {
+        val dutch = evaluator.forCulture(RenderCulture(locale = Locale.forLanguageTag("nl-NL")))
+        assertEquals(
+            "1.234,56",
+            dutch.evaluate(
+                "\$formatLocaleNumber(amount, '#,##0.00')",
+                ExpressionLanguage.jsonata,
+                mapOf("amount" to 1234.56),
+            ),
+        )
     }
 }

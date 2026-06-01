@@ -1,6 +1,6 @@
 package app.epistola.suite.generation
 
-import app.epistola.generation.DEFAULT_LOCALE
+import app.epistola.generation.RenderCulture
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
-import java.util.Locale
 
 /**
  * Renders a preview PDF from resolved inputs.
@@ -55,7 +54,7 @@ class DocumentPreviewRenderer(
         template: DocumentTemplate,
         tenant: Tenant,
         data: ObjectNode,
-        locale: Locale = DEFAULT_LOCALE,
+        culture: RenderCulture = RenderCulture.DEFAULT,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
 
@@ -95,7 +94,7 @@ class DocumentPreviewRenderer(
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
-                locale = locale,
+                culture = culture,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -114,7 +113,7 @@ class DocumentPreviewRenderer(
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
-                locale = locale,
+                culture = culture,
             )
         }
 

@@ -30,7 +30,6 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
-import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -268,9 +267,8 @@ class DocumentGenerationExecutor(
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
         val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
 
-        // Resolve locale via variant attribute → tenant default → app default
-        val variant = mediator.query(GetVariant(variantId = variantId))
-        val locale = localeResolver.resolveLocale(tenant, variant?.attributes ?: emptyMap())
+        // Resolve formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, variantId)
 
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme
@@ -294,7 +292,7 @@ class DocumentGenerationExecutor(
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
-                locale = locale,
+                culture = culture,
             )
         } else {
             renderPath = "legacy"
@@ -315,7 +313,7 @@ class DocumentGenerationExecutor(
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
-                locale = locale,
+                culture = culture,
             )
         }
 

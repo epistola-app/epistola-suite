@@ -1,12 +1,9 @@
 package app.epistola.generation.expression
 
-import app.epistola.generation.DEFAULT_LOCALE
-import app.epistola.generation.DEFAULT_RENDER_TIMEZONE
+import app.epistola.generation.RenderCulture
 import app.epistola.generation.SimplePathEvaluator
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
-import java.time.ZoneId
-import java.util.Locale
 
 /**
  * Dispatches expression evaluation to the appropriate evaluator based on the expression language.
@@ -14,8 +11,8 @@ import java.util.Locale
  * This is the main entry point for expression evaluation in the generation module.
  * It delegates to JSONata, JavaScript, or SimplePath evaluators based on the Expression model.
  *
- * Fields are intentionally public `val` so a renderer can build a locale-scoped
- * variant via [forLocale] without paying the price of constructing a fresh
+ * Fields are intentionally public `val` so a renderer can build a culture-scoped
+ * variant via [forCulture] without paying the price of constructing a fresh
  * GraalJS engine for every PDF.
  */
 class CompositeExpressionEvaluator(
@@ -24,18 +21,19 @@ class CompositeExpressionEvaluator(
     val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
 ) {
     /**
-     * Render-scoped copy with a fresh [JsonataEvaluator] bound to [locale]
-     * (and [timeZone]). The other evaluators are reused — only JSONata cares
-     * about locale today (via `$formatDate`), and re-creating [JavaScriptEvaluator]
-     * would re-init the GraalJS engine on every render.
+     * Render-scoped copy with a fresh [JsonataEvaluator] bound to [culture]'s
+     * locale and timezone. The other evaluators are reused — only JSONata cares
+     * about culture today (via `$formatDate` / `$formatLocaleNumber`), and
+     * re-creating [JavaScriptEvaluator] would re-init the GraalJS engine on
+     * every render.
      *
-     * Returns `this` if [locale] matches the default — no allocation for the
-     * untouched English path.
+     * Returns `this` when [culture] is [RenderCulture.DEFAULT] — no allocation
+     * for the untouched default install.
      */
-    fun forLocale(locale: Locale, timeZone: ZoneId = DEFAULT_RENDER_TIMEZONE): CompositeExpressionEvaluator {
-        if (locale == DEFAULT_LOCALE && timeZone == DEFAULT_RENDER_TIMEZONE) return this
+    fun forCulture(culture: RenderCulture): CompositeExpressionEvaluator {
+        if (culture == RenderCulture.DEFAULT) return this
         return CompositeExpressionEvaluator(
-            jsonataEvaluator = JsonataEvaluator(locale = locale, timeZone = timeZone),
+            jsonataEvaluator = JsonataEvaluator(locale = culture.locale, timeZone = culture.timeZone),
             javaScriptEvaluator = this.javaScriptEvaluator,
             simplePathEvaluator = this.simplePathEvaluator,
         )
