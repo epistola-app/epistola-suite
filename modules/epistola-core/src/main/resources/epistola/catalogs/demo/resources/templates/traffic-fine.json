@@ -1,493 +1,1446 @@
 {
-  "schemaVersion": 2,
-  "resource": {
-    "type": "template",
-    "slug": "traffic-fine",
-    "name": "Verkeersboete",
-    "themeId": "corporate",
-    "dataModel": {
-      "type": "object",
-      "properties": {
-        "caseNumber": { "type": "string" },
-        "issueDate": { "type": "string", "format": "date" },
-        "recipient": {
-          "type": "object",
-          "properties": {
-            "name": { "type": "string" },
-            "address": { "type": "string" },
-            "postalCode": { "type": "string" },
-            "city": { "type": "string" }
-          }
-        },
-        "violation": {
-          "type": "object",
-          "properties": {
-            "datetime": { "type": "string", "format": "date-time" },
-            "location": { "type": "string" },
-            "description": { "type": "string" },
-            "licensePlate": { "type": "string" },
-            "speedMeasured": { "type": "integer" },
-            "speedLimit": { "type": "integer" }
-          }
-        },
-        "amounts": {
-          "type": "object",
-          "properties": {
-            "fine": { "type": "number" },
-            "adminFee": { "type": "number" },
-            "total": { "type": "number" }
-          }
-        },
-        "paymentDeadline": { "type": "string", "format": "date" },
-        "appealDeadline": { "type": "string", "format": "date" },
-        "iban": { "type": "string" },
-        "paymentReference": { "type": "string" }
-      }
-    },
-    "dataExamples": [
-      {
-        "name": "Snelheidsovertreding A2",
-        "data": {
-          "caseNumber": "WAHV-2026-08742193",
-          "issueDate": "2026-10-14",
-          "recipient": {
-            "name": "Pieter J. de Vries",
-            "address": "Hoofdstraat 12",
-            "postalCode": "3811 AA",
-            "city": "Amersfoort"
-          },
-          "violation": {
-            "datetime": "2026-10-07T14:32:00",
-            "location": "A2 (Utrecht → Den Bosch), hectometerpaal 73,8",
-            "description": "Overschrijding van de maximumsnelheid binnen de bebouwde kom",
-            "licensePlate": "12-ABC-3",
-            "speedMeasured": 82,
-            "speedLimit": 50
-          },
-          "amounts": {
-            "fine": 245.0,
-            "adminFee": 9.0,
-            "total": 254.0
-          },
-          "paymentDeadline": "2026-12-09",
-          "appealDeadline": "2026-11-25",
-          "iban": "NL90 INGB 0000 7100 00",
-          "paymentReference": "5126 0874 2193 0042"
-        }
-      }
-    ],
-    "templateModel": {
-      "modelVersion": 1,
-      "root": "n-root",
-      "themeRef": { "type": "inherit" },
-      "pageSettingsOverride": {
-        "format": "A4",
-        "orientation": "portrait",
-        "margins": { "top": 50, "right": 40, "bottom": 40, "left": 40 }
-      },
-      "nodes": {
-        "n-root": {
-          "id": "n-root",
-          "type": "root",
-          "slots": ["s-root-children"]
-        },
-        "n-addressblock": {
-          "id": "n-addressblock",
-          "type": "addressblock",
-          "slots": ["s-address", "s-aside"],
-          "props": { "align": "left", "top": 45, "sideDistance": 20, "addressWidth": 85, "height": 45 }
-        },
-        "n-address-text": {
-          "id": "n-address-text",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
-                    { "type": "hard_break" },
-                    { "type": "expression", "attrs": { "expression": "recipient.address" } },
-                    { "type": "hard_break" },
-                    { "type": "expression", "attrs": { "expression": "recipient.postalCode" } },
-                    { "type": "text", "text": "  " },
-                    { "type": "expression", "attrs": { "expression": "recipient.city" } }
-                  ]
-                }
-              ]
+  "schemaVersion" : 4,
+  "resource" : {
+    "slug" : "officiele-snelheidsbekeuring",
+    "name" : "Officiële Snelheidsbekeuring",
+    "themeId" : null,
+    "themeCatalogKey" : null,
+    "dataModel" : {
+      "type" : "object",
+      "$schema" : "http://json-schema.org/draft-07/schema#",
+      "required" : [ "person", "speed_measurement", "identication", "finance" ],
+      "properties" : {
+        "person" : {
+          "type" : "object",
+          "required" : [ "initials", "lastname" ],
+          "properties" : {
+            "initials" : {
+              "type" : "string"
+            },
+            "lastname" : {
+              "type" : "string"
+            },
+            "middlename" : {
+              "type" : "string"
             }
           }
         },
-        "n-aside-text": {
-          "id": "n-aside-text",
-          "type": "text",
-          "slots": [],
-          "styles": { "fontSize": "9pt", "color": "#555" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "CJIB", "marks": [{ "type": "bold" }] },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Postbus 1794" },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "8901 CB Leeuwarden" }
-                  ]
+        "finance" : {
+          "type" : "object",
+          "required" : [ "fine_amount_base", "admin_fee", "fina_amount_total" ],
+          "properties" : {
+            "admin_fee" : {
+              "type" : "number",
+              "minimum" : 0
+            },
+            "fine_amount_base" : {
+              "type" : "number",
+              "minimum" : 0
+            },
+            "fina_amount_total" : {
+              "type" : "number",
+              "minimum" : 0
+            }
+          }
+        },
+        "identication" : {
+          "type" : "object",
+          "required" : [ "licenceplate", "date_of_offense", "ticketnumber", "time_of_offense", "payment_due_data" ],
+          "properties" : {
+            "licenceplate" : {
+              "type" : "string"
+            },
+            "ticketnumber" : {
+              "type" : "integer"
+            },
+            "date_of_offense" : {
+              "type" : "string",
+              "format" : "date"
+            },
+            "time_of_offense" : {
+              "type" : "string"
+            },
+            "payment_due_data" : {
+              "type" : "string",
+              "format" : "date"
+            }
+          }
+        },
+        "speed_measurement" : {
+          "type" : "object",
+          "required" : [ "limit", "measured", "correction", "corrected", "overspeed" ],
+          "properties" : {
+            "limit" : {
+              "type" : "number",
+              "minimum" : 0
+            },
+            "measured" : {
+              "type" : "number",
+              "minimum" : 0
+            },
+            "corrected" : {
+              "type" : "number",
+              "minimum" : 0
+            },
+            "overspeed" : {
+              "type" : "number",
+              "minimum" : 0
+            },
+            "correction" : {
+              "type" : "number",
+              "minimum" : 0
+            }
+          }
+        }
+      },
+      "additionalProperties" : true
+    },
+    "dataExamples" : [ {
+      "name" : "example",
+      "data" : {
+        "person" : {
+          "initials" : "P.W.",
+          "lastname" : "Vries",
+          "middlename" : "de"
+        },
+        "finance" : {
+          "admin_fee" : 8.5,
+          "fine_amount_base" : 100,
+          "fina_amount_total" : 108.5
+        },
+        "identication" : {
+          "licenceplate" : "A-111-AA",
+          "ticketnumber" : 12345,
+          "date_of_offense" : "2026-05-04",
+          "time_of_offense" : "11:32",
+          "payment_due_data" : "2026-05-31"
+        },
+        "speed_measurement" : {
+          "limit" : 100,
+          "measured" : 125.54,
+          "corrected" : 120,
+          "overspeed" : 20,
+          "correction" : 5
+        }
+      }
+    } ],
+    "templateModel" : {
+      "modelVersion" : 1,
+      "root" : "root-officiele-snelheidsbekeuring-default",
+      "nodes" : {
+        "4V96BXjmymr7uWnRWq1hE" : {
+          "id" : "4V96BXjmymr7uWnRWq1hE",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "keepTogether" : true
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "Geachte heer/mevrouw ",
+                  "type" : "text"
+                }, {
+                  "type" : "expression",
+                  "attrs" : {
+                    "isNew" : false,
+                    "expression" : "person.initials & \" \" & (person.middlename ? person.middlename & \" \" & person.lastname : person.lastname)"
+                  }
+                }, {
+                  "text" : ",",
+                  "type" : "text"
+                } ]
+              }, {
+                "type" : "paragraph"
+              }, {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "Hierbij ontvangt u de formele beschikking wegens een geconstateerde overtreding van de maximumsnelheid. De details van de overtreding, de berekening en het te betalen bedrag zijn hieronder opgenomen.",
+                  "type" : "text"
+                } ]
+              } ]
+            }
+          }
+        },
+        "Llz7iXgTYOg6T6o2Oyr5g" : {
+          "id" : "Llz7iXgTYOg6T6o2Oyr5g",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "fontSize" : "8pt",
+            "textAlign" : "right"
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "Ministerie van Justitie en Veiligheid",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "em"
+                  } ]
+                } ]
+              } ]
+            }
+          }
+        },
+        "QBb2HA0AAi-gSVbjlzotZ" : {
+          "id" : "QBb2HA0AAi-gSVbjlzotZ",
+          "type" : "pageheader",
+          "slots" : [ "cN5TteEDbDTdLkHSqqTIa" ],
+          "styles" : null,
+          "stylePreset" : null,
+          "props" : {
+            "height" : "80pt"
+          }
+        },
+        "QkUDRW2fmibr1NqKdLKQd" : {
+          "id" : "QkUDRW2fmibr1NqKdLKQd",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "marginTop" : "11pt",
+            "keepTogether" : true
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "3. Financiële Specificatie",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "strong"
+                  } ]
+                } ]
+              }, {
+                "type" : "bullet_list",
+                "attrs" : {
+                  "listStyle" : "disc"
                 },
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Beschikkingsnummer: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "caseNumber" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Beschikkingsdatum: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(issueDate, 'dd MMMM yyyy')" } }
-                  ]
-                }
-              ]
+                "content" : [ {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Basisboete Snelheid: ",
+                      "type" : "text"
+                    }, {
+                      "text" : "€ ",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatLocaleNumber(finance.fine_amount_base, '#,##0.00')"
+                      }
+                    }, {
+                      "text" : "(bijv. € 240,00)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Administratiekosten: ",
+                      "type" : "text"
+                    }, {
+                      "text" : "€",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    }, {
+                      "text" : " ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatLocaleNumber(finance.admin_fee, '#,##0.00')"
+                      }
+                    }, {
+                      "text" : " ",
+                      "type" : "text"
+                    }, {
+                      "text" : "(bijv. € 9,00)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Totaalbedrag: ",
+                      "type" : "text"
+                    }, {
+                      "text" : "€ ",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatLocaleNumber(finance.fina_amount_total, '#,##0.00')"
+                      },
+                      "marks" : [ {
+                        "type" : "strong"
+                      } ]
+                    } ]
+                  } ]
+                } ]
+              } ]
             }
           }
         },
-        "n-title": {
-          "id": "n-title",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginBottom": "6sp", "marginTop": "8sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                { "type": "heading", "attrs": { "level": 1 }, "content": [{ "type": "text", "text": "Beschikking" }] },
-                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Administratiefrechtelijke sanctie inzake een verkeersovertreding" }] }
-              ]
+        "WWKHWS9euFfmcVYzGPHeI" : {
+          "id" : "WWKHWS9euFfmcVYzGPHeI",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "marginTop" : "11pt",
+            "keepTogether" : true
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "2. Snelheidsmeting",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "strong"
+                  } ]
+                }, {
+                  "text" : " ",
+                  "type" : "text"
+                } ]
+              }, {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "De snelheidsmeting is uitgevoerd met geijkte meetapparatuur. De waarden zijn als volgt gecorrigeerd en vastgesteld:",
+                  "type" : "text"
+                } ]
+              }, {
+                "type" : "bullet_list",
+                "attrs" : {
+                  "listStyle" : "disc"
+                },
+                "content" : [ {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Toegestane Snelheid: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatLocaleNumber(speed_measurement.limit, '#,##0')"
+                      }
+                    }, {
+                      "text" : " km/u",
+                      "type" : "text"
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Gemeten Snelheid: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatLocaleNumber(speed_measurement.measured, '#,##0')"
+                      }
+                    }, {
+                      "text" : " ",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "code"
+                      } ]
+                    }, {
+                      "text" : "km/u ",
+                      "type" : "text"
+                    }, {
+                      "text" : "(met decimale komma)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Wettelijke Correctie: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "speed_measurement.correction"
+                      }
+                    }, {
+                      "text" : "km/u",
+                      "type" : "text"
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Gecorrigeerde Snelheid: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "speed_measurement.corrected"
+                      }
+                    }, {
+                      "text" : "km/u",
+                      "type" : "text"
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Geconstateerde Overtreding: ",
+                      "type" : "text"
+                    }, {
+                      "text" : "+",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "strong"
+                      } ]
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "speed_measurement.overspeed"
+                      }
+                    }, {
+                      "text" : "km/u",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "strong"
+                      } ]
+                    } ]
+                  } ]
+                } ]
+              } ]
             }
           }
         },
-        "n-greeting": {
-          "id": "n-greeting",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginTop": "8sp", "marginBottom": "4sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Geachte " },
-                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
-                    { "type": "text", "text": "," }
-                  ]
-                }
-              ]
+        "_QDE78lZtkAqVtXz_5nWy" : {
+          "id" : "_QDE78lZtkAqVtXz_5nWy",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "marginTop" : "11pt",
+            "keepTogether" : true
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "Betalingsinstructie:",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "strong"
+                  } ]
+                } ]
+              }, {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : " U dient het totale bedrag van ",
+                  "type" : "text"
+                }, {
+                  "text" : "€ ",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "em"
+                  } ]
+                }, {
+                  "type" : "expression",
+                  "attrs" : {
+                    "isNew" : false,
+                    "expression" : "finance.fina_amount_total"
+                  }
+                }, {
+                  "text" : " voor de uiterste vervaldatum (",
+                  "type" : "text"
+                }, {
+                  "type" : "expression",
+                  "attrs" : {
+                    "isNew" : false,
+                    "expression" : "$formatDate(identication.payment_due_data, 'dd-MM-yyyy')"
+                  }
+                }, {
+                  "text" : ") te hebben overgemaakt naar ons IBAN-rekeningnummer onder vermelding van het beschikkingsnummer ",
+                  "type" : "text"
+                }, {
+                  "type" : "expression",
+                  "attrs" : {
+                    "isNew" : false,
+                    "expression" : "identication.ticketnumber"
+                  }
+                }, {
+                  "text" : ".",
+                  "type" : "text"
+                } ]
+              } ]
             }
           }
         },
-        "n-intro": {
-          "id": "n-intro",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Op " },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(violation.datetime, 'd MMMM yyyy')" } },
-                    { "type": "text", "text": " om " },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(violation.datetime, 'HH:mm')" } },
-                    { "type": "text", "text": " uur is een verkeersovertreding geconstateerd waarvoor u op grond van de Wet administratiefrechtelijke handhaving verkeersvoorschriften (Wahv) een administratieve sanctie wordt opgelegd. De gegevens van de overtreding zijn hieronder opgenomen." }
-                  ]
-                }
-              ]
+        "eXvLQFVzJlH3a_6ndSzRi" : {
+          "id" : "eXvLQFVzJlH3a_6ndSzRi",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "marginTop" : "11pt",
+            "keepTogether" : true
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "1. Identificatie & Datums",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "strong"
+                  } ]
+                } ]
+              }, {
+                "type" : "bullet_list",
+                "attrs" : {
+                  "listStyle" : "disc"
+                },
+                "content" : [ {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Beschikkingsnummer:",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "identication.ticketnumber"
+                      }
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Kenteken: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "identication.licenceplate"
+                      }
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Datum van Overtreding: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatDate(identication.date_of_offense, 'dd/MM/yyyy')"
+                      }
+                    }, {
+                      "text" : "(DD-MM-YYYY)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Tijdstip: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "identication.time_of_offense"
+                      }
+                    }, {
+                      "text" : "(UU:MM:SS)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Dag van Overtreding: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatDate(identication.date_of_offense, 'EEEE d MMMM yyyy')"
+                      }
+                    }, {
+                      "text" : "(EEEE d MMMM yyyy)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "list_item",
+                  "content" : [ {
+                    "type" : "paragraph",
+                    "content" : [ {
+                      "text" : "Uiterste Betaaldatum: ",
+                      "type" : "text"
+                    }, {
+                      "type" : "expression",
+                      "attrs" : {
+                        "isNew" : false,
+                        "expression" : "$formatDate(identication.payment_due_data, 'd MMMM yyyy')"
+                      }
+                    }, {
+                      "text" : "(d MMM yyyy)",
+                      "type" : "text",
+                      "marks" : [ {
+                        "type" : "em"
+                      } ]
+                    } ]
+                  } ]
+                } ]
+              } ]
             }
           }
         },
-        "n-violation-heading": {
-          "id": "n-violation-heading",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Gegevens van de overtreding" }] }
-              ]
+        "qRcbxJBjh_rXg4VQl-8l3" : {
+          "id" : "qRcbxJBjh_rXg4VQl-8l3",
+          "type" : "pagefooter",
+          "slots" : [ "-Dz9kRu9j-fpBPUwdkm8G" ],
+          "styles" : null,
+          "stylePreset" : null,
+          "props" : null
+        },
+        "y_QuxEQVSpqBcUZOPjFfK" : {
+          "id" : "y_QuxEQVSpqBcUZOPjFfK",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "fontSize" : "8pt",
+            "textAlign" : "center"
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "Gegenereerd op: ",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "em"
+                  } ]
+                }, {
+                  "type" : "expression",
+                  "attrs" : {
+                    "isNew" : false,
+                    "expression" : "sys.render.time"
+                  }
+                } ]
+              } ]
             }
           }
         },
-        "n-violation-table": {
-          "id": "n-violation-table",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginBottom": "6sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Kenteken: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "violation.licensePlate" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Datum en tijd: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(violation.datetime, 'dd-MM-yyyy HH:mm')" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Locatie: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "violation.location" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Overtreding: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "violation.description" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Gemeten snelheid: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(violation.speedMeasured, '0')" } },
-                    { "type": "text", "text": " km/h" },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Toegestane snelheid: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(violation.speedLimit, '0')" } },
-                    { "type": "text", "text": " km/h" },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Overschrijding: ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(violation.speedMeasured - violation.speedLimit, '0')" } },
-                    { "type": "text", "text": " km/h" }
-                  ]
-                }
-              ]
+        "z3_241aPPVr_Xnm04Zb4Y" : {
+          "id" : "z3_241aPPVr_Xnm04Zb4Y",
+          "type" : "text",
+          "slots" : [ ],
+          "styles" : {
+            "fontSize" : "20pt",
+            "fontWeight" : "700"
+          },
+          "stylePreset" : null,
+          "props" : {
+            "content" : {
+              "type" : "doc",
+              "content" : [ {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "Officiële Snelheidsbekeuring ",
+                  "type" : "text"
+                } ]
+              }, {
+                "type" : "paragraph",
+                "content" : [ {
+                  "text" : "   - Centraal Justitieel Incassobureau",
+                  "type" : "text",
+                  "marks" : [ {
+                    "type" : "em"
+                  } ]
+                } ]
+              } ]
             }
           }
         },
-        "n-amount-heading": {
-          "id": "n-amount-heading",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Sanctiebedrag" }] }
-              ]
-            }
-          }
-        },
-        "n-amount-breakdown": {
-          "id": "n-amount-breakdown",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Sanctiebedrag" },
-                    { "type": "text", "text": "  €  " },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.fine, '#,##0.00')" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Administratiekosten" },
-                    { "type": "text", "text": "  €  " },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.adminFee, '#,##0.00')" } },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Totaal te betalen", "marks": [{ "type": "bold" }] },
-                    { "type": "text", "text": "  €  ", "marks": [{ "type": "bold" }] },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.total, '#,##0.00')", "marks": [{ "type": "bold" }] } }
-                  ]
-                }
-              ]
-            }
-          }
-        },
-        "n-payment-heading": {
-          "id": "n-payment-heading",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Betaling" }] }
-              ]
-            }
-          }
-        },
-        "n-payment-body": {
-          "id": "n-payment-body",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Wij verzoeken u het totaalbedrag van € " },
-                    { "type": "expression", "attrs": { "expression": "$formatLocaleNumber(amounts.total, '#,##0.00')" } },
-                    { "type": "text", "text": " uiterlijk op " },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(paymentDeadline, 'd MMMM yyyy')", "marks": [{ "type": "bold" }] } },
-                    { "type": "text", "text": " over te maken op rekeningnummer " },
-                    { "type": "expression", "attrs": { "expression": "iban" } },
-                    { "type": "text", "text": " onder vermelding van betalingskenmerk " },
-                    { "type": "expression", "attrs": { "expression": "paymentReference" } },
-                    { "type": "text", "text": "." }
-                  ]
-                }
-              ]
-            }
-          }
-        },
-        "n-appeal-heading": {
-          "id": "n-appeal-heading",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginTop": "8sp", "marginBottom": "2sp" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Bezwaar" }] }
-              ]
-            }
-          }
-        },
-        "n-appeal-body": {
-          "id": "n-appeal-body",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Bent u het niet eens met deze beschikking? Dan kunt u tot " },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(appealDeadline, 'dd-MM-yyyy')" } },
-                    { "type": "text", "text": " bezwaar maken bij de officier van justitie. Vermeld bij uw bezwaar altijd het beschikkingsnummer " },
-                    { "type": "expression", "attrs": { "expression": "caseNumber" } },
-                    { "type": "text", "text": "." }
-                  ]
-                }
-              ]
-            }
-          }
-        },
-        "n-signature": {
-          "id": "n-signature",
-          "type": "text",
-          "slots": [],
-          "styles": { "marginTop": "8sp", "color": "#555" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Met vriendelijke groet," },
-                    { "type": "hard_break" },
-                    { "type": "text", "text": "Centraal Justitieel Incassobureau" }
-                  ]
-                }
-              ]
-            }
-          }
-        },
-        "n-footer": {
-          "id": "n-footer",
-          "type": "pagefooter",
-          "slots": ["s-footer-children"],
-          "props": { "height": "30pt" }
-        },
-        "n-footer-text": {
-          "id": "n-footer-text",
-          "type": "text",
-          "slots": [],
-          "styles": { "fontSize": "9pt", "color": "#999999", "textAlign": "center" },
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    { "type": "text", "text": "Beschikking " },
-                    { "type": "expression", "attrs": { "expression": "caseNumber" } },
-                    { "type": "text", "text": " — opgesteld op " },
-                    { "type": "expression", "attrs": { "expression": "$formatDate(issueDate, 'd MMMM yyyy')" } },
-                    { "type": "text", "text": " — pagina " },
-                    { "type": "expression", "attrs": { "expression": "sys.pages.current" } },
-                    { "type": "text", "text": " van " },
-                    { "type": "expression", "attrs": { "expression": "sys.pages.total" } }
-                  ]
-                }
-              ]
-            }
-          }
+        "root-officiele-snelheidsbekeuring-default" : {
+          "id" : "root-officiele-snelheidsbekeuring-default",
+          "type" : "root",
+          "slots" : [ "slot-officiele-snelheidsbekeuring-default" ],
+          "styles" : null,
+          "stylePreset" : null,
+          "props" : null
         }
       },
-      "slots": {
-        "s-root-children": {
-          "id": "s-root-children",
-          "nodeId": "n-root",
-          "name": "children",
-          "children": [
-            "n-footer",
-            "n-addressblock",
-            "n-title",
-            "n-greeting",
-            "n-intro",
-            "n-violation-heading",
-            "n-violation-table",
-            "n-amount-heading",
-            "n-amount-breakdown",
-            "n-payment-heading",
-            "n-payment-body",
-            "n-appeal-heading",
-            "n-appeal-body",
-            "n-signature"
-          ]
+      "slots" : {
+        "-Dz9kRu9j-fpBPUwdkm8G" : {
+          "id" : "-Dz9kRu9j-fpBPUwdkm8G",
+          "nodeId" : "qRcbxJBjh_rXg4VQl-8l3",
+          "name" : "children",
+          "children" : [ "y_QuxEQVSpqBcUZOPjFfK" ]
         },
-        "s-address": { "id": "s-address", "nodeId": "n-addressblock", "name": "address", "children": ["n-address-text"] },
-        "s-aside": { "id": "s-aside", "nodeId": "n-addressblock", "name": "aside", "children": ["n-aside-text"] },
-        "s-footer-children": { "id": "s-footer-children", "nodeId": "n-footer", "name": "children", "children": ["n-footer-text"] }
-      }
+        "cN5TteEDbDTdLkHSqqTIa" : {
+          "id" : "cN5TteEDbDTdLkHSqqTIa",
+          "nodeId" : "QBb2HA0AAi-gSVbjlzotZ",
+          "name" : "children",
+          "children" : [ "z3_241aPPVr_Xnm04Zb4Y", "Llz7iXgTYOg6T6o2Oyr5g" ]
+        },
+        "slot-officiele-snelheidsbekeuring-default" : {
+          "id" : "slot-officiele-snelheidsbekeuring-default",
+          "nodeId" : "root-officiele-snelheidsbekeuring-default",
+          "name" : "children",
+          "children" : [ "QBb2HA0AAi-gSVbjlzotZ", "4V96BXjmymr7uWnRWq1hE", "eXvLQFVzJlH3a_6ndSzRi", "WWKHWS9euFfmcVYzGPHeI", "QkUDRW2fmibr1NqKdLKQd", "_QDE78lZtkAqVtXz_5nWy", "qRcbxJBjh_rXg4VQl-8l3" ]
+        }
+      },
+      "themeRef" : {
+        "type" : "inherit"
+      },
+      "pageSettingsOverride" : null,
+      "documentStylesOverride" : null
     },
-    "variants": [
-      {
-        "id": "default",
-        "title": "Standaard (locale via tenant/app)",
-        "attributes": {},
-        "templateModel": null,
-        "isDefault": true
+    "variants" : [ {
+      "id" : "notice-of-speeding-violation",
+      "title" : "Engels",
+      "attributes" : {
+        "system.locale" : "en-GB"
       },
-      {
-        "id": "nl-nl",
-        "title": "Nederlands",
-        "attributes": { "system.locale": "nl-NL" },
-        "templateModel": null,
-        "isDefault": false
+      "templateModel" : {
+        "modelVersion" : 1,
+        "root" : "root-notice-of-speeding-violation",
+        "nodes" : {
+          "15L2OWj-kOi_nPvW9WR5c" : {
+            "id" : "15L2OWj-kOi_nPvW9WR5c",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "keepTogether" : true
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "3. Financial Specification",
+                    "type" : "text",
+                    "marks" : [ {
+                      "type" : "strong"
+                    } ]
+                  } ]
+                }, {
+                  "type" : "bullet_list",
+                  "attrs" : {
+                    "listStyle" : "disc"
+                  },
+                  "content" : [ {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Base Fine Amount: ",
+                        "type" : "text"
+                      }, {
+                        "text" : "£",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatLocaleNumber(finance.fine_amount_base, '#,##0.00')"
+                        }
+                      }, {
+                        "text" : " ",
+                        "type" : "text"
+                      }, {
+                        "text" : "(e.g., $180.00 or £150.00)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Administrative Fees: ",
+                        "type" : "text"
+                      }, {
+                        "text" : "£",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatLocaleNumber(finance.admin_fee, '#,##0.00')"
+                        }
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Total Penalty Due: ",
+                        "type" : "text"
+                      }, {
+                        "text" : "£",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatLocaleNumber(finance.fina_amount_total, '#,##0.00')"
+                        },
+                        "marks" : [ {
+                          "type" : "strong"
+                        } ]
+                      }, {
+                        "text" : " ",
+                        "type" : "text"
+                      }, {
+                        "text" : "(tests comma separators like $1,200.00)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  } ]
+                }, {
+                  "type" : "paragraph"
+                } ]
+              }
+            }
+          },
+          "OBKzktf7HhftXEZVy2g6b" : {
+            "id" : "OBKzktf7HhftXEZVy2g6b",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : null,
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "2. Speed Measurement",
+                    "type" : "text",
+                    "marks" : [ {
+                      "type" : "strong"
+                    } ]
+                  }, {
+                    "text" : " The speed measurement was registered utilizing calibrated enforcement equipment. The values have been processed and adjusted as follows:",
+                    "type" : "text"
+                  } ]
+                }, {
+                  "type" : "bullet_list",
+                  "attrs" : {
+                    "listStyle" : "disc"
+                  },
+                  "content" : [ {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Speed Limit: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "speed_measurement.limit"
+                        }
+                      }, {
+                        "text" : " mph / km/h",
+                        "type" : "text"
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Measured Speed: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatLocaleNumber(speed_measurement.measured, '#,##0')"
+                        }
+                      }, {
+                        "text" : " ",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "code"
+                        } ]
+                      }, {
+                        "text" : "mph / km/h ",
+                        "type" : "text"
+                      }, {
+                        "text" : "(with decimal period)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Statutory Correction: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "speed_measurement.correction"
+                        }
+                      }, {
+                        "text" : " mph / km/h",
+                        "type" : "text"
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Corrected Speed: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "speed_measurement.corrected"
+                        }
+                      }, {
+                        "text" : " mph / km/h",
+                        "type" : "text"
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Recorded Excess Speed: ",
+                        "type" : "text"
+                      }, {
+                        "text" : "+",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "strong"
+                        } ]
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "speed_measurement.overspeed"
+                        }
+                      }, {
+                        "text" : " mph / km/h",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "strong"
+                        } ]
+                      } ]
+                    } ]
+                  } ]
+                } ]
+              }
+            }
+          },
+          "SasZvVlMMfiafHq-fc0jO" : {
+            "id" : "SasZvVlMMfiafHq-fc0jO",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "keepTogether" : true
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "Dear ",
+                    "type" : "text"
+                  }, {
+                    "type" : "expression",
+                    "attrs" : {
+                      "isNew" : false,
+                      "expression" : "person.initials & \" \" & (person.middlename ? person.middlename & \" \" & person.lastname : person.lastname)"
+                    }
+                  }, {
+                    "text" : ",",
+                    "type" : "text"
+                  }, {
+                    "type" : "hard_break"
+                  }, {
+                    "type" : "hard_break"
+                  }, {
+                    "text" : "You are hereby issued a formal citation for exceeding the posted speed limit. The specifics of the violation, calculation breakdown, and the final penalty amount due are detailed below. ",
+                    "type" : "text"
+                  } ]
+                } ]
+              }
+            }
+          },
+          "U1iCuxrJor9DDfYZHsjIG" : {
+            "id" : "U1iCuxrJor9DDfYZHsjIG",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "keepTogether" : true
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "Payment Instructions:",
+                    "type" : "text",
+                    "marks" : [ {
+                      "type" : "strong"
+                    } ]
+                  }, {
+                    "text" : " ",
+                    "type" : "text"
+                  } ]
+                }, {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "You are required to submit the total amount of ",
+                    "type" : "text"
+                  }, {
+                    "text" : "£",
+                    "type" : "text",
+                    "marks" : [ {
+                      "type" : "em"
+                    } ]
+                  }, {
+                    "type" : "expression",
+                    "attrs" : {
+                      "isNew" : false,
+                      "expression" : "$formatLocaleNumber(finance.fina_amount_total, '#,##0.00')"
+                    }
+                  }, {
+                    "text" : "  on or before the designated due date (",
+                    "type" : "text"
+                  }, {
+                    "type" : "expression",
+                    "attrs" : {
+                      "isNew" : false,
+                      "expression" : "$formatDate(identication.payment_due_data, 'MM/dd/yyyy')"
+                    }
+                  }, {
+                    "text" : "). Please reference notice number ",
+                    "type" : "text"
+                  }, {
+                    "type" : "expression",
+                    "attrs" : {
+                      "isNew" : false,
+                      "expression" : "identication.ticketnumber"
+                    }
+                  }, {
+                    "text" : " during the transaction.",
+                    "type" : "text"
+                  } ]
+                } ]
+              }
+            }
+          },
+          "WIOBRkKq1KXHx09y_TvNb" : {
+            "id" : "WIOBRkKq1KXHx09y_TvNb",
+            "type" : "pageheader",
+            "slots" : [ "94uzrCez_Eh_p2nikRmgC" ],
+            "styles" : null,
+            "stylePreset" : null,
+            "props" : null
+          },
+          "a0UrSqd_5y13Ka8qPnXzH" : {
+            "id" : "a0UrSqd_5y13Ka8qPnXzH",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "fontSize" : "8pt",
+              "textAlign" : "center"
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "Generated on: ",
+                    "type" : "text",
+                    "marks" : [ {
+                      "type" : "em"
+                    } ]
+                  }, {
+                    "type" : "expression",
+                    "attrs" : {
+                      "isNew" : false,
+                      "expression" : "sys.render.time"
+                    }
+                  } ]
+                } ]
+              }
+            }
+          },
+          "chuGwh7V9GoVmKqiLj9aF" : {
+            "id" : "chuGwh7V9GoVmKqiLj9aF",
+            "type" : "pagefooter",
+            "slots" : [ "ZdhxcuMZNYTvddIg4KYxW" ],
+            "styles" : null,
+            "stylePreset" : null,
+            "props" : null
+          },
+          "eSYiQx2wEu9-wBZFr27tQ" : {
+            "id" : "eSYiQx2wEu9-wBZFr27tQ",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "keepTogether" : true
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "1. Identification & Dates",
+                    "type" : "text",
+                    "marks" : [ {
+                      "type" : "strong"
+                    } ]
+                  } ]
+                }, {
+                  "type" : "bullet_list",
+                  "attrs" : {
+                    "listStyle" : "disc"
+                  },
+                  "content" : [ {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Notice Number: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "identication.ticketnumber"
+                        }
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Licence plate: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "identication.licenceplate"
+                        }
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Date of Offense: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatDate(identication.date_of_offense, 'MM/dd/yyyy')"
+                        }
+                      }, {
+                        "text" : " ",
+                        "type" : "text"
+                      }, {
+                        "text" : "(MM/DD/YYYY or DD/MM/YYYY)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Time of Offense: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "identication.time_of_offense"
+                        }
+                      }, {
+                        "text" : "(12h AM/PM or 24h clock)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Day of Offense: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatDate(identication.payment_due_data, 'EEEE MMMM d yyyy')"
+                        }
+                      }, {
+                        "text" : " ",
+                        "type" : "text"
+                      }, {
+                        "text" : "(EEEE, MMMM d, yyyy)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  }, {
+                    "type" : "list_item",
+                    "content" : [ {
+                      "type" : "paragraph",
+                      "content" : [ {
+                        "text" : "Payment Due Date: ",
+                        "type" : "text"
+                      }, {
+                        "type" : "expression",
+                        "attrs" : {
+                          "isNew" : false,
+                          "expression" : "$formatDate(identication.payment_due_data, 'd MMMM yyyy')"
+                        }
+                      }, {
+                        "text" : " ",
+                        "type" : "text"
+                      }, {
+                        "text" : "(MMM d, yyyy)",
+                        "type" : "text",
+                        "marks" : [ {
+                          "type" : "em"
+                        } ]
+                      } ]
+                    } ]
+                  } ]
+                } ]
+              }
+            }
+          },
+          "fRQP8B37clpPQJvlJW3DP" : {
+            "id" : "fRQP8B37clpPQJvlJW3DP",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "fontSize" : "8pt",
+              "textAlign" : "right"
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "Central Judicial Collection Agency • Ministry of Justice and Security",
+                    "type" : "text"
+                  } ]
+                } ]
+              }
+            }
+          },
+          "nJFmvj9CgDodULaW5wp1p" : {
+            "id" : "nJFmvj9CgDodULaW5wp1p",
+            "type" : "text",
+            "slots" : [ ],
+            "styles" : {
+              "fontSize" : "20pt",
+              "fontWeight" : "700"
+            },
+            "stylePreset" : null,
+            "props" : {
+              "content" : {
+                "type" : "doc",
+                "content" : [ {
+                  "type" : "paragraph",
+                  "content" : [ {
+                    "text" : "Notice of Speeding Violation",
+                    "type" : "text"
+                  } ]
+                } ]
+              }
+            }
+          },
+          "root-notice-of-speeding-violation" : {
+            "id" : "root-notice-of-speeding-violation",
+            "type" : "root",
+            "slots" : [ "slot-notice-of-speeding-violation" ],
+            "styles" : null,
+            "stylePreset" : null,
+            "props" : null
+          }
+        },
+        "slots" : {
+          "94uzrCez_Eh_p2nikRmgC" : {
+            "id" : "94uzrCez_Eh_p2nikRmgC",
+            "nodeId" : "WIOBRkKq1KXHx09y_TvNb",
+            "name" : "children",
+            "children" : [ "nJFmvj9CgDodULaW5wp1p", "fRQP8B37clpPQJvlJW3DP" ]
+          },
+          "ZdhxcuMZNYTvddIg4KYxW" : {
+            "id" : "ZdhxcuMZNYTvddIg4KYxW",
+            "nodeId" : "chuGwh7V9GoVmKqiLj9aF",
+            "name" : "children",
+            "children" : [ "a0UrSqd_5y13Ka8qPnXzH" ]
+          },
+          "slot-notice-of-speeding-violation" : {
+            "id" : "slot-notice-of-speeding-violation",
+            "nodeId" : "root-notice-of-speeding-violation",
+            "name" : "children",
+            "children" : [ "WIOBRkKq1KXHx09y_TvNb", "SasZvVlMMfiafHq-fc0jO", "eSYiQx2wEu9-wBZFr27tQ", "OBKzktf7HhftXEZVy2g6b", "15L2OWj-kOi_nPvW9WR5c", "U1iCuxrJor9DDfYZHsjIG", "chuGwh7V9GoVmKqiLj9aF" ]
+          }
+        },
+        "themeRef" : {
+          "type" : "inherit"
+        },
+        "pageSettingsOverride" : null,
+        "documentStylesOverride" : null
       },
-      {
-        "id": "en-us",
-        "title": "English (for contrast)",
-        "attributes": { "system.locale": "en-US" },
-        "templateModel": null,
-        "isDefault": false
-      }
-    ]
+      "isDefault" : false
+    }, {
+      "id" : "officiele-snelheidsbekeuring-default",
+      "title" : "Nederlands",
+      "attributes" : {
+        "system.locale" : "nl-NL"
+      },
+      "templateModel" : null,
+      "isDefault" : true
+    } ],
+    "type" : "template"
   }
 }
