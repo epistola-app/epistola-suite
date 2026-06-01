@@ -127,7 +127,9 @@
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Create code list</button>
-                        <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                        <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
+                           hx-target="body" hx-swap="innerHTML"
+                           class="btn btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
