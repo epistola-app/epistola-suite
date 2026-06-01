@@ -60,9 +60,7 @@
 
                     <div class="form-actions">
                         <button type="submit" class="ep-btn ep-btn-primary">Start Load Test</button>
-                        <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}"
-                           hx-target="body" hx-swap="innerHTML"
-                           class="ep-btn ep-btn-outline">Cancel</a>
+                        <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>

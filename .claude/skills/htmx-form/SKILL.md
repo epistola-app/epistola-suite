@@ -72,6 +72,8 @@ Form embedded in a list/detail page that submits via HTMX and replaces a section
 
 **Template pattern**: Form has both `th:action` (fallback) and `th:hx-post` + `hx-target` + `hx-swap="outerHTML"`.
 
+A plain Cancel link inside such a form needs **no** `hx-target`/`hx-swap` of its own. `hx-target` is inherited, but `HxBoostRetargetFilter` forces every boosted navigation back to a `body` swap, so the Cancel link navigates away cleanly. Do not add per-link `hx-target="body"` overrides — see [`docs/htmx.md`](../../../docs/htmx.md) → "Boosted Navigation Always Targets `body`".
+
 ### 3. Dialog Edit (HTMX PATCH + retarget/reswap)
 
 Edit form loaded into a `<dialog>` via HTMX GET, submitted via HTMX PATCH.

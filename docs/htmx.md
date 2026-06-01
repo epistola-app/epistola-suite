@@ -623,6 +623,32 @@ fun newForm(request: ServerRequest): ServerResponse {
 
 Without the `htmxBoosted` check, boosted navigation receives a fragment instead of the full page.
 
+### Boosted Navigation Always Targets `body`
+
+`hx-target` and `hx-swap` are **inherited** HTMX attributes. A form that scopes its swap to a
+sub-region — e.g. an inline-create form:
+
+```html
+<form hx-post="/items" hx-target="#form-area" hx-swap="outerHTML">
+  ...
+  <a th:href="@{/items}">Cancel</a>
+  <!-- boosted link, no hx-* of its own -->
+</form>
+```
+
+leaks that target down to its descendant boosted `<a>`. Because a boosted request renders the
+full `layout/shell` page (see above), the Cancel link would otherwise swap the **entire shell**
+into `#form-area` — a "nested shell".
+
+This is handled centrally by [`HxBoostRetargetFilter`](../apps/epistola/src/main/kotlin/app/epistola/suite/config/HxBoostRetargetFilter.kt):
+any request carrying `HX-Boosted: true` gets `HX-Retarget: body` + `HX-Reswap: innerHTML` on the
+response, enforcing the app invariant that a boosted navigation always replaces `<body>` with a
+full page. **Consequence:** links inside an `hx-target` form (Cancel, breadcrumbs, etc.) need **no**
+`hx-target`/`hx-swap` of their own — do not add per-link overrides.
+
+It is safe because `HX-Boosted` is sent only for boost-driven plain `<a>`/`<form>` navigation;
+explicit `hx-post`/`hx-get` elements are not boosted, so fragment responses are never retargeted.
+
 ### Multi-Select Cascading Dropdowns
 
 When multiple `<select>` elements drive a single dynamic section, use `hx-include="closest form"` so the server receives all current form values, and `HX-Trigger-Name` to know which field changed:

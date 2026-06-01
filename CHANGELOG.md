@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- **Cancel links on create forms no longer nest a full page inside the form.** With `hx-boost="true"` on `<body>`, a Cancel `<a>` inside an inline-create form (e.g. API keys, code lists, load tests) inherited the form's `hx-target`/`hx-swap` and swapped the entire shell into the small form `<div>` — a "nested shell". Rather than patching each link with a per-link `hx-target="body"` override (easy to forget on the next control), this is now enforced centrally by a new `HxBoostRetargetFilter`: any boosted request (`HX-Boosted: true`) gets `HX-Retarget: body` + `HX-Reswap: innerHTML` on the response, so a boosted navigation always replaces `<body>` with the full page regardless of any inherited target. Safe for inline-error forms because explicit `hx-post`/`hx-get` requests are not boosted and so are never retargeted. The three per-link overrides added by the earlier point fix are removed. See [`docs/htmx.md`](docs/htmx.md) → "Boosted Navigation Always Targets `body`".
 - **Template name cannot be changed after creation.** The backend `UpdateDocumentTemplate` command already accepted a `name` parameter, but the settings tab had no UI to edit it — the template name was only settable in the create form. Added an inline-editable name input to the template settings tab that saves on blur/Enter via the existing `PATCH` endpoint, reverts on Escape or failure, and updates the page heading on success. Disabled for templates in read-only (subscribed) catalogs. Closes #333.
 
 ## [0.22.1] - 2026-05-21
