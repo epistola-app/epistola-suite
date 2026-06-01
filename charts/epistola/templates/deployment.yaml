@@ -37,43 +37,12 @@ spec:
       serviceAccountName: {{ include "epistola.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if or (eq .Values.migration.mode "initContainer") .Values.extraCaCerts.enabled }}
+      {{- if eq .Values.migration.mode "initContainer" }}
       initContainers:
-        {{- if .Values.extraCaCerts.enabled }}
-        - name: merge-ca-certs
-          image: "{{ .Values.extraCaCerts.image | default (printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion)) }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              set -e
-              cp "$JAVA_HOME/lib/security/cacerts" /ca-truststore/cacerts
-              chmod u+w /ca-truststore/cacerts
-              for f in /ca-source/*; do
-                [ -f "$f" ] || continue
-                echo "Importing CA: $(basename "$f")"
-                keytool -importcert -noprompt -trustcacerts \
-                  -keystore /ca-truststore/cacerts \
-                  -storepass "{{ .Values.extraCaCerts.trustStorePassword }}" \
-                  -alias "$(basename "$f")" -file "$f"
-              done
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          volumeMounts:
-            - name: ca-source
-              mountPath: /ca-source
-              readOnly: true
-            - name: ca-truststore
-              mountPath: /ca-truststore
-        {{- end }}
-        {{- if eq .Values.migration.mode "initContainer" }}
         {{- if ne (include "epistola.database.effectiveType" .) "none" }}
         {{- include "epistola.waitForDb" . | nindent 8 }}
         {{- end }}
         {{- include "epistola.migrateContainer" . | nindent 8 }}
-        {{- end }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -86,13 +55,16 @@ spec:
               containerPort: 4000
               protocol: TCP
           env:
-            {{- $jvmOpts := .Values.jvm.options | default "" }}
-            {{- if .Values.extraCaCerts.enabled }}
-            {{- $jvmOpts = printf "%s -Djavax.net.ssl.trustStore=/ca-truststore/cacerts -Djavax.net.ssl.trustStorePassword=%s" $jvmOpts .Values.extraCaCerts.trustStorePassword | trim }}
-            {{- end }}
-            {{- if $jvmOpts }}
+            {{- if .Values.jvm.options }}
             - name: JAVA_TOOL_OPTIONS
-              value: {{ $jvmOpts | quote }}
+              value: {{ .Values.jvm.options | quote }}
+            {{- end }}
+            {{- /* Trusted CA certificates are delivered as a Paketo `ca-certificates`
+                   service binding (see volumes below); the buildpack launcher merges
+                   them into the JVM truststore at startup. */}}
+            {{- if .Values.extraCaCerts.enabled }}
+            - name: SERVICE_BINDING_ROOT
+              value: /bindings
             {{- end }}
             {{- if .Values.config.profiles }}
             - name: SPRING_PROFILES_ACTIVE
@@ -226,8 +198,8 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
             {{- if .Values.extraCaCerts.enabled }}
-            - name: ca-truststore
-              mountPath: /ca-truststore
+            - name: ca-cert-binding
+              mountPath: /bindings/ca-certificates
               readOnly: true
             {{- end }}
           {{- end }}
@@ -237,11 +209,18 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- if .Values.extraCaCerts.enabled }}
-        - name: ca-source
-          secret:
-            secretName: {{ .Values.extraCaCerts.existingSecret | default (printf "%s-ca-certs" (include "epistola.fullname" .)) }}
-        - name: ca-truststore
-          emptyDir: {}
+        {{- /* A Paketo `ca-certificates` service binding: a `type` file (from a
+               chart-managed ConfigMap) plus one PEM cert per key (from the cert
+               Secret), projected into a single directory. The buildpack's launch
+               helper reads $SERVICE_BINDING_ROOT, adds these CAs to the JVM
+               truststore — no init container, works under readOnlyRootFilesystem. */}}
+        - name: ca-cert-binding
+          projected:
+            sources:
+              - configMap:
+                  name: {{ printf "%s-ca-binding-type" (include "epistola.fullname" .) }}
+              - secret:
+                  name: {{ .Values.extraCaCerts.existingSecret | default (printf "%s-ca-certs" (include "epistola.fullname" .)) }}
         {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}

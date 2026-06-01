@@ -179,11 +179,14 @@ outbound clients (catalog fetch, Keycloak Admin API, hub registration) use the
 JVM's default truststore, so the pod must be told to trust that CA.
 
 `extraCaCerts` does this without rebuilding the image and without weakening the
-hardened pod (non-root, `readOnlyRootFilesystem`). An init container copies the
-JVM's default `cacerts`, imports your PEM cert(s) into the copy (via `keytool`)
-in a writable `emptyDir`, and the app is pointed at the merged store with
-`-Djavax.net.ssl.trustStore`. The public CA bundle is **preserved** — your CA is
-added, not substituted — so public-internet TLS keeps working.
+hardened pod (non-root, `readOnlyRootFilesystem`). It delivers the certs as a
+[Paketo `ca-certificates` service binding](https://github.com/paketo-buildpacks/ca-certificates):
+the chart projects a binding directory (a `type` marker file plus your PEM
+cert(s)) and sets `SERVICE_BINDING_ROOT`, and the buildpack's launch helper
+merges those CAs into the JVM truststore at startup. The public CA bundle is
+**preserved** — your CA is added, not substituted — so public-internet TLS keeps
+working. There is no init container; everything happens in the app container at
+launch.
 
 ### Inline PEM (chart renders the Secret)
 
@@ -208,7 +211,8 @@ helm upgrade --install epistola charts/epistola \
 ### Pre-existing Secret (you manage the certs)
 
 Reference a Secret whose keys are PEM files (one cert each). The chart renders no
-Secret of its own in this mode:
+Secret of its own in this mode — it still adds the small `type` ConfigMap that
+marks the binding:
 
 ```yaml
 extraCaCerts:
@@ -216,16 +220,22 @@ extraCaCerts:
   existingSecret: corp-ca-bundle
 ```
 
+```bash
+kubectl create secret generic corp-ca-bundle \
+  --from-file=corp-root-ca.crt=/path/to/root-ca.pem \
+  --from-file=corp-intermediate.crt=/path/to/intermediate.pem
+```
+
 Notes:
 
-- Each Secret/`certs` key becomes the truststore alias — keep keys unique and
-  descriptive (e.g. `corp-root-ca.crt`).
-- The init container defaults to the **app image** (guaranteed to ship the exact
-  `keytool` + `cacerts` the app uses). Override `extraCaCerts.image` only if a
-  future image drops `keytool` (point it at a JRE image, e.g.
-  `eclipse-temurin:25-jre`).
+- Each Secret/`certs` value must be a **PEM-encoded certificate**, one cert per
+  key. The key name is cosmetic (it becomes the cert's filename inside the
+  binding). Supply a root + intermediate as separate keys rather than
+  concatenating them.
 - This covers the app's outbound HTTPS only. Database TLS is configured
   separately via the datasource/JDBC settings.
+- At startup the buildpack logs `Added N additional CA certificate(s) to system
+truststore` — a quick confirmation your certs were picked up.
 - A TLS failure against a CA-signed endpoint shows up as
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.

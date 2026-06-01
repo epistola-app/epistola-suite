@@ -131,31 +131,24 @@ jvm:
 # Keycloak, a private catalog server, the epistola-hub, or a corporate
 # TLS-inspecting egress proxy that re-signs traffic with its own root CA.
 #
-# An init container merges these PEM certs into a COPY of the JVM's default
-# truststore (in an emptyDir); the app then trusts BOTH the public CA bundle and
-# these. Nothing is replaced, so public-internet HTTPS keeps working. Compatible
-# with the hardened pod (non-root, readOnlyRootFilesystem) — only the emptyDir is
-# written.
+# Certs are delivered to the app as a Paketo `ca-certificates` service binding;
+# the buildpack launch helper merges them into the JVM truststore at startup,
+# ALONGSIDE the public CA bundle (nothing is replaced, so public-internet HTTPS
+# keeps working). No init container, and compatible with the hardened pod
+# (non-root, readOnlyRootFilesystem).
 extraCaCerts:
   enabled: false
-  # Use a pre-existing Secret whose keys are PEM files (*.crt / *.pem, one cert
-  # each). Takes precedence over `certs` below. Leave blank to have the chart
-  # render a Secret from `certs`.
+  # Use a pre-existing Secret whose keys are PEM files (one cert each); the key
+  # name is cosmetic. Takes precedence over `certs` below. Leave blank to have
+  # the chart render a Secret from `certs`.
   existingSecret: ""
-  # Inline PEM certificates; the chart renders them into a Secret. The map key
-  # becomes the truststore alias, so keep keys unique and descriptive.
+  # Inline PEM certificates; the chart renders them into a Secret. One cert per
+  # key; the key name is cosmetic (it becomes the cert's filename in the binding).
   certs: {}
   #   corp-root-ca.crt: |
   #     -----BEGIN CERTIFICATE-----
   #     ...
   #     -----END CERTIFICATE-----
-  # Init container image. Defaults to the app image, which is guaranteed to
-  # contain the exact JAVA_HOME/cacerts + keytool the app uses. Override only if
-  # the app image ever ships without keytool (use a JRE image, e.g.
-  # eclipse-temurin:25-jre).
-  image: ""
-  # Password of the JDK default truststore (and the merged copy).
-  trustStorePassword: changeit
 
 # Observability configuration
 observability:
