@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`extraCaCerts` — trust client-provided root CA certificates for outbound TLS.** Set `extraCaCerts.enabled=true` and supply PEM cert(s) either inline (`extraCaCerts.certs`, rendered into a Secret by the chart) or via a pre-existing Secret (`extraCaCerts.existingSecret`, keys = PEM files). An init container (`merge-ca-certs`, defaulting to the app image so it has the exact `keytool` + `cacerts` the app uses — override with `extraCaCerts.image`) copies the JVM default truststore into an `emptyDir` and imports the certs, and the app is pointed at the merged store via `JAVA_TOOL_OPTIONS -Djavax.net.ssl.trustStore`. The public CA bundle is preserved (certs are added, not substituted), so public-internet HTTPS keeps working. Compatible with the hardened pod — only the `emptyDir` is written, so `readOnlyRootFilesystem` and non-root stay intact. Use this when the suite must reach an internal Keycloak, a private catalog server, the hub, or a TLS-inspecting egress proxy signed by a private CA. See [`docs/deployment.md`](../../docs/deployment.md#trusting-a-client-root-ca-extracacerts).
+
 ## [0.5.0] - 2026-05-22
 
 ### Added

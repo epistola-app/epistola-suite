@@ -127,6 +127,36 @@ jvm:
   # JAVA_TOOL_OPTIONS passed to the JVM
   options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
 
+# Additional trusted root CA certificates for OUTBOUND TLS — e.g. an internal
+# Keycloak, a private catalog server, the epistola-hub, or a corporate
+# TLS-inspecting egress proxy that re-signs traffic with its own root CA.
+#
+# An init container merges these PEM certs into a COPY of the JVM's default
+# truststore (in an emptyDir); the app then trusts BOTH the public CA bundle and
+# these. Nothing is replaced, so public-internet HTTPS keeps working. Compatible
+# with the hardened pod (non-root, readOnlyRootFilesystem) — only the emptyDir is
+# written.
+extraCaCerts:
+  enabled: false
+  # Use a pre-existing Secret whose keys are PEM files (*.crt / *.pem, one cert
+  # each). Takes precedence over `certs` below. Leave blank to have the chart
+  # render a Secret from `certs`.
+  existingSecret: ""
+  # Inline PEM certificates; the chart renders them into a Secret. The map key
+  # becomes the truststore alias, so keep keys unique and descriptive.
+  certs: {}
+  #   corp-root-ca.crt: |
+  #     -----BEGIN CERTIFICATE-----
+  #     ...
+  #     -----END CERTIFICATE-----
+  # Init container image. Defaults to the app image, which is guaranteed to
+  # contain the exact JAVA_HOME/cacerts + keytool the app uses. Override only if
+  # the app image ever ships without keytool (use a JRE image, e.g.
+  # eclipse-temurin:25-jre).
+  image: ""
+  # Password of the JDK default truststore (and the merged copy).
+  trustStorePassword: changeit
+
 # Observability configuration
 observability:
   # OpenTelemetry exporter endpoint (e.g., http://otel-collector:4318)

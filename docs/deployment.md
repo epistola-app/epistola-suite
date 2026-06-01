@@ -169,3 +169,63 @@ Tuning (`job` mode): `migration.job.backoffLimit`,
 still needs DDL privileges today. Moving that behind `SECURITY DEFINER` functions
 and splitting the migrate role from a DDL-less runtime role is tracked in the
 follow-up backlog issue (#438) — out of scope for the migration-step separation.
+
+## Trusting a client root CA: `extraCaCerts`
+
+Some environments route the suite's **outbound HTTPS** through endpoints signed
+by a private/internal CA — an internal Keycloak, a private template catalog
+server, the epistola-hub, or a corporate TLS-inspecting egress proxy. The suite's
+outbound clients (catalog fetch, Keycloak Admin API, hub registration) use the
+JVM's default truststore, so the pod must be told to trust that CA.
+
+`extraCaCerts` does this without rebuilding the image and without weakening the
+hardened pod (non-root, `readOnlyRootFilesystem`). An init container copies the
+JVM's default `cacerts`, imports your PEM cert(s) into the copy (via `keytool`)
+in a writable `emptyDir`, and the app is pointed at the merged store with
+`-Djavax.net.ssl.trustStore`. The public CA bundle is **preserved** — your CA is
+added, not substituted — so public-internet TLS keeps working.
+
+### Inline PEM (chart renders the Secret)
+
+```yaml
+extraCaCerts:
+  enabled: true
+  certs:
+    corp-root-ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+```
+
+Or supply the file at install time:
+
+```bash
+helm upgrade --install epistola charts/epistola \
+  --set extraCaCerts.enabled=true \
+  --set-file extraCaCerts.certs.corp-root-ca\.crt=/path/to/ca.pem
+```
+
+### Pre-existing Secret (you manage the certs)
+
+Reference a Secret whose keys are PEM files (one cert each). The chart renders no
+Secret of its own in this mode:
+
+```yaml
+extraCaCerts:
+  enabled: true
+  existingSecret: corp-ca-bundle
+```
+
+Notes:
+
+- Each Secret/`certs` key becomes the truststore alias — keep keys unique and
+  descriptive (e.g. `corp-root-ca.crt`).
+- The init container defaults to the **app image** (guaranteed to ship the exact
+  `keytool` + `cacerts` the app uses). Override `extraCaCerts.image` only if a
+  future image drops `keytool` (point it at a JRE image, e.g.
+  `eclipse-temurin:25-jre`).
+- This covers the app's outbound HTTPS only. Database TLS is configured
+  separately via the datasource/JDBC settings.
+- A TLS failure against a CA-signed endpoint shows up as
+  `PKIX path building failed` / `unable to find valid certification path` in the
+  app log — if you see that, the CA is not (yet) trusted.
