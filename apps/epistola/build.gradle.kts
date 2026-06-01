@@ -108,7 +108,7 @@ dependencies {
     // tree navigation (body["a"]["b"]["c"].asInt()) gets noisy. Used by
     // CollectEndpointSmokeIT; preferred over JSONata (which lives in :modules:generation
     // for runtime template expressions, not assertions).
-    testImplementation("com.jayway.jsonpath:json-path:2.10.0")
+    testImplementation("com.jayway.jsonpath:json-path:3.0.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

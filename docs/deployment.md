@@ -169,3 +169,73 @@ Tuning (`job` mode): `migration.job.backoffLimit`,
 still needs DDL privileges today. Moving that behind `SECURITY DEFINER` functions
 and splitting the migrate role from a DDL-less runtime role is tracked in the
 follow-up backlog issue (#438) — out of scope for the migration-step separation.
+
+## Trusting a client root CA: `extraCaCerts`
+
+Some environments route the suite's **outbound HTTPS** through endpoints signed
+by a private/internal CA — an internal Keycloak, a private template catalog
+server, the epistola-hub, or a corporate TLS-inspecting egress proxy. The suite's
+outbound clients (catalog fetch, Keycloak Admin API, hub registration) use the
+JVM's default truststore, so the pod must be told to trust that CA.
+
+`extraCaCerts` does this without rebuilding the image and without weakening the
+hardened pod (non-root, `readOnlyRootFilesystem`). It delivers the certs as a
+[Paketo `ca-certificates` service binding](https://github.com/paketo-buildpacks/ca-certificates):
+the chart projects a binding directory (a `type` marker file plus your PEM
+cert(s)) and sets `SERVICE_BINDING_ROOT`, and the buildpack's launch helper
+merges those CAs into the JVM truststore at startup. The public CA bundle is
+**preserved** — your CA is added, not substituted — so public-internet TLS keeps
+working. There is no init container; everything happens in the app container at
+launch.
+
+### Inline PEM (chart renders the Secret)
+
+```yaml
+extraCaCerts:
+  enabled: true
+  certs:
+    corp-root-ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+```
+
+Or supply the file at install time:
+
+```bash
+helm upgrade --install epistola charts/epistola \
+  --set extraCaCerts.enabled=true \
+  --set-file extraCaCerts.certs.corp-root-ca\.crt=/path/to/ca.pem
+```
+
+### Pre-existing Secret (you manage the certs)
+
+Reference a Secret whose keys are PEM files (one cert each). The chart renders no
+Secret of its own in this mode — it still adds the small `type` ConfigMap that
+marks the binding:
+
+```yaml
+extraCaCerts:
+  enabled: true
+  existingSecret: corp-ca-bundle
+```
+
+```bash
+kubectl create secret generic corp-ca-bundle \
+  --from-file=corp-root-ca.crt=/path/to/root-ca.pem \
+  --from-file=corp-intermediate.crt=/path/to/intermediate.pem
+```
+
+Notes:
+
+- Each Secret/`certs` value must be a **PEM-encoded certificate**, one cert per
+  key. The key name is cosmetic (it becomes the cert's filename inside the
+  binding). Supply a root + intermediate as separate keys rather than
+  concatenating them.
+- This covers the app's outbound HTTPS only. Database TLS is configured
+  separately via the datasource/JDBC settings.
+- At startup the buildpack logs `Added N additional CA certificate(s) to system
+truststore` — a quick confirmation your certs were picked up.
+- A TLS failure against a CA-signed endpoint shows up as
+  `PKIX path building failed` / `unable to find valid certification path` in the
+  app log — if you see that, the CA is not (yet) trusted.
