@@ -21,6 +21,7 @@ import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -40,6 +41,7 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -111,6 +113,7 @@ class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val detailHelper: TemplateDetailHelper,
+    private val localeResolver: TenantLocaleResolver,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
@@ -227,6 +230,15 @@ class DocumentTemplateHandler(
         val context = GetEditorContext(variantId = variantId).query()
             ?: return ServerResponse.notFound().build()
 
+        // Resolve the effective locale through the variant attribute → tenant
+        // override → app default chain, so the editor's expression previews
+        // format `$formatDate` the same way the PDF renderer will. The variant
+        // attributes are already loaded above, so this is one extra GetTenant
+        // query — cheap and worth it for WYSIWYG.
+        val tenant = GetTenant(tenantId.key).query()
+            ?: return ServerResponse.notFound().build()
+        val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
+
         // Test-only seam (issue #418, Instance C): a `leaderTiming` query
         // param (JSON) lets UI tests shrink the editor's leader-hint TTLs so
         // their auto-hide behavior is deterministically observable instead of
@@ -246,6 +258,7 @@ class DocumentTemplateHandler(
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,
+                "resolvedLocale" to resolvedLocale,
             ),
         )
     }

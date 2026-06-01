@@ -1,5 +1,6 @@
 package app.epistola.suite.generation
 
+import app.epistola.generation.RenderCulture
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
@@ -53,6 +54,7 @@ class DocumentPreviewRenderer(
         template: DocumentTemplate,
         tenant: Tenant,
         data: ObjectNode,
+        culture: RenderCulture = RenderCulture.DEFAULT,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
 
@@ -92,6 +94,7 @@ class DocumentPreviewRenderer(
                 pdfaCompliant = false,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
+                culture = culture,
             )
         } else {
             val metadataWithEngine = metadata.copy(
@@ -110,6 +113,7 @@ class DocumentPreviewRenderer(
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+                culture = culture,
             )
         }
 

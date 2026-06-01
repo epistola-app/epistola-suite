@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   evaluateExpression,
   formatResolvedValue,
@@ -8,6 +9,7 @@ import {
   validateArrayResult,
   validateBooleanResult,
   formatDateValue,
+  formatLocaleNumberValue,
 } from './resolve-expression.js';
 
 // ---------------------------------------------------------------------------
@@ -411,6 +413,24 @@ describe('formatDateValue', () => {
     expect(formatDateValue('2024-01-15', 'd MMM yyyy')).toBe('15 Jan 2024');
   });
 
+  it('formats EEEE (full weekday name) — 2024-01-15 is a Monday', () => {
+    expect(formatDateValue('2024-01-15', 'EEEE MMMM d yyyy')).toBe('Monday January 15 2024');
+    expect(formatDateValue('2024-01-15', 'EEEE d MMMM yyyy')).toBe('Monday 15 January 2024');
+  });
+
+  it('formats EEE (short weekday name)', () => {
+    expect(formatDateValue('2024-01-15', 'EEE d MMM yyyy')).toBe('Mon 15 Jan 2024');
+  });
+
+  it('localizes weekday and month names together (nl-NL)', () => {
+    expect(formatDateValue('2024-01-15', 'EEEE MMMM d yyyy', 'nl-NL')).toBe(
+      'maandag januari 15 2024',
+    );
+    expect(formatDateValue('2024-01-15', 'EEEE d MMMM yyyy', 'nl-NL')).toBe(
+      'maandag 15 januari 2024',
+    );
+  });
+
   it('returns raw value for non-date string', () => {
     expect(formatDateValue('not-a-date', 'dd-MM-yyyy')).toBe('not-a-date');
   });
@@ -439,6 +459,32 @@ describe('formatDateValue', () => {
 
   it('defaults time tokens to 00 for date-only values', () => {
     expect(formatDateValue('2024-01-15', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 00:00');
+  });
+
+  // --- locale-aware month names ---
+
+  it('formats d MMMM yyyy in Dutch (lowercase month, the canonical "04 april 2026" case)', () => {
+    expect(formatDateValue('2026-04-04', 'dd MMMM yyyy', 'nl-NL')).toBe('04 april 2026');
+  });
+
+  it('formats d MMM yyyy in Dutch (short lowercase month)', () => {
+    // Dutch short months are lowercase in CLDR: jan, feb, mrt, apr, …
+    const out = formatDateValue('2024-04-15', 'd MMM yyyy', 'nl-NL');
+    // CLDR has used both "apr" and "apr." over time; assert it starts with "apr"
+    // and contains the day + year so the test is stable across ICU versions.
+    expect(out.toLowerCase()).toMatch(/^15 apr\.? 2024$/);
+  });
+
+  it('formats MMMM in German (capitalized as German convention requires)', () => {
+    expect(formatDateValue('2024-03-15', 'dd MMMM yyyy', 'de-DE')).toBe('15 März 2024');
+  });
+
+  it('locale defaults to en-US when not provided (back-compat with pre-locale callers)', () => {
+    expect(formatDateValue('2024-01-15', 'd MMMM yyyy')).toBe('15 January 2024');
+  });
+
+  it('numeric tokens are unaffected by locale (yyyy/MM/dd stay numeric)', () => {
+    expect(formatDateValue('2026-04-04', 'yyyy-MM-dd', 'nl-NL')).toBe('2026-04-04');
   });
 });
 
@@ -470,4 +516,142 @@ describe('evaluateExpression with $formatDate', () => {
     const data = { other: '2024-01-15' };
     expect(await evaluateExpression("$formatDate(missing, 'dd-MM-yyyy')", data)).toBeUndefined();
   });
+});
+
+// ---------------------------------------------------------------------------
+// formatLocaleNumberValue
+// ---------------------------------------------------------------------------
+
+describe('formatLocaleNumberValue', () => {
+  it('formats with en-US grouping and decimal (default)', () => {
+    expect(formatLocaleNumberValue(1234.56, '#,##0.00')).toBe('1,234.56');
+  });
+
+  it('formats with nl-NL grouping and decimal (the canonical case)', () => {
+    expect(formatLocaleNumberValue(1234.56, '#,##0.00', 'nl-NL')).toBe('1.234,56');
+  });
+
+  it('formats with de-DE grouping and decimal', () => {
+    expect(formatLocaleNumberValue(1234.56, '#,##0.00', 'de-DE')).toBe('1.234,56');
+  });
+
+  it('formats an integer with no decimals', () => {
+    expect(formatLocaleNumberValue(1234, '#,##0', 'nl-NL')).toBe('1.234');
+  });
+
+  it('rounds HALF_EVEN to match the PDF renderer (Java DecimalFormat default)', () => {
+    // Banker's rounding: ties go to the nearest even digit, NOT half-up.
+    // Java's DecimalFormat (the PDF renderer) does this by default, so the
+    // editor preview must agree: 8.5 → 8, not 9.
+    expect(formatLocaleNumberValue(8.5, '#,##0', 'nl-NL')).toBe('8');
+    expect(formatLocaleNumberValue(9.5, '#,##0', 'nl-NL')).toBe('10');
+    expect(formatLocaleNumberValue(2.5, '#,##0', 'nl-NL')).toBe('2');
+    expect(formatLocaleNumberValue(2.125, '#,##0.00', 'nl-NL')).toBe('2,12');
+  });
+
+  it('formats with optional fraction digits (#)', () => {
+    // # = optional digit, so trailing zeros are suppressed
+    expect(formatLocaleNumberValue(1234.5, '#,##0.##', 'nl-NL')).toBe('1.234,5');
+  });
+
+  it('formats with mixed required + optional fraction digits', () => {
+    // 0 = required digit, # = optional → exactly 1 fraction shown, up to 2 max
+    expect(formatLocaleNumberValue(1234.5, '#,##0.0#', 'nl-NL')).toBe('1.234,5');
+    expect(formatLocaleNumberValue(1234.56, '#,##0.0#', 'nl-NL')).toBe('1.234,56');
+  });
+
+  it('formats a percent (multiplies by 100, appends locale percent sign)', () => {
+    expect(formatLocaleNumberValue(0.21, '0.0%', 'nl-NL')).toBe('21,0%');
+    expect(formatLocaleNumberValue(0.21, '0.0%', 'en-US')).toBe('21.0%');
+  });
+
+  it('formats a per-mille (multiplies by 1000)', () => {
+    expect(formatLocaleNumberValue(0.0042, '0.00‰', 'en-US')).toBe('4.20‰');
+  });
+
+  it('handles a negative number with a locale-aware minus sign', () => {
+    expect(formatLocaleNumberValue(-1234.5, '#,##0.00', 'nl-NL')).toBe('-1.234,50');
+  });
+
+  it('honours an explicit negative subpattern (parens style)', () => {
+    expect(formatLocaleNumberValue(-12.5, '#,##0.00;(#,##0.00)', 'en-US')).toBe('(12.50)');
+  });
+
+  it('emits literal characters around the digit block', () => {
+    // '$' prefix is a literal in the picture; the digit block slots in after it
+    expect(formatLocaleNumberValue(1234.5, '$#,##0.00', 'en-US')).toBe('$1,234.50');
+  });
+
+  it('numeric tokens are scale-agnostic (zero comes out as a single 0)', () => {
+    expect(formatLocaleNumberValue(0, '#,##0.00', 'nl-NL')).toBe('0,00');
+  });
+
+  it('returns the input as a string when value is not a number', () => {
+    expect(formatLocaleNumberValue('not-a-number', '#,##0.00')).toBe('not-a-number');
+    expect(formatLocaleNumberValue(NaN, '#,##0.00')).toBe('NaN');
+  });
+
+  it('locale defaults to en-US when not provided (back-compat)', () => {
+    expect(formatLocaleNumberValue(1234.5, '#,##0.00')).toBe('1,234.50');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// $formatLocaleNumber in evaluateExpression
+// ---------------------------------------------------------------------------
+
+describe('evaluateExpression with $formatLocaleNumber', () => {
+  it("formats a number field with the resolver's locale", async () => {
+    const data = { invoiceTotal: 1234.56 };
+    expect(
+      await evaluateExpression("$formatLocaleNumber(invoiceTotal, '#,##0.00')", data, 'nl-NL'),
+    ).toBe('1.234,56');
+  });
+
+  it('returns the input when the field is missing', async () => {
+    const data = { other: 1 };
+    expect(
+      await evaluateExpression("$formatLocaleNumber(missing, '#,##0.00')", data, 'nl-NL'),
+    ).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-language parity (shared golden fixture)
+// ---------------------------------------------------------------------------
+//
+// $formatLocaleNumber is implemented twice — here (Intl.NumberFormat + a picture
+// parser) and in the backend JsonataEvaluator (Java DecimalFormat) — and the two
+// MUST agree so the editor preview matches the generated PDF. The golden table
+// is the SINGLE source of truth, shared with the Kotlin LocaleNumberParityTest:
+// modules/generation/src/test/resources/locale-number-parity.json. Both suites
+// assert the same (value, picture, locale) -> expected, so a drift in either
+// implementation fails one side. Add a row -> both languages are held to it.
+
+interface ParityCase {
+  value: number;
+  picture: string;
+  locale: string;
+  expected: string;
+}
+
+const PARITY_FIXTURE_URL = new URL(
+  '../../../../../generation/src/test/resources/locale-number-parity.json',
+  import.meta.url,
+);
+const parityCases: ParityCase[] = JSON.parse(
+  readFileSync(PARITY_FIXTURE_URL, 'utf-8'),
+) as ParityCase[];
+
+describe('formatLocaleNumberValue cross-language parity', () => {
+  it('loads a non-empty shared fixture', () => {
+    expect(parityCases.length).toBeGreaterThan(0);
+  });
+
+  it.each(parityCases)(
+    'formatLocaleNumberValue($value, "$picture", "$locale") === "$expected"',
+    ({ value, picture, locale, expected }) => {
+      expect(formatLocaleNumberValue(value, picture, locale)).toBe(expected);
+    },
+  );
 });

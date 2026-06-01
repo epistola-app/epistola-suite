@@ -10,9 +10,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.6.0",
-    "releasedAt": "2026-05-20T00:00:00Z",
-    "fingerprint": "67449acd2aa001f6a936e742ea56768e16d0986f3d3a8765310a9f2d4f26b62a"
+    "version": "5.7.1",
+    "releasedAt": "2026-06-01T00:00:00Z",
+    "fingerprint": "188553f2a70dadc0c89b94ee0b2860d0010fb7a54c62fdbd956656e9f1476579"
   },
   "resources": [
     {
@@ -78,6 +78,14 @@
       "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, expressions, and the cover-page + running pageheader pattern.",
       "updatedAt": "2026-05-17T00:00:00Z",
       "detailUrl": "./resources/templates/demo-invoice.json"
+    },
+    {
+      "type": "template",
+      "slug": "officiele-snelheidsbekeuring",
+      "name": "Verkeersboete",
+      "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
+      "updatedAt": "2026-05-21T00:00:00Z",
+      "detailUrl": "./resources/templates/traffic-fine.json"
     }
   ]
 }

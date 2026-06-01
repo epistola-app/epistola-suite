@@ -717,6 +717,118 @@ describe('EpExpressionDialog builder mode', () => {
     fresh.close(null);
     fresh.remove();
   });
+
+  it('shows format dropdown for number fields in builder mode after show', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatLocaleNumber(total, '#,##0.00')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatContainer = fresh.querySelector<HTMLElement>('.expression-dialog-builder-format');
+    expect(formatContainer?.getAttribute('style')).not.toContain('display: none');
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    );
+    expect(formatSelect?.value).toBe('#,##0.00');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('wraps expression with $formatLocaleNumber on number format selection', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = 'name';
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    // Pick a number field, then a number format preset.
+    const fieldSelect = fresh.querySelector<HTMLSelectElement>('.expression-dialog-field-select');
+    fieldSelect!.value = 'total';
+    fieldSelect!.dispatchEvent(new Event('change', { bubbles: true }));
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    );
+    formatSelect!.value = '#,##0.00';
+    formatSelect!.dispatchEvent(new Event('change', { bubbles: true }));
+    await fresh.updateComplete;
+
+    expect(fresh['_expression']).toBe("$formatLocaleNumber(total, '#,##0.00')");
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('clears a stale date pattern when switching to a number field', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatDate(invoiceDate, 'dd-MM-yyyy')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    // Switch from the date field to a number field: the date pattern must not
+    // leak into a $formatLocaleNumber call.
+    const fieldSelect = fresh.querySelector<HTMLSelectElement>('.expression-dialog-field-select');
+    fieldSelect!.value = 'total';
+    fieldSelect!.dispatchEvent(new Event('change', { bubbles: true }));
+    await fresh.updateComplete;
+
+    expect(fresh['_builderFormatPattern']).toBe('');
+    expect(fresh['_expression']).toBe('total');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('disables Builder for a custom (non-preset) number format and opens in Code', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatLocaleNumber(total, '#0.000')"; // not a preset
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    expect(fresh['_mode']).toBe('code');
+    const builderBtn = fresh.querySelector<HTMLButtonElement>('.mode-btn[data-mode="builder"]');
+    expect(builderBtn?.classList.contains('disabled')).toBe(true);
+
+    builderBtn?.click();
+    await fresh.updateComplete;
+    expect(fresh['_mode']).toBe('code');
+    const warning = fresh.querySelector('.expression-dialog-mode-warning');
+    expect(warning?.textContent).toContain('number format');
+
+    fresh.close(null);
+    fresh.remove();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -852,6 +964,76 @@ describe('EpExpressionDialog code mode date format', () => {
 
     const formatRow = fresh.querySelector<HTMLElement>('.expression-dialog-format-row');
     expect(formatRow?.getAttribute('style')).toContain('display: none');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('shows a number format dropdown for number field expressions after show', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = 'total';
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatRow = fresh.querySelector<HTMLElement>('.expression-dialog-format-row');
+    expect(formatRow?.getAttribute('style')).not.toContain('display: none');
+    const label = fresh.querySelector('.expression-dialog-format-label');
+    expect(label?.textContent?.trim()).toBe('Number format');
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('wraps expression with $formatLocaleNumber on number format selection', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = 'total';
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>('.expression-dialog-format-select');
+    formatSelect!.value = '#,##0.00';
+    formatSelect!.dispatchEvent(new Event('change', { bubbles: true }));
+    await fresh.updateComplete;
+
+    const textarea = fresh.querySelector<HTMLTextAreaElement>('.expression-dialog-input');
+    expect(textarea?.value).toBe("$formatLocaleNumber(total, '#,##0.00')");
+    fresh.close(null);
+    fresh.remove();
+  });
+
+  it('unwraps $formatLocaleNumber when selecting "No formatting"', async () => {
+    component.remove();
+    const fresh = new EpExpressionDialog();
+    fresh.fieldPaths = testFieldPaths;
+    fresh.initialValue = "$formatLocaleNumber(total, '#,##0.00')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>('.expression-dialog-format-select');
+    expect(formatSelect?.value).toBe('#,##0.00');
+    formatSelect!.value = '';
+    formatSelect!.dispatchEvent(new Event('change', { bubbles: true }));
+    await fresh.updateComplete;
+
+    const textarea = fresh.querySelector<HTMLTextAreaElement>('.expression-dialog-input');
+    expect(textarea?.value).toBe('total');
     fresh.close(null);
     fresh.remove();
   });
@@ -1264,5 +1446,114 @@ describe('EpExpressionDialog quick reference', () => {
     expect(component.querySelectorAll('.expression-dialog-ref-row').length).toBe(0);
 
     component.close(null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Locale awareness (number format examples + preview)
+// ---------------------------------------------------------------------------
+
+describe('EpExpressionDialog locale awareness', () => {
+  beforeEach(() => {
+    // Earlier describes spy on `tryEvaluateExpression` without restoring it;
+    // the preview test below needs the real implementation to format with the
+    // locale, so clear any leaked spies first.
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    document.querySelectorAll('ep-expression-dialog').forEach((el) => el.remove());
+  });
+
+  it('renders number format example labels with the session locale separators', async () => {
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.locale = 'nl-NL';
+    fresh.initialValue = 'total'; // a number field → builder shows the Format dropdown
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    )!;
+    const amountOption = Array.from(formatSelect.options).find((o) => o.value === '#,##0.00')!;
+    // Dutch culture: '.' grouping, ',' decimal — exactly what the user asked for.
+    expect(amountOption.textContent?.trim()).toBe('Decimal, grouped (1.234,50)');
+  });
+
+  it('localizes the month name in date format example labels (nl-NL)', async () => {
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.locale = 'nl-NL';
+    fresh.initialValue = 'invoiceDate'; // a date field → builder shows the Format dropdown
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    )!;
+    const monthNameOption = Array.from(formatSelect.options).find(
+      (o) => o.value === 'd MMMM yyyy',
+    )!;
+    // Dutch month name (lowercase per CLDR), not English 'January'.
+    expect(monthNameOption.textContent?.trim()).toBe('d MMMM yyyy (15 januari 2024)');
+    // A numeric pattern is locale-agnostic by design — same in every culture.
+    const numericOption = Array.from(formatSelect.options).find((o) => o.value === 'dd-MM-yyyy')!;
+    expect(numericOption.textContent?.trim()).toBe('dd-MM-yyyy (15-01-2024)');
+  });
+
+  it('uses en-US separators in the example labels when the locale is en-US', async () => {
+    const fresh = new EpExpressionDialog();
+    fresh.enableBuilderMode = true;
+    fresh.fieldPaths = testFieldPaths;
+    fresh.locale = 'en-US';
+    fresh.initialValue = 'total';
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    const formatSelect = fresh.querySelector<HTMLSelectElement>(
+      '.expression-dialog-builder-format-select',
+    )!;
+    const amountOption = Array.from(formatSelect.options).find((o) => o.value === '#,##0.00')!;
+    expect(amountOption.textContent?.trim()).toBe('Decimal, grouped (1,234.50)');
+  });
+
+  it('formats the live preview with the session locale', async () => {
+    const fresh = new EpExpressionDialog();
+    fresh.fieldPaths = testFieldPaths;
+    fresh.locale = 'nl-NL';
+    fresh.getExampleData = () => ({ total: 1234.5 });
+    fresh.initialValue = "$formatLocaleNumber(total, '#,##0.00')";
+    document.body.appendChild(fresh);
+    await fresh.updateComplete;
+
+    const dialog = fresh.querySelector<HTMLDialogElement>('dialog')!;
+    vi.spyOn(dialog, 'showModal').mockImplementation(() => {});
+    fresh.show();
+    await fresh.updateComplete;
+
+    // Wait for the debounce (250ms) + async evaluation.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await fresh.updateComplete;
+
+    const preview = fresh.querySelector('.expression-dialog-preview');
+    expect(preview?.textContent).toContain('1.234,50');
   });
 });
