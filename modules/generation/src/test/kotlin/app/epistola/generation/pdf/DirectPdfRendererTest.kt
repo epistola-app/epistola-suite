@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.RenderCulture
 import app.epistola.template.model.Margins
 import app.epistola.template.model.Node
 import app.epistola.template.model.Orientation
@@ -11,6 +12,7 @@ import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -1222,5 +1224,66 @@ class DirectPdfRendererTest {
 
         val text = PdfContentExtractor.extract(output.toByteArray())
         assertTrue(text.contains("No address block"))
+    }
+
+    // --- locale-aware rendering via RenderCulture ---
+
+    /** A document with a single inline `$formatLocaleNumber` expression chip. */
+    private fun documentWithLocaleNumber(): TemplateDocument {
+        val textNode = Node(
+            id = "amount-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf(
+                                    "type" to "expression",
+                                    "attrs" to mapOf(
+                                        "expression" to "\$formatLocaleNumber(amount, '#,##0.00')",
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        return documentWithChildren(
+            childNodes = mapOf("amount-text" to textNode),
+            childNodeIds = listOf("amount-text"),
+        )
+    }
+
+    @Test
+    fun `renders a localized number with the nl-NL culture`() {
+        val document = documentWithLocaleNumber()
+        val data = mapOf("amount" to 1234.56)
+
+        val output = ByteArrayOutputStream()
+        renderer.render(
+            document,
+            data,
+            output,
+            culture = RenderCulture(locale = Locale.forLanguageTag("nl-NL")),
+        )
+
+        val text = PdfContentExtractor.extract(output.toByteArray())
+        assertTrue(text.contains("1.234,56"), "Expected Dutch grouping/decimal in: $text")
+    }
+
+    @Test
+    fun `renders a localized number with the default culture`() {
+        val document = documentWithLocaleNumber()
+        val data = mapOf("amount" to 1234.56)
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, data, output)
+
+        val text = PdfContentExtractor.extract(output.toByteArray())
+        assertTrue(text.contains("1,234.56"), "Expected en-US grouping/decimal in: $text")
     }
 }
