@@ -1,7 +1,7 @@
 package app.epistola.generation.pdf
 
-import app.epistola.generation.DEFAULT_LOCALE
 import app.epistola.generation.ProseMirrorConverter
+import app.epistola.generation.RenderCulture
 import app.epistola.generation.SystemParameterRegistry
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
@@ -25,7 +25,6 @@ import com.itextpdf.kernel.xmp.XMPMetaFactory
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
 import java.io.OutputStream
-import java.util.Locale
 
 /**
  * Main PDF renderer that orchestrates node rendering and outputs to a stream.
@@ -92,15 +91,15 @@ class DirectPdfRenderer(
         fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         renderMode: RenderMode = RenderMode.STRICT,
-        locale: Locale = DEFAULT_LOCALE,
+        culture: RenderCulture = RenderCulture.DEFAULT,
     ) {
         TwoPassAnalyzer.validate(document)
 
-        // Build a render-scoped evaluator chain bound to the effective locale.
-        // `forLocale` is a no-op when `locale == DEFAULT_LOCALE`, so the
-        // untouched English path costs nothing — we only allocate when a
+        // Build a render-scoped evaluator chain bound to the effective culture.
+        // `forCulture` is a no-op when `culture == RenderCulture.DEFAULT`, so the
+        // untouched default path costs nothing — we only allocate when a
         // tenant/variant has actually opted into a different locale.
-        val scopedEvaluator = expressionEvaluator.forLocale(locale)
+        val scopedEvaluator = expressionEvaluator.forCulture(culture)
 
         if (TwoPassAnalyzer.requiresTwoPassRendering(document)) {
             val headerNodes = pageHeaderNodesInDocumentOrder(document)

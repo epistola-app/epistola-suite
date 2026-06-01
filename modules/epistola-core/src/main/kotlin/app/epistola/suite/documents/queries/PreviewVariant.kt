@@ -14,7 +14,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.template.model.TemplateDocument
@@ -109,9 +108,8 @@ class PreviewVariantHandler(
             }
         }
 
-        // 4. Resolve the effective locale via variant attribute → tenant default → app default
-        val variant = mediator.query(GetVariant(variantId = variantId))
-        val locale = localeResolver.resolveLocale(tenant, variant?.attributes ?: emptyMap())
+        // 4. Resolve the effective formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, variantId)
 
         // 5. Render — always live theme cascade for drafts (no snapshot)
         return renderer.render(
@@ -121,7 +119,7 @@ class PreviewVariantHandler(
             template = template,
             tenant = tenant,
             data = query.data,
-            locale = locale,
+            culture = culture,
         )
     }
 
