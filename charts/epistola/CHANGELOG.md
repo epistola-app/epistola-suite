@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`extraCaCerts` — trust client-provided root CA certificates for outbound TLS.** Set `extraCaCerts.enabled=true` and supply PEM cert(s) either inline (`extraCaCerts.certs`, rendered into a Secret by the chart) or via a pre-existing Secret (`extraCaCerts.existingSecret`, keys = PEM files). The chart delivers them as a Paketo [`ca-certificates`](https://github.com/paketo-buildpacks/ca-certificates) service binding — a projected volume (a chart-managed `type` ConfigMap + the cert Secret) mounted under `SERVICE_BINDING_ROOT` — and the buildpack's launch helper merges the certs into the JVM truststore at startup, alongside the public CA bundle (certs are added, not substituted, so public-internet HTTPS keeps working). No init container, no `keytool`, no `JAVA_TOOL_OPTIONS` override; compatible with the hardened pod (`readOnlyRootFilesystem`, non-root). Use this when the suite must reach an internal Keycloak, a private catalog server, the hub, or a TLS-inspecting egress proxy signed by a private CA. See [`docs/deployment.md`](../../docs/deployment.md#trusting-a-client-root-ca-extracacerts).
+
 ## [0.5.0] - 2026-05-22
 
 ### Added
