@@ -10,9 +10,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.7.0",
+    "version": "5.7.1",
     "releasedAt": "2026-06-01T00:00:00Z",
-    "fingerprint": "e08d3ea456dd2ddffa6b6de1605ee2c9075367ab582f018f0389b9cebfaf1ba9"
+    "fingerprint": "188553f2a70dadc0c89b94ee0b2860d0010fb7a54c62fdbd956656e9f1476579"
   },
   "resources": [
     {
@@ -81,7 +81,7 @@
     },
     {
       "type": "template",
-      "slug": "traffic-fine",
+      "slug": "officiele-snelheidsbekeuring",
       "name": "Verkeersboete",
       "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
       "updatedAt": "2026-05-21T00:00:00Z",

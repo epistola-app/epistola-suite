@@ -88,7 +88,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
             // Verify templates were created
             val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
-            assertThat(templates.map { it.id.value }).containsExactlyInAnyOrder("hello-world", "simple-letter", "demo-invoice", "traffic-fine")
+            assertThat(templates.map { it.id.value }).containsExactlyInAnyOrder("hello-world", "simple-letter", "demo-invoice", "officiele-snelheidsbekeuring")
 
             // Verify resource type distribution
             assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "asset"))
