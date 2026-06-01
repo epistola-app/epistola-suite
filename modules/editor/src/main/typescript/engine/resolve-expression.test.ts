@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   evaluateExpression,
   formatResolvedValue,
@@ -613,4 +614,44 @@ describe('evaluateExpression with $formatLocaleNumber', () => {
       await evaluateExpression("$formatLocaleNumber(missing, '#,##0.00')", data, 'nl-NL'),
     ).toBeUndefined();
   });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-language parity (shared golden fixture)
+// ---------------------------------------------------------------------------
+//
+// $formatLocaleNumber is implemented twice — here (Intl.NumberFormat + a picture
+// parser) and in the backend JsonataEvaluator (Java DecimalFormat) — and the two
+// MUST agree so the editor preview matches the generated PDF. The golden table
+// is the SINGLE source of truth, shared with the Kotlin LocaleNumberParityTest:
+// modules/generation/src/test/resources/locale-number-parity.json. Both suites
+// assert the same (value, picture, locale) -> expected, so a drift in either
+// implementation fails one side. Add a row -> both languages are held to it.
+
+interface ParityCase {
+  value: number;
+  picture: string;
+  locale: string;
+  expected: string;
+}
+
+const PARITY_FIXTURE_URL = new URL(
+  '../../../../../generation/src/test/resources/locale-number-parity.json',
+  import.meta.url,
+);
+const parityCases: ParityCase[] = JSON.parse(
+  readFileSync(PARITY_FIXTURE_URL, 'utf-8'),
+) as ParityCase[];
+
+describe('formatLocaleNumberValue cross-language parity', () => {
+  it('loads a non-empty shared fixture', () => {
+    expect(parityCases.length).toBeGreaterThan(0);
+  });
+
+  it.each(parityCases)(
+    'formatLocaleNumberValue($value, "$picture", "$locale") === "$expected"',
+    ({ value, picture, locale, expected }) => {
+      expect(formatLocaleNumberValue(value, picture, locale)).toBe(expected);
+    },
+  );
 });

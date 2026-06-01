@@ -1,0 +1,19 @@
+[
+  { "value": 1234.56, "picture": "#,##0.00", "locale": "en-US", "expected": "1,234.56" },
+  { "value": 1234.56, "picture": "#,##0.00", "locale": "nl-NL", "expected": "1.234,56" },
+  { "value": 1234.56, "picture": "#,##0.00", "locale": "de-DE", "expected": "1.234,56" },
+  { "value": 1234, "picture": "#,##0", "locale": "nl-NL", "expected": "1.234" },
+  { "value": 0, "picture": "#,##0.00", "locale": "nl-NL", "expected": "0,00" },
+  { "value": 1234.5, "picture": "#,##0.##", "locale": "nl-NL", "expected": "1.234,5" },
+  { "value": 1234.5, "picture": "#,##0.0#", "locale": "nl-NL", "expected": "1.234,5" },
+  { "value": 1234.56, "picture": "#,##0.0#", "locale": "nl-NL", "expected": "1.234,56" },
+  { "value": 8.5, "picture": "#,##0", "locale": "nl-NL", "expected": "8" },
+  { "value": 9.5, "picture": "#,##0", "locale": "nl-NL", "expected": "10" },
+  { "value": 2.5, "picture": "#,##0", "locale": "nl-NL", "expected": "2" },
+  { "value": 0.21, "picture": "0.0%", "locale": "nl-NL", "expected": "21,0%" },
+  { "value": 0.21, "picture": "0.0%", "locale": "en-US", "expected": "21.0%" },
+  { "value": 0.0042, "picture": "0.00‰", "locale": "en-US", "expected": "4.20‰" },
+  { "value": -1234.5, "picture": "#,##0.00", "locale": "nl-NL", "expected": "-1.234,50" },
+  { "value": -12.5, "picture": "#,##0.00;(#,##0.00)", "locale": "en-US", "expected": "(12.50)" },
+  { "value": 1234.5, "picture": "$#,##0.00", "locale": "en-US", "expected": "$1,234.50" }
+]
