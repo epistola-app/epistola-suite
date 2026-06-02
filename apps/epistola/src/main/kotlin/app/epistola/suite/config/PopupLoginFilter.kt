@@ -29,14 +29,16 @@ class PopupLoginFilter : OncePerRequestFilter() {
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        // Only the login / OAuth2 authorization entry points carry popup=true.
-        // Crucially, gate the getParameter() call behind this path check: reading a
-        // request parameter forces the servlet to parse the body, and this filter
-        // runs at HIGHEST_PRECEDENCE — the same precedence as the character-encoding
-        // filter. Parsing here, before the encoding is forced to UTF-8, would lock
-        // the body to ISO-8859-1 and mangle diacritics in every form POST (e.g. a
-        // template name). The popup flag travels as a query parameter on these GET
-        // entry points, so this never needs to touch a POST body.
+        // Only the login / OAuth2 authorization entry points carry popup=true, so
+        // gate the getParameter() call behind this path check. Reading a request
+        // parameter forces the servlet to parse the body, and this filter runs at
+        // HIGHEST_PRECEDENCE; doing that eagerly on every request is wasteful and
+        // historically also locked form bodies to ISO-8859-1 (mangling diacritics
+        // like `Café`) when it parsed before the encoding was set. The container
+        // default is now pinned to UTF-8 up front (see RequestEncodingConfig), so
+        // correctness no longer hinges on this — but keeping the read scoped to the
+        // paths that actually need it stays the right thing to do. The popup flag
+        // travels as a query parameter on these GET entry points anyway.
         val path = request.requestURI
         val isOAuth2Request = path.startsWith("/oauth2/authorization/")
         val isLoginRequest = path == "/login"
