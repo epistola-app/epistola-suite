@@ -9,20 +9,6 @@
                 gap: var(--ep-space-2);
                 margin-bottom: var(--ep-space-3);
             }
-            .consumer-toolbar-btn {
-                background: transparent;
-                border: 1px solid var(--ep-border-color);
-                border-radius: var(--ep-radius-md);
-                padding: var(--ep-space-1-5) var(--ep-space-3);
-                font-size: var(--ep-text-sm);
-                color: var(--ep-gray-600);
-                cursor: pointer;
-            }
-            .consumer-toolbar-btn:hover {
-                background: var(--ep-gray-50);
-                color: var(--ep-gray-900);
-            }
-
             /* ── Card ─────────────────────────────────────────────────── */
             .consumer-card {
                 background: var(--ep-card);
@@ -255,8 +241,8 @@
             </div>
 
             <div th:if="${!#lists.isEmpty(report.consumers)}" class="consumer-toolbar">
-                <button type="button" class="consumer-toolbar-btn" id="consumer-expand-all">Expand all</button>
-                <button type="button" class="consumer-toolbar-btn" id="consumer-collapse-all">Collapse all</button>
+                <button type="button" class="ep-btn ep-btn-ghost" id="consumer-expand-all">Expand all</button>
+                <button type="button" class="ep-btn ep-btn-ghost" id="consumer-collapse-all">Collapse all</button>
             </div>
 
             <details th:each="consumer : ${report.consumers}"

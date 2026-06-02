@@ -118,7 +118,7 @@
                                 <!-- Rows injected by the inline-editor script below -->
                             </tbody>
                         </table>
-                        <button type="button" class="btn btn-sm btn-outline" id="add-entry-btn">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" id="add-entry-btn">
                             <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                             Add entry
                         </button>
@@ -126,8 +126,8 @@
                     </fieldset>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Create code list</button>
-                        <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                        <button type="submit" class="ep-btn ep-btn-primary">Create code list</button>
+                        <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -165,7 +165,7 @@
                     tr.innerHTML =
                         '<td><input id="entry-code-' + idx + '" type="text" class="ep-input" placeholder="code" aria-label="Entry code" required></td>' +
                         '<td><input id="entry-label-' + idx + '" type="text" class="ep-input" placeholder="Label" aria-label="Entry label" required></td>' +
-                        '<td><button type="button" class="btn btn-sm btn-ghost btn-ghost-destructive">Remove</button></td>';
+                        '<td><button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm">Remove</button></td>';
                     var inputs = tr.querySelectorAll('input');
                     inputs[0].value = r.code;
                     inputs[1].value = r.label;

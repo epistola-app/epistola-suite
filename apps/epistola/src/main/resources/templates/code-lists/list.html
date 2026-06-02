@@ -6,7 +6,7 @@
             <h1>Code lists</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Code List
                 </a>
@@ -42,7 +42,7 @@
                 Use them to constrain variant attribute values to a curated set.
             </div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary"
+               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary"
                style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
@@ -85,7 +85,7 @@
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           class="btn btn-sm btn-ghost">View</a>
+                           class="ep-btn ep-btn-ghost ep-btn-sm">View</a>
                     </td>
                 </tr>
             </tbody>
