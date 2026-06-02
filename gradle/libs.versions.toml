@@ -15,7 +15,7 @@ spring-web = "7.0.7"
 playwright = "1.60.0"
 epistola-contract = "0.6.0"
 epistola-model = "0.6.0"
-aws-sdk = "2.45.1"
+aws-sdk = "2.46.0"
 guava = "33.6.0-jre"
 spring-ai = "2.0.0-M8"
 
