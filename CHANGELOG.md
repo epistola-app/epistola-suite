@@ -28,6 +28,7 @@
 
 ### Fixed
 
+- **Diacritics in submitted form fields were stored as mojibake.** Saving a template (or any entity) whose form fields carried accented characters — e.g. a template name like `Café` — persisted ISO-8859-1-decoded garbage (`CafÃ©`). Root cause was `PopupLoginFilter`: it called `request.getParameter()` on _every_ request at `HIGHEST_PRECEDENCE` (the same precedence as the character-encoding filter), forcing the servlet to parse `application/x-www-form-urlencoded` bodies _before_ the request encoding was set to UTF-8 — which locks Tomcat to the ISO-8859-1 default. The parameter read is now gated behind the `/login` and `/oauth2/authorization/*` path check it always required (the popup flag only ever travels as a query parameter on those entry points), so ordinary form POSTs no longer trigger an early, wrongly-encoded body parse. The JSON editor save path was already UTF-8-safe; reads were never affected. Regression-guarded by `TemplateDraftEncodingHtmxTest` (both the form-POST and JSON-PUT surfaces).
 - **Template name cannot be changed after creation.** The backend `UpdateDocumentTemplate` command already accepted a `name` parameter, but the settings tab had no UI to edit it — the template name was only settable in the create form. Added an inline-editable name input to the template settings tab that saves on blur/Enter via the existing `PATCH` endpoint, reverts on Escape or failure, and updates the page heading on success. Disabled for templates in read-only (subscribed) catalogs. Closes #333.
 
 ## [0.22.1] - 2026-05-21
