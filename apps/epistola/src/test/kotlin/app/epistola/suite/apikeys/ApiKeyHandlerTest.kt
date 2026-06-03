@@ -101,7 +101,8 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // HTMX response is the created-panel fragment with the plaintext key
+            // Success renders the full api-keys/created page (plain boosted form) with the
+            // one-time plaintext key.
             assertThat(response.body).contains("Copy this key now")
             assertThat(response.body).contains("api-key-secret")
             val match = Regex("""epk_[A-Za-z0-9_-]+""").find(response.body!!)

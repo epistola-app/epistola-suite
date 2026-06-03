@@ -73,20 +73,11 @@ class ApiKeyHandler {
             createdBy = principal?.userId,
         ).execute()
 
-        return request.htmx {
-            fragment("api-keys/created", "created-panel") {
-                "tenantId" to tenantId.key
-                "plaintextKey" to result.plaintextKey
-                "apiKey" to result.apiKey
-            }
-            onNonHtmx {
-                ServerResponse.ok().page("api-keys/created") {
-                    "pageTitle" to "API key created - Epistola"
-                    "tenantId" to tenantId.key
-                    "plaintextKey" to result.plaintextKey
-                    "apiKey" to result.apiKey
-                }
-            }
+        return ServerResponse.ok().page("api-keys/created") {
+            "pageTitle" to "API key created - Epistola"
+            "tenantId" to tenantId.key
+            "plaintextKey" to result.plaintextKey
+            "apiKey" to result.apiKey
         }
     }
 

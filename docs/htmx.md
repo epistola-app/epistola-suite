@@ -623,31 +623,47 @@ fun newForm(request: ServerRequest): ServerResponse {
 
 Without the `htmxBoosted` check, boosted navigation receives a fragment instead of the full page.
 
-### Boosted Navigation Always Targets `body`
+### Create Forms: Prefer Plain Boosted Forms; Disinherit When You Must Target
 
 `hx-target` and `hx-swap` are **inherited** HTMX attributes. A form that scopes its swap to a
-sub-region — e.g. an inline-create form:
+sub-region leaks that target down to its descendant controls — including a boosted Cancel `<a>`:
 
 ```html
 <form hx-post="/items" hx-target="#form-area" hx-swap="outerHTML">
   ...
   <a th:href="@{/items}">Cancel</a>
-  <!-- boosted link, no hx-* of its own -->
+  <!-- inherits #form-area / outerHTML! -->
 </form>
 ```
 
-leaks that target down to its descendant boosted `<a>`. Because a boosted request renders the
-full `layout/shell` page (see above), the Cancel link would otherwise swap the **entire shell**
-into `#form-area` — a "nested shell".
+Because a boosted request renders the full `layout/shell` page (see above), that Cancel link
+swaps the **entire shell** into `#form-area` — a "nested shell".
 
-This is handled centrally by [`HxBoostRetargetFilter`](../apps/epistola/src/main/kotlin/app/epistola/suite/config/HxBoostRetargetFilter.kt):
-any request carrying `HX-Boosted: true` gets `HX-Retarget: body` + `HX-Reswap: innerHTML` on the
-response, enforcing the app invariant that a boosted navigation always replaces `<body>` with a
-full page. **Consequence:** links inside an `hx-target` form (Cancel, breadcrumbs, etc.) need **no**
-`hx-target`/`hx-swap` of their own — do not add per-link overrides.
+**The default: don't put HTMX attributes on a standalone create form at all.** Rely on the global
+`hx-boost`. Use a plain `<form th:action method="post">`; the handler renders the full page with
+errors on validation failure (`ServerResponse.ok().page("x/new") { "errors" to … }`) and `303`s on
+success. Cancel is a plain `<a th:href>`. This is what most create forms do (environments, themes,
+templates, attributes, stencils, api-keys, code-lists) — no inheritance, nothing to override.
 
-It is safe because `HX-Boosted` is sent only for boost-driven plain `<a>`/`<form>` navigation;
-explicit `hx-post`/`hx-get` elements are not boosted, so fragment responses are never retargeted.
+**When a form genuinely needs an in-page swap** (e.g. `loadtest/new.html`, whose cascading
+dropdowns load via `hx-get` and whose submit-error preserves in-progress state), keep `hx-post` +
+`hx-target`, and add `hx-disinherit` so descendant links/controls don't inherit it:
+
+```html
+<form
+  th:hx-post="@{…}"
+  hx-target="#form-error"
+  hx-swap="innerHTML"
+  hx-disinherit="hx-target hx-swap"
+>
+  ...
+  <a th:href="@{…}">Cancel</a>
+  <!-- no longer inherits -->
+</form>
+```
+
+Do **not** reach for per-link `hx-target="body"` overrides — disinherit at the form is the
+idiomatic fix.
 
 ### Multi-Select Cascading Dropdowns
 

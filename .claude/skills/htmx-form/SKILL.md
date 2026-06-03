@@ -72,7 +72,7 @@ Form embedded in a list/detail page that submits via HTMX and replaces a section
 
 **Template pattern**: Form has both `th:action` (fallback) and `th:hx-post` + `hx-target` + `hx-swap="outerHTML"`.
 
-A plain Cancel link inside such a form needs **no** `hx-target`/`hx-swap` of its own. `hx-target` is inherited, but `HxBoostRetargetFilter` forces every boosted navigation back to a `body` swap, so the Cancel link navigates away cleanly. Do not add per-link `hx-target="body"` overrides — see [`docs/htmx.md`](../../../docs/htmx.md) → "Boosted Navigation Always Targets `body`".
+`hx-target`/`hx-swap` are **inherited**, so a boosted Cancel link inside such a form would inherit them and nest a full page into the fragment target. Add `hx-disinherit="hx-target hx-swap"` to the form so descendant links/controls don't inherit; the Cancel link stays a plain `<a th:href>`. Do not add per-link `hx-target="body"` overrides — see [`docs/htmx.md`](../../../docs/htmx.md) → "Create Forms: Prefer Plain Boosted Forms". **Prefer pattern 1 (plain boosted) for standalone `/new` pages**; only reach for this inline-HTMX pattern when the form genuinely needs an in-page swap.
 
 ### 3. Dialog Edit (HTMX PATCH + retarget/reswap)
 
