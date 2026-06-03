@@ -1,5 +1,6 @@
 package app.epistola.suite.api.v1
 
+import app.epistola.api.model.FieldError
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTooLargeException
@@ -50,22 +51,21 @@ import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
+import org.springframework.beans.TypeMismatchException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
-import org.springframework.web.HttpMediaTypeNotAcceptableException
-import org.springframework.web.HttpMediaTypeNotSupportedException
-import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
-import org.springframework.web.bind.MissingPathVariableException
-import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.ServletWebRequest
+import org.springframework.web.context.request.WebRequest
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
-import org.springframework.web.servlet.NoHandlerFoundException
-import org.springframework.web.servlet.resource.NoResourceFoundException
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 
 /**
  * Global exception handler for REST API controllers.
@@ -76,21 +76,119 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
  * carries the correct type URI, title, status, instance, and structured
  * code extension.
  *
- * Pre-dispatch framework exceptions are handled by the
- * [ApiExceptionHandlerResolver] which produces the same problem-detail
- * format, avoiding the duplication addressed in ADR 0004.
+ * Framework exceptions are handled by [ResponseEntityExceptionHandler] and
+ * enriched in [handleExceptionInternal], avoiding duplicated handlers.
  */
 @RestControllerAdvice(basePackages = ["app.epistola.suite.api.v1"])
-class ApiExceptionHandler {
+class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     private val logger = LoggerFactory.getLogger(ApiExceptionHandler::class.java)
 
+    override fun handleHttpMessageNotReadable(
+        ex: HttpMessageNotReadableException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any> {
+        logger.warn("Unreadable request body: {}", ex.message)
+
+        return problemEntity(request, headers, ApiProblemTypes.BAD_REQUEST, "Request body is malformed or unreadable")
+    }
+
+    override fun handleMethodArgumentNotValid(
+        ex: MethodArgumentNotValidException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any> {
+        logger.warn("Validation failed on request body: {} errors", ex.bindingResult.errorCount)
+
+        val fieldErrors = ex.bindingResult.fieldErrors.map {
+            FieldError(
+                field = it.field,
+                message = it.defaultMessage ?: "Invalid value",
+                rejectedValue = it.rejectedValue?.toString(),
+            )
+        }
+        val globalErrors = ex.bindingResult.globalErrors.map {
+            FieldError(
+                field = it.objectName,
+                message = it.defaultMessage ?: "Invalid value",
+                rejectedValue = null,
+            )
+        }
+        return problemEntity(
+            request,
+            headers,
+            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            "Request body validation failed",
+            mapOf("errors" to fieldErrors + globalErrors),
+        )
+    }
+
+    override fun handleTypeMismatch(
+        ex: TypeMismatchException,
+        headers: HttpHeaders,
+        status: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any> {
+        val typeMismatch = ex as? MethodArgumentTypeMismatchException
+            ?: return super.handleTypeMismatch(ex, headers, status, request)!!
+        logger.warn("Type mismatch for parameter '{}': expected {}, got {}", typeMismatch.name, typeMismatch.requiredType?.simpleName, typeMismatch.value)
+
+        return problemEntity(
+            request,
+            headers,
+            ApiProblemTypes.TYPE_MISMATCH,
+            "Parameter '${typeMismatch.name}' could not be converted to the expected type",
+            mapOf(
+                "parameterName" to typeMismatch.name,
+                "expectedType" to (typeMismatch.requiredType?.simpleName ?: ""),
+                "actualValue" to (typeMismatch.value?.toString() ?: ""),
+            ),
+        )
+    }
+
+    override fun handleExceptionInternal(
+        ex: Exception,
+        body: Any?,
+        headers: HttpHeaders,
+        statusCode: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        val problemBody = body as? ProblemDetail
+            ?: ProblemDetail.forStatusAndDetail(statusCode, ex.message ?: "Request failed")
+        val type = ApiProblemTypes.forStatus(statusCode)
+        problemBody.type = type.type
+        problemBody.title = type.title
+        problemBody.setProperty("code", type.code)
+        (request as? ServletWebRequest)?.request?.let { servletRequest ->
+            problemBody.instance = servletRequest.problemInstance()
+        }
+        headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
+
+        return super.handleExceptionInternal(ex, problemBody, headers, statusCode, request)
+    }
+
+    private fun problemEntity(
+        request: WebRequest,
+        headers: HttpHeaders,
+        type: ApiProblemType,
+        detail: String,
+        extensions: Map<String, Any?> = emptyMap(),
+    ): ResponseEntity<Any> {
+        val servletRequest = (request as? ServletWebRequest)?.request
+            ?: return ResponseEntity.status(type.status).headers(headers).body(null)
+        headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
+        return ResponseEntity(problemDetail(servletRequest, type, detail, extensions), headers, type.status)
+    }
+
     @ExceptionHandler(BatchValidationException::class)
-    fun handleBatchValidationException(ex: BatchValidationException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleBatchValidationException(ex: BatchValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Batch validation failed: {}", ex.message)
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON)
-            .body(ex.toProblemBody(request))
+            .body(ex.toProblemDetail(request))
     }
 
     /**
@@ -98,21 +196,21 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(ThemeNotFoundException::class)
-    fun handleThemeNotFoundException(ex: ThemeNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleThemeNotFoundException(ex: ThemeNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Theme not found: {}", ex.themeId)
 
         return problemResponse(request, ApiProblemTypes.THEME_NOT_FOUND, ex.message ?: "Theme not found", mapOf("themeId" to ex.themeId.value))
     }
 
     @ExceptionHandler(TenantNotFoundException::class)
-    fun handleTenantNotFoundException(ex: TenantNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleTenantNotFoundException(ex: TenantNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Tenant not found: {}", ex.tenantId)
 
         return problemResponse(request, ApiProblemTypes.TENANT_NOT_FOUND, ex.message ?: "Tenant not found", mapOf("tenantId" to ex.tenantId.value))
     }
 
     @ExceptionHandler(AttributeNotFoundException::class)
-    fun handleAttributeNotFoundException(ex: AttributeNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAttributeNotFoundException(ex: AttributeNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Attribute not found: tenant={} catalog={} attribute={}", ex.tenantId, ex.catalogId, ex.attributeId)
 
         return problemResponse(
@@ -128,7 +226,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(CodeListNotFoundException::class)
-    fun handleCodeListNotFoundException(ex: CodeListNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleCodeListNotFoundException(ex: CodeListNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Code list not found: tenant={} catalog={} codeList={}", ex.tenantId, ex.catalogId, ex.codeListId)
 
         return problemResponse(
@@ -144,7 +242,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(TemplateNotFoundException::class)
-    fun handleTemplateNotFoundException(ex: TemplateNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleTemplateNotFoundException(ex: TemplateNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Template not found: tenant={} template={}", ex.tenantId, ex.templateId)
 
         return problemResponse(
@@ -159,7 +257,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(StencilNotFoundException::class)
-    fun handleStencilNotFoundException(ex: StencilNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleStencilNotFoundException(ex: StencilNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Stencil not found: tenant={} stencil={}", ex.tenantId, ex.stencilId)
 
         return problemResponse(
@@ -174,7 +272,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(StencilVersionNotFoundException::class)
-    fun handleStencilVersionNotFoundException(ex: StencilVersionNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleStencilVersionNotFoundException(ex: StencilVersionNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Stencil version not found: tenant={} catalog={} stencil={} version={}", ex.tenantId, ex.catalogId, ex.stencilId, ex.versionId)
 
         return problemResponse(
@@ -191,7 +289,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(StencilVersionNotDraftException::class)
-    fun handleStencilVersionNotDraftException(ex: StencilVersionNotDraftException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleStencilVersionNotDraftException(ex: StencilVersionNotDraftException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Stencil version not draft: tenant={} catalog={} stencil={} version={}", ex.tenantId, ex.catalogId, ex.stencilId, ex.versionId)
 
         return problemResponse(
@@ -208,7 +306,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(StencilVersionNotPublishedException::class)
-    fun handleStencilVersionNotPublishedException(ex: StencilVersionNotPublishedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleStencilVersionNotPublishedException(ex: StencilVersionNotPublishedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Stencil version not published: tenant={} catalog={} stencil={} version={}", ex.tenantId, ex.catalogId, ex.stencilId, ex.versionId)
 
         return problemResponse(
@@ -225,7 +323,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(FontNotFoundException::class)
-    fun handleFontNotFoundException(ex: FontNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleFontNotFoundException(ex: FontNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Font not found: tenant={} catalog={} font={}", ex.tenantId, ex.catalogId, ex.fontId)
 
         return problemResponse(
@@ -241,7 +339,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(GenerationJobNotFoundException::class)
-    fun handleGenerationJobNotFoundException(ex: GenerationJobNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleGenerationJobNotFoundException(ex: GenerationJobNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Generation job not found: tenant={} requestId={}", ex.tenantId, ex.requestId)
 
         return problemResponse(
@@ -256,7 +354,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(GenerationJobNotCancellableException::class)
-    fun handleGenerationJobNotCancellableException(ex: GenerationJobNotCancellableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleGenerationJobNotCancellableException(ex: GenerationJobNotCancellableException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Generation job not cancellable: tenant={} requestId={} reason={}", ex.tenantId, ex.requestId, ex.reason)
 
         return problemResponse(
@@ -271,7 +369,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(DocumentNotFoundException::class)
-    fun handleDocumentNotFoundException(ex: DocumentNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleDocumentNotFoundException(ex: DocumentNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Document not found: tenant={} documentId={}", ex.tenantId, ex.documentId)
 
         return problemResponse(
@@ -286,7 +384,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(DraftNotFoundException::class)
-    fun handleDraftNotFoundException(ex: DraftNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleDraftNotFoundException(ex: DraftNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Draft not found: tenant={} variant={}", ex.tenantId, ex.variantId)
 
         return problemResponse(
@@ -301,7 +399,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(VersionNotDraftException::class)
-    fun handleVersionNotDraftException(ex: VersionNotDraftException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleVersionNotDraftException(ex: VersionNotDraftException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Version not draft: tenant={} version={}", ex.tenantId, ex.versionId)
 
         return problemResponse(
@@ -316,7 +414,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(VersionNotPublishedException::class)
-    fun handleVersionNotPublishedException(ex: VersionNotPublishedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleVersionNotPublishedException(ex: VersionNotPublishedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Version not published: tenant={} version={}", ex.tenantId, ex.versionId)
 
         return problemResponse(
@@ -331,7 +429,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(VersionArchivedException::class)
-    fun handleVersionArchivedException(ex: VersionArchivedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleVersionArchivedException(ex: VersionArchivedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Version archived: tenant={} version={}", ex.tenantId, ex.versionId)
 
         return problemResponse(
@@ -346,7 +444,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(ActivationNotFoundException::class)
-    fun handleActivationNotFoundException(ex: ActivationNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleActivationNotFoundException(ex: ActivationNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Activation not found: tenant={} variant={} environment={}", ex.tenantId, ex.variantId, ex.environmentId)
 
         return problemResponse(
@@ -362,7 +460,7 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(NoActiveVersionException::class)
-    fun handleNoActiveVersionException(ex: NoActiveVersionException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleNoActiveVersionException(ex: NoActiveVersionException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("No active version: tenant={} variant={} environment={}", ex.tenantId, ex.variantId, ex.environmentId)
 
         return problemResponse(
@@ -382,7 +480,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(ThemeInUseException::class)
-    fun handleThemeInUseException(ex: ThemeInUseException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleThemeInUseException(ex: ThemeInUseException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Theme in use, cannot delete: {}", ex.themeId)
 
         return problemResponse(request, ApiProblemTypes.THEME_IN_USE, ex.message ?: "Theme is in use and cannot be deleted", mapOf("themeId" to ex.themeId.value))
@@ -393,7 +491,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(DefaultVariantDeletionException::class)
-    fun handleDefaultVariantDeletionException(ex: DefaultVariantDeletionException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleDefaultVariantDeletionException(ex: DefaultVariantDeletionException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot delete default variant: {}", ex.variantId)
 
         return problemResponse(request, ApiProblemTypes.DEFAULT_VARIANT_DELETION, ex.message ?: "Cannot delete the default variant", mapOf("variantId" to ex.variantId.value))
@@ -404,7 +502,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(VersionStillActiveException::class)
-    fun handleVersionStillActiveException(ex: VersionStillActiveException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleVersionStillActiveException(ex: VersionStillActiveException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot archive version {}: still active in environments", ex.versionId)
 
         return problemResponse(
@@ -424,12 +522,12 @@ class ApiExceptionHandler {
      * Returns 422 Unprocessable Entity.
      */
     @ExceptionHandler(DataModelValidationException::class)
-    fun handleDataModelValidationException(ex: DataModelValidationException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleDataModelValidationException(ex: DataModelValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Data model validation failed: {} examples with errors", ex.validationErrors.size)
 
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
             .contentType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON)
-            .body(ex.toProblemBody(request))
+            .body(ex.toProblemDetail(request))
     }
 
     /**
@@ -437,7 +535,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(NoMatchingVariantException::class)
-    fun handleNoMatchingVariantException(ex: NoMatchingVariantException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleNoMatchingVariantException(ex: NoMatchingVariantException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("No matching variant for template {}: {}", ex.templateId, ex.criteria)
 
         return problemResponse(
@@ -456,7 +554,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(AmbiguousVariantResolutionException::class)
-    fun handleAmbiguousVariantResolutionException(ex: AmbiguousVariantResolutionException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAmbiguousVariantResolutionException(ex: AmbiguousVariantResolutionException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Ambiguous variant resolution for template {}: {}", ex.templateId, ex.tiedVariantIds)
 
         return problemResponse(
@@ -475,7 +573,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(AttributeInUseException::class)
-    fun handleAttributeInUseException(ex: AttributeInUseException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAttributeInUseException(ex: AttributeInUseException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot delete attribute {}: still in use by {} variant(s)", ex.attributeId, ex.variantCount)
 
         return problemResponse(
@@ -494,7 +592,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(AllowedValuesInUseException::class)
-    fun handleAllowedValuesInUseException(ex: AllowedValuesInUseException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAllowedValuesInUseException(ex: AllowedValuesInUseException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot narrow allowed values for attribute {}: values {} are in use", ex.attributeId, ex.removedValues)
 
         return problemResponse(
@@ -513,7 +611,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(TemplateVariantNotFoundException::class)
-    fun handleTemplateVariantNotFoundException(ex: TemplateVariantNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleTemplateVariantNotFoundException(ex: TemplateVariantNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Template variant not found: {}", ex.message)
 
         return problemResponse(
@@ -533,7 +631,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(VersionNotFoundException::class)
-    fun handleVersionNotFoundException(ex: VersionNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleVersionNotFoundException(ex: VersionNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Version not found: {}", ex.message)
 
         return problemResponse(
@@ -553,7 +651,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(EnvironmentNotFoundException::class)
-    fun handleEnvironmentNotFoundException(ex: EnvironmentNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleEnvironmentNotFoundException(ex: EnvironmentNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Environment not found: {}", ex.message)
 
         return problemResponse(
@@ -572,7 +670,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(NoPublishedVersionException::class)
-    fun handleNoPublishedVersionException(ex: NoPublishedVersionException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleNoPublishedVersionException(ex: NoPublishedVersionException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("No published version: {}", ex.message)
 
         return problemResponse(
@@ -592,7 +690,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(DefaultVariantNotFoundException::class)
-    fun handleDefaultVariantNotFoundException(ex: DefaultVariantNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleDefaultVariantNotFoundException(ex: DefaultVariantNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Default variant not found: {}", ex.message)
 
         return problemResponse(
@@ -611,7 +709,7 @@ class ApiExceptionHandler {
      * Returns 404 Not Found.
      */
     @ExceptionHandler(AssetNotFoundException::class)
-    fun handleAssetNotFoundException(ex: AssetNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAssetNotFoundException(ex: AssetNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Asset not found: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.ASSET_NOT_FOUND, ex.message ?: "Asset not found")
@@ -622,7 +720,7 @@ class ApiExceptionHandler {
      * Returns 413 Payload Too Large.
      */
     @ExceptionHandler(AssetTooLargeException::class)
-    fun handleAssetTooLargeException(ex: AssetTooLargeException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAssetTooLargeException(ex: AssetTooLargeException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Asset too large: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.ASSET_TOO_LARGE, ex.message ?: "Asset exceeds maximum size")
@@ -633,7 +731,7 @@ class ApiExceptionHandler {
      * Returns 400 Bad Request.
      */
     @ExceptionHandler(UnsupportedAssetTypeException::class)
-    fun handleUnsupportedAssetTypeException(ex: UnsupportedAssetTypeException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleUnsupportedAssetTypeException(ex: UnsupportedAssetTypeException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Unsupported asset type: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.UNSUPPORTED_ASSET_TYPE, ex.message ?: "Unsupported asset media type")
@@ -644,7 +742,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(AssetInUseException::class)
-    fun handleAssetInUseException(ex: AssetInUseException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAssetInUseException(ex: AssetInUseException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot delete asset {}: in use by {} template(s)", ex.assetId, ex.usages.size)
 
         return problemResponse(
@@ -663,7 +761,7 @@ class ApiExceptionHandler {
      * Returns 409 Conflict.
      */
     @ExceptionHandler(EnvironmentInUseException::class)
-    fun handleEnvironmentInUseException(ex: EnvironmentInUseException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleEnvironmentInUseException(ex: EnvironmentInUseException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot delete environment {}: {} active activation(s)", ex.environmentId, ex.activationCount)
 
         return problemResponse(
@@ -682,7 +780,7 @@ class ApiExceptionHandler {
      * Returns 400 Bad Request.
      */
     @ExceptionHandler(IllegalArgumentException::class)
-    fun handleIllegalArgumentException(ex: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleIllegalArgumentException(ex: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Bad request: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.BAD_REQUEST, ex.message ?: "Invalid request")
@@ -693,12 +791,12 @@ class ApiExceptionHandler {
      * Returns 400 Bad Request.
      */
     @ExceptionHandler(ValidationException::class)
-    fun handleValidationException(ex: ValidationException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleValidationException(ex: ValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Validation failed [{}] for field '{}': {}", ex.code.wire, ex.field, ex.message)
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON)
-            .body(ex.toValidationProblemBody(request))
+            .body(ex.toValidationProblemDetail(request))
     }
 
     /**
@@ -706,7 +804,7 @@ class ApiExceptionHandler {
      * Returns 403 Forbidden.
      */
     @ExceptionHandler(TenantAccessDeniedException::class)
-    fun handleTenantAccessDeniedException(ex: TenantAccessDeniedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleTenantAccessDeniedException(ex: TenantAccessDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Tenant access denied: user={} tenant={}", ex.userEmail, ex.tenantId)
 
         return problemResponse(request, ApiProblemTypes.ACCESS_DENIED, "Access denied to tenant: ${ex.tenantId}")
@@ -717,7 +815,7 @@ class ApiExceptionHandler {
      * Returns 403 Forbidden.
      */
     @ExceptionHandler(PermissionDeniedException::class)
-    fun handlePermissionDeniedException(ex: PermissionDeniedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handlePermissionDeniedException(ex: PermissionDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Permission denied: user={} tenant={} permission={}", ex.userEmail, ex.tenantId, ex.permission)
 
         return problemResponse(request, ApiProblemTypes.PERMISSION_DENIED, "Insufficient permissions")
@@ -728,7 +826,7 @@ class ApiExceptionHandler {
      * Returns 403 Forbidden.
      */
     @ExceptionHandler(PlatformAccessDeniedException::class)
-    fun handlePlatformAccessDeniedException(ex: PlatformAccessDeniedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handlePlatformAccessDeniedException(ex: PlatformAccessDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Platform access denied: user={} requiredRole={}", ex.userEmail, ex.requiredRole)
 
         return problemResponse(request, ApiProblemTypes.PLATFORM_ACCESS_DENIED, "Platform role required: ${ex.requiredRole.name.lowercase().replace('_', '-')}")
@@ -739,7 +837,7 @@ class ApiExceptionHandler {
      * Returns 403 Forbidden.
      */
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException::class)
-    fun handleAccessDeniedException(ex: org.springframework.security.access.AccessDeniedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAccessDeniedException(ex: org.springframework.security.access.AccessDeniedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Access denied: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
@@ -750,7 +848,7 @@ class ApiExceptionHandler {
      * Returns 401 Unauthorized.
      */
     @ExceptionHandler(org.springframework.security.core.AuthenticationException::class)
-    fun handleAuthenticationException(ex: org.springframework.security.core.AuthenticationException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleAuthenticationException(ex: org.springframework.security.core.AuthenticationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Authentication failed: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.UNAUTHORIZED, "Authentication required")
@@ -761,7 +859,7 @@ class ApiExceptionHandler {
      * implemented by this server yet. Returns 501 Not Implemented.
      */
     @ExceptionHandler(ApiOperationNotImplementedException::class)
-    fun handleApiOperationNotImplementedException(ex: ApiOperationNotImplementedException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleApiOperationNotImplementedException(ex: ApiOperationNotImplementedException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("API operation not implemented: {}", ex.operation)
 
         return problemResponse(
@@ -778,7 +876,7 @@ class ApiExceptionHandler {
      * itself is read-only at the REST API surface.
      */
     @ExceptionHandler(CatalogReadOnlyException::class)
-    fun handleCatalogReadOnlyException(ex: CatalogReadOnlyException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleCatalogReadOnlyException(ex: CatalogReadOnlyException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Write to read-only catalog rejected: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.CATALOG_READ_ONLY, ex.message ?: "Catalog is subscribed and cannot be modified through this API")
@@ -790,7 +888,7 @@ class ApiExceptionHandler {
      * 400 via the generic `IllegalArgumentException` handler.
      */
     @ExceptionHandler(CatalogNotFoundException::class)
-    fun handleCatalogNotFoundException(ex: CatalogNotFoundException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleCatalogNotFoundException(ex: CatalogNotFoundException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Catalog not found: {}", ex.catalogKey)
 
         return problemResponse(request, ApiProblemTypes.CATALOG_NOT_FOUND, ex.message ?: "Catalog not found", mapOf("catalogId" to ex.catalogKey.value))
@@ -803,7 +901,7 @@ class ApiExceptionHandler {
      * was a generic 500.
      */
     @ExceptionHandler(CatalogNotUpgradeableException::class)
-    fun handleCatalogNotUpgradeableException(ex: CatalogNotUpgradeableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleCatalogNotUpgradeableException(ex: CatalogNotUpgradeableException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Catalog not upgradeable: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.CATALOG_NOT_UPGRADEABLE, ex.message ?: "Catalog cannot be upgraded", mapOf("catalogId" to ex.catalogKey.value))
@@ -814,183 +912,21 @@ class ApiExceptionHandler {
      * attribute. Returns 409 Conflict.
      */
     @ExceptionHandler(CodeListInUseException::class)
-    fun handleCodeListInUseException(ex: CodeListInUseException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleCodeListInUseException(ex: CodeListInUseException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Cannot delete code list: still bound by an attribute. {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.CODE_LIST_IN_USE, ex.message ?: "Code list is in use and cannot be deleted")
     }
 
-    /**
-     * Handles refresh attempts on non-URL-sourced code lists. Returns 400.
-     */
-    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
-    fun handleMethodNotSupported(
-        ex: HttpRequestMethodNotSupportedException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Method not allowed: {} on {}", ex.method, request.requestURI)
-        val supportedMethods = ex.supportedMethods?.toList() ?: emptyList()
-        val pd = problemDetail(
-            request,
-            ApiProblemTypes.METHOD_NOT_ALLOWED,
-            "HTTP method ${ex.method} is not supported for this resource",
-            mapOf("method" to ex.method, "supportedMethods" to supportedMethods),
-        )
-        val responseHeaders = HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_PROBLEM_JSON
-            if (supportedMethods.isNotEmpty()) set(HttpHeaders.ALLOW, supportedMethods.joinToString(", "))
-        }
-        return ResponseEntity(pd.toProblemMap(), responseHeaders, ApiProblemTypes.METHOD_NOT_ALLOWED.status)
-    }
-
-    @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
-    fun handleMediaTypeNotSupported(
-        ex: HttpMediaTypeNotSupportedException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Unsupported media type: {}", ex.contentType)
-        return problemResponse(
-            request,
-            ApiProblemTypes.UNSUPPORTED_MEDIA_TYPE,
-            "Media type ${ex.contentType} is not supported",
-            mapOf(
-                "contentType" to ex.contentType.toString(),
-                "supportedTypes" to ex.supportedMediaTypes.map { it.toString() },
-            ),
-        )
-    }
-
-    @ExceptionHandler(HttpMediaTypeNotAcceptableException::class)
-    fun handleMediaTypeNotAcceptable(
-        ex: HttpMediaTypeNotAcceptableException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Not acceptable: Accept={}", request.getHeader("Accept"))
-        return problemResponse(
-            request,
-            ApiProblemTypes.NOT_ACCEPTABLE,
-            "The requested representation is not available",
-            mapOf(
-                "acceptHeader" to (request.getHeader("Accept") ?: ""),
-                "supportedTypes" to ex.supportedMediaTypes.map { it.toString() },
-            ),
-        )
-    }
-
-    @ExceptionHandler(NoHandlerFoundException::class)
-    fun handleNoHandlerFound(
-        ex: NoHandlerFoundException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("No handler found for {} {}", ex.httpMethod, ex.requestURL)
-        return problemResponse(
-            request,
-            ApiProblemTypes.NOT_FOUND,
-            "No endpoint exists for ${ex.httpMethod} ${ex.requestURL}",
-            mapOf("path" to ex.requestURL),
-        )
-    }
-
-    @ExceptionHandler(NoResourceFoundException::class)
-    fun handleNoResourceFound(
-        ex: NoResourceFoundException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Resource not found: {}", ex.resourcePath)
-        return problemResponse(
-            request,
-            ApiProblemTypes.NOT_FOUND,
-            "Resource not found: ${ex.resourcePath}",
-            mapOf("path" to ex.resourcePath),
-        )
-    }
-
-    @ExceptionHandler(MissingServletRequestParameterException::class)
-    fun handleMissingServletRequestParameter(
-        ex: MissingServletRequestParameterException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Missing parameter: {} ({})", ex.parameterName, ex.parameterType)
-        return problemResponse(
-            request,
-            ApiProblemTypes.MISSING_PARAMETER,
-            "Required parameter '${ex.parameterName}' is missing",
-            mapOf("parameterName" to ex.parameterName, "parameterType" to ex.parameterType),
-        )
-    }
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun handleTypeMismatch(
-        ex: MethodArgumentTypeMismatchException,
-        request: HttpServletRequest,
-    ): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Type mismatch for parameter '{}': expected {}, got {}", ex.name, ex.requiredType?.simpleName, ex.value)
-        return problemResponse(
-            request,
-            ApiProblemTypes.TYPE_MISMATCH,
-            "Parameter '${ex.name}' could not be converted to the expected type",
-            mapOf(
-                "parameterName" to ex.name,
-                "expectedType" to (ex.requiredType?.simpleName ?: ""),
-                "actualValue" to (ex.value?.toString() ?: ""),
-            ),
-        )
-    }
-
     @ExceptionHandler(CodeListNotRefreshableException::class)
-    fun handleCodeListNotRefreshableException(ex: CodeListNotRefreshableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleCodeListNotRefreshableException(ex: CodeListNotRefreshableException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.warn("Code list refresh rejected: {}", ex.message)
 
         return problemResponse(request, ApiProblemTypes.CODE_LIST_NOT_REFRESHABLE, ex.message ?: "Code list is not URL-sourced and cannot be refreshed")
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException::class)
-    fun handleMethodArgumentNotValidException(ex: MethodArgumentNotValidException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Validation failed on request body: {} errors", ex.bindingResult.errorCount)
-
-        val fieldErrors = ex.bindingResult.fieldErrors.map {
-            app.epistola.api.model.FieldError(
-                field = it.field,
-                message = it.defaultMessage ?: "Invalid value",
-                rejectedValue = it.rejectedValue?.toString(),
-            )
-        }
-        val globalErrors = ex.bindingResult.globalErrors.map {
-            app.epistola.api.model.FieldError(
-                field = it.objectName,
-                message = it.defaultMessage ?: "Invalid value",
-                rejectedValue = null,
-            )
-        }
-        return problemResponse(
-            request,
-            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
-            "Request body validation failed",
-            mapOf("errors" to fieldErrors + globalErrors),
-        )
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleMessageNotReadableException(ex: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Unreadable request body: {}", ex.message)
-
-        return problemResponse(request, ApiProblemTypes.BAD_REQUEST, "Request body is malformed or unreadable")
-    }
-
-    @ExceptionHandler(MissingPathVariableException::class)
-    fun handleMissingPathVariableException(ex: MissingPathVariableException, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
-        logger.warn("Missing path variable: {}", ex.variableName)
-
-        return problemResponse(
-            request,
-            ApiProblemTypes.MISSING_PATH_VARIABLE,
-            "Required path variable '${ex.variableName}' is missing",
-            mapOf("variableName" to ex.variableName),
-        )
-    }
-
     @ExceptionHandler(Exception::class)
-    fun handleGenericException(ex: Exception, request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun handleGenericException(ex: Exception, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         logger.error("Unexpected error in API controller", ex)
 
         return problemResponse(request, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred")

@@ -22,6 +22,7 @@
 
 ### Fixed
 
+- **REST problem-detail handling now uses Spring `ProblemDetail` without changing the wire shape.** MVC exception handlers return `ProblemDetail` internally, framework exceptions are centralized through `ResponseEntityExceptionHandler` where possible, and API responses still expose RFC 7807 extension members such as `code` at the top level. Pre-dispatch API errors and security/filter responses keep explicit flattening so `/api/**` failures consistently return `application/problem+json`.
 - **Template name cannot be changed after creation.** The backend `UpdateDocumentTemplate` command already accepted a `name` parameter, but the settings tab had no UI to edit it — the template name was only settable in the create form. Added an inline-editable name input to the template settings tab that saves on blur/Enter via the existing `PATCH` endpoint, reverts on Escape or failure, and updates the page heading on success. Disabled for templates in read-only (subscribed) catalogs. Closes #333.
 
 ## [0.22.1] - 2026-05-21

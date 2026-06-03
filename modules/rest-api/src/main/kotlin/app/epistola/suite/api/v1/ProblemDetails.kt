@@ -227,11 +227,11 @@ fun problemResponse(
     type: ApiProblemType,
     detail: String,
     extensions: Map<String, Any?> = emptyMap(),
-): ResponseEntity<Map<String, Any?>> {
+): ResponseEntity<ProblemDetail> {
     val pd = problemDetail(request, type, detail, extensions)
     return ResponseEntity.status(type.status)
         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-        .body(pd.toProblemMap())
+        .body(pd)
 }
 
 fun problemBody(
@@ -241,7 +241,9 @@ fun problemBody(
     extensions: Map<String, Any?> = emptyMap(),
 ): Map<String, Any?> = problemDetail(request, type, detail, extensions).toProblemMap()
 
-fun ValidationException.toValidationProblemBody(request: HttpServletRequest): Map<String, Any?> {
+fun ValidationException.toValidationProblemBody(request: HttpServletRequest): Map<String, Any?> = toValidationProblemDetail(request).toProblemMap()
+
+fun ValidationException.toValidationProblemDetail(request: HttpServletRequest): ProblemDetail {
     val type = ApiProblemTypes.validationProblemType(code)
     return problemDetail(
         request = request,
@@ -256,10 +258,12 @@ fun ValidationException.toValidationProblemBody(request: HttpServletRequest): Ma
                 ),
             ),
         ),
-    ).toProblemMap()
+    )
 }
 
-fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> {
+fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = toProblemDetail(request).toProblemMap()
+
+fun BatchValidationException.toProblemDetail(request: HttpServletRequest): ProblemDetail {
     val errors = mutableListOf<FieldError>()
     duplicateCorrelationIds.forEach { correlationId ->
         errors.add(FieldError("correlationId", "Duplicate correlationId in batch: $correlationId", correlationId))
@@ -272,15 +276,17 @@ fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<Str
         type = ApiProblemTypes.BATCH_VALIDATION_ERROR,
         detail = message ?: "Batch validation failed",
         extensions = mapOf("errors" to errors),
-    ).toProblemMap()
+    )
 }
 
-fun DataModelValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = problemDetail(
+fun DataModelValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = toProblemDetail(request).toProblemMap()
+
+fun DataModelValidationException.toProblemDetail(request: HttpServletRequest): ProblemDetail = problemDetail(
     request = request,
     type = ApiProblemTypes.DATA_MODEL_VALIDATION_ERROR,
     detail = "Data examples failed validation against schema",
     extensions = mapOf("validationErrors" to validationErrors),
-).toProblemMap()
+)
 
 fun writeProblemDetail(
     response: HttpServletResponse,
@@ -292,6 +298,8 @@ fun writeProblemDetail(
 ) {
     response.status = type.status.value()
     response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
+    // Security filters and AuthenticationEntryPoint write outside MVC, so
+    // ApiProblemDetailResponseAdvice does not run. Flatten explicitly here.
     val body = problemDetail(request, type, detail, extensions).toProblemMap()
     objectMapper.writeValue(response.writer, body)
 }
