@@ -56,7 +56,7 @@ importers:
         version: 1.8.1
       '@atlaskit/pragmatic-drag-and-drop-hitbox':
         specifier: ^1.1.0
-        version: 1.1.0
+        version: 1.2.0
       '@epistola.app/epistola-model':
         specifier: 0.6.0
         version: 0.6.0
@@ -151,8 +151,8 @@ importers:
 
 packages:
 
-  '@atlaskit/pragmatic-drag-and-drop-hitbox@1.1.0':
-    resolution: {integrity: sha512-JWt6eVp6Br2FPHRM8s0dUIHQk/jFInGP1f3ti5CdtM1Ji5/pt8Akm44wDC063Gv2i5RGseixtbW0z/t6RYtbdg==}
+  '@atlaskit/pragmatic-drag-and-drop-hitbox@1.2.0':
+    resolution: {integrity: sha512-eWJvvuHZOC4Yk+Li7QpS+JM2F/I50/3PhMvEcyvcHbXI0FP0kCDD1MiF8Hv7uSOxpk5JNqKoOmK8e1ncOzTgqA==}
 
   '@atlaskit/pragmatic-drag-and-drop@1.8.1':
     resolution: {integrity: sha512-uXWNPpL8n4OmTVbduH7nq8pk8htqGo/prR5cYEE8sVCPJGAUMWn6lzvWTfI+4VCeQvHiDRODVz4YzH06OVAxhw==}
@@ -176,6 +176,10 @@ packages:
 
   '@babel/runtime@7.29.2':
     resolution: {integrity: sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.29.7':
+    resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
 
   '@babel/types@7.29.7':
@@ -1974,10 +1978,10 @@ packages:
 
 snapshots:
 
-  '@atlaskit/pragmatic-drag-and-drop-hitbox@1.1.0':
+  '@atlaskit/pragmatic-drag-and-drop-hitbox@1.2.0':
     dependencies:
       '@atlaskit/pragmatic-drag-and-drop': 1.8.1
-      '@babel/runtime': 7.29.2
+      '@babel/runtime': 7.29.7
 
   '@atlaskit/pragmatic-drag-and-drop@1.8.1':
     dependencies:
@@ -2000,6 +2004,8 @@ snapshots:
       '@babel/types': 7.29.7
 
   '@babel/runtime@7.29.2': {}
+
+  '@babel/runtime@7.29.7': {}
 
   '@babel/types@7.29.7':
     dependencies:
