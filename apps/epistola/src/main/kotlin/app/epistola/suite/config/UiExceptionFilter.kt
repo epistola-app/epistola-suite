@@ -53,7 +53,7 @@ class UiExceptionFilter(
             filterChain.doFilter(request, response)
         } catch (ex: Exception) {
             val error = resolve(unwrap(ex))
-            if (wantsProblemJson(request)) {
+            if (wantsProblemDetail(request)) {
                 // RFC 9457 problem+json — same `type` URI as the REST API, no stacktrace.
                 response.status = error.status
                 response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
@@ -63,18 +63,6 @@ class UiExceptionFilter(
                 response.sendError(error.status, error.detail)
             }
         }
-    }
-
-    /**
-     * A request wants the structured problem body if it accepts JSON (problem+json is a JSON
-     * media type) or is an HTMX request. Top-level browser navigations accept `text/html`
-     * and fall through to the HTML error page.
-     */
-    private fun wantsProblemJson(request: HttpServletRequest): Boolean {
-        val accept = request.getHeader("Accept").orEmpty()
-        return accept.contains(MediaType.APPLICATION_JSON_VALUE) ||
-            accept.contains(MediaType.APPLICATION_PROBLEM_JSON_VALUE) ||
-            request.getHeader("HX-Request") == "true"
     }
 
     private fun problemBody(request: HttpServletRequest, error: UiError): Map<String, Any?> = linkedMapOf(
@@ -116,4 +104,16 @@ class UiExceptionFilter(
 
     /** Unwrap nested exceptions (e.g. from Spring's NestedServletException). */
     private fun unwrap(ex: Throwable): Throwable = ex.cause?.let { unwrap(it) } ?: ex
+}
+
+/**
+ * Whether a UI request prefers a structured problem body over an HTML page: it accepts JSON /
+ * problem+json, or is an HTMX request. Shared by [UiExceptionFilter] and the UI security
+ * chain's exception handling so every UI error path content-negotiates the same way.
+ */
+fun wantsProblemDetail(request: HttpServletRequest): Boolean {
+    val accept = request.getHeader("Accept").orEmpty()
+    return accept.contains(MediaType.APPLICATION_JSON_VALUE) ||
+        accept.contains(MediaType.APPLICATION_PROBLEM_JSON_VALUE) ||
+        request.getHeader("HX-Request") == "true"
 }

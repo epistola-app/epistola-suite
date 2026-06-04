@@ -9,6 +9,7 @@ import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
 import io.micrometer.core.instrument.MeterRegistry
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -22,6 +23,7 @@ import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher
@@ -231,6 +233,28 @@ class SecurityConfig(
                     )
                 }
             }
+
+        // Every UI error path content-negotiates the same way: structured callers (a request
+        // that accepts JSON / problem+json, or an HTMX request) get RFC 9457 problem+json,
+        // while HTML navigations keep the login redirect (401) / container error page (403).
+        // Without this, Spring Security's defaults render the whitelabel /error page.
+        val loginEntryPoint = LoginUrlAuthenticationEntryPoint("/login")
+        http.exceptionHandling { exceptions ->
+            exceptions.authenticationEntryPoint { request, response, authException ->
+                if (wantsProblemDetail(request)) {
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.UNAUTHORIZED, "Authentication required")
+                } else {
+                    loginEntryPoint.commence(request, response, authException)
+                }
+            }
+            exceptions.accessDeniedHandler { request, response, _ ->
+                if (wantsProblemDetail(request)) {
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+                } else {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN)
+                }
+            }
+        }
 
         return http.build()
     }

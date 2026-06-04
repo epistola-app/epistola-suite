@@ -84,6 +84,19 @@ class UiExceptionFilterTest {
     }
 
     @Test
+    fun `wantsProblemDetail is true for JSON or HTMX, false for HTML navigations`() {
+        fun req(accept: String?, htmx: Boolean = false) = MockHttpServletRequest().apply {
+            if (accept != null) addHeader("Accept", accept)
+            if (htmx) addHeader("HX-Request", "true")
+        }
+        assertThat(wantsProblemDetail(req(MediaType.APPLICATION_JSON_VALUE))).isTrue()
+        assertThat(wantsProblemDetail(req(MediaType.APPLICATION_PROBLEM_JSON_VALUE))).isTrue()
+        assertThat(wantsProblemDetail(req(accept = null, htmx = true))).isTrue()
+        assertThat(wantsProblemDetail(req("text/html"))).isFalse()
+        assertThat(wantsProblemDetail(req(accept = null))).isFalse()
+    }
+
+    @Test
     fun `HTML navigations use container sendError, not a JSON body`() {
         val response = runWith(accept = "text/html", isHtmx = false, CatalogReadOnlyException(CatalogKey("system")))
 
