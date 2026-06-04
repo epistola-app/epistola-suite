@@ -1,6 +1,9 @@
 package app.epistola.suite.templates
 
-import app.epistola.suite.api.v1.toValidationErrorResponse
+import app.epistola.suite.api.v1.ApiProblemType
+import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.problemBody
+import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -28,6 +31,8 @@ import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.validation.ValidationException
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -100,17 +105,21 @@ class VersionRouteHandler(
     }
 
     fun updateDraft(request: ServerRequest): ServerResponse {
+        val servletRequest = request.servletRequest()
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
-            ?: return ServerResponse.badRequest().build()
+            ?: return uiProblem(servletRequest, ApiProblemTypes.BAD_REQUEST, "Unknown or invalid template in the request path.")
         val variantId = request.variantId(templateId)
-            ?: return ServerResponse.badRequest().build()
+            ?: return uiProblem(servletRequest, ApiProblemTypes.BAD_REQUEST, "Unknown or invalid variant in the request path.")
 
-        // Parse JSON body to get templateModel
+        // Parse JSON body to get templateModel. A missing/blank templateModel is a client
+        // error, not a 500.
         val body = request.body(String::class.java)
-        val jsonNode = objectMapper.readTree(body)
-        val templateModelJson = jsonNode.get("templateModel")
+        val templateModelJson = objectMapper.readTree(body).get("templateModel")
+        if (templateModelJson == null || templateModelJson.isNull) {
+            return uiProblem(servletRequest, ApiProblemTypes.BAD_REQUEST, "Request body must include a 'templateModel' object.")
+        }
         val templateModel = objectMapper.treeToValue(
             templateModelJson,
             app.epistola.suite.templates.model.TemplateDocument::class.java,
@@ -122,18 +131,24 @@ class VersionRouteHandler(
                 templateModel = templateModel,
             ).execute()
         } catch (e: ValidationException) {
-            // Same body the REST surface returns (shared mapper) so the editor
-            // can switch on the problem `type` instead of regex-parsing the message.
+            // RFC 9457 problem+json (ValidationProblemDetail) — same shape as the REST
+            // surface, so the editor switches on the problem `type` and renders the
+            // field-level `errors` instead of regex-parsing the message.
             return ServerResponse.badRequest()
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(e.toValidationErrorResponse())
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(e.toValidationProblemBody(servletRequest))
         }
 
         // Return minimal success response (UI doesn't need full DTO)
         return ServerResponse.ok()
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(mapOf("success" to true))
     }
+
+    /** Builds an `application/problem+json` [ServerResponse] for a functional UI route. */
+    private fun uiProblem(servletRequest: HttpServletRequest, type: ApiProblemType, detail: String): ServerResponse = ServerResponse.status(type.status)
+        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .body(problemBody(servletRequest, type, detail))
 
     fun archiveVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()

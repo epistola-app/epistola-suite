@@ -48,6 +48,7 @@ object ApiProblemTypes {
     val INTERNAL_ERROR = problem("INTERNAL_ERROR", "Internal Error", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", emptyList())
     val METHOD_NOT_ALLOWED = problem("METHOD_NOT_ALLOWED", "Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed for the requested resource.", listOf("method", "supportedMethods"))
     val UNSUPPORTED_MEDIA_TYPE = problem("UNSUPPORTED_MEDIA_TYPE", "Unsupported Media Type", HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The request body media type is not supported.", listOf("contentType", "supportedTypes"))
+    val PAYLOAD_TOO_LARGE = problem("PAYLOAD_TOO_LARGE", "Payload Too Large", HttpStatus.PAYLOAD_TOO_LARGE, "The uploaded content exceeds the maximum allowed size.", listOf("maxBytes"))
     val NOT_ACCEPTABLE = problem("NOT_ACCEPTABLE", "Not Acceptable", HttpStatus.NOT_ACCEPTABLE, "The requested response representation is not available.", listOf("acceptHeader", "supportedTypes"))
     val NOT_FOUND = problem("NOT_FOUND", "Not Found", HttpStatus.NOT_FOUND, "The requested endpoint or resource does not exist.", listOf("path"))
     val MISSING_PARAMETER = problem("MISSING_PARAMETER", "Missing Parameter", HttpStatus.BAD_REQUEST, "A required query or form parameter is missing.", listOf("parameterName", "parameterType"))
@@ -108,6 +109,7 @@ object ApiProblemTypes {
         INTERNAL_ERROR,
         METHOD_NOT_ALLOWED,
         UNSUPPORTED_MEDIA_TYPE,
+        PAYLOAD_TOO_LARGE,
         NOT_ACCEPTABLE,
         NOT_FOUND,
         MISSING_PARAMETER,
