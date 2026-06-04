@@ -22,6 +22,20 @@ read as RFC 9457. Concretely:
   `DraftValidationErrorResponse` instead of the contract type — wire shape
   unchanged.
 
+**Note on Constraint 1's reasoning (revisited 2026-06-04).** The premise that
+`ProblemDetailJacksonMixin` "does not register on the Jackson 3 `ObjectMapper`
+because it uses `com.fasterxml` annotations" is imprecise: Jackson 3 keeps its
+*annotations* in `com.fasterxml.jackson.annotation` (only `core`/`databind` moved
+to `tools.jackson`), and the mixin flattens `getProperties()` correctly when added
+to a mapper in isolation. **However**, an attempt to drop `toProblemMap()` and rely
+on the mixin via the application's primary/injected `ObjectMapper` (both Boot's
+auto-configured `JsonProblemDetailsConfiguration` and an explicit
+`JsonMapperBuilderCustomizer`) **failed** in `CollectEndpointSmokeIT` on
+`spring-boot 4.0.6` — `code`/extension members stayed nested under `properties`.
+So the mixin is not effectively wired onto the mapper these paths use, and the
+`Map`-based flattening (Option B) is **retained** as the reliable approach. The
+decision stands; only the stated mechanism was inaccurate.
+
 ## Context
 
 The REST API under `/api/**` needs machine-readable error responses aligned with
