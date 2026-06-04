@@ -6,17 +6,16 @@ import app.epistola.suite.validation.ValidationException
 /**
  * Wire response for the editor draft-save UI route.
  *
- * This is the pre-Problem-Details shape (`code` / `message` / `errors[]`) that the
- * editor still consumes. The contract no longer ships a `ValidationErrorResponse`
- * type (it adopted RFC 9457 Problem Details), so the envelope is defined locally
- * here; the field-level entries reuse the contract's [ValidationError].
+ * A small envelope the editor consumes: the problem `type` URI (the machine-readable
+ * discriminator the editor switches on — same value the REST API exposes as
+ * `ProblemDetail.type`), a human-readable `message`, and field-level `errors[]`.
  *
- * Keep this separate from the REST API Problem Details mapper in
- * [ValidationException.toValidationProblemBody]. Do not change this mapper to
- * Problem Details unless the editor/UI consumer is migrated at the same time.
+ * This is intentionally NOT full `application/problem+json` — it stays a plain JSON
+ * envelope tailored to the editor. Keep it in sync with the REST API discriminator
+ * (the `type` URI) rather than the removed `code` member.
  */
 data class DraftValidationErrorResponse(
-    val code: String,
+    val type: String,
     val message: String,
     val errors: List<ValidationError>,
 )
@@ -25,12 +24,12 @@ data class DraftValidationErrorResponse(
  * Single translation point from a [ValidationException] to the editor's
  * [DraftValidationErrorResponse] wire shape.
  *
- * The historical generic `"VALIDATION_ERROR"` wire value is preserved for
- * non-coded sites via [app.epistola.suite.validation.ValidationCode.GENERIC];
- * coded sites now emit their specific code instead of being flattened.
+ * The `type` URI is derived from the validation code via the shared
+ * [ApiProblemTypes] registry, so the editor sees the same discriminator the REST
+ * surface emits (e.g. `https://epistola.app/errors/node-parameter-binding-syntax-invalid`).
  */
 fun ValidationException.toValidationErrorResponse(): DraftValidationErrorResponse = DraftValidationErrorResponse(
-    code = code.wire,
+    type = ApiProblemTypes.validationProblemType(code).type.toString(),
     message = message,
     errors = listOf(
         ValidationError(

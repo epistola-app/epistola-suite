@@ -1271,10 +1271,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
                 assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_JSON)).isTrue()
-                // Machine-readable code is a first-class field (the draft-save
-                // validation mapper), not flattened to a generic
-                // VALIDATION_ERROR nor smuggled as a message prefix.
-                assertThat(response.body).contains("\"code\":\"NODE_PARAMETER_BINDING_SYNTAX_INVALID\"")
+                // Machine-readable discriminator is the problem `type` URI (the
+                // draft-save validation mapper), not flattened to a generic
+                // validation type nor smuggled as a message prefix.
+                assertThat(response.body).contains("\"type\":\"https://epistola.app/errors/node-parameter-binding-syntax-invalid\"")
                 assertThat(response.body).contains("parameter binding 'param1' expression is invalid")
                 // Field path is carried structurally under errors[].
                 assertThat(response.body).contains("content.stencil.props.parameterBindings.param1")

@@ -131,7 +131,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<String>(body, "$.title")).isEqualTo("Bad Request")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
@@ -161,7 +161,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<String>(body, "$.title")).isEqualTo("Bad Request")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<String>(body, "$.detail")).contains("X-EP-Node-Id")
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/generation/collect?limit=25")
         assertThat(body).doesNotContain("\"details\":")
@@ -283,7 +283,6 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
             "https://epistola.app/errors/unauthorized",
             "https://epistola.app/errors/access-denied",
         )
-        assertThat(JsonPath.read<String>(body, "$.code")).isIn("UNAUTHORIZED", "ACCESS_DENIED")
         assertThat(JsonPath.read<Int>(body, "$.status")).isIn(401, 403)
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/generation/collect")
         assertThat(body).doesNotContain("\"details\":")
@@ -319,7 +318,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/access-denied")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(403)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("ACCESS_DENIED")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/access-denied")
     }
 
     /** + API key pair for one test. The API key has the

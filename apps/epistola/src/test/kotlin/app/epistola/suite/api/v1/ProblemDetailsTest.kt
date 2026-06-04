@@ -23,8 +23,8 @@ class ProblemDetailsTest {
         assertThat(body).containsEntry("status", 409)
         assertThat(body).containsEntry("detail", "Cannot modify resources in read-only catalog 'system'.")
         assertThat(body).containsEntry("instance", "/api/tenants/acme/catalogs/default/code-lists?q=iso")
-        assertThat(body).containsEntry("code", "CATALOG_READ_ONLY")
         assertThat(body).containsEntry("catalogId", "system")
+        assertThat(body).doesNotContainKey("code")
         assertThat(body).doesNotContainKey("details")
     }
 
@@ -50,7 +50,6 @@ class ProblemDetailsTest {
         assertThat(body).containsEntry("type", "https://epistola.app/errors/parameter-name-invalid")
         assertThat(body).containsEntry("title", "Parameter Name Invalid")
         assertThat(body).containsEntry("status", 400)
-        assertThat(body).containsEntry("code", "PARAMETER_NAME_INVALID")
         assertThat(body).doesNotContainKey("details")
 
         @Suppress("UNCHECKED_CAST")
@@ -70,7 +69,6 @@ class ProblemDetailsTest {
         assertThat(all.map { it.type.toString() }).doesNotHaveDuplicates()
         assertThat(all).allSatisfy { problem ->
             assertThat(problem.type.toString()).isEqualTo("$PROBLEM_TYPE_BASE_URL/${problem.slug}")
-            assertThat(problem.extensionFields).contains("code")
         }
     }
 

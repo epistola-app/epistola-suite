@@ -165,7 +165,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         val type = ApiProblemTypes.forStatus(statusCode)
         problemBody.type = type.type
         problemBody.title = type.title
-        problemBody.setProperty("code", type.code)
         (request as? ServletWebRequest)?.request?.let { servletRequest ->
             problemBody.instance = servletRequest.problemInstance()
         }

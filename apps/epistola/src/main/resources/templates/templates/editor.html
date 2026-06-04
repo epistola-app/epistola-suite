@@ -276,23 +276,23 @@
 
                 if (!response.ok) {
                     let message = response.statusText || 'Failed to save draft';
-                    let code = null;
+                    let type = null;
                     let field = null;
                     const text = await response.text().catch(() => '');
                     if (text) {
                         try {
                             const body = JSON.parse(text);
                             message = body.message || body.error || message;
-                            code = body.code || null;
+                            type = body.type || null;
                             field = (body.errors && body.errors[0] && body.errors[0].field) || null;
                         } catch (_) {
                             message = text;
                         }
                     }
-                    // Carry the structured validation code/field on the Error so
+                    // Carry the structured problem `type`/`field` on the Error so
                     // the editor can render it inline without parsing the message.
                     const err = new Error(message);
-                    err.code = code;
+                    err.type = type;
                     err.field = field;
                     throw err;
                 }

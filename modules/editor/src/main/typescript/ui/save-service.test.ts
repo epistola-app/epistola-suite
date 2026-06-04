@@ -190,17 +190,17 @@ describe('SaveService', () => {
     service.dispose();
   });
 
-  it('carries structured code/field from the thrown error into the error state', async () => {
+  it('carries structured type/field from the thrown error into the error state', async () => {
     const states: SaveState[] = [];
     const failingFn: SaveFn = async () => {
       await Promise.resolve();
       const err = new Error(
         "parameter binding 'param1' expression is invalid — bad token",
       ) as Error & {
-        code?: string;
+        type?: string;
         field?: string;
       };
-      err.code = 'NODE_PARAMETER_BINDING_SYNTAX_INVALID';
+      err.type = 'https://epistola.app/errors/node-parameter-binding-syntax-invalid';
       err.field = 'content.stencil.props.parameterBindings.param1';
       throw err;
     };
@@ -213,7 +213,7 @@ describe('SaveService', () => {
     const errorState = states.find((s) => s.status === 'error');
     expect(errorState).toMatchObject({
       status: 'error',
-      code: 'NODE_PARAMETER_BINDING_SYNTAX_INVALID',
+      type: 'https://epistola.app/errors/node-parameter-binding-syntax-invalid',
       field: 'content.stencil.props.parameterBindings.param1',
     });
 

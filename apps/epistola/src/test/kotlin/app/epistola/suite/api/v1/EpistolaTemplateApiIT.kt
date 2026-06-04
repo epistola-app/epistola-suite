@@ -189,7 +189,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
         assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Template Not Found")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(404)
-        assertThat(JsonPath.read<String>(problem, "$.code")).isEqualTo("TEMPLATE_NOT_FOUND")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
         assertThat(JsonPath.read<String>(problem, "$.instance"))
@@ -210,7 +210,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
-        assertThat(JsonPath.read<String>(problem, "$.code")).isEqualTo("TEMPLATE_NOT_FOUND")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
     }
 
@@ -228,7 +228,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
-        assertThat(JsonPath.read<String>(problem, "$.code")).isEqualTo("TEMPLATE_NOT_FOUND")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
     }
 

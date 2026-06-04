@@ -2,10 +2,11 @@
  * Maps a structured save error from the backend to a per-parameter binding
  * error the stencil UI can render inline.
  *
- * The backend now returns a first-class machine code (`code`) and a field path
- * (`errors[0].field` → carried as `field`) instead of encoding both inside a
- * free-text message. This module reads those structured fields — no regex over
- * human text — so a reworded backend message never breaks the editor.
+ * The backend returns an RFC 9457 problem `type` URI (the machine-readable
+ * discriminator) and a field path (`errors[0].field` → carried as `field`)
+ * instead of encoding both inside a free-text message. This module reads those
+ * structured fields — no regex over human text — so a reworded backend message
+ * never breaks the editor.
  */
 import type { SaveState } from '../../ui/save-service.js';
 
@@ -19,12 +20,12 @@ export const STENCIL_BINDING_ERRORS_KEY = 'stencil:binding-errors';
 /** Per-parameter inline error map keyed by parameter name. */
 export type BindingErrors = Record<string, string>;
 
-/** Wire value of the JSONata binding syntax error code (see backend ValidationCode). */
-export const NODE_PARAMETER_BINDING_SYNTAX_INVALID = 'NODE_PARAMETER_BINDING_SYNTAX_INVALID';
+/** Problem `type` URI for the JSONata binding syntax error (see backend ValidationCode). */
+export const BINDING_SYNTAX_INVALID_TYPE = 'https://epistola.app/errors/node-parameter-binding-syntax-invalid';
 
 export interface SaveErrorInfo {
-  /** Machine-readable validation code, when the save failed validation. */
-  code?: string;
+  /** Machine-readable problem `type` URI, when the save failed validation. */
+  type?: string;
   /** Field path the error points at (e.g. content.stencil.props.parameterBindings.param1). */
   field?: string;
   /** Human-readable message (display only). */
@@ -45,7 +46,7 @@ export interface BindingSaveError {
  * is display-only and may be reworded freely without affecting this code).
  */
 export function parseBindingSaveError(error: SaveErrorInfo): BindingSaveError | null {
-  if (error.code !== NODE_PARAMETER_BINDING_SYNTAX_INVALID) return null;
+  if (error.type !== BINDING_SYNTAX_INVALID_TYPE) return null;
 
   const field = error.field ?? '';
   const paramName = field.includes('.') ? field.slice(field.lastIndexOf('.') + 1) : field;

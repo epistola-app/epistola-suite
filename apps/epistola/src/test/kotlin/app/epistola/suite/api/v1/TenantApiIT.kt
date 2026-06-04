@@ -61,7 +61,7 @@ class TenantApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/operation-not-implemented")
         assertThat(JsonPath.read<String>(body, "$.title")).isEqualTo("Operation Not Implemented")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(501)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("OPERATION_NOT_IMPLEMENTED")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/operation-not-implemented")
         assertThat(JsonPath.read<String>(body, "$.operation")).isEqualTo("updateTenant")
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}")
         assertThat(body).doesNotContain("\"details\":")
@@ -84,7 +84,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/method-not-allowed")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(405)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("METHOD_NOT_ALLOWED")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/method-not-allowed")
         assertThat(JsonPath.read<String>(body, "$.method")).isEqualTo("POST")
         assertThat(JsonPath.read<List<String>>(body, "$.supportedMethods")).contains("GET", "PATCH", "DELETE")
     }
@@ -105,7 +105,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<String>(body, "$.detail")).isEqualTo("Request body is malformed or unreadable")
     }
 
@@ -125,7 +125,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("BAD_REQUEST")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/bad-request")
         assertThat(JsonPath.read<String>(body, "$.detail")).isEqualTo("Request body is malformed or unreadable")
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants")
     }
@@ -149,7 +149,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-media-type")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(415)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("UNSUPPORTED_MEDIA_TYPE")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/unsupported-media-type")
         assertThat(JsonPath.read<String>(body, "$.contentType")).isEqualTo("text/plain")
     }
 
@@ -172,7 +172,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/not-acceptable")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(406)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("NOT_ACCEPTABLE")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/not-acceptable")
         assertThat(JsonPath.read<String>(body, "$.acceptHeader")).isEqualTo("application/xml")
     }
 
@@ -192,7 +192,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/type-mismatch")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(400)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("TYPE_MISMATCH")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/type-mismatch")
         assertThat(JsonPath.read<String>(body, "$.parameterName")).isEqualTo("requestId")
         assertThat(JsonPath.read<String>(body, "$.actualValue")).isEqualTo("not-a-uuid")
     }
@@ -213,7 +213,7 @@ class TenantApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<Int>(body, "$.status")).isEqualTo(404)
-        assertThat(JsonPath.read<String>(body, "$.code")).isEqualTo("NOT_FOUND")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/not-found")
         assertThat(JsonPath.read<String>(body, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/not-a-real-api-path")
     }
 
