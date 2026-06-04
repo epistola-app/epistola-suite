@@ -1,38 +1,68 @@
 package app.epistola.suite.testing
 
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails
 import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.context.annotation.Bean
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
+import java.sql.DriverManager
+import java.util.concurrent.atomic.AtomicInteger
 
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
     /**
-     * Every Spring test context that imports this config wires its datasource to the
-     * SAME [SHARED_POSTGRES] instance. Returning the shared static (rather than a
-     * per-`@Bean` container) means the whole JVM runs a single Postgres regardless of
-     * how many distinct contexts the suite caches.
+     * Each Spring test context gets its **own logical database** inside the one shared
+     * [SHARED_POSTGRES] container. This keeps the single-container memory/startup win
+     * while restoring the per-context database isolation that integration tests rely on:
+     * always-on background schedulers (`JobPoller`, `StaleJobRecovery`, …) and the global
+     * `generation_results.sequence` only ever see their own context's database, so a
+     * poller in one context can't drain manually-driven jobs created by another (the bug
+     * that a single shared database introduced).
+     *
+     * This `@TestConfiguration` is instantiated once per context, so each context creates
+     * exactly one database; the name is stable for that context and does not perturb the
+     * Spring context cache key. We expose a [JdbcConnectionDetails] bean (not a
+     * `@ServiceConnection` container) so Spring Boot wires the datasource — and therefore
+     * Flyway and JDBI — to the per-context database; Flyway then migrates it on startup,
+     * exactly as it did when each context had its own container.
      */
     @Bean
-    @ServiceConnection
-    fun postgresContainer(): PostgreSQLContainer = SHARED_POSTGRES
+    fun postgresConnectionDetails(): JdbcConnectionDetails {
+        val databaseName = "ctx_${DATABASE_SEQUENCE.incrementAndGet()}"
+        createDatabase(databaseName)
+        val jdbcUrl = perContextJdbcUrl(databaseName)
+        return object : JdbcConnectionDetails {
+            override fun getUsername(): String = SHARED_POSTGRES.username
+            override fun getPassword(): String = SHARED_POSTGRES.password
+            override fun getJdbcUrl(): String = jdbcUrl
+        }
+    }
+
+    private fun createDatabase(databaseName: String) {
+        DriverManager.getConnection(
+            SHARED_POSTGRES.jdbcUrl,
+            SHARED_POSTGRES.username,
+            SHARED_POSTGRES.password,
+        ).use { connection ->
+            connection.createStatement().use { it.execute("CREATE DATABASE \"$databaseName\"") }
+        }
+    }
+
+    private fun perContextJdbcUrl(databaseName: String): String {
+        val queryParams = SHARED_POSTGRES.jdbcUrl.substringAfter('?', "")
+        val base = "jdbc:postgresql://${SHARED_POSTGRES.host}:" +
+            "${SHARED_POSTGRES.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)}/$databaseName"
+        return if (queryParams.isEmpty()) base else "$base?$queryParams"
+    }
 
     companion object {
+        private val DATABASE_SEQUENCE = AtomicInteger(0)
+
         /**
-         * One Postgres container shared by every test context in the JVM.
-         *
-         * The suite isolates tests **logically** (namespaced-tenant cleanup, see
-         * `BaseIntegrationTest.resetDatabaseState`), not via a database-per-context, so
-         * a single container is sufficient. Previously this was a plain per-context
-         * `@Bean`, so each distinct cached context started its own container — a ~6×
-         * container-RAM cost (each with a tmpfs, i.e. RAM-backed, data dir) and the
-         * source of container-startup contention that flaked context loads.
-         *
-         * Started once here and reaped by Ryuk at JVM exit; it is intentionally never
-         * stopped between contexts. (`withReuse` is deliberately absent — it only helps
-         * across separate JVM runs and silently no-ops unless each developer/CI enables
-         * `testcontainers.reuse.enable`, so it never solved the in-JVM duplication.)
+         * One Postgres container shared by every test context in the JVM, started once and
+         * reaped by Ryuk at exit. It is intentionally a plain static (not a Spring bean), so
+         * Spring never starts/stops it per context; per-context databases (above) provide
+         * isolation. The data directory is RAM-backed (tmpfs) for speed.
          */
         @JvmStatic
         private val SHARED_POSTGRES: PostgreSQLContainer =
