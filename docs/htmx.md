@@ -623,6 +623,48 @@ fun newForm(request: ServerRequest): ServerResponse {
 
 Without the `htmxBoosted` check, boosted navigation receives a fragment instead of the full page.
 
+### Create Forms: Prefer Plain Boosted Forms; Disinherit When You Must Target
+
+`hx-target` and `hx-swap` are **inherited** HTMX attributes. A form that scopes its swap to a
+sub-region leaks that target down to its descendant controls — including a boosted Cancel `<a>`:
+
+```html
+<form hx-post="/items" hx-target="#form-area" hx-swap="outerHTML">
+  ...
+  <a th:href="@{/items}">Cancel</a>
+  <!-- inherits #form-area / outerHTML! -->
+</form>
+```
+
+Because a boosted request renders the full `layout/shell` page (see above), that Cancel link
+swaps the **entire shell** into `#form-area` — a "nested shell".
+
+**The default: don't put HTMX attributes on a standalone create form at all.** Rely on the global
+`hx-boost`. Use a plain `<form th:action method="post">`; the handler renders the full page with
+errors on validation failure (`ServerResponse.ok().page("x/new") { "errors" to … }`) and `303`s on
+success. Cancel is a plain `<a th:href>`. This is what most create forms do (environments, themes,
+templates, attributes, stencils, api-keys, code-lists) — no inheritance, nothing to override.
+
+**When a form genuinely needs an in-page swap** (e.g. `loadtest/new.html`, whose cascading
+dropdowns load via `hx-get` and whose submit-error preserves in-progress state), keep `hx-post` +
+`hx-target`, and add `hx-disinherit` so descendant links/controls don't inherit it:
+
+```html
+<form
+  th:hx-post="@{…}"
+  hx-target="#form-error"
+  hx-swap="innerHTML"
+  hx-disinherit="hx-target hx-swap"
+>
+  ...
+  <a th:href="@{…}">Cancel</a>
+  <!-- no longer inherits -->
+</form>
+```
+
+Do **not** reach for per-link `hx-target="body"` overrides — disinherit at the form is the
+idiomatic fix.
+
 ### Multi-Select Cascading Dropdowns
 
 When multiple `<select>` elements drive a single dynamic section, use `hx-include="closest form"` so the server receives all current form values, and `HX-Trigger-Name` to know which field changed:

@@ -20,7 +20,8 @@
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
                       hx-target="#form-error"
-                      hx-swap="innerHTML">
+                      hx-swap="innerHTML"
+                      hx-disinherit="hx-target hx-swap">
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
                         <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Template Configuration</legend>
 
