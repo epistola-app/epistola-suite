@@ -1,6 +1,6 @@
 package app.epistola.suite.api.v1
 
-import app.epistola.api.model.FieldError
+import app.epistola.api.model.ValidationError
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -10,7 +10,7 @@ import org.springframework.mock.web.MockHttpServletRequest
 class ProblemDetailsTest {
 
     @Test
-    fun `problem body uses RFC 7807 fields and top-level extensions`() {
+    fun `problem body uses RFC 9457 fields and top-level extensions`() {
         val body = problemBody(
             request = request("/api/tenants/acme/catalogs/default/code-lists", "q=iso"),
             type = ApiProblemTypes.CATALOG_READ_ONLY,
@@ -54,7 +54,7 @@ class ProblemDetailsTest {
         assertThat(body).doesNotContainKey("details")
 
         @Suppress("UNCHECKED_CAST")
-        val errors = body["errors"] as List<FieldError>
+        val errors = body["errors"] as List<ValidationError>
         val error = errors.single()
         assertThat(error.field).isEqualTo("id")
         assertThat(error.message).isEqualTo("Template ID must be kebab-case")

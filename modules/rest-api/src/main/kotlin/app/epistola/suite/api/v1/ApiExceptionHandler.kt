@@ -1,6 +1,6 @@
 package app.epistola.suite.api.v1
 
-import app.epistola.api.model.FieldError
+import app.epistola.api.model.ValidationError
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTooLargeException
@@ -70,7 +70,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * Global exception handler for REST API controllers.
  *
- * Provides consistent RFC 7807 problem-detail responses for both framework
+ * Provides consistent RFC 9457 problem-detail responses for both framework
  * exceptions (405/415/406/404/400) and domain exceptions. Uses
  * [problemDetail] as the centralized builder so that every error response
  * carries the correct type URI, title, status, instance, and structured
@@ -108,14 +108,14 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         logger.warn("Validation failed on request body: {} errors", ex.bindingResult.errorCount)
 
         val fieldErrors = ex.bindingResult.fieldErrors.map {
-            FieldError(
+            ValidationError(
                 field = it.field,
                 message = it.defaultMessage ?: "Invalid value",
                 rejectedValue = it.rejectedValue?.toString(),
             )
         }
         val globalErrors = ex.bindingResult.globalErrors.map {
-            FieldError(
+            ValidationError(
                 field = it.objectName,
                 message = it.defaultMessage ?: "Invalid value",
                 rejectedValue = null,

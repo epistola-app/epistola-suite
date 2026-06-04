@@ -1,6 +1,6 @@
 package app.epistola.suite.api.v1
 
-import app.epistola.api.model.FieldError
+import app.epistola.api.model.ValidationError
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.validation.ValidationCode
@@ -251,7 +251,7 @@ fun ValidationException.toValidationProblemDetail(request: HttpServletRequest): 
         detail = message,
         extensions = mapOf(
             "errors" to listOf(
-                FieldError(
+                ValidationError(
                     field = field,
                     message = message,
                     rejectedValue = null,
@@ -264,12 +264,12 @@ fun ValidationException.toValidationProblemDetail(request: HttpServletRequest): 
 fun BatchValidationException.toProblemBody(request: HttpServletRequest): Map<String, Any?> = toProblemDetail(request).toProblemMap()
 
 fun BatchValidationException.toProblemDetail(request: HttpServletRequest): ProblemDetail {
-    val errors = mutableListOf<FieldError>()
+    val errors = mutableListOf<ValidationError>()
     duplicateCorrelationIds.forEach { correlationId ->
-        errors.add(FieldError("correlationId", "Duplicate correlationId in batch: $correlationId", correlationId))
+        errors.add(ValidationError("correlationId", "Duplicate correlationId in batch: $correlationId", correlationId))
     }
     duplicateFilenames.forEach { filename ->
-        errors.add(FieldError("filename", "Duplicate filename in batch: $filename", filename))
+        errors.add(ValidationError("filename", "Duplicate filename in batch: $filename", filename))
     }
     return problemDetail(
         request = request,

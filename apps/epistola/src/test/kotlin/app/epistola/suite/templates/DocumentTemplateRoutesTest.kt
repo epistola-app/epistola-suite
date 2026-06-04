@@ -1271,8 +1271,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
                 assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_JSON)).isTrue()
-                // Machine-readable code is a first-class field (the shared
-                // ValidationErrorResponse mapper), not flattened to a generic
+                // Machine-readable code is a first-class field (the draft-save
+                // validation mapper), not flattened to a generic
                 // VALIDATION_ERROR nor smuggled as a message prefix.
                 assertThat(response.body).contains("\"code\":\"NODE_PARAMETER_BINDING_SYNTAX_INVALID\"")
                 assertThat(response.body).contains("parameter binding 'param1' expression is invalid")

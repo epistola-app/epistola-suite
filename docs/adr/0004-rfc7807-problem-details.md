@@ -3,7 +3,24 @@
 - **Status:** Accepted
 - **Date:** 2026-05-27
 - **Deciders:** Epistola team
-- **Tags:** api, errors, rfc7807, serialization
+- **Tags:** api, errors, rfc9457, rfc7807, serialization
+
+## Amendment (2026-06-04) — RFC 9457 + contract type changes
+
+The `epistola-contract` now cites **RFC 9457** (which obsoletes RFC 7807 with no
+change to the wire format) and changed its generated error types. This ADR's
+chosen design (Option B) is unaffected — references below to "RFC 7807" should be
+read as RFC 9457. Concretely:
+
+- The contract maps `ProblemDetail` / `ValidationProblemDetail` to Spring's native
+  `org.springframework.http.ProblemDetail` (no generated DTO). This app already
+  used the native type as its internal builder, so no change was needed there.
+- The deprecated generated types `FieldError` and `ValidationErrorResponse` were
+  removed. Field-level errors now use the contract's `ValidationError` (same
+  `field` / `message` / `rejectedValue` shape). The editor draft-save route's
+  pre-Problem-Details envelope (`code` / `message` / `errors[]`) is now a local
+  `DraftValidationErrorResponse` instead of the contract type — wire shape
+  unchanged.
 
 ## Context
 

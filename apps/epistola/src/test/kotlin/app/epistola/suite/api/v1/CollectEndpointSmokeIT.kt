@@ -140,7 +140,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `collect problem details include query string and top-level RFC 7807 fields`() {
+    fun `collect problem details include query string and top-level RFC 9457 fields`() {
         val (tenantKey, key) = seedTenantAndKey()
         val headers = HttpHeaders().apply {
             contentType = MediaType.parseMediaType(EPISTOLA_JSON)

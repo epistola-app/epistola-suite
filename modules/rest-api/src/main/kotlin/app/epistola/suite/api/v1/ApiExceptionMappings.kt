@@ -45,7 +45,7 @@ import app.epistola.suite.themes.ThemeNotFoundException
 /**
  * Immutable mapping data for a single exception type.
  *
- * @property problemType The RFC 7807 problem type (code, title, status, …).
+ * @property problemType The RFC 9457 problem type (code, title, status, …).
  * @property detail      Produces the human-readable detail string from the exception.
  * @property extensions Produces the extension map rendered as top-level JSON fields.
  * @property logMessage  Produces the `logger.warn` payload for the exception.

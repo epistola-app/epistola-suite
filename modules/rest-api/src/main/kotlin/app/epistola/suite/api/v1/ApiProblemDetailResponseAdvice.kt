@@ -21,7 +21,7 @@ class ApiProblemDetailResponseAdvice : ResponseBodyAdvice<Any> {
         request: ServerHttpRequest,
         response: ServerHttpResponse,
     ): Any? = if (body is ProblemDetail) {
-        // ProblemDetail stores extension members in `properties`, but RFC 7807
+        // ProblemDetail stores extension members in `properties`, but RFC 9457
         // extensions are part of the top-level wire object. Keep MVC handlers
         // ProblemDetail-native while preserving the API contract shape.
         response.headers.contentType = MediaType.APPLICATION_PROBLEM_JSON
