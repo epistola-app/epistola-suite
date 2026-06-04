@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.generation.DocumentPreviewRenderer
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -78,6 +79,7 @@ class PreviewDocumentHandler(
     private val schemaValidator: JsonSchemaValidator,
     private val variantResolver: VariantResolver,
     private val renderer: DocumentPreviewRenderer,
+    private val localeResolver: TenantLocaleResolver,
 ) : QueryHandler<PreviewDocument, ByteArray> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -150,7 +152,10 @@ class PreviewDocumentHandler(
             }
         }
 
-        // 5. Render
+        // 5. Resolve formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, variantId)
+
+        // 6. Render
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = version.templateModel,
@@ -158,6 +163,7 @@ class PreviewDocumentHandler(
             template = template,
             tenant = tenant,
             data = effectiveData,
+            culture = culture,
         )
     }
 

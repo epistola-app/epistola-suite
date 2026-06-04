@@ -209,6 +209,7 @@ export class EpistolaEditor extends LitElement {
       dataModel?: object;
       dataExamples?: object[];
       featureFlags?: import('../engine/feature-flags.js').EditorFeatureFlags;
+      locale?: string;
     },
   ): void {
     // Clean up previous engine and save service
@@ -223,6 +224,7 @@ export class EpistolaEditor extends LitElement {
       dataModel: options?.dataModel,
       dataExamples: options?.dataExamples,
       featureFlags: options?.featureFlags,
+      locale: options?.locale,
     });
     this._doc = this._engine.doc;
     this._unsubParameterCache = wireParameterCache(this._engine);

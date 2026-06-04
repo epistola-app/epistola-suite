@@ -23,6 +23,7 @@ import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
@@ -64,6 +65,7 @@ class DocumentGenerationExecutor(
     private val meterRegistry: MeterRegistry,
     private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
     private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
+    private val localeResolver: TenantLocaleResolver,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -265,6 +267,9 @@ class DocumentGenerationExecutor(
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
         val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
 
+        // Resolve formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, variantId)
+
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme
         val renderingDefaultsVersion = version.renderingDefaultsVersion
@@ -287,6 +292,7 @@ class DocumentGenerationExecutor(
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
                 fontFamilyResolver = fontResolver,
+                culture = culture,
             )
         } else {
             renderPath = "legacy"
@@ -307,6 +313,7 @@ class DocumentGenerationExecutor(
                 fontFamilyResolver = fontResolver,
                 templateCatalogKey = template.themeCatalogKey,
                 tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+                culture = culture,
             )
         }
 

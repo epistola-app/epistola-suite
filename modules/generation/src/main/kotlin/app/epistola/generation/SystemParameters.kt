@@ -3,6 +3,7 @@ package app.epistola.generation
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Scope at which a system parameter is available.
@@ -39,6 +40,26 @@ data class SystemParameterDescriptor(
 
 /** Default timezone used for date-related rendering (e.g., sys.render.time, $formatDate). */
 val DEFAULT_RENDER_TIMEZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
+
+/**
+ * Compile-time `Locale` fallback for renderer / evaluator method signatures
+ * that need a default but never see one used in production: the real chain
+ * is `system.locale` variant attribute → `tenants.default_locale` → the
+ * `epistola.i18n.default-locale` Spring property, resolved by
+ * `TenantLocaleResolver` in `epistola-core` and threaded through every
+ * `renderPdf*` call. This constant only kicks in for tests / direct
+ * `DirectPdfRenderer` use that doesn't pass a culture.
+ *
+ * **Must equal what the resolver produces for the shipped app default.** The
+ * default `epistola.i18n.default-locale` is `"en-US"`, and the resolver yields
+ * `Locale.forLanguageTag("en-US")` for it — so this is `forLanguageTag("en-US")`,
+ * NOT `Locale.ENGLISH` (`"en"`). The two are not `==`, and the mismatch would
+ * stop [RenderCulture.DEFAULT] from matching a default render, defeating the
+ * no-op fast path in `CompositeExpressionEvaluator.forCulture`.
+ *
+ * Sibling of [DEFAULT_RENDER_TIMEZONE]: rendering-layer defaults live here.
+ */
+val DEFAULT_LOCALE: Locale = Locale.forLanguageTag("en-US")
 
 /**
  * Registry of system parameters available to templates at render time.

@@ -239,6 +239,7 @@ export class StencilInspector extends LitElement {
       initialAlias: this.node.props.paramsAlias ?? 'params',
       fieldPaths,
       getExampleData,
+      locale: this.engine.locale,
       bindingErrors,
     });
     if (!result) return;
