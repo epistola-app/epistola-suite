@@ -123,7 +123,7 @@ class VersionRouteHandler(
             ).execute()
         } catch (e: ValidationException) {
             // Same body the REST surface returns (shared mapper) so the editor
-            // can switch on `code` instead of regex-parsing the message.
+            // can switch on the problem `type` instead of regex-parsing the message.
             return ServerResponse.badRequest()
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .body(e.toValidationErrorResponse())

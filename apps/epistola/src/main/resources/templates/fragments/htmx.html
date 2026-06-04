@@ -75,7 +75,7 @@
                 form.addEventListener('htmx:responseError', function(event) {
                     try {
                         var body = JSON.parse(event.detail.xhr.responseText);
-                        errorEl.textContent = body.error || 'An error occurred.';
+                        errorEl.textContent = body.detail || body.error || 'An error occurred.';
                     } catch (e) {
                         errorEl.textContent = 'An error occurred.';
                     }
@@ -193,7 +193,7 @@
                 if (xhr.status === 403) {
                     try {
                         var body = JSON.parse(xhr.responseText);
-                        message = body.error || 'You don\'t have permission to perform this action.';
+                        message = body.detail || body.error || 'You don\'t have permission to perform this action.';
                     } catch (e) {
                         message = 'You don\'t have permission to perform this action.';
                     }

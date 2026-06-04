@@ -158,7 +158,7 @@
                     });
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to upload asset');
+                        throw new Error(err.detail || err.error || 'Failed to upload asset');
                     }
                     return await resp.json();
                 },
@@ -228,7 +228,7 @@
                     });
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
-                        throw new Error(err.message || err.error || 'Stencil ID already exists or invalid');
+                        throw new Error(err.detail || err.message || err.error || 'Stencil ID already exists or invalid');
                     }
                     const data = await resp.json();
                     return { ref: { stencilId: data.stencilId, catalogKey: data.catalogKey }, version: data.version };
@@ -269,6 +269,7 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/problem+json',
                         'X-XSRF-TOKEN': window.getCsrfToken(),
                     },
                     body: JSON.stringify({ templateModel: template })
@@ -282,7 +283,9 @@
                     if (text) {
                         try {
                             const body = JSON.parse(text);
-                            message = body.message || body.error || message;
+                            // `detail` = problem+json (unexpected errors); `message` =
+                            // the draft validation envelope; `error` = legacy UI envelope.
+                            message = body.detail || body.message || body.error || message;
                             type = body.type || null;
                             field = (body.errors && body.errors[0] && body.errors[0].field) || null;
                         } catch (_) {
