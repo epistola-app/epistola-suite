@@ -94,15 +94,15 @@ class CodeListHandler(
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
         if (form.hasErrors()) {
-            return renderNew(request, form, catalogs, tenantId.key)
+            return renderNew(form, catalogs, tenantId.key)
         }
 
         val catalogKey = CatalogKey.validateOrNull(form["catalog"])
-            ?: return renderNewWithError(request, form, catalogs, tenantId.key, "catalog", "Invalid catalog")
+            ?: return renderNewWithError(form, catalogs, tenantId.key, "catalog", "Invalid catalog")
         val slug = CodeListKey.validateOrNull(form["slug"])
-            ?: return renderNewWithError(request, form, catalogs, tenantId.key, "slug", "Invalid slug format")
+            ?: return renderNewWithError(form, catalogs, tenantId.key, "slug", "Invalid slug format")
         val sourceType = runCatching { CodeListSource.valueOf(form["sourceType"]) }.getOrNull()
-            ?: return renderNewWithError(request, form, catalogs, tenantId.key, "sourceType", "Unknown source type")
+            ?: return renderNewWithError(form, catalogs, tenantId.key, "sourceType", "Unknown source type")
 
         val entries = if (sourceType == CodeListSource.INLINE) {
             parseInlineEntries(request.params().getFirst("entriesJson").orEmpty())
@@ -123,13 +123,7 @@ class CodeListHandler(
         }
 
         if (result.hasErrors()) {
-            return renderNew(request, result, catalogs, tenantId.key)
-        }
-
-        if (request.isHtmx) {
-            return ServerResponse.ok()
-                .header("HX-Redirect", "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}")
-                .build()
+            return renderNew(result, catalogs, tenantId.key)
         }
 
         return ServerResponse.status(303)
@@ -237,32 +231,18 @@ class CodeListHandler(
     }
 
     private fun renderNew(
-        request: ServerRequest,
         form: FormData,
         catalogs: List<Catalog>,
         tenantKey: TenantKey,
-    ): ServerResponse = request.htmx {
-        fragment("code-lists/new", "form-card") {
-            "pageTitle" to "New Code List - Epistola"
-            "tenantId" to tenantKey
-            "catalogs" to catalogs
-            "formData" to form.formData
-            "errors" to form.errors
-        }
-        reswap(HxSwap.OUTER_HTML)
-        onNonHtmx {
-            page("code-lists/new") {
-                "pageTitle" to "New Code List - Epistola"
-                "tenantId" to tenantKey
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to form.errors
-            }
-        }
+    ): ServerResponse = ServerResponse.ok().page("code-lists/new") {
+        "pageTitle" to "New Code List - Epistola"
+        "tenantId" to tenantKey
+        "catalogs" to catalogs
+        "formData" to form.formData
+        "errors" to form.errors
     }
 
     private fun renderNewWithError(
-        request: ServerRequest,
         form: FormData,
         catalogs: List<Catalog>,
         tenantKey: TenantKey,
@@ -270,7 +250,7 @@ class CodeListHandler(
         message: String,
     ): ServerResponse {
         val errors: Map<String, String> = mapOf(field to message)
-        return renderNew(request, FormData(form.formData, errors), catalogs, tenantKey)
+        return renderNew(FormData(form.formData, errors), catalogs, tenantKey)
     }
 
     /**

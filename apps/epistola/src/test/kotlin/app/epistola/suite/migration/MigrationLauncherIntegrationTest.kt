@@ -10,8 +10,8 @@ import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails
 import org.springframework.web.context.WebApplicationContext
-import org.testcontainers.postgresql.PostgreSQLContainer
 
 /**
  * Exercises the isolated migration context via the exact production
@@ -24,8 +24,11 @@ import org.testcontainers.postgresql.PostgreSQLContainer
  */
 class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
 
+    // The database this test context already migrated (its own per-context DB inside the
+    // shared container). Running the migration launcher against it keeps `migrate`
+    // idempotent and `validate` clean — see class KDoc.
     @Autowired
-    private lateinit var postgres: PostgreSQLContainer
+    private lateinit var connectionDetails: JdbcConnectionDetails
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -36,9 +39,9 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
     // MigrationLauncher.runMigration.
     private fun runMigrationContext(vararg props: String) = MigrationLauncher.migrationApplication()
         .run(
-            "--spring.datasource.url=${postgres.jdbcUrl}",
-            "--spring.datasource.username=${postgres.username}",
-            "--spring.datasource.password=${postgres.password}",
+            "--spring.datasource.url=${connectionDetails.jdbcUrl}",
+            "--spring.datasource.username=${connectionDetails.username}",
+            "--spring.datasource.password=${connectionDetails.password}",
             *props.map { "--$it" }.toTypedArray(),
         )
 
@@ -85,9 +88,9 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
     fun `runMigration returns 0 on success`() {
         val code = MigrationLauncher.runMigration(
             arrayOf(
-                "--spring.datasource.url=${postgres.jdbcUrl}",
-                "--spring.datasource.username=${postgres.username}",
-                "--spring.datasource.password=${postgres.password}",
+                "--spring.datasource.url=${connectionDetails.jdbcUrl}",
+                "--spring.datasource.username=${connectionDetails.username}",
+                "--spring.datasource.password=${connectionDetails.password}",
             ),
         )
         assertThat(code).isEqualTo(0)

@@ -10,10 +10,7 @@
 
         <div id="api-key-form-area" class="card create-form-card">
             <div class="card-content">
-                <form th:hx-post="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
-                      hx-target="#api-key-form-area"
-                      hx-swap="outerHTML"
-                      th:action="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
+                <form th:action="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
                       method="post">
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label class="ep-label" for="name">Name</label>

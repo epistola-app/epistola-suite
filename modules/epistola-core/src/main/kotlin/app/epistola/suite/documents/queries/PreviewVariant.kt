@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.generation.DocumentPreviewRenderer
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -59,12 +60,14 @@ class PreviewVariantHandler(
     private val mediator: Mediator,
     private val schemaValidator: JsonSchemaValidator,
     private val renderer: DocumentPreviewRenderer,
+    private val localeResolver: TenantLocaleResolver,
 ) : QueryHandler<PreviewVariant, ByteArray> {
 
     override fun handle(query: PreviewVariant): ByteArray {
         val tenantId = TenantId(query.tenantId)
         val catalogId = CatalogId(query.catalogKey, tenantId)
         val templateId = TemplateId(query.templateId, catalogId)
+        val variantId = app.epistola.suite.common.ids.VariantId(query.variantId, templateId)
 
         // 1. Resolve template model: live override → saved draft → latest published
         val templateModel = query.templateModel
@@ -105,7 +108,10 @@ class PreviewVariantHandler(
             }
         }
 
-        // 4. Render — always live theme cascade for drafts (no snapshot)
+        // 4. Resolve the effective formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, variantId)
+
+        // 5. Render — always live theme cascade for drafts (no snapshot)
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = templateModel,
@@ -113,6 +119,7 @@ class PreviewVariantHandler(
             template = template,
             tenant = tenant,
             data = query.data,
+            culture = culture,
         )
     }
 

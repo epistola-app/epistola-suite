@@ -59,6 +59,13 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: {{ .Values.jvm.options | quote }}
             {{- end }}
+            {{- /* Trusted CA certificates are delivered as a Paketo `ca-certificates`
+                   service binding (see volumes below); the buildpack launcher merges
+                   them into the JVM truststore at startup. */}}
+            {{- if .Values.extraCaCerts.enabled }}
+            - name: SERVICE_BINDING_ROOT
+              value: /bindings
+            {{- end }}
             {{- if .Values.config.profiles }}
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.config.profiles | quote }}
@@ -185,13 +192,36 @@ spec:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
+          {{- if or .Values.volumeMounts .Values.extraCaCerts.enabled }}
           volumeMounts:
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraCaCerts.enabled }}
+            - name: ca-cert-binding
+              mountPath: /bindings/ca-certificates
+              readOnly: true
+            {{- end }}
           {{- end }}
-      {{- with .Values.volumes }}
+      {{- if or .Values.volumes .Values.extraCaCerts.enabled }}
       volumes:
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.extraCaCerts.enabled }}
+        {{- /* A Paketo `ca-certificates` service binding: a `type` file (from a
+               chart-managed ConfigMap) plus one PEM cert per key (from the cert
+               Secret), projected into a single directory. The buildpack's launch
+               helper reads $SERVICE_BINDING_ROOT, adds these CAs to the JVM
+               truststore — no init container, works under readOnlyRootFilesystem. */}}
+        - name: ca-cert-binding
+          projected:
+            sources:
+              - configMap:
+                  name: {{ printf "%s-ca-binding-type" (include "epistola.fullname" .) }}
+              - secret:
+                  name: {{ .Values.extraCaCerts.existingSecret | default (printf "%s-ca-certs" (include "epistola.fullname" .)) }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

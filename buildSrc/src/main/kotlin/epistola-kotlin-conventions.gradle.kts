@@ -29,11 +29,16 @@ configurations {
 tasks.withType<Test> {
     useJUnitPlatform()
 
+    // Baseline heap for the catch-all `test` task, which boots full Spring Boot
+    // contexts (e.g. apps:epistola observability tests). 512m was too tight under
+    // parallel forks on the 2-core CI runner and intermittently OOM'd while loading
+    // a context (surfacing as a spurious PrometheusEndpointTest failure). 1g gives
+    // headroom. unitTest/integrationTest/uiTest/perfTest re-declare their own heap.
     jvmArgs(
         "-XX:+UseParallelGC",
         "-XX:TieredStopAtLevel=1",
         "-Xms256m",
-        "-Xmx512m",
+        "-Xmx1g",
     )
 
     testLogging {

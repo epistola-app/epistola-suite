@@ -127,6 +127,29 @@ jvm:
   # JAVA_TOOL_OPTIONS passed to the JVM
   options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
 
+# Additional trusted root CA certificates for OUTBOUND TLS — e.g. an internal
+# Keycloak, a private catalog server, the epistola-hub, or a corporate
+# TLS-inspecting egress proxy that re-signs traffic with its own root CA.
+#
+# Certs are delivered to the app as a Paketo `ca-certificates` service binding;
+# the buildpack launch helper merges them into the JVM truststore at startup,
+# ALONGSIDE the public CA bundle (nothing is replaced, so public-internet HTTPS
+# keeps working). No init container, and compatible with the hardened pod
+# (non-root, readOnlyRootFilesystem).
+extraCaCerts:
+  enabled: false
+  # Use a pre-existing Secret whose keys are PEM files (one cert each); the key
+  # name is cosmetic. Takes precedence over `certs` below. Leave blank to have
+  # the chart render a Secret from `certs`.
+  existingSecret: ""
+  # Inline PEM certificates; the chart renders them into a Secret. One cert per
+  # key; the key name is cosmetic (it becomes the cert's filename in the binding).
+  certs: {}
+  #   corp-root-ca.crt: |
+  #     -----BEGIN CERTIFICATE-----
+  #     ...
+  #     -----END CERTIFICATE-----
+
 # Observability configuration
 observability:
   # OpenTelemetry exporter endpoint (e.g., http://otel-collector:4318)
@@ -251,7 +274,7 @@ config:
 migration:
   mode: job
   # Image for the wait-for-db init container (job / initContainer modes).
-  waitImage: busybox:1.37
+  waitImage: busybox:1.38
   # Resources for the migrate container.
   resources: {}
   # Helm hook Job tuning (job mode only).

@@ -159,7 +159,7 @@ export class EpistolaQrCodePreview extends LitElement {
     this._status = 'loading';
 
     const evaluationContext = this.engine.getEvaluationContextAt(this.nodeId as NodeId);
-    const resolved = await evaluateExpression(expression, evaluationContext);
+    const resolved = await evaluateExpression(expression, evaluationContext, this.engine.locale);
 
     if (token !== this._refreshToken) return;
 

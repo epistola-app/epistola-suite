@@ -19,6 +19,7 @@ import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
 import { type ComponentRegistry, isAnchoredPageBlock } from './registry.js';
 import type { EditorFeatureFlags, EditorFeatureFlag } from './feature-flags.js';
+import { DEFAULT_LOCALE } from './locale.js';
 import { deepFreeze } from './freeze.js';
 import { defaultStyleRegistry } from './style-registry.js';
 import { EventEmitter, type EngineEvents } from './events.js';
@@ -66,6 +67,16 @@ export class EditorEngine {
    */
   readonly featureFlags: Readonly<EditorFeatureFlags>;
 
+  /**
+   * Effective BCP-47 locale for this editing session. Resolved by the host
+   * (variant attribute `system.locale`/`locale` → tenant default → app
+   * default — `TenantLocaleResolver.resolve(tenant, variantAttributes)`)
+   * and forwarded so the editor's expression previews format dates with
+   * the same locale the PDF render will use. Defaults to `"en-US"` when
+   * the host doesn't supply one.
+   */
+  readonly locale: string;
+
   /** Generic component state store (e.g. table cell selection). */
   private _componentState = new Map<string, unknown>();
 
@@ -85,6 +96,7 @@ export class EditorEngine {
       dataModel?: object;
       dataExamples?: object[];
       featureFlags?: EditorFeatureFlags;
+      locale?: string;
     },
   ) {
     this.registry = registry;
@@ -97,6 +109,8 @@ export class EditorEngine {
     this._dataModel = options?.dataModel;
     this._dataExamples = options?.dataExamples;
     this.featureFlags = Object.freeze({ ...(options?.featureFlags ?? {}) });
+    this.locale =
+      options?.locale && options.locale.trim().length > 0 ? options.locale : DEFAULT_LOCALE;
     this._recomputeStyles();
 
     // Build the ChangeContext that Change implementations use

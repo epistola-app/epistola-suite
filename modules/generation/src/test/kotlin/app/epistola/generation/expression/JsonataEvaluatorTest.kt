@@ -1,5 +1,6 @@
 package app.epistola.generation.expression
 
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,6 +9,8 @@ import kotlin.test.assertTrue
 
 class JsonataEvaluatorTest {
     private val evaluator = JsonataEvaluator()
+    private val dutchEvaluator = JsonataEvaluator(locale = Locale.forLanguageTag("nl-NL"))
+    private val germanEvaluator = JsonataEvaluator(locale = Locale.forLanguageTag("de-DE"))
 
     @Test
     fun `evaluate simple path`() {
@@ -274,5 +277,90 @@ class JsonataEvaluatorTest {
             "14:30:45",
             evaluator.evaluate("\$formatDate(ts, 'HH:mm:ss')", data),
         )
+    }
+
+    // --- $formatDate locale awareness (month name spelling) ---
+
+    @Test
+    fun `formatDate localizes the month name for nl-NL`() {
+        // Dutch month names are lowercase in CLDR.
+        val data = mapOf("d" to "2024-01-15")
+        assertEquals("15 januari 2024", dutchEvaluator.evaluate("\$formatDate(d, 'd MMMM yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate localizes the month name for de-DE`() {
+        val data = mapOf("d" to "2024-03-15")
+        assertEquals("15 März 2024", germanEvaluator.evaluate("\$formatDate(d, 'd MMMM yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate numeric tokens are locale-agnostic`() {
+        // yyyy/MM/dd render identically regardless of locale — only name tokens localize.
+        val data = mapOf("d" to "2026-04-04")
+        assertEquals("2026-04-04", dutchEvaluator.evaluate("\$formatDate(d, 'yyyy-MM-dd')", data))
+    }
+
+    // --- $formatLocaleNumber custom function ---
+
+    @Test
+    fun `formatLocaleNumber uses en-US separators by default`() {
+        val data = mapOf("amount" to 1234.56)
+        assertEquals("1,234.56", evaluator.evaluate("\$formatLocaleNumber(amount, '#,##0.00')", data))
+    }
+
+    @Test
+    fun `formatLocaleNumber uses nl-NL separators`() {
+        val data = mapOf("amount" to 1234.56)
+        assertEquals("1.234,56", dutchEvaluator.evaluate("\$formatLocaleNumber(amount, '#,##0.00')", data))
+    }
+
+    @Test
+    fun `formatLocaleNumber uses de-DE separators`() {
+        val data = mapOf("amount" to 1234.56)
+        assertEquals("1.234,56", germanEvaluator.evaluate("\$formatLocaleNumber(amount, '#,##0.00')", data))
+    }
+
+    @Test
+    fun `formatLocaleNumber whole number with grouping`() {
+        val data = mapOf("n" to 1234)
+        assertEquals("1.234", dutchEvaluator.evaluate("\$formatLocaleNumber(n, '#,##0')", data))
+    }
+
+    @Test
+    fun `formatLocaleNumber percent multiplies by 100 and localizes the decimal`() {
+        val data = mapOf("rate" to 0.21)
+        assertEquals("21,0%", dutchEvaluator.evaluate("\$formatLocaleNumber(rate, '0.0%')", data))
+        assertEquals("21.0%", evaluator.evaluate("\$formatLocaleNumber(rate, '0.0%')", data))
+    }
+
+    @Test
+    fun `formatLocaleNumber honours the explicit negative subpattern`() {
+        val data = mapOf("n" to -12.5)
+        assertEquals(
+            "(12,50)",
+            dutchEvaluator.evaluate("\$formatLocaleNumber(n, '#,##0.00;(#,##0.00)')", data),
+        )
+    }
+
+    @Test
+    fun `formatLocaleNumber rounds HALF_EVEN (banker's) by default`() {
+        // DecimalFormat's default rounding is HALF_EVEN: ties go to the nearest
+        // even digit. The editor preview pins Intl roundingMode halfEven to match.
+        assertEquals("8", evaluator.evaluate("\$formatLocaleNumber(n, '#,##0')", mapOf("n" to 8.5)))
+        assertEquals("10", evaluator.evaluate("\$formatLocaleNumber(n, '#,##0')", mapOf("n" to 9.5)))
+        assertEquals("2", evaluator.evaluate("\$formatLocaleNumber(n, '#,##0')", mapOf("n" to 2.5)))
+    }
+
+    @Test
+    fun `formatLocaleNumber with non-numeric value returns the raw value`() {
+        val data = mapOf("n" to "not-a-number")
+        assertEquals("not-a-number", evaluator.evaluate("\$formatLocaleNumber(n, '#,##0.00')", data))
+    }
+
+    @Test
+    fun `formatLocaleNumber with missing field returns null`() {
+        val data = mapOf("other" to 1)
+        assertNull(evaluator.evaluate("\$formatLocaleNumber(missing, '#,##0.00')", data))
     }
 }

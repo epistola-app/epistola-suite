@@ -92,6 +92,10 @@
         window.EPISTOLA_FEATURES = {
             stencilParameters: /*[[${stencilParametersEnabled}]]*/ false,
         };
+        // Effective BCP-47 locale, resolved server-side by TenantLocaleResolver
+        // (variant attribute → tenant default → app default). Forwarded to
+        // mountEditor so $formatDate previews use the same locale as the PDF.
+        window.EPISTOLA_LOCALE = /*[[${resolvedLocale}]]*/ 'en-US';
 
         // CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
         window.getCsrfToken = function() {
@@ -129,6 +133,7 @@
             dataModel: window.DATA_MODEL,
             plugins: plugins,
             featureFlags: window.EPISTOLA_FEATURES,
+            locale: window.EPISTOLA_LOCALE,
             fontOptions: {
                 listFonts: async () => {
                     const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {

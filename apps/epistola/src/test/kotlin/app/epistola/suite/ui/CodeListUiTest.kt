@@ -95,7 +95,10 @@ class CodeListUiTest : BasePlaywrightTest() {
         page.locator("button:has-text('Create code list')").click()
 
         assertThat(page.locator("#code-list-form-area .alert-error")).hasText("Entry codes must be unique within a code list")
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        // Plain boosted form: a validation error re-renders the full page, so the URL
+        // is the form's POST action (the collection), not /new. The form + errors + the
+        // entered values are still shown (asserted above/below).
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
         assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
@@ -127,7 +130,10 @@ class CodeListUiTest : BasePlaywrightTest() {
         page.locator("button:has-text('Create code list')").click()
 
         assertThat(page.locator("#slug + .form-hint + .form-error")).hasText("A code-list with this ID already exists")
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        // Plain boosted form: a validation error re-renders the full page, so the URL
+        // is the form's POST action (the collection), not /new. The form + errors + the
+        // entered values are still shown (asserted above/below).
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
         assertThat(page.locator("#slug")).hasValue("locales")
     }
 

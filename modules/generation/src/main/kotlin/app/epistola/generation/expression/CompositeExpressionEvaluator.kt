@@ -1,5 +1,6 @@
 package app.epistola.generation.expression
 
+import app.epistola.generation.RenderCulture
 import app.epistola.generation.SimplePathEvaluator
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
@@ -9,12 +10,35 @@ import app.epistola.template.model.ExpressionLanguage
  *
  * This is the main entry point for expression evaluation in the generation module.
  * It delegates to JSONata, JavaScript, or SimplePath evaluators based on the Expression model.
+ *
+ * Fields are intentionally public `val` so a renderer can build a culture-scoped
+ * variant via [forCulture] without paying the price of constructing a fresh
+ * GraalJS engine for every PDF.
  */
 class CompositeExpressionEvaluator(
-    private val jsonataEvaluator: ExpressionEvaluator = JsonataEvaluator(),
-    private val javaScriptEvaluator: ExpressionEvaluator = JavaScriptEvaluator(),
-    private val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
+    val jsonataEvaluator: ExpressionEvaluator = JsonataEvaluator(),
+    val javaScriptEvaluator: ExpressionEvaluator = JavaScriptEvaluator(),
+    val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
 ) {
+    /**
+     * Render-scoped copy with a fresh [JsonataEvaluator] bound to [culture]'s
+     * locale and timezone. The other evaluators are reused — only JSONata cares
+     * about culture today (via `$formatDate` / `$formatLocaleNumber`), and
+     * re-creating [JavaScriptEvaluator] would re-init the GraalJS engine on
+     * every render.
+     *
+     * Returns `this` when [culture] is [RenderCulture.DEFAULT] — no allocation
+     * for the untouched default install.
+     */
+    fun forCulture(culture: RenderCulture): CompositeExpressionEvaluator {
+        if (culture == RenderCulture.DEFAULT) return this
+        return CompositeExpressionEvaluator(
+            jsonataEvaluator = JsonataEvaluator(locale = culture.locale, timeZone = culture.timeZone),
+            javaScriptEvaluator = this.javaScriptEvaluator,
+            simplePathEvaluator = this.simplePathEvaluator,
+        )
+    }
+
     /**
      * Evaluates an Expression model against the provided data context.
      */

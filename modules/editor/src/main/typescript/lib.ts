@@ -105,6 +105,14 @@ export interface EditorOptions {
    * end-to-end and renames/removals fail the compile.
    */
   featureFlags?: EditorFeatureFlags;
+  /**
+   * Effective BCP-47 locale for this editing session. Resolved server-side
+   * via the variant-attribute → tenant default → app default chain
+   * (`TenantLocaleResolver.resolve(tenant, variantAttributes)`) and forwarded
+   * here so the editor's expression previews format dates with the same
+   * locale the PDF render will use. Defaults to `"en-US"` when absent.
+   */
+  locale?: string;
 }
 
 export type { EditorFeatureFlags, EditorFeatureFlag } from './engine/feature-flags.js';
@@ -218,6 +226,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     dataModel,
     dataExamples,
     featureFlags: options.featureFlags,
+    locale: options.locale,
   });
 
   // Mount into the container

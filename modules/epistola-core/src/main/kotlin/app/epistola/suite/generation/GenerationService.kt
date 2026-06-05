@@ -1,5 +1,6 @@
 package app.epistola.suite.generation
 
+import app.epistola.generation.RenderCulture
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.FontFamilyResolver
@@ -74,6 +75,7 @@ class GenerationService(
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         templateCatalogKey: CatalogKey? = null,
         tenantDefaultThemeCatalogKey: CatalogKey? = null,
+        culture: RenderCulture = RenderCulture.DEFAULT,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -101,6 +103,7 @@ class GenerationService(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             renderMode = RenderMode.PREVIEW,
+            culture = culture,
         )
     }
 
@@ -124,6 +127,7 @@ class GenerationService(
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         fontFamilyResolver: FontFamilyResolver? = null,
+        culture: RenderCulture = RenderCulture.DEFAULT,
     ) {
         pdfRenderer.render(
             document = templateModel,
@@ -140,6 +144,7 @@ class GenerationService(
             assetResolver = assetResolver,
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
+            culture = culture,
         )
     }
 
