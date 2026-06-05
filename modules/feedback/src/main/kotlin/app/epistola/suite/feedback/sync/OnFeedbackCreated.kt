@@ -8,7 +8,6 @@ import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.CreateFeedback
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
 import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
-import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
@@ -18,7 +17,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Reacts to feedback creation by syncing to the configured external issue tracker.
+ * Reacts to feedback creation by syncing to the external sync target.
  *
  * Runs in the IMMEDIATE phase (same call stack as the command).
  * If sync fails, the feedback remains with sync_status=PENDING for the retry scheduler.
@@ -42,12 +41,13 @@ class OnFeedbackCreated(
             return
         }
 
-        val config = GetFeedbackSyncConfig(event.id.tenantKey).query()
-            ?.takeIf { it.enabled } ?: return
+        if (!feedbackSyncPort.isEnabled()) {
+            return
+        }
 
         try {
             val assets = loadAssetContents(event.id)
-            val syncResult = feedbackSyncPort.createTicket(config, feedback, assets)
+            val syncResult = feedbackSyncPort.createTicket(feedback, assets)
 
             UpdateFeedbackSyncRef(
                 id = event.id,

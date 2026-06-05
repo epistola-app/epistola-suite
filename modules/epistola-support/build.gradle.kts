@@ -17,13 +17,17 @@ dependencies {
     // not talk to JDBI / SQL directly, so it doesn't pull JDBI or Flyway in itself.
     api(project(":modules:epistola-core"))
 
+    // Feedback module — support provides the production FeedbackSyncPort
+    // (HubFeedbackSyncAdapter). No cycle: feedback does not depend on support.
+    api(project(":modules:feedback"))
+
     // Epistola Hub client (Kotlin gRPC SDK). Bundles its own gRPC + protobuf
     // BOMs via Gradle module metadata so consumers don't need to know any
     // gRPC version coordinates. Drags in grpc-stub, grpc-kotlin-stub,
     // grpc-netty-shaded (runtime), grpc-protobuf, protobuf-kotlin,
     // and kotlinx-serialization-json-jvm. Verified no conflicts with the
     // rest of the suite (no other module uses gRPC).
-    implementation("app.epistola.hub:client:0.1.0")
+    implementation("app.epistola.hub:client:0.2.0")
 
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter")

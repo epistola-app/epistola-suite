@@ -13,7 +13,6 @@ import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.feedback.commands.AddFeedbackAsset
 import app.epistola.suite.feedback.commands.AddFeedbackComment
 import app.epistola.suite.feedback.commands.CreateFeedback
-import app.epistola.suite.feedback.commands.SaveFeedbackSyncConfig
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
@@ -22,7 +21,6 @@ import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackByExternalRef
 import app.epistola.suite.feedback.queries.GetFeedbackComments
-import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedback
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
@@ -64,17 +62,6 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
         ).execute()
     }
 
-    private fun configureSyncForTenant(tenant: Tenant) {
-        withMediator {
-            SaveFeedbackSyncConfig(
-                tenantKey = tenant.id,
-                enabled = true,
-                providerType = SyncProviderType.GITHUB,
-                settings = """{"personalAccessToken": "ghp_test", "repoOwner": "test", "repoName": "repo", "label": "feedback"}""",
-            ).execute()
-        }
-    }
-
     @Nested
     inner class CreateFeedbackTests {
         @Test
@@ -102,29 +89,6 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
                 assertThat(feedback.status).isEqualTo(FeedbackStatus.OPEN)
                 assertThat(feedback.syncStatus).isEqualTo(SyncStatus.NOT_CONFIGURED)
                 assertThat(feedback.syncAttempts).isEqualTo(0)
-            }
-        }
-
-        @Test
-        fun `sets sync status to PENDING when sync is configured`() {
-            withMediator {
-                val tenant = createTenant("Sync Tenant")
-                configureSyncForTenant(tenant)
-
-                val feedbackId = FeedbackId(FeedbackKey.generate(), TenantId(tenant.id))
-                val feedback = CreateFeedback(
-                    id = feedbackId,
-                    title = "Feature request",
-                    description = "Please add dark mode",
-                    category = FeedbackCategory.FEATURE_REQUEST,
-                    priority = FeedbackPriority.LOW,
-                    sourceUrl = null,
-                    consoleLogs = null,
-                    metadata = null,
-                    createdBy = testUserKey,
-                ).execute()
-
-                assertThat(feedback.syncStatus).isEqualTo(SyncStatus.PENDING)
             }
         }
 
@@ -377,7 +341,6 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
         fun `updates sync status`() {
             withMediator {
                 val tenant = createTenant("Sync Status")
-                configureSyncForTenant(tenant)
 
                 val fb = createTestFeedback(tenant)
                 val feedbackId = FeedbackId(fb.id, TenantId(tenant.id))
@@ -399,7 +362,6 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
         fun `increments sync attempts on failure`() {
             withMediator {
                 val tenant = createTenant("Retry Count")
-                configureSyncForTenant(tenant)
 
                 val fb = createTestFeedback(tenant)
                 val feedbackId = FeedbackId(fb.id, TenantId(tenant.id))
@@ -419,7 +381,6 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
         fun `ListPendingSyncFeedback excludes items at max attempts`() {
             withMediator {
                 val tenant = createTenant("Max Attempts")
-                configureSyncForTenant(tenant)
 
                 val fb = createTestFeedback(tenant)
                 val feedbackId = FeedbackId(fb.id, TenantId(tenant.id))
@@ -442,31 +403,9 @@ class FeedbackIntegrationTest : BaseIntegrationTest() {
     @Nested
     inner class SyncConfigTests {
         @Test
-        fun `saves and retrieves sync config`() {
-            withMediator {
-                val tenant = createTenant("Config Tenant")
-
-                val saved = SaveFeedbackSyncConfig(
-                    tenantKey = tenant.id,
-                    enabled = true,
-                    providerType = SyncProviderType.GITHUB,
-                    settings = """{"personalAccessToken": "ghp_test123", "repoOwner": "acme", "repoName": "issues", "label": "feedback"}""",
-                ).execute()
-
-                assertThat(saved.enabled).isTrue()
-                assertThat(saved.providerType).isEqualTo(SyncProviderType.GITHUB)
-
-                val config = GetFeedbackSyncConfig(tenant.id).query()
-                assertThat(config).isNotNull
-                assertThat(config!!.enabled).isTrue()
-            }
-        }
-
-        @Test
         fun `GetFeedbackByExternalRef finds synced feedback`() {
             withMediator {
                 val tenant = createTenant("ExtRef Tenant")
-                configureSyncForTenant(tenant)
 
                 val fb = createTestFeedback(tenant)
                 val feedbackId = FeedbackId(fb.id, TenantId(tenant.id))

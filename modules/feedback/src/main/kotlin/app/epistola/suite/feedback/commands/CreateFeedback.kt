@@ -7,10 +7,9 @@ import app.epistola.suite.feedback.FeedbackCategory
 import app.epistola.suite.feedback.FeedbackPriority
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.SyncStatus
-import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
+import app.epistola.suite.feedback.sync.FeedbackSyncPort
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -41,14 +40,14 @@ data class CreateFeedback(
 @Component
 class CreateFeedbackHandler(
     private val jdbi: Jdbi,
+    private val feedbackSyncPort: FeedbackSyncPort,
 ) : CommandHandler<CreateFeedback, Feedback> {
     override fun handle(command: CreateFeedback): Feedback {
         val feedbackKey = command.id.key
         val tenantKey = command.id.tenantKey
 
-        // Check if external sync is configured for this tenant
-        val config = GetFeedbackSyncConfig(tenantKey).query()
-        val syncStatus = if (config?.enabled == true) {
+        // PENDING triggers the outbound sync handler; NOT_CONFIGURED when no sync target is wired.
+        val syncStatus = if (feedbackSyncPort.isEnabled()) {
             SyncStatus.PENDING
         } else {
             SyncStatus.NOT_CONFIGURED

@@ -4,20 +4,35 @@ import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackStatus
-import app.epistola.suite.feedback.FeedbackSyncConfig
 import java.time.Instant
 
 /**
- * Port for syncing feedback to an external issue tracker.
+ * Port for syncing feedback to an external system.
  *
- * Implementations include GitHubIssueSyncAdapter (production) and NoOpFeedbackSyncAdapter (default).
- * This abstraction allows swapping backends (e.g., GitHub, Jira, Linear) without changing business logic.
+ * The production implementation (`HubFeedbackSyncAdapter`, in the `epistola-support`
+ * module) pushes feedback to epistola-hub over gRPC; [NoOpFeedbackSyncAdapter] is the
+ * default when the support tier is disabled. Authentication and the target are
+ * installation-wide — there is no per-tenant configuration — so the methods take only the
+ * feedback/comment being synced. Each [Feedback] carries its own `tenantKey` and (once
+ * synced) `externalRef`.
  */
 interface FeedbackSyncPort {
-    fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult
-    fun addComment(config: FeedbackSyncConfig, externalRef: String, comment: FeedbackComment): ExternalCommentRef
-    fun updateStatus(config: FeedbackSyncConfig, externalRef: String, status: FeedbackStatus)
-    fun fetchUpdates(config: FeedbackSyncConfig, since: Instant): List<ExternalUpdate>
+    /** True when a real sync target is wired (i.e. not the no-op). Gates the drivers. */
+    fun isEnabled(): Boolean
+
+    fun createTicket(feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult
+
+    /** [feedback] must already be synced ([Feedback.externalRef] non-null). */
+    fun addComment(feedback: Feedback, comment: FeedbackComment): ExternalCommentRef
+
+    /** [feedback] must already be synced ([Feedback.externalRef] non-null). */
+    fun updateStatus(feedback: Feedback, status: FeedbackStatus)
+
+    /**
+     * Inbound updates (status changes, external comments) recorded after [since], across all
+     * tenants of this installation. Each [ExternalUpdate] carries the tenant it belongs to.
+     */
+    fun fetchUpdates(since: Instant): List<ExternalUpdate>
 }
 
 data class SyncResult(

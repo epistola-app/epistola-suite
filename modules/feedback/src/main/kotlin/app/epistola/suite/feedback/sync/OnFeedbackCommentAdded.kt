@@ -7,7 +7,6 @@ import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.AddFeedbackComment
 import app.epistola.suite.feedback.commands.UpdateFeedbackCommentExternalRef
 import app.epistola.suite.feedback.queries.GetFeedback
-import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.execute
@@ -47,11 +46,12 @@ class OnFeedbackCommentAdded(
             return
         }
 
-        val config = GetFeedbackSyncConfig(event.id.tenantKey).query()
-            ?.takeIf { it.enabled } ?: return
+        if (!feedbackSyncPort.isEnabled()) {
+            return
+        }
 
         try {
-            val ref = feedbackSyncPort.addComment(config, feedback.externalRef, comment)
+            val ref = feedbackSyncPort.addComment(feedback, comment)
 
             UpdateFeedbackCommentExternalRef(
                 id = event.id,

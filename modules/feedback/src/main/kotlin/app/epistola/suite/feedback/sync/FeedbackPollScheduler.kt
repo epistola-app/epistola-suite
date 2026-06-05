@@ -1,16 +1,15 @@
 package app.epistola.suite.feedback.sync
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
-import app.epistola.suite.feedback.commands.UpdateFeedbackSyncConfigLastPolledAt
 import app.epistola.suite.feedback.queries.GetFeedbackByExternalRef
-import app.epistola.suite.feedback.queries.ListEnabledFeedbackSyncConfigs
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.metadata.getAs
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -19,10 +18,13 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 
 /**
- * Periodically polls external issue trackers for inbound updates (comments, status changes).
+ * Periodically polls the external sync target for inbound updates (comments, status changes).
  *
- * This is the alternative to webhooks for deployments behind firewalls that cannot
- * receive inbound HTTP calls. Only active when `epistola.feedback.sync.polling.enabled=true`.
+ * Sync is installation-wide: one poll returns updates across all tenants, each tagged with
+ * its tenant. The poll cursor is a single installation-level timestamp persisted in
+ * `app_metadata` under [CURSOR_KEY]. Only active when
+ * `epistola.feedback.sync.polling.enabled=true`, and only does work when a real sync target
+ * is wired (the support tier is enabled).
  */
 @Component
 @EnableScheduling
@@ -34,54 +36,44 @@ import java.time.Instant
 class FeedbackPollScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
+    private val appMetadata: AppMetadataService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.polling.interval-ms:300000}")
     fun pollForUpdates() = MediatorContext.runWithMediator(mediator) {
-        val configs = ListEnabledFeedbackSyncConfigs.query()
-        if (configs.isEmpty()) return@runWithMediator
+        if (!feedbackSyncPort.isEnabled()) return@runWithMediator
 
-        for (config in configs) {
-            try {
-                pollTenant(config)
-            } catch (e: Exception) {
-                log.error("Failed to poll updates for tenant {}: {}", config.tenantKey, e.message, e)
-            }
-        }
-    }
-
-    private fun pollTenant(config: FeedbackSyncConfig) {
-        val since = config.lastPolledAt ?: Instant.EPOCH
-        val updates = feedbackSyncPort.fetchUpdates(config, since)
+        val since = loadCursor()
+        val updates = feedbackSyncPort.fetchUpdates(since)
 
         if (updates.isEmpty()) {
-            UpdateFeedbackSyncConfigLastPolledAt(config.tenantKey, Instant.now()).execute()
-            return
+            saveCursor(Instant.now())
+            return@runWithMediator
         }
 
-        log.info("Fetched {} updates for tenant {} since {}", updates.size, config.tenantKey, since)
+        log.info("Fetched {} feedback updates since {}", updates.size, since)
 
         var lastSuccessfulTimestamp = since
         for (update in updates) {
             try {
-                processUpdate(config.tenantKey, update)
+                processUpdate(update.tenantKey, update)
                 if (update.occurredAt.isAfter(lastSuccessfulTimestamp)) {
                     lastSuccessfulTimestamp = update.occurredAt
                 }
             } catch (e: Exception) {
                 log.error(
                     "Failed to process update for tenant {} (ref={}): {}",
-                    config.tenantKey,
+                    update.tenantKey,
                     update.externalRef,
                     e.message,
                 )
             }
         }
 
-        // Only advance the poll cursor to the last successfully processed update
+        // Only advance the poll cursor to the last successfully processed update.
         if (lastSuccessfulTimestamp.isAfter(since)) {
-            UpdateFeedbackSyncConfigLastPolledAt(config.tenantKey, lastSuccessfulTimestamp).execute()
+            saveCursor(lastSuccessfulTimestamp)
         }
     }
 
@@ -109,5 +101,20 @@ class FeedbackPollScheduler(
                 log.debug("Updated feedback {} status to {}", feedbackId.key, update.newStatus)
             }
         }
+    }
+
+    private fun loadCursor(): Instant = appMetadata.getAs<Cursor>(CURSOR_KEY)?.let { Instant.ofEpochMilli(it.lastPolledAtEpochMillis) } ?: Instant.EPOCH
+
+    private fun saveCursor(at: Instant) {
+        appMetadata.setAs(CURSOR_KEY, Cursor(at.toEpochMilli()))
+    }
+
+    /** Installation-wide poll cursor, stored as JSON in `app_metadata`. */
+    data class Cursor(
+        val lastPolledAtEpochMillis: Long,
+    )
+
+    companion object {
+        const val CURSOR_KEY = "feedback.sync.lastPolledAt"
     }
 }

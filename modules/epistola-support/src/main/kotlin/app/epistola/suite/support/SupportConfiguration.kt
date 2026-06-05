@@ -7,6 +7,7 @@ import app.epistola.hub.client.discovery.DEFAULT_DISCOVERY_URL
 import app.epistola.hub.client.discovery.HubDiscovery
 import app.epistola.hub.client.discovery.HubEndpoint
 import app.epistola.hub.client.port.InstallationStore
+import app.epistola.suite.feedback.sync.FeedbackSyncPort
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
@@ -34,6 +35,14 @@ import org.springframework.context.annotation.DependsOn
 class SupportConfiguration {
     @Bean
     fun installationStore(metadata: AppMetadataService): InstallationStore = AppMetadataInstallationStore(metadata)
+
+    /**
+     * Production feedback sync target: pushes to / polls from epistola-hub. Overrides the
+     * feedback module's no-op fallback (registered via `@ConditionalOnMissingBean`), so feedback
+     * only syncs to the hub when the support tier is enabled.
+     */
+    @Bean
+    fun feedbackSyncPort(client: EpistolaHubClient): FeedbackSyncPort = HubFeedbackSyncAdapter(client)
 
     /**
      * Resolved during context refresh. `installations.get()` reads

@@ -6,6 +6,16 @@
 
 ### Added
 
+- **Feedback now syncs to epistola-hub instead of GitHub.** New `HubFeedbackSyncAdapter` in `modules/epistola-support` implements `FeedbackSyncPort` against the epistola-hub gRPC `FeedbackService` (client `0.2.0`): it pushes feedback + comments and polls status/comment changes back, authenticating with the installation API key the support tier already manages. Wired as the production `FeedbackSyncPort` bean when `epistola.support.enabled=true`; otherwise the no-op adapter keeps feedback local. Sync is now **installation-wide** (gated by the support tier) rather than per-tenant — the inbound poll cursor lives in `app_metadata` under `feedback.sync.lastPolledAt`.
+
+### Changed
+
+- **`FeedbackSyncPort` is now installation-wide.** Methods take the `Feedback`/`FeedbackComment` directly (no per-tenant config object) plus a new `isEnabled()` gate; `ExternalUpdate` carries its `tenantKey` so a single poll fans out across tenants. `CreateFeedback` sets the initial sync status from `FeedbackSyncPort.isEnabled()` instead of a per-tenant config row.
+
+### Removed
+
+- **GitHub feedback sync and per-tenant sync configuration.** Removed `GitHubIssueSyncAdapter`/`GitHubSyncSettings`/`GitHubSyncConfiguration`, the `FeedbackSyncConfig`/`SyncProviderType` model, the `feedback_sync_config` table (Flyway drop migration), the `SaveFeedbackSyncConfig`/`GetFeedbackSyncConfig`/`ListEnabledFeedbackSyncConfigs`/`UpdateFeedbackSyncConfigLastPolledAt` commands & queries, and the `/feedback/sync` settings UI (route, handler methods, `feedback/sync.html`).
+
 - **End-to-end test for 403 `accessDeniedHandler` returning `application/problem+json`.** Added `ForbiddenTestController` (test-only `@RestController` with a `@PreAuthorize`-restricted endpoint) and a `CollectEndpointSmokeIT` test that asserts the 403 response carries `application/problem+json` content type, `type` URI, and `code: ACCESS_DENIED`.
 - **Consistency guard for mapped API exceptions.** `ApiExceptionMappingsConsistencyTest` uses reflection to assert that every exception class listed in `@ExceptionHandler` on `ApiExceptionHandler.handleMappedApiException` is also registered in `ApiExceptionMappings`, and vice-versa. Fails at build time if a developer adds a mapping in one place but forgets the other.
 - **Central exception-to-problem-detail registry for the REST API.** New `ApiExceptionMappings` object maps every simple domain exception (e.g. `TenantNotFoundException`, `AssetInUseException`) to its `ApiProblemType`, detail message, extension fields, and warn-log template. Used by `ApiExceptionHandler.handleMappedApiException` so new exceptions only need one declaration in the registry instead of a dedicated `@ExceptionHandler` method.

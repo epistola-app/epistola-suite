@@ -9,7 +9,6 @@ import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncStatus
 import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
-import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
 import app.epistola.suite.mediator.Mediator
@@ -25,8 +24,9 @@ import org.springframework.stereotype.Component
 /**
  * Periodically retries syncing feedback items that failed initial sync.
  *
- * Only active when `epistola.feedback.sync.enabled` is true (requires a sync provider configured).
- * Items that exceed max retries are marked as FAILED and no longer retried.
+ * Only active when `epistola.feedback.sync.enabled` is true, and only does work when a real
+ * sync target is wired (the support tier is enabled). Items that exceed max retries are
+ * marked as FAILED and no longer retried.
  */
 @Component
 @EnableScheduling
@@ -43,6 +43,8 @@ class FeedbackSyncScheduler(
 
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
     fun retryPendingSync() = MediatorContext.runWithMediator(mediator) {
+        if (!feedbackSyncPort.isEnabled()) return@runWithMediator
+
         val pending = ListPendingSyncFeedback(limit = 20).query()
         if (pending.isEmpty()) return@runWithMediator
 
@@ -59,21 +61,9 @@ class FeedbackSyncScheduler(
     }
 
     private fun syncFeedback(feedback: Feedback) {
-        val config = GetFeedbackSyncConfig(feedback.tenantKey).query() ?: run {
-            log.warn("No feedback sync config for tenant {}, marking as NOT_CONFIGURED", feedback.tenantKey)
-            markNotConfigured(feedback)
-            return
-        }
-
-        if (!config.enabled) {
-            log.warn("Sync not enabled for tenant {}, marking as NOT_CONFIGURED", feedback.tenantKey)
-            markNotConfigured(feedback)
-            return
-        }
-
         val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
         val assets = loadAssetContents(feedbackId)
-        val syncResult = feedbackSyncPort.createTicket(config, feedback, assets)
+        val syncResult = feedbackSyncPort.createTicket(feedback, assets)
 
         UpdateFeedbackSyncRef(
             id = feedbackId,
@@ -102,10 +92,5 @@ class FeedbackSyncScheduler(
             log.debug("Feedback {} sync attempt {} failed, will retry", feedback.id, nextAttempt)
             UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.PENDING, incrementAttempts = true).execute()
         }
-    }
-
-    private fun markNotConfigured(feedback: Feedback) {
-        val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
-        UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.NOT_CONFIGURED).execute()
     }
 }
