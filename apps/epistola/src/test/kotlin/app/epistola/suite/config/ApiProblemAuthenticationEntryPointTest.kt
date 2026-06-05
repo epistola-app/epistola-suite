@@ -26,7 +26,7 @@ class ApiProblemAuthenticationEntryPointTest {
         assertThat(response.status).isEqualTo(401)
         assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         assertThat(response.getHeader(HttpHeaders.WWW_AUTHENTICATE)).startsWith("Bearer")
-        assertThat(response.contentAsString).contains("\"code\":\"UNAUTHORIZED\"")
+        assertThat(response.contentAsString).contains("\"type\":\"https://epistola.app/errors/unauthorized\"")
     }
 
     @Test
@@ -42,6 +42,6 @@ class ApiProblemAuthenticationEntryPointTest {
         assertThat(response.status).isEqualTo(401)
         assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         assertThat(response.getHeader(HttpHeaders.WWW_AUTHENTICATE)).isNull()
-        assertThat(response.contentAsString).contains("\"code\":\"UNAUTHORIZED\"")
+        assertThat(response.contentAsString).contains("\"type\":\"https://epistola.app/errors/unauthorized\"")
     }
 }
