@@ -21,7 +21,8 @@ export const STENCIL_BINDING_ERRORS_KEY = 'stencil:binding-errors';
 export type BindingErrors = Record<string, string>;
 
 /** Problem `type` URI for the JSONata binding syntax error (see backend ValidationCode). */
-export const BINDING_SYNTAX_INVALID_TYPE = 'https://epistola.app/errors/node-parameter-binding-syntax-invalid';
+export const BINDING_SYNTAX_INVALID_TYPE =
+  'https://epistola.app/errors/node-parameter-binding-syntax-invalid';
 
 export interface SaveErrorInfo {
   /** Machine-readable problem `type` URI, when the save failed validation. */

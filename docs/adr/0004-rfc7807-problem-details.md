@@ -25,7 +25,7 @@ read as RFC 9457. Concretely:
 **Note on Constraint 1's reasoning (revisited 2026-06-04).** The premise that
 `ProblemDetailJacksonMixin` "does not register on the Jackson 3 `ObjectMapper`
 because it uses `com.fasterxml` annotations" is imprecise: Jackson 3 keeps its
-*annotations* in `com.fasterxml.jackson.annotation` (only `core`/`databind` moved
+_annotations_ in `com.fasterxml.jackson.annotation` (only `core`/`databind` moved
 to `tools.jackson`), and the mixin flattens `getProperties()` correctly when added
 to a mapper in isolation. **However**, an attempt to drop `toProblemMap()` and rely
 on the mixin via the application's primary/injected `ObjectMapper` (both Boot's
