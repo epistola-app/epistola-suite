@@ -10,6 +10,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
+import app.epistola.suite.security.TenantRole
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -78,6 +82,14 @@ class FeedbackPollScheduler(
     }
 
     private fun processUpdate(tenantKey: TenantKey, update: ExternalUpdate) {
+        // The poll runs on a scheduler thread with no HTTP principal; the inbound commands
+        // are tenant-scoped (RequiresPermission), so bind a system principal for the tenant.
+        SecurityContext.runWithPrincipal(systemPrincipal(tenantKey)) {
+            applyUpdate(tenantKey, update)
+        }
+    }
+
+    private fun applyUpdate(tenantKey: TenantKey, update: ExternalUpdate) {
         val feedbackId = GetFeedbackByExternalRef(tenantKey, update.externalRef).query() ?: run {
             log.debug("No feedback found for external ref {} in tenant {}", update.externalRef, tenantKey)
             return
@@ -103,15 +115,32 @@ class FeedbackPollScheduler(
         }
     }
 
-    private fun loadCursor(): Instant = appMetadata.getAs<Cursor>(CURSOR_KEY)?.let { Instant.ofEpochMilli(it.lastPolledAtEpochMillis) } ?: Instant.EPOCH
+    private fun loadCursor(): Instant =
+        appMetadata.getAs<Cursor>(CURSOR_KEY)?.let { Instant.ofEpochSecond(it.epochSecond, it.nano) } ?: Instant.EPOCH
 
     private fun saveCursor(at: Instant) {
-        appMetadata.setAs(CURSOR_KEY, Cursor(at.toEpochMilli()))
+        appMetadata.setAs(CURSOR_KEY, Cursor(at.epochSecond, at.nano.toLong()))
     }
 
-    /** Installation-wide poll cursor, stored as JSON in `app_metadata`. */
+    // Grants all roles for the one tenant being processed, so the mediator's authorization
+    // checks pass for the inbound commands. Mirrors JobPoller's background-job principal.
+    private fun systemPrincipal(tenantKey: TenantKey): EpistolaPrincipal = EpistolaPrincipal(
+        userId = SystemUser.ID,
+        externalId = SystemUser.EXTERNAL_ID,
+        email = SystemUser.EMAIL,
+        displayName = SystemUser.DISPLAY_NAME,
+        tenantMemberships = mapOf(tenantKey to TenantRole.entries.toSet()),
+        currentTenantId = tenantKey,
+    )
+
+    /**
+     * Installation-wide poll cursor, stored as JSON in `app_metadata`. Keeps full
+     * second+nanosecond precision so it doesn't lag behind the hub's microsecond
+     * timestamps and re-fetch the same updates every cycle.
+     */
     data class Cursor(
-        val lastPolledAtEpochMillis: Long,
+        val epochSecond: Long,
+        val nano: Long,
     )
 
     companion object {
