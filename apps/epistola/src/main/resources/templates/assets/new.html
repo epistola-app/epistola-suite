@@ -72,7 +72,7 @@
 
                 try {
                     var body = JSON.parse(xhr.responseText || '{}');
-                    uploadError.textContent = body.error || 'Failed to upload asset. Please try again.';
+                    uploadError.textContent = body.detail || body.error || 'Failed to upload asset. Please try again.';
                 } catch (e) {
                     uploadError.textContent = 'Failed to upload asset. Please try again.';
                 }

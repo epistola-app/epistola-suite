@@ -104,7 +104,7 @@
                 }
                 try {
                     var body = JSON.parse(xhr.responseText || '{}');
-                    fontUploadError.textContent = body.error || 'Failed to upload font. Please try again.';
+                    fontUploadError.textContent = body.detail || body.error || 'Failed to upload font. Please try again.';
                 } catch (e) {
                     fontUploadError.textContent = 'Failed to upload font. Please try again.';
                 }

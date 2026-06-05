@@ -1,5 +1,8 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.api.v1.ApiProblemType
+import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.problemInstance
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -15,8 +18,17 @@ import tools.jackson.databind.ObjectMapper
  * Catches all exceptions from UI request processing and translates them into
  * appropriate HTTP error responses, preventing Tomcat from rendering raw stacktraces.
  *
- * Known domain exceptions are mapped to specific status codes (403, 404, 409, etc.).
- * Unknown exceptions become 500 with a generic message — details are logged server-side only.
+ * One structured envelope, content-negotiated by whether the caller wants HTML or data:
+ *  - **Structured callers** (a request that `Accept`s `application/json` /
+ *    `application/problem+json`, or an HTMX request) → an RFC 9457 `application/problem+json`
+ *    body (`type`/`title`/`status`/`detail`/`instance`) whose `type` URI matches the REST
+ *    API's [ApiProblemTypes] registry. Never leaks a stacktrace.
+ *  - **HTML navigations** (everything else — a browser loading a page) → container
+ *    `sendError` so the browser gets an error page rather than raw JSON.
+ *
+ * Known domain exceptions map to a specific problem type and the status this UI surface
+ * has historically used; unknown exceptions become an opaque 500 — details are logged
+ * server-side only.
  *
  * REST API requests (under /api) are excluded — they have their own @RestControllerAdvice.
  */
@@ -26,6 +38,9 @@ class UiExceptionFilter(
     private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    /** Resolved error: the HTTP status to use, the problem `type`/`title`, and the detail. */
+    private data class UiError(val status: Int, val type: ApiProblemType, val detail: String)
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean = request.requestURI.startsWith("/api/")
 
@@ -37,54 +52,68 @@ class UiExceptionFilter(
         try {
             filterChain.doFilter(request, response)
         } catch (ex: Exception) {
-            val cause = unwrap(ex)
-            val (status, message) = resolve(cause)
-
-            val acceptsJson = request.getHeader("Accept")?.contains(MediaType.APPLICATION_JSON_VALUE) == true
-            val isHtmx = request.getHeader("HX-Request") == "true"
-
-            if (acceptsJson || isHtmx) {
-                response.status = status
-                response.contentType = MediaType.APPLICATION_JSON_VALUE
-                // Encode via Jackson — messages can contain quotes/backslashes/
-                // newlines (e.g. domain messages, parser text) that would break
-                // hand-built JSON.
-                response.writer.write(objectMapper.writeValueAsString(mapOf("error" to message)))
+            val error = resolve(unwrap(ex))
+            if (wantsProblemDetail(request)) {
+                // RFC 9457 problem+json — same `type` URI as the REST API, no stacktrace.
+                response.status = error.status
+                response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
+                response.writer.write(objectMapper.writeValueAsString(problemBody(request, error)))
             } else {
-                response.sendError(status, message)
+                // HTML navigation: let the container render an error page.
+                response.sendError(error.status, error.detail)
             }
         }
     }
 
+    private fun problemBody(request: HttpServletRequest, error: UiError): Map<String, Any?> = linkedMapOf(
+        "type" to error.type.type.toString(),
+        "title" to error.type.title,
+        "status" to error.status,
+        "detail" to error.detail,
+        "instance" to request.problemInstance().toString(),
+    )
+
     /**
-     * Maps an exception to an HTTP status code and user-facing message.
-     *
-     * Add new exception mappings here as simple class name checks to avoid
-     * coupling this filter to every domain module.
+     * Maps an exception to its status, problem type, and user-facing detail. Add new
+     * mappings here as simple class-name checks to avoid coupling this filter to every
+     * domain module. The status is the one this UI surface has historically returned
+     * (e.g. read-only catalog → 403), independent of the type's canonical REST status.
      */
-    private fun resolve(cause: Throwable): Pair<Int, String> = when (cause::class.simpleName) {
+    private fun resolve(cause: Throwable): UiError = when (cause::class.simpleName) {
         "TenantAccessDeniedException" -> {
             log.warn("Tenant access denied: {}", cause.message)
-            403 to "You don't have access to this tenant."
+            UiError(403, ApiProblemTypes.ACCESS_DENIED, "You don't have access to this tenant.")
         }
         "PermissionDeniedException" -> {
             log.warn("Permission denied: {}", cause.message)
-            403 to "You don't have permission to perform this action."
+            UiError(403, ApiProblemTypes.PERMISSION_DENIED, "You don't have permission to perform this action.")
         }
         "PlatformAccessDeniedException" -> {
             log.warn("Platform access denied: {}", cause.message)
-            403 to "This action requires platform administrator access."
+            UiError(403, ApiProblemTypes.PLATFORM_ACCESS_DENIED, "This action requires platform administrator access.")
         }
         "CatalogReadOnlyException" -> {
             log.warn("Catalog read-only: {}", cause.message)
-            403 to (cause.message ?: "This catalog is read-only.")
+            UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")
         }
         else -> {
-            log.error("Unhandled exception on {} {}: {}", "UI request", cause::class.simpleName, cause.message, cause)
-            500 to "An unexpected error occurred."
+            log.error("Unhandled exception on UI request: {} {}", cause::class.simpleName, cause.message, cause)
+            UiError(500, ApiProblemTypes.INTERNAL_ERROR, "An unexpected error occurred.")
         }
     }
 
     /** Unwrap nested exceptions (e.g. from Spring's NestedServletException). */
     private fun unwrap(ex: Throwable): Throwable = ex.cause?.let { unwrap(it) } ?: ex
+}
+
+/**
+ * Whether a UI request prefers a structured problem body over an HTML page: it accepts JSON /
+ * problem+json, or is an HTMX request. Shared by [UiExceptionFilter] and the UI security
+ * chain's exception handling so every UI error path content-negotiates the same way.
+ */
+fun wantsProblemDetail(request: HttpServletRequest): Boolean {
+    val accept = request.getHeader("Accept").orEmpty()
+    return accept.contains(MediaType.APPLICATION_JSON_VALUE) ||
+        accept.contains(MediaType.APPLICATION_PROBLEM_JSON_VALUE) ||
+        request.getHeader("HX-Request") == "true"
 }

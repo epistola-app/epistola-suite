@@ -26,7 +26,7 @@ Epistola Suite is a document generation platform designed for both developers an
 
 | Area                    | Features                                                           |
 | ----------------------- | ------------------------------------------------------------------ |
-| **API**                 | Versioned REST API (`/api/v1/`), OpenAPI 3.1 spec, RFC 7807 errors |
+| **API**                 | Versioned REST API (`/api/v1/`), OpenAPI 3.1 spec, RFC 9457 errors |
 | **Document Generation** | HTML output, PDF via Puppeteer (Chrome-based)                      |
 | **Editor**              | Image blocks, undo/redo, table row repetition                      |
 | **Security**            | API key authentication and management                              |

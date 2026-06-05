@@ -119,7 +119,7 @@ Environments represent deployment stages (e.g. `staging`, `production`). Each en
 
 - Versioned under `/api/v1/` — separate from internal UI endpoints.
 - OpenAPI 3.1 specification (managed with Redocly).
-- RFC 7807 problem detail error responses.
+- RFC 9457 problem detail error responses.
 - Supports single and batch document generation with job tracking.
 
 ### Document Generation Jobs

@@ -3,10 +3,12 @@ package app.epistola.suite.templates.commands.activations
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.ActivationNotFoundException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -46,7 +48,7 @@ class RemoveActivationHandler(
             .one()
 
         if (!environmentExists) {
-            return@inTransaction false
+            throw EnvironmentNotFoundException(command.environmentId.tenantKey, command.environmentId.key)
         }
 
         val rowsDeleted = handle.createUpdate(
@@ -63,6 +65,14 @@ class RemoveActivationHandler(
             .bind("variantId", command.variantId.key)
             .execute()
 
-        rowsDeleted > 0
+        if (rowsDeleted == 0) {
+            throw ActivationNotFoundException(
+                command.variantId.tenantKey,
+                command.variantId.key,
+                command.environmentId.key,
+            )
+        }
+
+        true
     }
 }

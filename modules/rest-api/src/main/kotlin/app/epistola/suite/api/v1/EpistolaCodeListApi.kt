@@ -8,6 +8,7 @@ import app.epistola.api.model.CreateCodeListRequest
 import app.epistola.api.model.UpdateCodeListRequest
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toModel
+import app.epistola.suite.attributes.codelists.CodeListNotFoundException
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.commands.DeleteCodeList
 import app.epistola.suite.attributes.codelists.commands.RefreshCodeList
@@ -90,7 +91,8 @@ class EpistolaCodeListApi : CodeListsApi {
         codeListSlug: String,
     ): ResponseEntity<CodeListDto> {
         val id = buildId(tenantId, catalogId, codeListSlug)
-        val codeList = GetCodeList(id = id).query() ?: return ResponseEntity.notFound().build()
+        val codeList = GetCodeList(id = id).query()
+            ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
         return ResponseEntity.ok(codeList.toDto())
     }
 
@@ -103,7 +105,7 @@ class EpistolaCodeListApi : CodeListsApi {
         val id = buildId(tenantId, catalogId, codeListSlug)
         // PATCH semantics — fetch current, merge with the request body, then
         // replay through the full UpdateCodeList command (it isn't partial).
-        val current = GetCodeList(id = id).query() ?: return ResponseEntity.notFound().build()
+        val current = GetCodeList(id = id).query() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
         val updated = UpdateCodeList(
             id = id,
             displayName = updateCodeListRequest.displayName ?: current.displayName,
@@ -112,7 +114,7 @@ class EpistolaCodeListApi : CodeListsApi {
             authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
             credential = updateCodeListRequest.credential ?: current.credential,
             entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
         return ResponseEntity.ok(updated.toDto())
     }
 
@@ -126,7 +128,7 @@ class EpistolaCodeListApi : CodeListsApi {
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
         }
     }
 
@@ -136,7 +138,7 @@ class EpistolaCodeListApi : CodeListsApi {
         codeListSlug: String,
     ): ResponseEntity<CodeListDto> {
         val id = buildId(tenantId, catalogId, codeListSlug)
-        val refreshed = RefreshCodeList(id = id).execute() ?: return ResponseEntity.notFound().build()
+        val refreshed = RefreshCodeList(id = id).execute() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
         return ResponseEntity.ok(refreshed.toDto())
     }
 

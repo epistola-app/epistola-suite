@@ -184,6 +184,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(getResp.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(getResp.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = getResp.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Template Not Found")
+        assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(404)
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(problem, "$.instance"))
+            .isEqualTo("/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug")
     }
 
     @Test
@@ -197,6 +207,11 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = response.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
     }
 
     @Test
@@ -210,6 +225,11 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val problem = response.body!!
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/template-not-found")
+        assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo("non-existent")
     }
 
     @Test

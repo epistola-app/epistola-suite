@@ -4,6 +4,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -62,7 +63,11 @@ class UpdateDraftHandler(
                 .one()
 
             if (!variantExists) {
-                return@inTransaction null
+                throw TemplateVariantNotFoundException(
+                    command.variantId.tenantKey,
+                    command.variantId.templateKey,
+                    command.variantId.key,
+                )
             }
 
             val templateModelJson = objectMapper.writeValueAsString(command.templateModel)

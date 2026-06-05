@@ -163,7 +163,7 @@
                     });
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to upload asset');
+                        throw new Error(err.detail || err.error || 'Failed to upload asset');
                     }
                     return await resp.json();
                 },
@@ -233,7 +233,7 @@
                     });
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
-                        throw new Error(err.message || err.error || 'Stencil ID already exists or invalid');
+                        throw new Error(err.detail || err.message || err.error || 'Stencil ID already exists or invalid');
                     }
                     const data = await resp.json();
                     return { ref: { stencilId: data.stencilId, catalogKey: data.catalogKey }, version: data.version };
@@ -274,6 +274,7 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/problem+json',
                         'X-XSRF-TOKEN': window.getCsrfToken(),
                     },
                     body: JSON.stringify({ templateModel: template })
@@ -281,23 +282,25 @@
 
                 if (!response.ok) {
                     let message = response.statusText || 'Failed to save draft';
-                    let code = null;
+                    let type = null;
                     let field = null;
                     const text = await response.text().catch(() => '');
                     if (text) {
                         try {
                             const body = JSON.parse(text);
-                            message = body.message || body.error || message;
-                            code = body.code || null;
+                            // `detail` = problem+json (unexpected errors); `message` =
+                            // the draft validation envelope; `error` = legacy UI envelope.
+                            message = body.detail || body.message || body.error || message;
+                            type = body.type || null;
                             field = (body.errors && body.errors[0] && body.errors[0].field) || null;
                         } catch (_) {
                             message = text;
                         }
                     }
-                    // Carry the structured validation code/field on the Error so
+                    // Carry the structured problem `type`/`field` on the Error so
                     // the editor can render it inline without parsing the message.
                     const err = new Error(message);
-                    err.code = code;
+                    err.type = type;
                     err.field = field;
                     throw err;
                 }

@@ -1,5 +1,7 @@
 package app.epistola.suite.api.security
 
+import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.writeProblemDetail
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.apikeys.commands.RecordApiKeyUsage
 import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
@@ -16,9 +18,9 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
-import org.springframework.http.MediaType
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.filter.OncePerRequestFilter
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Authenticates API requests using the X-API-Key header.
@@ -54,6 +56,7 @@ class ApiKeyAuthenticationFilter(
     private val apiKeyService: ApiKeyService,
     private val meterRegistry: MeterRegistry,
     private val headerName: String = DEFAULT_HEADER_NAME,
+    private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -90,7 +93,7 @@ class ApiKeyAuthenticationFilter(
 
         if (!apiKeyHeader.startsWith(ApiKeyService.KEY_PREFIX)) {
             authCounter("invalid_format").increment()
-            writeUnauthorized(response, "Invalid API key format")
+            writeUnauthorized(request, response, "Invalid API key format")
             return
         }
 
@@ -99,7 +102,7 @@ class ApiKeyAuthenticationFilter(
 
         if (apiKey == null) {
             authCounter("invalid_key").increment()
-            writeUnauthorized(response, "Invalid API key")
+            writeUnauthorized(request, response, "Invalid API key")
             return
         }
 
@@ -111,7 +114,7 @@ class ApiKeyAuthenticationFilter(
                 authCounter("expired").increment()
                 "API key has expired"
             }
-            writeUnauthorized(response, reason)
+            writeUnauthorized(request, response, reason)
             return
         }
 
@@ -153,11 +156,9 @@ class ApiKeyAuthenticationFilter(
         filterChain.doFilter(request, response)
     }
 
-    private fun writeUnauthorized(response: HttpServletResponse, message: String) {
+    private fun writeUnauthorized(request: HttpServletRequest, response: HttpServletResponse, message: String) {
         log.debug("API key authentication failed: {}", message)
-        response.status = HttpServletResponse.SC_UNAUTHORIZED
-        response.contentType = MediaType.APPLICATION_JSON_VALUE
-        response.writer.write("""{"code":"UNAUTHORIZED","message":"$message"}""")
+        writeProblemDetail(response, objectMapper, request, ApiProblemTypes.UNAUTHORIZED, message)
     }
 
     companion object {

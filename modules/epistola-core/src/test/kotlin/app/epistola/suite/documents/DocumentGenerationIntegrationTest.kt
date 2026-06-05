@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.documents.commands.CancelGenerationJob
@@ -334,11 +335,10 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             GenerationRequestKey(uuid)
         }
 
-        // Try to cancel immediately
-        val cancelled = mediator.send(CancelGenerationJob(tenant.id, requestId))
+        // Try to cancel immediately — may throw if job already completed
+        try {
+            mediator.send(CancelGenerationJob(tenant.id, requestId))
 
-        // Should succeed if job hasn't completed yet
-        if (cancelled) {
             // Wait a bit for cancellation to take effect
             await()
                 .atMost(5, TimeUnit.SECONDS)
@@ -349,8 +349,9 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                         assertThat(job!!.request.status).isEqualTo(RequestStatus.CANCELLED)
                     }
                 }
+        } catch (_: GenerationJobNotCancellableException) {
+            // Job completed too quickly — that's OK for this test
         }
-        // If cancellation failed, job completed too quickly - that's OK for this test
     }
 
     @Test

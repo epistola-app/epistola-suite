@@ -171,7 +171,7 @@ the message. A single mapper (`ValidationException.toValidationErrorResponse()`)
 emits the same `{ code, message, errors[] }` body on both the REST
 `ApiExceptionHandler` and the UI draft-save route, and the editor switches on
 `code` (never regex-parsing the message). That mapper is the seam for the
-planned RFC 7807 `application/problem+json` migration.
+planned RFC 9457 `application/problem+json` migration.
 
 > **Dual-parser note.** The backend parses JSONata with `com.dashjoin:jsonata`
 > (Java) while the editor uses the `jsonata` npm package. The two grammars can

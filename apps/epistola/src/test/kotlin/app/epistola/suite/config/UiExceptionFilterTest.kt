@@ -26,10 +26,7 @@ class UiExceptionFilterTest {
     }
 
     @Test
-    fun `JSON Accept branch emits valid Jackson-encoded JSON`() {
-        // The domain message contains apostrophes and a period — the body must
-        // be structurally valid JSON produced by a real encoder, not a
-        // hand-built string.
+    fun `application json Accept returns an RFC 9457 problem body`() {
         val response = runWith(
             MediaType.APPLICATION_JSON_VALUE,
             isHtmx = false,
@@ -37,25 +34,70 @@ class UiExceptionFilterTest {
         )
 
         assertThat(response.status).isEqualTo(403)
-        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_JSON_VALUE)
+        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         val parsed = objectMapper.readTree(response.contentAsString)
-        assertThat(parsed.get("error").asString())
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
+        assertThat(parsed.get("status").asInt()).isEqualTo(403)
+        assertThat(parsed.get("detail").asString())
             .isEqualTo("Cannot modify resources in read-only catalog 'system'. Subscribed catalogs are read-only.")
+        assertThat(parsed.has("code")).isFalse()
     }
 
     @Test
-    fun `HTMX branch also emits valid JSON for the generic 500 path`() {
-        val response = runWith(accept = null, isHtmx = true, IllegalStateException("internal boom"))
+    fun `application problem+json Accept returns an RFC 9457 problem body`() {
+        val response = runWith(
+            MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+            isHtmx = false,
+            CatalogReadOnlyException(CatalogKey("system")),
+        )
+
+        assertThat(response.status).isEqualTo(403)
+        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+        val parsed = objectMapper.readTree(response.contentAsString)
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
+    }
+
+    @Test
+    fun `HTMX request returns a problem body too`() {
+        val response = runWith(accept = null, isHtmx = true, CatalogReadOnlyException(CatalogKey("system")))
+
+        assertThat(response.status).isEqualTo(403)
+        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+        val parsed = objectMapper.readTree(response.contentAsString)
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
+    }
+
+    @Test
+    fun `unknown exceptions stay opaque with the internal-error type`() {
+        val response = runWith(
+            MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+            isHtmx = false,
+            IllegalStateException("internal boom"),
+        )
 
         assertThat(response.status).isEqualTo(500)
-        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_JSON_VALUE)
+        assertThat(response.contentType).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE)
         val parsed = objectMapper.readTree(response.contentAsString)
-        // Unknown exceptions are intentionally opaque to the client.
-        assertThat(parsed.get("error").asString()).isEqualTo("An unexpected error occurred.")
+        assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/internal-error")
+        assertThat(parsed.get("detail").asString()).isEqualTo("An unexpected error occurred.")
+        assertThat(parsed.get("detail").asString()).doesNotContain("boom")
     }
 
     @Test
-    fun `non-JSON non-HTMX requests use container sendError, not the JSON body`() {
+    fun `wantsProblemDetail is true for JSON or HTMX, false for HTML navigations`() {
+        fun req(accept: String?, htmx: Boolean = false) = MockHttpServletRequest().apply {
+            if (accept != null) addHeader("Accept", accept)
+            if (htmx) addHeader("HX-Request", "true")
+        }
+        assertThat(wantsProblemDetail(req(MediaType.APPLICATION_JSON_VALUE))).isTrue()
+        assertThat(wantsProblemDetail(req(MediaType.APPLICATION_PROBLEM_JSON_VALUE))).isTrue()
+        assertThat(wantsProblemDetail(req(accept = null, htmx = true))).isTrue()
+        assertThat(wantsProblemDetail(req("text/html"))).isFalse()
+        assertThat(wantsProblemDetail(req(accept = null))).isFalse()
+    }
+
+    @Test
+    fun `HTML navigations use container sendError, not a JSON body`() {
         val response = runWith(accept = "text/html", isHtmx = false, CatalogReadOnlyException(CatalogKey("system")))
 
         assertThat(response.status).isEqualTo(403)

@@ -2,11 +2,14 @@ package app.epistola.suite.config
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.api.security.ClientIdentityFilter
+import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.writeProblemDetail
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
 import io.micrometer.core.instrument.MeterRegistry
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -20,9 +23,11 @@ import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Spring Security configuration with separate filter chains for API and UI.
@@ -45,6 +50,7 @@ class SecurityConfig(
     private val authProperties: AuthProperties,
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
     private val meterRegistry: MeterRegistry,
+    private val objectMapper: ObjectMapper,
 ) {
     private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler()
 
@@ -87,10 +93,12 @@ class SecurityConfig(
     @Order(1)
     @Profile("!test")
     fun apiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
+        val jwtResourceServerEnabled = hasOAuth2() && jwtAuthenticationConverter != null
         val apiKeyFilter = ApiKeyAuthenticationFilter(
             apiKeyService = apiKeyService,
             meterRegistry = meterRegistry,
             headerName = authProperties.apiKey.headerName,
+            objectMapper = objectMapper,
         )
 
         http
@@ -109,11 +117,17 @@ class SecurityConfig(
             // Client-identity validation runs BEFORE auth so v0.3 clients calling
             // /ping or /generation/collect without X-EP-Node-Id get a clean 400
             // rather than a misleading 401. Other paths warn-only.
-            .addFilterBefore(ClientIdentityFilter(), UsernamePasswordAuthenticationFilter::class.java)
+            .addFilterBefore(ClientIdentityFilter(objectMapper), UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .exceptionHandling { exceptions ->
+                exceptions.authenticationEntryPoint(ApiProblemAuthenticationEntryPoint(objectMapper, jwtResourceServerEnabled))
+                exceptions.accessDeniedHandler { request, response, _ ->
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+                }
+            }
 
         // Add JWT resource server support when OAuth2/OIDC is configured
-        if (hasOAuth2() && jwtAuthenticationConverter != null) {
+        if (jwtResourceServerEnabled) {
             http.oauth2ResourceServer { oauth2 ->
                 oauth2.jwt { jwt ->
                     jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)
@@ -142,7 +156,7 @@ class SecurityConfig(
                 authorize
                     // Public endpoints
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                    .requestMatchers("/login", "/login-popup-success", "/error").permitAll()
+                    .requestMatchers("/login", "/login-popup-success", "/error", "/errors/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
                 if (oauth2) {
@@ -219,6 +233,28 @@ class SecurityConfig(
                     )
                 }
             }
+
+        // Every UI error path content-negotiates the same way: structured callers (a request
+        // that accepts JSON / problem+json, or an HTMX request) get RFC 9457 problem+json,
+        // while HTML navigations keep the login redirect (401) / container error page (403).
+        // Without this, Spring Security's defaults render the whitelabel /error page.
+        val loginEntryPoint = LoginUrlAuthenticationEntryPoint("/login")
+        http.exceptionHandling { exceptions ->
+            exceptions.authenticationEntryPoint { request, response, authException ->
+                if (wantsProblemDetail(request)) {
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.UNAUTHORIZED, "Authentication required")
+                } else {
+                    loginEntryPoint.commence(request, response, authException)
+                }
+            }
+            exceptions.accessDeniedHandler { request, response, _ ->
+                if (wantsProblemDetail(request)) {
+                    writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
+                } else {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN)
+                }
+            }
+        }
 
         return http.build()
     }

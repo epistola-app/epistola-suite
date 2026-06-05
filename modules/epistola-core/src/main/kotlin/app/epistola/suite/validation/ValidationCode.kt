@@ -10,7 +10,7 @@ package app.epistola.suite.validation
  *
  * [wire] is the stable string emitted on every surface (REST `ApiExceptionHandler`,
  * the UI draft-save route). It is deliberately decoupled from [name] so the
- * eventual move to RFC 7807 `application/problem+json` can derive a stable
+ * eventual move to RFC 9457 `application/problem+json` can derive a stable
  * `type` URI from it (e.g. `https://errors.epistola.app/<kebab(wire)>`) without
  * another rename. [GENERIC] keeps the historical `"VALIDATION_ERROR"` wire value
  * so the ~80 non-coded validation sites keep their existing contract unchanged.

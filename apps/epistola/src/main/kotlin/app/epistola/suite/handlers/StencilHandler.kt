@@ -503,7 +503,6 @@ class StencilHandler(
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
 
         val published = PublishStencilVersion(versionId = versionIdComposite).execute()
-            ?: return ServerResponse.notFound().build()
 
         if (!request.isHtmx()) {
             return ServerResponse.ok()
@@ -524,7 +523,6 @@ class StencilHandler(
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
 
         val archived = ArchiveStencilVersion(versionId = versionIdComposite).execute()
-            ?: return ServerResponse.notFound().build()
 
         if (!request.isHtmx()) {
             return ServerResponse.ok()

@@ -1,12 +1,14 @@
 package app.epistola.suite.api.security
 
 import app.epistola.api.identity.ClientInfo
+import app.epistola.suite.api.v1.ApiProblemTypes
+import app.epistola.suite.api.v1.writeProblemDetail
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
-import org.springframework.http.MediaType
 import org.springframework.web.filter.OncePerRequestFilter
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Validates client identity headers on v0.3 endpoints that require them.
@@ -15,11 +17,11 @@ import org.springframework.web.filter.OncePerRequestFilter
  *   - `User-Agent` starting with `epistola-contract/<version>`,
  *   - `X-EP-Node-Id` (an opaque per-process identifier).
  *
- * On endpoints where the headers are mandatory for correctness — `/ping` and
+ * On endpoints where the headers are mandatory for correctness — currently
  * `/generation/collect` — this filter rejects requests missing them with 400.
- * Elsewhere it logs at WARN if the headers are absent but lets the request
- * pass; existing v0.2 clients that haven't been bumped would otherwise
- * regress.
+ * Elsewhere, including `/ping`, it logs at WARN if the headers are absent but
+ * lets the request pass; existing v0.2 clients and basic health probes would
+ * otherwise regress.
  *
  * The actual parsing uses the contract's [ClientInfo] helper, so the suite
  * automatically tracks any future header changes the contract introduces.
@@ -27,7 +29,9 @@ import org.springframework.web.filter.OncePerRequestFilter
  * Registered explicitly into the API security filter chain by SecurityConfig
  * (paths under `/api`).
  */
-class ClientIdentityFilter : OncePerRequestFilter() {
+class ClientIdentityFilter(
+    private val objectMapper: ObjectMapper,
+) : OncePerRequestFilter() {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -41,11 +45,12 @@ class ClientIdentityFilter : OncePerRequestFilter() {
 
         if (isMandatory(path)) {
             if (client.nodeId.isNullOrBlank()) {
-                writeBadRequest(response, "Missing required header: ${ClientInfo.HEADER_NODE_ID}")
+                writeBadRequest(request, response, "Missing required header: ${ClientInfo.HEADER_NODE_ID}")
                 return
             }
             if (client.contractVersion.isNullOrBlank()) {
                 writeBadRequest(
+                    request,
                     response,
                     "Missing or malformed User-Agent: must start with 'epistola-contract/<version>'",
                 )
@@ -65,17 +70,13 @@ class ClientIdentityFilter : OncePerRequestFilter() {
     }
 
     private fun isMandatory(path: String): Boolean {
-        // Mandatory exactly on the v0.3 endpoints that need this metadata.
-        // /ping is global; collect is tenant-scoped.
-        if (path == "/api/ping") return true
+        // Mandatory exactly on the v0.3 endpoints that need node metadata for correctness.
         return COLLECT_PATH_REGEX.matches(path)
     }
 
-    private fun writeBadRequest(response: HttpServletResponse, message: String) {
+    private fun writeBadRequest(request: HttpServletRequest, response: HttpServletResponse, message: String) {
         logger.debug("Client identity validation failed: {}", message)
-        response.status = HttpServletResponse.SC_BAD_REQUEST
-        response.contentType = MediaType.APPLICATION_JSON_VALUE
-        response.writer.write("""{"code":"BAD_REQUEST","message":"$message"}""")
+        writeProblemDetail(response, objectMapper, request, ApiProblemTypes.BAD_REQUEST, message)
     }
 
     // Strip control characters before interpolating user-influenced values into

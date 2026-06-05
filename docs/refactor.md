@@ -60,7 +60,6 @@ The refactoring focuses on:
 
 - Add handler for `ThemeNotFoundException` → 404
 - Add handler for `ThemeInUseException` → 409
-- Add handler for `LastThemeException` → 400
 - Add handler for `DataModelValidationException` → 422
 - Add handler for `ValidationException` → 400
 - Ensure consistent error response structure

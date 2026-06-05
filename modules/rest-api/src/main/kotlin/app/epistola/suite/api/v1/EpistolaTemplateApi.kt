@@ -34,8 +34,13 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.TemplateVariantNotFoundException
+import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.DraftNotFoundException
+import app.epistola.suite.templates.NoActiveVersionException
+import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -63,6 +68,7 @@ import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
@@ -121,7 +127,7 @@ class EpistolaTemplateApi(
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val template = GetDocumentTemplate(id = templateIdComposite).query()
-            ?: return ResponseEntity.notFound().build()
+            ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
@@ -138,7 +144,7 @@ class EpistolaTemplateApi(
         val template = UpdateDocumentTemplate(
             id = templateIdComposite,
             name = updateTemplateRequest.name,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
@@ -153,7 +159,7 @@ class EpistolaTemplateApi(
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         GetDocumentTemplate(id = templateIdComposite).query()
-            ?: return ResponseEntity.notFound().build()
+            ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
 
         val contractVersion = GetLatestContractVersion(templateId = templateIdComposite).query()
         val dataModel = contractVersion?.dataModel
@@ -186,7 +192,7 @@ class EpistolaTemplateApi(
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
         }
     }
 
@@ -223,7 +229,7 @@ class EpistolaTemplateApi(
             title = createVariantRequest.title,
             description = createVariantRequest.description,
             attributes = createVariantRequest.attributes ?: emptyMap(),
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
         val summary = getVariantSummary(variant, typedTenantId, catalogId)
         return ResponseEntity.status(HttpStatus.CREATED).body(variant.toDto(summary))
     }
@@ -238,7 +244,8 @@ class EpistolaTemplateApi(
         val tenantIdComposite = TenantId(typedTenantId)
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val variant = GetVariant(variantId = variantIdComposite).query() ?: return ResponseEntity.notFound().build()
+        val variant = GetVariant(variantId = variantIdComposite).query()
+            ?: throw TemplateVariantNotFoundException(typedTenantId, templateIdComposite.key, variantIdComposite.key)
         val summary = getVariantSummary(variant, typedTenantId, catalogId)
         return ResponseEntity.ok(variant.toDto(summary))
     }
@@ -251,7 +258,7 @@ class EpistolaTemplateApi(
         updateVariantRequest: UpdateVariantRequest,
     ): ResponseEntity<VariantDto> {
         val attributes = updateVariantRequest.attributes
-            ?: return ResponseEntity.badRequest().build()
+            ?: throw ValidationException(field = "attributes", message = "Variant attributes are required")
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
@@ -260,7 +267,7 @@ class EpistolaTemplateApi(
             variantId = variantIdComposite,
             title = updateVariantRequest.title,
             attributes = attributes,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw TemplateVariantNotFoundException(typedTenantId, templateIdComposite.key, variantIdComposite.key)
         val summary = getVariantSummary(variant, typedTenantId, catalogId)
         return ResponseEntity.ok(variant.toDto(summary))
     }
@@ -281,7 +288,7 @@ class EpistolaTemplateApi(
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            ResponseEntity.notFound().build()
+            throw TemplateVariantNotFoundException(typedTenantId, templateIdComposite.key, variantIdComposite.key)
         }
     }
 
@@ -297,7 +304,7 @@ class EpistolaTemplateApi(
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val variant = SetDefaultVariant(
             variantId = variantIdComposite,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw TemplateVariantNotFoundException(typedTenantId, templateIdComposite.key, variantIdComposite.key)
         val summary = getVariantSummary(variant, typedTenantId, catalogId)
         return ResponseEntity.ok(variant.toDto(summary))
     }
@@ -313,7 +320,11 @@ class EpistolaTemplateApi(
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val draft = GetDraft(variantId = variantIdComposite).query() ?: return ResponseEntity.notFound().build()
+        // Verify variant exists before distinguishing "variant not found" from "no draft"
+        GetVariant(variantId = variantIdComposite).query()
+            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
+        val draft = GetDraft(variantId = variantIdComposite).query()
+            ?: throw DraftNotFoundException(tenantIdComposite.key, variantIdComposite.key)
         return ResponseEntity.ok(draft.toDto(objectMapper))
     }
 
@@ -326,14 +337,14 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
-        } ?: return ResponseEntity.badRequest().build()
+        } ?: throw ValidationException(field = "templateModel", message = "Template model is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val draft = UpdateDraft(
             variantId = variantIdComposite,
             templateModel = templateModel,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute() ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
         return ResponseEntity.ok(draft.toDto(objectMapper))
     }
 
@@ -364,15 +375,11 @@ class EpistolaTemplateApi(
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
-        val removed = RemoveActivation(
+        RemoveActivation(
             variantId = variantIdComposite,
             environmentId = environmentIdComposite,
         ).execute()
-        return if (removed) {
-            ResponseEntity.noContent().build()
-        } else {
-            ResponseEntity.notFound().build()
-        }
+        return ResponseEntity.noContent().build()
     }
 
     override fun getActiveVersion(
@@ -386,7 +393,11 @@ class EpistolaTemplateApi(
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environment), tenantIdComposite)
-        val version = GetActiveVersion(variantId = variantIdComposite, environmentId = environmentIdComposite).query() ?: return ResponseEntity.notFound().build()
+        // Verify variant exists before distinguishing "variant not found" from "no active version"
+        GetVariant(variantId = variantIdComposite).query()
+            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
+        val version = GetActiveVersion(variantId = variantIdComposite, environmentId = environmentIdComposite).query()
+            ?: throw NoActiveVersionException(tenantIdComposite.key, variantIdComposite.key, environmentIdComposite.key)
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -426,7 +437,8 @@ class EpistolaTemplateApi(
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
-        val version = GetVersion(versionId = versionIdComposite).query() ?: return ResponseEntity.notFound().build()
+        val version = GetVersion(versionId = versionIdComposite).query()
+            ?: throw VersionNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key, versionIdComposite.key)
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -440,7 +452,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
-        } ?: return ResponseEntity.badRequest().build()
+        } ?: throw ValidationException(field = "templateModel", message = "Template model is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
@@ -448,7 +460,7 @@ class EpistolaTemplateApi(
         val version = UpdateVersion(
             versionId = versionIdComposite,
             templateModel = templateModel,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute()
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -468,7 +480,7 @@ class EpistolaTemplateApi(
         val result = PublishToEnvironment(
             versionId = versionIdComposite,
             environmentId = environmentIdComposite,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute()
         return ResponseEntity.ok(result.version.toDto(objectMapper))
     }
 
@@ -485,7 +497,7 @@ class EpistolaTemplateApi(
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val archived = ArchiveVersion(
             versionId = versionIdComposite,
-        ).execute() ?: return ResponseEntity.notFound().build()
+        ).execute()
         return ResponseEntity.ok(archived.toDto(objectMapper))
     }
 
