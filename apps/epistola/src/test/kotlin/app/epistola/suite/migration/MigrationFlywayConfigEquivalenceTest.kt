@@ -6,7 +6,7 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.Configuration
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.testcontainers.postgresql.PostgreSQLContainer
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails
 
 /**
  * Guardrail for the design's core invariant.
@@ -30,15 +30,15 @@ class MigrationFlywayConfigEquivalenceTest : BaseIntegrationTest() {
     private lateinit var appFlyway: Flyway
 
     @Autowired
-    private lateinit var postgres: PostgreSQLContainer
+    private lateinit var connectionDetails: JdbcConnectionDetails
 
     @Test
     fun `migration context resolves the same Flyway configuration as the app`() {
         MigrationLauncher.migrationApplication()
             .run(
-                "--spring.datasource.url=${postgres.jdbcUrl}",
-                "--spring.datasource.username=${postgres.username}",
-                "--spring.datasource.password=${postgres.password}",
+                "--spring.datasource.url=${connectionDetails.jdbcUrl}",
+                "--spring.datasource.username=${connectionDetails.username}",
+                "--spring.datasource.password=${connectionDetails.password}",
                 "--epistola.migration.mode=migrate",
                 "--spring.flyway.clean-disabled=true",
             ).use { ctx ->
