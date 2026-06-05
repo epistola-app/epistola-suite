@@ -59,15 +59,24 @@ class TestcontainersConfiguration {
         private val DATABASE_SEQUENCE = AtomicInteger(0)
 
         /**
-         * One Postgres container shared by every test context in the JVM, started once and
-         * reaped by Ryuk at exit. It is intentionally a plain static (not a Spring bean), so
-         * Spring never starts/stops it per context; per-context databases (above) provide
-         * isolation. The data directory is RAM-backed (tmpfs) for speed.
+         * One Postgres container shared by every test context in the JVM. It is
+         * intentionally a plain static (not a Spring bean), so Spring never starts/stops it
+         * per context; per-context databases (above) provide isolation. The data directory
+         * is RAM-backed (tmpfs) for speed.
+         *
+         * Cleanup is via an explicit JVM shutdown hook rather than relying on Testcontainers'
+         * Ryuk reaper: Ryuk is unavailable or disabled in several environments (rootless
+         * Docker, some Docker-in-Docker / Podman setups, `TESTCONTAINERS_RYUK_DISABLED=true`,
+         * security-restricted CI). The hook stops the container on graceful test-JVM exit;
+         * Ryuk, when present, remains a backstop for non-graceful termination.
          */
         @JvmStatic
         private val SHARED_POSTGRES: PostgreSQLContainer =
             PostgreSQLContainer(DockerImageName.parse("postgres:17"))
                 .withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
-                .apply { start() }
+                .apply {
+                    start()
+                    Runtime.getRuntime().addShutdownHook(Thread { stop() })
+                }
     }
 }
