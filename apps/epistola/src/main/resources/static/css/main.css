@@ -1731,3 +1731,214 @@ a.stat-card:hover {
 .ep-opacity-half {
   opacity: 0.5;
 }
+.ep-opacity-60 {
+  opacity: 0.6;
+}
+.ep-opacity-70 {
+  opacity: 0.7;
+}
+
+/* ── Width utilities ─────────────────────────────────────────────────── */
+.ep-w-auto {
+  width: auto;
+}
+.ep-w-full {
+  width: 100%;
+}
+.ep-max-w-300 {
+  max-width: 300px;
+}
+
+/* ── Flex utilities (extension) ──────────────────────────────────────── */
+.ep-flex-shrink-0 {
+  flex-shrink: 0;
+}
+.ep-flex-start {
+  align-items: flex-start;
+}
+.ep-flex-end {
+  align-items: flex-end;
+}
+
+/* ── Justify utilities ───────────────────────────────────────────────── */
+.ep-justify-end {
+  justify-content: flex-end;
+}
+
+/* ── Overflow utilities ───────────────────────────────────────────────── */
+.ep-overflow-x-auto {
+  overflow-x: auto;
+}
+
+/* ── Cursor utilities ─────────────────────────────────────────────────── */
+.ep-cursor-pointer {
+  cursor: pointer;
+}
+
+/* ── Color utilities ──────────────────────────────────────────────────── */
+.ep-text-red {
+  color: var(--ep-red-600);
+}
+
+/* ── Fieldset reset ───────────────────────────────────────────────────── */
+.ep-fieldset-reset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* ── Template settings: PDF/A toggle ──────────────────────────────────── */
+.pdfa-toggle-label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ep-space-3);
+  cursor: pointer;
+}
+.pdfa-toggle-checkbox {
+  margin-top: 3px;
+  width: auto;
+  height: auto;
+  flex-shrink: 0;
+}
+.pdfa-toggle-description {
+  display: block;
+  font-size: var(--ep-text-sm);
+  margin-top: 2px;
+}
+
+/* ── Contract status bar ──────────────────────────────────────────────── */
+.contract-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-2) var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+  border: 1px solid var(--ep-gray-200);
+  border-radius: var(--ep-radius-md);
+  font-size: var(--ep-text-sm);
+}
+
+/* ── Feedback code block ──────────────────────────────────────────────── */
+.feedback-code-block {
+  font-size: var(--ep-text-xs);
+  overflow-y: auto;
+  background: var(--ep-muted);
+  padding: var(--ep-space-3);
+  border-radius: var(--ep-radius);
+}
+.feedback-code-block--tall {
+  max-height: 300px;
+}
+.feedback-code-block--short {
+  max-height: 200px;
+}
+
+/* ── Catalog import tag ────────────────────────────────────────────────── */
+.catalog-import-tag {
+  cursor: pointer;
+  border: none;
+  background: var(--ep-muted);
+  padding: 2px 8px;
+  border-radius: var(--ep-radius);
+}
+
+/* ── Feedback submit-success dialog ────────────────────────────────────── */
+.feedback-success-body {
+  padding: var(--ep-space-8) var(--ep-space-4);
+}
+.feedback-success-icon {
+  color: var(--ep-success);
+  margin-bottom: var(--ep-space-3);
+}
+.feedback-success-message {
+  color: var(--ep-muted-foreground);
+}
+.login-success-icon {
+  color: var(--ep-green-600);
+  margin-bottom: var(--ep-space-4);
+}
+.contract-outdated-btn {
+  color: var(--ep-amber-700);
+}
+.catalog-up-to-date {
+  color: var(--ep-green-700);
+  font-weight: 500;
+}
+.catalog-version-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ep-space-1);
+}
+
+/* ── Template settings: stencil label/select ──────────────────────────── */
+.stencil-upgrade-label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* ── Pagination bar ───────────────────────────────────────────────────── */
+.pagination-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--ep-space-4);
+  padding: var(--ep-space-4) 0;
+}
+
+/* ── Contract dialog widths ───────────────────────────────────────────── */
+.dialog-contract-breaking {
+  max-width: 600px;
+}
+.dialog-contract-usage {
+  max-width: 700px;
+}
+.dialog-screenshot-img {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: var(--ep-radius);
+}
+.dialog-screenshot-wrapper {
+  display: none;
+  margin-top: var(--ep-space-2);
+  width: 100%;
+  max-height: 200px;
+}
+.unsupported-screenshot {
+  display: none;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+.feedback-screenshot-img {
+  max-width: 100%;
+  border-radius: var(--ep-radius);
+  border: 1px solid var(--ep-border);
+}
+
+/* ── Version comparison dialog body ────────────────────────────────────── */
+.comparison-dialog-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  max-height: calc(90vh - 5rem);
+  padding: var(--ep-space-4);
+}
+.comparison-form-group {
+  margin-bottom: 0;
+  align-self: flex-end;
+}
+
+/* ── Stencil upgrade select ───────────────────────────────────────────── */
+.stencil-upgrade-select {
+  width: auto;
+  min-width: 10rem;
+}
+
+/* ── Table checkbox column ────────────────────────────────────────────── */
+.table-checkbox-col {
+  width: 2rem;
+}
+
+/* ── Word break utility ───────────────────────────────────────────────── */
+.ep-word-break-all {
+  word-break: break-all;
+}
