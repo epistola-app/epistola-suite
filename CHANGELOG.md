@@ -14,6 +14,8 @@
 
 - **Flex layout utility CSS classes.** Added `ep-flex`, `ep-flex-center`, `ep-flex-between`, `ep-flex-col`, `ep-flex-wrap`, `ep-flex-1`, `ep-flex-2`, and `ep-gap-{1,2,3,4}` classes.
 
+- **Error page CSS component classes.** Added `.error-page-body`, `.error-page-card`, `.error-page-message` classes.
+
 - **End-to-end test for 403 `accessDeniedHandler` returning `application/problem+json`.** Added `ForbiddenTestController` (test-only `@RestController` with a `@PreAuthorize`-restricted endpoint) and a `CollectEndpointSmokeIT` test that asserts the 403 response carries `application/problem+json` content type, `type` URI, and `code: ACCESS_DENIED`.
 - **Consistency guard for mapped API exceptions.** `ApiExceptionMappingsConsistencyTest` uses reflection to assert that every exception class listed in `@ExceptionHandler` on `ApiExceptionHandler.handleMappedApiException` is also registered in `ApiExceptionMappings`, and vice-versa. Fails at build time if a developer adds a mapping in one place but forgets the other.
 - **Central exception-to-problem-detail registry for the REST API.** New `ApiExceptionMappings` object maps every simple domain exception (e.g. `TenantNotFoundException`, `AssetInUseException`) to its `ApiProblemType`, detail message, extension fields, and warn-log template. Used by `ApiExceptionHandler.handleMappedApiException` so new exceptions only need one declaration in the registry instead of a dedicated `@ExceptionHandler` method.

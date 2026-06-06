@@ -16,6 +16,26 @@ body {
   padding-bottom: 0;
 }
 
+/* Error pages (403, 404, 500, generic) */
+.error-page-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--ep-bg-secondary);
+}
+
+.error-page-card {
+  text-align: center;
+  max-width: 480px;
+  padding: var(--ep-space-8);
+}
+
+.error-page-message {
+  color: var(--ep-text-secondary);
+  margin-bottom: var(--ep-space-6);
+}
+
 /* Scoped styles for regular pages (not editor) */
 main.regular {
   flex: 1;
