@@ -1514,6 +1514,57 @@ a.stat-card:hover {
   margin-top: var(--ep-space-0-5);
 }
 
+/* ── Flex layout utilities ─────────────────────────────────────────────── */
+
+.ep-flex {
+  display: flex;
+}
+
+.ep-flex-center {
+  display: flex;
+  align-items: center;
+}
+
+.ep-flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ep-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.ep-flex-wrap {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.ep-flex-1 {
+  flex: 1;
+}
+
+.ep-flex-2 {
+  flex: 2;
+}
+
+.ep-gap-1 {
+  gap: var(--ep-space-1);
+}
+
+.ep-gap-2 {
+  gap: var(--ep-space-2);
+}
+
+.ep-gap-3 {
+  gap: var(--ep-space-3);
+}
+
+.ep-gap-4 {
+  gap: var(--ep-space-4);
+}
+
 /* ── Display utilities ───────────────────────────────────────────────── */
 
 .ep-hidden {
