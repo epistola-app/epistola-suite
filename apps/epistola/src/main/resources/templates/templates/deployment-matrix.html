@@ -46,8 +46,8 @@
                             <table class="ep-table deployment-matrix-table">
                                 <thead>
                                     <tr>
-                                        <th style="text-align: left;">Variant</th>
-                                        <th th:each="env : ${environments}" th:text="${env.name}" style="text-align: center;"></th>
+                                        <th class="ep-text-left">Variant</th>
+                                        <th th:each="env : ${environments}" th:text="${env.name}" class="text-center"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -55,8 +55,8 @@
                                         <td class="deployment-matrix-variant">
                                             <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
                                                 <div>
-                                                    <code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code>
-                                                    <span th:if="${variant.title != null}" class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
+                                                    <code th:text="${variant.id}" class="ep-text-xs"></code>
+                                                    <span th:if="${variant.title != null}" class="text-muted ep-text-xs ep-ml-1" 
                                                           th:text="${variant.title}"></span>
                                                 </div>
                                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
@@ -76,7 +76,7 @@
                                                     <form style="display:inline; margin:0;">
                                                         <input type="hidden" name="variantId" th:value="${variant.id}" />
                                                         <input type="hidden" name="environmentId" th:value="${env.id}" />
-                                                        <select name="versionId" class="ep-select" style="font-size: var(--ep-text-xs);"
+                                                        <select name="versionId" class="ep-select ep-text-xs" 
                                                                 th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/deployments(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}"
                                                                 hx-target="#deployment-matrix" hx-swap="outerHTML"
                                                                 hx-trigger="change" hx-include="closest form">

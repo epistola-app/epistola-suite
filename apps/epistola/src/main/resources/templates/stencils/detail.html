@@ -6,7 +6,7 @@
             <div>
                 <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" class="back-link">&larr; Stencils</a>
                 <h1 th:text="${stencil.name}">Stencil Name</h1>
-                <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted" style="margin-top: var(--ep-space-1); font-size: var(--ep-text-sm);">
+                <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted ep-mt-1 ep-text-sm" >
                     <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
                 </p>
             </div>
@@ -139,7 +139,7 @@
                         <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" id="apply-upgrade-btn" onclick="applyUpgrade()">
                             Apply to selected
                         </button>
-                        <span id="upgrade-status" style="font-size: var(--ep-text-sm); color: var(--ep-muted-foreground);"></span>
+                        <span id="upgrade-status" class="ep-text-sm text-muted"></span>
                     </div>
 
                     <table class="ep-table ep-table-compact">
@@ -173,7 +173,7 @@
                                 </td>
                                 <td>
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
-                                       th:text="${u.templateName}" style="font-weight: 500;"></a>
+                                       th:text="${u.templateName}" class="ep-font-medium"></a>
                                 </td>
                                 <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>
                                 <td th:text="${u.variantId}"></td>

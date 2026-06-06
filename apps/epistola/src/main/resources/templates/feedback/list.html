@@ -70,12 +70,12 @@
                     <tr th:each="item : ${feedbackItems}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
-                               style="font-weight: 500;"
+                               class="ep-font-medium"
                                th:text="${item.title}">Title</a>
                         </td>
                         <td>
                             <a th:if="${item.sourcePath != null}" th:href="${item.sourceUrl}"
-                               class="ep-text-muted ep-text-sm" style="text-decoration: none;"
+                               class="ep-text-muted ep-text-sm ep-no-underline" 
                                th:text="${item.sourcePath}">/path</a>
                             <span th:if="${item.sourcePath == null}" class="ep-text-muted">—</span>
                         </td>

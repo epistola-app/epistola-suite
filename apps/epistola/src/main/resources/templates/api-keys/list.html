@@ -45,7 +45,7 @@
             <tbody id="api-key-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
-                        <td th:text="${apiKey.name}" style="font-weight: 500;"></td>
+                        <td th:text="${apiKey.name}" class="ep-font-medium"></td>
                         <td>
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
                         </td>

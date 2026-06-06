@@ -52,7 +52,7 @@
                             </span>
                         </td>
                         <td>
-                            <span th:if="${!request.success and request.errorType != null}" style="font-weight: 500;" th:text="${request.errorType}"></span>
+                            <span th:if="${!request.success and request.errorType != null}" class="ep-font-medium" th:text="${request.errorType}"></span>
                             <span th:if="${!request.success and request.errorMessage != null}" class="text-muted" th:text="${request.errorMessage}"></span>
                         </td>
                     </tr>
@@ -66,7 +66,7 @@
                    class="ep-btn ep-btn-outline ep-btn-sm">
                     Previous
                 </a>
-                <span class="text-muted" style="font-size: var(--ep-text-sm);">
+                <span class="text-muted ep-text-sm" >
                     Showing <strong th:text="${offset + 1}"></strong> -
                     <strong th:text="${offset + #lists.size(requests)}"></strong>
                 </span>

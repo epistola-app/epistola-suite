@@ -66,10 +66,10 @@
                     <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               th:text="${template.name}" style="font-weight: 500;"></a>
+                               th:text="${template.name}" class="ep-font-medium"></a>
                         </td>
                         <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                        <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td><code th:text="${template.id}" class="ep-text-xs text-muted"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">

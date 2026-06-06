@@ -47,7 +47,7 @@
                         </tr>
                     </tbody>
                 </table>
-                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="text-muted" style="text-align: center;">No template versions yet.</p>
+                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="text-muted text-center" >No template versions yet.</p>
             </div>
         </dialog>
 
@@ -65,7 +65,7 @@
         <th:block th:if="${!editMode}">
             <div class="detail-section">
                 <div class="detail-section-header">
-                    <h3 style="font-size: var(--ep-text-base); margin: 0;">Schema</h3>
+                    <h3 class="ep-text-base ep-m-0">Schema</h3>
                 </div>
                 <div class="detail-section-body">
                     <th:block th:if="${!#lists.isEmpty(schemaFields)}">
@@ -101,7 +101,7 @@
             <th:block th:if="${contractDataExamples != null && !contractDataExamples.isEmpty()}">
                 <div class="detail-section">
                     <div class="detail-section-header">
-                        <h3 style="font-size: var(--ep-text-base); margin: 0;">
+                        <h3 class="ep-text-base ep-m-0">
                             Examples
                             <span class="text-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
                         </h3>

@@ -66,7 +66,7 @@
                     <tr th:each="stencil : ${stencils}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                               th:text="${stencil.name}" style="font-weight: 500;"></a>
+                               th:text="${stencil.name}" class="ep-font-medium"></a>
                         </td>
                         <td><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
                         <td>

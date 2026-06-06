@@ -59,11 +59,11 @@
             </thead>
             <tbody>
                 <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
-                    <td style="font-weight: 500;">
+                    <td class="ep-font-medium">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            th:text="${catalog.name}"></a>
                     </td>
-                    <td><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                    <td><code th:text="${catalog.id}" class="ep-text-xs text-muted"></code></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
@@ -483,7 +483,7 @@
         <span th:case="'UPDATE_AVAILABLE'"
               style="display: inline-flex; align-items: baseline; gap: var(--ep-space-1);">
             <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
-            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="font-weight: 500;"
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-font-medium" 
                     th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
@@ -493,12 +493,12 @@
         <span th:case="'ZIP_MANAGED'" class="text-muted"
               title="ZIP-managed — no source URL. Import a newer ZIP as a Subscribed catalog to upgrade it.">
             <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
-            <span style="font-size: var(--ep-text-xs);">· ZIP</span>
+            <span class="ep-text-xs">· ZIP</span>
         </span>
 
         <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
             <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
-            <span class="text-muted" style="font-size: var(--ep-text-xs);">· check failed</span>
+            <span class="text-muted ep-text-xs" >· check failed</span>
         </span>
 
         <span th:case="*" class="text-muted"

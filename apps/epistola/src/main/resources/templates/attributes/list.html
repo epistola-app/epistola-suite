@@ -59,9 +59,9 @@
             <tbody id="attribute-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="attr : ${attributes}">
-                        <td><code th:text="${attr.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td><code th:text="${attr.id}" class="ep-text-xs text-muted"></code></td>
                         <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
-                        <td style="font-weight: 500;" th:text="${attr.displayName}"></td>
+                        <td class="ep-font-medium" th:text="${attr.displayName}"></td>
                         <td>
                             <div th:if="${attr.codeListSlug != null}" class="tags">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"

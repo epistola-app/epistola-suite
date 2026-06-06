@@ -235,7 +235,7 @@
                     <div class="stat-card-label">Active nodes</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-card-value" style="font-size: var(--ep-text-xl);"
+                    <div class="stat-card-value ep-text-xl" 
                          th:text="${report.totals.mostRecentNodeActivity != null
                                    ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
                                    : '—'}">—</div>

@@ -48,7 +48,7 @@
                     <tr th:each="usage : ${templateUsage}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
-                               style="font-weight: 500;"
+                               class="ep-font-medium"
                                th:text="${usage.templateKey}">template</a>
                         </td>
                         <td th:text="${usage.variantKey}">variant</td>
@@ -94,7 +94,7 @@
                         <tr th:each="job : ${recentJobs}">
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
-                                   style="font-weight: 500;"
+                                   class="ep-font-medium"
                                    th:text="${job.templateKey}">template</a>
                             </td>
                             <td th:text="${job.variantKey}">variant</td>

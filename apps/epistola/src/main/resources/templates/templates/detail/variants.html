@@ -39,7 +39,7 @@
                              th:data-attr-row="${d.qualifiedKey}" style="display: none;">
                             <label class="ep-label" th:for="'create-attr_' + ${d.qualifiedKey}">
                                 <span th:text="${d.displayName}"></span>
-                                <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-2);"
+                                <code class="text-muted ep-text-xs ep-ml-2" 
                                       th:text="${d.qualifiedKey}"></code>
                             </label>
                             <select th:id="'create-attr_' + ${d.qualifiedKey}"
@@ -79,7 +79,7 @@
                 <div class="form-group" th:each="d : ${usedAttributeDescriptors}">
                     <label th:for="'attr-filter-' + ${d.qualifiedKey}">
                         <span th:text="${d.displayName}"></span>
-                        <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
+                        <code class="text-muted ep-text-xs ep-ml-1" 
                               th:text="${d.qualifiedKey}"></code>
                     </label>
                     <select class="ep-select" th:id="'attr-filter-' + ${d.qualifiedKey}"
@@ -115,7 +115,7 @@
                             <span th:each="entry : ${variant.entries}" class="badge badge-outline"
                                   th:data-attr-key="${entry.key}" th:data-attr-value="${entry.value}"
                                   th:title="${entry.descriptor != null ? entry.descriptor.qualifiedKey + ' = ' + entry.value : entry.key + ' = ' + entry.value}">
-                                <span class="text-muted" style="font-size: var(--ep-text-xs);"
+                                <span class="text-muted ep-text-xs" 
                                       th:if="${entry.catalogLabel != ''}"
                                       th:text="${entry.catalogLabel + '.'}"></span><span
                                       th:text="${entry.slug + ' = ' + entry.value}"></span>
@@ -126,7 +126,7 @@
                             <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-published"
                                   th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
                             <span th:if="${!variant.hasDraft and variant.publishedVersions.isEmpty()}"
-                                  class="text-muted" style="font-size: var(--ep-text-xs);">No versions</span>
+                                  class="text-muted ep-text-xs" >No versions</span>
                         </div>
                     </div>
                     <div class="variant-card-footer">

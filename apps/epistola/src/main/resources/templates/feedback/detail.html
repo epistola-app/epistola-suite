@@ -30,7 +30,7 @@
                     <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: category-badge(${feedback.category})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${feedback.priority})}" />
-                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                    <span class="text-muted ep-text-sm"
                           th:text="'Submitted ' + ${#temporals.format(feedback.createdAt, 'yyyy-MM-dd HH:mm')}">Submitted 2026-01-01</span>
                 </div>
 
@@ -38,7 +38,7 @@
                 <div class="card ep-mb-6">
                     <div class="card-content">
                         <h3 class="ep-mb-3">Description</h3>
-                        <div style="white-space: pre-wrap;" th:text="${feedback.description}">Description text</div>
+                        <div class="ep-whitespace-pre-wrap" th:text="${feedback.description}">Description text</div>
                     </div>
                 </div>
 
@@ -85,7 +85,7 @@
                     <th:block th:fragment="comments-section">
                         <h3 class="ep-mb-4">
                             Comments
-                            <span style="color: var(--ep-muted-foreground); font-weight: normal;"
+                            <span class="text-muted"
                                   th:text="'(' + ${#lists.size(comments)} + ')'"></span>
                         </h3>
 
@@ -96,14 +96,14 @@
                         <div th:each="comment : ${comments}" class="card ep-mb-3">
                             <div class="card-content">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: var(--ep-space-2);">
-                                    <span style="font-weight: 500;">
+                                    <span class="ep-font-medium">
                                         <span th:text="${comment.authorName}">Author</span>
                                         <span th:if="${comment.source.name() == 'GITHUB'}" class="ep-badge ep-badge-outline ep-ml-2">GitHub</span>
                                     </span>
-                                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
+                                    <span class="text-muted ep-text-sm"
                                           th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>
                                 </div>
-                                <div style="white-space: pre-wrap;" th:text="${comment.body}">Comment text</div>
+                                <div class="ep-whitespace-pre-wrap" th:text="${comment.body}">Comment text</div>
                             </div>
                         </div>
 

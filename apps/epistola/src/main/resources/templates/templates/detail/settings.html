@@ -30,7 +30,7 @@
         <div class="detail-section" id="theme-section" th:fragment="theme-section">
             <div class="detail-section-header"><h3>Default Theme</h3></div>
             <div class="detail-section-body">
-                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                <p class="text-muted ep-mb-4 ep-text-sm" >
                     Set the default theme for all variants. Individual variants can override this in the editor.
                 </p>
                 <div class="form-row">
@@ -62,7 +62,7 @@
                            th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
                            onchange="updatePdfaSetting(this.checked)">
                     <span>
-                        <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
+                        <strong class="ep-text-sm">PDF/A-2b compliance</strong>
                         <span class="text-muted" style="display: block; font-size: var(--ep-text-sm); margin-top: 2px;">
                             Enable for long-term archival. Embeds fonts and ICC color profile, resulting in larger files.
                         </span>
@@ -75,7 +75,7 @@
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="detail-section danger-zone">
             <div class="detail-section-header"><h3>Danger Zone</h3></div>
             <div class="detail-section-body">
-                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                <p class="text-muted ep-mb-4 ep-text-sm" >
                     Permanently delete this template and all its variants, versions, and data.
                 </p>
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
