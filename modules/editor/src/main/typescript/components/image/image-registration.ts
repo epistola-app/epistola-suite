@@ -188,11 +188,21 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
           @click=${pickAsset}
           title="Click to change image"
         >
-          <img src="${src}" alt="${alt}" style="--ep-img-width: ${width ?? ''}; --ep-img-height: ${height ?? ''}" class="canvas-image" />
+          <img
+            src="${src}"
+            alt="${alt}"
+            style="--ep-img-width: ${width ?? ''}; --ep-img-height: ${height ?? ''}"
+            class="canvas-image"
+          />
         </div>`;
       }
       return html`<div class="canvas-image-wrapper" title="${alt}">
-        <img src="${src}" alt="${alt}" style="--ep-img-width: ${width ?? ''}; --ep-img-height: ${height ?? ''}" class="canvas-image" />
+        <img
+          src="${src}"
+          alt="${alt}"
+          style="--ep-img-width: ${width ?? ''}; --ep-img-height: ${height ?? ''}"
+          class="canvas-image"
+        />
       </div>`;
     },
 
