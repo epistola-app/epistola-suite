@@ -4,7 +4,6 @@ import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackStatus
-import java.time.Instant
 
 /**
  * Port for syncing feedback to an external system.
@@ -29,10 +28,12 @@ interface FeedbackSyncPort {
     fun updateStatus(feedback: Feedback, status: FeedbackStatus)
 
     /**
-     * Inbound updates (status changes, external comments) recorded after [since], across all
-     * tenants of this installation. Each [ExternalUpdate] carries the tenant it belongs to.
+     * One page of inbound updates (status changes, external comments) with feed sequence
+     * strictly greater than [afterSeq], across all tenants of this installation. Each
+     * [ExternalUpdate] carries the tenant it belongs to and its own [ExternalUpdate.seq]; the
+     * returned [ExternalUpdatePage.nextSeq] is the cursor to persist for the next call.
      */
-    fun fetchUpdates(since: Instant): List<ExternalUpdate>
+    fun fetchUpdates(afterSeq: Long): ExternalUpdatePage
 }
 
 data class SyncResult(

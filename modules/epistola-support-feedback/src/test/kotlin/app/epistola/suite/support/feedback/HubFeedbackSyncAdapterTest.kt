@@ -22,7 +22,6 @@ import app.epistola.suite.feedback.sync.ExternalUpdate
 import com.google.protobuf.Timestamp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.time.Instant
 import java.time.OffsetDateTime
 import app.epistola.hub.proto.v1.FeedbackStatus as ProtoStatus
 
@@ -110,11 +109,32 @@ class HubFeedbackSyncAdapterTest {
     }
 
     @Test
-    fun `fetchUpdates converts status changes and comments to ExternalUpdate`() {
+    fun `updateStatus targets the hub external ref and maps the status`() {
+        var captured: app.epistola.hub.proto.v1.UpdateFeedbackStatusRequest? = null
+        val client =
+            object : EpistolaHubClient(store = noopStore) {
+                override fun updateFeedbackStatus(
+                    request: app.epistola.hub.proto.v1.UpdateFeedbackStatusRequest,
+                ): app.epistola.hub.proto.v1.UpdateFeedbackStatusResponse {
+                    captured = request
+                    return app.epistola.hub.proto.v1.UpdateFeedbackStatusResponse.getDefaultInstance()
+                }
+            }
+        val fb = feedback(externalRef = "hub-123")
+
+        HubFeedbackSyncAdapter(client).updateStatus(fb, FeedbackStatus.RESOLVED)
+
+        assertThat(captured!!.feedbackId).isEqualTo("hub-123")
+        assertThat(captured!!.status).isEqualTo(ProtoStatus.FEEDBACK_STATUS_RESOLVED)
+    }
+
+    @Test
+    fun `fetchUpdates converts a page of status changes and comments to ExternalUpdate`() {
         val ts = Timestamp.newBuilder().setSeconds(1_700_000_000).build()
         val statusUpdate =
             FeedbackUpdate
                 .newBuilder()
+                .setSeq(7)
                 .setFeedbackId("hub-1")
                 .setTenant("acme")
                 .setOccurredAt(ts)
@@ -124,6 +144,7 @@ class HubFeedbackSyncAdapterTest {
         val commentUpdate =
             FeedbackUpdate
                 .newBuilder()
+                .setSeq(8)
                 .setFeedbackId("hub-2")
                 .setTenant("beta")
                 .setOccurredAt(ts)
@@ -134,19 +155,34 @@ class HubFeedbackSyncAdapterTest {
                         .setAuthorName("Triager")
                         .setBody("Looking into it"),
                 ).build()
+        var capturedAfterSeq: Long? = null
         val client =
             object : EpistolaHubClient(store = noopStore) {
-                override fun fetchFeedbackUpdates(request: FetchFeedbackUpdatesRequest): FetchFeedbackUpdatesResponse = FetchFeedbackUpdatesResponse.newBuilder().addUpdates(statusUpdate).addUpdates(commentUpdate).build()
+                override fun fetchFeedbackUpdates(request: FetchFeedbackUpdatesRequest): FetchFeedbackUpdatesResponse {
+                    capturedAfterSeq = request.afterSeq
+                    return FetchFeedbackUpdatesResponse
+                        .newBuilder()
+                        .addUpdates(statusUpdate)
+                        .addUpdates(commentUpdate)
+                        .setNextSeq(8)
+                        .setHasMore(true)
+                        .build()
+                }
             }
 
-        val updates = HubFeedbackSyncAdapter(client).fetchUpdates(Instant.EPOCH)
+        val page = HubFeedbackSyncAdapter(client).fetchUpdates(afterSeq = 5)
 
-        assertThat(updates).hasSize(2)
-        val status = updates.filterIsInstance<ExternalUpdate.StatusChange>().single()
+        assertThat(capturedAfterSeq).isEqualTo(5)
+        assertThat(page.nextSeq).isEqualTo(8)
+        assertThat(page.hasMore).isTrue()
+        assertThat(page.updates).hasSize(2)
+        val status = page.updates.filterIsInstance<ExternalUpdate.StatusChange>().single()
+        assertThat(status.seq).isEqualTo(7)
         assertThat(status.tenantKey).isEqualTo(TenantKey.of("acme"))
         assertThat(status.externalRef).isEqualTo("hub-1")
         assertThat(status.newStatus).isEqualTo(FeedbackStatus.RESOLVED)
-        val comment = updates.filterIsInstance<ExternalUpdate.Comment>().single()
+        val comment = page.updates.filterIsInstance<ExternalUpdate.Comment>().single()
+        assertThat(comment.seq).isEqualTo(8)
         assertThat(comment.tenantKey).isEqualTo(TenantKey.of("beta"))
         assertThat(comment.externalCommentId).isEqualTo("hc-9")
         assertThat(comment.authorName).isEqualTo("Triager")

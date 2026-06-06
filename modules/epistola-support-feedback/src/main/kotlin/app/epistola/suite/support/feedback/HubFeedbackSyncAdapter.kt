@@ -15,6 +15,7 @@ import app.epistola.suite.feedback.FeedbackPriority
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.sync.ExternalCommentRef
 import app.epistola.suite.feedback.sync.ExternalUpdate
+import app.epistola.suite.feedback.sync.ExternalUpdatePage
 import app.epistola.suite.feedback.sync.FeedbackSyncPort
 import app.epistola.suite.feedback.sync.SyncResult
 import com.google.protobuf.ByteString
@@ -90,12 +91,16 @@ class HubFeedbackSyncAdapter(
         )
     }
 
-    override fun fetchUpdates(since: Instant): List<ExternalUpdate> {
+    override fun fetchUpdates(afterSeq: Long): ExternalUpdatePage {
         val response =
             client.fetchFeedbackUpdates(
-                FetchFeedbackUpdatesRequest.newBuilder().setSince(since.toTimestamp()).build(),
+                FetchFeedbackUpdatesRequest.newBuilder().setAfterSeq(afterSeq).build(),
             )
-        return response.updatesList.mapNotNull { it.toExternalUpdate() }
+        return ExternalUpdatePage(
+            updates = response.updatesList.mapNotNull { it.toExternalUpdate() },
+            nextSeq = response.nextSeq,
+            hasMore = response.hasMore,
+        )
     }
 }
 
@@ -112,6 +117,7 @@ private fun FeedbackUpdate.toExternalUpdate(): ExternalUpdate? {
     return when (updateCase) {
         FeedbackUpdate.UpdateCase.STATUS_CHANGE ->
             ExternalUpdate.StatusChange(
+                seq = seq,
                 tenantKey = tenantKey,
                 externalRef = feedbackId,
                 occurredAt = occurredAt,
@@ -120,6 +126,7 @@ private fun FeedbackUpdate.toExternalUpdate(): ExternalUpdate? {
 
         FeedbackUpdate.UpdateCase.COMMENT ->
             ExternalUpdate.Comment(
+                seq = seq,
                 tenantKey = tenantKey,
                 externalRef = feedbackId,
                 occurredAt = occurredAt,
@@ -161,11 +168,5 @@ private fun FeedbackPriority.toProto(): ProtoPriority = when (this) {
     FeedbackPriority.HIGH -> ProtoPriority.FEEDBACK_PRIORITY_HIGH
     FeedbackPriority.CRITICAL -> ProtoPriority.FEEDBACK_PRIORITY_CRITICAL
 }
-
-private fun Instant.toTimestamp(): Timestamp = Timestamp
-    .newBuilder()
-    .setSeconds(epochSecond)
-    .setNanos(nano)
-    .build()
 
 private fun Timestamp.toInstant(): Instant = Instant.ofEpochSecond(seconds, nanos.toLong())

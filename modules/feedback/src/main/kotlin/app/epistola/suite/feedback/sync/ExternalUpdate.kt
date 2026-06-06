@@ -11,11 +11,14 @@ import java.time.Instant
  * tenants; the poll scheduler uses it to resolve the local feedback item.
  */
 sealed class ExternalUpdate {
+    /** Monotonic feed cursor; the poll scheduler persists the highest processed [seq]. */
+    abstract val seq: Long
     abstract val tenantKey: TenantKey
     abstract val externalRef: String
     abstract val occurredAt: Instant
 
     data class Comment(
+        override val seq: Long,
         override val tenantKey: TenantKey,
         override val externalRef: String,
         override val occurredAt: Instant,
@@ -26,9 +29,20 @@ sealed class ExternalUpdate {
     ) : ExternalUpdate()
 
     data class StatusChange(
+        override val seq: Long,
         override val tenantKey: TenantKey,
         override val externalRef: String,
         override val occurredAt: Instant,
         val newStatus: FeedbackStatus,
     ) : ExternalUpdate()
 }
+
+/**
+ * One page of the external update feed: the updates, the cursor to persist ([nextSeq]), and
+ * whether more pages remain ([hasMore]). The poll scheduler drains pages until `!hasMore`.
+ */
+data class ExternalUpdatePage(
+    val updates: List<ExternalUpdate>,
+    val nextSeq: Long,
+    val hasMore: Boolean,
+)

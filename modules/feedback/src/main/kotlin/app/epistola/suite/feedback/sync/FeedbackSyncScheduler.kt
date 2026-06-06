@@ -1,20 +1,26 @@
 package app.epistola.suite.feedback.sync
 
 import app.epistola.suite.common.ids.FeedbackAssetId
+import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.SyncStatus
+import app.epistola.suite.feedback.commands.UpdateFeedbackCommentExternalRef
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncStatus
+import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
+import app.epistola.suite.feedback.queries.ListUnsyncedComments
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.scheduling.SchedulerLock
+import app.epistola.suite.security.SecurityContext
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -22,11 +28,13 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
- * Periodically retries syncing feedback items that failed initial sync.
+ * Periodically retries outbound syncs that failed their immediate push: feedback items still
+ * PENDING (no hub ticket yet) and local comments on synced feedback that never got an external
+ * id. Items that exceed max retries are marked FAILED and no longer retried.
  *
  * Only active when `epistola.feedback.sync.enabled` is true, and only does work when a real
- * sync target is wired (the support tier is enabled). Items that exceed max retries are
- * marked as FAILED and no longer retried.
+ * sync target is wired (the support tier is enabled). In a multi-pod deployment [SchedulerLock]
+ * ensures only one instance runs the sweep per cycle.
  */
 @Component
 @EnableScheduling
@@ -38,24 +46,67 @@ import org.springframework.stereotype.Component
 class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
+    private val schedulerLock: SchedulerLock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
-    fun retryPendingSync() = MediatorContext.runWithMediator(mediator) {
-        if (!feedbackSyncPort.isEnabled()) return@runWithMediator
+    fun retryPendingSync() {
+        schedulerLock.runExclusively(SchedulerLock.FEEDBACK_RETRY) {
+            MediatorContext.runWithMediator(mediator) {
+                if (!feedbackSyncPort.isEnabled()) return@runWithMediator
+                retryPendingFeedback()
+                retryPendingComments()
+            }
+        }
+    }
 
+    private fun retryPendingFeedback() {
         val pending = ListPendingSyncFeedback(limit = 20).query()
-        if (pending.isEmpty()) return@runWithMediator
+        if (pending.isEmpty()) return
 
         log.debug("Retrying sync for {} pending feedback items", pending.size)
 
         for (feedback in pending) {
-            try {
-                syncFeedback(feedback)
-            } catch (e: Exception) {
-                log.error("Failed to sync feedback {}: {}", feedback.id, e.message)
-                recordSyncAttemptFailure(feedback)
+            // createTicket loads assets via tenant-scoped queries; bind a system principal.
+            SecurityContext.runWithPrincipal(feedbackSystemPrincipal(feedback.tenantKey)) {
+                try {
+                    syncFeedback(feedback)
+                } catch (e: Exception) {
+                    log.error("Failed to sync feedback {}: {}", feedback.id, e.message)
+                    recordSyncAttemptFailure(feedback)
+                }
+            }
+        }
+    }
+
+    private fun retryPendingComments() {
+        val pending = ListUnsyncedComments(limit = 50).query()
+        if (pending.isEmpty()) return
+
+        log.debug("Retrying sync for {} unsynced feedback comments", pending.size)
+
+        pending.groupBy { it.tenantKey to it.feedbackId }.forEach { (groupKey, comments) ->
+            val (tenantKey, feedbackKey) = groupKey
+            // GetFeedback is tenant-scoped (RequiresPermission); bind a system principal.
+            SecurityContext.runWithPrincipal(feedbackSystemPrincipal(tenantKey)) {
+                val feedbackId = FeedbackId(feedbackKey, TenantId(tenantKey))
+                val feedback = GetFeedback(feedbackId).query() ?: return@runWithPrincipal
+                if (feedback.syncStatus != SyncStatus.SYNCED || feedback.externalRef == null) {
+                    return@runWithPrincipal
+                }
+                for (comment in comments) {
+                    try {
+                        val ref = feedbackSyncPort.addComment(feedback, comment)
+                        UpdateFeedbackCommentExternalRef(
+                            id = FeedbackCommentId(comment.id, feedbackId),
+                            externalCommentId = ref.externalCommentId,
+                        ).execute()
+                        log.info("Re-synced comment {} for feedback {}", comment.id, feedback.id)
+                    } catch (e: Exception) {
+                        log.error("Failed to re-sync comment {}: {}", comment.id, e.message)
+                    }
+                }
             }
         }
     }

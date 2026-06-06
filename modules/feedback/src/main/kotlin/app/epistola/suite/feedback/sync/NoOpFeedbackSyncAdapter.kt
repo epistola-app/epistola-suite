@@ -5,7 +5,6 @@ import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackStatus
 import org.slf4j.LoggerFactory
-import java.time.Instant
 
 /**
  * No-op implementation used when no external sync target is wired (the support tier is
@@ -31,8 +30,8 @@ class NoOpFeedbackSyncAdapter : FeedbackSyncPort {
         log.debug("No-op sync: updateStatus called for feedback {}", feedback.id)
     }
 
-    override fun fetchUpdates(since: Instant): List<ExternalUpdate> {
-        log.debug("No-op sync: fetchUpdates called, returning empty list")
-        return emptyList()
+    override fun fetchUpdates(afterSeq: Long): ExternalUpdatePage {
+        log.debug("No-op sync: fetchUpdates called, returning empty page")
+        return ExternalUpdatePage(updates = emptyList(), nextSeq = afterSeq, hasMore = false)
     }
 }
