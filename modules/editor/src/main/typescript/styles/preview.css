@@ -14,7 +14,6 @@
   epistola-preview {
     display: flex;
     flex-direction: column;
-    --ep-preview-width: 400px;
     width: var(--ep-preview-width);
     flex-shrink: 0;
     background: var(--ep-white);
