@@ -26,11 +26,14 @@ dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
 
-    // Feedback module (feedback system with GitHub integration)
+    // Feedback module (local feedback domain + UI; syncs via FeedbackSyncPort)
     implementation(project(":modules:feedback"))
 
     // Support module (optional commercial-tier hub integration; off by default)
     implementation(project(":modules:epistola-support"))
+
+    // Hub-backed feedback sync (commercial; provides the FeedbackSyncPort when support is on)
+    implementation(project(":modules:epistola-support-feedback"))
 
     // Catalog module (catalog exchange for sharing templates)
 

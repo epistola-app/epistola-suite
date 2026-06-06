@@ -1,4 +1,4 @@
-package app.epistola.suite.support
+package app.epistola.suite.support.feedback
 
 import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.port.InstallationCredentials

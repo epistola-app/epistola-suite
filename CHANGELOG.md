@@ -6,7 +6,7 @@
 
 ### Added
 
-- **Feedback now syncs to epistola-hub instead of GitHub.** New `HubFeedbackSyncAdapter` in `modules/epistola-support` implements `FeedbackSyncPort` against the epistola-hub gRPC `FeedbackService` (client `0.2.0`): it pushes feedback + comments and polls status/comment changes back, authenticating with the installation API key the support tier already manages. Wired as the production `FeedbackSyncPort` bean when `epistola.support.enabled=true`; otherwise the no-op adapter keeps feedback local. Sync is now **installation-wide** (gated by the support tier) rather than per-tenant — the inbound poll cursor lives in `app_metadata` under `feedback.sync.lastPolledAt`.
+- **Feedback now syncs to epistola-hub instead of GitHub.** New `modules/epistola-support-feedback` module provides `HubFeedbackSyncAdapter`, implementing `FeedbackSyncPort` against the epistola-hub gRPC `FeedbackService` (client `0.2.0`): it pushes feedback + comments and polls status/comment changes back, authenticating with the installation API key the support tier manages. Wired as the production `FeedbackSyncPort` bean when `epistola.support.enabled=true`; otherwise the no-op adapter keeps feedback local. The module depends on `epistola-support` (hub client) + `feedback` (port), keeping `feedback` OSS and `epistola-support` generic — the per-feature-module structure described in this file. Sync is now **installation-wide** (gated by the support tier) rather than per-tenant — the inbound poll runs as a system principal with the cursor in `app_metadata` under `feedback.sync.lastPolledAt`.
 
 ### Changed
 
