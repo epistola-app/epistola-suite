@@ -81,7 +81,7 @@
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  style="display: inline;">
+                                  class="ep-inline">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
@@ -92,7 +92,7 @@
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  style="display: inline;">
+                                  class="ep-inline">
                                 <input type="hidden" name="themeId" value="">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Clear default theme">
                                     <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />

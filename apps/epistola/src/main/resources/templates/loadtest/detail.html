@@ -27,7 +27,7 @@
                 <form th:if="${run.status.name() == 'RUNNING'}"
                       th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
                       method="post"
-                      style="display: inline;">
+                      class="ep-inline">
                     <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
                 </form>
             </div>

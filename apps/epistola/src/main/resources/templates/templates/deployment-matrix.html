@@ -73,7 +73,7 @@
                                                 versions=${versionsByVariant.getOrDefault(variant.id, {})}"
                                             >
                                                 <th:block th:if="${!#lists.isEmpty(versions)}">
-                                                    <form style="display:inline; margin:0;">
+                                                    <form class="ep-inline ep-m-0">
                                                         <input type="hidden" name="variantId" th:value="${variant.id}" />
                                                         <input type="hidden" name="environmentId" th:value="${env.id}" />
                                                         <select name="versionId" class="ep-select ep-text-xs" 

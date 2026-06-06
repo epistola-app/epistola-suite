@@ -32,10 +32,10 @@
                             </div>
                             <input type="file" id="asset-file-input" name="file"
                                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                   style="display: none;"
-                                   required />
+                                    class="ep-hidden"
+                                    required />
                         </div>
-                        <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
+                        <div id="file-preview" class="ep-hidden ep-mt-3">
                             <span id="file-name" class="text-sm"></span>
                         </div>
                         <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
@@ -57,10 +57,10 @@
                 var fileName = document.getElementById('file-name');
                 if (this.files.length > 0) {
                     fileName.textContent = this.files[0].name;
-                    preview.style.display = 'block';
+                    preview.classList.remove('ep-hidden');
                     uploadError.textContent = '';
                 } else {
-                    preview.style.display = 'none';
+                    preview.classList.add('ep-hidden');
                 }
             });
 

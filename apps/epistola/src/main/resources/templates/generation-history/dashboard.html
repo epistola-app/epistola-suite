@@ -108,8 +108,7 @@
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"
-                                      class="ep-text-sm ep-text-muted"
-                                      style="max-width: 300px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                       class="ep-text-sm ep-text-muted text-truncate"
                                       th:title="${job.errorMessage}"
                                       th:text="${job.errorMessage}">Error</span>
                                 <span th:if="${job.errorMessage == null}" class="ep-text-muted">—</span>

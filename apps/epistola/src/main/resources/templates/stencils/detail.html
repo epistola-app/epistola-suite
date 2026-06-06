@@ -58,7 +58,7 @@
                                       th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
                                       hx-target="#version-list"
                                       hx-swap="innerHTML"
-                                      style="display: inline;">
+                                      class="ep-inline">
                                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">
                                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                                         New Draft
@@ -93,14 +93,14 @@
                                     <td class="actions">
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
-                                              hx-target="#version-list" hx-swap="innerHTML" style="display: inline;">
+                                              hx-target="#version-list" hx-swap="innerHTML" class="ep-inline">
                                             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" title="Publish">Publish</button>
                                         </form>
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                               hx-target="#version-list" hx-swap="innerHTML"
                                               hx-confirm="Archive version? It will no longer be available for insertion into templates."
-                                              style="display: inline;">
+                                              class="ep-inline">
                                             <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Archive">Archive</button>
                                         </form>
                                     </td>
