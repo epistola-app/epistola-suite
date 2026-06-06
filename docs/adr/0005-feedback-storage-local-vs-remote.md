@@ -16,7 +16,7 @@ triaged centrally and replies/status changes flow back) can store its data two w
   the hub on every operation.
 
 Feedback is a **paid-tier feature in both options** (it depends on the hub / support tier).
-So this is *not* an OSS-vs-commercial question, and "is it already built" is not a factor —
+So this is _not_ an OSS-vs-commercial question, and "is it already built" is not a factor —
 this ADR weighs the two designs on their merits.
 
 The decisive context is **how and where the suite runs**:
@@ -25,7 +25,7 @@ The decisive context is **how and where the suite runs**:
   cloud, managed), frequently with **restricted outbound egress** and its own availability
   envelope.
 - The hub is a **central service** the installation phones home to. "Paid users have the
-  hub" does **not** imply the hub is always *reachable* from inside the customer network:
+  hub" does **not** imply the hub is always _reachable_ from inside the customer network:
   it is subject to downtime, maintenance, network partitions, egress firewalls, and
   API/version skew relative to the suite.
 - The suite UI is **server-rendered (Thymeleaf + HTMX)**. A read that backs a page render
@@ -59,7 +59,7 @@ The suite's database is the system of record for that installation. Feedback is 
 read locally; a sync layer mirrors it to the hub and pulls hub-side changes back. Concretely
 this entails an outbound push with retry, an inbound poll with a persisted cursor, dedup by
 external id, and loop-avoidance so polled-back changes aren't re-emitted (the shape of the
-existing `FeedbackSyncPort` design — described here as *what Option A costs*, not as a reason
+existing `FeedbackSyncPort` design — described here as _what Option A costs_, not as a reason
 to choose it).
 
 #### A — Pros
@@ -126,7 +126,7 @@ the same delivery machinery. Recorded as the middle ground, not the primary reco
 **Recommendation: Option A (local store + sync), recorded as _Proposed_ for the team to
 ratify.**
 
-For an *interactive, in-app* surface that ships inside customer infrastructure, the dominant
+For an _interactive, in-app_ surface that ships inside customer infrastructure, the dominant
 risk is hard runtime coupling of every read and write to a central service (Option B):
 availability of a basic in-app action becomes a function of cross-network hub reachability,
 render latency inherits the hub round-trip, and PII leaves the customer's database by
@@ -144,7 +144,7 @@ no residency constraints.
 ### Why not Option C?
 
 The outbox hybrid removes Option A's read mirror but keeps the view path coupled to the hub
-(the worst of B for *reads*) while still carrying delivery machinery. It is attractive only
+(the worst of B for _reads_) while still carrying delivery machinery. It is attractive only
 if viewing feedback in-suite is deemed non-critical while submission must be durable — a
 narrower bet than either A or B. Keep it on the table as a fallback if read-coupling later
 proves acceptable.
@@ -158,7 +158,7 @@ proves acceptable.
   standing component to operate and test.
 - A conflict-resolution rule must be stated for fields editable on both sides (e.g. status):
   define last-writer-wins or a precedence (hub-triage wins) and document it.
-- The hub's feedback API stays a *sync* contract (idempotent submit, fetch-since), not a
+- The hub's feedback API stays a _sync_ contract (idempotent submit, fetch-since), not a
   read-serving API for the suite UI.
 
 ### If Option B is ratified instead
