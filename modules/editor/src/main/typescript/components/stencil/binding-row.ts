@@ -70,20 +70,20 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
   const dataAttr = paramDatasetKey ? ` data-param="${escapeAttr(paramDatasetKey)}"` : '';
 
   const row = document.createElement('div');
-  row.style.marginBottom = 'var(--ep-space-3)';
+  row.className = 'stencil-picker-group-mb3';
   row.innerHTML = `
-    <div style="display:flex; align-items:center; gap:var(--ep-space-2); margin-bottom:2px;">
-      <label style="font-size: var(--ep-text-xs); font-weight:500;">${escapeHtml(name)}</label>
-      <span style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);">${typeLabel}</span>
-      ${required ? '<span style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);">required</span>' : ''}
+    <div class="stencil-picker-label-row">
+      <label class="stencil-picker-label-inline">${escapeHtml(name)}</label>
+      <span class="stencil-picker-muted">${typeLabel}</span>
+      ${required ? '<span class="stencil-picker-error">required</span>' : ''}
     </div>
-    ${prop?.description ? `<div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom:2px;">${escapeHtml(prop.description)}</div>` : ''}
-    <div style="display:flex; gap: 4px; align-items: center;">
-      <input type="text" class="ep-input binding-row-input"${dataAttr} style="flex: 1;" placeholder="JSONata expression — e.g. recipient.name" />
-      <span class="binding-row-validity" style="font-size: 14px; width: 16px; text-align: center; flex-shrink: 0;"></span>
-      <button type="button" class="stencil-picker-btn binding-row-advanced"${dataAttr} style="padding: 4px 10px;" title="Open expression editor">…</button>
+    ${prop?.description ? `<div class="stencil-picker-desc">${escapeHtml(prop.description)}</div>` : ''}
+    <div class="stencil-picker-flex-tight">
+      <input type="text" class="ep-input binding-row-input stencil-picker-flex-fill"${dataAttr} placeholder="JSONata expression — e.g. recipient.name" />
+      <span class="stencil-picker-validity"></span>
+      <button type="button" class="stencil-picker-btn binding-row-advanced stencil-picker-btn-compact"${dataAttr} title="Open expression editor">…</button>
     </div>
-    <div class="binding-row-error" style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626); margin-top: 2px; display: none;"></div>
+    <div class="binding-row-error stencil-picker-error" style="margin-top: 2px; display: none;"></div>
   `;
 
   const input = row.querySelector<HTMLInputElement>('.binding-row-input')!;

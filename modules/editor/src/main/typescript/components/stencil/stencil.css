@@ -318,6 +318,13 @@
     gap: var(--ep-space-2);
   }
 
+  .stencil-picker-label-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: 2px;
+  }
+
   .stencil-picker-flex-tight {
     display: flex;
     gap: 4px;

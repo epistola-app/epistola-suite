@@ -241,7 +241,7 @@ export class EpistolaTree extends LitElement {
     if (iconName && iconName in ICONS) {
       return icon(iconName as IconName, 14);
     }
-    return html`<span style="font-size: 10px">&gt;</span>`;
+    return html`<span class="tree-node-child-count">&gt;</span>`;
   }
 
   // ---------------------------------------------------------------------------

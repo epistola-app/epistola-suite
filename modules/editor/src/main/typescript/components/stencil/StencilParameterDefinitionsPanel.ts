@@ -80,27 +80,24 @@ export class StencilParameterDefinitionsPanel extends LitElement {
   override render() {
     const selected = this._rows.find((r) => r.id === this._selectedId);
     return html`
-      <div style="display:flex; flex-direction:column; gap: var(--ep-space-3);">
-        <p style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin: 0;">
+      <div class="stencil-params-panel">
+        <p class="stencil-picker-muted" style="margin: 0;">
           Define the parameters that consumers must bind when inserting this stencil. Each parameter
           becomes a variable available inside the stencil under the configured alias (default
           <code>params</code>).
         </p>
-        <div
-          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); background: var(--ep-muted, #f5f5f5); border-left: 3px solid var(--ep-warning, #d97706); padding: var(--ep-space-2) var(--ep-space-3); border-radius: var(--ep-radius);"
-          role="note"
-        >
+        <div class="stencil-params-note" role="note">
           Schema changes only reach existing consumers when this draft is
           <strong>published</strong> and each consuming template <strong>upgrades</strong> the
           stencil. Until then, consumers continue to validate and render against the previously
           published schema.
         </div>
 
-        <div style="display:flex; align-items:center; gap: var(--ep-space-2);">
+        <div class="stencil-picker-flex-row">
           <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" @click=${this._addRow}>
             + Add parameter
           </button>
-          <span style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);">
+          <span class="stencil-picker-muted">
             ${this._rows.length} ${this._rows.length === 1 ? 'parameter' : 'parameters'}
           </span>
         </div>
@@ -112,9 +109,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
 
   private _renderEmpty() {
     return html`
-      <div
-        style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); padding: var(--ep-space-6); border: 1px dashed var(--ep-border); border-radius: var(--ep-radius); text-align: center;"
-      >
+      <div class="stencil-picker-muted stencil-params-empty">
         No parameters defined. Add one to make a value (e.g. recipient name, page number)
         configurable per insertion.
       </div>
@@ -123,9 +118,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
 
   private _renderTwoPanel(selected: ParamRow | undefined) {
     return html`
-      <div
-        style="display:grid; grid-template-columns: 220px 1fr; gap: var(--ep-space-3); min-height: 280px;"
-      >
+      <div class="stencil-params-two-panel">
         ${this._renderList()} ${this._renderDetail(selected)}
       </div>
     `;
@@ -133,9 +126,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
 
   private _renderList() {
     return html`
-      <div
-        style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); overflow: auto; max-height: 50vh;"
-      >
+      <div class="stencil-params-box stencil-params-box-scroll">
         ${this._rows.map((row) => this._renderListItem(row))}
       </div>
     `;
@@ -148,30 +139,20 @@ export class StencilParameterDefinitionsPanel extends LitElement {
     return html`
       <div
         @click=${() => this._select(row.id)}
-        style=${`
-          display:flex; align-items:center; gap: 8px; padding: 6px 10px; cursor: pointer;
-          font-size: var(--ep-text-sm);
-          background: ${isSelected ? 'var(--ep-accent, #eef2ff)' : 'transparent'};
-          border-bottom: 1px solid var(--ep-border);
-        `}
+        class="stencil-params-list-item"
+        style=${`background: ${isSelected ? 'var(--ep-accent, #eef2ff)' : 'transparent'};`}
       >
         <span
+          class="stencil-params-list-name"
           style=${`
-            flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
             font-weight: ${isSelected ? '600' : '500'};
             color: ${hasError ? 'var(--ep-destructive, #dc2626)' : 'inherit'};
           `}
           >${row.name || '(unnamed)'}</span
         >
-        <span
-          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); padding: 1px 6px; background: var(--ep-muted, #f3f4f6); border-radius: 4px;"
-          >${typeLabel}</span
-        >
+        <span class="stencil-picker-badge">${typeLabel}</span>
         ${row.required
-          ? html`<span
-              title="Required"
-              style="width:6px; height:6px; border-radius:50%; background: var(--ep-destructive, #dc2626);"
-            ></span>`
+          ? html`<span title="Required" class="stencil-params-required-dot"></span>`
           : nothing}
       </div>
     `;
@@ -179,27 +160,16 @@ export class StencilParameterDefinitionsPanel extends LitElement {
 
   private _renderDetail(row: ParamRow | undefined) {
     if (!row) {
-      return html`
-        <div
-          style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-6); display:flex; align-items:center; justify-content:center; color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
-        >
-          Select a parameter to edit
-        </div>
-      `;
+      return html`<div class="stencil-params-detail-empty">Select a parameter to edit</div>`;
     }
     const error = this._errors[row.id];
     return html`
-      <div
-        style="border: 1px solid var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-3); display: flex; flex-direction: column; gap: var(--ep-space-2); max-height: 50vh; overflow: auto;"
-      >
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <h4 style="margin: 0; font-size: var(--ep-text-sm); font-weight: 600;">
-            ${row.name || '(unnamed)'}
-          </h4>
+      <div class="stencil-params-detail">
+        <div class="stencil-params-header">
+          <h4 class="stencil-params-heading">${row.name || '(unnamed)'}</h4>
           <button
             type="button"
-            class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm"
-            style="color: var(--ep-destructive, #dc2626);"
+            class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm stencil-picker-error"
             @click=${() => this._removeRow(row.id)}
           >
             Delete
@@ -210,8 +180,8 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           'Name',
           html`<input
             type="text"
-            class="ep-input"
-            style=${`width: 100%; ${error ? 'border-color: var(--ep-destructive, #dc2626);' : ''}`}
+            class="ep-input stencil-picker-full"
+            style=${error ? 'border-color: var(--ep-destructive, #dc2626);' : ''}
             .value=${row.name}
             @input=${(e: Event) =>
               this._updateRow(row.id, { name: (e.target as HTMLInputElement).value })}
@@ -221,8 +191,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
         ${this._renderDetailRow(
           'Type',
           html`<select
-            class="ep-input"
-            style="width: 100%;"
+            class="ep-input stencil-picker-full"
             .value=${row.type}
             @change=${(e: Event) =>
               this._updateRow(row.id, {
@@ -254,8 +223,8 @@ export class StencilParameterDefinitionsPanel extends LitElement {
         ${this._renderDetailRow(
           'Description',
           html`<textarea
-            class="ep-input"
-            style="width: 100%; min-height: 60px;"
+            class="ep-input stencil-picker-full"
+            style="min-height: 60px;"
             .value=${row.description}
             @input=${(e: Event) =>
               this._updateRow(row.id, { description: (e.target as HTMLTextAreaElement).value })}
@@ -266,8 +235,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           row.isList ? 'Default (comma-separated)' : 'Default',
           html`<input
             type="text"
-            class="ep-input"
-            style="width: 100%;"
+            class="ep-input stencil-picker-full"
             .value=${row.defaultText}
             @input=${(e: Event) =>
               this._updateRow(row.id, { defaultText: (e.target as HTMLInputElement).value })}
@@ -275,9 +243,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           />`,
         )}
         ${error
-          ? html`<div style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626);">
-              ${error}
-            </div>`
+          ? html`<div class="stencil-picker-error">${error}</div>`
           : nothing}
       </div>
     `;
@@ -285,8 +251,8 @@ export class StencilParameterDefinitionsPanel extends LitElement {
 
   private _renderDetailRow(label: string, control: unknown) {
     return html`
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-size: var(--ep-text-xs); font-weight: 500;">${label}</label>
+      <div class="stencil-params-row">
+        <label class="stencil-picker-label-inline">${label}</label>
         ${control}
       </div>
     `;
@@ -301,16 +267,16 @@ export class StencilParameterDefinitionsPanel extends LitElement {
   ) {
     const id = `param-${rowId}-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return html`
-      <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
+      <div class="stencil-picker-flex-row">
         <input
           type="checkbox"
           id=${id}
           .checked=${checked}
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
         />
-        <label for=${id} style="font-size: var(--ep-text-xs); cursor: pointer;">
+        <label for=${id} class="stencil-picker-label-inline" style="cursor: pointer;">
           <span style="font-weight: 500;">${label}</span>
-          <span style="color: var(--ep-muted-foreground); margin-left: 4px;">— ${hint}</span>
+          <span class="stencil-params-toggle-hint">— ${hint}</span>
         </label>
       </div>
     `;

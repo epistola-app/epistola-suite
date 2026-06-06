@@ -160,9 +160,8 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       if (!assetId) {
         if (hasPicker) {
           return html`<div
-            class="canvas-image-placeholder"
+            class="canvas-image-placeholder canvas-image-wrapper--clickable"
             @click=${pickAsset}
-            style="cursor: pointer"
             title="Click to select an image"
           >
             <span class="canvas-image-placeholder-icon">&#128247;</span>
@@ -190,9 +189,8 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
 
       if (hasPicker) {
         return html`<div
-          class="canvas-image-wrapper"
+          class="canvas-image-wrapper canvas-image-wrapper--clickable"
           @click=${pickAsset}
-          style="cursor: pointer"
           title="Click to change image"
         >
           <img src="${src}" alt="${alt}" style=${imgStyle} class="canvas-image" />

@@ -24,11 +24,11 @@ export function openParameterDefinitionsDialog(
           <h3>Define parameters</h3>
           <button type="button" class="stencil-picker-close" aria-label="Close">&times;</button>
         </div>
-        <div style="padding: var(--ep-space-3) var(--ep-space-6); max-height: 70vh; overflow: auto;">
+        <div class="stencil-picker-section stencil-picker-scroll">
           <stencil-parameter-definitions-panel></stencil-parameter-definitions-panel>
         </div>
         <div class="stencil-picker-footer">
-          <div style="flex: 1;"></div>
+          <div class="stencil-picker-flex-fill"></div>
           <button type="button" class="stencil-picker-btn cancel">Cancel</button>
           <button type="button" class="stencil-picker-btn insert save">Save</button>
         </div>
