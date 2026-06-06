@@ -134,8 +134,8 @@ export class EpistolaPalette extends LitElement {
       const cleanup = draggable({
         element: item,
         getInitialData: (): DragData => ({ source: 'palette', blockType }),
-        onDragStart: () => item.classList.add('dragging'),
-        onDrop: () => item.classList.remove('dragging'),
+        onDragStart: () => (item.dataset.dragging = 'true'),
+        onDrop: () => (item.dataset.dragging = 'false'),
       });
       cleanups.push(cleanup);
     }

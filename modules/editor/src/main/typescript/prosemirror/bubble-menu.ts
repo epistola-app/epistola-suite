@@ -399,11 +399,7 @@ function showMenu(
 
   // Update active states
   for (const { el, def } of buttons) {
-    if (def.isActive(view)) {
-      el.classList.add('active');
-    } else {
-      el.classList.remove('active');
-    }
+    el.dataset.active = def.isActive(view) ? 'true' : 'false';
   }
 
   updatePosition(menuEl, view);

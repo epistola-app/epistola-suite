@@ -83,7 +83,7 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
       <span class="stencil-picker-validity"></span>
       <button type="button" class="stencil-picker-btn binding-row-advanced stencil-picker-btn-compact"${dataAttr} title="Open expression editor">…</button>
     </div>
-    <div class="binding-row-error stencil-picker-error hidden"></div>
+    <div class="binding-row-error stencil-picker-error" data-hidden="true"></div>
   `;
 
   const input = row.querySelector<HTMLInputElement>('.binding-row-input')!;
@@ -101,33 +101,28 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
     if (!row.isConnected) return;
     const val = input.value.trim();
     const valid = val.length === 0 || isValidExpression(val);
-    input.classList.toggle('binding-row-valid', val.length > 0 && valid);
-    input.classList.toggle('binding-row-invalid', val.length > 0 && !valid);
+    input.dataset.valid = val.length > 0 && valid ? 'true' : 'false';
+    input.dataset.invalid = val.length > 0 && !valid ? 'true' : 'false';
     validityEl.textContent = val.length === 0 ? '' : valid ? '\u2713' : '\u2717';
-    validityEl.style.color =
-      val.length === 0
-        ? 'transparent'
-        : valid
-          ? 'var(--ep-green-600, #16a34a)'
-          : 'var(--ep-destructive, #dc2626)';
+    validityEl.dataset.validity = val.length === 0 ? 'empty' : valid ? 'valid' : 'invalid';
     if (val.length > 0 && !valid && !hasBackendError) {
       errorEl.textContent = 'Invalid JSONata expression';
-      errorEl.classList.remove('hidden');
+      errorEl.dataset.hidden = 'false';
     } else if (val.length > 0 && !valid && hasBackendError) {
       // Keep backend error text, just make sure it's visible
-      errorEl.classList.remove('hidden');
+      errorEl.dataset.hidden = 'false';
     } else {
-      errorEl.classList.add('hidden');
+      errorEl.dataset.hidden = 'true';
     }
   }
 
   // Show backend error if present (takes priority over client validation)
   if (error) {
     errorEl.textContent = error;
-    errorEl.classList.remove('hidden');
-    input.classList.add('binding-row-invalid');
+    errorEl.dataset.hidden = 'false';
+    input.dataset.invalid = 'true';
     validityEl.textContent = '\u2717';
-    validityEl.style.color = 'var(--ep-destructive, #dc2626)';
+    validityEl.dataset.validity = 'invalid';
   }
 
   input.addEventListener('input', () => {

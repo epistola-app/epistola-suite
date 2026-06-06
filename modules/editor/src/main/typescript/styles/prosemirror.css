@@ -169,7 +169,7 @@
       background: var(--ep-gray-100);
     }
 
-    &.active {
+    &[data-active='true'] {
       background: var(--ep-blue-100);
       color: var(--ep-blue-700);
     }

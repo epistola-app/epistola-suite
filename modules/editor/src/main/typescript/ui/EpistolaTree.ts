@@ -80,8 +80,8 @@ export class EpistolaTree extends LitElement {
           draggable({
             element: labelEl,
             getInitialData: (): DragData => ({ source: 'block', nodeId, blockType: node.type }),
-            onDragStart: () => labelEl.classList.add('dragging'),
-            onDrop: () => labelEl.classList.remove('dragging'),
+            onDragStart: () => (labelEl.dataset.dragging = 'true'),
+            onDrop: () => (labelEl.dataset.dragging = 'false'),
           }),
         );
       }

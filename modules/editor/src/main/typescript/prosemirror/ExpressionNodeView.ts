@@ -184,23 +184,23 @@ export class ExpressionNodeView implements NodeView {
   }
 
   private _setRawExpressionDisplay(expr: string): void {
-    this.dom.classList.add('is-raw');
+    this.dom.dataset.isRaw = 'true';
     this._leftBrace.hidden = false;
     this._rightBrace.hidden = false;
     this._content.textContent = expr;
   }
 
   private _setResolvedDisplay(value: string): void {
-    this.dom.classList.remove('is-raw');
-    this.dom.classList.remove('expression-chip-has-block-warn');
+    this.dom.dataset.isRaw = 'false';
+    this.dom.dataset.hasBlockWarn = 'false';
     this._leftBrace.hidden = true;
     this._rightBrace.hidden = true;
     this._content.textContent = value;
   }
 
   private _setResolvedDomDisplay(fragment: DocumentFragment, hasBlockContent: boolean): void {
-    this.dom.classList.remove('is-raw');
-    this.dom.classList.toggle('expression-chip-has-block-warn', hasBlockContent);
+    this.dom.dataset.isRaw = 'false';
+    this.dom.dataset.hasBlockWarn = hasBlockContent ? 'true' : 'false';
     this._leftBrace.hidden = true;
     this._rightBrace.hidden = true;
     this._content.replaceChildren(fragment);

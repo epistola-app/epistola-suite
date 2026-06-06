@@ -150,8 +150,8 @@ export class EpistolaCanvas extends LitElement {
               nodeId,
               blockType: node.type,
             }),
-            onDragStart: () => blockEl.classList.add('dragging'),
-            onDrop: () => blockEl.classList.remove('dragging'),
+            onDragStart: () => (blockEl.dataset.dragging = 'true'),
+            onDrop: () => (blockEl.dataset.dragging = 'false'),
           }),
         );
       }
@@ -257,21 +257,21 @@ export class EpistolaCanvas extends LitElement {
           },
           onDragEnter: ({ location }) => {
             if (location.current.dropTargets[0]?.element === slotEl) {
-              slotEl.classList.add('drag-over');
+              slotEl.dataset.dragOver = 'true';
             }
           },
           onDrag: ({ location }) => {
             if (location.current.dropTargets[0]?.element === slotEl) {
-              slotEl.classList.add('drag-over');
+              slotEl.dataset.dragOver = 'true';
             } else {
-              slotEl.classList.remove('drag-over');
+              slotEl.dataset.dragOver = 'false';
             }
           },
           onDragLeave: () => {
-            slotEl.classList.remove('drag-over');
+            slotEl.dataset.dragOver = 'false';
           },
           onDrop: ({ source, location }) => {
-            slotEl.classList.remove('drag-over');
+            slotEl.dataset.dragOver = 'false';
 
             // Only handle if this slot is the innermost target.
             // If a child block is innermost, its edge handler takes care of it.

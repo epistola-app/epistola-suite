@@ -91,7 +91,7 @@ export function openTableDialog(): Promise<TableDialogResult> {
       for (const cell of cells) {
         const r = Number(cell.dataset.row);
         const c = Number(cell.dataset.col);
-        cell.classList.toggle('active', r <= hoverRow && c <= hoverCol);
+        cell.dataset.active = r <= hoverRow && c <= hoverCol ? 'true' : 'false';
       }
     }
 

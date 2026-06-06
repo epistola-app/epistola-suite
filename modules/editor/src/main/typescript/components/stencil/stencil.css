@@ -90,25 +90,25 @@
     cursor: pointer;
     transition: border-color 0.15s;
     margin-bottom: var(--ep-space-2);
-  }
 
-  .stencil-picker-card:hover {
-    border-color: var(--ep-gray-400);
-  }
+    &:hover {
+      border-color: var(--ep-gray-400);
+    }
 
-  .stencil-picker-card.selected {
-    border-color: var(--ep-primary);
-    box-shadow: 0 0 0 1px var(--ep-primary);
-  }
+    &[data-selected='true'] {
+      border-color: var(--ep-primary);
+      box-shadow: 0 0 0 1px var(--ep-primary);
+    }
 
-  .stencil-picker-card--disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    background: var(--ep-gray-50);
-  }
+    &[data-disabled='true'] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: var(--ep-gray-50);
 
-  .stencil-picker-card--disabled:hover {
-    border-color: var(--ep-border-color);
+      &:hover {
+        border-color: var(--ep-border-color);
+      }
+    }
   }
 
   .stencil-picker-card-name {
@@ -159,10 +159,14 @@
     border: 1px solid var(--ep-border-color);
     background: var(--ep-white);
     color: var(--ep-foreground);
-  }
 
-  .stencil-picker-btn:hover {
-    background: var(--ep-gray-50);
+    &[data-hidden='true'] {
+      display: none;
+    }
+
+    &:hover {
+      background: var(--ep-gray-50);
+    }
   }
 
   .stencil-picker-btn.insert {
@@ -229,27 +233,45 @@
 
   .binding-row-error {
     margin-top: 2px;
+
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
   #bindings-alias-error {
     margin-top: 2px;
+
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
-  .binding-row-input.binding-row-valid {
-    border-color: var(--ep-green-500);
+  #stencil-step-create,
+  #stencil-step-versions,
+  #stencil-step-bindings {
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
-  .binding-row-input.binding-row-invalid {
-    border-color: var(--ep-destructive);
-    background: var(--ep-red-50);
-  }
+  .binding-row-input {
+    &[data-valid='true'] {
+      border-color: var(--ep-green-500);
 
-  .binding-row-input.binding-row-valid:focus {
-    box-shadow: 0 0 0 2px var(--ep-green-200);
-  }
+      &:focus {
+        box-shadow: 0 0 0 2px var(--ep-green-200);
+      }
+    }
 
-  .binding-row-input.binding-row-invalid:focus {
-    box-shadow: 0 0 0 2px var(--ep-red-200);
+    &[data-invalid='true'] {
+      border-color: var(--ep-destructive);
+      background: var(--ep-red-50);
+
+      &:focus {
+        box-shadow: 0 0 0 2px var(--ep-red-200);
+      }
+    }
   }
 
   /* ── Shared stencil-picker form patterns ──────────────────────────────── */
@@ -295,6 +317,10 @@
   .stencil-picker-error {
     font-size: var(--ep-text-xs);
     color: var(--ep-destructive);
+
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
   .stencil-picker-hint {
@@ -358,6 +384,18 @@
     width: 16px;
     text-align: center;
     flex-shrink: 0;
+
+    &[data-validity='valid'] {
+      color: var(--ep-green-600);
+    }
+
+    &[data-validity='invalid'] {
+      color: var(--ep-destructive);
+    }
+
+    &[data-validity='empty'] {
+      color: transparent;
+    }
   }
 
   .stencil-picker-btn-compact {

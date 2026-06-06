@@ -95,7 +95,7 @@ export async function openStencilPickerDialog(
         </div>
 
         <!-- Step 2: Create new stencil form (hidden initially) -->
-        <div id="stencil-step-create" class="hidden">
+        <div id="stencil-step-create" data-hidden="true">
           <div class="stencil-picker-section">
             <button type="button" id="stencil-back-create" class="stencil-picker-btn stencil-picker-group">&larr; Back to stencils</button>
             <div class="stencil-picker-subtitle-mb3">Create New Stencil</div>
@@ -108,12 +108,12 @@ export async function openStencilPickerDialog(
               <input type="text" id="create-stencil-slug" class="ep-input stencil-picker-full" placeholder="corporate-header" />
               <div class="stencil-picker-hint">Lowercase letters, numbers, and hyphens only</div>
             </div>
-            <div id="create-stencil-error" class="stencil-picker-error hidden"></div>
+            <div id="create-stencil-error" class="stencil-picker-error" data-hidden="true"></div>
           </div>
         </div>
 
         <!-- Step 3: Version picker (hidden initially) -->
-        <div id="stencil-step-versions" class="hidden">
+        <div id="stencil-step-versions" data-hidden="true">
           <div class="stencil-picker-section">
             <button type="button" id="stencil-back" class="stencil-picker-btn stencil-picker-group">&larr; Back to stencils</button>
             <div id="stencil-version-title" class="stencil-picker-subtitle"></div>
@@ -124,7 +124,7 @@ export async function openStencilPickerDialog(
         </div>
 
         <!-- Step 4: Parameter binding (hidden initially) -->
-        <div id="stencil-step-bindings" class="hidden">
+        <div id="stencil-step-bindings" data-hidden="true">
           <div class="stencil-picker-section">
             <button type="button" id="stencil-back-bindings" class="stencil-picker-btn stencil-picker-group">&larr; Back to versions</button>
             <div id="stencil-binding-title" class="stencil-picker-subtitle-mb2"></div>
@@ -138,7 +138,7 @@ export async function openStencilPickerDialog(
           <div class="stencil-picker-flex-fill"></div>
           <button type="button" class="stencil-picker-btn cancel">Cancel</button>
           <button type="button" class="stencil-picker-btn insert" disabled>Insert</button>
-          <button type="button" class="stencil-picker-btn insert create-confirm hidden" disabled>Create</button>
+          <button type="button" class="stencil-picker-btn insert create-confirm" data-hidden="true" disabled>Create</button>
         </div>
       </div>
     `;
@@ -191,7 +191,7 @@ export async function openStencilPickerDialog(
 
         const isRecursive = options.disabledStencilIds?.has(stencil.id) ?? false;
         if (isRecursive) {
-          card.classList.add('stencil-picker-card--disabled');
+          card.dataset.disabled = 'true';
           card.title = 'Cannot insert: this stencil already appears in the ancestor chain';
         }
 
@@ -236,9 +236,9 @@ export async function openStencilPickerDialog(
     // ── Step 2: Version picker ──
 
     async function showVersionPicker(stencil: StencilSummary) {
-      stepList.classList.add('hidden');
-      stepBindings.classList.add('hidden');
-      stepVersions.classList.remove('hidden');
+      stepList.dataset.hidden = 'true';
+      stepBindings.dataset.hidden = 'true';
+      stepVersions.dataset.hidden = 'false';
       versionTitle.textContent = `Versions for "${stencil.name}"`;
       versionList.innerHTML = '<div class="stencil-picker-loading">Loading versions...</div>';
       insertBtn.disabled = true;
@@ -292,9 +292,9 @@ export async function openStencilPickerDialog(
 
         card.addEventListener('click', () => {
           versionList
-            .querySelectorAll('.stencil-picker-card')
-            .forEach((c) => c.classList.remove('selected'));
-          card.classList.add('selected');
+            .querySelectorAll<HTMLElement>('.stencil-picker-card')
+            .forEach((c) => (c.dataset.selected = 'false'));
+          card.dataset.selected = 'true';
           selectedVersion = version;
           insertBtn.disabled = false;
         });
@@ -309,13 +309,13 @@ export async function openStencilPickerDialog(
     }
 
     function showStencilList() {
-      stepVersions.classList.add('hidden');
-      stepCreate.classList.add('hidden');
-      stepBindings.classList.add('hidden');
-      stepList.classList.remove('hidden');
+      stepVersions.dataset.hidden = 'true';
+      stepCreate.dataset.hidden = 'true';
+      stepBindings.dataset.hidden = 'true';
+      stepList.dataset.hidden = 'false';
       insertBtn.disabled = true;
-      insertBtn.classList.remove('hidden');
-      createNewBtn.classList.remove('hidden');
+      insertBtn.dataset.hidden = 'false';
+      createNewBtn.dataset.hidden = 'false';
       selectedVersion = null;
     }
 
@@ -330,11 +330,11 @@ export async function openStencilPickerDialog(
       const props = versionInfo.parameterSchema?.properties ?? {};
       const required = new Set(versionInfo.parameterSchema?.required ?? []);
 
-      stepList.classList.add('hidden');
-      stepCreate.classList.add('hidden');
-      stepVersions.classList.add('hidden');
-      stepBindings.classList.remove('hidden');
-      createNewBtn.classList.add('hidden');
+      stepList.dataset.hidden = 'true';
+      stepCreate.dataset.hidden = 'true';
+      stepVersions.dataset.hidden = 'true';
+      stepBindings.dataset.hidden = 'false';
+      createNewBtn.dataset.hidden = 'true';
 
       bindingTitle.textContent = `${versionInfo.stencilName} v${versionInfo.version} parameters`;
       bindingRows.innerHTML = '';
@@ -360,7 +360,7 @@ export async function openStencilPickerDialog(
         bindingRows.appendChild(row.element);
       }
 
-      insertBtn.classList.remove('hidden');
+      insertBtn.dataset.hidden = 'false';
       insertBtn.textContent = 'Insert';
       updateBindingInsertState();
     }
@@ -380,14 +380,14 @@ export async function openStencilPickerDialog(
     // ── Create new stencil ──
 
     function showCreateForm() {
-      stepList.classList.add('hidden');
-      stepVersions.classList.add('hidden');
-      stepCreate.classList.remove('hidden');
-      insertBtn.classList.add('hidden');
-      createNewBtn.classList.add('hidden');
+      stepList.dataset.hidden = 'true';
+      stepVersions.dataset.hidden = 'true';
+      stepCreate.dataset.hidden = 'false';
+      insertBtn.dataset.hidden = 'true';
+      createNewBtn.dataset.hidden = 'true';
       createNameInput.value = '';
       createSlugInput.value = '';
-      createError.classList.add('hidden');
+      createError.dataset.hidden = 'true';
       createNameInput.focus();
     }
 
@@ -427,7 +427,7 @@ export async function openStencilPickerDialog(
       const slug = createSlugInput.value.trim();
       if (!name || !slug) return;
 
-      createError.classList.add('hidden');
+      createError.dataset.hidden = 'true';
       const createBtn = dialog.querySelector<HTMLButtonElement>(
         '.stencil-picker-btn.create-confirm',
       );
@@ -445,7 +445,7 @@ export async function openStencilPickerDialog(
         });
       } catch (e) {
         createError.textContent = (e as Error).message || 'Failed to create stencil';
-        createError.classList.remove('hidden');
+        createError.dataset.hidden = 'false';
         if (createBtn) {
           createBtn.disabled = false;
           createBtn.textContent = 'Create';
@@ -511,7 +511,7 @@ export async function openStencilPickerDialog(
     insertBtn.addEventListener('click', async () => {
       // On the binding step, "Insert" closes with the collected bindings.
       // Elsewhere it kicks off the version-fetch + (conditional) binding flow.
-      if (pendingBindingVersionInfo && !stepBindings.classList.contains('hidden')) {
+      if (pendingBindingVersionInfo && stepBindings.dataset.hidden !== 'true') {
         close({
           action: 'use-existing',
           versionInfo: pendingBindingVersionInfo,
@@ -527,7 +527,7 @@ export async function openStencilPickerDialog(
         showCreateForm();
         // Show the create-confirm button, hide insert
         const createConfirmBtn = dialog.querySelector<HTMLElement>('.create-confirm');
-        if (createConfirmBtn) createConfirmBtn.classList.remove('hidden');
+        if (createConfirmBtn) createConfirmBtn.dataset.hidden = 'false';
       } else {
         // No create callback — insert empty (legacy fallback)
         close({ action: 'create-new', ref: { stencilId: '', catalogKey: '' }, version: 0 });

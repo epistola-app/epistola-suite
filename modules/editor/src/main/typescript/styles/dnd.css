@@ -34,17 +34,21 @@
   }
 
   /* Slot highlight when dragging over (empty or non-empty) */
-  .canvas-slot.drag-over {
-    border: 1px dashed var(--ep-blue-400);
-    border-radius: var(--ep-radius-sm);
-    background: color-mix(in srgb, var(--ep-blue-100) 50%, transparent);
+  .canvas-slot {
+    &[data-drag-over='true'] {
+      border: 1px dashed var(--ep-blue-400);
+      border-radius: var(--ep-radius-sm);
+      background: color-mix(in srgb, var(--ep-blue-100) 50%, transparent);
+    }
   }
 
   /* Dimmed drag source */
-  .canvas-block.dragging,
-  .palette-item.dragging,
-  .tree-node-label.dragging {
-    opacity: 0.4;
+  .canvas-block,
+  .palette-item,
+  .tree-node-label {
+    &[data-dragging='true'] {
+      opacity: 0.4;
+    }
   }
 
   /* Tree drop indicator: reorder-above line */

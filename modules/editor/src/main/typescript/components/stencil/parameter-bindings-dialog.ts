@@ -51,7 +51,7 @@ export function openParameterBindingsDialog(
           <div class="stencil-picker-group-mb3">
             <label class="stencil-picker-label-inline">Alias</label>
             <input type="text" id="bindings-alias" class="ep-input stencil-picker-full" />
-            <div id="bindings-alias-error" class="stencil-picker-error hidden"></div>
+            <div id="bindings-alias-error" class="stencil-picker-error" data-hidden="true"></div>
             <div class="stencil-picker-hint">
               Namespace this stencil's parameters live under inside its content (default <code>params</code>).
               Change to avoid shadowing when nested inside another parametrised component.
@@ -108,9 +108,9 @@ export function openParameterBindingsDialog(
       const reserved = aliasIsReserved();
       if (reserved) {
         aliasError.textContent = `Alias '${aliasInput.value.trim()}' collides with a reserved scope (${[...RESERVED_ALIASES].join(', ')}). Pick another name.`;
-        aliasError.classList.remove('hidden');
+        aliasError.dataset.hidden = 'false';
       } else {
-        aliasError.classList.add('hidden');
+        aliasError.dataset.hidden = 'true';
       }
       const allBound = Array.from(required).every(
         (name) => (bindings[name] ?? '').trim().length > 0,

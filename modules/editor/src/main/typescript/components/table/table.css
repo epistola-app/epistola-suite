@@ -120,10 +120,12 @@
     transition: background-color 100ms ease;
   }
 
-  .table-dialog-cell:hover,
-  .table-dialog-cell.active {
-    background: var(--ep-blue-100);
-    border-color: var(--ep-blue-300);
+  .table-dialog-cell {
+    &:hover,
+    &[data-active='true'] {
+      background: var(--ep-blue-100);
+      border-color: var(--ep-blue-300);
+    }
   }
 
   .table-dialog-size-label {

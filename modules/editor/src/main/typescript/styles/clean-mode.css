@@ -30,7 +30,7 @@
     box-shadow: 0 0 0 1px var(--ep-blue-200);
   }
 
-  .clean-mode .canvas-block:hover:not([data-drop-edge]):not(.dragging)::before {
+  .clean-mode .canvas-block:hover:not([data-drop-edge]):not([data-dragging='true'])::before {
     content: attr(data-block-label);
     position: absolute;
     top: -1.25rem;
