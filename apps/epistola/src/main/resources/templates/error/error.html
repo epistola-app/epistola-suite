@@ -6,12 +6,12 @@
     <title>Error - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
 </head>
-<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--ep-bg-secondary);">
-    <div style="text-align: center; max-width: 480px; padding: var(--ep-space-8);">
+<body class="error-page-body">
+    <div class="error-page-card">
         <h1 class="ep-text-2xl ep-mb-4">
             Error <span th:text="${status}">500</span>
         </h1>
-        <p style="color: var(--ep-text-secondary); margin-bottom: var(--ep-space-6);">
+        <p class="error-page-message">
             Something went wrong. Please try again later.
         </p>
         <a href="/" class="ep-btn ep-btn-primary">Back to Home</a>
