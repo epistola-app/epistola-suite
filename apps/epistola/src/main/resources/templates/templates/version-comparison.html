@@ -8,7 +8,7 @@
                     onclick="document.getElementById('version-comparison-dialog').close()"
                     title="Close">&times;</button>
         </div>
-        <div class="ep-dialog-body" style="display: flex; flex-direction: column; height: calc(90vh - 5rem); padding: var(--ep-space-4);">
+        <div class="ep-dialog-body ep-flex ep-flex-col comparison-dialog-body">
 
             <!-- Empty state: no versions -->
             <th:block th:if="${#lists.isEmpty(versions)}">
@@ -49,7 +49,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0; align-self: flex-end;">
+                    <div class="form-group comparison-form-group">
                         <button type="button" class="ep-btn ep-btn-primary" onclick="compareVersions()">Compare</button>
                     </div>
                 </div>

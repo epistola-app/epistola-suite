@@ -476,11 +476,11 @@
               th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
 
         <span th:case="'UP_TO_DATE'" title="Up to date"
-              style="color: var(--ep-green-700); font-weight: 500;"
+              class="catalog-up-to-date"
               th:text="${installedVersion != null ? 'v' + installedVersion : 'Up to date'}">v1.0.0</span>
 
         <span th:case="'UPDATE_AVAILABLE'"
-              style="display: inline-flex; align-items: baseline; gap: var(--ep-space-1);">
+              class="catalog-version-row">
             <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-font-medium" 
                     th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"

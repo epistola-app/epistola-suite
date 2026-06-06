@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div id="contract-status-bar"
              th:data-status-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/status-bar(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-             style="display: flex; align-items: center; gap: var(--ep-space-3); padding: var(--ep-space-2) var(--ep-space-3); margin-bottom: var(--ep-space-3); border: 1px solid var(--ep-gray-200); border-radius: var(--ep-radius-md); font-size: var(--ep-text-sm);">
+             class="contract-status-bar">
 
             <!-- Edit mode: Done button -->
             <th:block th:if="${editMode}">
@@ -46,7 +46,7 @@
 
             <!-- Usage + History (always visible) -->
             <th:block th:if="${hasOutdatedVersions}">
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="color: var(--ep-amber-700);"
+                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm contract-outdated-btn"
                         onclick="document.getElementById('contract-usage-dialog').showModal()">
                     <span class="badge badge-warning ep-mr-1">!</span>
                     Outdated versions

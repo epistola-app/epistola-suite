@@ -15,14 +15,14 @@
             </div>
         </div>
 
-        <div class="card create-form-card" style="max-width: 40rem;">
+        <div class="card create-form-card ep-max-w-40r">
             <div class="card-content">
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
                       hx-target="#form-error"
                       hx-swap="innerHTML"
                       hx-disinherit="hx-target hx-swap">
-                    <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
+                    <fieldset class="ep-fieldset-reset ep-mb-6">
                         <legend class="ep-text-lg ep-font-semibold ep-mb-4">Template Configuration</legend>
 
                         <div class="form-group">
@@ -48,7 +48,7 @@
 
                     </fieldset>
 
-                    <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
+                    <fieldset class="ep-fieldset-reset ep-mb-6">
                         <legend class="ep-text-lg ep-font-semibold ep-mb-4">Load Test Parameters</legend>
 
                         <div class="form-group">
@@ -67,7 +67,7 @@
             </div>
         </div>
 
-        <div class="detail-section" style="margin-top: var(--ep-space-6); max-width: 40rem;">
+        <div class="detail-section ep-mt-6 ep-max-w-40r">
             <div class="detail-section-header">
                 <h2>Load Test Information</h2>
             </div>
@@ -116,7 +116,7 @@
             <span class="form-hint">Environment to determine version (leave blank if using explicit version)</span>
         </div>
 
-        <fieldset style="border: none; padding: 0; margin: 0;">
+        <fieldset class="ep-fieldset-reset">
             <legend class="ep-text-sm ep-font-semibold ep-mb-2">Test Data</legend>
             <div class="form-group">
                 <label class="ep-label" for="testData">JSON Data</label>
@@ -184,7 +184,7 @@
             <span class="form-hint">Environment to determine version from</span>
         </div>
 
-        <fieldset style="border: none; padding: 0; margin: 0;">
+        <fieldset class="ep-fieldset-reset">
             <legend class="ep-text-sm ep-font-semibold ep-mb-2">Test Data</legend>
 
             <!--/* Template has data examples: show example selector */-->

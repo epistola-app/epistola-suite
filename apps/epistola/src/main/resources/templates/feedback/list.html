@@ -22,7 +22,7 @@
 
         <!-- Filters -->
         <div class="ep-filters ep-flex ep-gap-3 ep-mb-4">
-            <select class="ep-input ep-input-sm" style="width: auto;"
+            <select class="ep-input ep-input-sm ep-w-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -32,7 +32,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
-            <select class="ep-input ep-input-sm" style="width: auto;"
+            <select class="ep-input ep-input-sm ep-w-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"

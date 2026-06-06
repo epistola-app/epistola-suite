@@ -89,7 +89,7 @@
                             <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
                                 <button th:if="${count > 0}"
                                         type="button" class="badge badge-default"
-                                        style="cursor: pointer; border: none; background: var(--ep-muted); padding: 2px 8px;"
+                                        class="catalog-import-tag"
                                         th:text="${count}"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalog.id},type=${resource.type},slug=${resource.slug})}"
                                         hx-target="#usage-detail-body"
@@ -171,7 +171,7 @@
                         <td th:text="${resource.name}"></td>
                         <td></td>
                     </tr>
-                    <tr th:each="dep : ${dependencies}" style="opacity: 0.7;">
+                    <tr th:each="dep : ${dependencies}" class="ep-opacity-70">
                         <td>
                             <span th:if="${dep.type == 'template'}" class="badge badge-info">template</span>
                             <span th:if="${dep.type == 'theme'}" class="badge badge-default">theme</span>
@@ -227,7 +227,7 @@
         <div class="ep-dialog-header">
             <h3>
                 Used by
-                <span style="opacity: 0.6;" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
+                <span class="ep-opacity-60" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
             </h3>
         </div>
         <div class="ep-dialog-body">

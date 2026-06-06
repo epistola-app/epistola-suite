@@ -17,7 +17,7 @@
                               hx-target="#feedback-content"
                               hx-swap="innerHTML"
                               class="ep-flex-center ep-gap-2">
-                            <select name="status" class="ep-input ep-input-sm" style="width: auto;">
+                            <select name="status" class="ep-input ep-input-sm ep-w-auto">
                                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
                             </select>
@@ -46,7 +46,7 @@
                 <div th:if="${feedback.sourceUrl != null}" class="card ep-mb-6">
                     <div class="card-content">
                         <h3 class="ep-mb-3">Source URL</h3>
-                        <code style="font-size: var(--ep-text-sm); word-break: break-all;" th:text="${feedback.sourceUrl}">https://example.com</code>
+                        <code class="ep-text-sm ep-word-break-all" th:text="${feedback.sourceUrl}">https://example.com</code>
                     </div>
                 </div>
 
@@ -57,7 +57,7 @@
                         <div th:each="asset : ${assets}" class="ep-mb-3">
                             <img th:src="@{/tenants/{tenantId}/feedback/{feedbackId}/assets/{assetId}/content(tenantId=${tenantId},feedbackId=${feedback.id},assetId=${asset.id})}"
                                  alt="Feedback screenshot"
-                                 style="max-width: 100%; border-radius: var(--ep-radius); border: 1px solid var(--ep-border);">
+                                 class="feedback-screenshot-img">
                         </div>
                     </div>
                 </div>
@@ -66,7 +66,7 @@
                 <div th:if="${feedback.metadata != null}" class="card ep-mb-6">
                     <div class="card-content">
                         <h3 class="ep-mb-3">Client Information</h3>
-                        <pre style="font-size: var(--ep-text-xs); max-height: 200px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                        <pre class="feedback-code-block feedback-code-block--short"
                              th:text="${feedback.metadata}">Metadata</pre>
                     </div>
                 </div>
@@ -75,7 +75,7 @@
                 <div th:if="${feedback.consoleLogs != null}" class="card ep-mb-6">
                     <div class="card-content">
                         <h3 class="ep-mb-3">Console Logs</h3>
-                        <pre style="font-size: var(--ep-text-xs); max-height: 300px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                        <pre class="feedback-code-block feedback-code-block--tall"
                              th:text="${feedback.consoleLogs}">Console output</pre>
                     </div>
                 </div>
@@ -89,7 +89,7 @@
                                   th:text="'(' + ${#lists.size(comments)} + ')'"></span>
                         </h3>
 
-                        <div th:if="${#lists.isEmpty(comments)}" style="color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-4);">
+                        <div th:if="${#lists.isEmpty(comments)}" class="text-muted ep-mb-4">
                             No comments yet.
                         </div>
 
