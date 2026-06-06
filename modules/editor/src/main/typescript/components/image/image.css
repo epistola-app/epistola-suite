@@ -31,6 +31,8 @@
   .canvas-image {
     max-width: 100%;
     display: block;
+    width: var(--ep-img-width, auto);
+    height: var(--ep-img-height, auto);
   }
 
   /* ── Asset picker dialog ────────────────────────────────────────────── */

@@ -105,4 +105,8 @@
     color: var(--ep-muted-foreground);
     margin-top: var(--ep-space-2);
   }
+
+  .ep-input[data-invalid=true] {
+    border-color: var(--ep-destructive);
+  }
 }

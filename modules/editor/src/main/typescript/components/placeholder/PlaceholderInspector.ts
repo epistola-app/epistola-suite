@@ -85,12 +85,10 @@ export class PlaceholderInspector extends LitElement {
             .value=${this._name}
             placeholder="kebab-case-slug"
             @input=${this._onNameInput}
-            style=${this._nameError ? 'border-color: var(--ep-destructive);' : ''}
+            data-invalid=${!!this._nameError}
           />
           ${this._nameError
-            ? html`<div class="inspector-field-error">
-                ${this._nameError}
-              </div>`
+            ? html`<div class="inspector-field-error">${this._nameError}</div>`
             : ''}
         </div>
 

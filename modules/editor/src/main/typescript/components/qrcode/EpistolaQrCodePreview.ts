@@ -110,7 +110,7 @@ export class EpistolaQrCodePreview extends LitElement {
       return html`
         <div
           class="qrcode-preview qrcode-preview-ready"
-          style=${`width: ${size}; height: ${size};`}
+          style="--ep-qr-size: ${size}"
         >
           ${unsafeSVG(this._svgMarkup)}
         </div>
@@ -129,7 +129,7 @@ export class EpistolaQrCodePreview extends LitElement {
     return html`
       <div
         class="qrcode-preview qrcode-preview-placeholder"
-        style=${`width: ${size}; height: ${size};`}
+        style="--ep-qr-size: ${size}"
       >
         <span class="qrcode-preview-placeholder-text">${message}</span>
       </div>

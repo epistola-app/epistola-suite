@@ -182,22 +182,17 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       const width = node.props?.width as string | undefined;
       const height = node.props?.height as string | undefined;
 
-      const imgStyle =
-        [width ? `width: ${width}` : '', height ? `height: ${height}` : '']
-          .filter(Boolean)
-          .join('; ') + ';';
-
       if (hasPicker) {
         return html`<div
           class="canvas-image-wrapper canvas-image-wrapper--clickable"
           @click=${pickAsset}
           title="Click to change image"
         >
-          <img src="${src}" alt="${alt}" style=${imgStyle} class="canvas-image" />
+          <img src="${src}" alt="${alt}" style="--ep-img-width: ${width ?? ''}; --ep-img-height: ${height ?? ''}" class="canvas-image" />
         </div>`;
       }
       return html`<div class="canvas-image-wrapper" title="${alt}">
-        <img src="${src}" alt="${alt}" style=${imgStyle} class="canvas-image" />
+        <img src="${src}" alt="${alt}" style="--ep-img-width: ${width ?? ''}; --ep-img-height: ${height ?? ''}" class="canvas-image" />
       </div>`;
     },
 

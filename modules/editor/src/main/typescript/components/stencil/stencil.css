@@ -269,6 +269,10 @@
     font-weight: 500;
   }
 
+  .stencil-picker-label-inline--clickable {
+    cursor: pointer;
+  }
+
   .stencil-picker-muted {
     font-size: var(--ep-text-xs);
     color: var(--ep-muted-foreground);
@@ -369,6 +373,10 @@
     gap: var(--ep-space-3);
   }
 
+  .stencil-params-intro {
+    margin: 0;
+  }
+
   .stencil-params-note {
     font-size: var(--ep-text-xs);
     color: var(--ep-muted-foreground);
@@ -410,6 +418,11 @@
     cursor: pointer;
     font-size: var(--ep-text-sm);
     border-bottom: 1px solid var(--ep-border);
+    background: transparent;
+
+    &[data-isSelected='true'] {
+      background: var(--ep-accent);
+    }
   }
 
   .stencil-params-list-name {
@@ -418,6 +431,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 500;
+    color: inherit;
+
+    &[data-isSelected='true'] {
+      font-weight: 600;
+    }
+
+    &[data-hasError='true'] {
+      color: var(--ep-destructive);
+    }
   }
 
   .stencil-params-required-dot {
@@ -461,6 +484,10 @@
     font-weight: 600;
   }
 
+  .stencil-params-textarea {
+    min-height: 60px;
+  }
+
   .stencil-params-row {
     display: flex;
     flex-direction: column;
@@ -470,5 +497,11 @@
   .stencil-params-toggle-hint {
     color: var(--ep-muted-foreground);
     margin-left: 4px;
+  }
+
+  .stencil-params-input {
+    &[data-invalid='true'] {
+      border-color: var(--ep-destructive);
+    }
   }
 }

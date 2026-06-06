@@ -267,7 +267,7 @@ export class EpistolaTree extends LitElement {
     const isRoot = nodeId === doc.root;
 
     return html`
-      <div class="tree-node" style="padding-left: ${depth * INDENT_PER_LEVEL}px">
+      <div class="tree-node" style="--ep-tree-depth: ${depth}">
         <div
           class="tree-node-label ${isSelected ? 'selected' : ''}"
           data-node-id=${nodeId}

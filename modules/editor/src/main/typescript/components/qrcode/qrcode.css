@@ -10,6 +10,8 @@
     justify-content: center;
     overflow: hidden;
     background: var(--ep-white);
+    width: var(--ep-qr-size);
+    height: var(--ep-qr-size);
   }
 
   .qrcode-preview svg {

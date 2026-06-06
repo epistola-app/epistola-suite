@@ -18,6 +18,7 @@
   .tree-node {
     cursor: pointer;
     user-select: none;
+    padding-left: calc(var(--ep-tree-depth, 0) * 16px);
   }
 
   .tree-node-label {

@@ -81,7 +81,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
     const selected = this._rows.find((r) => r.id === this._selectedId);
     return html`
       <div class="stencil-params-panel">
-        <p class="stencil-picker-muted" style="margin: 0;">
+        <p class="stencil-picker-muted stencil-params-intro">
           Define the parameters that consumers must bind when inserting this stencil. Each parameter
           becomes a variable available inside the stencil under the configured alias (default
           <code>params</code>).
@@ -140,14 +140,12 @@ export class StencilParameterDefinitionsPanel extends LitElement {
       <div
         @click=${() => this._select(row.id)}
         class="stencil-params-list-item"
-        style=${`background: ${isSelected ? 'var(--ep-accent, #eef2ff)' : 'transparent'};`}
+        data-isSelected=${isSelected}
       >
         <span
           class="stencil-params-list-name"
-          style=${`
-            font-weight: ${isSelected ? '600' : '500'};
-            color: ${hasError ? 'var(--ep-destructive, #dc2626)' : 'inherit'};
-          `}
+          data-isSelected=${isSelected}
+          data-hasError=${hasError}
           >${row.name || '(unnamed)'}</span
         >
         <span class="stencil-picker-badge">${typeLabel}</span>
@@ -180,8 +178,8 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           'Name',
           html`<input
             type="text"
-            class="ep-input stencil-picker-full"
-            style=${error ? 'border-color: var(--ep-destructive, #dc2626);' : ''}
+            class="ep-input stencil-picker-full stencil-params-input"
+            data-invalid=${!!error}
             .value=${row.name}
             @input=${(e: Event) =>
               this._updateRow(row.id, { name: (e.target as HTMLInputElement).value })}
@@ -223,8 +221,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
         ${this._renderDetailRow(
           'Description',
           html`<textarea
-            class="ep-input stencil-picker-full"
-            style="min-height: 60px;"
+            class="ep-input stencil-picker-full stencil-params-textarea"
             .value=${row.description}
             @input=${(e: Event) =>
               this._updateRow(row.id, { description: (e.target as HTMLTextAreaElement).value })}
@@ -242,9 +239,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
             placeholder=${defaultPlaceholder(row)}
           />`,
         )}
-        ${error
-          ? html`<div class="stencil-picker-error">${error}</div>`
-          : nothing}
+        ${error ? html`<div class="stencil-picker-error">${error}</div>` : nothing}
       </div>
     `;
   }
@@ -274,8 +269,8 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           .checked=${checked}
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
         />
-        <label for=${id} class="stencil-picker-label-inline" style="cursor: pointer;">
-          <span style="font-weight: 500;">${label}</span>
+        <label for=${id} class="stencil-picker-label-inline stencil-picker-label-inline--clickable">
+          <span>${label}</span>
           <span class="stencil-params-toggle-hint">— ${hint}</span>
         </label>
       </div>
