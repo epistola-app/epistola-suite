@@ -9,7 +9,7 @@
             <div>
                 <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
                 <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
-                <p th:if="${!editable}" class="text-muted" style="margin-top: var(--ep-space-1); font-size: var(--ep-text-sm);">
+                <p th:if="${!editable}" class="text-muted ep-mt-1 ep-text-sm" >
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>
             </div>
@@ -61,10 +61,10 @@
                     <div class="form-group" th:each="d : ${attributeDescriptors}"
                          th:data-attr-row="${d.qualifiedKey}"
                          th:with="hasValue=${(presentQualifiedKeys != null and presentQualifiedKeys.contains(d.qualifiedKey)) or (presentRawKeys != null and presentRawKeys.contains(d.bareSlug))}"
-                         th:style="${hasValue} ? '' : 'display: none;'">
+                          th:classappend="${hasValue} ? '' : 'ep-hidden'">
                         <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
                             <span th:text="${d.displayName}"></span>
-                            <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-2);"
+                            <code class="text-muted ep-text-xs ep-ml-2" 
                                   th:text="${d.qualifiedKey}"></code>
                         </label>
                         <select th:id="'edit-attr_' + ${d.qualifiedKey}"
@@ -79,7 +79,7 @@
                     <!-- Add-attribute picker. -->
                     <div class="form-group" data-add-attr-picker>
                         <label class="ep-label" for="edit-add-attr">Add attribute</label>
-                        <div style="display: flex; gap: var(--ep-space-2); align-items: center;">
+                        <div class="ep-flex-center ep-gap-2">
                             <select id="edit-add-attr" class="ep-select" data-add-attr-select>
                                 <option value="">— Choose an attribute to add —</option>
                                 <option th:each="d : ${attributeDescriptors}"

@@ -13,8 +13,8 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
+            <select id="catalog-filter" class="ep-input ep-max-w-300">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -42,8 +42,7 @@
                 Use them to constrain variant attribute values to a curated set.
             </div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary"
-               style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
             </a>
@@ -70,7 +69,7 @@
                         <span class="badge" th:text="${cl.catalogKey}"
                               th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
                     </td>
-                    <td style="font-weight: 500;" th:text="${cl.displayName}"></td>
+                    <td class="ep-font-medium" th:text="${cl.displayName}"></td>
                     <td>
                         <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
                     </td>
@@ -79,9 +78,8 @@
                               th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                         <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
                         <span th:if="${cl.lastRefreshError != null}"
-                              class="badge badge-error"
-                              th:title="${cl.lastRefreshError}"
-                              style="margin-left: var(--ep-space-2);">refresh failed</span>
+                              class="badge badge-error ep-ml-2"
+                              th:title="${cl.lastRefreshError}">refresh failed</span>
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"

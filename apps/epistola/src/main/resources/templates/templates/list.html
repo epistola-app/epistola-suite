@@ -18,8 +18,8 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
+            <select id="catalog-filter" class="ep-input ep-max-w-300">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
             <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template
             </a>
@@ -66,10 +66,10 @@
                     <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               th:text="${template.name}" style="font-weight: 500;"></a>
+                               th:text="${template.name}" class="ep-font-medium"></a>
                         </td>
                         <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                        <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td><code th:text="${template.id}" class="ep-text-xs text-muted"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">

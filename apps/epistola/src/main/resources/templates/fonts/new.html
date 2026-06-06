@@ -45,18 +45,18 @@
                     <div class="form-group">
                         <label class="ep-label">Faces <span class="text-muted text-sm">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
                         <div id="font-faces">
-                            <div class="font-face-row form-group" style="display:flex; gap: var(--ep-space-2); align-items:flex-end;">
-                                <div style="flex:2;">
+                            <div class="font-face-row form-group ep-flex ep-gap-2 ep-flex-end">
+                                <div class="ep-flex-2">
                                     <label class="ep-label">File</label>
                                     <input type="file" name="file"
                                            accept="font/ttf,font/otf,.ttf,.otf" />
                                 </div>
-                                <div style="flex:1;">
+                                <div class="ep-flex-1">
                                     <label class="ep-label">Weight</label>
                                     <input type="number" name="weight" class="ep-input"
                                            min="1" max="1000" step="1" value="400" />
                                 </div>
-                                <div style="flex:1;">
+                                <div class="ep-flex-1">
                                     <label class="ep-label">Italic</label>
                                     <select name="italic" class="ep-input">
                                         <option value="false">No</option>

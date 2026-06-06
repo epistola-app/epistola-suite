@@ -13,18 +13,17 @@
 
     <div th:fragment="created-panel" id="api-key-form-area" class="card create-form-card">
         <div class="card-content">
-            <div class="alert alert-warning" style="margin-bottom: var(--ep-space-4);">
+            <div class="alert alert-warning ep-mb-4">
                 <strong>Copy this key now.</strong>
                 It will not be shown again, and there is no way to recover it later.
             </div>
 
             <div class="form-group">
                 <label class="ep-label" for="api-key-secret">Key</label>
-                <div style="display: flex; gap: var(--ep-space-2);">
-                    <input type="text" id="api-key-secret" class="ep-input"
+                <div class="ep-flex ep-gap-2">
+                    <input type="text" id="api-key-secret" class="ep-input ep-font-mono ep-flex-1"
                            th:value="${plaintextKey}"
-                           readonly
-                           style="font-family: var(--ep-font-mono, monospace); flex: 1;">
+                           readonly>
                     <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
                         Copy
@@ -33,7 +32,7 @@
                 <span id="api-key-copy-status" class="form-hint" aria-live="polite"></span>
             </div>
 
-            <dl class="ep-dl" style="margin-top: var(--ep-space-4);">
+            <dl class="ep-dl ep-mt-4">
                 <dt>Name</dt>
                 <dd th:text="${apiKey.name}" data-testid="api-key-name"></dd>
                 <dt>Created</dt>
@@ -43,7 +42,7 @@
                     th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></dd>
             </dl>
 
-            <div class="form-actions" style="margin-top: var(--ep-space-4);">
+            <div class="form-actions ep-mt-4">
                 <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
             </div>
         </div>

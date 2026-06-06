@@ -9,10 +9,9 @@
                 <dl class="description-list">
                     <dt>Name</dt>
                     <dd>
-                        <input type="text" id="template-name-input" class="ep-input"
+                        <input type="text" id="template-name-input" class="ep-input ep-max-w-300"
                                th:value="${template.name}" th:disabled="${!editable}"
                                th:attr="data-original-name=${template.name}"
-                               style="max-width: 300px;"
                                onblur="updateTemplateName(this)"
                                onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.originalName;this.blur();}">
                     </dd>
@@ -30,11 +29,11 @@
         <div class="detail-section" id="theme-section" th:fragment="theme-section">
             <div class="detail-section-header"><h3>Default Theme</h3></div>
             <div class="detail-section-body">
-                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                <p class="text-muted ep-mb-4 ep-text-sm" >
                     Set the default theme for all variants. Individual variants can override this in the editor.
                 </p>
                 <div class="form-row">
-                    <div class="form-group" style="margin-bottom: 0;">
+                    <div class="form-group ep-mb-0">
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" onchange="updateTheme(this)">
                             <option value="">No theme (use variant defaults)</option>
@@ -56,14 +55,13 @@
         <div class="detail-section" id="output-settings-section">
             <div class="detail-section-header"><h3>Output Settings</h3></div>
             <div class="detail-section-body">
-                <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
-                    <input type="checkbox" class="ep-checkbox" id="pdfa-toggle"
-                           style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
+                <label class="pdfa-toggle-label">
+                    <input type="checkbox" class="ep-checkbox pdfa-toggle-checkbox" id="pdfa-toggle"
                            th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
                            onchange="updatePdfaSetting(this.checked)">
                     <span>
-                        <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
-                        <span class="text-muted" style="display: block; font-size: var(--ep-text-sm); margin-top: 2px;">
+                        <strong class="ep-text-sm">PDF/A-2b compliance</strong>
+                        <span class="text-muted pdfa-toggle-description">
                             Enable for long-term archival. Embeds fonts and ICC color profile, resulting in larger files.
                         </span>
                     </span>
@@ -75,7 +73,7 @@
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="detail-section danger-zone">
             <div class="detail-section-header"><h3>Danger Zone</h3></div>
             <div class="detail-section-body">
-                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                <p class="text-muted ep-mb-4 ep-text-sm" >
                     Permanently delete this template and all its variants, versions, and data.
                 </p>
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"

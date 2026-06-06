@@ -778,7 +778,7 @@ export class EpistolaToolbar extends LitElement {
 
     return html`
       <div class="toolbar-separator"></div>
-      <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
+      <div class="toolbar-save-group">
         <button
           class=${cssClass}
           ?disabled=${disabled}

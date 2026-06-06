@@ -64,10 +64,7 @@ export class PlaceholderInspector extends LitElement {
               <div class="placeholder-inspector-readonly-description">${this._description}</div>
             </div>`
           : nothing}
-        <div
-          class="inspector-field-hint"
-          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-top: var(--ep-space-2);"
-        >
+        <div class="placeholder-inspector-hint">
           Managed by the stencil definition. Edit the stencil to change.
         </div>
       </div>
@@ -88,15 +85,10 @@ export class PlaceholderInspector extends LitElement {
             .value=${this._name}
             placeholder="kebab-case-slug"
             @input=${this._onNameInput}
-            style=${this._nameError ? 'border-color: var(--ep-destructive);' : ''}
+            data-invalid=${!!this._nameError}
           />
           ${this._nameError
-            ? html`<div
-                class="inspector-field-error"
-                style="color: var(--ep-destructive); font-size: var(--ep-text-xs); margin-top: var(--ep-space-1);"
-              >
-                ${this._nameError}
-              </div>`
+            ? html`<div class="inspector-field-error">${this._nameError}</div>`
             : ''}
         </div>
 

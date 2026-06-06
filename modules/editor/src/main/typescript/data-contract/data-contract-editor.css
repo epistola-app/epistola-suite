@@ -586,7 +586,7 @@
       padding: var(--ep-space-1-5) var(--ep-space-3);
       border: 1px solid var(--ep-gray-200);
       border-radius: var(--ep-radius-md);
-      background: var(--ep-bg-input, white);
+      background: var(--ep-white);
 
       &:focus-within {
         border-color: var(--ep-blue-400);
@@ -605,7 +605,7 @@
     }
 
     &.dc-input-error .dc-rich-text-container {
-      border-color: var(--ep-red-400, #f87171);
+      border-color: var(--ep-red-400);
     }
   }
 
@@ -1622,7 +1622,7 @@
   }
 
   .dc-json-number {
-    color: var(--ep-purple-600, var(--ep-blue-600));
+    color: var(--ep-purple-600);
   }
 
   .dc-json-boolean {

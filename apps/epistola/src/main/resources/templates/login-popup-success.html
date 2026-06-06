@@ -8,12 +8,12 @@
 </head>
 <body>
     <div class="login-container">
-        <div class="login-card" style="text-align: center;">
-            <div style="color: var(--ep-green-600); margin-bottom: var(--ep-space-4);">
+        <div class="login-card text-center" >
+            <div class="login-success-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='check-circle', class='ep-icon ep-icon-xl')}" />
             </div>
-            <p style="font-weight: 500; margin-bottom: var(--ep-space-2);">Login successful!</p>
-            <p class="close-notice" style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
+            <p class="ep-font-medium ep-mb-2">Login successful!</p>
+            <p class="close-notice text-muted ep-text-sm" >
                 This window will close automatically...
             </p>
         </div>

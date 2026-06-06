@@ -47,12 +47,12 @@ export function openParameterBindingsDialog(
           <h3>${options.title ?? 'Configure parameters'}</h3>
           <button type="button" class="stencil-picker-close" aria-label="Close">&times;</button>
         </div>
-        <div style="padding: var(--ep-space-3) var(--ep-space-6); max-height: 70vh; overflow: auto;">
-          <div style="margin-bottom: var(--ep-space-3);">
-            <label style="font-size: var(--ep-text-xs); font-weight: 500;">Alias</label>
-            <input type="text" id="bindings-alias" class="ep-input" style="width: 100%;" />
-            <div id="bindings-alias-error" style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626); margin-top: 2px; display: none;"></div>
-            <div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-top: 2px;">
+        <div class="stencil-picker-section stencil-picker-scroll">
+          <div class="stencil-picker-group-mb3">
+            <label class="stencil-picker-label-inline">Alias</label>
+            <input type="text" id="bindings-alias" class="ep-input stencil-picker-full" />
+            <div id="bindings-alias-error" class="stencil-picker-error" data-hidden="true"></div>
+            <div class="stencil-picker-hint">
               Namespace this stencil's parameters live under inside its content (default <code>params</code>).
               Change to avoid shadowing when nested inside another parametrised component.
             </div>
@@ -60,7 +60,7 @@ export function openParameterBindingsDialog(
           <div id="bindings-rows"></div>
         </div>
         <div class="stencil-picker-footer">
-          <div style="flex: 1;"></div>
+          <div class="stencil-picker-flex-fill"></div>
           <button type="button" class="stencil-picker-btn cancel">Cancel</button>
           <button type="button" class="stencil-picker-btn insert save">Save</button>
         </div>
@@ -108,9 +108,9 @@ export function openParameterBindingsDialog(
       const reserved = aliasIsReserved();
       if (reserved) {
         aliasError.textContent = `Alias '${aliasInput.value.trim()}' collides with a reserved scope (${[...RESERVED_ALIASES].join(', ')}). Pick another name.`;
-        aliasError.style.display = '';
+        aliasError.dataset.hidden = 'false';
       } else {
-        aliasError.style.display = 'none';
+        aliasError.dataset.hidden = 'true';
       }
       const allBound = Array.from(required).every(
         (name) => (bindings[name] ?? '').trim().length > 0,

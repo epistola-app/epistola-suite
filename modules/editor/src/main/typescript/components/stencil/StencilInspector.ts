@@ -194,20 +194,15 @@ export class StencilInspector extends LitElement {
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Parameters</div>
-        <div
-          style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-2);"
-        >
+        <div class="inspector-muted-text inspector-mb2">
           ${boundCount} of ${declared.length}
           bound${missingRequired
-            ? html`<span style="color: var(--ep-destructive, #dc2626); margin-left: 4px;"
-                >· missing required</span
-              >`
+            ? html`<span class="inspector-missing-text">· missing required</span>`
             : nothing}
         </div>
         <button
-          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn inspector-stretch"
           @click=${this._handleEditBindings}
-          style="width: 100%;"
         >
           Configure parameters…
         </button>
@@ -305,11 +300,10 @@ export class StencilInspector extends LitElement {
 
     return html`
       ${this.engine.isFeatureEnabled('stencilParameters')
-        ? html`<div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
+        ? html`<div class="inspector-field inspector-mb2">
             <button
-              class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+              class="ep-btn ep-btn-outline ep-btn-sm stencil-btn inspector-stretch"
               @click=${this._handleEditDefinitions}
-              style="width: 100%;"
             >
               Define parameters… (${paramCount})
             </button>

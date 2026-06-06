@@ -134,8 +134,8 @@ export class EpistolaPalette extends LitElement {
       const cleanup = draggable({
         element: item,
         getInitialData: (): DragData => ({ source: 'palette', blockType }),
-        onDragStart: () => item.classList.add('dragging'),
-        onDrop: () => item.classList.remove('dragging'),
+        onDragStart: () => (item.dataset.dragging = 'true'),
+        onDrop: () => (item.dataset.dragging = 'false'),
       });
       cleanups.push(cleanup);
     }
@@ -147,7 +147,7 @@ export class EpistolaPalette extends LitElement {
     if (def.icon && def.icon in ICONS) {
       return icon(def.icon as IconName, 14);
     }
-    return html`<span style="font-size: 11px; color: var(--ep-gray-400)">+</span>`;
+    return html`<span class="palette-muted">+</span>`;
   }
 
   override render() {

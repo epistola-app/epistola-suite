@@ -2,17 +2,17 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="ep-dialog-header ep-flex-between">
             <h3>Compare Versions: <code th:text="${variantId}"></code></h3>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="document.getElementById('version-comparison-dialog').close()"
                     title="Close">&times;</button>
         </div>
-        <div class="ep-dialog-body" style="display: flex; flex-direction: column; height: calc(90vh - 5rem); padding: var(--ep-space-4);">
+        <div class="ep-dialog-body ep-flex ep-flex-col comparison-dialog-body">
 
             <!-- Empty state: no versions -->
             <th:block th:if="${#lists.isEmpty(versions)}">
-                <div class="empty-state" style="padding: var(--ep-space-8);">
+                <div class="empty-state ep-p-8">
                     <div class="empty-state-title">No versions available</div>
                     <div class="empty-state-description">Publish at least one version to compare.</div>
                 </div>
@@ -22,7 +22,7 @@
             <th:block th:unless="${#lists.isEmpty(versions)}">
                 <!-- Controls row -->
                 <div class="version-comparison-controls">
-                    <div class="form-group" style="margin-bottom: 0;">
+                    <div class="form-group ep-mb-0">
                         <label class="ep-label" for="compare-version-a">Version A</label>
                         <select id="compare-version-a" class="ep-select">
                             <th:block th:each="ver : ${versions}">
@@ -31,7 +31,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0;">
+                    <div class="form-group ep-mb-0">
                         <label class="ep-label" for="compare-version-b">Version B</label>
                         <select id="compare-version-b" class="ep-select">
                             <th:block th:each="ver, iterStat : ${versions}">
@@ -41,7 +41,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group" style="margin-bottom: 0;">
+                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group ep-mb-0">
                         <label class="ep-label" for="compare-example">Example Data</label>
                         <select id="compare-example" class="ep-select">
                             <th:block th:each="example : ${dataExamples}">
@@ -49,7 +49,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0; align-self: flex-end;">
+                    <div class="form-group comparison-form-group">
                         <button type="button" class="ep-btn ep-btn-primary" onclick="compareVersions()">Compare</button>
                     </div>
                 </div>
@@ -62,10 +62,10 @@
                             <div class="version-comparison-empty" id="comparison-empty-a">
                                 Select versions and click Compare
                             </div>
-                            <div class="version-comparison-loading" id="comparison-loading-a" style="display: none;">
+                             <div class="version-comparison-loading ep-hidden" id="comparison-loading-a">
                                 Generating PDF...
                             </div>
-                            <iframe id="comparison-frame-a" style="display: none;"></iframe>
+                            <iframe id="comparison-frame-a" class="ep-hidden"></iframe>
                         </div>
                     </div>
                     <div class="version-comparison-column">
@@ -74,10 +74,10 @@
                             <div class="version-comparison-empty" id="comparison-empty-b">
                                 Select versions and click Compare
                             </div>
-                            <div class="version-comparison-loading" id="comparison-loading-b" style="display: none;">
+                             <div class="version-comparison-loading ep-hidden" id="comparison-loading-b">
                                 Generating PDF...
                             </div>
-                            <iframe id="comparison-frame-b" style="display: none;"></iframe>
+                            <iframe id="comparison-frame-b" class="ep-hidden"></iframe>
                         </div>
                     </div>
                 </div>

@@ -90,25 +90,25 @@
     cursor: pointer;
     transition: border-color 0.15s;
     margin-bottom: var(--ep-space-2);
-  }
 
-  .stencil-picker-card:hover {
-    border-color: var(--ep-gray-400);
-  }
+    &:hover {
+      border-color: var(--ep-gray-400);
+    }
 
-  .stencil-picker-card.selected {
-    border-color: var(--ep-primary);
-    box-shadow: 0 0 0 1px var(--ep-primary);
-  }
+    &[data-selected='true'] {
+      border-color: var(--ep-primary);
+      box-shadow: 0 0 0 1px var(--ep-primary);
+    }
 
-  .stencil-picker-card--disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    background: var(--ep-gray-50, #f9fafb);
-  }
+    &[data-disabled='true'] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: var(--ep-gray-50);
 
-  .stencil-picker-card--disabled:hover {
-    border-color: var(--ep-border-color);
+      &:hover {
+        border-color: var(--ep-border-color);
+      }
+    }
   }
 
   .stencil-picker-card-name {
@@ -138,6 +138,11 @@
     font-size: var(--ep-text-xs);
   }
 
+  .stencil-picker-tag--warning {
+    background: var(--ep-amber-50);
+    color: var(--ep-amber-700);
+  }
+
   .stencil-picker-footer {
     display: flex;
     gap: var(--ep-space-3);
@@ -154,10 +159,14 @@
     border: 1px solid var(--ep-border-color);
     background: var(--ep-white);
     color: var(--ep-foreground);
-  }
 
-  .stencil-picker-btn:hover {
-    background: var(--ep-gray-50);
+    &[data-hidden='true'] {
+      display: none;
+    }
+
+    &:hover {
+      background: var(--ep-gray-50);
+    }
   }
 
   .stencil-picker-btn.insert {
@@ -188,13 +197,13 @@
   }
 
   .stencil-picker-status--draft {
-    background: var(--ep-amber-50, #fffbeb);
-    color: var(--ep-amber-700, #b45309);
+    background: var(--ep-amber-50);
+    color: var(--ep-amber-700);
   }
 
   .stencil-picker-status--published {
-    background: var(--ep-green-50, #f0fdf4);
-    color: var(--ep-green-700, #15803d);
+    background: var(--ep-green-50);
+    color: var(--ep-green-700);
   }
 
   .stencil-picker-status--archived {
@@ -214,22 +223,337 @@
     width: 100%;
   }
 
+  /* ── Utility ──────────────────────────────────────────────────────────── */
+
+  .hidden {
+    display: none;
+  }
+
   /* ── Binding row ─────────────────────────────────────────────────────── */
 
-  .binding-row-input.binding-row-valid {
-    border-color: var(--ep-green-500, #22c55e);
+  .binding-row-error {
+    margin-top: 2px;
+
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
-  .binding-row-input.binding-row-invalid {
-    border-color: var(--ep-destructive, #dc2626);
-    background: var(--ep-red-50, #fef2f2);
+  #bindings-alias-error {
+    margin-top: 2px;
+
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
-  .binding-row-input.binding-row-valid:focus {
-    box-shadow: 0 0 0 2px var(--ep-green-200, #bbf7d0);
+  #stencil-step-create,
+  #stencil-step-versions,
+  #stencil-step-bindings {
+    &[data-hidden='true'] {
+      display: none;
+    }
   }
 
-  .binding-row-input.binding-row-invalid:focus {
-    box-shadow: 0 0 0 2px var(--ep-red-200, #fecaca);
+  .binding-row-input {
+    &[data-valid='true'] {
+      border-color: var(--ep-green-500);
+
+      &:focus {
+        box-shadow: 0 0 0 2px var(--ep-green-200);
+      }
+    }
+
+    &[data-invalid='true'] {
+      border-color: var(--ep-destructive);
+      background: var(--ep-red-50);
+
+      &:focus {
+        box-shadow: 0 0 0 2px var(--ep-red-200);
+      }
+    }
+  }
+
+  /* ── Shared stencil-picker form patterns ──────────────────────────────── */
+
+  .stencil-picker-section {
+    padding: var(--ep-space-3) var(--ep-space-6);
+  }
+
+  .stencil-picker-scroll {
+    max-height: 70vh;
+    overflow: auto;
+  }
+
+  .stencil-picker-group {
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .stencil-picker-group-mb3 {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .stencil-picker-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    display: block;
+    margin-bottom: var(--ep-space-1);
+  }
+
+  .stencil-picker-label-inline {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+  }
+
+  .stencil-picker-label-inline--clickable {
+    cursor: pointer;
+  }
+
+  .stencil-picker-muted {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .stencil-picker-error {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-destructive);
+
+    &[data-hidden='true'] {
+      display: none;
+    }
+  }
+
+  .stencil-picker-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    margin-top: 2px;
+  }
+
+  .stencil-picker-desc {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    margin-bottom: 2px;
+  }
+
+  .stencil-picker-subtitle {
+    font-weight: 500;
+    font-size: var(--ep-text-sm);
+  }
+
+  .stencil-picker-subtitle-mb3 {
+    font-weight: 500;
+    font-size: var(--ep-text-sm);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .stencil-picker-subtitle-mb2 {
+    font-weight: 500;
+    font-size: var(--ep-text-sm);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .stencil-picker-full {
+    width: 100%;
+  }
+
+  .stencil-picker-flex-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .stencil-picker-label-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: 2px;
+  }
+
+  .stencil-picker-flex-tight {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .stencil-picker-flex-fill {
+    flex: 1;
+  }
+
+  .stencil-picker-validity {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+
+    &[data-validity='valid'] {
+      color: var(--ep-green-600);
+    }
+
+    &[data-validity='invalid'] {
+      color: var(--ep-destructive);
+    }
+
+    &[data-validity='empty'] {
+      color: transparent;
+    }
+  }
+
+  .stencil-picker-btn-compact {
+    padding: 4px 10px;
+  }
+
+  .stencil-picker-badge {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    padding: 1px 6px;
+    background: var(--ep-muted);
+    border-radius: 4px;
+  }
+
+  .stencil-picker-error-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ep-destructive);
+  }
+
+  /* ── Stencil parameter definitions panel ──────────────────────────────── */
+
+  .stencil-params-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-3);
+  }
+
+  .stencil-params-intro {
+    margin: 0;
+  }
+
+  .stencil-params-note {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    background: var(--ep-muted);
+    border-left: 3px solid var(--ep-warning);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    border-radius: var(--ep-radius);
+  }
+
+  .stencil-params-empty {
+    padding: var(--ep-space-6);
+    border: 1px dashed var(--ep-border);
+    border-radius: var(--ep-radius);
+    text-align: center;
+  }
+
+  .stencil-params-two-panel {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--ep-space-3);
+    min-height: 280px;
+  }
+
+  .stencil-params-box {
+    border: 1px solid var(--ep-border);
+    border-radius: var(--ep-radius);
+  }
+
+  .stencil-params-box-scroll {
+    overflow: auto;
+    max-height: 50vh;
+  }
+
+  .stencil-params-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: var(--ep-text-sm);
+    border-bottom: 1px solid var(--ep-border);
+    background: transparent;
+
+    &[data-isSelected='true'] {
+      background: var(--ep-accent);
+    }
+  }
+
+  .stencil-params-list-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    color: inherit;
+
+    &[data-isSelected='true'] {
+      font-weight: 600;
+    }
+
+    &[data-hasError='true'] {
+      color: var(--ep-destructive);
+    }
+  }
+
+  .stencil-params-required-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ep-destructive);
+  }
+
+  .stencil-params-detail-empty {
+    border: 1px solid var(--ep-border);
+    border-radius: var(--ep-radius);
+    padding: var(--ep-space-6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-sm);
+  }
+
+  .stencil-params-detail {
+    border: 1px solid var(--ep-border);
+    border-radius: var(--ep-radius);
+    padding: var(--ep-space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-2);
+    max-height: 50vh;
+    overflow: auto;
+  }
+
+  .stencil-params-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .stencil-params-heading {
+    margin: 0;
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+  }
+
+  .stencil-params-textarea {
+    min-height: 60px;
+  }
+
+  .stencil-params-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stencil-params-toggle-hint {
+    color: var(--ep-muted-foreground);
+    margin-left: 4px;
+  }
+
+  .stencil-params-input {
+    &[data-invalid='true'] {
+      border-color: var(--ep-destructive);
+    }
   }
 }

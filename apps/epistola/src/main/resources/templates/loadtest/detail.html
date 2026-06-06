@@ -27,7 +27,7 @@
                 <form th:if="${run.status.name() == 'RUNNING'}"
                       th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
                       method="post"
-                      style="display: inline;">
+                      class="ep-inline">
                     <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
                 </form>
             </div>
@@ -43,7 +43,7 @@
                     <dt>Template</dt>
                     <dd>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <code class="text-muted" th:text="${run.templateKey}" style="font-size: var(--ep-text-xs);"></code>
+                        <code class="text-muted ep-text-xs" th:text="${run.templateKey}" ></code>
                     </dd>
                     <dt>Variant</dt>
                     <dd th:text="${run.variantKey}"></dd>
@@ -78,7 +78,7 @@
             <div th:if="${run.status.name() == 'RUNNING'}" class="detail-section">
                 <div class="detail-section-header">
                     <h2>Progress</h2>
-                    <span class="text-muted" style="font-size: var(--ep-text-sm);">
+                    <span class="text-muted ep-text-sm" >
                         <strong th:text="${run.completedCount + run.failedCount}"></strong> /
                         <strong th:text="${run.targetCount}"></strong>
                         (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
@@ -87,7 +87,7 @@
                 <div class="detail-section-body">
                     <div class="progress-container">
                         <div class="progress-bar"
-                             th:style="'width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
+                             th:style="'--ep-bar-width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
                         </div>
                     </div>
                 </div>

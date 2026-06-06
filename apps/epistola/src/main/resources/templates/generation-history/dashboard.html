@@ -7,7 +7,7 @@
         </div>
 
         <!-- Statistics -->
-        <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">
+        <div class="dashboard-stats ep-mb-6">
             <div class="stat-card">
                 <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
                 <div class="stat-card-label">Total Generated</div>
@@ -27,7 +27,7 @@
         </div>
 
         <!-- Most Used Templates -->
-        <section style="margin-bottom: var(--ep-space-6);">
+        <section class="ep-mb-6">
             <h2>Most Used Templates</h2>
             <div th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
                 <div class="empty-state-icon">
@@ -48,7 +48,7 @@
                     <tr th:each="usage : ${templateUsage}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
-                               style="font-weight: 500;"
+                               class="ep-font-medium"
                                th:text="${usage.templateKey}">template</a>
                         </td>
                         <td th:text="${usage.variantKey}">variant</td>
@@ -60,9 +60,9 @@
 
         <!-- Recent Jobs -->
         <section>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--ep-space-3);">
-                <h2 style="margin: 0;">Recent Jobs</h2>
-                <select class="ep-input ep-input-sm" style="width: auto;"
+            <div class="ep-flex-between ep-mb-3">
+                <h2 class="ep-m-0">Recent Jobs</h2>
+                <select class="ep-input ep-input-sm ep-w-auto"
                         hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
                         hx-target="#job-rows"
                         hx-swap="innerHTML"
@@ -94,7 +94,7 @@
                         <tr th:each="job : ${recentJobs}">
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
-                                   style="font-weight: 500;"
+                                   class="ep-font-medium"
                                    th:text="${job.templateKey}">template</a>
                             </td>
                             <td th:text="${job.variantKey}">variant</td>
@@ -108,8 +108,7 @@
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"
-                                      class="ep-text-sm ep-text-muted"
-                                      style="max-width: 300px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                       class="ep-text-sm ep-text-muted text-truncate"
                                       th:title="${job.errorMessage}"
                                       th:text="${job.errorMessage}">Error</span>
                                 <span th:if="${job.errorMessage == null}" class="ep-text-muted">—</span>

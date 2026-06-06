@@ -18,8 +18,8 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
+            <select id="catalog-filter" class="ep-input ep-max-w-300">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No themes yet</div>
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <a th:if="${auth.has('THEME_EDIT')}"
-               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Theme
             </a>
@@ -66,8 +66,8 @@
                         th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
-                               th:text="${theme.name}" style="font-weight: 500;"></a>
-                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-left: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
+                               th:text="${theme.name}" class="ep-font-medium"></a>
+                            <span th:if="${isDefault}" class="badge badge-primary ep-ml-2"  data-testid="theme-default-badge">Default</span>
                         </td>
                         <td><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
                         <td>
@@ -81,7 +81,7 @@
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  style="display: inline;">
+                                  class="ep-inline">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
@@ -92,7 +92,7 @@
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  style="display: inline;">
+                                  class="ep-inline">
                                 <input type="hidden" name="themeId" value="">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Clear default theme">
                                     <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />

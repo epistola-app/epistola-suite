@@ -221,7 +221,7 @@
              hx-trigger="every 10s"
              hx-swap="outerHTML">
 
-            <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">
+            <div class="dashboard-stats ep-mb-6">
                 <div class="stat-card">
                     <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
                     <div class="stat-card-label">Consumers</div>
@@ -235,7 +235,7 @@
                     <div class="stat-card-label">Active nodes</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-card-value" style="font-size: var(--ep-text-xl);"
+                    <div class="stat-card-value ep-text-xl" 
                          th:text="${report.totals.mostRecentNodeActivity != null
                                    ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
                                    : '—'}">—</div>

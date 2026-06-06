@@ -21,8 +21,8 @@
         </div>
 
         <!-- Filters -->
-        <div class="ep-filters" style="margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3);">
-            <select class="ep-input ep-input-sm" style="width: auto;"
+        <div class="ep-filters ep-flex ep-gap-3 ep-mb-4">
+            <select class="ep-input ep-input-sm ep-w-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -32,7 +32,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
-            <select class="ep-input ep-input-sm" style="width: auto;"
+            <select class="ep-input ep-input-sm ep-w-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -70,12 +70,12 @@
                     <tr th:each="item : ${feedbackItems}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
-                               style="font-weight: 500;"
+                               class="ep-font-medium"
                                th:text="${item.title}">Title</a>
                         </td>
                         <td>
                             <a th:if="${item.sourcePath != null}" th:href="${item.sourceUrl}"
-                               class="ep-text-muted ep-text-sm" style="text-decoration: none;"
+                               class="ep-text-muted ep-text-sm ep-no-underline" 
                                th:text="${item.sourcePath}">/path</a>
                             <span th:if="${item.sourcePath == null}" class="ep-text-muted">—</span>
                         </td>

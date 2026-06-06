@@ -38,7 +38,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
           <p class="asset-picker-upload-error" id="asset-picker-upload-error" role="alert" aria-live="polite"></p>
           <input type="file" id="asset-picker-file"
                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                 style="display: none;" />
+                 data-hidden="true" />
         </div>
 
         <div class="asset-picker-grid" id="asset-picker-grid">
@@ -89,9 +89,9 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         card.addEventListener('click', () => {
           // Deselect previous
           grid
-            .querySelectorAll('.asset-picker-card')
-            .forEach((c) => c.classList.remove('selected'));
-          card.classList.add('selected');
+            .querySelectorAll<HTMLElement>('.asset-picker-card')
+            .forEach((c) => (c.dataset.selected = 'false'));
+          card.dataset.selected = 'true';
           selectedAsset = asset;
           insertBtn.disabled = false;
         });
@@ -116,16 +116,16 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
     // Upload handling
     const handleUpload = async (file: File) => {
       uploadError.textContent = '';
-      uploadZone.classList.add('uploading');
+      uploadZone.dataset.uploading = 'true';
       try {
         const asset = await callbacks.uploadAsset(file);
         // Refresh the grid and auto-select the new asset
         const assets = await callbacks.listAssets();
         renderGrid(assets);
         // Select the newly uploaded asset
-        const newCard = grid.querySelector(`[data-asset-id="${asset.id}"]`);
+        const newCard = grid.querySelector<HTMLElement>(`[data-asset-id="${asset.id}"]`);
         if (newCard) {
-          newCard.classList.add('selected');
+          newCard.dataset.selected = 'true';
           selectedAsset = asset;
           insertBtn.disabled = false;
         }
@@ -133,7 +133,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         console.error('Asset upload failed:', err);
         uploadError.textContent = err instanceof Error ? err.message : 'Failed to upload asset.';
       } finally {
-        uploadZone.classList.remove('uploading');
+        uploadZone.dataset.uploading = 'false';
       }
     };
 
@@ -145,14 +145,14 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
     uploadZone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      uploadZone.classList.add('dragover');
+      uploadZone.dataset.dragover = 'true';
     });
     uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('dragover');
+      uploadZone.dataset.dragover = 'false';
     });
     uploadZone.addEventListener('drop', (e) => {
       e.preventDefault();
-      uploadZone.classList.remove('dragover');
+      uploadZone.dataset.dragover = 'false';
       const file = e.dataTransfer?.files[0];
       if (file) handleUpload(file);
     });

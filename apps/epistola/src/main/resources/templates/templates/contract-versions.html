@@ -2,14 +2,14 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="ep-dialog-header ep-flex-between">
             <h3>Contract Version History</h3>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="this.closest('dialog').close()"
                     title="Close">&times;</button>
         </div>
         <div class="ep-dialog-body">
-            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table" style="font-size: var(--ep-text-sm);">
+            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table ep-text-sm" >
                 <thead>
                     <tr>
                         <th>Version</th>
@@ -34,7 +34,7 @@
                     </tr>
                 </tbody>
             </table>
-            <p th:if="${#lists.isEmpty(versions)}" class="text-muted" style="text-align: center; padding: var(--ep-space-4);">
+            <p th:if="${#lists.isEmpty(versions)}" class="text-muted ep-text-center ep-p-4">
                 No contract versions yet.
             </p>
         </div>

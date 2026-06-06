@@ -108,10 +108,7 @@ export class EpistolaQrCodePreview extends LitElement {
 
     if (this._status === 'ready' && this._svgMarkup) {
       return html`
-        <div
-          class="qrcode-preview qrcode-preview-ready"
-          style=${`width: ${size}; height: ${size};`}
-        >
+        <div class="qrcode-preview qrcode-preview-ready" style="--ep-qr-size: ${size}">
           ${unsafeSVG(this._svgMarkup)}
         </div>
       `;
@@ -127,10 +124,7 @@ export class EpistolaQrCodePreview extends LitElement {
             : 'Add an expression and example data to preview';
 
     return html`
-      <div
-        class="qrcode-preview qrcode-preview-placeholder"
-        style=${`width: ${size}; height: ${size};`}
-      >
+      <div class="qrcode-preview qrcode-preview-placeholder" style="--ep-qr-size: ${size}">
         <span class="qrcode-preview-placeholder-text">${message}</span>
       </div>
     `;
