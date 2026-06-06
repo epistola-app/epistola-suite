@@ -8,6 +8,8 @@
 
 - **Spacing utility CSS classes.** Added `ep-mt-{1,2,3,4}`, `ep-mb-{1,2,3,4,6}`, `ep-ml-{1,2}`, `ep-mr-1`, `ep-m-0`, `ep-mb-0`, `ep-my-3`, `ep-p-{3,4,6,8}`, `ep-pl-{4,5}` utility classes for replacing inline spacing styles.
 
+- **Typography utility CSS classes.** Added `ep-font-medium`, `ep-font-semibold`, `ep-font-mono`, `ep-text-{xs,sm,base,lg,xl,2xl}`, `ep-whitespace-nowrap`, `ep-whitespace-pre-wrap`, `ep-text-left`, `ep-no-underline` utility classes.
+
 - **End-to-end test for 403 `accessDeniedHandler` returning `application/problem+json`.** Added `ForbiddenTestController` (test-only `@RestController` with a `@PreAuthorize`-restricted endpoint) and a `CollectEndpointSmokeIT` test that asserts the 403 response carries `application/problem+json` content type, `type` URI, and `code: ACCESS_DENIED`.
 - **Consistency guard for mapped API exceptions.** `ApiExceptionMappingsConsistencyTest` uses reflection to assert that every exception class listed in `@ExceptionHandler` on `ApiExceptionHandler.handleMappedApiException` is also registered in `ApiExceptionMappings`, and vice-versa. Fails at build time if a developer adds a mapping in one place but forgets the other.
 - **Central exception-to-problem-detail registry for the REST API.** New `ApiExceptionMappings` object maps every simple domain exception (e.g. `TenantNotFoundException`, `AssetInUseException`) to its `ApiProblemType`, detail message, extension fields, and warn-log template. Used by `ApiExceptionHandler.handleMappedApiException` so new exceptions only need one declaration in the registry instead of a dedicated `@ExceptionHandler` method.

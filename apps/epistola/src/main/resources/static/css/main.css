@@ -1514,6 +1514,60 @@ a.stat-card:hover {
   margin-top: var(--ep-space-0-5);
 }
 
+/* ── Typography utilities ─────────────────────────────────────────────── */
+
+.ep-font-medium {
+  font-weight: 500;
+}
+
+.ep-font-semibold {
+  font-weight: 600;
+}
+
+.ep-font-mono {
+  font-family: var(--ep-font-mono);
+}
+
+.ep-text-xs {
+  font-size: var(--ep-text-xs);
+}
+
+.ep-text-sm {
+  font-size: var(--ep-text-sm);
+}
+
+.ep-text-base {
+  font-size: var(--ep-text-base);
+}
+
+.ep-text-lg {
+  font-size: var(--ep-text-lg);
+}
+
+.ep-text-xl {
+  font-size: var(--ep-text-xl);
+}
+
+.ep-text-2xl {
+  font-size: var(--ep-text-2xl);
+}
+
+.ep-whitespace-nowrap {
+  white-space: nowrap;
+}
+
+.ep-whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+.ep-text-left {
+  text-align: left;
+}
+
+.ep-no-underline {
+  text-decoration: none;
+}
+
 /* ── Spacing utilities ────────────────────────────────────────────────── */
 
 .ep-m-0 {
