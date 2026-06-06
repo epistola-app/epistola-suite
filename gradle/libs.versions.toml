@@ -15,9 +15,9 @@ spring-web = "7.0.7"
 playwright = "1.60.0"
 epistola-contract = "0.7.0"
 epistola-model = "0.6.0"
-aws-sdk = "2.46.4"
+aws-sdk = "2.46.5"
 guava = "33.6.0-jre"
-spring-ai = "2.0.0-M8"
+spring-ai = "2.0.0-RC1"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
