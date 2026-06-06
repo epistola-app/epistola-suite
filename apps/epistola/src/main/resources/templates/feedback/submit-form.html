@@ -13,7 +13,7 @@
               hx-target="closest .feedback-dialog-content"
               hx-swap="innerHTML">
 
-            <div class="ep-dialog-body" style="display: flex; flex-direction: column; gap: var(--ep-space-4);">
+            <div class="ep-dialog-body ep-flex-col ep-gap-4">
                 <div class="form-group" th:classappend="${errors?.containsKey('title')} ? 'error' : ''">
                     <label class="ep-label" for="fb-title">Title</label>
                     <input type="text" id="fb-title" name="title" class="ep-input"
@@ -22,8 +22,8 @@
                     <span class="form-error" th:if="${errors?.containsKey('title')}" th:text="${errors.title}"></span>
                 </div>
 
-                <div style="display: flex; gap: var(--ep-space-3);">
-                    <div class="form-group" style="flex: 1;" th:classappend="${errors?.containsKey('category')} ? 'error' : ''">
+                <div class="ep-flex ep-gap-3">
+                    <div class="form-group ep-flex-1" th:classappend="${errors?.containsKey('category')} ? 'error' : ''">
                         <label class="ep-label" for="fb-category">Category</label>
                         <select id="fb-category" name="category" class="ep-input" required>
                             <option value="" disabled selected>Select...</option>
@@ -34,7 +34,7 @@
                         <span class="form-error" th:if="${errors?.containsKey('category')}" th:text="${errors.category}"></span>
                     </div>
 
-                    <div class="form-group" style="flex: 1;" th:classappend="${errors?.containsKey('priority')} ? 'error' : ''">
+                    <div class="form-group ep-flex-1" th:classappend="${errors?.containsKey('priority')} ? 'error' : ''">
                         <label class="ep-label" for="fb-priority">Priority</label>
                         <select id="fb-priority" name="priority" class="ep-input" required>
                             <option th:each="p : ${priorities}" th:value="${p.name()}"
@@ -57,7 +57,7 @@
                 <!-- Screenshot capture -->
                 <div class="form-group">
                     <label class="ep-label">Screenshot (optional)</label>
-                    <div id="fb-screenshot-actions" style="display: flex; gap: var(--ep-space-2);">
+                    <div id="fb-screenshot-actions" class="ep-flex ep-gap-2">
                         <button type="button" id="fb-capture-region" class="ep-btn ep-btn-outline ep-btn-sm">
                             <th:block th:replace="~{fragments/icon :: icon(name='scan', class='ep-icon')}" />
                             Capture Region

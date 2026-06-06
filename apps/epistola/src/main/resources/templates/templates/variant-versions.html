@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="ep-dialog-header ep-flex-between">
             <h3>Version History: <code th:text="${variant.id}"></code></h3>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="document.getElementById('version-history-dialog').close()"

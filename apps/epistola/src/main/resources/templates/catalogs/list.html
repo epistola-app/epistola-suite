@@ -226,12 +226,12 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">Catalog type</label>
-                        <div style="display: flex; gap: var(--ep-space-4); margin-top: var(--ep-space-2);">
-                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                        <div class="ep-flex ep-gap-4 ep-mt-2">
+                            <label class="ep-flex-center ep-gap-2">
                                 <input type="radio" name="catalogType" value="AUTHORED" checked />
                                 Authored
                             </label>
-                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                            <label class="ep-flex-center ep-gap-2">
                                 <input type="radio" name="catalogType" value="SUBSCRIBED" />
                                 Subscribed (read-only)
                             </label>
@@ -240,12 +240,12 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">If this catalog already exists (Authored)</label>
-                        <div style="display: flex; gap: var(--ep-space-4); margin-top: var(--ep-space-2);">
-                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                        <div class="ep-flex ep-gap-4 ep-mt-2">
+                            <label class="ep-flex-center ep-gap-2">
                                 <input type="radio" name="authoredMode" value="MERGE" checked />
                                 Merge
                             </label>
-                            <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                            <label class="ep-flex-center ep-gap-2">
                                 <input type="radio" name="authoredMode" value="REPLACE" />
                                 Replace
                             </label>
@@ -253,7 +253,7 @@
                         <span class="form-hint">Merge: update from the ZIP, keep resources you have locally that the ZIP doesn't. Replace: make the catalog exactly the ZIP (deletes local-only resources). Ignored for new or subscribed catalogs; your release history is never changed.</span>
                     </div>
                     <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                        <label class="ep-flex-center ep-gap-2">
                             <input type="checkbox" name="onStencilConflict" value="RENUMBER" />
                             Allow renumber on stencil version conflict
                         </label>
@@ -350,7 +350,7 @@
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>
-                        <div style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                        <div class="ep-flex ep-gap-2 ep-mt-1">
                             <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                     th:attr="data-version=${status.suggestedNext.patch}"
                                     th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
@@ -562,9 +562,9 @@
 
                         <div class="form-group" th:if="${!diff.added.isEmpty()}">
                             <span class="ep-label">Also install new resources</span>
-                            <div style="margin-top: var(--ep-space-1); display: flex; flex-direction: column; gap: var(--ep-space-1);">
+                            <div class="ep-flex ep-flex-col ep-gap-1 ep-mt-1">
                                 <label th:each="a : ${diff.added}"
-                                       style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                       class="ep-flex-center ep-gap-2">
                                     <input type="checkbox" name="newSlugs" th:value="${a.slug}" />
                                     <span th:text="${a.type} + '/' + ${a.slug}"></span>
                                 </label>

@@ -20,11 +20,10 @@
 
             <div class="form-group">
                 <label class="ep-label" for="api-key-secret">Key</label>
-                <div style="display: flex; gap: var(--ep-space-2);">
-                    <input type="text" id="api-key-secret" class="ep-input"
+                <div class="ep-flex ep-gap-2">
+                    <input type="text" id="api-key-secret" class="ep-input ep-font-mono ep-flex-1"
                            th:value="${plaintextKey}"
-                           readonly
-                           style="font-family: var(--ep-font-mono, monospace); flex: 1;">
+                           readonly>
                     <button type="button" id="api-key-copy-btn" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{fragments/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
                         Copy

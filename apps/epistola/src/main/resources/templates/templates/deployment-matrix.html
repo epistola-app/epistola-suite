@@ -53,7 +53,7 @@
                                 <tbody>
                                     <tr th:each="variant : ${variants}">
                                         <td class="deployment-matrix-variant">
-                                            <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                            <div class="ep-flex-center ep-gap-2">
                                                 <div>
                                                     <code th:text="${variant.id}" class="ep-text-xs"></code>
                                                     <span th:if="${variant.title != null}" class="text-muted ep-text-xs ep-ml-1" 
