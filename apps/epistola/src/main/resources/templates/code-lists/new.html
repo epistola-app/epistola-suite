@@ -100,9 +100,8 @@
                         <span class="form-error" th:if="${errors?.containsKey('sourceUrl')}" th:text="${errors.sourceUrl}"></span>
                     </div>
 
-                    <fieldset class="form-group source-pane" data-source-pane="INLINE"
-                              th:classappend="${errors?.containsKey('entries')} ? 'error' : ''"
-                              class="ep-fieldset-reset ep-mb-4">
+                    <fieldset class="form-group source-pane ep-fieldset-reset ep-mb-4" data-source-pane="INLINE"
+                              th:classappend="${errors?.containsKey('entries')} ? 'error' : ''">
                         <legend class="ep-label">Entries</legend>
                         <div th:if="${errors?.containsKey('entries')}" class="alert alert-error ep-mb-3">
                             <span th:text="${errors.entries}"></span>
