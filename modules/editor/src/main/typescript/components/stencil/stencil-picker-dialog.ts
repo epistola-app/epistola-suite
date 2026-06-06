@@ -95,7 +95,7 @@ export async function openStencilPickerDialog(
         </div>
 
         <!-- Step 2: Create new stencil form (hidden initially) -->
-        <div id="stencil-step-create" style="display: none;">
+        <div id="stencil-step-create" class="hidden">
           <div class="stencil-picker-section">
             <button type="button" id="stencil-back-create" class="stencil-picker-btn stencil-picker-group">&larr; Back to stencils</button>
             <div class="stencil-picker-subtitle-mb3">Create New Stencil</div>
@@ -108,12 +108,12 @@ export async function openStencilPickerDialog(
               <input type="text" id="create-stencil-slug" class="ep-input stencil-picker-full" placeholder="corporate-header" />
               <div class="stencil-picker-hint">Lowercase letters, numbers, and hyphens only</div>
             </div>
-            <div id="create-stencil-error" class="stencil-picker-error" style="display: none;"></div>
+            <div id="create-stencil-error" class="stencil-picker-error hidden"></div>
           </div>
         </div>
 
         <!-- Step 3: Version picker (hidden initially) -->
-        <div id="stencil-step-versions" style="display: none;">
+        <div id="stencil-step-versions" class="hidden">
           <div class="stencil-picker-section">
             <button type="button" id="stencil-back" class="stencil-picker-btn stencil-picker-group">&larr; Back to stencils</button>
             <div id="stencil-version-title" class="stencil-picker-subtitle"></div>
@@ -124,7 +124,7 @@ export async function openStencilPickerDialog(
         </div>
 
         <!-- Step 4: Parameter binding (hidden initially) -->
-        <div id="stencil-step-bindings" style="display: none;">
+        <div id="stencil-step-bindings" class="hidden">
           <div class="stencil-picker-section">
             <button type="button" id="stencil-back-bindings" class="stencil-picker-btn stencil-picker-group">&larr; Back to versions</button>
             <div id="stencil-binding-title" class="stencil-picker-subtitle-mb2"></div>
@@ -138,7 +138,7 @@ export async function openStencilPickerDialog(
           <div class="stencil-picker-flex-fill"></div>
           <button type="button" class="stencil-picker-btn cancel">Cancel</button>
           <button type="button" class="stencil-picker-btn insert" disabled>Insert</button>
-          <button type="button" class="stencil-picker-btn insert create-confirm" style="display: none;" disabled>Create</button>
+          <button type="button" class="stencil-picker-btn insert create-confirm hidden" disabled>Create</button>
         </div>
       </div>
     `;
@@ -236,9 +236,9 @@ export async function openStencilPickerDialog(
     // ── Step 2: Version picker ──
 
     async function showVersionPicker(stencil: StencilSummary) {
-      stepList.style.display = 'none';
-      stepBindings.style.display = 'none';
-      stepVersions.style.display = '';
+      stepList.classList.add('hidden');
+      stepBindings.classList.add('hidden');
+      stepVersions.classList.remove('hidden');
       versionTitle.textContent = `Versions for "${stencil.name}"`;
       versionList.innerHTML = '<div class="stencil-picker-loading">Loading versions...</div>';
       insertBtn.disabled = true;
@@ -309,13 +309,13 @@ export async function openStencilPickerDialog(
     }
 
     function showStencilList() {
-      stepVersions.style.display = 'none';
-      stepCreate.style.display = 'none';
-      stepBindings.style.display = 'none';
-      stepList.style.display = '';
+      stepVersions.classList.add('hidden');
+      stepCreate.classList.add('hidden');
+      stepBindings.classList.add('hidden');
+      stepList.classList.remove('hidden');
       insertBtn.disabled = true;
-      insertBtn.style.display = '';
-      createNewBtn.style.display = '';
+      insertBtn.classList.remove('hidden');
+      createNewBtn.classList.remove('hidden');
       selectedVersion = null;
     }
 
@@ -330,11 +330,11 @@ export async function openStencilPickerDialog(
       const props = versionInfo.parameterSchema?.properties ?? {};
       const required = new Set(versionInfo.parameterSchema?.required ?? []);
 
-      stepList.style.display = 'none';
-      stepCreate.style.display = 'none';
-      stepVersions.style.display = 'none';
-      stepBindings.style.display = '';
-      createNewBtn.style.display = 'none';
+      stepList.classList.add('hidden');
+      stepCreate.classList.add('hidden');
+      stepVersions.classList.add('hidden');
+      stepBindings.classList.remove('hidden');
+      createNewBtn.classList.add('hidden');
 
       bindingTitle.textContent = `${versionInfo.stencilName} v${versionInfo.version} parameters`;
       bindingRows.innerHTML = '';
@@ -360,7 +360,7 @@ export async function openStencilPickerDialog(
         bindingRows.appendChild(row.element);
       }
 
-      insertBtn.style.display = '';
+      insertBtn.classList.remove('hidden');
       insertBtn.textContent = 'Insert';
       updateBindingInsertState();
     }
@@ -380,14 +380,14 @@ export async function openStencilPickerDialog(
     // ── Create new stencil ──
 
     function showCreateForm() {
-      stepList.style.display = 'none';
-      stepVersions.style.display = 'none';
-      stepCreate.style.display = '';
-      insertBtn.style.display = 'none';
-      createNewBtn.style.display = 'none';
+      stepList.classList.add('hidden');
+      stepVersions.classList.add('hidden');
+      stepCreate.classList.remove('hidden');
+      insertBtn.classList.add('hidden');
+      createNewBtn.classList.add('hidden');
       createNameInput.value = '';
       createSlugInput.value = '';
-      createError.style.display = 'none';
+      createError.classList.add('hidden');
       createNameInput.focus();
     }
 
@@ -427,7 +427,7 @@ export async function openStencilPickerDialog(
       const slug = createSlugInput.value.trim();
       if (!name || !slug) return;
 
-      createError.style.display = 'none';
+      createError.classList.add('hidden');
       const createBtn = dialog.querySelector<HTMLButtonElement>(
         '.stencil-picker-btn.create-confirm',
       );
@@ -445,7 +445,7 @@ export async function openStencilPickerDialog(
         });
       } catch (e) {
         createError.textContent = (e as Error).message || 'Failed to create stencil';
-        createError.style.display = '';
+        createError.classList.remove('hidden');
         if (createBtn) {
           createBtn.disabled = false;
           createBtn.textContent = 'Create';
@@ -511,7 +511,7 @@ export async function openStencilPickerDialog(
     insertBtn.addEventListener('click', async () => {
       // On the binding step, "Insert" closes with the collected bindings.
       // Elsewhere it kicks off the version-fetch + (conditional) binding flow.
-      if (pendingBindingVersionInfo && stepBindings.style.display !== 'none') {
+      if (pendingBindingVersionInfo && !stepBindings.classList.contains('hidden')) {
         close({
           action: 'use-existing',
           versionInfo: pendingBindingVersionInfo,
@@ -527,7 +527,7 @@ export async function openStencilPickerDialog(
         showCreateForm();
         // Show the create-confirm button, hide insert
         const createConfirmBtn = dialog.querySelector<HTMLElement>('.create-confirm');
-        if (createConfirmBtn) createConfirmBtn.style.display = '';
+        if (createConfirmBtn) createConfirmBtn.classList.remove('hidden');
       } else {
         // No create callback — insert empty (legacy fallback)
         close({ action: 'create-new', ref: { stencilId: '', catalogKey: '' }, version: 0 });

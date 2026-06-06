@@ -71,11 +71,11 @@
   }
 
   .leader-hint.is-success {
-    background: var(--ep-green-600, #16a34a);
+    background: var(--ep-green-600);
   }
 
   .leader-hint.is-error {
-    background: var(--ep-red-600, #dc2626);
+    background: var(--ep-red-600);
   }
 
   .leader-dot {
@@ -146,7 +146,7 @@
   .insert-dialog-error {
     margin-top: var(--ep-space-2);
     font-size: var(--ep-text-xs);
-    color: var(--ep-red-700, #b91c1c);
+    color: var(--ep-red-700);
   }
 
   .insert-dialog-search {
@@ -165,9 +165,9 @@
     }
 
     &:focus {
-      outline: 2px solid var(--ep-blue-300, #93c5fd);
+      outline: 2px solid var(--ep-blue-300);
       outline-offset: 1px;
-      border-color: var(--ep-blue-400, #60a5fa);
+      border-color: var(--ep-blue-400);
     }
   }
 
@@ -199,8 +199,8 @@
     }
 
     &.is-active {
-      background: var(--ep-blue-50, #eff6ff);
-      border-color: var(--ep-blue-300, #93c5fd);
+      background: var(--ep-blue-50);
+      border-color: var(--ep-blue-300);
     }
   }
 
@@ -297,7 +297,7 @@
   .paste-dialog-error {
     margin-top: var(--ep-space-2);
     font-size: var(--ep-text-xs);
-    color: var(--ep-red-700, #b91c1c);
+    color: var(--ep-red-700);
   }
 
   .paste-dialog-actions {
@@ -324,14 +324,14 @@
       transform var(--ep-transition-fast);
 
     &:hover:not(:disabled) {
-      background: var(--ep-blue-50, #eff6ff);
-      border-color: var(--ep-blue-300, #93c5fd);
+      background: var(--ep-blue-50);
+      border-color: var(--ep-blue-300);
       transform: translateY(-1px);
       cursor: pointer;
     }
 
     &:focus-visible {
-      outline: 2px solid var(--ep-blue-300, #93c5fd);
+      outline: 2px solid var(--ep-blue-300);
       outline-offset: 1px;
     }
 

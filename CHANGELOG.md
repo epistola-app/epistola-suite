@@ -76,6 +76,10 @@
 - **Template name cannot be changed after creation.** The backend `UpdateDocumentTemplate` command already accepted a `name` parameter, but the settings tab had no UI to edit it — the template name was only settable in the create form. Added an inline-editable name input to the template settings tab that saves on blur/Enter via the existing `PATCH` endpoint, reverts on Escape or failure, and updates the page heading on success. Disabled for templates in read-only (subscribed) catalogs. Closes #333.
 - **Duplicate `class` attributes in two templates caused by bulk inline-style removal scripts.** The Group 1 script's regex for appending spacing classes to elements with an existing `class` attribute failed when `style="..."` appeared on a different line, producing `class="..." class="ep-..."` instead of `class="... ep-..."`. Thymeleaf's XML parser choked on the duplicate attribute, returning a 500 on pages where those elements rendered (code-lists/list.html refresh-failed badge; feedback/submit-form.html remove-screenshot button). Both fixed and verified via existing handler tests.
 
+- **Removed redundant CSS custom-property fallback values (`var(--ep-*, #hex)`) from 7 editor CSS files.** The design-system tokens (`--ep-*`) are always loaded (bundled into editor CSS by Vite, served as `<link>` on every page), so the fallback hex values in `stencil.css`, `placeholder.css`, `data-contract-editor.css`, `preview.css`, `editor-layout.css`, `toolbar.css`, and `inspector.css` were dead weight. Removed ~60 fallbacks across all files.
+
+- **Replaced JS-controlled `style="display: none;"` with a `.hidden` CSS class in 4 TypeScript editor components.** Added `.hidden { display: none; }` to stencil.css. Migrated `element.style.display = 'none'`/`''` to `classList.add('hidden')`/`classList.remove('hidden')` in `stencil-picker-dialog.ts`, `parameter-bindings-dialog.ts`, `binding-row.ts`, and `asset-picker-dialog.ts`. Added `#bindings-alias-error` and `.binding-row-error` margin rules to stencil.css for the two `margin-top: 2px` cases that were previously inline.
+
 ## [0.22.1] - 2026-05-21
 
 ### Fixed

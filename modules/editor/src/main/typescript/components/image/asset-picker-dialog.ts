@@ -38,7 +38,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
           <p class="asset-picker-upload-error" id="asset-picker-upload-error" role="alert" aria-live="polite"></p>
           <input type="file" id="asset-picker-file"
                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                 style="display: none;" />
+                 class="hidden" />
         </div>
 
         <div class="asset-picker-grid" id="asset-picker-grid">

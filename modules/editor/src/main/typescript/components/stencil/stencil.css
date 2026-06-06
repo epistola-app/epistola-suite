@@ -104,7 +104,7 @@
   .stencil-picker-card--disabled {
     opacity: 0.45;
     cursor: not-allowed;
-    background: var(--ep-gray-50, #f9fafb);
+    background: var(--ep-gray-50);
   }
 
   .stencil-picker-card--disabled:hover {
@@ -193,13 +193,13 @@
   }
 
   .stencil-picker-status--draft {
-    background: var(--ep-amber-50, #fffbeb);
-    color: var(--ep-amber-700, #b45309);
+    background: var(--ep-amber-50);
+    color: var(--ep-amber-700);
   }
 
   .stencil-picker-status--published {
-    background: var(--ep-green-50, #f0fdf4);
-    color: var(--ep-green-700, #15803d);
+    background: var(--ep-green-50);
+    color: var(--ep-green-700);
   }
 
   .stencil-picker-status--archived {
@@ -219,23 +219,37 @@
     width: 100%;
   }
 
+  /* ── Utility ──────────────────────────────────────────────────────────── */
+
+  .hidden {
+    display: none;
+  }
+
   /* ── Binding row ─────────────────────────────────────────────────────── */
 
+  .binding-row-error {
+    margin-top: 2px;
+  }
+
+  #bindings-alias-error {
+    margin-top: 2px;
+  }
+
   .binding-row-input.binding-row-valid {
-    border-color: var(--ep-green-500, #22c55e);
+    border-color: var(--ep-green-500);
   }
 
   .binding-row-input.binding-row-invalid {
-    border-color: var(--ep-destructive, #dc2626);
-    background: var(--ep-red-50, #fef2f2);
+    border-color: var(--ep-destructive);
+    background: var(--ep-red-50);
   }
 
   .binding-row-input.binding-row-valid:focus {
-    box-shadow: 0 0 0 2px var(--ep-green-200, #bbf7d0);
+    box-shadow: 0 0 0 2px var(--ep-green-200);
   }
 
   .binding-row-input.binding-row-invalid:focus {
-    box-shadow: 0 0 0 2px var(--ep-red-200, #fecaca);
+    box-shadow: 0 0 0 2px var(--ep-red-200);
   }
 
   /* ── Shared stencil-picker form patterns ──────────────────────────────── */

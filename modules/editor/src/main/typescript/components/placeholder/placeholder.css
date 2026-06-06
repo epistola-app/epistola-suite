@@ -5,7 +5,7 @@
    slot content can read like any other block content. */
 @layer components {
   .canvas-placeholder {
-    margin: var(--ep-space-1, 4px) 0;
+    margin: var(--ep-space-1) 0;
   }
 
   .canvas-placeholder-fill,
@@ -27,10 +27,10 @@
   }
 
   .canvas-placeholder-fill-hint {
-    font-size: var(--ep-text-xs, 11px);
-    color: var(--ep-muted-foreground, #6b7280);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
     font-style: italic;
-    padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
+    padding: var(--ep-space-1) var(--ep-space-2);
   }
 
   /* Stencil-author / draft mode: a thin amber left-stripe accent so the
@@ -38,8 +38,8 @@
    content, without the full-frame wash that competes with the block's
    own selection chrome. */
   .canvas-placeholder--default-edit {
-    border-left: 3px solid var(--ep-amber-500, #f59e0b);
-    padding-left: var(--ep-space-2, 8px);
+    border-left: 3px solid var(--ep-amber-500);
+    padding-left: var(--ep-space-2);
     pointer-events: auto;
   }
 
@@ -53,9 +53,9 @@
     opacity: 0.45;
     filter: grayscale(0.4);
     user-select: none;
-    border-bottom: 1px dashed var(--ep-primary, #2563eb);
-    margin-bottom: var(--ep-space-1, 4px);
-    padding-bottom: var(--ep-space-1, 4px);
+    border-bottom: 1px dashed var(--ep-primary);
+    margin-bottom: var(--ep-space-1);
+    padding-bottom: var(--ep-space-1);
   }
 
   /* Placeholder lock UX in template-fill mode.
@@ -88,11 +88,11 @@
     the canvas pointer-events guards the click path). */
   .placeholder-inspector-readonly-name {
     display: inline-block;
-    padding: var(--ep-space-1, 4px) var(--ep-space-2, 8px);
-    background: var(--ep-gray-100, #f3f4f6);
-    border-radius: var(--ep-radius-sm, 3px);
-    font-family: var(--ep-font-mono, monospace);
-    font-size: var(--ep-text-xs, 12px);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    background: var(--ep-gray-100);
+    border-radius: var(--ep-radius-sm);
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
   }
 
   .placeholder-inspector-readonly-description {
@@ -106,7 +106,7 @@
     margin-top: var(--ep-space-2);
   }
 
-  .ep-input[data-invalid=true] {
+  .ep-input[data-invalid='true'] {
     border-color: var(--ep-destructive);
   }
 }

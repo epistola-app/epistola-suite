@@ -83,7 +83,7 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
       <span class="stencil-picker-validity"></span>
       <button type="button" class="stencil-picker-btn binding-row-advanced stencil-picker-btn-compact"${dataAttr} title="Open expression editor">…</button>
     </div>
-    <div class="binding-row-error stencil-picker-error" style="margin-top: 2px; display: none;"></div>
+    <div class="binding-row-error stencil-picker-error hidden"></div>
   `;
 
   const input = row.querySelector<HTMLInputElement>('.binding-row-input')!;
@@ -112,19 +112,19 @@ export function renderBindingRow(options: BindingRowOptions): RenderedBindingRow
           : 'var(--ep-destructive, #dc2626)';
     if (val.length > 0 && !valid && !hasBackendError) {
       errorEl.textContent = 'Invalid JSONata expression';
-      errorEl.style.display = '';
+      errorEl.classList.remove('hidden');
     } else if (val.length > 0 && !valid && hasBackendError) {
       // Keep backend error text, just make sure it's visible
-      errorEl.style.display = '';
+      errorEl.classList.remove('hidden');
     } else {
-      errorEl.style.display = 'none';
+      errorEl.classList.add('hidden');
     }
   }
 
   // Show backend error if present (takes priority over client validation)
   if (error) {
     errorEl.textContent = error;
-    errorEl.style.display = '';
+    errorEl.classList.remove('hidden');
     input.classList.add('binding-row-invalid');
     validityEl.textContent = '\u2717';
     validityEl.style.color = 'var(--ep-destructive, #dc2626)';
