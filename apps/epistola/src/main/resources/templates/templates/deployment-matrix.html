@@ -5,7 +5,7 @@
         <div id="deployment-matrix">
 
             <!-- Error banner (e.g., contract compatibility issues) -->
-            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
 
@@ -13,7 +13,7 @@
             <th:block th:if="${#lists.isEmpty(environments)}">
                 <div class="detail-section">
                     <div class="detail-section-body">
-                        <div class="empty-state" style="padding: var(--ep-space-8);">
+                        <div class="empty-state ep-p-8">
                             <div class="empty-state-title">No environments configured</div>
                             <div class="empty-state-description">
                                 <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId},catalogId=${catalogId})}">Create an environment</a>
@@ -28,7 +28,7 @@
             <th:block th:if="${!#lists.isEmpty(environments) and #lists.isEmpty(variants)}">
                 <div class="detail-section">
                     <div class="detail-section-body">
-                        <div class="empty-state" style="padding: var(--ep-space-8);">
+                        <div class="empty-state ep-p-8">
                             <div class="empty-state-title">No variants yet</div>
                             <div class="empty-state-description">
                                 Create a variant in the Variants tab to start deploying.

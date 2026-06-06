@@ -37,13 +37,13 @@
                 </div>
             </div>
 
-            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
 
             <p th:if="${codeList.description != null}" class="ep-text-muted" th:text="${codeList.description}"></p>
 
-            <div th:if="${codeList.lastRefreshedAt != null}" class="ep-text-xs ep-text-muted" style="margin-bottom: var(--ep-space-3);">
+            <div th:if="${codeList.lastRefreshedAt != null}" class="ep-text-xs ep-text-muted ep-mb-3">
                 Last refreshed
                 <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                 <th:block th:if="${codeList.lastRefreshError != null}">
@@ -51,7 +51,7 @@
                 </th:block>
             </div>
 
-            <div style="margin: var(--ep-space-3) 0;">
+            <div class="ep-my-3">
                 <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
                    class="btn btn-sm btn-outline"
                    th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>

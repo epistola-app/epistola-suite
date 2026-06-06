@@ -17,8 +17,8 @@
             <!-- Version + status -->
             <span th:if="${contractVersionId != null}">
                 <strong th:text="'Contract v' + ${contractVersionId}"></strong>
-                <span th:if="${contractVersionStatus == 'draft'}" class="badge badge-primary" style="margin-left: var(--ep-space-1);">Draft</span>
-                <span th:if="${contractVersionStatus == 'published'}" class="badge badge-success" style="margin-left: var(--ep-space-1);">Published</span>
+                <span th:if="${contractVersionStatus == 'draft'}" class="badge badge-primary ep-ml-1">Draft</span>
+                <span th:if="${contractVersionStatus == 'published'}" class="badge badge-success ep-ml-1">Published</span>
             </span>
 
             <!-- View mode actions -->
@@ -48,7 +48,7 @@
             <th:block th:if="${hasOutdatedVersions}">
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="color: var(--ep-amber-700);"
                         onclick="document.getElementById('contract-usage-dialog').showModal()">
-                    <span class="badge badge-warning" style="margin-right: var(--ep-space-1);">!</span>
+                    <span class="badge badge-warning ep-mr-1">!</span>
                     Outdated versions
                 </button>
             </th:block>

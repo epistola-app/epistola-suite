@@ -13,7 +13,7 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -43,7 +43,7 @@
             </div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
                th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary"
-               style="margin-top: var(--ep-space-4);">
+               class="ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
             </a>
@@ -81,7 +81,7 @@
                         <span th:if="${cl.lastRefreshError != null}"
                               class="badge badge-error"
                               th:title="${cl.lastRefreshError}"
-                              style="margin-left: var(--ep-space-2);">refresh failed</span>
+                              class="ep-ml-2">refresh failed</span>
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"

@@ -21,7 +21,7 @@
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                         onclick="document.getElementById('contract-usage-dialog').close()">&times;</button>
             </div>
-            <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
+            <div class="ep-dialog-body ep-p-3">
                 <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
                     <thead><tr><th>Variant</th><th>Version</th><th>Status</th><th>Contract</th><th>Deployed</th></tr></thead>
                     <tbody>
@@ -106,7 +106,7 @@
                             <span class="text-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
                         </h3>
                     </div>
-                    <div class="detail-section-body" style="padding: var(--ep-space-3);">
+                    <div class="detail-section-body ep-p-3">
                         <div style="display: flex; flex-wrap: wrap; gap: var(--ep-space-2);">
                             <span th:each="example : ${contractDataExamples}"
                                   class="badge badge-outline" th:text="${example.name}"></span>

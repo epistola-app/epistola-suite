@@ -12,7 +12,7 @@
 
             <!-- Empty state: no versions -->
             <th:block th:if="${#lists.isEmpty(versions)}">
-                <div class="empty-state" style="padding: var(--ep-space-8);">
+                <div class="empty-state ep-p-8">
                     <div class="empty-state-title">No versions available</div>
                     <div class="empty-state-description">Publish at least one version to compare.</div>
                 </div>
@@ -22,7 +22,7 @@
             <th:block th:unless="${#lists.isEmpty(versions)}">
                 <!-- Controls row -->
                 <div class="version-comparison-controls">
-                    <div class="form-group" style="margin-bottom: 0;">
+                    <div class="form-group ep-mb-0">
                         <label class="ep-label" for="compare-version-a">Version A</label>
                         <select id="compare-version-a" class="ep-select">
                             <th:block th:each="ver : ${versions}">
@@ -31,7 +31,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0;">
+                    <div class="form-group ep-mb-0">
                         <label class="ep-label" for="compare-version-b">Version B</label>
                         <select id="compare-version-b" class="ep-select">
                             <th:block th:each="ver, iterStat : ${versions}">
@@ -41,7 +41,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group" style="margin-bottom: 0;">
+                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group ep-mb-0">
                         <label class="ep-label" for="compare-example">Example Data</label>
                         <select id="compare-example" class="ep-select">
                             <th:block th:each="example : ${dataExamples}">

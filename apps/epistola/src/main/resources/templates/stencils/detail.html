@@ -13,7 +13,7 @@
         </div>
 
         <!-- Details -->
-        <div class="detail-section" style="margin-bottom: var(--ep-space-6);">
+        <div class="detail-section ep-mb-6">
             <div class="detail-section-body">
                 <dl class="description-list">
                     <dt>ID</dt>
@@ -27,7 +27,7 @@
                     </dd>
                     <dt>Tags</dt>
                     <dd>
-                        <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge badge-outline" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+                        <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge badge-outline ep-mr-1" th:text="${tag}"></span>
                         <span th:if="${stencil.tags.isEmpty()}" class="text-muted">No tags</span>
                     </dd>
                     <dt>Created</dt>
@@ -45,14 +45,14 @@
             </div>
             <div class="detail-section-body" id="version-list">
                 <th:block th:fragment="versions">
-                    <div th:if="${#lists.isEmpty(versions)}" class="empty-state" style="padding: var(--ep-space-6);">
+                    <div th:if="${#lists.isEmpty(versions)}" class="empty-state ep-p-6">
                         <div class="empty-state-title">No versions yet</div>
                         <div class="empty-state-description">Add a stencil block in the template editor to create content.</div>
                     </div>
 
                     <div th:if="${!#lists.isEmpty(versions)}">
                         <!-- New Draft button when no draft exists -->
-                        <div th:if="${auth.has('STENCIL_EDIT') and stencil.catalogType.name() == 'AUTHORED'}" style="margin-bottom: var(--ep-space-3);">
+                        <div th:if="${auth.has('STENCIL_EDIT') and stencil.catalogType.name() == 'AUTHORED'}" class="ep-mb-3">
                             <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
                                 <form th:unless="${hasDraft}"
                                       th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"

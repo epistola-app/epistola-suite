@@ -342,7 +342,7 @@
                     <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
                     <div class="form-group">
                         <span class="ep-label">Current published version</span>
-                        <p style="margin: var(--ep-space-1) 0 0;">
+                        <p class="ep-mt-1">
                             <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
                             <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
                             <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
@@ -406,7 +406,7 @@
                             Stencil version-pins in catalog '<span th:text="${catalogId}"></span>'
                             are out of sync with the latest published version.
                         </div>
-                        <p style="margin: var(--ep-space-1) 0 0;">
+                        <p class="ep-mt-1">
                             The export only ships the latest published version of each stencil. Templates
                             that pin a different (or older) version would not resolve in the target.
                             Republish the templates against the latest version of each stencil below
@@ -417,7 +417,7 @@
 
                 <div class="form-group">
                     <span class="ep-label">Affected stencils</span>
-                    <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-5);">
+                    <ul class="ep-mt-1 ep-pl-5">
                         <li th:each="s : ${stencilVersionExportConflicts}">
                             <strong th:text="${s.name}"></strong>
                             (<span class="text-muted" th:text="${s.slug}"></span>)
@@ -445,14 +445,14 @@
                 <div class="alert-title">
                     Import blocked: stencil version conflicts in catalog '<span th:text="${catalogId}"></span>'.
                 </div>
-                <p style="margin: var(--ep-space-1) 0 0;">
+                <p class="ep-mt-1">
                     Some stencil versions in the ZIP already exist in the target catalog with different content.
                     Either fix this at the source (republish the source catalog so the conflicting versions match),
                     or re-upload here with <strong>Allow renumber on stencil version conflict</strong> enabled —
                     the new content will install at the next available version number and the ZIP's template pins
                     will be rewritten to match.
                 </p>
-                <ul style="margin: var(--ep-space-2) 0 0; padding-left: var(--ep-space-5);">
+                <ul class="ep-mt-2 ep-pl-5">
                     <li th:each="s : ${stencilImportConflicts}">
                         <strong th:text="${s.name}"></strong>
                         (<span class="text-muted" th:text="${s.slug}"></span>)
@@ -521,7 +521,7 @@
                     <th:block th:if="${diff != null}">
                         <div class="form-group">
                             <span class="ep-label">Version</span>
-                            <p style="margin: var(--ep-space-1) 0 0;">
+                            <p class="ep-mt-1">
                                 <strong th:text="${diff.previousVersion != null ? 'v' + diff.previousVersion : '—'}"></strong>
                                 →
                                 <strong th:text="${'v' + diff.newVersion}"></strong>
@@ -530,7 +530,7 @@
 
                         <div class="alert alert-danger" th:if="${diff.hasConflicts}">
                             <strong>Cannot apply — resources are still in use:</strong>
-                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                            <ul class="ep-mt-1 ep-pl-4">
                                 <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>
                             </ul>
                         </div>
@@ -541,7 +541,7 @@
 
                         <div class="form-group" th:if="${diff.hasChanges}">
                             <span class="ep-label">Changes</span>
-                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                            <ul class="ep-mt-1 ep-pl-4">
                                 <li th:if="${!diff.changed.isEmpty()}">
                                     <strong th:text="${diff.changed.size()}"></strong> changed
                                     <span class="form-hint"

@@ -7,7 +7,7 @@
         </div>
 
         <!-- Statistics -->
-        <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">
+        <div class="dashboard-stats ep-mb-6">
             <div class="stat-card">
                 <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
                 <div class="stat-card-label">Total Generated</div>
@@ -27,7 +27,7 @@
         </div>
 
         <!-- Most Used Templates -->
-        <section style="margin-bottom: var(--ep-space-6);">
+        <section class="ep-mb-6">
             <h2>Most Used Templates</h2>
             <div th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
                 <div class="empty-state-icon">
@@ -61,7 +61,7 @@
         <!-- Recent Jobs -->
         <section>
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--ep-space-3);">
-                <h2 style="margin: 0;">Recent Jobs</h2>
+                <h2 class="ep-m-0">Recent Jobs</h2>
                 <select class="ep-input ep-input-sm" style="width: auto;"
                         hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
                         hx-target="#job-rows"

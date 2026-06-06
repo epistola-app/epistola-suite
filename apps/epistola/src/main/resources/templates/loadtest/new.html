@@ -10,7 +10,7 @@
         <h1>New Load Test</h1>
 
         <div id="form-error">
-            <div th:if="${error}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${error}" class="alert alert-error ep-mb-4">
                 <strong>Error:</strong> <span th:text="${error}"></span>
             </div>
         </div>
@@ -85,7 +85,7 @@
 
     <!--/* Error fragment: shown when form submission fails */-->
     <th:block th:fragment="form-error">
-        <div class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+        <div class="alert alert-error ep-mb-4">
             <strong>Error:</strong> <span th:text="${error}"></span>
         </div>
     </th:block>

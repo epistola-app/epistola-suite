@@ -18,7 +18,7 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No stencils yet</div>
             <div class="empty-state-description">Create a stencil to build reusable template components.</div>
             <a th:if="${auth.has('STENCIL_EDIT')}"
-               th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Stencil
             </a>
@@ -74,7 +74,7 @@
                             <span th:unless="${stencil.description != null}" class="text-muted">-</span>
                         </td>
                         <td>
-                            <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+                            <span th:each="tag : ${stencil.tags}" class="badge ep-mr-1" th:text="${tag}"></span>
                         </td>
                         <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">

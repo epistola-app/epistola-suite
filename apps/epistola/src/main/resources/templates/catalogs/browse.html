@@ -78,7 +78,7 @@
                                      in the target after import; this stencil currently blocks export. -->
                                 <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
                                       class="badge badge-warning"
-                                      style="margin-left: var(--ep-space-2);"
+                                      class="ep-ml-2"
                                       th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
                                       th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
@@ -152,7 +152,7 @@
         <div class="ep-dialog-body">
             <p>The following resources will be installed:</p>
 
-            <table class="ep-table" style="margin-top: var(--ep-space-3);">
+            <table class="ep-table ep-mt-3">
                 <thead>
                     <tr>
                         <th>Type</th>

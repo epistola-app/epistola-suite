@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="tab-content">
         <!-- Button to open create variant dialog -->
-        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" style="margin-bottom: var(--ep-space-4);">
+        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="ep-mb-4">
             <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()" data-testid="variant-create-open">+ New Variant</button>
         </div>
 
@@ -91,7 +91,7 @@
                     </select>
                 </div>
             </div>
-            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
             <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
@@ -188,7 +188,7 @@
             </div>
             <div th:if="${#lists.isEmpty(variants)}" class="detail-section">
                 <div class="detail-section-body">
-                    <div class="empty-state" style="padding: var(--ep-space-8);">
+                    <div class="empty-state ep-p-8">
                         <div class="empty-state-title">No variants yet</div>
                         <div class="empty-state-description">Create a variant to start designing your template.</div>
                     </div>

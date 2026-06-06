@@ -10,7 +10,7 @@
         </div>
         <div class="ep-dialog-body">
             <!-- Error message -->
-            <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
 
@@ -112,13 +112,13 @@
                 </tbody>
             </table>
 
-            <div th:if="${#lists.isEmpty(versions)}" class="empty-state" style="padding: var(--ep-space-6);">
+            <div th:if="${#lists.isEmpty(versions)}" class="empty-state ep-p-6">
                 <div class="empty-state-title">No versions yet</div>
                 <div class="empty-state-description">Create a draft to start building this variant.</div>
             </div>
 
             <!-- Create Draft button if no draft exists -->
-            <div th:unless="${variant.hasDraft}" style="margin-top: var(--ep-space-4);">
+            <div th:unless="${variant.hasDraft}" class="ep-mt-4">
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                       method="post"
                       th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
