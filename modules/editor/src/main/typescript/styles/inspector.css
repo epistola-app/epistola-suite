@@ -57,6 +57,12 @@
     margin-bottom: var(--ep-space-0-5);
   }
 
+  .inspector-field-error {
+    color: var(--ep-destructive);
+    font-size: var(--ep-text-xs);
+    margin-top: var(--ep-space-1);
+  }
+
   /* Compact inputs for inspector */
   .epistola-inspector .ep-input,
   .epistola-inspector .ep-select,
@@ -477,5 +483,27 @@
     background: var(--ep-purple-50, #f5f3ff);
     padding: 0 4px;
     border-radius: 2px;
+  }
+
+  .inspector-stretch {
+    width: 100%;
+  }
+
+  .inspector-muted-text {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .inspector-destructive-text {
+    color: var(--ep-destructive);
+  }
+
+  .inspector-missing-text {
+    color: var(--ep-destructive);
+    margin-left: 4px;
+  }
+
+  .inspector-mb2 {
+    margin-bottom: var(--ep-space-2);
   }
 }

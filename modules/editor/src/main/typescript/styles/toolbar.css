@@ -25,6 +25,12 @@
     letter-spacing: var(--ep-tracking-tight);
   }
 
+  .toolbar-save-group {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
   .toolbar-separator {
     width: 1px;
     height: 1.25rem;

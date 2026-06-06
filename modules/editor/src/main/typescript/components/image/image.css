@@ -24,6 +24,10 @@
     min-height: 2rem;
   }
 
+  .canvas-image-wrapper--clickable {
+    cursor: pointer;
+  }
+
   .canvas-image {
     max-width: 100%;
     display: block;

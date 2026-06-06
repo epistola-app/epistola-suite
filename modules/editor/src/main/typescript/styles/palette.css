@@ -23,6 +23,11 @@
     padding: var(--ep-space-1) var(--ep-space-2);
   }
 
+  .palette-muted {
+    font-size: 11px;
+    color: var(--ep-gray-400);
+  }
+
   .palette-item {
     display: flex;
     align-items: center;

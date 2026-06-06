@@ -10,6 +10,11 @@
     padding: var(--ep-space-2);
   }
 
+  .tree-node-child-count {
+    font-size: 10px;
+    color: var(--ep-gray-400);
+  }
+
   .tree-node {
     cursor: pointer;
     user-select: none;
