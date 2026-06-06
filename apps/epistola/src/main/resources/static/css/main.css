@@ -544,6 +544,7 @@ main.regular .empty-message {
 
 .progress-bar {
   height: 100%;
+  width: var(--ep-bar-width, 0%);
   background-color: var(--ep-primary);
   border-radius: var(--ep-radius-full);
   transition: width 0.3s ease;
@@ -1723,4 +1724,10 @@ a.stat-card:hover {
 }
 .ep-pl-5 {
   padding-left: var(--ep-space-5);
+}
+.ep-depth-indent {
+  padding-left: calc(var(--ep-depth, 0) * 16px);
+}
+.ep-opacity-half {
+  opacity: 0.5;
 }
