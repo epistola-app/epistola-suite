@@ -78,9 +78,8 @@
                               th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                         <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
                         <span th:if="${cl.lastRefreshError != null}"
-                              class="badge badge-error"
-                              th:title="${cl.lastRefreshError}"
-                              class="ep-ml-2">refresh failed</span>
+                              class="badge badge-error ep-ml-2"
+                              th:title="${cl.lastRefreshError}">refresh failed</span>
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
