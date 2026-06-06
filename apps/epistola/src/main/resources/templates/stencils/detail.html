@@ -159,8 +159,7 @@
                         </thead>
                         <tbody>
                             <tr th:each="u : ${usage}"
-                                th:classappend="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'} ? 'usage-row-selectable' : ''"
-                                th:style="${u.catalogType.name() == 'SUBSCRIBED'} ? 'opacity: 0.5;' : ''">
+                                th:classappend="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'} ? 'usage-row-selectable' : (${u.catalogType.name() == 'SUBSCRIBED'} ? 'ep-opacity-half' : '')">
                                 <td>
                                     <input th:if="${u.versionStatus == 'draft' and u.catalogType.name() == 'AUTHORED'}"
                                            type="checkbox" class="usage-select"

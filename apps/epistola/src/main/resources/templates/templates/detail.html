@@ -61,7 +61,7 @@
                     <div class="form-group" th:each="d : ${attributeDescriptors}"
                          th:data-attr-row="${d.qualifiedKey}"
                          th:with="hasValue=${(presentQualifiedKeys != null and presentQualifiedKeys.contains(d.qualifiedKey)) or (presentRawKeys != null and presentRawKeys.contains(d.bareSlug))}"
-                         th:style="${hasValue} ? '' : 'display: none;'">
+                          th:classappend="${hasValue} ? '' : 'ep-hidden'">
                         <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
                             <span th:text="${d.displayName}"></span>
                             <code class="text-muted ep-text-xs ep-ml-2" 

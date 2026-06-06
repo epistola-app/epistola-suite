@@ -87,7 +87,7 @@
                 <div class="detail-section-body">
                     <div class="progress-container">
                         <div class="progress-bar"
-                             th:style="'width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
+                             th:style="'--ep-bar-width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
                         </div>
                     </div>
                 </div>
