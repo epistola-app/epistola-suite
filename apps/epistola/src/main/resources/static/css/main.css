@@ -1513,3 +1513,71 @@ a.stat-card:hover {
   color: var(--ep-muted-foreground);
   margin-top: var(--ep-space-0-5);
 }
+
+/* ── Spacing utilities ────────────────────────────────────────────────── */
+
+.ep-m-0 {
+  margin: 0;
+}
+.ep-mb-0 {
+  margin-bottom: 0;
+}
+.ep-mt-1 {
+  margin-top: var(--ep-space-1);
+}
+.ep-mt-2 {
+  margin-top: var(--ep-space-2);
+}
+.ep-mt-3 {
+  margin-top: var(--ep-space-3);
+}
+.ep-mt-4 {
+  margin-top: var(--ep-space-4);
+}
+.ep-mb-1 {
+  margin-bottom: var(--ep-space-1);
+}
+.ep-mb-2 {
+  margin-bottom: var(--ep-space-2);
+}
+.ep-mb-3 {
+  margin-bottom: var(--ep-space-3);
+}
+.ep-mb-4 {
+  margin-bottom: var(--ep-space-4);
+}
+.ep-mb-6 {
+  margin-bottom: var(--ep-space-6);
+}
+.ep-ml-1 {
+  margin-left: var(--ep-space-1);
+}
+.ep-ml-2 {
+  margin-left: var(--ep-space-2);
+}
+.ep-mr-1 {
+  margin-right: var(--ep-space-1);
+}
+.ep-my-3 {
+  margin-top: var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+}
+
+.ep-p-3 {
+  padding: var(--ep-space-3);
+}
+.ep-p-4 {
+  padding: var(--ep-space-4);
+}
+.ep-p-6 {
+  padding: var(--ep-space-6);
+}
+.ep-p-8 {
+  padding: var(--ep-space-8);
+}
+.ep-pl-4 {
+  padding-left: var(--ep-space-4);
+}
+.ep-pl-5 {
+  padding-left: var(--ep-space-5);
+}
