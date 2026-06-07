@@ -1941,6 +1941,18 @@ a.stat-card:hover {
   font-size: var(--ep-text-sm);
 }
 
+.contract-version-badge {
+  margin-left: var(--ep-space-1);
+}
+
+.contract-status-spacer {
+  flex: 1;
+}
+
+.outdated-badge {
+  margin-right: var(--ep-space-1);
+}
+
 /* ── Feedback detail page ──────────────────────────────────────────── */
 
 .feedback-status-form {
