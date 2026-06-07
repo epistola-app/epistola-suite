@@ -161,12 +161,15 @@ class SecurityConfig(
         http
             .authorizeHttpRequests { authorize ->
                 authorize
-                    // Public endpoints. /livez + /readyz are the Kubernetes probe
-                    // paths add-additional-paths exposes on the MAIN port (the
-                    // actuator endpoints themselves move to the management port in
-                    // production); /actuator/** entries cover single-port profiles.
+                    // /livez + /readyz are the Kubernetes probe paths
+                    // add-additional-paths exposes on the MAIN port; they are
+                    // root-level (not under /actuator), so the management chain's
+                    // EndpointRequest.toAnyEndpoint() matcher does not cover them
+                    // and the UI chain must permit them. The actuator endpoints
+                    // themselves (/actuator/**) are handled by managementSecurityFilterChain
+                    // (@Order(0), permit-all) in every profile — and live on a
+                    // separate port in prod — so they never reach this chain.
                     .requestMatchers("/livez", "/readyz").permitAll()
-                    .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error", "/errors/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled

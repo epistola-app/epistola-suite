@@ -37,9 +37,23 @@ import org.springframework.context.annotation.DependsOn
 class MetricsConfig {
 
     /**
+     * Resolves the identity tag values **once**, at startup. This is correct, not
+     * a limitation:
+     *
+     *  - Micrometer common tags are static by design — a metrics backend keys a
+     *    time series by its tag set, so mutating `installation_id` mid-process
+     *    would split one series into two (worse than a stable value).
+     *  - `installation_id` is itself invariant: `InstallationService` seeds the
+     *    `app_metadata` row exactly once via Flyway and it stays fixed for the
+     *    lifetime of the database (every pod reads the same value). A genuine
+     *    identity change (e.g. the database is swapped under a running pod) is
+     *    picked up on the next pod restart, which is the right granularity.
+     *
      * `installation_id` is read from `app_metadata`, so this bean must not be
      * created before Flyway has run — hence the explicit `@DependsOn`
-     * (JDBI has no implicit depends-on like `JdbcOperations` does).
+     * (JDBI has no implicit depends-on like `JdbcOperations` does). The
+     * `runCatching → "unknown"` fallback only guards a startup read failure;
+     * it never crashes boot over a metric tag.
      */
     @Bean
     @DependsOn("flywayInitializer")
