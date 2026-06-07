@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
@@ -47,7 +48,10 @@ class BuildTenantSnapshotHandler(
     private val objectMapper: ObjectMapper,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
+    private val buildProperties: BuildProperties?,
 ) : CommandHandler<BuildTenantSnapshot, TenantSnapshot> {
+    private val suiteVersion: String get() = buildProperties?.version ?: "dev"
+
     override fun handle(command: BuildTenantSnapshot): TenantSnapshot {
         val catalogs =
             ListCatalogs(command.tenantKey)
@@ -86,6 +90,7 @@ class BuildTenantSnapshotHandler(
             SnapshotManifest(
                 schemaVersion = SNAPSHOT_SCHEMA_VERSION,
                 tenantKey = command.tenantKey.value,
+                suiteVersion = suiteVersion,
                 createdAt = capturedAt.toString(),
                 snapshotFingerprint = snapshotFingerprint,
                 catalogs = entries,
@@ -95,6 +100,7 @@ class BuildTenantSnapshotHandler(
         return TenantSnapshot(
             tenantKey = command.tenantKey,
             snapshotFingerprint = snapshotFingerprint,
+            suiteVersion = suiteVersion,
             capturedAt = capturedAt,
             catalogCount = entries.size,
             bytes = bytes,

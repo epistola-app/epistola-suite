@@ -98,6 +98,7 @@ class BackupsHandler(
         capturedAt = FORMATTER.format(capturedAt.atOffset(ZoneOffset.UTC)),
         size = humanSize(sizeBytes),
         catalogCount = catalogCount,
+        suiteVersion = suiteVersion.ifBlank { "—" },
         isLatest = isLatest,
     )
 
@@ -106,6 +107,7 @@ class BackupsHandler(
         val capturedAt: String,
         val size: String,
         val catalogCount: Int,
+        val suiteVersion: String,
         val isLatest: Boolean,
     )
 

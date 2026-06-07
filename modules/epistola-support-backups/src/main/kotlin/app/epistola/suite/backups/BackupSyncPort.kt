@@ -46,6 +46,7 @@ data class RemoteSnapshot(
     val snapshotFingerprint: String,
     val sizeBytes: Long,
     val catalogCount: Int,
+    val suiteVersion: String,
     val capturedAt: Instant,
     val createdAt: Instant,
     val isLatest: Boolean,

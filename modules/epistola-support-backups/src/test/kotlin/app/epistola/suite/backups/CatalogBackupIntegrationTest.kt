@@ -52,10 +52,15 @@ class CatalogBackupIntegrationTest : IntegrationTestBase() {
 
         // The created tenant also has the bootstrap system catalog — it must NOT be in the snapshot.
         // (It also gets a tenant-owned `default` catalog, which IS backed up.)
-        val entries = readManifest(snapshot.bytes).catalogs
+        val manifest = readManifest(snapshot.bytes)
+        val entries = manifest.catalogs
         assertThat(entries.map { it.catalogKey }).contains("alpha", "beta")
         assertThat(entries.map { it.catalogKey }).doesNotContain(SYSTEM_CATALOG_KEY.value)
         assertThat(snapshot.catalogCount).isEqualTo(entries.size)
+
+        // The running suite version is recorded (no BuildProperties in tests → "dev").
+        assertThat(manifest.suiteVersion).isEqualTo("dev")
+        assertThat(snapshot.suiteVersion).isEqualTo("dev")
 
         val zipPaths = zipEntryNames(snapshot.bytes)
         assertThat(zipPaths).contains("snapshot.json", "catalogs/alpha.zip", "catalogs/beta.zip")

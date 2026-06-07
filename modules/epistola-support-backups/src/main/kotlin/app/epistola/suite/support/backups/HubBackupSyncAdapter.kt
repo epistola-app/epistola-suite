@@ -53,6 +53,7 @@ class HubBackupSyncAdapter(
                 .setTenant(snapshot.tenantKey.value)
                 .setSnapshotFingerprint(snapshot.snapshotFingerprint)
                 .setCatalogCount(snapshot.catalogCount)
+                .setSuiteVersion(snapshot.suiteVersion)
                 .setCapturedAt(snapshot.capturedAt.toTimestamp())
                 .build()
         val response = client.uploadSnapshot(header, snapshot.bytes)
@@ -67,6 +68,7 @@ class HubBackupSyncAdapter(
                 snapshotFingerprint = s.snapshotFingerprint,
                 sizeBytes = s.sizeBytes,
                 catalogCount = s.catalogCount,
+                suiteVersion = s.suiteVersion,
                 capturedAt = s.capturedAt.toInstant(),
                 createdAt = s.createdAt.toInstant(),
                 isLatest = s.isLatest,

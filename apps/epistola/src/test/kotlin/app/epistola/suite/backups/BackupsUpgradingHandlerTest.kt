@@ -47,8 +47,9 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         val body = response.body!!
         assertThat(body).contains("Backups")
         assertThat(body).contains("Back up now")
-        // The fake returns one snapshot — its size + catalog count render in the table.
+        // The fake returns one snapshot — its size, suite version + catalog count render.
         assertThat(body).contains("3.0 MB")
+        assertThat(body).contains("1.4.0")
         assertThat(body).contains("Latest")
         // Nav link is present because the support-backups toggle is on.
         assertThat(body).contains("/tenants/${tenant.id.value}/upgrading")
@@ -83,6 +84,7 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
                 snapshotFingerprint = "f".repeat(64),
                 sizeBytes = 3L * 1024 * 1024,
                 catalogCount = 4,
+                suiteVersion = "1.4.0",
                 capturedAt = Instant.parse("2026-01-02T02:00:00Z"),
                 createdAt = Instant.parse("2026-01-02T02:00:00Z"),
                 isLatest = true,

@@ -45,6 +45,7 @@
             <thead>
                 <tr>
                     <th>Captured</th>
+                    <th>Suite version</th>
                     <th>Catalogs</th>
                     <th>Size</th>
                     <th></th>
@@ -54,6 +55,7 @@
             <tbody>
                 <tr th:each="snap : ${snapshots}">
                     <td th:text="${snap.capturedAt}">2026-01-01 02:00 UTC</td>
+                    <td th:text="${snap.suiteVersion}">1.4.0</td>
                     <td th:text="${snap.catalogCount}">3</td>
                     <td th:text="${snap.size}">1.2 MB</td>
                     <td>
