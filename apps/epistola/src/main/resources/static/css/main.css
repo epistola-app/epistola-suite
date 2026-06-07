@@ -2734,6 +2734,85 @@ a.stat-card:hover {
   opacity: 0.6;
 }
 
+/* ── Catalog list page ──────────────────────────────────────────────── */
+
+.catalog-name {
+  font-weight: 500;
+}
+
+.catalog-id {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+.catalog-muted {
+  color: var(--ep-muted-foreground);
+}
+
+.catalog-radio-group {
+  display: flex;
+  gap: var(--ep-space-4);
+  margin-top: var(--ep-space-2);
+}
+
+.catalog-radio-label {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+.catalog-bump-btn {
+  font-weight: 500;
+}
+
+.catalog-zip-label {
+  font-size: var(--ep-text-xs);
+}
+
+.catalog-check-failed {
+  font-size: var(--ep-text-xs);
+}
+
+.release-version-row {
+  margin-top: var(--ep-space-1);
+}
+
+.catalog-bump-row {
+  display: flex;
+  gap: var(--ep-space-2);
+  margin-top: var(--ep-space-1);
+}
+
+.catalog-alert-body {
+  margin-top: var(--ep-space-1);
+}
+
+.catalog-conflict-list {
+  margin-top: var(--ep-space-1);
+  padding-left: var(--ep-space-5);
+}
+
+.upgrade-version-row {
+  margin-top: var(--ep-space-1);
+}
+
+.upgrade-conflict-list {
+  margin-top: var(--ep-space-1);
+  padding-left: var(--ep-space-4);
+}
+
+.upgrade-changes-list {
+  margin-top: var(--ep-space-1);
+  padding-left: var(--ep-space-4);
+}
+
+.upgrade-new-resources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1);
+  margin-top: var(--ep-space-1);
+}
+
 /* ── Stencil upgrade select ───────────────────────────────────────────── */
 .stencil-upgrade-select {
   width: auto;
