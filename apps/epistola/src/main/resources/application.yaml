@@ -120,6 +120,15 @@ epistola:
     generation-results-retention-months: 1
     maintenance-cron: "0 0 2 * * ?" # daily at 02:00
 
+  # Observability — installation-wide stat gauges (epistola.installation.*).
+  # Every replica runs the schedule, but only the holder of a Postgres advisory
+  # lock publishes the counts each round (the rest report NaN, which is omitted),
+  # so there is exactly one live series across the fleet.
+  metrics:
+    installation-stats:
+      enabled: true
+      interval-ms: 60000
+
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
     feedback: true
@@ -174,12 +183,32 @@ management:
     health:
       probes:
         enabled: true
+        # Expose liveness/readiness ALSO at /livez and /readyz on the MAIN
+        # application port. In production the actuator endpoints move to a
+        # separate management port (see application-prod.yaml); Kubernetes
+        # probes must stay on the main port because the management context can
+        # report healthy even when the main app is not. Always-on (not just
+        # prod) so the Helm probe paths work in every profile.
+        add-additional-paths: true
       show-details: never
   health:
     livenessState:
       enabled: true
     readinessState:
       enabled: true
+  metrics:
+    distribution:
+      # Publish histogram buckets for latency timers so percentiles (p95/p99)
+      # can be aggregated server-side ACROSS instances. Client-side percentiles
+      # cannot be summed; histogram buckets can. Required for trustworthy
+      # latency dashboards over a remote fleet.
+      percentiles-histogram:
+        http.server.requests: true
+        epistola.generation.document.duration: true
+        epistola.storage.operation.duration: true
+        epistola.mediator.command.duration: true
+        epistola.mediator.query.duration: true
+        epistola.jobs.duration: true
   otlp:
     metrics:
       export:

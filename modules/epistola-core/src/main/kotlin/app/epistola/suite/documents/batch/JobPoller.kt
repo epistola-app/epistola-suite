@@ -25,6 +25,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Scheduled poller that claims and executes pending document generation jobs.
@@ -79,6 +80,11 @@ class JobPoller(
 
     // Cached pending count, updated each drain cycle
     private val pendingCount = AtomicInteger(0)
+
+    // Wall-clock of the last drain cycle, for the liveness heartbeat exposed to
+    // the health indicator. The scheduled poll fires every interval-ms even when
+    // idle, so a stale value means the poller thread is wedged.
+    private val lastPollAtMs = AtomicLong(System.currentTimeMillis())
 
     // Micrometer counters for observability
     private val jobsClaimedCounter = meterRegistry.counter("epistola.jobs.claimed.total")
@@ -179,12 +185,20 @@ class JobPoller(
     }
 
     /**
+     * Milliseconds since the last drain cycle. Consumed by the job-poller health
+     * indicator: the scheduled poll fires every `interval-ms` even when idle, so
+     * a large value means the drain thread is wedged.
+     */
+    fun lastPollAgeMillis(): Long = System.currentTimeMillis() - lastPollAtMs.get()
+
+    /**
      * Continuously claim and process jobs until queue empty or at capacity.
      * Runs on dedicated single thread - no concurrency issues with claiming.
      */
     private fun drain() {
         while (true) {
             drainRequested.set(false) // Reset flag, will be set again if more work needed
+            lastPollAtMs.set(System.currentTimeMillis()) // heartbeat for the health indicator
 
             // Update pending count for metrics (lightweight query, piggybacks on poll cycle)
             updatePendingCount()
