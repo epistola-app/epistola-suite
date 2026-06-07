@@ -43,7 +43,7 @@
                     <dt>Template</dt>
                     <dd>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <code class="text-muted ep-text-xs" th:text="${run.templateKey}" ></code>
+                        <code class="run-template-key" th:text="${run.templateKey}" ></code>
                     </dd>
                     <dt>Variant</dt>
                     <dd th:text="${run.variantKey}"></dd>
@@ -53,7 +53,7 @@
                         <span th:if="${run.environmentKey != null}">
                             Environment: <code th:text="${run.environmentKey}"></code>
                         </span>
-                        <span th:if="${run.versionKey == null and run.environmentKey == null}" class="text-muted">-</span>
+                        <span th:if="${run.versionKey == null and run.environmentKey == null}" class="run-empty-value">-</span>
                     </dd>
                     <dt>Target Count</dt>
                     <dd th:text="${run.targetCount}"></dd>
@@ -78,7 +78,7 @@
             <div th:if="${run.status.name() == 'RUNNING'}" class="detail-section">
                 <div class="detail-section-header">
                     <h2>Progress</h2>
-                    <span class="text-muted ep-text-sm" >
+                    <span class="run-progress-label">
                         <strong th:text="${run.completedCount + run.failedCount}"></strong> /
                         <strong th:text="${run.targetCount}"></strong>
                         (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
