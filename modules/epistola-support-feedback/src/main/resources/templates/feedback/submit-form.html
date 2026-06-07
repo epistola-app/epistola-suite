@@ -153,8 +153,12 @@
                 // Remove button
                 screenshotRemove.addEventListener('click', clearScreenshot);
 
-                // Capture buttons — dialog lifecycle managed here, screenshot module is decoupled
-                const dialog = document.getElementById('feedback-fab-dialog');
+                // Capture buttons — dialog lifecycle managed here, screenshot module is decoupled.
+                // The submit form is hosted by whichever dialog opened it: the FAB dialog
+                // (#feedback-fab-dialog) or the feedback list page dialog (#feedback-dialog).
+                // Resolve the enclosing <dialog> rather than hardcoding one id, so the overlay
+                // is hidden during capture regardless of where the form was opened from.
+                const dialog = screenshotActions.closest('dialog');
                 const fab = document.getElementById('feedback-fab');
                 const popover = document.getElementById('feedback-popover');
 
