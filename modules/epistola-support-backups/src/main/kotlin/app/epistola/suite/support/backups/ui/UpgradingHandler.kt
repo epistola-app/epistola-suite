@@ -1,0 +1,82 @@
+package app.epistola.suite.support.backups.ui
+
+import app.epistola.hub.client.error.HubEntitlementDeniedException
+import app.epistola.suite.backups.CatalogBackupService
+import app.epistola.suite.backups.CompatibilityCheckResult
+import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.requirePermission
+import app.epistola.suite.tenants.queries.GetTenant
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
+import org.springframework.web.servlet.function.ServerRequest
+import org.springframework.web.servlet.function.ServerResponse
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+
+/**
+ * UI handler for the Support → Upgrading page: shows the compatibility-check results the
+ * company side has recorded for the tenant (read-only). Results are fetched live from the hub on
+ * each load — there is no local store — grouped by the Epistola version that was tested.
+ */
+@Component
+class UpgradingHandler(
+    private val backupService: CatalogBackupService,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    fun list(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+
+        var entitled = true
+        val groups =
+            try {
+                backupService
+                    .listCompatibilityResults(tenantId.key)
+                    .groupBy { it.targetVersion }
+                    .map { (version, results) -> VersionGroup(version, results.map { it.toView() }) }
+                    .sortedByDescending { it.targetVersion }
+            } catch (e: HubEntitlementDeniedException) {
+                log.debug("Tenant {} is not entitled to compatibility checks: {}", tenantId.key.value, e.message)
+                entitled = false
+                emptyList()
+            }
+
+        return ServerResponse.ok().page("upgrading/list") {
+            "pageTitle" to "Upgrading - Epistola"
+            "tenant" to tenant
+            "tenantId" to tenantId.key
+            "activeNavSection" to "upgrading"
+            "ready" to backupService.isReady()
+            "entitled" to entitled
+            "groups" to groups
+        }
+    }
+
+    private fun CompatibilityCheckResult.toView(): ResultView = ResultView(
+        catalogKey = catalogKey ?: "(all catalogs)",
+        verdict = verdict.name,
+        detail = detail.orEmpty(),
+        occurredAt = FORMATTER.format(occurredAt.atOffset(ZoneOffset.UTC)),
+    )
+
+    data class VersionGroup(
+        val targetVersion: String,
+        val results: List<ResultView>,
+    )
+
+    data class ResultView(
+        val catalogKey: String,
+        val verdict: String,
+        val detail: String,
+        val occurredAt: String,
+    )
+
+    private companion object {
+        val FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'")
+    }
+}

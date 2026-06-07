@@ -68,6 +68,10 @@ class ShellModelInterceptor(
                 featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_FEEDBACK),
             )
             modelAndView.addObject(
+                "backupsEnabled",
+                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS),
+            )
+            modelAndView.addObject(
                 "stencilParametersEnabled",
                 featureToggleService.isEnabled(tenantKey, KnownFeatures.STENCIL_PARAMETERS),
             )
@@ -91,6 +95,8 @@ class ShellModelInterceptor(
         "/assets" in path -> "assets"
         "/settings" in path -> "settings"
         "/feedback" in path -> "feedback"
+        "/backups" in path -> "backups"
+        "/upgrading" in path -> "upgrading"
         "/api-keys" in path -> "api-keys"
         "/features" in path -> "features"
         "/catalogs" in path -> "catalogs"

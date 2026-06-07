@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Upgrading</h1>
+        </div>
+
+        <p class="page-description">
+            Before a new Epistola release ships, Epistola tests this tenant's catalogs against it and
+            records the results here. A <strong>pass</strong> means your catalogs work as-is; a
+            <strong>warning</strong> or <strong>failure</strong> flags something to review before you
+            upgrade.
+        </p>
+
+        <div th:if="${!entitled}" class="alert alert-info" role="status">
+            This installation is not entitled to compatibility checks. Contact Epistola for a service contract to enable them.
+        </div>
+        <div th:if="${entitled and !ready}" class="alert alert-info" role="status">
+            The installation is still registering with the Epistola hub. Compatibility results become available once registration completes.
+        </div>
+
+        <div th:if="${entitled and #lists.isEmpty(groups)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='shield-check', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No compatibility results yet</div>
+            <div class="empty-state-description">Results appear here when Epistola tests your catalogs against an upcoming release.</div>
+        </div>
+
+        <div th:each="group : ${groups}" class="ep-card" style="margin-bottom: var(--ep-space-4);">
+            <div class="ep-card-header">
+                <h2>Epistola <span th:text="${group.targetVersion}">2.4.0</span></h2>
+            </div>
+            <table class="ep-table">
+                <thead>
+                    <tr>
+                        <th>Catalog</th>
+                        <th>Verdict</th>
+                        <th>Detail</th>
+                        <th>Checked</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${group.results}">
+                        <td th:text="${r.catalogKey}">my-catalog</td>
+                        <td>
+                            <span class="ep-badge"
+                                  th:classappend="${r.verdict == 'PASS'} ? 'ep-badge-success' : (${r.verdict == 'WARN'} ? 'ep-badge-warning' : (${r.verdict == 'FAIL'} ? 'ep-badge-error' : 'ep-badge-neutral'))"
+                                  th:text="${r.verdict}">PASS</span>
+                        </td>
+                        <td th:text="${r.detail}"></td>
+                        <td th:text="${r.occurredAt}">2026-01-01 02:00 UTC</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </th:block>
+</body>
+</html>

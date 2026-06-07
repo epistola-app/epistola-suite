@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Backups</h1>
+            <div class="page-actions">
+                <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
+                    <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${!ready or !entitled}">
+                        <th:block th:replace="~{fragments/icon :: icon(name='upload-cloud', class='ep-icon')}" />
+                        Back up now
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <p class="page-description">
+            A backup is a point-in-time copy of all of this tenant's catalogs, stored on the Epistola
+            hub. Daily backups run automatically; you can also back up on demand. Restoring is
+            destructive — it replaces every catalog in this tenant with the snapshot's contents.
+        </p>
+
+        <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
+        <div th:if="${saved == 'restore'}" class="alert alert-success" role="status">Tenant restored from the snapshot.</div>
+        <div th:if="${error == 'not-entitled'}" class="alert alert-error" role="alert">This installation is not entitled to backups — contact Epistola for a service contract.</div>
+        <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
+        <div th:if="${error == 'restore-failed'}" class="alert alert-error" role="alert">The restore failed and was rolled back. Please try again or check the logs.</div>
+
+        <div th:if="${!entitled}" class="alert alert-info" role="status">
+            This installation is not entitled to managed backups. Contact Epistola for a service contract to enable them.
+        </div>
+        <div th:if="${entitled and !ready}" class="alert alert-info" role="status">
+            The installation is still registering with the Epistola hub. Backups become available once registration completes.
+        </div>
+
+        <div th:if="${entitled and #lists.isEmpty(snapshots)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No backups yet</div>
+            <div class="empty-state-description">Run a backup now, or wait for the next scheduled daily backup.</div>
+        </div>
+
+        <table th:if="${!#lists.isEmpty(snapshots)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Captured</th>
+                    <th>Catalogs</th>
+                    <th>Size</th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="snap : ${snapshots}">
+                    <td th:text="${snap.capturedAt}">2026-01-01 02:00 UTC</td>
+                    <td th:text="${snap.catalogCount}">3</td>
+                    <td th:text="${snap.size}">1.2 MB</td>
+                    <td>
+                        <span th:if="${snap.isLatest}" class="ep-badge ep-badge-success">Latest</span>
+                    </td>
+                    <td style="text-align: right;">
+                        <button type="button"
+                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                data-confirm-title="Restore backup"
+                                data-confirm-target="body"
+                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant and replaces it with the backup. This cannot be undone.',
+                                         data-confirm-url=@{/tenants/{tenantId}/backups/{snapshotId}/restore(tenantId=${tenantId},snapshotId=${snap.snapshotId})}"
+                                onclick="openConfirmDialog(this)">
+                            <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            Restore
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+</body>
+</html>
