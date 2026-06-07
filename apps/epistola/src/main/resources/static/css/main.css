@@ -555,6 +555,20 @@ main.regular .empty-message {
   transition: width 0.3s ease;
 }
 
+/* ── Load test list page ──────────────────────────────────────────────── */
+
+.empty-state-action {
+  margin-top: var(--ep-space-4);
+}
+
+.template-separator {
+  color: var(--ep-muted-foreground);
+}
+
+.progress-percent {
+  color: var(--ep-muted-foreground);
+}
+
 /* ── Error summary table ──────────────────────────────────────────────── */
 
 .error-summary {
