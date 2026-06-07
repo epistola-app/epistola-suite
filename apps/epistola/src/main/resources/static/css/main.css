@@ -753,6 +753,14 @@ main.regular .empty-message {
   color: var(--ep-muted-foreground);
 }
 
+.login-popup-notice {
+  margin-bottom: var(--ep-space-6);
+}
+
+.login-btn {
+  width: 100%;
+}
+
 .login-divider::before,
 .login-divider::after {
   content: '';
