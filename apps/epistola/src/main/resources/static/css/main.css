@@ -880,6 +880,11 @@ a.stat-card:hover {
   padding: 0;
 }
 
+.last-modified {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
 /* ── Description list (key-value metadata) ───────────────────────────── */
 
 .description-list {
