@@ -1945,10 +1945,15 @@ a.stat-card:hover {
 /* ── Feedback submit-success dialog ────────────────────────────────────── */
 .feedback-success-body {
   padding: var(--ep-space-8) var(--ep-space-4);
+  text-align: center;
 }
 .feedback-success-icon {
   color: var(--ep-success);
   margin-bottom: var(--ep-space-3);
+}
+.feedback-success-title {
+  font-weight: 500;
+  margin-bottom: var(--ep-space-2);
 }
 .feedback-success-message {
   color: var(--ep-muted-foreground);
