@@ -2813,6 +2813,69 @@ a.stat-card:hover {
   margin-top: var(--ep-space-1);
 }
 
+/* ── Themes list page ────────────────────────────────────────────────── */
+
+.theme-name {
+  font-weight: 500;
+}
+
+.theme-default-badge {
+  margin-left: var(--ep-space-2);
+}
+
+.theme-empty {
+  color: var(--ep-muted-foreground);
+}
+
+.theme-form {
+  display: inline;
+}
+
+/* ── API key created page ────────────────────────────────────────────── */
+
+.api-key-created-alert {
+  margin-bottom: var(--ep-space-4);
+}
+
+.api-key-row {
+  display: flex;
+  gap: var(--ep-space-2);
+}
+
+.api-key-secret-input {
+  font-family: var(--ep-font-mono);
+  flex: 1;
+}
+
+.api-key-attributes {
+  margin-top: var(--ep-space-4);
+}
+
+.api-key-actions {
+  margin-top: var(--ep-space-4);
+}
+
+/* ── Contract breaking dialog ────────────────────────────────────────── */
+
+.breaking-notice {
+  margin-bottom: var(--ep-space-3);
+}
+
+.breaking-changes-section {
+  margin-bottom: var(--ep-space-3);
+}
+
+.breaking-list {
+  margin-top: var(--ep-space-1);
+}
+
+.breaking-actions {
+  display: flex;
+  gap: var(--ep-space-2);
+  justify-content: flex-end;
+  margin-top: var(--ep-space-4);
+}
+
 /* ── Stencil upgrade select ───────────────────────────────────────────── */
 .stencil-upgrade-select {
   width: auto;
