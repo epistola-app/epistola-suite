@@ -115,11 +115,7 @@ class DocumentGenerationExecutor(
             )
 
             // Record document size
-            DistributionSummary.builder("epistola.generation.document.size.bytes")
-                .tag("tenant", request.tenantKey.value)
-                .tag("template", templateName)
-                .register(meterRegistry)
-                .record(document.sizeBytes.toDouble())
+            recordDocumentSize(request, document.sizeBytes)
 
             // Save document metadata and mark request as completed
             val transitioned = saveDocumentAndMarkCompleted(request.id, document)
@@ -168,15 +164,41 @@ class DocumentGenerationExecutor(
                 finalizeBatchIfComplete(batchId)
             }
         } finally {
-            sample.stop(
-                Timer.builder("epistola.generation.document.duration")
-                    .tag("tenant", request.tenantKey.value)
-                    .tag("outcome", outcome)
-                    .tag("template", templateName)
-                    .tag("path", renderPath)
-                    .register(meterRegistry),
-            )
+            sample.stop(documentDurationTimer(request, outcome, renderPath))
         }
+    }
+
+    /**
+     * Starts a generation-duration sample. Exposed so subclasses (e.g. the test
+     * fake executor) record the same `epistola.generation.document.duration`
+     * timer through the same code path as production.
+     */
+    protected fun startDocumentTimer(): Timer.Sample = Timer.start(meterRegistry)
+
+    /**
+     * Builds the per-tenant `epistola.generation.document.duration` timer. The
+     * `tenant` tag (bounded by tenants × templates) lets an operator attribute
+     * generation latency / failures per tenant. Single source of the tag set so
+     * the real and fake executors stay in parity.
+     */
+    protected fun documentDurationTimer(
+        request: DocumentGenerationRequest,
+        outcome: String,
+        renderPath: String,
+    ): Timer = Timer.builder("epistola.generation.document.duration")
+        .tag("tenant", request.tenantKey.value)
+        .tag("outcome", outcome)
+        .tag("template", request.templateKey.value)
+        .tag("path", renderPath)
+        .register(meterRegistry)
+
+    /** Records the per-tenant `epistola.generation.document.size.bytes` summary. */
+    protected fun recordDocumentSize(request: DocumentGenerationRequest, sizeBytes: Long) {
+        DistributionSummary.builder("epistola.generation.document.size.bytes")
+            .tag("tenant", request.tenantKey.value)
+            .tag("template", request.templateKey.value)
+            .register(meterRegistry)
+            .record(sizeBytes.toDouble())
     }
 
     /**
