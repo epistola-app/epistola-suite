@@ -1927,6 +1927,27 @@ a.stat-card:hover {
   display: block;
   font-size: var(--ep-text-sm);
   margin-top: 2px;
+  color: var(--ep-muted-foreground);
+}
+
+.pdfa-toggle-label strong {
+  font-size: var(--ep-text-sm);
+}
+
+/* ── Template settings page ──────────────────────────────────────────── */
+
+.template-name-input {
+  max-width: 300px;
+}
+
+.settings-description {
+  color: var(--ep-muted-foreground);
+  margin-bottom: var(--ep-space-4);
+  font-size: var(--ep-text-sm);
+}
+
+.form-group-no-margin {
+  margin-bottom: 0;
 }
 
 /* ── Contract status bar ──────────────────────────────────────────────── */
