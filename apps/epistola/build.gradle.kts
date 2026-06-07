@@ -26,11 +26,16 @@ dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
 
-    // Feedback module (feedback system with GitHub integration)
-    implementation(project(":modules:feedback"))
+    // Shared web/UI toolkit (HTMX functional-web DSL) used by the app handlers and
+    // by per-feature UI modules.
+    implementation(project(":modules:epistola-web"))
 
     // Support module (optional commercial-tier hub integration; off by default)
     implementation(project(":modules:epistola-support"))
+
+    // Feedback feature — full domain + UI + hub sync (freely usable; the hub sync server
+    // component is gated on epistola.support.enabled). Pulls in the feedback domain.
+    implementation(project(":modules:epistola-support-feedback"))
 
     // Catalog module (catalog exchange for sharing templates)
 

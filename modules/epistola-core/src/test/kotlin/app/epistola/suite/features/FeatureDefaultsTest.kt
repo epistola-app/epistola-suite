@@ -9,26 +9,26 @@ class FeatureDefaultsTest {
 
     @Test
     fun `isEnabled returns configured default for known feature`() {
-        val defaults = FeatureDefaults(feedback = true)
-        assertTrue(defaults.isEnabled(KnownFeatures.FEEDBACK))
+        val defaults = FeatureDefaults(supportFeedback = true)
+        assertTrue(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
     }
 
     @Test
     fun `isEnabled returns false when feature is disabled`() {
-        val defaults = FeatureDefaults(feedback = false)
-        assertFalse(defaults.isEnabled(KnownFeatures.FEEDBACK))
+        val defaults = FeatureDefaults(supportFeedback = false)
+        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
     }
 
     @Test
     fun `isEnabled returns false for unknown feature`() {
-        val defaults = FeatureDefaults(feedback = true)
+        val defaults = FeatureDefaults(supportFeedback = true)
         assertFalse(defaults.isEnabled(FeatureKey.of("unknown-feature")))
     }
 
     @Test
     fun `default constructor has feedback disabled`() {
         val defaults = FeatureDefaults()
-        assertFalse(defaults.isEnabled(KnownFeatures.FEEDBACK))
+        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
     }
 
     @Test

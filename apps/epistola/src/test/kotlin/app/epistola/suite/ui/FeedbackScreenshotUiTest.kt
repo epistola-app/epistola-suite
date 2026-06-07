@@ -60,6 +60,23 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         page.htmxSettle()
     }
 
+    /**
+     * Opens the submit-feedback dialog from the **feedback list page** (`#feedback-dialog`),
+     * which is a different host dialog than the FAB's (`#feedback-fab-dialog`). The "New
+     * Feedback" button both `showModal()`s the dialog and htmx-loads the submit form into it.
+     */
+    private fun openFeedbackDialogFromList() {
+        gotoAndReady("/tenants/${tenant.id}/feedback")
+        // The "New Feedback" button sits at the top of the page under the sticky nav, which
+        // intercepts a real pointer click. Dispatch the click event directly (it both
+        // showModal()s #feedback-dialog and htmx-loads the submit form) — the same
+        // dispatchEvent pattern used for the overlay below.
+        page.locator(".page-actions button.ep-btn-primary").dispatchEvent("click")
+        page.htmxSettle()
+        // Web-first: the dialog is open and the submit form has rendered.
+        assertThat(page.locator("#fb-capture-region")).isVisible()
+    }
+
     @Nested
     inner class ScreenshotButtons {
 
@@ -121,6 +138,32 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
 
             // A sub-threshold drag is a cancel → the dialog is restored.
             assertThat(page.locator("#feedback-fab-dialog")).isVisible()
+        }
+    }
+
+    @Nested
+    inner class ListPageDialog {
+
+        /**
+         * Regression: starting a region capture from the list-page dialog must hide that
+         * dialog (so the user can select the page beneath). Previously the capture script
+         * hardcoded `#feedback-fab-dialog`, so when opened from the list page the
+         * `#feedback-dialog` overlay stayed on screen during selection.
+         */
+        @Test
+        fun `capture region hides the list-page submit dialog`() {
+            openFeedbackDialogFromList()
+            assertThat(page.locator("#fb-capture-region")).isVisible()
+
+            page.locator("#fb-capture-region").click()
+
+            assertThat(page.locator(".fb-capture-overlay")).isVisible()
+            assertThat(page.locator("#feedback-dialog")).isHidden()
+
+            // Escape cancels and restores the list-page dialog.
+            page.keyboard().press("Escape")
+            assertThat(page.locator(".fb-capture-overlay")).hasCount(0)
+            assertThat(page.locator("#feedback-dialog")).isVisible()
         }
     }
 

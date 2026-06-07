@@ -131,7 +131,7 @@ epistola:
 
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
-    feedback: true
+    support-feedback: true
     stencil-parameters: true
 
   # Application-wide default locale used for date/number formatting.
@@ -140,14 +140,15 @@ epistola:
   i18n:
     default-locale: "en-US"
 
-  # Feedback sync configuration (provider-agnostic)
-  # Controls outbound sync retry and inbound polling.
+  # Feedback sync scheduling. Feedback syncs to epistola-hub when the support
+  # tier is enabled (epistola.support.enabled=true); otherwise these schedulers
+  # run but do nothing (no-op sync target). Sync is installation-wide.
   feedback:
     sync:
-      enabled: true # Enable outbound sync scheduler
-      retry-interval-ms: 60000 # Retry interval for failed syncs
+      enabled: true # Enable the outbound retry scheduler
+      retry-interval-ms: 60000 # Retry interval for failed pushes
       polling:
-        enabled: false # Enable inbound polling
+        enabled: false # Enable inbound polling (status/comment changes from the hub)
         interval-ms: 300000 # Poll interval (default 5 min)
 
   # Optional commercial support tier (epistola-hub integration).
