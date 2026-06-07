@@ -2492,6 +2492,100 @@ a.stat-card:hover {
   align-self: flex-end;
 }
 
+/* ── Stencil detail page ─────────────────────────────────────────────── */
+
+.stencil-readonly-notice {
+  color: var(--ep-muted-foreground);
+  margin-top: var(--ep-space-1);
+  font-size: var(--ep-text-sm);
+}
+
+.stencil-detail-section {
+  margin-bottom: var(--ep-space-6);
+}
+
+.stencil-empty {
+  color: var(--ep-muted-foreground);
+}
+
+.stencil-tag {
+  margin-right: var(--ep-space-1);
+}
+
+.stencil-empty-state {
+  padding: var(--ep-space-6);
+}
+
+.stencil-draft-actions {
+  margin-bottom: var(--ep-space-3);
+}
+
+.stencil-inline-form {
+  display: inline;
+}
+
+.stencil-upgrade-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+}
+
+.stencil-upgrade-status {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+.usage-row-subscribed {
+  opacity: 0.5;
+}
+
+.stencil-usage-link {
+  font-weight: 500;
+}
+
+/* ── Variants page ───────────────────────────────────────────────────── */
+
+.variants-toolbar {
+  margin-bottom: var(--ep-space-4);
+}
+
+.variant-attr-key {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  margin-left: var(--ep-space-2);
+}
+
+.variant-filter-key {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  margin-left: var(--ep-space-1);
+}
+
+.variant-add-attr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+.variant-error {
+  margin-bottom: var(--ep-space-4);
+}
+
+.variant-catalog-prefix {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+.variant-no-versions {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+.variant-empty-state {
+  padding: var(--ep-space-8);
+}
+
 /* ── Stencil upgrade select ───────────────────────────────────────────── */
 .stencil-upgrade-select {
   width: auto;
