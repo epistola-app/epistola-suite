@@ -19,6 +19,14 @@ interface FeedbackSyncPort {
     /** True when a real sync target is wired (i.e. not the no-op). Gates the drivers. */
     fun isEnabled(): Boolean
 
+    /**
+     * True once the sync target is actually usable — e.g. the installation has finished
+     * registering with the hub and has credentials. The drivers check this in addition to
+     * [isEnabled] so no remote call is attempted before registration completes. Defaults to
+     * true for in-memory/no-op implementations that have nothing to wait for.
+     */
+    fun isReady(): Boolean = true
+
     fun createTicket(feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult
 
     /** [feedback] must already be synced ([Feedback.externalRef] non-null). */

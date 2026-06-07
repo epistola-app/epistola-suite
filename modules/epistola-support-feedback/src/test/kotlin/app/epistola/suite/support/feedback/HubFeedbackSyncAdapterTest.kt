@@ -65,7 +65,7 @@ class HubFeedbackSyncAdapterTest {
             }
         val fb = feedback()
 
-        val result = HubFeedbackSyncAdapter(client).createTicket(fb, emptyList())
+        val result = HubFeedbackSyncAdapter(client, noopStore).createTicket(fb, emptyList())
 
         assertThat(result.externalRef).isEqualTo("hub-123")
         assertThat(result.externalUrl).isEqualTo("https://hub/f/hub-123")
@@ -100,7 +100,7 @@ class HubFeedbackSyncAdapterTest {
                 createdAt = OffsetDateTime.now(),
             )
 
-        val ref = HubFeedbackSyncAdapter(client).addComment(fb, comment)
+        val ref = HubFeedbackSyncAdapter(client, noopStore).addComment(fb, comment)
 
         assertThat(ref.externalCommentId).isEqualTo("c-1")
         assertThat(captured!!.feedbackId).isEqualTo("hub-123")
@@ -122,7 +122,7 @@ class HubFeedbackSyncAdapterTest {
             }
         val fb = feedback(externalRef = "hub-123")
 
-        HubFeedbackSyncAdapter(client).updateStatus(fb, FeedbackStatus.RESOLVED)
+        HubFeedbackSyncAdapter(client, noopStore).updateStatus(fb, FeedbackStatus.RESOLVED)
 
         assertThat(captured!!.feedbackId).isEqualTo("hub-123")
         assertThat(captured!!.status).isEqualTo(ProtoStatus.FEEDBACK_STATUS_RESOLVED)
@@ -170,7 +170,7 @@ class HubFeedbackSyncAdapterTest {
                 }
             }
 
-        val page = HubFeedbackSyncAdapter(client).fetchUpdates(afterSeq = 5)
+        val page = HubFeedbackSyncAdapter(client, noopStore).fetchUpdates(afterSeq = 5)
 
         assertThat(capturedAfterSeq).isEqualTo(5)
         assertThat(page.nextSeq).isEqualTo(8)
@@ -191,6 +191,23 @@ class HubFeedbackSyncAdapterTest {
     @Test
     fun `isEnabled is true`() {
         val client = object : EpistolaHubClient(store = noopStore) {}
-        assertThat(HubFeedbackSyncAdapter(client).isEnabled()).isTrue()
+        assertThat(HubFeedbackSyncAdapter(client, noopStore).isEnabled()).isTrue()
+    }
+
+    @Test
+    fun `isReady reflects whether the installation has registered`() {
+        val client = object : EpistolaHubClient(store = noopStore) {}
+
+        // No credentials yet → not ready.
+        assertThat(HubFeedbackSyncAdapter(client, noopStore).isReady()).isFalse()
+
+        // Credentials present → ready.
+        val registeredStore =
+            object : InstallationStore {
+                override fun load(): InstallationCredentials? = InstallationCredentials(java.util.UUID.randomUUID(), "ek_test")
+
+                override fun save(credentials: InstallationCredentials) = Unit
+            }
+        assertThat(HubFeedbackSyncAdapter(client, registeredStore).isReady()).isTrue()
     }
 }

@@ -1,6 +1,7 @@
 package app.epistola.suite.support.feedback
 
 import app.epistola.hub.client.EpistolaHubClient
+import app.epistola.hub.client.port.InstallationStore
 import app.epistola.hub.proto.v1.AddFeedbackCommentRequest
 import app.epistola.hub.proto.v1.FeedbackUpdate
 import app.epistola.hub.proto.v1.FetchFeedbackUpdatesRequest
@@ -37,10 +38,27 @@ import app.epistola.hub.proto.v1.FeedbackStatus as ProtoStatus
  */
 class HubFeedbackSyncAdapter(
     private val client: EpistolaHubClient,
+    private val installationStore: InstallationStore,
 ) : FeedbackSyncPort {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Volatile
+    private var registered = false
+
     override fun isEnabled(): Boolean = true
+
+    /**
+     * Ready once the installation has registered (credentials persisted). Registration is
+     * one-way for the process lifetime, so we latch the first positive result and stop hitting
+     * the store. Prevents the drivers from making hub calls during the startup window before
+     * [app.epistola.hub.client.HubRegistrationRetryLoop] completes.
+     */
+    override fun isReady(): Boolean {
+        if (registered) return true
+        val ready = installationStore.load() != null
+        if (ready) registered = true
+        return ready
+    }
 
     override fun createTicket(feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult {
         val request =

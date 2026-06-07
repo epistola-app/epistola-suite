@@ -50,6 +50,11 @@ class OnFeedbackCommentAdded(
             return
         }
 
+        // Not registered yet: leave external_comment_id null so the retry sweep pushes it later.
+        if (!feedbackSyncPort.isReady()) {
+            return
+        }
+
         try {
             val ref = feedbackSyncPort.addComment(feedback, comment)
 

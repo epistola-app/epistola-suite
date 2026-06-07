@@ -55,6 +55,12 @@ class FeedbackSyncScheduler(
         schedulerLock.runExclusively(SchedulerLock.FEEDBACK_RETRY) {
             MediatorContext.runWithMediator(mediator) {
                 if (!feedbackSyncPort.isEnabled()) return@runWithMediator
+                // Skip the whole sweep until registered, so we neither call the hub nor burn
+                // sync attempts during the startup window before registration completes.
+                if (!feedbackSyncPort.isReady()) {
+                    log.debug("Feedback sync target not ready yet (installation not registered); skipping retry sweep")
+                    return@runWithMediator
+                }
                 retryPendingFeedback()
                 retryPendingComments()
             }

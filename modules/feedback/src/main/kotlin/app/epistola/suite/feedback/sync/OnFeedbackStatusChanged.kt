@@ -40,6 +40,11 @@ class OnFeedbackStatusChanged(
             return
         }
 
+        // Not registered yet: skip the push; the hub stays the authoritative source for status.
+        if (!feedbackSyncPort.isReady()) {
+            return
+        }
+
         val feedback = GetFeedback(event.id).query() ?: return
         if (feedback.syncStatus != SyncStatus.SYNCED || feedback.externalRef == null) {
             return

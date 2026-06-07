@@ -45,6 +45,11 @@ class OnFeedbackCreated(
             return
         }
 
+        // Not registered yet: leave it PENDING and let the retry sweep push it once ready.
+        if (!feedbackSyncPort.isReady()) {
+            return
+        }
+
         try {
             val assets = loadAssetContents(event.id)
             val syncResult = feedbackSyncPort.createTicket(feedback, assets)

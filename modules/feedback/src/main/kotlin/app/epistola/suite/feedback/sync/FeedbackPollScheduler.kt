@@ -57,6 +57,10 @@ class FeedbackPollScheduler(
 
     private fun drainUpdates() {
         if (!feedbackSyncPort.isEnabled()) return
+        if (!feedbackSyncPort.isReady()) {
+            log.debug("Feedback sync target not ready yet (installation not registered); skipping poll")
+            return
+        }
 
         var cursor = loadCursor()
         var pages = 0

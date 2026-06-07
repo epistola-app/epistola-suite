@@ -1,6 +1,7 @@
 package app.epistola.suite.support.feedback
 
 import app.epistola.hub.client.EpistolaHubClient
+import app.epistola.hub.client.port.InstallationStore
 import app.epistola.suite.feedback.sync.FeedbackSyncPort
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
@@ -23,5 +24,8 @@ import org.springframework.context.annotation.Configuration
 )
 class SupportFeedbackConfiguration {
     @Bean
-    fun feedbackSyncPort(client: EpistolaHubClient): FeedbackSyncPort = HubFeedbackSyncAdapter(client)
+    fun feedbackSyncPort(
+        client: EpistolaHubClient,
+        installationStore: InstallationStore,
+    ): FeedbackSyncPort = HubFeedbackSyncAdapter(client, installationStore)
 }

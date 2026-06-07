@@ -10,6 +10,8 @@
 - **Outbound status sync (`OnFeedbackStatusChanged`).** A local status change in the UI (`UpdateFeedbackStatus`) is now pushed to the hub so operators see it. Inbound status changes from the poll use a separate `SyncFeedbackStatus` command (no event handler), so applying a polled-back status never bounces straight back out — mirroring how `SyncFeedbackComment` vs `AddFeedbackComment` already avoided a comment loop.
 - **Comment-push retry.** `ListUnsyncedComments` + the retry sweep re-push local comments whose immediate `OnFeedbackCommentAdded` push failed (synced feedback, no `external_comment_id`), so a transient hub outage no longer silently drops a comment.
 - **Multi-pod safety (`SchedulerLock`).** The inbound poll and the outbound retry sweep run under a PostgreSQL advisory lock, so in a multi-instance deployment only one pod runs each cycle and the shared installation-wide cursor is no longer double-processed.
+- **Registration-readiness gate (`FeedbackSyncPort.isReady()`).** The schedulers and push handlers wait until the installation has finished registering with the hub (credentials persisted) before making any hub call — no more startup-window `HubUnauthenticatedException`, and the retry sweep no longer burns sync attempts before registration. The hub adapter latches readiness off the `InstallationStore`; the no-op default is always ready.
+- **Feedback moved to a new "Support" nav section.** The Feedback link now lives under a dedicated **Support** menu (between Operations and Settings), desktop and mobile, gated on the support tier being enabled — making room for future support-tier features.
 
 ### Changed
 
