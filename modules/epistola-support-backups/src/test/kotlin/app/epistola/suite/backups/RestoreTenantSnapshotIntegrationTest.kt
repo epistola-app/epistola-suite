@@ -16,9 +16,14 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
+import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -45,7 +50,10 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         val regionAttr = AttributeId(AttributeKey.of("region"), CatalogId(main, tenantId))
         val regionsCodeList = CodeListId(CodeListKey.of("regions"), CatalogId(shared, tenantId))
 
-        // shared: an inline code list. main: an attribute bound to it (cross-catalog).
+        val brandTheme = ThemeId(ThemeKey.of("brand"), CatalogId(main, tenantId))
+
+        // shared: an inline code list. main: an attribute bound to it (cross-catalog) + a theme that
+        // is set as the tenant's default theme (exercises the fk_tenants_default_theme NO ACTION FK).
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
             CreateCodeList(
@@ -61,6 +69,8 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
                 displayName = "Region",
                 codeListId = regionsCodeList,
             ).execute()
+            CreateTheme(id = brandTheme, name = "Brand").execute()
+            SetTenantDefaultTheme(tenantId = tenant.id, themeId = ThemeKey.of("brand"), catalogKey = main).execute()
         }
 
         val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
@@ -90,6 +100,12 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(attr).isNotNull()
             assertThat(attr!!.codeListCatalogKey?.value).isEqualTo("shared")
             assertThat(attr.codeListSlug?.value).isEqualTo("regions")
+
+            // The tenant default theme (which the wipe had to release to delete its catalog) is
+            // re-applied after restore — the C1 regression case.
+            val restoredTenant = GetTenant(tenant.id).query()
+            assertThat(restoredTenant!!.defaultThemeKey?.value).isEqualTo("brand")
+            assertThat(restoredTenant.defaultThemeCatalogKey?.value).isEqualTo("main")
 
             // The restored tenant is content-identical to the snapshot.
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()

@@ -4,14 +4,18 @@ import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
+import app.epistola.suite.catalog.commands.PurgeTenantCatalogsResult
 import app.epistola.suite.catalog.system.InstallSystemCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Jdbi
+import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -23,18 +27,17 @@ import java.util.zip.ZipInputStream
  * Restores a tenant from a snapshot archive. **Destructive**: every existing catalog for the
  * tenant is deleted and replaced with the snapshot's contents.
  *
- * The whole operation runs in one transaction (`@Transactional`; JDBI joins it via the
- * Spring connection factory), so a failure rolls the tenant back to its pre-restore state. The
- * sequence:
- *  1. **Wipe** — delete `variant_attribute_definitions` first (the attribute→code-list
- *     cross-catalog FK is `ON DELETE RESTRICT` and would otherwise block a bulk catalog delete),
- *     then `DELETE FROM catalogs` (every other resource cascades).
- *  2. **Reinstall the system catalog** — the wipe removed it; restored catalogs may reference it,
- *     and it must be the *current* bundled version, so it is reinstalled from the classpath.
- *  3. **Import** each snapshot catalog in cross-catalog dependency order (a catalog providing a
- *     theme/code list/font/stencil another references is imported first) with REPLACE semantics and
+ * The whole operation runs in one transaction (`@Transactional`; JDBI joins it via the Spring
+ * connection factory), so a failure rolls the tenant back to its pre-restore state. The sequence:
+ *  1. **Validate the archive before touching anything** — supported schema version, the snapshot
+ *     belongs to this tenant, and every catalog's bytes are present.
+ *  2. **Purge** the tenant's catalogs via the core [PurgeTenantCatalogs] command (core owns the
+ *     FK-aware deletion; this module does not encode the catalog schema's FK topology).
+ *  3. **Reinstall the system catalog** (excluded from snapshots; reinstalled from the classpath).
+ *  4. **Import** each snapshot catalog in cross-catalog dependency order with REPLACE semantics and
  *     the cross-catalog dependency pre-check disabled (the snapshot is self-consistent and atomic;
  *     the DB FKs still enforce integrity).
+ *  5. **Re-apply** the tenant's prior default theme if that theme exists again after the import.
  */
 data class RestoreTenantSnapshot(
     override val tenantKey: TenantKey,
@@ -59,7 +62,6 @@ data class RestoreResult(
 @Component
 class RestoreTenantSnapshotHandler(
     private val objectMapper: ObjectMapper,
-    private val jdbi: Jdbi,
 ) : CommandHandler<RestoreTenantSnapshot, RestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -67,39 +69,53 @@ class RestoreTenantSnapshotHandler(
     override fun handle(command: RestoreTenantSnapshot): RestoreResult = CatalogImportContext.runAsImport {
         val (manifest, innerZips) = parseArchive(command.archiveBytes)
 
-        wipeTenant(command.tenantKey)
+        // Validate fully BEFORE the destructive purge — a bad archive must not leave the tenant wiped.
+        require(manifest.schemaVersion <= SUPPORTED_SCHEMA_VERSION) {
+            "Unsupported snapshot schema version ${manifest.schemaVersion} (this suite supports up to $SUPPORTED_SCHEMA_VERSION)"
+        }
+        require(manifest.tenantKey == command.tenantKey.value) {
+            "Snapshot belongs to tenant '${manifest.tenantKey}', not '${command.tenantKey.value}'"
+        }
+        val ordered = topologicalOrder(manifest.catalogs)
+        ordered.forEach { entry ->
+            require(innerZips.containsKey(entry.zipPath)) { "Snapshot archive is missing ${entry.zipPath}" }
+        }
+
+        val prior = PurgeTenantCatalogs(command.tenantKey).execute()
         InstallSystemCatalog(command.tenantKey).execute()
 
-        val ordered = topologicalOrder(manifest.catalogs)
         for (entry in ordered) {
-            val zipBytes =
-                innerZips[entry.zipPath]
-                    ?: throw IllegalArgumentException("Snapshot archive is missing ${entry.zipPath}")
             ImportCatalogZip(
                 tenantKey = command.tenantKey,
-                zipBytes = zipBytes,
+                zipBytes = innerZips.getValue(entry.zipPath),
                 catalogType = CatalogType.valueOf(entry.type),
                 authoredMode = AuthoredImportMode.REPLACE,
                 validateCrossCatalogDeps = false,
             ).execute()
         }
 
+        reapplyDefaultTheme(command.tenantKey, prior)
+
         logger.info("Restored tenant {} from snapshot ({} catalogs)", command.tenantKey.value, ordered.size)
         RestoreResult(restoredCatalogKeys = ordered.map { it.catalogKey })
     }
 
-    private fun wipeTenant(tenantKey: TenantKey) {
-        jdbi.useHandle<Exception> { handle ->
-            // Remove the rows that hold the RESTRICT cross-catalog code-list FK before the bulk
-            // catalog delete; everything else cascades from `catalogs`.
-            handle
-                .createUpdate("DELETE FROM variant_attribute_definitions WHERE tenant_key = :tenantKey")
-                .bind("tenantKey", tenantKey)
-                .execute()
-            handle
-                .createUpdate("DELETE FROM catalogs WHERE tenant_key = :tenantKey")
-                .bind("tenantKey", tenantKey)
-                .execute()
+    /** Re-point the tenant's default theme (cleared by the purge) if it exists in the restored catalogs. */
+    private fun reapplyDefaultTheme(
+        tenantKey: TenantKey,
+        prior: PurgeTenantCatalogsResult,
+    ) {
+        val catalogKey = prior.priorDefaultThemeCatalogKey ?: return
+        val themeKey = prior.priorDefaultThemeKey ?: return
+        try {
+            SetTenantDefaultTheme(
+                tenantId = tenantKey,
+                themeId = ThemeKey.of(themeKey),
+                catalogKey = CatalogKey.of(catalogKey),
+            ).execute()
+        } catch (e: Exception) {
+            // The default theme's catalog/theme may not be in the snapshot — leave it cleared.
+            logger.warn("Could not re-apply default theme {}/{} after restore: {}", catalogKey, themeKey, e.message)
         }
     }
 
@@ -147,5 +163,10 @@ class RestoreTenantSnapshotHandler(
             }
         }
         return (manifest ?: throw IllegalArgumentException("Snapshot archive is missing snapshot.json")) to innerZips
+    }
+
+    private companion object {
+        /** Highest snapshot manifest schema version this suite can restore. */
+        const val SUPPORTED_SCHEMA_VERSION = 1
     }
 }
