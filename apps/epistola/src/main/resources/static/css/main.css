@@ -940,6 +940,17 @@ a.stat-card:hover {
   color: var(--ep-muted-foreground);
 }
 
+/* ── Environments page ───────────────────────────────────────────────── */
+
+.env-name {
+  font-weight: 500;
+}
+
+.env-id {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
 /* ── Description list (key-value metadata) ───────────────────────────── */
 
 .description-list {
