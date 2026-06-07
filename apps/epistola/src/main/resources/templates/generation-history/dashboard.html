@@ -62,7 +62,7 @@
         <section>
             <div class="gen-dashboard-header">
                 <h2>Recent Jobs</h2>
-                <select class="ep-input ep-input-sm ep-w-auto"
+                <select class="ep-input ep-input-sm"
                         hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
                         hx-target="#job-rows"
                         hx-swap="innerHTML"

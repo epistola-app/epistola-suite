@@ -2433,6 +2433,10 @@ a.stat-card:hover {
   margin: 0;
 }
 
+.gen-dashboard-header .ep-input {
+  width: auto;
+}
+
 .gen-job-error {
   font-size: var(--ep-text-sm);
   color: var(--ep-muted-foreground);
