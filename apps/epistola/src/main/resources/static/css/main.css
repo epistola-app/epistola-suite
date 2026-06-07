@@ -1503,6 +1503,16 @@ a.stat-card:hover {
   padding: 0 var(--ep-space-3) var(--ep-space-2);
 }
 
+/* ── Asset list page ────────────────────────────────────────────────── */
+
+.catalog-filter-bar {
+  margin-bottom: var(--ep-space-4);
+}
+
+#catalog-filter {
+  max-width: 300px;
+}
+
 /* ── Feature toggle item ─────────────────────────────────────────────── */
 
 .feature-toggle-item {
