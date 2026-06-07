@@ -10,20 +10,20 @@
         <h1>New Load Test</h1>
 
         <div id="form-error">
-            <div th:if="${error}" class="alert alert-error ep-mb-4">
+            <div th:if="${error}" class="alert alert-error loadtest-error">
                 <strong>Error:</strong> <span th:text="${error}"></span>
             </div>
         </div>
 
-        <div class="card create-form-card ep-max-w-40r">
+        <div class="card create-form-card loadtest-form-card">
             <div class="card-content">
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
                       hx-target="#form-error"
                       hx-swap="innerHTML"
                       hx-disinherit="hx-target hx-swap">
-                    <fieldset class="ep-fieldset-reset ep-mb-6">
-                        <legend class="ep-text-lg ep-font-semibold ep-mb-4">Template Configuration</legend>
+                    <fieldset class="loadtest-fieldset">
+                        <legend class="loadtest-legend">Template Configuration</legend>
 
                         <div class="form-group">
                             <label class="ep-label" for="templateId">Template</label>
@@ -48,8 +48,8 @@
 
                     </fieldset>
 
-                    <fieldset class="ep-fieldset-reset ep-mb-6">
-                        <legend class="ep-text-lg ep-font-semibold ep-mb-4">Load Test Parameters</legend>
+                    <fieldset class="loadtest-fieldset">
+                        <legend class="loadtest-legend">Load Test Parameters</legend>
 
                         <div class="form-group">
                             <label class="ep-label" for="targetCount">Target Count</label>
@@ -67,12 +67,12 @@
             </div>
         </div>
 
-        <div class="detail-section ep-mt-6 ep-max-w-40r">
+        <div class="detail-section loadtest-info-section">
             <div class="detail-section-header">
                 <h2>Load Test Information</h2>
             </div>
-            <div class="detail-section-body ep-text-sm text-muted" >
-                <ul class="ep-m-0 ep-pl-4 ep-flex ep-flex-col ep-gap-2">
+            <div class="detail-section-body loadtest-info-body">
+                <ul class="loadtest-info-list">
                     <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
                     <li><strong>Batch Submission:</strong> All documents are submitted as a single batch for efficient processing</li>
                     <li><strong>Metrics Collected:</strong> Response times (avg, min, max, p50, p95, p99), requests/sec, success rate</li>
@@ -85,7 +85,7 @@
 
     <!--/* Error fragment: shown when form submission fails */-->
     <th:block th:fragment="form-error">
-        <div class="alert alert-error ep-mb-4">
+        <div class="alert alert-error loadtest-error">
             <strong>Error:</strong> <span th:text="${error}"></span>
         </div>
     </th:block>
@@ -117,7 +117,7 @@
         </div>
 
         <fieldset class="ep-fieldset-reset">
-            <legend class="ep-text-sm ep-font-semibold ep-mb-2">Test Data</legend>
+            <legend class="loadtest-sublegend">Test Data</legend>
             <div class="form-group">
                 <label class="ep-label" for="testData">JSON Data</label>
                 <textarea id="testData" name="testData" class="ep-textarea ep-font-mono" required
@@ -184,8 +184,8 @@
             <span class="form-hint">Environment to determine version from</span>
         </div>
 
-        <fieldset class="ep-fieldset-reset">
-            <legend class="ep-text-sm ep-font-semibold ep-mb-2">Test Data</legend>
+        <fieldset class="loadtest-fieldset-no-margin">
+            <legend class="loadtest-sublegend">Test Data</legend>
 
             <!--/* Template has data examples: show example selector */-->
             <th:block th:if="${!#lists.isEmpty(dataExamples)}">
