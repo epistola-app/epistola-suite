@@ -1527,7 +1527,7 @@ a.stat-card:hover {
   padding: 0 var(--ep-space-3) var(--ep-space-2);
 }
 
-/* ── Asset list page ────────────────────────────────────────────────── */
+/* ── Asset / Font list pages ──────────────────────────────────────────── */
 
 .catalog-filter-bar {
   margin-bottom: var(--ep-space-4);
@@ -1535,6 +1535,10 @@ a.stat-card:hover {
 
 #catalog-filter {
   max-width: 300px;
+}
+
+.font-card-variants {
+  margin-top: var(--ep-space-2);
 }
 
 /* ── Feature toggle item ─────────────────────────────────────────────── */
