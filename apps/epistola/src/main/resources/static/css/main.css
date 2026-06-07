@@ -257,6 +257,10 @@ main.regular .empty-message {
   display: inline;
 }
 
+.nav-logout-form {
+  display: inline;
+}
+
 /* ── Status badges ────────────────────────────────────────────────────── */
 
 /* Legacy badge variants mapped to new naming */
