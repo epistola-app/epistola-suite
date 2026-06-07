@@ -15,6 +15,7 @@
 
 ### Changed
 
+- **Renamed the `feedback` feature toggle to `support-feedback`.** `KnownFeatures.SUPPORT_FEEDBACK` / `FeatureKey.of("support-feedback")`, config default `epistola.features.support-feedback`, reflecting that it gates the support-tier feedback integration. A migration (`V20260607093000__core_rename_feedback_feature.sql`) carries over any per-tenant `feature_toggles` rows from the old key.
 - **`FeedbackSyncPort` is now installation-wide and seq-cursored.** Methods take the `Feedback`/`FeedbackComment` directly (no per-tenant config object) plus a new `isEnabled()` gate; `ExternalUpdate` carries its `tenantKey` so a single poll fans out across tenants. `fetchUpdates(afterSeq)` returns a paged `ExternalUpdatePage` (updates + `nextSeq` + `hasMore`) keyed by the hub's monotonic feed sequence — the poll cursor is now a `Long` seq stored in `app_metadata` under `feedback.sync.lastSeq`, drains pages until `!hasMore`, and never advances on an empty poll (the previous wall-clock cursor could skip same-instant updates and could advance past unseen ones). `CreateFeedback` sets the initial sync status from `FeedbackSyncPort.isEnabled()` instead of a per-tenant config row.
 
 ### Removed

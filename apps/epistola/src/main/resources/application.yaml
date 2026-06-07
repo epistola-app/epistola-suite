@@ -122,7 +122,7 @@ epistola:
 
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
-    feedback: true
+    support-feedback: true
     stencil-parameters: true
 
   # Application-wide default locale used for date/number formatting.

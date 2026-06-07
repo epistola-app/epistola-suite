@@ -65,7 +65,7 @@ class ShellModelInterceptor(
             val tenantKey = TenantKey.of(tenantId)
             modelAndView.addObject(
                 "feedbackEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.FEEDBACK),
+                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_FEEDBACK),
             )
             modelAndView.addObject(
                 "stencilParametersEnabled",
