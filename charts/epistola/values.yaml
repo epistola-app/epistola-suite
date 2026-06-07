@@ -238,10 +238,10 @@ support:
     # the direct host/port mode is a local-dev / debug convenience and is
     # intentionally NOT exposed here.
     discoveryUrl: ""
-    # Override the per-pod node id reported to the hub. Blank → auto-detect
-    # from EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
-    # In Kubernetes you usually want to set this to the pod name via the
-    # downward API (an example is in deployment.yaml when enabled).
+    # Override the per-pod node id reported to the hub. Leave blank in
+    # Kubernetes: node identity is resolved at runtime from the pod's hostname
+    # (which Kubernetes sets to the pod name), so each replica is already
+    # distinct. Set this only to pin an explicit identifier.
     nodeId: ""
 
 # Application configuration

@@ -162,14 +162,10 @@ spec:
             {{- if .Values.support.hub.nodeId }}
             - name: EPISTOLA_SUPPORT_HUB_NODEID
               value: {{ .Values.support.hub.nodeId | quote }}
-            {{- else }}
-            {{- /* Default node id to pod name via downward API — gives the
-                   hub stable per-replica identifiers in multi-pod deployments. */}}
-            - name: EPISTOLA_NODE_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
             {{- end }}
+            {{- /* No node-id env is injected. Node identity is resolved at
+                   runtime by NodeIdentity (HOSTNAME / hostname → pod name);
+                   set support.hub.nodeId only to override it explicitly. */}}
             {{- end }}
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}

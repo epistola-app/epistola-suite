@@ -180,6 +180,19 @@ management:
       enabled: true
     readinessState:
       enabled: true
+  metrics:
+    distribution:
+      # Publish histogram buckets for latency timers so percentiles (p95/p99)
+      # can be aggregated server-side ACROSS instances. Client-side percentiles
+      # cannot be summed; histogram buckets can. Required for trustworthy
+      # latency dashboards over a remote fleet.
+      percentiles-histogram:
+        http.server.requests: true
+        epistola.generation.document.duration: true
+        epistola.storage.operation.duration: true
+        epistola.mediator.command.duration: true
+        epistola.mediator.query.duration: true
+        epistola.jobs.duration: true
   otlp:
     metrics:
       export:

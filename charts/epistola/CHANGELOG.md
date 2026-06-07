@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Stop injecting `EPISTOLA_NODE_ID` from the downward API.** Node identity is now resolved at runtime by the app (`NodeIdentity`: hostname → pod name), so the chart no longer wires a per-pod node-id env var. This also means metrics carry a meaningful `instance` tag (the pod name) out of the box, support enabled or not. `support.hub.nodeId` still works as an explicit override.
+
 ## [0.6.0] - 2026-06-01
 
 ### Added
