@@ -72,6 +72,10 @@ class ShellModelInterceptor(
                 featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS),
             )
             modelAndView.addObject(
+                "upgradingEnabled",
+                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_UPGRADING),
+            )
+            modelAndView.addObject(
                 "stencilParametersEnabled",
                 featureToggleService.isEnabled(tenantKey, KnownFeatures.STENCIL_PARAMETERS),
             )

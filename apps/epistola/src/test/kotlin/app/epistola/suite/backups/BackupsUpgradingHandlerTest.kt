@@ -6,6 +6,9 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.upgrading.CompatibilityCheckResult
+import app.epistola.suite.upgrading.CompatibilitySyncPort
+import app.epistola.suite.upgrading.CompatibilityVerdict
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,17 +32,24 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         @Bean
         @Primary
         fun fakeBackupSyncPort(): BackupSyncPort = FakeBackupSyncPort()
+
+        @Bean
+        @Primary
+        fun fakeCompatibilitySyncPort(): CompatibilitySyncPort = FakeCompatibilitySyncPort()
     }
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
-    private fun enableBackups(tenantKey: TenantKey) = withMediator { SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute() }
+    private fun enableSupport(tenantKey: TenantKey) = withMediator {
+        SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
+        SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_UPGRADING, enabled = true).execute()
+    }
 
     @Test
-    fun `backups page lists snapshots and shows the Support nav link when enabled`() {
+    fun `backups page lists snapshots and the Support nav shows both items`() {
         val tenant = createTenant("Backups Page")
-        enableBackups(tenant.id)
+        enableSupport(tenant.id)
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
 
@@ -51,14 +61,15 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         assertThat(body).contains("3.0 MB")
         assertThat(body).contains("1.4.0")
         assertThat(body).contains("Latest")
-        // Nav link is present because the support-backups toggle is on.
+        // Both Support items are linked (their toggles are on).
+        assertThat(body).contains("/tenants/${tenant.id.value}/backups")
         assertThat(body).contains("/tenants/${tenant.id.value}/upgrading")
     }
 
     @Test
     fun `upgrading page shows compatibility results grouped by version`() {
         val tenant = createTenant("Upgrading Page")
-        enableBackups(tenant.id)
+        enableSupport(tenant.id)
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/upgrading", String::class.java)
 
@@ -70,7 +81,7 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         assertThat(body).contains("uses a deprecated node")
     }
 
-    /** Fake hub adapter returning one snapshot and one compatibility result. */
+    /** Fake backup adapter returning one snapshot. */
     class FakeBackupSyncPort : BackupSyncPort {
         override fun isEnabled(): Boolean = true
 
@@ -95,6 +106,13 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
             tenantKey: TenantKey,
             snapshotId: String,
         ): ByteArray = ByteArray(0)
+    }
+
+    /** Fake compatibility adapter returning one result. */
+    class FakeCompatibilitySyncPort : CompatibilitySyncPort {
+        override fun isEnabled(): Boolean = true
+
+        override fun isReady(): Boolean = true
 
         override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = listOf(
             CompatibilityCheckResult(

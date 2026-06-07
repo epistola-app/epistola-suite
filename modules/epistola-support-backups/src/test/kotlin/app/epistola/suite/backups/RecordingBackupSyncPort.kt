@@ -43,6 +43,4 @@ class RecordingBackupSyncPort : BackupSyncPort {
         tenantKey: TenantKey,
         snapshotId: String,
     ): ByteArray = uploads.firstOrNull()?.bytes ?: ByteArray(0)
-
-    override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = emptyList()
 }

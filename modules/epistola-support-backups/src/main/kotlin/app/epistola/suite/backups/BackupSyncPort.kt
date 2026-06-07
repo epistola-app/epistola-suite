@@ -31,9 +31,6 @@ interface BackupSyncPort {
         tenantKey: TenantKey,
         snapshotId: String,
     ): ByteArray
-
-    /** Lists compatibility-check results the company side has recorded for a tenant, newest first. */
-    fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult>
 }
 
 data class SnapshotUploadResult(
@@ -50,16 +47,4 @@ data class RemoteSnapshot(
     val capturedAt: Instant,
     val createdAt: Instant,
     val isLatest: Boolean,
-)
-
-enum class CompatibilityVerdict { PASS, WARN, FAIL, UNKNOWN }
-
-data class CompatibilityCheckResult(
-    val tenant: String,
-    val targetVersion: String,
-    val snapshotId: String?,
-    val catalogKey: String?,
-    val verdict: CompatibilityVerdict,
-    val detail: String?,
-    val occurredAt: Instant,
 )

@@ -1,4 +1,4 @@
-package app.epistola.suite.support.backups.ui
+package app.epistola.suite.support.upgrading.ui
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

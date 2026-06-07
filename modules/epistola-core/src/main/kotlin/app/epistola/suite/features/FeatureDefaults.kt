@@ -8,11 +8,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class FeatureDefaults(
     val supportFeedback: Boolean = false,
     val supportBackups: Boolean = false,
+    val supportUpgrading: Boolean = false,
     val stencilParameters: Boolean = true,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.SUPPORT_BACKUPS -> supportBackups
+        KnownFeatures.SUPPORT_UPGRADING -> supportUpgrading
         KnownFeatures.STENCIL_PARAMETERS -> stencilParameters
         else -> false
     }

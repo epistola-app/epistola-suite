@@ -120,7 +120,7 @@
                     </div>
 
                     <!-- Support dropdown -->
-                    <div th:if="${feedbackEnabled or backupsEnabled}"
+                    <div th:if="${feedbackEnabled or backupsEnabled or upgradingEnabled}"
                          class="app-nav-dropdown"
                          th:classappend="${#lists.contains({'feedback','backups','upgrading'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
@@ -142,7 +142,7 @@
                                th:classappend="${activeNavSection == 'backups'} ? ' active' : ''">
                                 Backups
                             </a>
-                            <a th:if="${backupsEnabled}"
+                            <a th:if="${upgradingEnabled}"
                                th:href="@{/tenants/{id}/upgrading(id=${tenantId})}"
                                class="app-nav-dropdown-item" role="menuitem"
                                th:classappend="${activeNavSection == 'upgrading'} ? ' active' : ''">
@@ -244,13 +244,13 @@
                        th:href="@{/tenants/{id}/api-keys(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'api-keys'} ? ' active' : ''" role="menuitem">API Keys</a>
                 </div>
-                <div th:if="${feedbackEnabled or backupsEnabled}" class="app-nav-mobile-group">
+                <div th:if="${feedbackEnabled or backupsEnabled or upgradingEnabled}" class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Support</div>
                     <a th:if="${feedbackEnabled}" th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>
                     <a th:if="${backupsEnabled}" th:href="@{/tenants/{id}/backups(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'backups'} ? ' active' : ''" role="menuitem">Backups</a>
-                    <a th:if="${backupsEnabled}" th:href="@{/tenants/{id}/upgrading(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:if="${upgradingEnabled}" th:href="@{/tenants/{id}/upgrading(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'upgrading'} ? ' active' : ''" role="menuitem">Upgrading</a>
                 </div>
                 <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">

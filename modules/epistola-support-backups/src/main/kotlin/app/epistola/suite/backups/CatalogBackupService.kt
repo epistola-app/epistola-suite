@@ -54,9 +54,6 @@ class CatalogBackupService(
     /** Lists a tenant's stored snapshots, newest first. */
     fun listSnapshots(tenantKey: TenantKey): List<RemoteSnapshot> = port.listSnapshots(tenantKey)
 
-    /** Lists compatibility-check results recorded by the company side for a tenant. */
-    fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = port.listCompatibilityResults(tenantKey)
-
     /**
      * Downloads the given snapshot and restores the tenant from it. **Destructive** — see
      * [RestoreTenantSnapshot]. Must run inside a bound mediator context with the tenant's

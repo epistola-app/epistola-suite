@@ -1,14 +1,14 @@
-package app.epistola.suite.support.backups.ui
+package app.epistola.suite.support.upgrading.ui
 
 import app.epistola.hub.client.error.HubEntitlementDeniedException
-import app.epistola.suite.backups.CatalogBackupService
-import app.epistola.suite.backups.CompatibilityCheckResult
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.upgrading.CompatibilityCheckResult
+import app.epistola.suite.upgrading.CompatibilitySyncPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -17,13 +17,13 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
- * UI handler for the Support → Upgrading page: shows the compatibility-check results the
- * company side has recorded for the tenant (read-only). Results are fetched live from the hub on
- * each load — there is no local store — grouped by the Epistola version that was tested.
+ * UI handler for the Support → Upgrading page: shows the compatibility-check results the company
+ * side has recorded for the tenant (read-only), fetched live from the hub and grouped by the
+ * Epistola version that was tested.
  */
 @Component
 class UpgradingHandler(
-    private val backupService: CatalogBackupService,
+    private val compatibility: CompatibilitySyncPort,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -35,7 +35,7 @@ class UpgradingHandler(
         var entitled = true
         val groups =
             try {
-                backupService
+                compatibility
                     .listCompatibilityResults(tenantId.key)
                     .groupBy { it.targetVersion }
                     .map { (version, results) -> VersionGroup(version, results.map { it.toView() }) }
@@ -51,7 +51,7 @@ class UpgradingHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "upgrading"
-            "ready" to backupService.isReady()
+            "ready" to (compatibility.isEnabled() && compatibility.isReady())
             "entitled" to entitled
             "groups" to groups
         }

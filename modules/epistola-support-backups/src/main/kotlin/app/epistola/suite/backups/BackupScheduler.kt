@@ -51,7 +51,11 @@ class BackupScheduler(
         val tenantKeys = allTenantKeys()
         log.info("Daily catalog backup starting for {} tenant(s)", tenantKeys.size)
         for (tenantKey in tenantKeys) {
-            if (!featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS)) continue
+            // Snapshots feed both Backups and Upgrading (compatibility), so upload when either is on.
+            val needsSnapshot =
+                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS) ||
+                    featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_UPGRADING)
+            if (!needsSnapshot) continue
             try {
                 SecurityContext.runWithPrincipal(backupSystemPrincipal(tenantKey)) {
                     backupService.backupTenant(tenantKey)

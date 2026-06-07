@@ -21,8 +21,6 @@ class NoOpBackupSyncAdapter : BackupSyncPort {
         tenantKey: TenantKey,
         snapshotId: String,
     ): ByteArray = error("Backup sync target is not configured (epistola.support.enabled=false)")
-
-    override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = emptyList()
 }
 
 /** Registers the no-op adapter when no other [BackupSyncPort] (i.e. the hub adapter) is present. */

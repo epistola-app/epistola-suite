@@ -3,19 +3,15 @@ package app.epistola.suite.support.backups
 import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.port.InstallationStore
 import app.epistola.hub.proto.v1.DownloadSnapshotRequest
-import app.epistola.hub.proto.v1.ListCompatibilityResultsRequest
 import app.epistola.hub.proto.v1.ListSnapshotsRequest
 import app.epistola.hub.proto.v1.SnapshotHeader
 import app.epistola.suite.backups.BackupSyncPort
-import app.epistola.suite.backups.CompatibilityCheckResult
-import app.epistola.suite.backups.CompatibilityVerdict
 import app.epistola.suite.backups.RemoteSnapshot
 import app.epistola.suite.backups.SnapshotUploadResult
 import app.epistola.suite.backups.TenantSnapshot
 import app.epistola.suite.common.ids.TenantKey
 import com.google.protobuf.Timestamp
 import java.time.Instant
-import app.epistola.hub.proto.v1.CompatibilityVerdict as ProtoVerdict
 
 /**
  * Production [BackupSyncPort] that streams tenant catalog snapshots to epistola-hub over gRPC and
@@ -83,31 +79,6 @@ class HubBackupSyncAdapter(
         .downloadSnapshot(
             DownloadSnapshotRequest.newBuilder().setTenant(tenantKey.value).setSnapshotId(snapshotId).build(),
         ).content
-
-    override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> {
-        val response =
-            client.listCompatibilityResults(
-                ListCompatibilityResultsRequest.newBuilder().setTenant(tenantKey.value).build(),
-            )
-        return response.resultsList.map { r ->
-            CompatibilityCheckResult(
-                tenant = r.tenant,
-                targetVersion = r.targetVersion,
-                snapshotId = r.snapshotId.ifBlank { null },
-                catalogKey = r.catalogKey.ifBlank { null },
-                verdict = r.verdict.toDomain(),
-                detail = r.detail.ifBlank { null },
-                occurredAt = r.occurredAt.toInstant(),
-            )
-        }
-    }
-}
-
-private fun ProtoVerdict.toDomain(): CompatibilityVerdict = when (this) {
-    ProtoVerdict.COMPATIBILITY_VERDICT_PASS -> CompatibilityVerdict.PASS
-    ProtoVerdict.COMPATIBILITY_VERDICT_WARN -> CompatibilityVerdict.WARN
-    ProtoVerdict.COMPATIBILITY_VERDICT_FAIL -> CompatibilityVerdict.FAIL
-    ProtoVerdict.COMPATIBILITY_VERDICT_UNSPECIFIED, ProtoVerdict.UNRECOGNIZED -> CompatibilityVerdict.UNKNOWN
 }
 
 private fun Instant.toTimestamp(): Timestamp = Timestamp.newBuilder().setSeconds(epochSecond).setNanos(nano).build()
