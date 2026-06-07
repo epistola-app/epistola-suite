@@ -24,7 +24,7 @@
                         <input type="text" id="slug" name="slug" class="ep-input"
                                placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
                                minlength="2" maxlength="64" required />
-                        <span class="text-muted text-sm">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
+                        <span class="font-form-hint">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="name">Display name</label>
@@ -43,20 +43,20 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="ep-label">Faces <span class="text-muted text-sm">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
+                        <label class="ep-label">Faces <span class="font-form-hint">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
                         <div id="font-faces">
-                            <div class="font-face-row form-group ep-flex ep-gap-2 ep-flex-end">
-                                <div class="ep-flex-2">
+                            <div class="font-face-row form-group">
+                                <div class="font-face-field font-face-field--file">
                                     <label class="ep-label">File</label>
                                     <input type="file" name="file"
                                            accept="font/ttf,font/otf,.ttf,.otf" />
                                 </div>
-                                <div class="ep-flex-1">
+                                <div class="font-face-field font-face-field--weight">
                                     <label class="ep-label">Weight</label>
                                     <input type="number" name="weight" class="ep-input"
                                            min="1" max="1000" step="1" value="400" />
                                 </div>
-                                <div class="ep-flex-1">
+                                <div class="font-face-field font-face-field--italic">
                                     <label class="ep-label">Italic</label>
                                     <select name="italic" class="ep-input">
                                         <option value="false">No</option>

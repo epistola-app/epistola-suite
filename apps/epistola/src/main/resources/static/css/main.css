@@ -2176,6 +2176,68 @@ a.stat-card:hover {
   color: var(--ep-muted-foreground);
 }
 
+/* ── Asset upload page ───────────────────────────────────────────────── */
+
+.upload-hint {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.file-preview {
+  margin-top: var(--ep-space-3);
+}
+
+/* ── Font upload page ────────────────────────────────────────────────── */
+
+.font-form-hint {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.font-face-row {
+  display: flex;
+  gap: var(--ep-space-2);
+  align-items: flex-end;
+}
+
+.font-face-field {
+  flex: 1;
+}
+
+.font-face-field--file {
+  flex: 2;
+}
+
+/* ── Code lists page ─────────────────────────────────────────────────── */
+
+.code-list-name {
+  font-weight: 500;
+}
+
+.code-list-never {
+  color: var(--ep-muted-foreground);
+}
+
+.refresh-error-badge {
+  margin-left: var(--ep-space-2);
+}
+
+/* ── Code list new page ──────────────────────────────────────────────── */
+
+.code-list-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--ep-space-4);
+}
+
+.entries-error {
+  margin-bottom: var(--ep-space-3);
+}
+
 /* ── Template settings: stencil label/select ──────────────────────────── */
 .stencil-upgrade-label {
   margin: 0;
