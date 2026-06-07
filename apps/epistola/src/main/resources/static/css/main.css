@@ -1072,6 +1072,11 @@ a.stat-card:hover {
   gap: var(--ep-space-3);
 }
 
+.confirm-dialog-error {
+  display: none;
+  margin-top: var(--ep-space-4);
+}
+
 /* ── Changelog dialog ─────────────────────────────────────────────────── */
 
 .changelog-content {
