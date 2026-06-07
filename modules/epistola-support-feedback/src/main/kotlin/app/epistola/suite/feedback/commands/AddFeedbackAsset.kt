@@ -28,9 +28,16 @@ data class AddFeedbackAsset(
 
     companion object {
         /**
+         * Maximum stored asset size. The client downscales screenshots under this cap; this is
+         * a server-side safety net (and bounds the bytes sent to the hub until it stores assets
+         * out-of-band — see epistola-hub#8). Oversized data URLs are dropped (returns null).
+         */
+        const val MAX_ASSET_BYTES: Int = 1024 * 1024 // 1 MB
+
+        /**
          * Creates an [AddFeedbackAsset] from a base64 data URL (e.g., `data:image/png;base64,iVBOR...`).
          *
-         * @return the command, or null if the data URL is malformed
+         * @return the command, or null if the data URL is malformed or exceeds [MAX_ASSET_BYTES]
          */
         fun fromDataUrl(id: FeedbackAssetId, dataUrl: String): AddFeedbackAsset? {
             if (!dataUrl.startsWith("data:")) return null
@@ -43,7 +50,7 @@ data class AddFeedbackAsset(
             } catch (_: IllegalArgumentException) {
                 return null
             }
-            if (bytes.isEmpty()) return null
+            if (bytes.isEmpty() || bytes.size > MAX_ASSET_BYTES) return null
 
             val extension = contentType.substringAfter("image/", "png")
             return AddFeedbackAsset(

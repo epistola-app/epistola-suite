@@ -70,6 +70,7 @@
                     <div id="fb-screenshot-unsupported" style="display: none; color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
                         Screenshot capture is not supported in this browser.
                     </div>
+                    <div id="fb-screenshot-error" style="display: none; margin-top: var(--ep-space-1); color: var(--ep-destructive, #dc2626); font-size: var(--ep-text-sm);"></div>
                     <div id="fb-screenshot-preview" style="display: none; margin-top: var(--ep-space-2); width: 100%; max-height: 200px;">
                         <img id="fb-screenshot-img" style="max-width: 100%; max-height: 180px; border-radius: var(--ep-radius);" alt="Screenshot preview">
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" id="fb-screenshot-remove"
@@ -134,12 +135,19 @@
                 const screenshotImg = document.getElementById('fb-screenshot-img');
                 const screenshotActions = document.getElementById('fb-screenshot-actions');
                 const screenshotRemove = document.getElementById('fb-screenshot-remove');
+                const screenshotError = document.getElementById('fb-screenshot-error');
 
                 function setScreenshot(dataUrl) {
+                    screenshotError.style.display = 'none';
                     screenshotData.value = dataUrl;
                     screenshotImg.src = dataUrl;
                     screenshotPreview.style.display = 'block';
                     screenshotActions.style.display = 'none';
+                }
+
+                function showScreenshotError(message) {
+                    screenshotError.textContent = message;
+                    screenshotError.style.display = 'block';
                 }
 
                 function clearScreenshot(e) {
@@ -163,6 +171,7 @@
                 const popover = document.getElementById('feedback-popover');
 
                 function onCaptureStart() {
+                    screenshotError.style.display = 'none';
                     if (dialog) dialog.close();
                     if (fab) fab.style.display = 'none';
                     if (popover) popover.classList.remove('feedback-popover--open');
@@ -184,6 +193,7 @@
                         onCapture: setScreenshot,
                         onStart: onCaptureStart,
                         onEnd: onCaptureEnd,
+                        onError: showScreenshotError,
                     });
 
                     document.getElementById('fb-capture-region')?.addEventListener('click', (e) => {

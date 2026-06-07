@@ -333,6 +333,18 @@ class FeedbackIntegrationTest : IntegrationTestBase() {
             assertThat(AddFeedbackAsset.fromDataUrl(assetId, "not-a-data-url")).isNull()
             assertThat(AddFeedbackAsset.fromDataUrl(assetId, "data:image/png;base64,!!!invalid!!!")).isNull()
         }
+
+        @Test
+        fun `fromDataUrl rejects content over the size cap`() {
+            val assetId = FeedbackAssetId(
+                FeedbackAssetKey.generate(),
+                FeedbackId(FeedbackKey.generate(), TenantId(TenantKey.of("test"))),
+            )
+            val oversized = ByteArray(AddFeedbackAsset.MAX_ASSET_BYTES + 1) { 1 }
+            val dataUrl = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(oversized)
+
+            assertThat(AddFeedbackAsset.fromDataUrl(assetId, dataUrl)).isNull()
+        }
     }
 
     @Nested

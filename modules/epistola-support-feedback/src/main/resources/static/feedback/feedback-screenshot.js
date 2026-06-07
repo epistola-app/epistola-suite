@@ -16,6 +16,46 @@
 export const isSupported = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 
 /**
+ * Hard cap on the encoded screenshot size. Keeps the urlencoded form POST under Tomcat's
+ * form-post limit and the feedback submit gRPC message under its size limit. The hub does
+ * not yet store assets out-of-band (see epistola-hub#8); until it does, attachments must
+ * stay small.
+ */
+const MAX_SCREENSHOT_BYTES = 1024 * 1024; // 1 MB
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Encode a canvas as a JPEG data URL no larger than [MAX_SCREENSHOT_BYTES], downscaling
+ * progressively when needed. JPEG (not PNG) because screenshots are huge as PNG; quality
+ * 0.85 is visually fine for feedback. Returns the data URL, or null if it can't fit even
+ * when scaled down to the floor size.
+ */
+async function encodeUnderLimit(canvas) {
+  let work = canvas;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const blob = await new Promise((resolve) => work.toBlob(resolve, 'image/jpeg', 0.85));
+    if (blob && blob.size <= MAX_SCREENSHOT_BYTES) {
+      return blobToDataUrl(blob);
+    }
+    if (work.width < 240 || work.height < 240) return null;
+    const next = document.createElement('canvas');
+    next.width = Math.max(1, Math.round(work.width * 0.8));
+    next.height = Math.max(1, Math.round(work.height * 0.8));
+    next.getContext('2d').drawImage(work, 0, 0, next.width, next.height);
+    work = next;
+  }
+  return null;
+}
+
+/**
  * Capture a single frame from the current browser tab via getDisplayMedia.
  * Returns a canvas with the captured frame. Caller must crop as needed.
  * The media stream is always stopped, even on error.
@@ -96,9 +136,9 @@ function injectStyles() {
  * Capture a user-selected region of the page.
  * Shows a selection overlay, lets the user draw a rectangle, then captures that region.
  *
- * @param {{ onCapture: (dataUrl: string) => void, onStart: () => void, onEnd: () => void }} opts
+ * @param {{ onCapture: (dataUrl: string) => void, onStart: () => void, onEnd: () => void, onError?: (msg: string) => void }} opts
  */
-export function captureRegion({ onCapture, onStart, onEnd }) {
+export function captureRegion({ onCapture, onStart, onEnd, onError = () => {} }) {
   injectStyles();
   onStart();
 
@@ -202,7 +242,12 @@ export function captureRegion({ onCapture, onStart, onEnd }) {
           cropCanvas.height,
         );
 
-        onCapture(cropCanvas.toDataURL('image/png'));
+        const dataUrl = await encodeUnderLimit(cropCanvas);
+        if (dataUrl) {
+          onCapture(dataUrl);
+        } else {
+          onError('Screenshot is too large to attach (max 1 MB). Try capturing a smaller region.');
+        }
       } catch (err) {
         if (err.name !== 'NotAllowedError') {
           console.error('Screenshot capture failed:', err);
@@ -217,9 +262,9 @@ export function captureRegion({ onCapture, onStart, onEnd }) {
 /**
  * Capture the visible viewport.
  *
- * @param {{ onCapture: (dataUrl: string) => void, onStart: () => void, onEnd: () => void }} opts
+ * @param {{ onCapture: (dataUrl: string) => void, onStart: () => void, onEnd: () => void, onError?: (msg: string) => void }} opts
  */
-export async function captureViewport({ onCapture, onStart, onEnd }) {
+export async function captureViewport({ onCapture, onStart, onEnd, onError = () => {} }) {
   onStart();
 
   // Allow caller's onStart UI changes to render
@@ -227,7 +272,12 @@ export async function captureViewport({ onCapture, onStart, onEnd }) {
 
   try {
     const canvas = await captureTabFrame();
-    onCapture(canvas.toDataURL('image/png'));
+    const dataUrl = await encodeUnderLimit(canvas);
+    if (dataUrl) {
+      onCapture(dataUrl);
+    } else {
+      onError('Screenshot is too large to attach (max 1 MB). Try capturing a smaller region.');
+    }
   } catch (err) {
     if (err.name !== 'NotAllowedError') {
       console.error('Viewport capture failed:', err);

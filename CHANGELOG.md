@@ -21,6 +21,7 @@
 
 ### Fixed
 
+- **Feedback screenshots are now capped at 1 MB (downscaled JPEG).** Captures are encoded as JPEG and progressively downscaled to stay ≤ 1 MB; if a capture still can't fit, the user sees a "screenshot too large" message instead of a silent failure. Previously a large PNG could exceed Tomcat's urlencoded form-post limit (silently dropping the submit) and the 4 MB gRPC submit limit (failing hub sync and burning retries to `FAILED`). A server-side cap (`AddFeedbackAsset.MAX_ASSET_BYTES`) drops oversized assets as a safety net. Proper out-of-band asset storage is tracked in epistola-hub#8.
 - **Feedback screenshot capture left the submit dialog on screen when opened from the feedback list page.** The capture script hardcoded the FAB dialog id (`#feedback-fab-dialog`), so when the submit form was opened from the list-page dialog (`#feedback-dialog`) the overlay wasn't hidden during region/viewport capture. It now resolves the enclosing `<dialog>` of the form, so capture works from either entry point. Added a Playwright regression test for the list-page path. (Pre-existing bug, unrelated to the module move.)
 
 ### Removed
