@@ -65,11 +65,18 @@ class SecurityConfig(
     private fun hasFormLogin(): Boolean = userDetailsService != null
 
     /**
-     * Management security filter chain for actuator endpoints.
+     * Security for the actuator endpoints (health, info, prometheus).
      *
-     * Runs on a separate port (management.server.port) so all endpoints are
-     * permitted without authentication. Network-level access control should
-     * be used to restrict access to the management port in production.
+     * All endpoints are permitted without authentication — the production
+     * hardening is **network isolation**, not auth: in production the
+     * management endpoints move to a separate port (`management.server.port`,
+     * see application-prod.yaml) that is kept cluster-internal and never
+     * exposed via the Service/Ingress. This is the documented "permit all
+     * actuator endpoints" chain (matched via [EndpointRequest.toAnyEndpoint]).
+     *
+     * Kubernetes probes do NOT depend on this: they hit `/livez` / `/readyz`
+     * on the MAIN port (see the UI chain below and add-additional-paths),
+     * because a separate management context can be up while the main app is not.
      */
     @Bean
     @Order(0)
@@ -154,7 +161,11 @@ class SecurityConfig(
         http
             .authorizeHttpRequests { authorize ->
                 authorize
-                    // Public endpoints
+                    // Public endpoints. /livez + /readyz are the Kubernetes probe
+                    // paths add-additional-paths exposes on the MAIN port (the
+                    // actuator endpoints themselves move to the management port in
+                    // production); /actuator/** entries cover single-port profiles.
+                    .requestMatchers("/livez", "/readyz").permitAll()
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error", "/errors/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()

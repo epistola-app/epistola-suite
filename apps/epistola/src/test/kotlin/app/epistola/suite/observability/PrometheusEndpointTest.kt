@@ -44,5 +44,18 @@ class PrometheusEndpointTest {
 
         // Verify JVM metrics are auto-configured
         assertThat(body).contains("jvm_memory_used_bytes")
+
+        // Common identity tags must be stamped on every series (fleet monitoring).
+        assertThat(body).contains("service=\"epistola-suite\"")
+        assertThat(body).contains("instance=")
+        assertThat(body).contains("installation_id=")
+    }
+
+    @Test
+    fun `liveness and readiness are exposed on the main port via add-additional-paths`() {
+        // In production the actuator health endpoints move to the separate
+        // management port; Kubernetes probes rely on these main-port aliases.
+        assertThat(restTemplate.getForEntity("/livez", String::class.java).statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(restTemplate.getForEntity("/readyz", String::class.java).statusCode).isEqualTo(HttpStatus.OK)
     }
 }

@@ -54,6 +54,12 @@ spec:
             - name: http
               containerPort: 4000
               protocol: TCP
+            # Actuator/management endpoints (health, info, prometheus) in the
+            # prod profile. Declared for in-cluster scraping only — intentionally
+            # NOT added to the Service, so it is never exposed via the Ingress.
+            - name: management
+              containerPort: 4040
+              protocol: TCP
           env:
             {{- if .Values.jvm.options }}
             - name: JAVA_TOOL_OPTIONS
