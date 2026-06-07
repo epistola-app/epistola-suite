@@ -2107,6 +2107,18 @@ a.stat-card:hover {
   border: 1px solid var(--ep-border);
 }
 
+/* ── Contract versions dialog ─────────────────────────────────────────── */
+
+.contract-versions-table {
+  font-size: var(--ep-text-sm);
+}
+
+.contract-versions-empty {
+  color: var(--ep-muted-foreground);
+  text-align: center;
+  padding: var(--ep-space-4);
+}
+
 /* ── Version comparison dialog body ────────────────────────────────────── */
 .comparison-dialog-body {
   display: flex;
