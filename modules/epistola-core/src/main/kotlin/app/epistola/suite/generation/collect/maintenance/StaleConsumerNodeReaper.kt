@@ -1,6 +1,7 @@
 package app.epistola.suite.generation.collect.maintenance
 
-import app.epistola.suite.observability.ScheduledTaskMetrics
+import app.epistola.suite.observability.recordScheduledTask
+import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -33,14 +34,14 @@ import org.springframework.stereotype.Component
 )
 class StaleConsumerNodeReaper(
     private val jdbi: Jdbi,
-    private val scheduledTaskMetrics: ScheduledTaskMetrics,
+    private val meterRegistry: MeterRegistry,
     @Value("\${epistola.collect.stale-node-retention-hours:24}")
     private val retentionHours: Long,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(cron = "\${epistola.collect.reaper.cron:0 0 3 * * *}")
-    fun reap() = scheduledTaskMetrics.record("stale-consumer-reaper") {
+    fun reap() = meterRegistry.recordScheduledTask("stale-consumer-reaper") {
         val deleted = deleteStaleNodes()
         if (deleted > 0) {
             logger.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, retentionHours)

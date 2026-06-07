@@ -1,6 +1,7 @@
 package app.epistola.suite.documents.batch
 
-import app.epistola.suite.observability.ScheduledTaskMetrics
+import app.epistola.suite.observability.recordScheduledTask
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -24,7 +25,7 @@ import java.util.UUID
 )
 class StaleJobRecovery(
     private val jdbi: Jdbi,
-    private val scheduledTaskMetrics: ScheduledTaskMetrics,
+    private val meterRegistry: MeterRegistry,
     @Value("\${epistola.generation.polling.stale-timeout-minutes:10}")
     private val staleTimeoutMinutes: Long,
 ) {
@@ -46,7 +47,7 @@ class StaleJobRecovery(
     fun recoverStaleJobs() {
         if (shuttingDown) return
 
-        scheduledTaskMetrics.record("stale-job-recovery") {
+        meterRegistry.recordScheduledTask("stale-job-recovery") {
             val staleInterval = "$staleTimeoutMinutes minutes"
             jdbi.useTransaction<Exception> { handle ->
                 // Find stale requests (IN_PROGRESS for too long)
