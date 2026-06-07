@@ -1798,15 +1798,15 @@ a.stat-card:hover {
 
 /* ── Data-hidden attribute ────────────────────────────────────────────── */
 
-#credential-group[data-hidden="true"],
-.file-preview[data-hidden="true"],
-.version-comparison-loading[data-hidden="true"],
-.version-comparison-empty[data-hidden="true"],
-#comparison-frame-a[data-hidden="true"],
-#comparison-frame-b[data-hidden="true"],
-.confirm-dialog-error[data-hidden="true"],
-#edit-attr-rows .form-group[data-hidden="true"],
-#create-variant-form .form-group[data-hidden="true"] {
+#credential-group[data-hidden='true'],
+.file-preview[data-hidden='true'],
+.version-comparison-loading[data-hidden='true'],
+.version-comparison-empty[data-hidden='true'],
+#comparison-frame-a[data-hidden='true'],
+#comparison-frame-b[data-hidden='true'],
+.confirm-dialog-error[data-hidden='true'],
+#edit-attr-rows .form-group[data-hidden='true'],
+#create-variant-form .form-group[data-hidden='true'] {
   display: none;
 }
 
@@ -2806,7 +2806,9 @@ a.stat-card:hover {
   transition: box-shadow 0.15s ease;
 }
 
-.consumer-card:hover { box-shadow: var(--ep-shadow-sm); }
+.consumer-card:hover {
+  box-shadow: var(--ep-shadow-sm);
+}
 
 .consumer-card.is-disabled {
   background: var(--ep-gray-50);
@@ -2824,11 +2826,17 @@ a.stat-card:hover {
   gap: var(--ep-space-4);
 }
 
-.consumer-card > summary::-webkit-details-marker { display: none; }
+.consumer-card > summary::-webkit-details-marker {
+  display: none;
+}
 
-.consumer-card > summary:hover { background: var(--ep-gray-50); }
+.consumer-card > summary:hover {
+  background: var(--ep-gray-50);
+}
 
-.consumer-card.is-disabled > summary:hover { background: var(--ep-gray-100); }
+.consumer-card.is-disabled > summary:hover {
+  background: var(--ep-gray-100);
+}
 
 /* Status dot */
 .consumer-status-dot {
@@ -2856,7 +2864,9 @@ a.stat-card:hover {
 }
 
 /* Identity block */
-.consumer-identity { min-width: 0; }
+.consumer-identity {
+  min-width: 0;
+}
 
 .consumer-name {
   font-size: var(--ep-text-base);
@@ -2885,7 +2895,9 @@ a.stat-card:hover {
   color: var(--ep-gray-600);
 }
 
-.consumer-meta-sep { color: var(--ep-gray-300); }
+.consumer-meta-sep {
+  color: var(--ep-gray-300);
+}
 
 /* Activity pill */
 .consumer-activity-pill {
@@ -2916,7 +2928,9 @@ a.stat-card:hover {
   color: var(--ep-red-700);
 }
 
-.consumer-activity-pill > .pill-num { font-weight: 600; }
+.consumer-activity-pill > .pill-num {
+  font-weight: 600;
+}
 
 .consumer-activity-pill > .pill-label {
   font-size: var(--ep-text-xs);
@@ -2925,9 +2939,15 @@ a.stat-card:hover {
 }
 
 /* Chevron */
-.consumer-chevron { color: var(--ep-gray-400); transition: transform 0.15s ease; flex-shrink: 0; }
+.consumer-chevron {
+  color: var(--ep-gray-400);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
 
-.consumer-card[open] > summary > .consumer-chevron { transform: rotate(90deg); }
+.consumer-card[open] > summary > .consumer-chevron {
+  transform: rotate(90deg);
+}
 
 /* Expanded body */
 .consumer-body {
@@ -2966,10 +2986,17 @@ a.stat-card:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.consumer-stat-value.is-empty { color: var(--ep-gray-400); font-family: var(--ep-font-sans); font-style: italic; font-size: var(--ep-text-sm); }
+.consumer-stat-value.is-empty {
+  color: var(--ep-gray-400);
+  font-family: var(--ep-font-sans);
+  font-style: italic;
+  font-size: var(--ep-text-sm);
+}
 
 /* Nodes table */
-.consumer-body .ep-table { margin-top: var(--ep-space-2); }
+.consumer-body .ep-table {
+  margin-top: var(--ep-space-2);
+}
 
 .consumer-body .ep-table th {
   font-size: var(--ep-text-xs);
@@ -2986,7 +3013,7 @@ a.stat-card:hover {
 }
 
 .node-row-status::before {
-  content: "";
+  content: '';
   display: inline-block;
   width: 0.5rem;
   height: 0.5rem;
@@ -2994,11 +3021,17 @@ a.stat-card:hover {
   background: var(--ep-gray-300);
 }
 
-.node-row-status.is-active { color: var(--ep-green-700); }
+.node-row-status.is-active {
+  color: var(--ep-green-700);
+}
 
-.node-row-status.is-active::before { background: var(--ep-green-500); }
+.node-row-status.is-active::before {
+  background: var(--ep-green-500);
+}
 
-.node-row-status.is-stale { color: var(--ep-gray-500); }
+.node-row-status.is-stale {
+  color: var(--ep-gray-500);
+}
 
 .consumer-body-empty {
   margin-top: var(--ep-space-3);
