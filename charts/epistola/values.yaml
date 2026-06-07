@@ -238,11 +238,12 @@ support:
     # the direct host/port mode is a local-dev / debug convenience and is
     # intentionally NOT exposed here.
     discoveryUrl: ""
-    # Override the per-pod node id reported to the hub. Leave blank in
-    # Kubernetes: node identity is resolved at runtime from the pod's hostname
-    # (which Kubernetes sets to the pod name), so each replica is already
-    # distinct. Set this only to pin an explicit identifier.
-    nodeId: ""
+    # NOTE: node id is intentionally NOT a chart value. It must differ per pod,
+    # but a Deployment value is identical for every replica — so it can't give
+    # per-pod identity. Node identity is resolved at runtime from the pod's
+    # hostname (Kubernetes sets the hostname to the pod name), so each replica
+    # is distinct automatically. (The app property epistola.support.hub.node-id
+    # still exists for rare single-instance overrides outside Kubernetes.)
 
 # Application configuration
 config:

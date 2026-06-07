@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-### Changed
+### Removed
 
-- **Stop injecting `EPISTOLA_NODE_ID` from the downward API.** Node identity is now resolved at runtime by the app (`NodeIdentity`: hostname → pod name), so the chart no longer wires a per-pod node-id env var. This also means metrics carry a meaningful `instance` tag (the pod name) out of the box, support enabled or not. `support.hub.nodeId` still works as an explicit override.
+- **`support.hub.nodeId` value and node-id env wiring.** Node identity must differ per pod, but a chart value lives on the Deployment and is identical for every replica — so it could never provide per-pod identity. The app now resolves node identity at runtime (`NodeIdentity`: hostname → pod name, which Kubernetes sets to the pod name), giving each replica a distinct id automatically and a meaningful `instance` metric tag out of the box. The downward-API `EPISTOLA_NODE_ID` injection and the `support.hub.nodeId` value are both gone. (The app property `epistola.support.hub.node-id` remains for rare single-instance overrides outside Kubernetes.)
 
 ## [0.6.0] - 2026-06-01
 
