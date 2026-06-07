@@ -1818,6 +1818,96 @@ a.stat-card:hover {
   font-size: var(--ep-text-sm);
 }
 
+/* ── Feedback detail page ──────────────────────────────────────────── */
+
+.feedback-status-form {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+.feedback-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-6);
+}
+
+.feedback-date {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+#feedback-content > .card {
+  margin-bottom: var(--ep-space-6);
+}
+
+#feedback-content .card h3 {
+  margin-bottom: var(--ep-space-3);
+}
+
+.comments-heading {
+  margin-bottom: var(--ep-space-4);
+}
+
+.comment-count {
+  color: var(--ep-muted-foreground);
+}
+
+.feedback-description {
+  white-space: pre-wrap;
+}
+
+.feedback-url {
+  font-size: var(--ep-text-sm);
+  word-break: break-all;
+}
+
+.feedback-screenshot {
+  margin-bottom: var(--ep-space-3);
+}
+
+.feedback-no-comments {
+  color: var(--ep-muted-foreground);
+  margin-bottom: var(--ep-space-4);
+}
+
+.feedback-comment + .feedback-comment {
+  margin-top: var(--ep-space-3);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--ep-space-2);
+}
+
+.comment-author {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  font-weight: 500;
+}
+
+.comment-date {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+.comment-body {
+  white-space: pre-wrap;
+}
+
+.comment-form {
+  margin-top: var(--ep-space-4);
+}
+
+.comment-form-actions {
+  display: flex;
+  gap: var(--ep-space-3);
+  margin-top: var(--ep-space-2);
+}
+
 /* ── Feedback code block ──────────────────────────────────────────────── */
 .feedback-code-block {
   font-size: var(--ep-text-xs);
