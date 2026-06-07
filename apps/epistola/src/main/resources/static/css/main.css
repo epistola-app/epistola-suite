@@ -615,6 +615,10 @@ main.regular .empty-message {
   margin-bottom: var(--ep-space-2);
 }
 
+.loadtest-test-data-input {
+  font-family: var(--ep-font-mono);
+}
+
 .loadtest-fieldset-no-margin {
   border: none;
   padding: 0;

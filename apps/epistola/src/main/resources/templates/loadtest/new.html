@@ -120,7 +120,7 @@
             <legend class="loadtest-sublegend">Test Data</legend>
             <div class="form-group">
                 <label class="ep-label" for="testData">JSON Data</label>
-                <textarea id="testData" name="testData" class="ep-textarea ep-font-mono" required
+                <textarea id="testData" name="testData" class="ep-textarea loadtest-test-data-input" required
                           rows="6" 
                           placeholder="Select a template to load data examples..."></textarea>
                 <span class="form-hint">Select a template to load data examples, or enter JSON manually</span>
@@ -207,7 +207,7 @@
                 </div>
                 <div class="form-group">
                     <label class="ep-label" for="testData">JSON Data</label>
-                    <textarea id="testData" name="testData" class="ep-textarea ep-font-mono" required
+                    <textarea id="testData" name="testData" class="ep-textarea loadtest-test-data-input" required
                               rows="10" 
                               th:readonly="${!#strings.isEmpty(selectedExampleId)}"
                               th:text="${testData}"></textarea>
@@ -220,7 +220,7 @@
             <th:block th:if="${#lists.isEmpty(dataExamples)}">
                 <div class="form-group">
                     <label class="ep-label" for="testData">JSON Data</label>
-                    <textarea id="testData" name="testData" class="ep-textarea ep-font-mono" required
+                    <textarea id="testData" name="testData" class="ep-textarea loadtest-test-data-input" required
                               rows="10" 
                               placeholder="Enter JSON test data..."></textarea>
                     <span class="form-hint">This template has no data examples. Enter JSON test data manually.</span>
