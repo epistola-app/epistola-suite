@@ -2702,6 +2702,10 @@ a.stat-card:hover {
   margin-left: var(--ep-space-2);
 }
 
+.variant-publish-form {
+  display: inline;
+}
+
 .variant-filter-key {
   color: var(--ep-muted-foreground);
   font-size: var(--ep-text-xs);
