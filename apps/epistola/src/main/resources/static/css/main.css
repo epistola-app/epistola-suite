@@ -2490,6 +2490,60 @@ a.stat-card:hover {
   padding: var(--ep-space-4) 0;
 }
 
+/* ── Data contract page ──────────────────────────────────────────────── */
+
+.contract-usage-body {
+  padding: var(--ep-space-3);
+}
+
+.contract-usage-table {
+  font-size: var(--ep-text-xs);
+  width: 100%;
+}
+
+.contract-muted {
+  color: var(--ep-muted-foreground);
+}
+
+.contract-empty {
+  color: var(--ep-muted-foreground);
+  text-align: center;
+}
+
+.contract-section-title {
+  font-size: var(--ep-text-base);
+  margin: 0;
+}
+
+.contract-schema-table {
+  font-size: var(--ep-text-sm);
+  width: 100%;
+}
+
+.contract-required {
+  color: var(--ep-red-600);
+}
+
+.contract-field-desc {
+  color: var(--ep-muted-foreground);
+}
+
+.contract-empty-schema {
+  color: var(--ep-muted-foreground);
+  text-align: center;
+  padding: var(--ep-space-4);
+}
+
+.contract-examples-body {
+  padding: var(--ep-space-3);
+}
+
+.contract-examples-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+}
+
 /* ── Contract dialog widths ───────────────────────────────────────────── */
 .dialog-contract-breaking {
   max-width: 600px;
