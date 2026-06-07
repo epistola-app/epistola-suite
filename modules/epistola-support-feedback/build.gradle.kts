@@ -38,6 +38,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
+    // Micrometer (feedback-sync outcome metrics)
+    implementation("io.micrometer:micrometer-core")
+
     // JDBI (feedback persistence)
     implementation(libs.jdbi.core)
     implementation(libs.jdbi.kotlin)

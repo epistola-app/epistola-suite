@@ -10,6 +10,7 @@ import app.epistola.hub.client.port.InstallationStore
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.observability.NodeIdentity
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -93,9 +94,12 @@ class SupportConfiguration {
         store: InstallationStore,
         props: SupportProperties,
         discovery: HubDiscovery,
+        nodeIdentity: NodeIdentity,
     ): EpistolaHubClient = EpistolaHubClient(
+        // One node-id resolver app-wide ([NodeIdentity]); the support-tier
+        // override (epistola.support.hub.node-id) still wins when explicitly set.
         store = store,
-        nodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: EpistolaHubClient.detectNodeId(),
+        nodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: nodeIdentity.nodeId,
         discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
         discovery = discovery,
     )

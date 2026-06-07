@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Health probes hit `/livez` / `/readyz` on the main port; Prometheus scrape targets the management port (4040).** In production the actuator endpoints move to a separate, cluster-internal management port (`management.server.port=4040`), so the chart no longer probes `/actuator/health/*`. Startup/liveness use `/livez`, readiness uses `/readyz` on the main `http` port (these work in every profile). A `management` containerPort (4040) is declared for in-cluster scraping but is intentionally **not** added to the Service, so it is never exposed via the Ingress. `observability.prometheus.port` now defaults to `4040` (set it to `4000` only if you run without the `prod` profile).
+
+### Removed
+
+- **`support.hub.nodeId` value and node-id env wiring.** Node identity must differ per pod, but a chart value lives on the Deployment and is identical for every replica — so it could never provide per-pod identity. The app now resolves node identity at runtime (`NodeIdentity`: hostname → pod name, which Kubernetes sets to the pod name), giving each replica a distinct id automatically and a meaningful `instance` metric tag out of the box. The downward-API `EPISTOLA_NODE_ID` injection and the `support.hub.nodeId` value are both gone. (The app property `epistola.support.hub.node-id` remains for rare single-instance overrides outside Kubernetes.)
+
 ## [0.6.0] - 2026-06-01
 
 ### Added

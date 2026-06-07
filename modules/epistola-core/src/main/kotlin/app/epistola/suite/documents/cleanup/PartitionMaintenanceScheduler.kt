@@ -1,5 +1,7 @@
 package app.epistola.suite.documents.cleanup
 
+import app.epistola.suite.observability.recordScheduledTask
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -38,6 +40,7 @@ import java.time.format.DateTimeFormatter
 )
 class PartitionMaintenanceScheduler(
     private val jdbi: Jdbi,
+    private val meterRegistry: MeterRegistry,
     @Value("\${epistola.partitions.retention-months:3}")
     private val retentionMonths: Int,
     @Value("\${epistola.partitions.generation-results-retention-months:1}")
@@ -89,26 +92,28 @@ class PartitionMaintenanceScheduler(
     fun maintainPartitions() {
         if (shuttingDown) return
 
-        jdbi.useTransaction<Exception> { handle ->
-            val acquired = handle.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
-                .bind("key", PARTITION_MAINTENANCE_LOCK_KEY)
-                .mapTo(Boolean::class.java)
-                .one()
-            if (!acquired) {
-                logger.debug("Partition maintenance skipped — another instance holds the lock")
-                return@useTransaction
-            }
-
-            logger.info("Starting partition maintenance")
-            partitionConfigs.forEach { config ->
-                try {
-                    createRequiredPartitions(config)
-                    dropOldPartitions(config)
-                } catch (e: Exception) {
-                    logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+        meterRegistry.recordScheduledTask("partition-maintenance") {
+            jdbi.useTransaction<Exception> { handle ->
+                val acquired = handle.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
+                    .bind("key", PARTITION_MAINTENANCE_LOCK_KEY)
+                    .mapTo(Boolean::class.java)
+                    .one()
+                if (!acquired) {
+                    logger.debug("Partition maintenance skipped — another instance holds the lock")
+                    return@useTransaction
                 }
+
+                logger.info("Starting partition maintenance")
+                partitionConfigs.forEach { config ->
+                    try {
+                        createRequiredPartitions(config)
+                        dropOldPartitions(config)
+                    } catch (e: Exception) {
+                        logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+                    }
+                }
+                logger.info("Partition maintenance completed")
             }
-            logger.info("Partition maintenance completed")
         }
     }
 

@@ -25,11 +25,14 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
@@ -57,6 +60,12 @@ class FeedbackSyncDriverIntegrationTest : IntegrationTestBase() {
         @Bean
         @Primary
         fun recordingFeedbackSyncPort(): FeedbackSyncPort = RecordingFeedbackSyncPort()
+
+        // The retry scheduler records sync-outcome metrics; the minimal TestApplication has no
+        // actuator MeterRegistry, so provide a simple one (the real app gets it from actuator).
+        @Bean
+        @ConditionalOnMissingBean(MeterRegistry::class)
+        fun testMeterRegistry(): MeterRegistry = SimpleMeterRegistry()
     }
 
     @Autowired

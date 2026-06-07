@@ -71,10 +71,14 @@ resources:
     cpu: 100m
     memory: 256Mi
 
-# Liveness and readiness probes using Spring Boot Actuator
+# Liveness and readiness probes. These hit the MAIN application port (http)
+# at /livez and /readyz — the add-additional-paths probe endpoints — NOT the
+# actuator health endpoints, which move to a separate, cluster-internal
+# management port in production (and a probe against that port could pass while
+# the main app is broken).
 startupProbe:
   httpGet:
-    path: /actuator/health/liveness
+    path: /livez
     port: http
   initialDelaySeconds: 5
   periodSeconds: 5
@@ -83,7 +87,7 @@ startupProbe:
 
 livenessProbe:
   httpGet:
-    path: /actuator/health/liveness
+    path: /livez
     port: http
   periodSeconds: 15
   failureThreshold: 3
@@ -91,7 +95,7 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /actuator/health/readiness
+    path: /readyz
     port: http
   periodSeconds: 10
   failureThreshold: 3
@@ -154,10 +158,13 @@ extraCaCerts:
 observability:
   # OpenTelemetry exporter endpoint (e.g., http://otel-collector:4318)
   otlpEndpoint: ""
-  # Prometheus scrape annotations on pods
+  # Prometheus scrape annotations on pods. Port must match the management port:
+  # in production (prod profile) the actuator endpoints serve on the separate
+  # management port 4040; set this to 4000 only if you run without the prod
+  # profile (actuator on the main port).
   prometheus:
     enabled: false
-    port: 4000
+    port: 4040
     path: /actuator/prometheus
   # Grafana Operator CRDs (dashboards + alerts)
   grafana:
@@ -238,11 +245,12 @@ support:
     # the direct host/port mode is a local-dev / debug convenience and is
     # intentionally NOT exposed here.
     discoveryUrl: ""
-    # Override the per-pod node id reported to the hub. Blank → auto-detect
-    # from EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
-    # In Kubernetes you usually want to set this to the pod name via the
-    # downward API (an example is in deployment.yaml when enabled).
-    nodeId: ""
+    # NOTE: node id is intentionally NOT a chart value. It must differ per pod,
+    # but a Deployment value is identical for every replica — so it can't give
+    # per-pod identity. Node identity is resolved at runtime from the pod's
+    # hostname (Kubernetes sets the hostname to the pod name), so each replica
+    # is distinct automatically. (The app property epistola.support.hub.node-id
+    # still exists for rare single-instance overrides outside Kubernetes.)
 
 # Application configuration
 config:

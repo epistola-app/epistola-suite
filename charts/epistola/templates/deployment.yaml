@@ -54,6 +54,12 @@ spec:
             - name: http
               containerPort: 4000
               protocol: TCP
+            # Actuator/management endpoints (health, info, prometheus) in the
+            # prod profile. Declared for in-cluster scraping only — intentionally
+            # NOT added to the Service, so it is never exposed via the Ingress.
+            - name: management
+              containerPort: 4040
+              protocol: TCP
           env:
             {{- if .Values.jvm.options }}
             - name: JAVA_TOOL_OPTIONS
@@ -159,17 +165,11 @@ spec:
             - name: EPISTOLA_SUPPORT_HUB_DISCOVERYURL
               value: {{ .Values.support.hub.discoveryUrl | quote }}
             {{- end }}
-            {{- if .Values.support.hub.nodeId }}
-            - name: EPISTOLA_SUPPORT_HUB_NODEID
-              value: {{ .Values.support.hub.nodeId | quote }}
-            {{- else }}
-            {{- /* Default node id to pod name via downward API — gives the
-                   hub stable per-replica identifiers in multi-pod deployments. */}}
-            - name: EPISTOLA_NODE_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            {{- end }}
+            {{- /* No node-id env is injected. A chart value lives on the
+                   Deployment, so it is identical for every replica and could
+                   never provide per-pod identity. Node identity is resolved at
+                   runtime by NodeIdentity (hostname → pod name), giving each
+                   pod a distinct id automatically. */}}
             {{- end }}
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}

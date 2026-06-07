@@ -21,6 +21,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -47,6 +49,7 @@ class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
     private val schedulerLock: SchedulerLock,
+    private val meterRegistry: MeterRegistry,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -78,13 +81,21 @@ class FeedbackSyncScheduler(
             SecurityContext.runWithPrincipal(feedbackSystemPrincipal(feedback.tenantKey)) {
                 try {
                     syncFeedback(feedback)
+                    syncAttempts("success").increment()
                 } catch (e: Exception) {
                     log.error("Failed to sync feedback {}: {}", feedback.id, e.message)
+                    syncAttempts("failure").increment()
                     recordSyncAttemptFailure(feedback)
                 }
             }
         }
     }
+
+    // Per-item outcome of the outbound feedback sync. Lets a fleet alert on a rising
+    // failure rate (provider down / misconfigured) and confirm the scheduler is doing work.
+    private fun syncAttempts(outcome: String): Counter = Counter.builder("epistola.feedback.sync.attempts")
+        .tag("outcome", outcome)
+        .register(meterRegistry)
 
     private fun retryPendingComments() {
         val pending = ListUnsyncedComments(limit = 50).query()
