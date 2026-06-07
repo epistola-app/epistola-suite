@@ -2057,6 +2057,10 @@ a.stat-card:hover {
   gap: var(--ep-space-2);
 }
 
+.feedback-status-form .ep-input {
+  width: auto;
+}
+
 .feedback-badges {
   display: flex;
   flex-wrap: wrap;

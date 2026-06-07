@@ -17,7 +17,7 @@
                               hx-target="#feedback-content"
                               hx-swap="innerHTML"
                               class="feedback-status-form">
-                            <select name="status" class="ep-input ep-input-sm ep-w-auto">
+                            <select name="status" class="ep-input ep-input-sm">
                                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
                             </select>
