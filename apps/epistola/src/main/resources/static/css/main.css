@@ -1796,14 +1796,18 @@ a.stat-card:hover {
   gap: var(--ep-space-4);
 }
 
-/* ── Display utilities ───────────────────────────────────────────────── */
+/* ── Data-hidden attribute ────────────────────────────────────────────── */
 
-.ep-hidden {
+#credential-group[data-hidden="true"],
+.file-preview[data-hidden="true"],
+.version-comparison-loading[data-hidden="true"],
+.version-comparison-empty[data-hidden="true"],
+#comparison-frame-a[data-hidden="true"],
+#comparison-frame-b[data-hidden="true"],
+.confirm-dialog-error[data-hidden="true"],
+#edit-attr-rows .form-group[data-hidden="true"],
+#create-variant-form .form-group[data-hidden="true"] {
   display: none;
-}
-
-.ep-inline {
-  display: inline;
 }
 
 .ep-inline-block {

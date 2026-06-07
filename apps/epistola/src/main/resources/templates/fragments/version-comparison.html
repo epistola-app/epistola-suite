@@ -51,9 +51,9 @@
                     cleanupBlobUrls();
 
                     ['a', 'b'].forEach(function(side) {
-                        document.getElementById('comparison-empty-' + side).classList.add('ep-hidden');
-                        document.getElementById('comparison-loading-' + side).classList.remove('ep-hidden');
-                        document.getElementById('comparison-frame-' + side).classList.add('ep-hidden');
+                        document.getElementById('comparison-empty-' + side).dataset.hidden = 'true';
+                        document.getElementById('comparison-loading-' + side).dataset.hidden = 'false';
+                        document.getElementById('comparison-frame-' + side).dataset.hidden = 'true';
                     });
 
                     document.getElementById('comparison-label-a').textContent = 'v' + versionA;
@@ -92,15 +92,15 @@
                         document.getElementById('comparison-frame-b').src = urlB;
 
                         ['a', 'b'].forEach(function(side) {
-                            document.getElementById('comparison-loading-' + side).classList.add('ep-hidden');
-                            document.getElementById('comparison-frame-' + side).classList.remove('ep-hidden');
+                            document.getElementById('comparison-loading-' + side).dataset.hidden = 'true';
+                            document.getElementById('comparison-frame-' + side).dataset.hidden = 'false';
                         });
                     } catch (error) {
                         console.error('Version comparison failed:', error);
                         alert('Failed to compare versions: ' + error.message);
                         ['a', 'b'].forEach(function(side) {
-                            document.getElementById('comparison-loading-' + side).classList.add('ep-hidden');
-                            document.getElementById('comparison-empty-' + side).classList.remove('ep-hidden');
+                            document.getElementById('comparison-loading-' + side).dataset.hidden = 'true';
+                            document.getElementById('comparison-empty-' + side).dataset.hidden = 'false';
                         });
                     }
                 };

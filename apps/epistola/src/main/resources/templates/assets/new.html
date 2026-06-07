@@ -35,7 +35,7 @@
                                     class="file-input-hidden"
                                     required />
                         </div>
-                        <div id="file-preview" class="ep-hidden file-preview">
+                        <div id="file-preview" class="file-preview" data-hidden="true">
                             <span id="file-name"></span>
                         </div>
                         <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
@@ -57,10 +57,10 @@
                 var fileName = document.getElementById('file-name');
                 if (this.files.length > 0) {
                     fileName.textContent = this.files[0].name;
-                    preview.classList.remove('ep-hidden');
-                    uploadError.textContent = '';
+                    preview.dataset.hidden = 'false';
+                    fileName.textContent = this.files[0].name;
                 } else {
-                    preview.classList.add('ep-hidden');
+                    preview.dataset.hidden = 'true';
                 }
             });
 

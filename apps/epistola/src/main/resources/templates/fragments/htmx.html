@@ -42,7 +42,7 @@
 
                 titleEl.textContent = trigger.getAttribute('data-confirm-title') || 'Confirm';
                 messageEl.textContent = trigger.getAttribute('data-confirm-message') || 'Are you sure?';
-                errorEl.classList.add('ep-hidden');
+                errorEl.dataset.hidden = 'true';
                 errorEl.textContent = '';
 
                 // Build a fresh form with HTMX attributes
@@ -79,7 +79,7 @@
                     } catch (e) {
                         errorEl.textContent = 'An error occurred.';
                     }
-                    errorEl.classList.remove('ep-hidden');
+                    errorEl.dataset.hidden = 'false';
                 });
 
                 dialog.showModal();
@@ -124,7 +124,7 @@
 
                     titleEl.textContent = options.title || 'Confirm';
                     messageEl.textContent = message;
-                    errorEl.classList.add('ep-hidden');
+                    errorEl.dataset.hidden = 'true';
                     errorEl.textContent = '';
 
                     footerEl.innerHTML = '';
