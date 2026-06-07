@@ -253,6 +253,10 @@ main.regular .empty-message {
   text-decoration: underline;
 }
 
+.footer-logout-form {
+  display: inline;
+}
+
 /* ── Status badges ────────────────────────────────────────────────────── */
 
 /* Legacy badge variants mapped to new naming */
