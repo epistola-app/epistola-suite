@@ -26,7 +26,7 @@ dependencies {
     api(project(":modules:epistola-support"))
 
     // Epistola Hub client (Kotlin gRPC SDK) — EpistolaHubClient + generated catalog-sync proto.
-    implementation("app.epistola.hub:client:0.3.0-SNAPSHOT")
+    implementation("app.epistola.hub:client:0.3.0")
 
     // Shared web/UI toolkit (HTMX functional-web DSL) for the backups + upgrading UI.
     implementation(project(":modules:epistola-web"))
