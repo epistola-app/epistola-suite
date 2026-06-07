@@ -569,7 +569,7 @@ main.regular .empty-message {
   color: var(--ep-muted-foreground);
 }
 
-/* ── Load test detail page ────────────────────────────────────────────── */
+/* ── Load test detail / request log pages ─────────────────────────────── */
 
 .run-template-key {
   color: var(--ep-muted-foreground);
@@ -581,6 +581,23 @@ main.regular .empty-message {
 }
 
 .run-progress-label {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.request-empty-value {
+  color: var(--ep-muted-foreground);
+}
+
+.request-error-type {
+  font-weight: 500;
+}
+
+.request-error-message {
+  color: var(--ep-muted-foreground);
+}
+
+.pagination-info {
   color: var(--ep-muted-foreground);
   font-size: var(--ep-text-sm);
 }
