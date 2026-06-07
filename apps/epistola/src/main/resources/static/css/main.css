@@ -2358,6 +2358,10 @@ a.stat-card:hover {
   margin-bottom: var(--ep-space-4);
 }
 
+.feedback-filters .ep-input {
+  width: auto;
+}
+
 .feedback-title {
   font-weight: 500;
 }
