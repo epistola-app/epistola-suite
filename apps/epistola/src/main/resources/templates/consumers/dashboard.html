@@ -3,6 +3,23 @@
 <body>
     <th:block th:fragment="content">
         <style>
+            .consumer-dashboard-stats {
+                margin-bottom: var(--ep-space-6);
+            }
+            .consumer-total-nodes {
+                color: var(--ep-muted-foreground);
+            }
+            .consumer-latest-activity {
+                font-size: var(--ep-text-xl);
+            }
+            .consumer-node-partitions {
+                font-size: var(--ep-text-sm);
+            }
+            .consumer-stale-node {
+                font-size: var(--ep-text-sm);
+                color: var(--ep-muted-foreground);
+            }
+
             /* ── Toolbar ──────────────────────────────────────────────── */
             .consumer-toolbar {
                 display: flex;
@@ -221,7 +238,7 @@
              hx-trigger="every 10s"
              hx-swap="outerHTML">
 
-            <div class="dashboard-stats ep-mb-6">
+            <div class="dashboard-stats consumer-dashboard-stats">
                 <div class="stat-card">
                     <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
                     <div class="stat-card-label">Consumers</div>
@@ -229,13 +246,13 @@
                 <div class="stat-card">
                     <div class="stat-card-value">
                         <span th:text="${report.totals.activeNodeCount}">0</span><span
-                            class="ep-text-muted"
+                            class="consumer-total-nodes"
                             th:text="' / ' + ${report.totals.totalNodeCount}"> / 0</span>
                     </div>
                     <div class="stat-card-label">Active nodes</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-card-value ep-text-xl" 
+                    <div class="stat-card-value consumer-latest-activity" 
                          th:text="${report.totals.mostRecentNodeActivity != null
                                    ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
                                    : '—'}">—</div>
@@ -344,10 +361,10 @@
                                           th:text="${node.isActive ? 'active' : 'stale'}">active</span>
                                 </td>
                                 <td>
-                                    <code th:if="${node.isActive}" class="ep-text-sm"
+                                    <code th:if="${node.isActive}" class="consumer-node-partitions"
                                           th:title="${node.partitionsTitle}"
                                           th:text="${node.partitionsLabel}">0, 3, 7</code>
-                                    <span th:if="${!node.isActive}" class="ep-text-sm ep-text-muted"
+                                    <span th:if="${!node.isActive}" class="consumer-stale-node"
                                           th:title="${'Was assigned: ' + node.partitionsTitle}">— stale, not on ring</span>
                                 </td>
                             </tr>
