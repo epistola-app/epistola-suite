@@ -761,6 +761,20 @@ main.regular .empty-message {
   width: 100%;
 }
 
+.login-success-card {
+  text-align: center;
+}
+
+.login-success-message {
+  font-weight: 500;
+  margin-bottom: var(--ep-space-2);
+}
+
+.close-notice {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
 .login-divider::before,
 .login-divider::after {
   content: '';
