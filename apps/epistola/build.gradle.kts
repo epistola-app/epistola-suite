@@ -37,6 +37,11 @@ dependencies {
     // component is gated on epistola.support.enabled). Pulls in the feedback domain.
     implementation(project(":modules:epistola-support-feedback"))
 
+    // Catalog backups + compatibility (upgrading) — tenant snapshot sync to the hub, daily
+    // scheduled backups, restore, and the Backups/Upgrading UI. Gated by the `support-backups`
+    // feature toggle and (for hub calls) epistola.support.enabled.
+    implementation(project(":modules:epistola-support-backups"))
+
     // Catalog module (catalog exchange for sharing templates)
 
     // Load test module (load testing functionality)

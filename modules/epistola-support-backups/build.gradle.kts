@@ -12,24 +12,23 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 }
 
 dependencies {
-    // The full feedback feature lives here: domain (model + commands/queries + migrations),
-    // the sync engine (FeedbackSyncPort + drivers + NoOp fallback), the UI (handlers +
-    // templates), and the hub adapter. The feature is freely usable; only the hub *sync*
-    // (the paid server component) is gated on epistola.support.enabled.
+    // The catalog-backups feature lives here: tenant-snapshot building (reusing the catalog
+    // export), the sync engine (BackupSyncPort + hub adapter + no-op fallback), the daily
+    // scheduler, restore, and the UI. The capability is gated by the `support-backups`
+    // feature toggle and (for the hub calls) `epistola.support.enabled`.
 
-    // Core (IDs, mediator, security, JDBI config) — api so the feedback domain types are
-    // exposed to the host app (which uses them via this module).
+    // Core (catalog export/import, IDs, mediator, security, JDBI config) — api so the
+    // backup domain types are exposed to the host app.
     api(project(":modules:epistola-core"))
 
-    // Commercial support tier (hub client wiring, registration, credentials) — used by the
-    // hub-backed FeedbackSyncPort. Inert until epistola.support.enabled=true.
+    // Commercial support tier (hub client wiring, registration, credentials). Inert until
+    // epistola.support.enabled=true.
     api(project(":modules:epistola-support"))
 
-    // Epistola Hub client (Kotlin gRPC SDK) — EpistolaHubClient + generated feedback proto
-    // types. epistola-support depends on it only as `implementation`, so declare it here too.
+    // Epistola Hub client (Kotlin gRPC SDK) — EpistolaHubClient + generated catalog-sync proto.
     implementation("app.epistola.hub:client:0.3.0-SNAPSHOT")
 
-    // Shared web/UI toolkit (HTMX functional-web DSL) for the feedback UI.
+    // Shared web/UI toolkit (HTMX functional-web DSL) for the backups + upgrading UI.
     implementation(project(":modules:epistola-web"))
 
     // Spring Boot — base + UI (functional routing + Thymeleaf) + JDBC/JDBI persistence.
@@ -38,18 +37,14 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
-    // Micrometer (feedback-sync outcome metrics)
-    implementation("io.micrometer:micrometer-core")
-
-    // JDBI (feedback persistence)
+    // JDBI (tenant enumeration in the scheduler + the destructive wipe during restore)
     implementation(libs.jdbi.core)
     implementation(libs.jdbi.kotlin)
     implementation(libs.jdbi.postgres)
     implementation(libs.jdbi.spring)
 
-    // Flyway (feedback migrations live in this module)
-    implementation("org.springframework.boot:spring-boot-starter-flyway")
-    implementation("org.flywaydb:flyway-database-postgresql")
+    // Jackson (snapshot manifest serialization)
+    implementation("tools.jackson.module:jackson-module-kotlin")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -58,9 +53,7 @@ dependencies {
     // Testing
     testImplementation(project(":modules:testing"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("tools.jackson.module:jackson-module-kotlin")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")

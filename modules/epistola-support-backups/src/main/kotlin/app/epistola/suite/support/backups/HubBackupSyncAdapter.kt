@@ -1,0 +1,113 @@
+package app.epistola.suite.support.backups
+
+import app.epistola.hub.client.EpistolaHubClient
+import app.epistola.hub.client.port.InstallationStore
+import app.epistola.hub.proto.v1.DownloadSnapshotRequest
+import app.epistola.hub.proto.v1.ListCompatibilityResultsRequest
+import app.epistola.hub.proto.v1.ListSnapshotsRequest
+import app.epistola.hub.proto.v1.SnapshotHeader
+import app.epistola.suite.backups.BackupSyncPort
+import app.epistola.suite.backups.CompatibilityCheckResult
+import app.epistola.suite.backups.CompatibilityVerdict
+import app.epistola.suite.backups.RemoteSnapshot
+import app.epistola.suite.backups.SnapshotUploadResult
+import app.epistola.suite.backups.TenantSnapshot
+import app.epistola.suite.common.ids.TenantKey
+import com.google.protobuf.Timestamp
+import java.time.Instant
+import app.epistola.hub.proto.v1.CompatibilityVerdict as ProtoVerdict
+
+/**
+ * Production [BackupSyncPort] that streams tenant catalog snapshots to epistola-hub over gRPC and
+ * reads snapshot/compatibility metadata back. Authentication is installation-wide:
+ * [EpistolaHubClient] attaches the registered API key to every call. Wired only when
+ * `epistola.support.enabled=true`; otherwise the no-op adapter is used.
+ *
+ * Hub errors are allowed to propagate (e.g. `HubEntitlementDeniedException` when the installation
+ * has no service contract) so callers — the scheduler and the UI — can surface them.
+ */
+class HubBackupSyncAdapter(
+    private val client: EpistolaHubClient,
+    private val installationStore: InstallationStore,
+) : BackupSyncPort {
+    @Volatile
+    private var registered = false
+
+    override fun isEnabled(): Boolean = true
+
+    /**
+     * Ready once the installation has registered (credentials persisted). Registration is one-way
+     * for the process lifetime, so latch the first positive result and stop hitting the store.
+     */
+    override fun isReady(): Boolean {
+        if (registered) return true
+        val ready = installationStore.load() != null
+        if (ready) registered = true
+        return ready
+    }
+
+    override fun uploadSnapshot(snapshot: TenantSnapshot): SnapshotUploadResult {
+        val header =
+            SnapshotHeader
+                .newBuilder()
+                .setTenant(snapshot.tenantKey.value)
+                .setSnapshotFingerprint(snapshot.snapshotFingerprint)
+                .setCatalogCount(snapshot.catalogCount)
+                .setCapturedAt(snapshot.capturedAt.toTimestamp())
+                .build()
+        val response = client.uploadSnapshot(header, snapshot.bytes)
+        return SnapshotUploadResult(snapshotId = response.snapshotId, deduplicated = response.deduplicated)
+    }
+
+    override fun listSnapshots(tenantKey: TenantKey): List<RemoteSnapshot> {
+        val response = client.listSnapshots(ListSnapshotsRequest.newBuilder().setTenant(tenantKey.value).build())
+        return response.snapshotsList.map { s ->
+            RemoteSnapshot(
+                snapshotId = s.snapshotId,
+                snapshotFingerprint = s.snapshotFingerprint,
+                sizeBytes = s.sizeBytes,
+                catalogCount = s.catalogCount,
+                capturedAt = s.capturedAt.toInstant(),
+                createdAt = s.createdAt.toInstant(),
+                isLatest = s.isLatest,
+            )
+        }
+    }
+
+    override fun downloadSnapshot(
+        tenantKey: TenantKey,
+        snapshotId: String,
+    ): ByteArray = client
+        .downloadSnapshot(
+            DownloadSnapshotRequest.newBuilder().setTenant(tenantKey.value).setSnapshotId(snapshotId).build(),
+        ).content
+
+    override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> {
+        val response =
+            client.listCompatibilityResults(
+                ListCompatibilityResultsRequest.newBuilder().setTenant(tenantKey.value).build(),
+            )
+        return response.resultsList.map { r ->
+            CompatibilityCheckResult(
+                tenant = r.tenant,
+                targetVersion = r.targetVersion,
+                snapshotId = r.snapshotId.ifBlank { null },
+                catalogKey = r.catalogKey.ifBlank { null },
+                verdict = r.verdict.toDomain(),
+                detail = r.detail.ifBlank { null },
+                occurredAt = r.occurredAt.toInstant(),
+            )
+        }
+    }
+}
+
+private fun ProtoVerdict.toDomain(): CompatibilityVerdict = when (this) {
+    ProtoVerdict.COMPATIBILITY_VERDICT_PASS -> CompatibilityVerdict.PASS
+    ProtoVerdict.COMPATIBILITY_VERDICT_WARN -> CompatibilityVerdict.WARN
+    ProtoVerdict.COMPATIBILITY_VERDICT_FAIL -> CompatibilityVerdict.FAIL
+    ProtoVerdict.COMPATIBILITY_VERDICT_UNSPECIFIED, ProtoVerdict.UNRECOGNIZED -> CompatibilityVerdict.UNKNOWN
+}
+
+private fun Instant.toTimestamp(): Timestamp = Timestamp.newBuilder().setSeconds(epochSecond).setNanos(nano).build()
+
+private fun Timestamp.toInstant(): Instant = Instant.ofEpochSecond(seconds, nanos.toLong())

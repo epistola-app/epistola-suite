@@ -50,5 +50,8 @@ class SchedulerLock(
 
         /** Stable advisory-lock key for the feedback outbound retry sweep. */
         const val FEEDBACK_RETRY = 815_002L
+
+        /** Stable advisory-lock key for the daily catalog-backup run. */
+        const val CATALOG_BACKUP = 815_003L
     }
 }
