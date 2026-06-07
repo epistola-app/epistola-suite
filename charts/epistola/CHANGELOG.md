@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`observability.otelAgent` — bring-your-own OpenTelemetry agent friendliness.** Off by default. When enabled, the chart injects `POD_NAME` (downward API `metadata.name`), `OTEL_SERVICE_NAME` (default `epistola-suite`), and `OTEL_RESOURCE_ATTRIBUTES` (`service.instance.id=$(POD_NAME)`, optional `serviceNamespace`, and `deploymentEnvironment` falling back to `support.installation.environment`, plus any extra `resourceAttributes`). An operator-attached OTel Java agent then inherits an identity consistent with the app's own `NodeIdentity` (pod name) and common metric tags. The app's own Micrometer OTLP export stays off unless `observability.otlpEndpoint` is set, so the agent owns the OTLP leg with no double export. The epistola-hub leg (commercial support tier) is configured at runtime by the support module, not here. See [`docs/metrics.md`](../../docs/metrics.md#bring-your-own-opentelemetry-agent).
+
 ### Changed
 
 - **Health probes hit `/livez` / `/readyz` on the main port; Prometheus scrape targets the management port (4040).** In production the actuator endpoints move to a separate, cluster-internal management port (`management.server.port=4040`), so the chart no longer probes `/actuator/health/*`. Startup/liveness use `/livez`, readiness uses `/readyz` on the main `http` port (these work in every profile). A `management` containerPort (4040) is declared for in-cluster scraping but is intentionally **not** added to the Service, so it is never exposed via the Ingress. `observability.prometheus.port` now defaults to `4040` (set it to `4000` only if you run without the `prod` profile).

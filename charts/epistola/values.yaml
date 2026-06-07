@@ -158,6 +158,24 @@ extraCaCerts:
 observability:
   # OpenTelemetry exporter endpoint (e.g., http://otel-collector:4318)
   otlpEndpoint: ""
+  # Bring-your-own OpenTelemetry agent friendliness. Enable when you attach the
+  # OTel Java agent (e.g. via jvm.options) so it inherits a stable identity
+  # consistent with the app's own NodeIdentity and metric tags. Purely for the
+  # customer's own telemetry pipeline — the app's Micrometer OTLP export stays
+  # off unless observability.otlpEndpoint is set, so the agent owns the OTLP leg
+  # with no double export. The epistola-hub leg (commercial support tier) is
+  # configured at runtime by the support module, NOT here.
+  otelAgent:
+    enabled: false
+    # service.name reported to the agent.
+    serviceName: epistola-suite
+    # Optional service.namespace resource attribute.
+    serviceNamespace: ""
+    # deployment.environment resource attribute. Falls back to
+    # support.installation.environment when left blank.
+    deploymentEnvironment: ""
+    # Extra OTEL resource attributes as key/value pairs (merged in).
+    resourceAttributes: {}
   # Prometheus scrape annotations on pods. Port must match the management port:
   # in production (prod profile) the actuator endpoints serve on the separate
   # management port 4040; set this to 4000 only if you run without the prod
