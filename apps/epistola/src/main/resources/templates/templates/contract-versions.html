@@ -29,7 +29,7 @@
                         <td>
                             <span th:if="${version.publishedAt != null}"
                                   th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                            <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                            <span th:unless="${version.publishedAt != null}" class="contract-version-date-empty">-</span>
                         </td>
                     </tr>
                 </tbody>

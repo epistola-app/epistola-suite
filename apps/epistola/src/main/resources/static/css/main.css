@@ -2585,6 +2585,10 @@ a.stat-card:hover {
   padding: var(--ep-space-4);
 }
 
+.contract-version-date-empty {
+  color: var(--ep-muted-foreground);
+}
+
 /* ── Version comparison dialog body ────────────────────────────────────── */
 .comparison-dialog-body {
   display: flex;
