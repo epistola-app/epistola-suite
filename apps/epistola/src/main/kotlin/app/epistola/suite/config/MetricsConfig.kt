@@ -3,7 +3,9 @@ package app.epistola.suite.config
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.observability.NodeIdentity
+import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Tag
+import io.micrometer.core.instrument.Tags
 import io.micrometer.core.instrument.config.MeterFilter
 import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
@@ -78,7 +80,23 @@ class MetricsConfig {
         return MeterFilter.commonTags(tags)
     }
 
+    /**
+     * Strips the `instance` tag from installation-wide gauges
+     * (`epistola.installation.*`). These are published by a single leader replica
+     * (see `InstallationStatsPublisher`); keeping `instance` would make the
+     * series churn by pod every time leadership moves. Without it they stay one
+     * stable series keyed by `installation_id`.
+     */
+    @Bean
+    fun stripInstanceFromInstallationGauges(): MeterFilter = object : MeterFilter {
+        override fun map(id: Meter.Id): Meter.Id {
+            if (!id.name.startsWith(INSTALLATION_METRIC_PREFIX)) return id
+            return id.replaceTags(Tags.of(id.tags.filterNot { it.key == "instance" }))
+        }
+    }
+
     private companion object {
+        const val INSTALLATION_METRIC_PREFIX = "epistola.installation."
         private val logger = LoggerFactory.getLogger(MetricsConfig::class.java)
     }
 }
