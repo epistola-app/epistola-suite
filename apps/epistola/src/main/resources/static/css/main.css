@@ -990,6 +990,20 @@ a.stat-card:hover {
   gap: 0;
 }
 
+/* ── Stencils list page ──────────────────────────────────────────────── */
+
+.stencil-name {
+  font-weight: 500;
+}
+
+.stencil-empty-desc {
+  color: var(--ep-muted-foreground);
+}
+
+.tag-badge {
+  margin-right: var(--ep-space-1);
+}
+
 .tab-nav-item {
   padding: var(--ep-space-2) var(--ep-space-4);
   border-bottom: 2px solid transparent;
