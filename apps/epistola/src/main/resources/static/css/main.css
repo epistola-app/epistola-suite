@@ -2238,6 +2238,39 @@ a.stat-card:hover {
   margin-bottom: var(--ep-space-3);
 }
 
+/* ── Template list page ──────────────────────────────────────────────── */
+
+.template-name {
+  font-weight: 500;
+}
+
+.template-id {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+/* ── Variant versions dialog ─────────────────────────────────────────── */
+
+.variant-version-error {
+  margin-bottom: var(--ep-space-4);
+}
+
+.variant-versions-table {
+  font-size: var(--ep-text-sm);
+}
+
+.version-meta {
+  color: var(--ep-muted-foreground);
+}
+
+.version-empty-state {
+  padding: var(--ep-space-6);
+}
+
+.version-create-draft {
+  margin-top: var(--ep-space-4);
+}
+
 /* ── Template settings: stencil label/select ──────────────────────────── */
 .stencil-upgrade-label {
   margin: 0;

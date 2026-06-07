@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="ep-dialog-header ep-flex-between">
+        <div class="ep-dialog-header">
             <h3>Version History: <code th:text="${variant.id}"></code></h3>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="document.getElementById('version-history-dialog').close()"
@@ -10,11 +10,11 @@
         </div>
         <div class="ep-dialog-body">
             <!-- Error message -->
-            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
+            <div th:if="${error != null}" class="alert alert-error variant-version-error">
                 <span th:text="${error}"></span>
             </div>
 
-            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table ep-text-sm" >
+            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table variant-versions-table">
                 <thead>
                     <tr>
                         <th>Version</th>
@@ -34,14 +34,14 @@
                             <span th:if="${version.status.name() == 'ARCHIVED'}" class="badge badge-outline">Archived</span>
                         </td>
                         <td>
-                            <span th:if="${version.contractVersion != null}" th:text="'v' + ${version.contractVersion}" class="text-muted"></span>
-                            <span th:unless="${version.contractVersion != null}" class="text-muted">-</span>
+                            <span th:if="${version.contractVersion != null}" th:text="'v' + ${version.contractVersion}" class="version-meta"></span>
+                            <span th:unless="${version.contractVersion != null}" class="version-meta">-</span>
                         </td>
                         <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td>
                             <span th:if="${version.publishedAt != null}"
                                   th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                            <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                            <span th:unless="${version.publishedAt != null}" class="version-meta">-</span>
                         </td>
                         <td class="actions">
                             <!-- Draft actions -->
@@ -112,13 +112,13 @@
                 </tbody>
             </table>
 
-            <div th:if="${#lists.isEmpty(versions)}" class="empty-state ep-p-6">
+            <div th:if="${#lists.isEmpty(versions)}" class="empty-state version-empty-state">
                 <div class="empty-state-title">No versions yet</div>
                 <div class="empty-state-description">Create a draft to start building this variant.</div>
             </div>
 
             <!-- Create Draft button if no draft exists -->
-            <div th:unless="${variant.hasDraft}" class="ep-mt-4">
+            <div th:unless="${variant.hasDraft}" class="version-create-draft">
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                       method="post"
                       th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
