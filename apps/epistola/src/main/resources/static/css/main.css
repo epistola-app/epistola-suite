@@ -627,6 +627,10 @@ main.regular .empty-message {
   font-family: var(--ep-font-mono);
 }
 
+.loadtest-cancel-form {
+  display: inline;
+}
+
 .loadtest-fieldset-no-margin {
   border: none;
   padding: 0;
