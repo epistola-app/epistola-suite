@@ -53,4 +53,10 @@ data class SnapshotCatalogEntry(
     val version: String?,
     val zipPath: String,
     val zipSizeBytes: Long,
+    /**
+     * Keys of *other* catalogs this catalog references (a theme/code list/font/stencil in another
+     * catalog). Excludes self and the system catalog. Restore imports catalogs in dependency order
+     * (each dependency before its dependents) so the database FKs resolve.
+     */
+    val dependsOnCatalogKeys: List<String> = emptyList(),
 )

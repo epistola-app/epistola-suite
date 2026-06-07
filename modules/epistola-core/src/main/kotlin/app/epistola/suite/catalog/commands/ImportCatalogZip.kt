@@ -80,6 +80,16 @@ data class ImportCatalogZip(
      * source, so the orchestrator rejects it.
      */
     val onStencilConflict: OnStencilConflict = OnStencilConflict.FAIL,
+    /**
+     * Whether to pre-validate that cross-catalog dependencies (a theme / code list /
+     * font / stencil this catalog references in *another* catalog) already exist.
+     * `true` (default) for normal imports. A full-tenant **restore** sets this `false`:
+     * the snapshot is a self-consistent whole imported atomically in one transaction, and
+     * the importer orders catalogs so each dependency lands before its dependents — so the
+     * per-catalog existence pre-check would spuriously fail on a not-yet-imported sibling.
+     * The database FKs still enforce referential integrity regardless of this flag.
+     */
+    val validateCrossCatalogDeps: Boolean = true,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -179,9 +189,11 @@ class ImportCatalogZipHandler(
             )
         }
 
-        // Validate cross-catalog dependencies exist (batch check)
+        // Validate cross-catalog dependencies exist (batch check). Skipped during a full-tenant
+        // restore, which imports a self-consistent snapshot in dependency order within one
+        // transaction (the DB FKs still enforce integrity).
         val dependencies = manifest.dependencies.orEmpty()
-        if (dependencies.isNotEmpty()) {
+        if (command.validateCrossCatalogDeps && dependencies.isNotEmpty()) {
             val missing = findMissingDependencies(command.tenantKey, dependencies)
             if (missing.isNotEmpty()) {
                 val details = missing.joinToString(", ") { dep ->

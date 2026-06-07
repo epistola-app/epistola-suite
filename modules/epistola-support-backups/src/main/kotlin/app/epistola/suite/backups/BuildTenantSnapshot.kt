@@ -1,5 +1,6 @@
 package app.epistola.suite.backups
 
+import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -60,7 +61,8 @@ class BuildTenantSnapshotHandler(
         for (catalog in catalogs) {
             // The stable content fingerprint (excludes release.*/timestamps), same value
             // ExportCatalogZip embeds in catalog.json — read directly so dedup is deterministic.
-            val fingerprint = fingerprintService.fingerprint(contentBuilder.build(command.tenantKey, catalog.id))
+            val content = contentBuilder.build(command.tenantKey, catalog.id)
+            val fingerprint = fingerprintService.fingerprint(content)
             val export = ExportCatalogZip(command.tenantKey, catalog.id).execute()
             val zipPath = "catalogs/${catalog.id.value}.zip"
             innerZips[zipPath] = export.zipBytes
@@ -73,6 +75,7 @@ class BuildTenantSnapshotHandler(
                     version = catalog.releasedVersion,
                     zipPath = zipPath,
                     zipSizeBytes = export.zipBytes.size.toLong(),
+                    dependsOnCatalogKeys = crossCatalogDependencies(content, catalog.id.value),
                 ),
             )
         }
@@ -97,6 +100,26 @@ class BuildTenantSnapshotHandler(
             bytes = bytes,
         )
     }
+
+    /**
+     * The keys of other catalogs this catalog references (cross-catalog theme / stencil / code list
+     * / font dependencies), excluding self and the system catalog. Drives restore ordering.
+     */
+    private fun crossCatalogDependencies(
+        content: app.epistola.suite.catalog.CatalogContent,
+        ownKey: String,
+    ): List<String> = content.dependencies
+        .orEmpty()
+        .mapNotNull { dep ->
+            when (dep) {
+                is DependencyRef.Theme -> dep.catalogKey
+                is DependencyRef.Stencil -> dep.catalogKey
+                is DependencyRef.CodeList -> dep.catalogKey
+                is DependencyRef.Font -> dep.catalogKey
+                is DependencyRef.Asset -> null
+            }
+        }.filter { it != ownKey && it != SYSTEM_CATALOG_KEY.value }
+        .distinct()
 
     /**
      * Rolled-up tenant fingerprint: SHA-256 over the per-catalog content fingerprints, sorted by

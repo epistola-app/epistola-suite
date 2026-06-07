@@ -48,6 +48,31 @@ class CatalogBackupService(
         return BackupOutcome.Uploaded(result.snapshotId, result.deduplicated, snapshot.snapshotFingerprint)
     }
 
+    /** Whether the backup capability is wired and ready (installation registered). */
+    fun isReady(): Boolean = port.isEnabled() && port.isReady()
+
+    /** Lists a tenant's stored snapshots, newest first. */
+    fun listSnapshots(tenantKey: TenantKey): List<RemoteSnapshot> = port.listSnapshots(tenantKey)
+
+    /** Lists compatibility-check results recorded by the company side for a tenant. */
+    fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = port.listCompatibilityResults(tenantKey)
+
+    /**
+     * Downloads the given snapshot and restores the tenant from it. **Destructive** — see
+     * [RestoreTenantSnapshot]. Must run inside a bound mediator context with the tenant's
+     * permissions. Clears the cached fingerprint so the next backup re-uploads.
+     */
+    fun restoreFromSnapshot(
+        tenantKey: TenantKey,
+        snapshotId: String,
+    ): RestoreResult {
+        val bytes = port.downloadSnapshot(tenantKey, snapshotId)
+        val result = RestoreTenantSnapshot(tenantKey, bytes).execute()
+        appMetadata.setAs(metadataKey(tenantKey), LastSnapshot("", snapshotId))
+        log.info("Restored tenant {} from snapshot {} ({} catalogs)", tenantKey.value, snapshotId, result.restoredCatalogKeys.size)
+        return result
+    }
+
     private fun metadataKey(tenantKey: TenantKey): String = "$METADATA_PREFIX${tenantKey.value}"
 
     /** Per-tenant record of the last uploaded snapshot, stored as JSON in `app_metadata`. */
