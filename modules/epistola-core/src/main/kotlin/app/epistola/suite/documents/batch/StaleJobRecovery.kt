@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.observability.ScheduledTaskMetrics
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -23,6 +24,7 @@ import java.util.UUID
 )
 class StaleJobRecovery(
     private val jdbi: Jdbi,
+    private val scheduledTaskMetrics: ScheduledTaskMetrics,
     @Value("\${epistola.generation.polling.stale-timeout-minutes:10}")
     private val staleTimeoutMinutes: Long,
 ) {
@@ -43,30 +45,31 @@ class StaleJobRecovery(
     @Scheduled(fixedRate = 60000) // Every minute
     fun recoverStaleJobs() {
         if (shuttingDown) return
-        val staleInterval = "$staleTimeoutMinutes minutes"
 
-        jdbi.useTransaction<Exception> { handle ->
-            // Find stale requests (IN_PROGRESS for too long)
-            val staleRequestIds = handle.createQuery(
-                """
+        scheduledTaskMetrics.record("stale-job-recovery") {
+            val staleInterval = "$staleTimeoutMinutes minutes"
+            jdbi.useTransaction<Exception> { handle ->
+                // Find stale requests (IN_PROGRESS for too long)
+                val staleRequestIds = handle.createQuery(
+                    """
                 SELECT id FROM document_generation_requests
                 WHERE status = 'IN_PROGRESS'
                   AND claimed_at < NOW() - :staleInterval::interval
                 """,
-            )
-                .bind("staleInterval", staleInterval)
-                .mapTo(UUID::class.java)
-                .list()
+                )
+                    .bind("staleInterval", staleInterval)
+                    .mapTo(UUID::class.java)
+                    .list()
 
-            if (staleRequestIds.isEmpty()) {
-                return@useTransaction
-            }
+                if (staleRequestIds.isEmpty()) {
+                    return@useTransaction
+                }
 
-            logger.warn("Found {} stale jobs to recover: {}", staleRequestIds.size, staleRequestIds)
+                logger.warn("Found {} stale jobs to recover: {}", staleRequestIds.size, staleRequestIds)
 
-            // Reset requests to PENDING (in flattened schema, each request = 1 document)
-            val requestsReset = handle.createUpdate(
-                """
+                // Reset requests to PENDING (in flattened schema, each request = 1 document)
+                val requestsReset = handle.createUpdate(
+                    """
                 UPDATE document_generation_requests
                 SET status = 'PENDING',
                     claimed_by = NULL,
@@ -74,11 +77,12 @@ class StaleJobRecovery(
                     started_at = NULL
                 WHERE id IN (<requestIds>)
                 """,
-            )
-                .bindList("requestIds", staleRequestIds)
-                .execute()
+                )
+                    .bindList("requestIds", staleRequestIds)
+                    .execute()
 
-            logger.warn("Recovered {} stale jobs (reset to PENDING)", requestsReset)
+                logger.warn("Recovered {} stale jobs (reset to PENDING)", requestsReset)
+            }
         }
     }
 }

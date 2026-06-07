@@ -20,6 +20,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-web")
 
+    // Micrometer (feedback-sync outcome metrics)
+    implementation("io.micrometer:micrometer-core")
+
     // JDBI
     implementation(libs.jdbi.core)
     implementation(libs.jdbi.kotlin)
