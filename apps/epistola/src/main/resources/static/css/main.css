@@ -2271,6 +2271,54 @@ a.stat-card:hover {
   margin-top: var(--ep-space-4);
 }
 
+/* ── Feedback list page ──────────────────────────────────────────────── */
+
+.feedback-filters {
+  display: flex;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-4);
+}
+
+.feedback-title {
+  font-weight: 500;
+}
+
+.feedback-source-path {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+  text-decoration: none;
+}
+
+.feedback-source-empty {
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Feedback submit form ────────────────────────────────────────────── */
+
+.feedback-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-4);
+}
+
+.feedback-form-row {
+  display: flex;
+  gap: var(--ep-space-3);
+}
+
+.feedback-form-group {
+  flex: 1;
+}
+
+.fb-screenshot-actions {
+  display: flex;
+  gap: var(--ep-space-2);
+}
+
+.fb-screenshot-remove {
+  margin-top: var(--ep-space-1);
+}
+
 /* ── Template settings: stencil label/select ──────────────────────────── */
 .stencil-upgrade-label {
   margin: 0;

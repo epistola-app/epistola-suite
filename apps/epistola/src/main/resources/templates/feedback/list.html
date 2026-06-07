@@ -21,7 +21,7 @@
         </div>
 
         <!-- Filters -->
-        <div class="ep-filters ep-flex ep-gap-3 ep-mb-4">
+        <div class="feedback-filters">
             <select class="ep-input ep-input-sm ep-w-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
@@ -70,14 +70,14 @@
                     <tr th:each="item : ${feedbackItems}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
-                               class="ep-font-medium"
-                               th:text="${item.title}">Title</a>
+                                class="feedback-title"
+                                th:text="${item.title}">Title</a>
                         </td>
                         <td>
                             <a th:if="${item.sourcePath != null}" th:href="${item.sourceUrl}"
-                               class="ep-text-muted ep-text-sm ep-no-underline" 
-                               th:text="${item.sourcePath}">/path</a>
-                            <span th:if="${item.sourcePath == null}" class="ep-text-muted">—</span>
+                                class="feedback-source-path"
+                                th:text="${item.sourcePath}">/path</a>
+                            <span th:if="${item.sourcePath == null}" class="feedback-source-empty">—</span>
                         </td>
                         <td><th:block th:insert="~{feedback/fragments/badges :: category-badge(${item.category})}" /></td>
                         <td><th:block th:insert="~{feedback/fragments/badges :: status-badge(${item.status})}" /></td>
