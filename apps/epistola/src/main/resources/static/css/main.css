@@ -2344,6 +2344,91 @@ a.stat-card:hover {
   white-space: nowrap;
 }
 
+/* ── Generation history dashboard ────────────────────────────────────── */
+
+.gen-dashboard-stats {
+  margin-bottom: var(--ep-space-6);
+}
+
+.gen-dashboard-section {
+  margin-bottom: var(--ep-space-6);
+}
+
+.gen-dashboard-link {
+  font-weight: 500;
+}
+
+.gen-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--ep-space-3);
+}
+
+.gen-dashboard-header h2 {
+  margin: 0;
+}
+
+.gen-job-error {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+.gen-job-empty {
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Deployment matrix ───────────────────────────────────────────────── */
+
+.deploy-error {
+  margin-bottom: var(--ep-space-4);
+}
+
+.deploy-empty-state {
+  padding: var(--ep-space-8);
+}
+
+.deploy-table-wrapper {
+  overflow-x: auto;
+}
+
+.deploy-table-header {
+  text-align: left;
+}
+
+.deployment-matrix-table th.deploy-table-header {
+  text-align: center;
+}
+
+.deploy-variant-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+.deploy-variant-id {
+  font-size: var(--ep-text-xs);
+}
+
+.deploy-variant-title {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  margin-left: var(--ep-space-1);
+}
+
+.deploy-form {
+  display: inline;
+  margin: 0;
+}
+
+.deploy-select {
+  font-size: var(--ep-text-xs);
+}
+
+.deploy-empty {
+  color: var(--ep-muted-foreground);
+}
+
 /* ── Pagination bar ───────────────────────────────────────────────────── */
 .pagination-bar {
   display: flex;
