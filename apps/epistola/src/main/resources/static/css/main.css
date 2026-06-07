@@ -951,6 +951,25 @@ a.stat-card:hover {
   font-size: var(--ep-text-xs);
 }
 
+/* ── Attributes page ─────────────────────────────────────────────────── */
+
+.attr-id {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+}
+
+.attr-name {
+  font-weight: 500;
+}
+
+.attr-any-value {
+  color: var(--ep-muted-foreground);
+}
+
+.attr-edit-error {
+  margin-bottom: var(--ep-space-4);
+}
+
 /* ── Description list (key-value metadata) ───────────────────────────── */
 
 .description-list {
