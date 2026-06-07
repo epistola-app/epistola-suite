@@ -1,4 +1,4 @@
-package app.epistola.suite.handlers
+package app.epistola.suite.support.feedback.ui
 
 import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.common.ids.FeedbackAssetKey
@@ -38,6 +38,13 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import java.util.concurrent.TimeUnit
 
+/**
+ * UI handler for the feedback feature. The feedback UI is freely usable; only the hub *sync*
+ * (the paid server component) is gated on `epistola.support.enabled` — with support off, the
+ * no-op sync adapter keeps feedback local. Templates live in this module under
+ * `templates/feedback` and merge onto the host app's classpath at runtime, reusing the app's
+ * `layout/shell` chrome. Gated for visibility only by the `support-feedback` feature toggle.
+ */
 @Component
 class FeedbackHandler(
     private val buildProperties: BuildProperties?,

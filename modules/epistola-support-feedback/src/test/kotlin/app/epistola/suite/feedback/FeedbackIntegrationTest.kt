@@ -1,6 +1,5 @@
 package app.epistola.suite.feedback
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.common.ids.FeedbackAssetKey
 import app.epistola.suite.common.ids.FeedbackCommentId
@@ -27,6 +26,7 @@ import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class FeedbackIntegrationTest : BaseIntegrationTest() {
+class FeedbackIntegrationTest : IntegrationTestBase() {
 
     // Feedback is authored by a dedicated user (feedback.created_by is mandatory
     // NOT NULL). Materialise it through the harness — same EnsureUser command

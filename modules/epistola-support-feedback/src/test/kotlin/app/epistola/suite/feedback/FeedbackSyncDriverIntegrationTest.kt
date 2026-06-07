@@ -1,6 +1,5 @@
 package app.epistola.suite.feedback
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.common.ids.FeedbackCommentKey
 import app.epistola.suite.common.ids.FeedbackId
@@ -25,6 +24,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -51,7 +51,7 @@ import java.time.Instant
         "epistola.feedback.sync.polling.interval-ms=3600000",
     ],
 )
-class FeedbackSyncDriverIntegrationTest : BaseIntegrationTest() {
+class FeedbackSyncDriverIntegrationTest : IntegrationTestBase() {
 
     class TestConfig {
         @Bean

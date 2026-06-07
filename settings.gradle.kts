@@ -20,11 +20,11 @@ dependencyResolutionManagement {
 
 include(":apps:epistola")
 include(":modules:epistola-core")
+include(":modules:epistola-web")
 include(":modules:loadtest")
 include(":modules:editor")
 include(":modules:rest-api")
 include(":modules:generation")
-include(":modules:feedback")
 include(":modules:testing")
 include(":modules:epistola-mcp")
 include(":modules:epistola-support")
