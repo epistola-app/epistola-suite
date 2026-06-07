@@ -2121,6 +2121,26 @@ a.stat-card:hover {
   gap: var(--ep-space-1);
 }
 
+/* ── Template detail page ────────────────────────────────────────────── */
+
+.readonly-notice {
+  color: var(--ep-muted-foreground);
+  margin-top: var(--ep-space-1);
+  font-size: var(--ep-text-sm);
+}
+
+.attr-qualified-key {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  margin-left: var(--ep-space-2);
+}
+
+.add-attr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
 /* ── Template settings: stencil label/select ──────────────────────────── */
 .stencil-upgrade-label {
   margin: 0;

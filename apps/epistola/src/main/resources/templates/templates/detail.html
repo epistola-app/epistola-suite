@@ -9,7 +9,7 @@
             <div>
                 <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
                 <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
-                <p th:if="${!editable}" class="text-muted ep-mt-1 ep-text-sm" >
+                <p th:if="${!editable}" class="readonly-notice">
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>
             </div>
@@ -64,7 +64,7 @@
                           th:classappend="${hasValue} ? '' : 'ep-hidden'">
                         <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
                             <span th:text="${d.displayName}"></span>
-                            <code class="text-muted ep-text-xs ep-ml-2" 
+                            <code class="attr-qualified-key" 
                                   th:text="${d.qualifiedKey}"></code>
                         </label>
                         <select th:id="'edit-attr_' + ${d.qualifiedKey}"
@@ -79,7 +79,7 @@
                     <!-- Add-attribute picker. -->
                     <div class="form-group" data-add-attr-picker>
                         <label class="ep-label" for="edit-add-attr">Add attribute</label>
-                        <div class="ep-flex-center ep-gap-2">
+                        <div class="add-attr-row">
                             <select id="edit-add-attr" class="ep-select" data-add-attr-select>
                                 <option value="">— Choose an attribute to add —</option>
                                 <option th:each="d : ${attributeDescriptors}"
