@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles
     properties = [
         "epistola.demo.enabled=false",
         "management.prometheus.metrics.export.enabled=true",
+        "management.endpoint.health.show-components=always",
     ],
 )
 @AutoConfigureTestRestTemplate
@@ -57,5 +58,16 @@ class PrometheusEndpointTest {
         // management port; Kubernetes probes rely on these main-port aliases.
         assertThat(restTemplate.getForEntity("/livez", String::class.java).statusCode).isEqualTo(HttpStatus.OK)
         assertThat(restTemplate.getForEntity("/readyz", String::class.java).statusCode).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `health endpoint wires the custom storage and job-poller indicators and is UP`() {
+        val response = restTemplate.getForEntity("/actuator/health", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(body).contains("\"status\":\"UP\"")
+        assertThat(body).contains("contentStore")
+        assertThat(body).contains("jobPoller")
     }
 }
