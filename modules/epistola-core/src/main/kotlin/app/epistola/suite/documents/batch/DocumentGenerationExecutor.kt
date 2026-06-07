@@ -116,6 +116,7 @@ class DocumentGenerationExecutor(
 
             // Record document size
             DistributionSummary.builder("epistola.generation.document.size.bytes")
+                .tag("tenant", request.tenantKey.value)
                 .tag("template", templateName)
                 .register(meterRegistry)
                 .record(document.sizeBytes.toDouble())
@@ -169,6 +170,7 @@ class DocumentGenerationExecutor(
         } finally {
             sample.stop(
                 Timer.builder("epistola.generation.document.duration")
+                    .tag("tenant", request.tenantKey.value)
                     .tag("outcome", outcome)
                     .tag("template", templateName)
                     .tag("path", renderPath)
