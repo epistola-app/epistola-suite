@@ -20,7 +20,7 @@
                 <div class="page-actions">
                     <form th:if="${editable and codeList.sourceUrl != null}"
                           th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
-                          method="post" class="ep-inline">
+                          method="post" class="codelist-refresh-form">
                         <button type="submit" class="btn btn-outline">
                             <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                             Refresh from source
