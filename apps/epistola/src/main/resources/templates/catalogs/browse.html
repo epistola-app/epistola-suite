@@ -8,13 +8,13 @@
         </nav>
 
         <h1 th:text="${catalog.name}"></h1>
-        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
-        <p th:if="${catalog.description}" class="text-muted text-sm" th:text="${catalog.description}"></p>
+        <p th:if="${catalog.sourceUrl}" class="catalog-meta" th:text="${catalog.sourceUrl}"></p>
+        <p th:if="${catalog.description}" class="catalog-meta" th:text="${catalog.description}"></p>
 
         <div id="catalog-alert"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
-            <div class="card-header ep-flex-between">
+            <div class="card-header catalog-resources-header">
                 <h2>Resources</h2>
                 <!-- Install All only for subscribed catalogs -->
                 <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"
@@ -77,14 +77,14 @@
                                      published version, so any non-latest pin would be unresolvable
                                      in the target after import; this stencil currently blocks export. -->
                                 <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
-                                      class="badge badge-warning ep-ml-2"
+                                       class="badge badge-warning catalog-pin-drift"
                                       th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
                                       th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
                             <td><code th:text="${resource.slug}"></code></td>
                             <td>
                                 <span th:if="${resource.description}" th:text="${resource.description}"></span>
-                                <span th:unless="${resource.description}" class="text-muted">-</span>
+                                <span th:unless="${resource.description}" class="catalog-muted">-</span>
                             </td>
                             <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
                                 <button th:if="${count > 0}"
@@ -96,7 +96,7 @@
                                         hx-swap="innerHTML"
                                         onclick="document.getElementById('usage-detail-dialog').showModal()">
                                 </button>
-                                <span th:if="${count == 0}" class="text-muted">-</span>
+                                <span th:if="${count == 0}" class="catalog-muted">-</span>
                             </td>
                             <!-- Status + Actions only for subscribed catalogs -->
                             <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
@@ -110,7 +110,7 @@
                                         hx-target="#install-preview-body"
                                         hx-swap="innerHTML"
                                         onclick="document.getElementById('install-preview-dialog').showModal()">Install</button>
-                                <span th:if="${resource.status.name() == 'INSTALLED'}" class="text-muted">-</span>
+                                <span th:if="${resource.status.name() == 'INSTALLED'}" class="catalog-muted">-</span>
                             </td>
                         </tr>
                     </tbody>
@@ -120,7 +120,7 @@
 
         <div class="card" th:if="${resources.isEmpty()}">
             <div class="card-content">
-                <p class="text-muted">This catalog has no resources.</p>
+                <p class="catalog-muted">This catalog has no resources.</p>
             </div>
         </div>
 
@@ -128,7 +128,7 @@
         <dialog id="usage-detail-dialog" class="ep-dialog">
             <div id="usage-detail-body">
                 <div class="ep-dialog-body">
-                    <p class="text-muted">Loading...</p>
+                    <p class="catalog-muted">Loading...</p>
                 </div>
             </div>
         </dialog>
@@ -137,7 +137,7 @@
         <dialog th:if="${catalog.type.name() == 'SUBSCRIBED'}" id="install-preview-dialog" class="ep-dialog">
             <div id="install-preview-body">
                 <div class="ep-dialog-body">
-                    <p class="text-muted">Loading...</p>
+                    <p class="catalog-muted">Loading...</p>
                 </div>
             </div>
         </dialog>
@@ -151,7 +151,7 @@
         <div class="ep-dialog-body">
             <p>The following resources will be installed:</p>
 
-            <table class="ep-table ep-mt-3">
+            <table class="ep-table catalog-install-table">
                 <thead>
                     <tr>
                         <th>Type</th>
@@ -171,7 +171,7 @@
                         <td th:text="${resource.name}"></td>
                         <td></td>
                     </tr>
-                    <tr th:each="dep : ${dependencies}" class="ep-opacity-70">
+                    <tr th:each="dep : ${dependencies}" class="catalog-dependency">
                         <td>
                             <span th:if="${dep.type == 'template'}" class="badge badge-info">template</span>
                             <span th:if="${dep.type == 'theme'}" class="badge badge-default">theme</span>
@@ -180,7 +180,7 @@
                             <span th:if="${dep.type == 'asset'}" class="badge badge-default">asset</span>
                         </td>
                         <td th:text="${dep.name}"></td>
-                        <td><span class="text-muted text-sm">dependency</span></td>
+                        <td><span class="catalog-dep-label">dependency</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -227,7 +227,7 @@
         <div class="ep-dialog-header">
             <h3>
                 Used by
-                <span class="ep-opacity-60" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
+                <span class="catalog-subtle" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
             </h3>
         </div>
         <div class="ep-dialog-body">
@@ -245,7 +245,7 @@
                     </tr>
                 </tbody>
             </table>
-            <p th:if="${usages.isEmpty()}" class="text-muted">No external usages found.</p>
+            <p th:if="${usages.isEmpty()}" class="catalog-muted">No external usages found.</p>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"

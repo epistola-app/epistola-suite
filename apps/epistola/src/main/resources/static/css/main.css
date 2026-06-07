@@ -2586,6 +2586,44 @@ a.stat-card:hover {
   padding: var(--ep-space-8);
 }
 
+/* ── Catalog browse page ─────────────────────────────────────────────── */
+
+.catalog-meta {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.catalog-resources-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.catalog-pin-drift {
+  margin-left: var(--ep-space-2);
+}
+
+.catalog-muted {
+  color: var(--ep-muted-foreground);
+}
+
+.catalog-install-table {
+  margin-top: var(--ep-space-3);
+}
+
+.catalog-dependency {
+  opacity: 0.7;
+}
+
+.catalog-dep-label {
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.catalog-subtle {
+  opacity: 0.6;
+}
+
 /* ── Stencil upgrade select ───────────────────────────────────────────── */
 .stencil-upgrade-select {
   width: auto;
