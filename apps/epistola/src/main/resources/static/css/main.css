@@ -2141,6 +2141,41 @@ a.stat-card:hover {
   gap: var(--ep-space-2);
 }
 
+/* ── Code list detail page ───────────────────────────────────────────── */
+
+.code-list-error {
+  margin-bottom: var(--ep-space-4);
+}
+
+.code-list-description {
+  color: var(--ep-muted-foreground);
+}
+
+.code-list-refresh-info {
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  margin-bottom: var(--ep-space-3);
+}
+
+.code-list-toggle {
+  margin: var(--ep-space-3) 0;
+}
+
+/* ── API keys list page ──────────────────────────────────────────────── */
+
+.api-keys-description {
+  color: var(--ep-muted-foreground);
+  margin-bottom: var(--ep-space-4);
+}
+
+.api-key-name {
+  font-weight: 500;
+}
+
+.api-key-empty {
+  color: var(--ep-muted-foreground);
+}
+
 /* ── Template settings: stencil label/select ──────────────────────────── */
 .stencil-upgrade-label {
   margin: 0;
