@@ -1,7 +1,6 @@
 package app.epistola.suite.support.backups.ui
 
 import app.epistola.hub.client.error.HubEntitlementDeniedException
-import app.epistola.hub.client.error.HubException
 import app.epistola.hub.client.error.HubUnavailableException
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
@@ -10,6 +9,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.snapshots.RemoteSnapshot
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
+import app.epistola.suite.support.hubFeatureCall
+import app.epistola.suite.support.logTo
 import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -35,31 +36,17 @@ class BackupsHandler(
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
 
-        var entitled = true
-        var hubReachable = true
-        val snapshots =
-            try {
-                snapshotSync.listSnapshots(tenantId.key).map { it.toView() }
-            } catch (e: HubEntitlementDeniedException) {
-                log.debug("Tenant {} is not entitled to backups: {}", tenantId.key.value, e.message)
-                entitled = false
-                emptyList()
-            } catch (e: HubException) {
-                // The hub couldn't be reached (or the installation isn't registered yet). Render the
-                // page instead of 500-ing; the per-node connection status lives on Support → Overview.
-                log.warn("Could not reach the Epistola hub for tenant {} backups: {}", tenantId.key.value, e.message)
-                hubReachable = false
-                emptyList()
-            }
+        // One status to render, instead of a 500: OK / UNAVAILABLE / NOT_ENTITLED / ERROR.
+        val result = hubFeatureCall { snapshotSync.listSnapshots(tenantId.key).map { it.toView() } }
+        result.logTo(log, tenantId.key.value, "backups")
 
         return ServerResponse.ok().page("backups/list") {
             "pageTitle" to "Backups - Epistola"
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
-            "hubReachable" to hubReachable
-            "entitled" to entitled
-            "snapshots" to snapshots
+            "status" to result.status.name
+            "snapshots" to (result.value ?: emptyList<SnapshotView>())
             "saved" to request.param("saved").orElse(null)
             "error" to request.param("error").orElse(null)
         }

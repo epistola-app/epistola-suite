@@ -2,6 +2,7 @@ package app.epistola.suite.upgrading
 
 import app.epistola.suite.common.ids.TenantKey
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Instant
@@ -43,10 +44,16 @@ class NoOpCompatibilitySyncAdapter : CompatibilitySyncPort {
     override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = emptyList()
 }
 
-/** Registers the no-op adapter when no other [CompatibilitySyncPort] (the hub adapter) is present. */
+/**
+ * Registers the no-op adapter when the support tier is **off**, mutually exclusive with the hub
+ * adapter's `epistola.support.enabled=true` so the two never both register (an
+ * `@ConditionalOnMissingBean`-only fallback can race the hub adapter). `@ConditionalOnMissingBean`
+ * is kept so an explicit/test override still wins.
+ */
 @Configuration
 class CompatibilitySyncFallbackConfiguration {
     @Bean
     @ConditionalOnMissingBean(CompatibilitySyncPort::class)
+    @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "false", matchIfMissing = true)
     fun noOpCompatibilitySyncAdapter(): CompatibilitySyncPort = NoOpCompatibilitySyncAdapter()
 }

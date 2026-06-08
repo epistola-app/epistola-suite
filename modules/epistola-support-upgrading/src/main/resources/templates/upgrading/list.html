@@ -13,15 +13,19 @@
             upgrade.
         </p>
 
-        <div th:if="${!entitled}" class="alert alert-info" role="status">
+        <div th:if="${status == 'NOT_ENTITLED'}" class="alert alert-info" role="status">
             This installation is not entitled to compatibility checks. Contact Epistola for a service contract to enable them.
         </div>
-        <div th:if="${entitled and !hubReachable}" class="alert alert-info" role="status">
+        <div th:if="${status == 'UNAVAILABLE'}" class="alert alert-info" role="status">
             Not connected to the Epistola hub, so compatibility results are unavailable right now. See
             <a th:href="@{/tenants/{tenantId}/support(tenantId=${tenantId})}">Support → Overview</a> for the connection status.
         </div>
+        <div th:if="${status == 'ERROR'}" class="alert alert-error" role="alert">
+            Connected to the Epistola hub, but it couldn't serve compatibility results — it may be an older
+            hub without catalog sync, or returned an error. Check the logs and the hub version.
+        </div>
 
-        <div th:if="${entitled and hubReachable and #lists.isEmpty(groups)}" class="empty-state">
+        <div th:if="${status == 'OK' and #lists.isEmpty(groups)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='shield-check', class='ep-icon ep-icon-xl')}" />
             </div>

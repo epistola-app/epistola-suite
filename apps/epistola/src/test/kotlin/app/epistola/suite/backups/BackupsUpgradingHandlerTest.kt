@@ -1,5 +1,6 @@
 package app.epistola.suite.backups
 
+import app.epistola.hub.client.error.HubInternalException
 import app.epistola.hub.client.error.HubUnavailableException
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
@@ -59,7 +60,9 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
     @BeforeEach
     fun resetFakes() {
         fakeSnapshots.unreachable = false
+        fakeSnapshots.hubErrored = false
         fakeCompatibility.unreachable = false
+        fakeCompatibility.hubErrored = false
     }
 
     private fun enableSupport(tenantKey: TenantKey) = withMediator {
@@ -128,6 +131,34 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `backups page shows a hub-error state (not 'not connected') when the hub answers UNIMPLEMENTED`() {
+        val tenant = createTenant("Backups Hub Error")
+        enableSupport(tenant.id)
+        fakeSnapshots.hubErrored = true
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(body).contains("couldn't serve backups")
+        assertThat(body).doesNotContain("Not connected to the Epistola hub")
+    }
+
+    @Test
+    fun `upgrading page shows a hub-error state when the hub answers UNIMPLEMENTED`() {
+        val tenant = createTenant("Upgrading Hub Error")
+        enableSupport(tenant.id)
+        fakeCompatibility.hubErrored = true
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/upgrading", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(body).contains("couldn't serve compatibility results")
+        assertThat(body).doesNotContain("Not connected to the Epistola hub")
+    }
+
+    @Test
     fun `support overview page renders the hub connection section`() {
         val tenant = createTenant("Support Overview")
         enableSupport(tenant.id)
@@ -141,10 +172,13 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         assertThat(body).contains("support tier is not enabled")
     }
 
-    /** Fake snapshot sync adapter returning one snapshot, or failing as unreachable when toggled. */
+    /** Fake snapshot sync adapter returning one snapshot, or failing (unreachable / hub error) when toggled. */
     class FakeSnapshotSyncPort : SnapshotSyncPort {
         @Volatile
         var unreachable = false
+
+        @Volatile
+        var hubErrored = false
 
         override fun isEnabled(): Boolean = true
 
@@ -154,6 +188,7 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
 
         override fun listSnapshots(tenantKey: TenantKey): List<RemoteSnapshot> {
             if (unreachable) throw HubUnavailableException("hub is unavailable")
+            if (hubErrored) throw HubInternalException("Hub returned UNIMPLEMENTED: Method not found")
             return listOf(
                 RemoteSnapshot(
                     snapshotId = "snap-1",
@@ -174,10 +209,13 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         ): ByteArray = ByteArray(0)
     }
 
-    /** Fake compatibility adapter returning one result, or failing as unreachable when toggled. */
+    /** Fake compatibility adapter returning one result, or failing (unreachable / hub error) when toggled. */
     class FakeCompatibilitySyncPort : CompatibilitySyncPort {
         @Volatile
         var unreachable = false
+
+        @Volatile
+        var hubErrored = false
 
         override fun isEnabled(): Boolean = true
 
@@ -185,6 +223,7 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
 
         override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> {
             if (unreachable) throw HubUnavailableException("hub is unavailable")
+            if (hubErrored) throw HubInternalException("Hub returned UNIMPLEMENTED: Method not found")
             return listOf(
                 CompatibilityCheckResult(
                     tenant = tenantKey.value,
