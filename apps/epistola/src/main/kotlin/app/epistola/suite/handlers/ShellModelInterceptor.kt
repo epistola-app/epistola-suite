@@ -1,9 +1,13 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.features.FeatureToggleService
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.htmx.UiRequestContext
+import app.epistola.suite.htmx.footer.FooterFragmentResolver
+import app.epistola.suite.htmx.nav.NavMenuAggregator
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
 import jakarta.servlet.http.HttpServletRequest
@@ -17,6 +21,7 @@ import org.springframework.web.servlet.ModelAndView
  * on every tenant-scoped request.
  *
  * Adds:
+ * - `navGroups` — the module-contributed nav model (see [NavMenuAggregator])
  * - `activeNavSection` — derived from the URL path (e.g., "templates", "themes")
  * - `tenantName` — resolved from the tenant ID in the model
  *
@@ -24,7 +29,8 @@ import org.springframework.web.servlet.ModelAndView
  */
 @Component
 class ShellModelInterceptor(
-    private val featureToggleService: FeatureToggleService,
+    private val navMenuAggregator: NavMenuAggregator,
+    private val footerFragmentResolver: FooterFragmentResolver,
 ) : HandlerInterceptor {
 
     override fun postHandle(
@@ -58,54 +64,28 @@ class ShellModelInterceptor(
             modelAndView.addObject("auth", auth)
         }
         val auth = modelAndView.model["auth"] as AuthContext
-        modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
+        modelAndView.addObject("isManager", auth.has(Permission.TENANT_SETTINGS))
 
-        // Feature toggles
-        if (tenantId != null) {
-            val tenantKey = TenantKey.of(tenantId)
-            modelAndView.addObject(
-                "feedbackEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_FEEDBACK),
-            )
-            modelAndView.addObject(
-                "backupsEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS),
-            )
-            modelAndView.addObject(
-                "upgradingEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_UPGRADING),
-            )
-            modelAndView.addObject(
-                "stencilParametersEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.STENCIL_PARAMETERS),
-            )
-        }
+        if (tenantId == null) return
+        val tenantKey = TenantKey.of(tenantId)
+        val context = UiRequestContext(tenantKey) { auth.has(it) }
 
-        // Shell-specific attributes
+        // Editor feature toggle (gates editor UI, not nav/footer). Read through the internal query
+        // like everything else; the per-request cache (FeatureToggleCacheFilter) shares one toggle
+        // query across this and the nav/footer contributors.
+        val toggles = ResolveFeatureToggles(tenantKey).query()
+        modelAndView.addObject("stencilParametersEnabled", toggles[KnownFeatures.STENCIL_PARAMETERS] == true)
+
+        // Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) — global
+        // injections like the feedback FAB, rendered by the shell footer and the standalone editor
+        // page alike, so it's resolved for any tenant view (not just the shell).
+        modelAndView.addObject("footerFragments", footerFragmentResolver.resolve(context))
+
+        // The module-contributed nav menu is shell-only; contributors resolve their own visibility,
+        // so the host owns no feature flags for it.
         if (viewName != "layout/shell") return
-        val path = request.requestURI
-        modelAndView.addObject("activeNavSection", resolveActiveSection(path))
-    }
-
-    private fun resolveActiveSection(path: String): String = when {
-        "/templates" in path -> "templates"
-        "/stencils" in path -> "stencils"
-        "/themes" in path -> "themes"
-        "/environments" in path -> "environments"
-        "/attributes" in path -> "attributes"
-        "/code-lists" in path -> "code-lists"
-        "/generation-history" in path -> "generation-history"
-        "/load-tests" in path -> "load-tests"
-        "/assets" in path -> "assets"
-        "/settings" in path -> "settings"
-        "/feedback" in path -> "feedback"
-        "/backups" in path -> "backups"
-        "/upgrading" in path -> "upgrading"
-        "/support" in path -> "overview"
-        "/api-keys" in path -> "api-keys"
-        "/features" in path -> "features"
-        "/catalogs" in path -> "catalogs"
-        "/admin" in path -> "admin"
-        else -> "home"
+        val nav = navMenuAggregator.build(context, request.requestURI)
+        modelAndView.addObject("navGroups", nav.groups)
+        modelAndView.addObject("activeNavSection", nav.activeNavSection)
     }
 }

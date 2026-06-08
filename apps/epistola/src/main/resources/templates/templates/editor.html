@@ -72,11 +72,10 @@
     <div id="editor-container" data-testid="editor-container" class="editor-container"
          th:attr="data-leader-timing=${leaderTiming}"></div>
 
-    <script th:src="@{/feedback/feedback-capture.js}"></script>
-    <script type="module" th:inline="javascript">
-        const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');
-        initFeedbackFab(/*[[${tenantId}]]*/ 'tenant');
-    </script>
+    <!-- Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) -->
+    <th:block th:each="frag : ${footerFragments}">
+        <th:block th:replace="~{__${frag.ref}__}" />
+    </th:block>
 
     <script th:inline="javascript">
         /*<![CDATA[*/

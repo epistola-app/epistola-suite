@@ -1,4 +1,4 @@
-package app.epistola.suite.handlers
+package app.epistola.suite.support.ui
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
