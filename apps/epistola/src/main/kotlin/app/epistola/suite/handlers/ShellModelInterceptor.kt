@@ -68,6 +68,7 @@ class ShellModelInterceptor(
 
         if (tenantId == null) return
         val tenantKey = TenantKey.of(tenantId)
+        val context = UiRequestContext(tenantKey) { auth.has(it) }
 
         // Editor feature toggle (gates editor UI, not nav/footer). Read through the internal query
         // like everything else; the per-request cache (FeatureToggleCacheFilter) shares one toggle
@@ -75,14 +76,16 @@ class ShellModelInterceptor(
         val toggles = ResolveFeatureToggles(tenantKey).query()
         modelAndView.addObject("stencilParametersEnabled", toggles[KnownFeatures.STENCIL_PARAMETERS] == true)
 
-        // Shell-specific attributes: the module-contributed nav menu + footer chrome. Both are
-        // contributed by modules (see NavMenuAggregator / FooterFragmentResolver); each contributor
-        // resolves its own visibility, so the host owns no feature flags for them.
+        // Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) — global
+        // injections like the feedback FAB, rendered by the shell footer and the standalone editor
+        // page alike, so it's resolved for any tenant view (not just the shell).
+        modelAndView.addObject("footerFragments", footerFragmentResolver.resolve(context))
+
+        // The module-contributed nav menu is shell-only; contributors resolve their own visibility,
+        // so the host owns no feature flags for it.
         if (viewName != "layout/shell") return
-        val context = UiRequestContext(tenantKey) { auth.has(it) }
         val nav = navMenuAggregator.build(context, request.requestURI)
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
-        modelAndView.addObject("footerFragments", footerFragmentResolver.resolve(context))
     }
 }
