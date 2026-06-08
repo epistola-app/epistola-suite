@@ -712,47 +712,6 @@ main.regular .empty-message {
   color: var(--ep-foreground);
 }
 
-/* ── Info box ─────────────────────────────────────────────────────────── */
-
-.info-box {
-  background-color: var(--ep-blue-50);
-  border: 1px solid var(--ep-blue-200);
-  border-radius: var(--ep-radius-lg);
-  padding: var(--ep-space-4) var(--ep-space-6);
-}
-
-.info-box h3 {
-  margin-top: 0;
-  margin-bottom: var(--ep-space-2);
-  color: var(--ep-blue-800);
-}
-
-.info-box ul {
-  margin: var(--ep-space-2) 0 0 0;
-  padding-left: var(--ep-space-6);
-}
-
-.info-box li {
-  margin-bottom: var(--ep-space-2);
-  font-size: var(--ep-text-sm);
-  color: var(--ep-blue-800);
-}
-
-/* ── Alert messages ───────────────────────────────────────────────────── */
-
-.alert {
-  padding: var(--ep-space-4) var(--ep-space-6);
-  border-radius: var(--ep-radius-lg);
-  margin-bottom: var(--ep-space-6);
-  font-size: var(--ep-text-sm);
-}
-
-.alert-error {
-  background-color: var(--ep-red-50);
-  border: 1px solid var(--ep-red-200);
-  color: var(--ep-red-700);
-}
-
 /* ── Subtitle ─────────────────────────────────────────────────────────── */
 
 .subtitle {
