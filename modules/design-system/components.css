@@ -610,6 +610,39 @@
     }
   }
 
+  /* ── Breadcrumb navigation ──────────────────────────────────────────── */
+
+  .breadcrumb {
+    margin-bottom: var(--ep-space-4);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
+
+    & a {
+      color: var(--ep-primary);
+      text-decoration: none;
+      transition: color var(--ep-transition-fast);
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  /* ── Back link (detail page header) ─────────────────────────────────── */
+
+  .back-link {
+    display: inline-block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    text-decoration: none;
+    margin-bottom: var(--ep-space-1);
+    transition: color var(--ep-transition-fast);
+
+    &:hover {
+      color: var(--ep-primary);
+    }
+  }
+
   /* ── Alerts ───────────────────────────────────────────────────────────── */
 
   .alert {
