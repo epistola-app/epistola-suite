@@ -158,52 +158,6 @@ main.regular section {
   margin-top: var(--ep-space-6);
 }
 
-/* ── Table styles (scoped to regular pages) ───────────────────────────── */
-
-main.regular table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  overflow: hidden;
-  font-size: var(--ep-text-sm);
-}
-
-main.regular th,
-main.regular td {
-  padding: var(--ep-space-3) var(--ep-space-4);
-  text-align: left;
-}
-
-main.regular th {
-  background-color: var(--ep-gray-50);
-  font-weight: 500;
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: var(--ep-tracking-wider);
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-main.regular td {
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-main.regular tbody tr:hover {
-  background-color: var(--ep-muted);
-}
-
-main.regular tbody tr:last-child td {
-  border-bottom: none;
-}
-
-main.regular .empty-message {
-  text-align: center;
-  color: var(--ep-muted-foreground);
-  padding: var(--ep-space-8);
-}
-
 /* ── Footer ───────────────────────────────────────────────────────────── */
 
 .app-footer {
