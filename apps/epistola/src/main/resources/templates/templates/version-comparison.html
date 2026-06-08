@@ -21,8 +21,8 @@
             <!-- Comparison controls and grid -->
             <th:block th:unless="${#lists.isEmpty(versions)}">
                 <!-- Controls row -->
-                <div class="version-comparison-controls">
-                <div class="form-group comparison-form-group">
+                <div class="version-comparison-controls form-row form-row-end form-row-section">
+                <div class="form-group form-group-inline form-group-min-width-sm">
                     <label class="ep-label" for="compare-version-a">Version A</label>
                         <select id="compare-version-a" class="ep-select">
                             <th:block th:each="ver : ${versions}">
@@ -31,7 +31,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div class="form-group comparison-form-group">
+                    <div class="form-group form-group-inline form-group-min-width-sm">
                         <label class="ep-label" for="compare-version-b">Version B</label>
                         <select id="compare-version-b" class="ep-select">
                             <th:block th:each="ver, iterStat : ${versions}">
@@ -41,7 +41,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group comparison-form-group">
+                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group form-group-inline form-group-min-width-sm">
                         <label class="ep-label" for="compare-example">Example Data</label>
                         <select id="compare-example" class="ep-select">
                             <th:block th:each="example : ${dataExamples}">
@@ -49,7 +49,7 @@
                             </th:block>
                         </select>
                     </div>
-                    <div class="form-group comparison-form-group">
+                    <div class="form-group form-group-inline">
                         <button type="button" class="ep-btn ep-btn-primary" onclick="compareVersions()">Compare</button>
                     </div>
                 </div>

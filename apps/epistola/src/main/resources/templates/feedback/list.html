@@ -21,8 +21,8 @@
         </div>
 
         <!-- Filters -->
-        <div class="feedback-filters">
-            <select class="ep-input ep-input-sm"
+        <div class="form-row form-row-section">
+            <select class="ep-select form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -32,7 +32,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
-            <select class="ep-input ep-input-sm"
+            <select class="ep-select form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"

@@ -58,7 +58,7 @@
                      template stays Thymeleaf-simple. -->
                 <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
                      id="edit-attr-rows" data-attr-rows>
-                    <div class="form-group" th:each="d : ${attributeDescriptors}"
+                    <div class="form-group form-group-hidden" th:each="d : ${attributeDescriptors}"
                          th:data-attr-row="${d.qualifiedKey}"
                          th:with="hasValue=${(presentQualifiedKeys != null and presentQualifiedKeys.contains(d.qualifiedKey)) or (presentRawKeys != null and presentRawKeys.contains(d.bareSlug))}"
                            th:data-hidden="${hasValue ? 'false' : 'true'}">
@@ -77,7 +77,7 @@
                         </select>
                     </div>
                     <!-- Add-attribute picker. -->
-                    <div class="form-group" data-add-attr-picker>
+                    <div class="form-group form-group-inline" data-add-attr-picker>
                         <label class="ep-label" for="edit-add-attr">Add attribute</label>
                         <div class="add-attr-row">
                             <select id="edit-add-attr" class="ep-select" data-add-attr-select>

@@ -28,7 +28,7 @@
 
                     <div class="form-group" th:classappend="${errors?.containsKey('providerType')} ? 'error' : ''">
                         <label class="ep-label" for="providerType">Provider</label>
-                        <select id="providerType" name="providerType" class="ep-input">
+                        <select id="providerType" name="providerType" class="ep-select">
                             <option value="GITHUB"
                                     th:selected="${formData == null or formData['providerType'] == null or formData['providerType'] == 'GITHUB'}">
                                 GitHub

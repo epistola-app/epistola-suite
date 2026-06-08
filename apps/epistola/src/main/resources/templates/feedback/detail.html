@@ -16,12 +16,12 @@
                         <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
                               hx-target="#feedback-content"
                               hx-swap="innerHTML"
-                              class="feedback-status-form">
-                            <select name="status" class="ep-input ep-input-sm">
+                              class="form-row form-row-center">
+                            <select name="status" class="ep-select form-control-auto">
                                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
                             </select>
-                            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
+                            <button type="submit" class="ep-btn ep-btn-outline">Update Status</button>
                         </form>
                     </div>
                 </div>
@@ -113,11 +113,11 @@
                               hx-swap="innerHTML"
                                class="comment-form">
                             <div class="form-group">
-                                <textarea name="body" class="ep-input" rows="3"
+                                <textarea name="body" class="ep-textarea" rows="3"
                                           required placeholder="Add a comment..."></textarea>
                             </div>
                             <div class="comment-form-actions">
-                                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add Comment</button>
+                                <button type="submit" class="ep-btn ep-btn-primary">Add Comment</button>
                             </div>
                         </form>
                     </th:block>

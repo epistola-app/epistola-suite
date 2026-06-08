@@ -13,7 +13,7 @@
         </div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
-            <select id="catalog-filter" class="ep-input">
+            <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"

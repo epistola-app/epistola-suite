@@ -20,6 +20,7 @@
 <!--/* Search box fragment with HTMX integration */-->
 <div class="search-box" th:fragment="search-box(placeholder, searchUrl, targetId)">
     <input type="search"
+           class="ep-input"
            name="q"
            data-testid="search-input"
            th:placeholder="${placeholder}"

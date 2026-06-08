@@ -73,91 +73,6 @@ main.regular section {
   box-shadow: var(--ep-shadow-sm);
 }
 
-.form-group {
-  margin-bottom: var(--ep-space-4);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: var(--ep-space-1-5);
-  font-size: var(--ep-text-sm);
-  font-weight: 500;
-  color: var(--ep-foreground);
-}
-
-/* Text-like fields stretch; radios/checkboxes keep their intrinsic size
-   (they are full-width otherwise — e.g. the import-type radios and the
-   upgrade-dialog opt-in checkboxes). */
-.form-group input:not([type='radio']):not([type='checkbox']),
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  height: var(--ep-h-9);
-  padding: var(--ep-space-1-5) var(--ep-space-3);
-  font-size: var(--ep-text-sm);
-  color: var(--ep-foreground);
-  border: 1px solid var(--ep-input-border);
-  border-radius: var(--ep-radius-md);
-  background-color: var(--ep-white);
-  transition: var(--ep-transition-colors);
-}
-
-.form-group input:focus,
-.form-group textarea:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: var(--ep-ring-color);
-  box-shadow: var(--ep-ring);
-}
-
-.form-group textarea {
-  height: auto;
-  min-height: 5rem;
-  resize: vertical;
-  line-height: var(--ep-leading-normal);
-}
-
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-  color: var(--ep-muted-foreground);
-}
-
-/* Form validation error states */
-.form-group.error input,
-.form-group.error textarea,
-.form-group.error select {
-  border-color: var(--ep-destructive);
-}
-
-.form-group.error input:focus,
-.form-group.error textarea:focus,
-.form-group.error select:focus {
-  border-color: var(--ep-destructive);
-  box-shadow:
-    0 0 0 var(--ep-ring-offset) var(--ep-white),
-    0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-red-500);
-}
-
-.form-error {
-  display: block;
-  font-size: var(--ep-text-sm);
-  color: var(--ep-destructive);
-  margin-top: var(--ep-space-1);
-}
-
-.form-hint {
-  display: block;
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  margin-top: var(--ep-space-1);
-}
-
-.form-actions {
-  display: flex;
-  gap: var(--ep-space-3);
-  margin-top: var(--ep-space-6);
-}
-
 /* ── Status badges ────────────────────────────────────────────────────── */
 
 /* ── Variant tags ─────────────────────────────────────────────────────── */
@@ -221,22 +136,6 @@ main.regular section {
 }
 
 /* ── Inline form (for create variant) ─────────────────────────────────── */
-
-.inline-form {
-  display: flex;
-  gap: var(--ep-space-2);
-  align-items: flex-end;
-  margin-top: var(--ep-space-4);
-}
-
-.inline-form .form-group {
-  margin-bottom: 0;
-  flex: 1;
-}
-
-.inline-form input {
-  width: 100%;
-}
 
 /* ── Section headers ──────────────────────────────────────────────────── */
 
@@ -693,19 +592,6 @@ main.regular section {
   font-size: var(--ep-text-sm);
 }
 
-/* ── Form row (multi-column layout) ───────────────────────────────────── */
-
-.form-row {
-  display: flex;
-  gap: var(--ep-space-4);
-  flex-wrap: wrap;
-}
-
-.form-row .form-group {
-  flex: 1;
-  min-width: 200px;
-}
-
 /* ── Dashboard stats grid ────────────────────────────────────────────── */
 
 .dashboard-stats {
@@ -919,10 +805,6 @@ a.stat-card:hover {
 
 /* ── Dialog (generic reusable dialog) ────────────────────────────────── */
 
-.ep-dialog-body .form-group:last-child {
-  margin-bottom: 0;
-}
-
 #confirm-dialog-footer {
   display: flex;
   gap: var(--ep-space-3);
@@ -1117,16 +999,7 @@ a.stat-card:hover {
 /* ── Version comparison ──────────────────────────────────────────────── */
 
 .version-comparison-controls {
-  display: flex;
-  gap: var(--ep-space-4);
-  align-items: flex-end;
-  flex-wrap: wrap;
-  margin-bottom: var(--ep-space-4);
   flex-shrink: 0;
-}
-
-.version-comparison-controls .form-group {
-  min-width: 10rem;
 }
 
 .version-comparison-grid {
@@ -1210,26 +1083,6 @@ a.stat-card:hover {
 }
 
 /* ── Variant card grid ────────────────────────────────────────────────── */
-
-.variant-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ep-space-3);
-  margin-bottom: var(--ep-space-4);
-}
-
-.variant-filter-bar .form-group {
-  margin-bottom: 0;
-  min-width: 160px;
-}
-
-.variant-filter-bar label {
-  display: block;
-  font-size: var(--ep-text-xs);
-  font-weight: 500;
-  color: var(--ep-muted-foreground);
-  margin-bottom: var(--ep-space-1);
-}
 
 .variant-grid {
   display: grid;
@@ -1481,11 +1334,6 @@ a.stat-card:hover {
 #comparison-frame-a[data-hidden='true'],
 #comparison-frame-b[data-hidden='true'],
 .confirm-dialog-error[data-hidden='true'],
-#edit-attr-rows .form-group[data-hidden='true'],
-#create-variant-form .form-group[data-hidden='true'] {
-  display: none;
-}
-
 .ep-depth-indent {
   padding-left: calc(var(--ep-depth, 0) * 16px);
 }
@@ -1532,10 +1380,6 @@ a.stat-card:hover {
   font-size: var(--ep-text-sm);
 }
 
-.form-group-no-margin {
-  margin-bottom: 0;
-}
-
 /* ── Contract status bar ──────────────────────────────────────────────── */
 .contract-status-bar {
   display: flex;
@@ -1561,16 +1405,6 @@ a.stat-card:hover {
 }
 
 /* ── Feedback detail page ──────────────────────────────────────────── */
-
-.feedback-status-form {
-  display: flex;
-  align-items: center;
-  gap: var(--ep-space-2);
-}
-
-.feedback-status-form .ep-input {
-  width: auto;
-}
 
 .feedback-badges {
   display: flex;
@@ -1867,16 +1701,6 @@ a.stat-card:hover {
 
 /* ── Feedback list page ──────────────────────────────────────────────── */
 
-.feedback-filters {
-  display: flex;
-  gap: var(--ep-space-3);
-  margin-bottom: var(--ep-space-4);
-}
-
-.feedback-filters .ep-input {
-  width: auto;
-}
-
 .feedback-title {
   font-weight: 500;
 }
@@ -1897,15 +1721,6 @@ a.stat-card:hover {
   display: flex;
   flex-direction: column;
   gap: var(--ep-space-4);
-}
-
-.feedback-form-row {
-  display: flex;
-  gap: var(--ep-space-3);
-}
-
-.feedback-form-group {
-  flex: 1;
 }
 
 .fb-screenshot-actions {
@@ -1946,10 +1761,6 @@ a.stat-card:hover {
 
 .gen-dashboard-header h2 {
   margin: 0;
-}
-
-.gen-dashboard-header .ep-input {
-  width: auto;
 }
 
 .gen-job-error {
@@ -2128,11 +1939,6 @@ a.stat-card:hover {
   max-height: calc(90vh - 5rem);
   padding: var(--ep-space-4);
 }
-.comparison-form-group {
-  margin-bottom: 0;
-  align-self: flex-end;
-}
-
 .comparison-empty-state {
   padding: var(--ep-space-8);
 }
@@ -2163,10 +1969,6 @@ a.stat-card:hover {
 
 .stencil-draft-actions {
   margin-bottom: var(--ep-space-3);
-}
-
-.stencil-inline-form {
-  display: inline;
 }
 
 .stencil-upgrade-bar {

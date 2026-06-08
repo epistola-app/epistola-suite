@@ -236,12 +236,38 @@
     &.mono {
       font-family: var(--ep-font-mono);
     }
+
+    &[type='file'] {
+      display: block;
+      height: auto;
+      padding: 0;
+      line-height: var(--ep-leading-normal);
+
+      &::file-selector-button {
+        margin-right: var(--ep-space-3);
+        border: 0;
+        border-right: 1px solid var(--ep-input-border);
+        background: var(--ep-gray-50);
+        color: var(--ep-foreground);
+        padding: var(--ep-space-2) var(--ep-space-3);
+        font-size: var(--ep-text-sm);
+        font-weight: 500;
+        line-height: var(--ep-leading-normal);
+        cursor: pointer;
+        transition: var(--ep-transition-colors);
+      }
+
+      &:disabled::file-selector-button {
+        cursor: not-allowed;
+      }
+    }
   }
 
   .ep-textarea {
     display: flex;
     width: 100%;
     min-height: 5rem;
+    max-height: 20rem;
     padding: var(--ep-space-2) var(--ep-space-3);
     font-size: var(--ep-text-sm);
     line-height: var(--ep-leading-normal);
@@ -299,6 +325,110 @@
     border-radius: var(--ep-radius-sm);
     border: 1px solid var(--ep-input-border);
     accent-color: var(--ep-primary);
+  }
+
+  .form-group {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .form-group .ep-label,
+  .form-group label {
+    display: block;
+    margin-bottom: var(--ep-space-1-5);
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-foreground);
+  }
+
+  .form-group.error .ep-input,
+  .form-group.error .ep-textarea,
+  .form-group.error .ep-select,
+  .form-group.error input,
+  .form-group.error textarea,
+  .form-group.error select {
+    border-color: var(--ep-destructive);
+  }
+
+  .form-group.error .ep-input:focus,
+  .form-group.error .ep-textarea:focus,
+  .form-group.error .ep-select:focus,
+  .form-group.error input:focus,
+  .form-group.error textarea:focus,
+  .form-group.error select:focus {
+    border-color: var(--ep-destructive);
+    box-shadow:
+      0 0 0 var(--ep-ring-offset) var(--ep-white),
+      0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-red-500);
+  }
+
+  .form-error {
+    display: block;
+    font-size: var(--ep-text-sm);
+    color: var(--ep-destructive);
+    margin-top: var(--ep-space-1);
+  }
+
+  .form-hint {
+    display: block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    margin-top: var(--ep-space-1);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: var(--ep-space-3);
+    margin-top: var(--ep-space-6);
+  }
+
+  .form-row {
+    display: flex;
+    gap: var(--ep-space-4);
+    flex-wrap: wrap;
+  }
+
+  .form-row-center {
+    align-items: center;
+  }
+
+  .form-row-end {
+    align-items: flex-end;
+  }
+
+  .form-row-section {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .form-inline {
+    display: inline;
+  }
+
+  .form-control-auto {
+    width: auto;
+  }
+
+  .form-group-inline {
+    margin-bottom: 0;
+  }
+
+  .form-group-fill {
+    flex: 1;
+  }
+
+  .form-group-min-width-sm {
+    min-width: 10rem;
+  }
+
+  .form-group-hidden[data-hidden='true'] {
+    display: none;
+  }
+
+  .form-group-compact .ep-label,
+  .form-group-compact label {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-muted-foreground);
+    margin-bottom: var(--ep-space-1);
   }
 
   /* ── Badges ───────────────────────────────────────────────────────────── */

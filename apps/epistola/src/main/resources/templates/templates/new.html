@@ -13,7 +13,7 @@
                 <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post">
                     <div class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input">
+                        <select id="catalog" name="catalog" class="ep-select">
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"></option>

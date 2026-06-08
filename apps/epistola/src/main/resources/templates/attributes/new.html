@@ -13,7 +13,7 @@
                 <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input">
+                        <select id="catalog" name="catalog" class="ep-select">
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"
@@ -100,7 +100,7 @@
                     <div class="form-group constraint-pane constraint-pane-code-list"
                          data-constraint-pane="code-list" hidden>
                         <label class="ep-label" for="codeList">Code list</label>
-                        <select id="codeList" name="codeList" class="ep-input">
+                        <select id="codeList" name="codeList" class="ep-select">
                             <option value="">&mdash; Select a code list &mdash;</option>
                             <th:block th:each="cl : ${codeLists}">
                                 <option th:value="${cl.catalogKey + '/' + cl.slug}"

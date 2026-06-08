@@ -35,7 +35,7 @@
                              excluded server-side), so leaving hidden rows
                              in the DOM is safe and lets the picker simply
                              toggle visibility. -->
-                          <div class="form-group" th:each="d : ${attributeDescriptors}" data-hidden="true"
+                          <div class="form-group form-group-hidden" th:each="d : ${attributeDescriptors}" data-hidden="true"
                              th:data-attr-row="${d.qualifiedKey}">
                             <label class="ep-label" th:for="'create-attr_' + ${d.qualifiedKey}">
                                 <span th:text="${d.displayName}"></span>
@@ -51,7 +51,7 @@
                             </select>
                         </div>
                         <!-- Add-attribute picker. -->
-                        <div class="form-group" data-add-attr-picker>
+                        <div class="form-group form-group-inline" data-add-attr-picker>
                             <label class="ep-label" for="create-add-attr">Add attribute</label>
                             <div class="variant-add-attr-row">
                                 <select id="create-add-attr" class="ep-select" data-add-attr-select>
@@ -74,9 +74,9 @@
 
         <!-- Variant card grid -->
         <div id="variants-section" th:fragment="variants-section">
-            <div id="variant-filter-bar" class="variant-filter-bar"
+            <div id="variant-filter-bar" class="form-row form-row-section"
                  th:if="${usedAttributeDescriptors != null and !#lists.isEmpty(usedAttributeDescriptors)}">
-                <div class="form-group" th:each="d : ${usedAttributeDescriptors}">
+                <div class="form-group form-group-inline form-group-min-width-sm form-group-compact" th:each="d : ${usedAttributeDescriptors}">
                     <label th:for="'attr-filter-' + ${d.qualifiedKey}">
                         <span th:text="${d.displayName}"></span>
                         <code class="variant-filter-key" 

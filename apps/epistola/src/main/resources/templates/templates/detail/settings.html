@@ -33,7 +33,7 @@
                     Set the default theme for all variants. Individual variants can override this in the editor.
                 </p>
                 <div class="form-row">
-                    <div class="form-group form-group-no-margin">
+                    <div class="form-group form-group-inline form-group-fill">
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" onchange="updateTheme(this)">
                             <option value="">No theme (use variant defaults)</option>
