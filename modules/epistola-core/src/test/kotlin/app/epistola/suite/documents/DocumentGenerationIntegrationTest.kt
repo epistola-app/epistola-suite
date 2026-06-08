@@ -28,6 +28,7 @@ import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
@@ -46,6 +47,9 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var contentStore: ContentStore
+
+    @Autowired
+    private lateinit var meterRegistry: MeterRegistry
 
     private val objectMapper = ObjectMapper()
 
@@ -114,6 +118,59 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             assertThat(contentBytes).isNotEmpty()
             // Verify it's a PDF by checking the magic bytes (%PDF)
             assertThat(contentBytes.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
+        }
+    }
+
+    @Test
+    fun `generation metrics are tagged with tenant`() = scenario {
+        given {
+            val tenant = tenant("Metrics Tenant")
+            val tenantId = TenantId(tenant.id)
+            val template = template(tenant.id, "Metrics Template")
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+            val variant = variant(compositeTemplateId, "Default")
+            val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+            val templateModel = TestTemplateBuilder.buildMinimal(name = "Metrics Template")
+            val version = version(compositeVariantId, templateModel)
+            DocumentSetup(tenant, template, variant, version)
+        }.whenever { setup ->
+            execute(
+                GenerateDocument(
+                    tenantId = setup.tenant.id,
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    versionId = setup.version.id,
+                    environmentId = null,
+                    data = objectMapper.createObjectNode().put("test", "value"),
+                    filename = "metrics.pdf",
+                ),
+            )
+        }.then { setup, request ->
+            // Wait for the job to complete so the executor has recorded its meters
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
+                .untilAsserted {
+                    SecurityContext.runWithPrincipal(testUser) {
+                        val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
+                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    }
+                }
+
+            val tenantTag = setup.tenant.id.value
+
+            // Both generation business meters must carry the per-tenant `tenant` tag
+            val durationTimer = meterRegistry.find("epistola.generation.document.duration")
+                .tag("tenant", tenantTag)
+                .timer()
+            assertThat(durationTimer).isNotNull
+            assertThat(durationTimer!!.count()).isGreaterThanOrEqualTo(1)
+
+            val sizeSummary = meterRegistry.find("epistola.generation.document.size.bytes")
+                .tag("tenant", tenantTag)
+                .summary()
+            assertThat(sizeSummary).isNotNull
+            assertThat(sizeSummary!!.count()).isGreaterThanOrEqualTo(1)
         }
     }
 
