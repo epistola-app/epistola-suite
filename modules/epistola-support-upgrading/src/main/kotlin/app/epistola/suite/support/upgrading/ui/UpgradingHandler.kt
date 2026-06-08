@@ -1,6 +1,7 @@
 package app.epistola.suite.support.upgrading.ui
 
 import app.epistola.hub.client.error.HubEntitlementDeniedException
+import app.epistola.hub.client.error.HubException
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -33,6 +34,7 @@ class UpgradingHandler(
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
 
         var entitled = true
+        var hubReachable = true
         val groups =
             try {
                 compatibility
@@ -44,6 +46,11 @@ class UpgradingHandler(
                 log.debug("Tenant {} is not entitled to compatibility checks: {}", tenantId.key.value, e.message)
                 entitled = false
                 emptyList()
+            } catch (e: HubException) {
+                // Hub unreachable (or not registered yet) — render the page; connection status is on Overview.
+                log.warn("Could not reach the Epistola hub for tenant {} compatibility: {}", tenantId.key.value, e.message)
+                hubReachable = false
+                emptyList()
             }
 
         return ServerResponse.ok().page("upgrading/list") {
@@ -51,7 +58,7 @@ class UpgradingHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "upgrading"
-            "ready" to (compatibility.isEnabled() && compatibility.isReady())
+            "hubReachable" to hubReachable
             "entitled" to entitled
             "groups" to groups
         }

@@ -101,6 +101,7 @@ class ShellModelInterceptor(
         "/feedback" in path -> "feedback"
         "/backups" in path -> "backups"
         "/upgrading" in path -> "upgrading"
+        "/support" in path -> "overview"
         "/api-keys" in path -> "api-keys"
         "/features" in path -> "features"
         "/catalogs" in path -> "catalogs"

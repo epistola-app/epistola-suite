@@ -16,11 +16,12 @@
         <div th:if="${!entitled}" class="alert alert-info" role="status">
             This installation is not entitled to compatibility checks. Contact Epistola for a service contract to enable them.
         </div>
-        <div th:if="${entitled and !ready}" class="alert alert-info" role="status">
-            The installation is still registering with the Epistola hub. Compatibility results become available once registration completes.
+        <div th:if="${entitled and !hubReachable}" class="alert alert-info" role="status">
+            Not connected to the Epistola hub, so compatibility results are unavailable right now. See
+            <a th:href="@{/tenants/{tenantId}/support(tenantId=${tenantId})}">Support → Overview</a> for the connection status.
         </div>
 
-        <div th:if="${entitled and #lists.isEmpty(groups)}" class="empty-state">
+        <div th:if="${entitled and hubReachable and #lists.isEmpty(groups)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='shield-check', class='ep-icon ep-icon-xl')}" />
             </div>

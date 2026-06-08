@@ -6,7 +6,7 @@
             <h1>Backups</h1>
             <div class="page-actions">
                 <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
-                    <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${!ready or !entitled}">
+                    <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${!hubReachable or !entitled}">
                         <th:block th:replace="~{fragments/icon :: icon(name='upload-cloud', class='ep-icon')}" />
                         Back up now
                     </button>
@@ -25,15 +25,17 @@
         <div th:if="${error == 'not-entitled'}" class="alert alert-error" role="alert">This installation is not entitled to backups — contact Epistola for a service contract.</div>
         <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
         <div th:if="${error == 'restore-failed'}" class="alert alert-error" role="alert">The restore failed and was rolled back. Please try again or check the logs.</div>
+        <div th:if="${error == 'hub-unavailable'}" class="alert alert-error" role="alert">Couldn't reach the Epistola hub. Check the connection on Support → Overview and try again.</div>
 
         <div th:if="${!entitled}" class="alert alert-info" role="status">
             This installation is not entitled to managed backups. Contact Epistola for a service contract to enable them.
         </div>
-        <div th:if="${entitled and !ready}" class="alert alert-info" role="status">
-            The installation is still registering with the Epistola hub. Backups become available once registration completes.
+        <div th:if="${entitled and !hubReachable}" class="alert alert-info" role="status">
+            Not connected to the Epistola hub, so backups are unavailable right now. See
+            <a th:href="@{/tenants/{tenantId}/support(tenantId=${tenantId})}">Support → Overview</a> for the connection status.
         </div>
 
-        <div th:if="${entitled and #lists.isEmpty(snapshots)}" class="empty-state">
+        <div th:if="${entitled and hubReachable and #lists.isEmpty(snapshots)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
             </div>

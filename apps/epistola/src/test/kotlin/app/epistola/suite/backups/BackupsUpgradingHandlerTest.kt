@@ -1,5 +1,6 @@
 package app.epistola.suite.backups
 
+import app.epistola.hub.client.error.HubUnavailableException
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.catalog.snapshot.TenantSnapshot
@@ -14,6 +15,7 @@ import app.epistola.suite.upgrading.CompatibilityCheckResult
 import app.epistola.suite.upgrading.CompatibilitySyncPort
 import app.epistola.suite.upgrading.CompatibilityVerdict
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -45,13 +47,28 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    @Autowired
+    private lateinit var snapshotPort: SnapshotSyncPort
+
+    @Autowired
+    private lateinit var compatibilityPort: CompatibilitySyncPort
+
+    private val fakeSnapshots get() = snapshotPort as FakeSnapshotSyncPort
+    private val fakeCompatibility get() = compatibilityPort as FakeCompatibilitySyncPort
+
+    @BeforeEach
+    fun resetFakes() {
+        fakeSnapshots.unreachable = false
+        fakeCompatibility.unreachable = false
+    }
+
     private fun enableSupport(tenantKey: TenantKey) = withMediator {
         SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
         SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_UPGRADING, enabled = true).execute()
     }
 
     @Test
-    fun `backups page lists snapshots and the Support nav shows both items`() {
+    fun `backups page lists snapshots and the Support nav shows the items`() {
         val tenant = createTenant("Backups Page")
         enableSupport(tenant.id)
 
@@ -65,7 +82,8 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         assertThat(body).contains("3.0 MB")
         assertThat(body).contains("1.4.0")
         assertThat(body).contains("Latest")
-        // Both Support items are linked (their toggles are on).
+        // Support nav items (Overview + the toggled features) are linked.
+        assertThat(body).contains("/tenants/${tenant.id.value}/support")
         assertThat(body).contains("/tenants/${tenant.id.value}/backups")
         assertThat(body).contains("/tenants/${tenant.id.value}/upgrading")
     }
@@ -85,26 +103,70 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         assertThat(body).contains("uses a deprecated node")
     }
 
-    /** Fake snapshot sync adapter returning one snapshot. */
+    @Test
+    fun `backups page renders a not-connected state instead of 500 when the hub is unreachable`() {
+        val tenant = createTenant("Backups Hub Down")
+        enableSupport(tenant.id)
+        fakeSnapshots.unreachable = true
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!).contains("Not connected to the Epistola hub")
+    }
+
+    @Test
+    fun `upgrading page renders a not-connected state instead of 500 when the hub is unreachable`() {
+        val tenant = createTenant("Upgrading Hub Down")
+        enableSupport(tenant.id)
+        fakeCompatibility.unreachable = true
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/upgrading", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body!!).contains("Not connected to the Epistola hub")
+    }
+
+    @Test
+    fun `support overview page renders the hub connection section`() {
+        val tenant = createTenant("Support Overview")
+        enableSupport(tenant.id)
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/support", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(body).contains("Support")
+        // The support tier is off in tests, so the page reports it isn't connecting to the hub.
+        assertThat(body).contains("support tier is not enabled")
+    }
+
+    /** Fake snapshot sync adapter returning one snapshot, or failing as unreachable when toggled. */
     class FakeSnapshotSyncPort : SnapshotSyncPort {
+        @Volatile
+        var unreachable = false
+
         override fun isEnabled(): Boolean = true
 
         override fun isReady(): Boolean = true
 
         override fun uploadSnapshot(snapshot: TenantSnapshot): SnapshotUploadResult = SnapshotUploadResult("snap-1", deduplicated = false)
 
-        override fun listSnapshots(tenantKey: TenantKey): List<RemoteSnapshot> = listOf(
-            RemoteSnapshot(
-                snapshotId = "snap-1",
-                snapshotFingerprint = "f".repeat(64),
-                sizeBytes = 3L * 1024 * 1024,
-                catalogCount = 4,
-                suiteVersion = "1.4.0",
-                capturedAt = Instant.parse("2026-01-02T02:00:00Z"),
-                createdAt = Instant.parse("2026-01-02T02:00:00Z"),
-                isLatest = true,
-            ),
-        )
+        override fun listSnapshots(tenantKey: TenantKey): List<RemoteSnapshot> {
+            if (unreachable) throw HubUnavailableException("hub is unavailable")
+            return listOf(
+                RemoteSnapshot(
+                    snapshotId = "snap-1",
+                    snapshotFingerprint = "f".repeat(64),
+                    sizeBytes = 3L * 1024 * 1024,
+                    catalogCount = 4,
+                    suiteVersion = "1.4.0",
+                    capturedAt = Instant.parse("2026-01-02T02:00:00Z"),
+                    createdAt = Instant.parse("2026-01-02T02:00:00Z"),
+                    isLatest = true,
+                ),
+            )
+        }
 
         override fun downloadSnapshot(
             tenantKey: TenantKey,
@@ -112,22 +174,28 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         ): ByteArray = ByteArray(0)
     }
 
-    /** Fake compatibility adapter returning one result. */
+    /** Fake compatibility adapter returning one result, or failing as unreachable when toggled. */
     class FakeCompatibilitySyncPort : CompatibilitySyncPort {
+        @Volatile
+        var unreachable = false
+
         override fun isEnabled(): Boolean = true
 
         override fun isReady(): Boolean = true
 
-        override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> = listOf(
-            CompatibilityCheckResult(
-                tenant = tenantKey.value,
-                targetVersion = "2.4.0",
-                snapshotId = "snap-1",
-                catalogKey = "my-catalog",
-                verdict = CompatibilityVerdict.WARN,
-                detail = "uses a deprecated node",
-                occurredAt = Instant.parse("2026-01-02T02:00:00Z"),
-            ),
-        )
+        override fun listCompatibilityResults(tenantKey: TenantKey): List<CompatibilityCheckResult> {
+            if (unreachable) throw HubUnavailableException("hub is unavailable")
+            return listOf(
+                CompatibilityCheckResult(
+                    tenant = tenantKey.value,
+                    targetVersion = "2.4.0",
+                    snapshotId = "snap-1",
+                    catalogKey = "my-catalog",
+                    verdict = CompatibilityVerdict.WARN,
+                    detail = "uses a deprecated node",
+                    occurredAt = Instant.parse("2026-01-02T02:00:00Z"),
+                ),
+            )
+        }
     }
 }

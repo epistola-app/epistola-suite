@@ -1,6 +1,8 @@
 package app.epistola.suite.support.backups.ui
 
 import app.epistola.hub.client.error.HubEntitlementDeniedException
+import app.epistola.hub.client.error.HubException
+import app.epistola.hub.client.error.HubUnavailableException
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -34,12 +36,19 @@ class BackupsHandler(
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
 
         var entitled = true
+        var hubReachable = true
         val snapshots =
             try {
                 snapshotSync.listSnapshots(tenantId.key).map { it.toView() }
             } catch (e: HubEntitlementDeniedException) {
                 log.debug("Tenant {} is not entitled to backups: {}", tenantId.key.value, e.message)
                 entitled = false
+                emptyList()
+            } catch (e: HubException) {
+                // The hub couldn't be reached (or the installation isn't registered yet). Render the
+                // page instead of 500-ing; the per-node connection status lives on Support → Overview.
+                log.warn("Could not reach the Epistola hub for tenant {} backups: {}", tenantId.key.value, e.message)
+                hubReachable = false
                 emptyList()
             }
 
@@ -48,7 +57,7 @@ class BackupsHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
-            "ready" to snapshotSync.isReady()
+            "hubReachable" to hubReachable
             "entitled" to entitled
             "snapshots" to snapshots
             "saved" to request.param("saved").orElse(null)
@@ -64,6 +73,9 @@ class BackupsHandler(
             redirect(tenantId.key.value, "saved=backup")
         } catch (e: HubEntitlementDeniedException) {
             redirect(tenantId.key.value, "error=not-entitled")
+        } catch (e: HubUnavailableException) {
+            log.warn("Backup for tenant {} could not reach the Epistola hub: {}", tenantId.key.value, e.message)
+            redirect(tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Manual backup failed for tenant {}: {}", tenantId.key.value, e.message, e)
             redirect(tenantId.key.value, "error=backup-failed")
@@ -79,6 +91,9 @@ class BackupsHandler(
             redirect(tenantId.key.value, "saved=restore")
         } catch (e: HubEntitlementDeniedException) {
             redirect(tenantId.key.value, "error=not-entitled")
+        } catch (e: HubUnavailableException) {
+            log.warn("Restore for tenant {} could not reach the Epistola hub: {}", tenantId.key.value, e.message)
+            redirect(tenantId.key.value, "error=hub-unavailable")
         } catch (e: Exception) {
             log.error("Restore failed for tenant {} from snapshot {}: {}", tenantId.key.value, snapshotId, e.message, e)
             redirect(tenantId.key.value, "error=restore-failed")

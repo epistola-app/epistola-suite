@@ -122,7 +122,7 @@
                     <!-- Support dropdown -->
                     <div th:if="${feedbackEnabled or backupsEnabled or upgradingEnabled}"
                          class="app-nav-dropdown"
-                         th:classappend="${#lists.contains({'feedback','backups','upgrading'}, activeNavSection)} ? ' active' : ''">
+                         th:classappend="${#lists.contains({'overview','feedback','backups','upgrading'}, activeNavSection)} ? ' active' : ''">
                         <button class="app-nav-dropdown-trigger" type="button"
                                 data-testid="nav-dropdown-support"
                                 aria-expanded="false" aria-haspopup="true">
@@ -130,6 +130,11 @@
                             <th:block th:replace="~{fragments/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <div class="app-nav-dropdown-menu" role="menu">
+                            <a th:href="@{/tenants/{id}/support(id=${tenantId})}"
+                               class="app-nav-dropdown-item" role="menuitem"
+                               th:classappend="${activeNavSection == 'overview'} ? ' active' : ''">
+                                Overview
+                            </a>
                             <a th:if="${feedbackEnabled}"
                                th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
                                class="app-nav-dropdown-item" role="menuitem"
@@ -246,6 +251,8 @@
                 </div>
                 <div th:if="${feedbackEnabled or backupsEnabled or upgradingEnabled}" class="app-nav-mobile-group">
                     <div class="app-nav-mobile-label">Support</div>
+                    <a th:href="@{/tenants/{id}/support(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:classappend="${activeNavSection == 'overview'} ? ' active' : ''" role="menuitem">Overview</a>
                     <a th:if="${feedbackEnabled}" th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
                        th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>
                     <a th:if="${backupsEnabled}" th:href="@{/tenants/{id}/backups(id=${tenantId})}" class="app-nav-mobile-item"

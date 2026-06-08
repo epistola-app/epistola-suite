@@ -107,6 +107,8 @@ dependencies {
 
     // Testing
     testImplementation(project(":modules:testing"))
+    // Hub client error types (e.g. HubUnavailableException) for the support-page connectivity tests.
+    testImplementation(libs.epistola.hub.client)
     testImplementation("org.springframework.boot:spring-boot-micrometer-tracing-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
