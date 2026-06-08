@@ -2,11 +2,14 @@
 
 The project enforces a strict no-inline-styles policy across all surfaces: Thymeleaf templates, TypeScript components, and CSS files. An automated test (`InlineStyleHygieneTest`) runs in CI and **fails the build** on any violation.
 
+For the app UI, the goal is not to replace inline styles with a second utility-class framework. Prefer contextual, component-scoped, or page-scoped class names that describe what the element is. Use `data-*` attributes for state and CSS custom properties only as carriers for computed values. Do not put app UI CSS in template-local `<style>` elements; keep it in the app stylesheet unless there is a deliberate documented exception.
+
 ## Quick Reference
 
 | What                        | Allowed Pattern                                    | Banned Pattern                                        |
 | --------------------------- | -------------------------------------------------- | ----------------------------------------------------- |
-| Static presentation         | CSS class                                          | `style="color: red"`                                  |
+| Static presentation         | Contextual CSS class                               | `style="color: red"`                                  |
+| App template CSS placement  | Shared app stylesheet                              | Template-local `<style>` block                        |
 | State-driven styling        | Data attribute + CSS `&[data-*]`                   | `classList.add('active')`                             |
 | Computed values (pixel)     | CSS custom property + `calc()`                     | `style="--ep-depth: ${d}"` only for data carrier      |
 | Hidden elements             | `data-hidden="true"` + CSS `&[data-hidden='true']` | `classList.add('hidden')` or `style.display = 'none'` |
@@ -20,12 +23,23 @@ The project enforces a strict no-inline-styles policy across all surfaces: Thyme
 
 All inline `style` attributes in Thymeleaf templates must be replaced with CSS classes.
 
+In `apps/epistola`, prefer classes that describe the page or component role over generic app-wide utility classes.
+
+Do not add template-local `<style>` blocks for app pages or fragments. Put those rules in `apps/epistola/src/main/resources/static/css/main.css` so styling stays discoverable and reusable.
+
 ```html
 <!-- BAD -->
 <div style="margin-top: 12px; font-weight: 600;">Title</div>
 
 <!-- GOOD -->
-<div class="ep-mt-3 ep-font-semibold">Title</div>
+<div class="template-settings-title">Title</div>
+```
+
+```css
+.template-settings-title {
+  margin-top: var(--ep-space-3);
+  font-weight: 600;
+}
 ```
 
 ### 2. No `style="..."` in TypeScript (static)
@@ -85,6 +99,24 @@ The `th:style` attribute is only allowed for CSS custom property carriers:
 <div th:classappend="${valid ? ' active' : _}"></div>
 ```
 
+For visibility in server-rendered UI, prefer `data-hidden="true|false"` over class-based hidden toggles:
+
+```html
+<!-- BAD -->
+<div th:classappend="${hasCredential} ? '' : ' ep-hidden'" class="catalog-auth-credential"></div>
+
+<!-- GOOD -->
+<div class="catalog-auth-credential" data-hidden="true"></div>
+```
+
+```css
+.catalog-auth-credential[data-hidden="true"] {
+  display: none;
+}
+```
+
+Reasoning: CSS files style elements; HTML elements carry class names and data for CSS to act upon. Keep the visibility rule in CSS and let the markup only declare the state.
+
 ### 5. No `var(--ep-*, <fallback>)` in TypeScript string literals
 
 The same no-fallback rule applies to JavaScript string literals:
@@ -126,6 +158,46 @@ element.dataset.hidden === "true";
 ```
 
 ## Correct Patterns
+
+### Static presentation -> contextual classes
+
+Prefer names that describe the element's role in the page or component:
+
+```html
+<!-- BAD -->
+<form class="ep-inline">
+
+<!-- GOOD -->
+<form class="nav-logout-form"></form>
+```
+
+```css
+.nav-logout-form {
+  display: inline;
+}
+```
+
+Avoid rebuilding a generic app utility layer in `apps/epistola/src/main/resources/static/css/main.css`. If a style is specific to one page, fragment, or component, name it that way.
+
+### App template CSS placement
+
+For the app UI, keep CSS in the shared stylesheet instead of embedding `<style>` elements in Thymeleaf templates.
+
+```html
+<!-- BAD -->
+<style>
+  .consumer-toolbar {
+    display: flex;
+  }
+</style>
+```
+
+```css
+/* GOOD — apps/epistola/src/main/resources/static/css/main.css */
+.consumer-toolbar {
+  display: flex;
+}
+```
 
 ### State-driven styling → data attributes
 
@@ -192,7 +264,7 @@ The CSS default (`--ep-tree-depth: 0`) ensures the property is always defined. T
 
 ### Hidden elements
 
-Always use `data-hidden="true"` + CSS `&[data-hidden='true'] { display: none; }` nested inside the element's base class:
+Always use `data-hidden="true"` + CSS `&[data-hidden='true'] { display: none; }`. Nest it inside the element's base class when the selector belongs to a component stylesheet; in app-level page CSS, a scoped selector such as `.version-comparison-loading[data-hidden='true']` is also acceptable:
 
 ```typescript
 // Template — initially hidden
@@ -208,6 +280,12 @@ errorEl.dataset.hidden = "false"; // show
   &[data-hidden="true"] {
     display: none;
   }
+}
+```
+
+```css
+.version-comparison-loading[data-hidden="true"] {
+  display: none;
 }
 ```
 

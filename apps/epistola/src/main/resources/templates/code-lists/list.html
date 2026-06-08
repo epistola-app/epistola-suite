@@ -13,8 +13,8 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
-            <select id="catalog-filter" class="ep-input ep-max-w-300">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+            <select id="catalog-filter" class="ep-input">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -42,7 +42,7 @@
                 Use them to constrain variant attribute values to a curated set.
             </div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary ep-mt-4">
+               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary empty-state-action">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
             </a>
@@ -69,16 +69,16 @@
                         <span class="badge" th:text="${cl.catalogKey}"
                               th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
                     </td>
-                    <td class="ep-font-medium" th:text="${cl.displayName}"></td>
+                    <td class="code-list-name" th:text="${cl.displayName}"></td>
                     <td>
                         <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
                     </td>
                     <td>
                         <span th:if="${cl.lastRefreshedAt != null}"
                               th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                        <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
+                        <span th:if="${cl.lastRefreshedAt == null}" class="code-list-never">never</span>
                         <span th:if="${cl.lastRefreshError != null}"
-                              class="badge badge-error ep-ml-2"
+                              class="badge badge-error refresh-error-badge"
                               th:title="${cl.lastRefreshError}">refresh failed</span>
                     </td>
                     <td class="actions">

@@ -59,11 +59,11 @@
             </thead>
             <tbody>
                 <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
-                    <td class="ep-font-medium">
+                    <td class="catalog-name">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            th:text="${catalog.name}"></a>
                     </td>
-                    <td><code th:text="${catalog.id}" class="ep-text-xs text-muted"></code></td>
+                    <td><code th:text="${catalog.id}" class="catalog-id"></code></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
@@ -73,10 +73,10 @@
                             <th:block th:if="${catalog.releasedVersion}">
                                 <span th:text="'v' + ${catalog.releasedVersion}"></span>
                                 <span th:if="${row.pendingChanges}"
-                                      class="text-muted"
-                                      th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
+                                       class="catalog-muted"
+                                       th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
                             </th:block>
-                            <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
+                            <span th:unless="${catalog.releasedVersion}" class="catalog-muted">unreleased</span>
                         </th:block>
                         <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"
                                   th:with="state=${catalog.sourceUrl != null ? 'UNCHECKED' : 'ZIP_MANAGED'},
@@ -194,7 +194,7 @@
                             <option value="API_KEY">API Key</option>
                         </select>
                     </div>
-                    <div class="form-group ep-hidden" id="credential-group">
+                    <div class="form-group" id="credential-group" data-hidden="true">
                         <label class="ep-label" for="authCredential">Credential</label>
                         <input type="password" id="authCredential" name="authCredential" class="ep-input"
                                placeholder="Token or API key">
@@ -226,12 +226,12 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">Catalog type</label>
-                        <div class="ep-flex ep-gap-4 ep-mt-2">
-                            <label class="ep-flex-center ep-gap-2">
+                        <div class="catalog-radio-group">
+                            <label class="catalog-radio-label">
                                 <input type="radio" name="catalogType" value="AUTHORED" checked />
                                 Authored
                             </label>
-                            <label class="ep-flex-center ep-gap-2">
+                            <label class="catalog-radio-label">
                                 <input type="radio" name="catalogType" value="SUBSCRIBED" />
                                 Subscribed (read-only)
                             </label>
@@ -240,12 +240,12 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">If this catalog already exists (Authored)</label>
-                        <div class="ep-flex ep-gap-4 ep-mt-2">
-                            <label class="ep-flex-center ep-gap-2">
+                        <div class="catalog-radio-group">
+                            <label class="catalog-radio-label">
                                 <input type="radio" name="authoredMode" value="MERGE" checked />
                                 Merge
                             </label>
-                            <label class="ep-flex-center ep-gap-2">
+                            <label class="catalog-radio-label">
                                 <input type="radio" name="authoredMode" value="REPLACE" />
                                 Replace
                             </label>
@@ -253,7 +253,7 @@
                         <span class="form-hint">Merge: update from the ZIP, keep resources you have locally that the ZIP doesn't. Replace: make the catalog exactly the ZIP (deletes local-only resources). Ignored for new or subscribed catalogs; your release history is never changed.</span>
                     </div>
                     <div class="form-group">
-                        <label class="ep-flex-center ep-gap-2">
+                        <label class="catalog-radio-label">
                             <input type="checkbox" name="onStencilConflict" value="RENUMBER" />
                             Allow renumber on stencil version conflict
                         </label>
@@ -281,7 +281,7 @@
 
         <script>
             document.getElementById('authType').addEventListener('change', function() {
-                document.getElementById('credential-group').classList.toggle('ep-hidden', this.value === 'NONE');
+                document.getElementById('credential-group').dataset.hidden = this.value === 'NONE';
             });
 
             // Release dialog: the fragment is injected on demand into
@@ -341,16 +341,16 @@
                     <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
                     <div class="form-group">
                         <span class="ep-label">Current published version</span>
-                        <p class="ep-mt-1">
+                        <p class="release-version-row">
                             <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
-                            <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
+                            <strong th:if="${status.latestVersion == null}" class="catalog-muted">none — not published yet</strong>
                             <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
                             <span class="form-hint" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
                         </p>
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>
-                        <div class="ep-flex ep-gap-2 ep-mt-1">
+                        <div class="catalog-bump-row">
                             <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                     th:attr="data-version=${status.suggestedNext.patch}"
                                     th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
@@ -405,7 +405,7 @@
                             Stencil version-pins in catalog '<span th:text="${catalogId}"></span>'
                             are out of sync with the latest published version.
                         </div>
-                        <p class="ep-mt-1">
+                        <p class="catalog-alert-body">
                             The export only ships the latest published version of each stencil. Templates
                             that pin a different (or older) version would not resolve in the target.
                             Republish the templates against the latest version of each stencil below
@@ -416,10 +416,10 @@
 
                 <div class="form-group">
                     <span class="ep-label">Affected stencils</span>
-                    <ul class="ep-mt-1 ep-pl-5">
+                    <ul class="catalog-conflict-list">
                         <li th:each="s : ${stencilVersionExportConflicts}">
                             <strong th:text="${s.name}"></strong>
-                            (<span class="text-muted" th:text="${s.slug}"></span>)
+                            (<span class="catalog-muted" th:text="${s.slug}"></span>)
                             — pinned at <span th:text="${s.versionsDisplay}"></span>,
                             latest published is <strong th:text="${s.latestPublishedVersion}"></strong>
                         </li>
@@ -444,17 +444,17 @@
                 <div class="alert-title">
                     Import blocked: stencil version conflicts in catalog '<span th:text="${catalogId}"></span>'.
                 </div>
-                <p class="ep-mt-1">
+                <p class="catalog-alert-body">
                     Some stencil versions in the ZIP already exist in the target catalog with different content.
                     Either fix this at the source (republish the source catalog so the conflicting versions match),
                     or re-upload here with <strong>Allow renumber on stencil version conflict</strong> enabled —
                     the new content will install at the next available version number and the ZIP's template pins
                     will be rewritten to match.
                 </p>
-                <ul class="ep-mt-2 ep-pl-5">
+                <ul class="catalog-conflict-list">
                     <li th:each="s : ${stencilImportConflicts}">
                         <strong th:text="${s.name}"></strong>
-                        (<span class="text-muted" th:text="${s.slug}"></span>)
+                        (<span class="catalog-muted" th:text="${s.slug}"></span>)
                         — version <span th:text="${s.version}"></span> exists with different content
                     </li>
                 </ul>
@@ -472,7 +472,7 @@
     <th:block th:fragment="version-status" th:switch="${state}">
 
         <span th:case="'UNCHECKED'"
-              th:classappend="${installedVersion == null ? 'text-muted' : ''}"
+              th:classappend="${installedVersion == null ? 'catalog-muted' : ''}"
               th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
 
         <span th:case="'UP_TO_DATE'" title="Up to date"
@@ -481,26 +481,26 @@
 
         <span th:case="'UPDATE_AVAILABLE'"
               class="catalog-version-row">
-            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
-            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-font-medium" 
+            <span class="catalog-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm catalog-bump-btn" 
                     th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
                     th:text="${availableVersion != null ? '→ v' + availableVersion : '→ update available'}">→ v1.1.0</button>
         </span>
 
-        <span th:case="'ZIP_MANAGED'" class="text-muted"
+        <span th:case="'ZIP_MANAGED'" class="catalog-muted"
               title="ZIP-managed — no source URL. Import a newer ZIP as a Subscribed catalog to upgrade it.">
             <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
-            <span class="ep-text-xs">· ZIP</span>
+            <span class="catalog-zip-label">· ZIP</span>
         </span>
 
         <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
-            <span class="text-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
-            <span class="text-muted ep-text-xs" >· check failed</span>
+            <span class="catalog-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
+            <span class="catalog-muted catalog-check-failed">· check failed</span>
         </span>
 
-        <span th:case="*" class="text-muted"
+        <span th:case="*" class="catalog-muted"
               th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
     </th:block>
 
@@ -520,7 +520,7 @@
                     <th:block th:if="${diff != null}">
                         <div class="form-group">
                             <span class="ep-label">Version</span>
-                            <p class="ep-mt-1">
+                            <p class="upgrade-version-row">
                                 <strong th:text="${diff.previousVersion != null ? 'v' + diff.previousVersion : '—'}"></strong>
                                 →
                                 <strong th:text="${'v' + diff.newVersion}"></strong>
@@ -529,18 +529,18 @@
 
                         <div class="alert alert-danger" th:if="${diff.hasConflicts}">
                             <strong>Cannot apply — resources are still in use:</strong>
-                            <ul class="ep-mt-1 ep-pl-4">
+                            <ul class="upgrade-conflict-list">
                                 <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>
                             </ul>
                         </div>
 
-                        <p th:if="${!diff.hasChanges}" class="text-muted">
+                        <p th:if="${!diff.hasChanges}" class="catalog-muted">
                             This catalog is already up to date — nothing to apply.
                         </p>
 
                         <div class="form-group" th:if="${diff.hasChanges}">
                             <span class="ep-label">Changes</span>
-                            <ul class="ep-mt-1 ep-pl-4">
+                            <ul class="upgrade-changes-list">
                                 <li th:if="${!diff.changed.isEmpty()}">
                                     <strong th:text="${diff.changed.size()}"></strong> changed
                                     <span class="form-hint"
@@ -554,7 +554,7 @@
                                 <li th:if="${!diff.added.isEmpty()}">
                                     <strong th:text="${diff.added.size()}"></strong> new (not installed by default)
                                 </li>
-                                <li th:if="${!diff.unchanged.isEmpty()}" class="text-muted">
+                                <li th:if="${!diff.unchanged.isEmpty()}" class="catalog-muted">
                                     <span th:text="${diff.unchanged.size()}"></span> unchanged
                                 </li>
                             </ul>
@@ -562,9 +562,9 @@
 
                         <div class="form-group" th:if="${!diff.added.isEmpty()}">
                             <span class="ep-label">Also install new resources</span>
-                            <div class="ep-flex ep-flex-col ep-gap-1 ep-mt-1">
+                            <div class="upgrade-new-resources">
                                 <label th:each="a : ${diff.added}"
-                                       class="ep-flex-center ep-gap-2">
+                                       class="catalog-radio-label">
                                     <input type="checkbox" name="newSlugs" th:value="${a.slug}" />
                                     <span th:text="${a.type} + '/' + ${a.slug}"></span>
                                 </label>

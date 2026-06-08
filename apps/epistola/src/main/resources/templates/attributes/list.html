@@ -13,8 +13,8 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
-            <select id="catalog-filter" class="ep-input ep-max-w-300">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+            <select id="catalog-filter" class="ep-input">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -39,7 +39,7 @@
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
+               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
             </a>
@@ -59,9 +59,9 @@
             <tbody id="attribute-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="attr : ${attributes}">
-                        <td><code th:text="${attr.id}" class="ep-text-xs text-muted"></code></td>
+                        <td><code th:text="${attr.id}" class="attr-id"></code></td>
                         <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
-                        <td class="ep-font-medium" th:text="${attr.displayName}"></td>
+                        <td class="attr-name" th:text="${attr.displayName}"></td>
                         <td>
                             <div th:if="${attr.codeListSlug != null}" class="tags">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
@@ -74,7 +74,7 @@
                                       class="badge badge-outline"
                                       th:text="${val}"></span>
                             </div>
-                            <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
+                            <span th:if="${attr.codeListSlug == null and attr.allowedValues.isEmpty()}" class="attr-any-value">Any value</span>
                         </td>
                         <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
@@ -124,7 +124,7 @@
               hx-swap="innerHTML"
 >
             <div class="ep-dialog-body">
-                <div th:if="${error != null}" class="alert alert-error ep-mb-4">
+                <div th:if="${error != null}" class="alert alert-error attr-edit-error">
                     <span th:text="${error}"></span>
                 </div>
                 <div class="form-group">

@@ -13,7 +13,7 @@
             </div>
         </div>
 
-        <p class="text-muted ep-mb-4">
+        <p class="api-keys-description">
             API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.
         </p>
 
@@ -24,7 +24,7 @@
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
             <a th:if="${auth.has('TENANT_USERS')}"
-               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
+               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New API key
             </a>
@@ -45,24 +45,24 @@
             <tbody id="api-key-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
-                        <td th:text="${apiKey.name}" class="ep-font-medium"></td>
+                        <td th:text="${apiKey.name}" class="api-key-name"></td>
                         <td>
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
                         </td>
                         <td>
                             <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>
-                            <span th:if="${apiKey.createdByDisplayName == null}" class="text-muted">—</span>
+                            <span th:if="${apiKey.createdByDisplayName == null}" class="api-key-empty">—</span>
                         </td>
                         <td th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td>
                             <span th:if="${apiKey.lastUsedAt != null}"
                                   th:text="${#temporals.format(apiKey.lastUsedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                            <span th:if="${apiKey.lastUsedAt == null}" class="text-muted">Never</span>
+                            <span th:if="${apiKey.lastUsedAt == null}" class="api-key-empty">Never</span>
                         </td>
                         <td>
                             <span th:if="${apiKey.expiresAt != null}"
                                   th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></span>
-                            <span th:if="${apiKey.expiresAt == null}" class="text-muted">Never</span>
+                            <span th:if="${apiKey.expiresAt == null}" class="api-key-empty">Never</span>
                         </td>
                         <td class="actions">
                             <button th:if="${auth.has('TENANT_USERS')}"

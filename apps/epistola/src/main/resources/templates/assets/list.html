@@ -17,8 +17,8 @@
             </div>
         </div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
-            <select id="catalog-filter" class="ep-input ep-max-w-300">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+            <select id="catalog-filter" class="ep-input">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
