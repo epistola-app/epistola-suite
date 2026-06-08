@@ -1,4 +1,4 @@
-package app.epistola.suite.backups
+package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogType

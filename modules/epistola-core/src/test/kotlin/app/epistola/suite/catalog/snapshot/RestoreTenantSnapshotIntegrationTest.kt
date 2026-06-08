@@ -1,4 +1,4 @@
-package app.epistola.suite.backups
+package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
@@ -84,7 +84,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         withMediator { CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("stray"), name = "Stray").execute() }
 
         // Restore (destructive).
-        runAs(backupSystemPrincipal(tenant.id)) {
+        withMediator {
             RestoreTenantSnapshot(tenant.id, snapshot.bytes).execute()
         }
 

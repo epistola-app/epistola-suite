@@ -7,6 +7,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.snapshots.TenantSnapshotSyncService
+import app.epistola.suite.snapshots.snapshotSystemPrincipal
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -30,7 +32,7 @@ import org.springframework.stereotype.Component
     matchIfMissing = false,
 )
 class BackupScheduler(
-    private val backupService: CatalogBackupService,
+    private val snapshotSync: TenantSnapshotSyncService,
     private val mediator: Mediator,
     private val schedulerLock: SchedulerLock,
     private val featureToggleService: FeatureToggleService,
@@ -51,14 +53,13 @@ class BackupScheduler(
         val tenantKeys = allTenantKeys()
         log.info("Daily catalog backup starting for {} tenant(s)", tenantKeys.size)
         for (tenantKey in tenantKeys) {
-            // Snapshots feed both Backups and Upgrading (compatibility), so upload when either is on.
-            val needsSnapshot =
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS) ||
-                    featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_UPGRADING)
-            if (!needsSnapshot) continue
+            // Backups owns the daily retained snapshot. Upgrading has its own freshness timer that
+            // makes a snapshot only when none was made in the last day, so it stays dormant for
+            // tenants that have backups on.
+            if (!featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS)) continue
             try {
-                SecurityContext.runWithPrincipal(backupSystemPrincipal(tenantKey)) {
-                    backupService.backupTenant(tenantKey)
+                SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
+                    snapshotSync.syncTenant(tenantKey)
                 }
             } catch (e: Exception) {
                 log.error("Catalog backup failed for tenant {}: {}", tenantKey.value, e.message, e)

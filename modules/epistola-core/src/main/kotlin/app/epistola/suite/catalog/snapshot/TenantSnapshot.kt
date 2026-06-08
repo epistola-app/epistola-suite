@@ -1,4 +1,4 @@
-package app.epistola.suite.backups
+package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.common.ids.TenantKey
 import java.time.Instant

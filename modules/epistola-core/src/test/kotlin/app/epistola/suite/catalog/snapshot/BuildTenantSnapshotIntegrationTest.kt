@@ -1,4 +1,4 @@
-package app.epistola.suite.backups
+package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -6,39 +6,21 @@ import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Import
-import org.springframework.context.annotation.Primary
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
-@Import(CatalogBackupIntegrationTest.TestConfig::class)
-class CatalogBackupIntegrationTest : IntegrationTestBase() {
-    class TestConfig {
-        @Bean
-        @Primary
-        fun recordingBackupSyncPort(): BackupSyncPort = RecordingBackupSyncPort()
-    }
-
-    @Autowired
-    lateinit var syncPort: BackupSyncPort
-
-    @Autowired
-    lateinit var backupService: CatalogBackupService
-
+/**
+ * Builds the shared tenant snapshot primitive that backups and compatibility checks both ride.
+ * Verifies the archive shape (system catalog excluded, authored catalogs bundled byte-for-byte)
+ * and that the rolled-up fingerprint is deterministic across rebuilds of unchanged catalogs (the
+ * property dedup relies on).
+ */
+class BuildTenantSnapshotIntegrationTest : IntegrationTestBase() {
     @Autowired
     lateinit var objectMapper: ObjectMapper
-
-    private val recording get() = syncPort as RecordingBackupSyncPort
-
-    @BeforeEach
-    fun resetRecordingPort() {
-        recording.reset()
-    }
 
     @Test
     fun `snapshot excludes the system catalog and bundles the authored catalogs`() {
@@ -75,34 +57,6 @@ class CatalogBackupIntegrationTest : IntegrationTestBase() {
         val second = withMediator { BuildTenantSnapshot(tenant.id).execute() }.snapshotFingerprint
 
         assertThat(second).isEqualTo(first)
-    }
-
-    @Test
-    fun `backup uploads once then skips the upload while catalogs are unchanged`() {
-        val tenant = createTenant("Dedup")
-        withMediator { CreateCatalog(tenant.id, CatalogKey.of("alpha"), "Alpha").execute() }
-
-        val first = runAs(backupSystemPrincipal(tenant.id)) { backupService.backupTenant(tenant.id) }
-        assertThat(first).isInstanceOf(BackupOutcome.Uploaded::class.java)
-        assertThat(recording.uploads).hasSize(1)
-
-        val second = runAs(backupSystemPrincipal(tenant.id)) { backupService.backupTenant(tenant.id) }
-        assertThat(second).isInstanceOf(BackupOutcome.Unchanged::class.java)
-        // No second upload — the suite-side fingerprint cache short-circuited it.
-        assertThat(recording.uploads).hasSize(1)
-    }
-
-    @Test
-    fun `a new catalog changes the fingerprint and triggers a fresh upload`() {
-        val tenant = createTenant("Changed")
-        withMediator { CreateCatalog(tenant.id, CatalogKey.of("alpha"), "Alpha").execute() }
-        runAs(backupSystemPrincipal(tenant.id)) { backupService.backupTenant(tenant.id) }
-
-        withMediator { CreateCatalog(tenant.id, CatalogKey.of("beta"), "Beta").execute() }
-        val outcome = runAs(backupSystemPrincipal(tenant.id)) { backupService.backupTenant(tenant.id) }
-
-        assertThat(outcome).isInstanceOf(BackupOutcome.Uploaded::class.java)
-        assertThat(recording.uploads).hasSize(2)
     }
 
     private fun readManifest(bytes: ByteArray): SnapshotManifest {

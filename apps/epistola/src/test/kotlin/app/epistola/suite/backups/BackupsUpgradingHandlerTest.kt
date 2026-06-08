@@ -2,10 +2,14 @@ package app.epistola.suite.backups
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.catalog.snapshot.TenantSnapshot
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.snapshots.RemoteSnapshot
+import app.epistola.suite.snapshots.SnapshotSyncPort
+import app.epistola.suite.snapshots.SnapshotUploadResult
 import app.epistola.suite.upgrading.CompatibilityCheckResult
 import app.epistola.suite.upgrading.CompatibilitySyncPort
 import app.epistola.suite.upgrading.CompatibilityVerdict
@@ -31,7 +35,7 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
     class TestConfig {
         @Bean
         @Primary
-        fun fakeBackupSyncPort(): BackupSyncPort = FakeBackupSyncPort()
+        fun fakeSnapshotSyncPort(): SnapshotSyncPort = FakeSnapshotSyncPort()
 
         @Bean
         @Primary
@@ -81,8 +85,8 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         assertThat(body).contains("uses a deprecated node")
     }
 
-    /** Fake backup adapter returning one snapshot. */
-    class FakeBackupSyncPort : BackupSyncPort {
+    /** Fake snapshot sync adapter returning one snapshot. */
+    class FakeSnapshotSyncPort : SnapshotSyncPort {
         override fun isEnabled(): Boolean = true
 
         override fun isReady(): Boolean = true

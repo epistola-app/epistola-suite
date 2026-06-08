@@ -1,13 +1,14 @@
-package app.epistola.suite.backups
+package app.epistola.suite.snapshots
 
+import app.epistola.suite.catalog.snapshot.TenantSnapshot
 import app.epistola.suite.common.ids.TenantKey
 
 /**
- * In-memory [BackupSyncPort] for tests: records uploads and serves queued snapshots/results,
- * standing in for the hub adapter. Each upload gets a synthetic id and reports `deduplicated`
- * when an identical fingerprint was already uploaded.
+ * In-memory [SnapshotSyncPort] for tests: records uploads and serves them back, standing in for the
+ * hub adapter. Each upload gets a synthetic id and reports `deduplicated` when an identical
+ * fingerprint was already uploaded.
  */
-class RecordingBackupSyncPort : BackupSyncPort {
+class RecordingSnapshotSyncPort : SnapshotSyncPort {
     var enabled: Boolean = true
     var ready: Boolean = true
 

@@ -164,6 +164,21 @@ epistola:
       # Override the per-pod node id. Blank → auto-detect from
       # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
       node-id: ""
+    # Catalog backups — the daily retained-snapshot run. Per tenant, gated by the
+    # `support-backups` feature toggle; snapshots reach the hub only when enabled above.
+    backups:
+      scheduled:
+        enabled: false # Run the daily backup sweep
+      cron: "0 0 2 * * *" # Daily at 02:00
+    # Compatibility ("Upgrading") — keep a recent snapshot for the company-side check.
+    # The sweep makes a snapshot only when none was synced (by backups or itself) within
+    # max-age, so it stays dormant when the daily backup already keeps one fresh.
+    upgrading:
+      snapshot:
+        scheduled:
+          enabled: false # Run the freshness sweep
+        cron: "0 0 * * * *" # Hourly
+        max-age: 24h
 
   # Installation identity. Required when epistola.support.enabled=true;
   # ignored otherwise. Override per environment via

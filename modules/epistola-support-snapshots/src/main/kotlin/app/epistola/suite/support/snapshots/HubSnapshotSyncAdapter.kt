@@ -1,31 +1,31 @@
-package app.epistola.suite.support.backups
+package app.epistola.suite.support.snapshots
 
 import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.port.InstallationStore
 import app.epistola.hub.proto.v1.DownloadSnapshotRequest
 import app.epistola.hub.proto.v1.ListSnapshotsRequest
 import app.epistola.hub.proto.v1.SnapshotHeader
-import app.epistola.suite.backups.BackupSyncPort
-import app.epistola.suite.backups.RemoteSnapshot
-import app.epistola.suite.backups.SnapshotUploadResult
-import app.epistola.suite.backups.TenantSnapshot
+import app.epistola.suite.catalog.snapshot.TenantSnapshot
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.snapshots.RemoteSnapshot
+import app.epistola.suite.snapshots.SnapshotSyncPort
+import app.epistola.suite.snapshots.SnapshotUploadResult
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
 /**
- * Production [BackupSyncPort] that streams tenant catalog snapshots to epistola-hub over gRPC and
- * reads snapshot/compatibility metadata back. Authentication is installation-wide:
- * [EpistolaHubClient] attaches the registered API key to every call. Wired only when
- * `epistola.support.enabled=true`; otherwise the no-op adapter is used.
+ * Production [SnapshotSyncPort] that streams tenant catalog snapshots to epistola-hub over gRPC and
+ * reads snapshot metadata back. Authentication is installation-wide: [EpistolaHubClient] attaches
+ * the registered API key to every call. Wired only when `epistola.support.enabled=true`; otherwise
+ * the no-op adapter is used.
  *
  * Hub errors are allowed to propagate (e.g. `HubEntitlementDeniedException` when the installation
- * has no service contract) so callers — the scheduler and the UI — can surface them.
+ * has no service contract) so callers — the schedulers and the UI — can surface them.
  */
-class HubBackupSyncAdapter(
+class HubSnapshotSyncAdapter(
     private val client: EpistolaHubClient,
     private val installationStore: InstallationStore,
-) : BackupSyncPort {
+) : SnapshotSyncPort {
     @Volatile
     private var registered = false
 

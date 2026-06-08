@@ -1,18 +1,18 @@
-package app.epistola.suite.support.backups
+package app.epistola.suite.support.snapshots
 
 import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.port.InstallationStore
-import app.epistola.suite.backups.BackupSyncPort
+import app.epistola.suite.snapshots.SnapshotSyncPort
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
- * Wires the hub-backed catalog-backup sync. Active only when `epistola.support.enabled=true`
- * (same gate as the rest of the support tier); the [EpistolaHubClient] it injects is provided by
+ * Wires the hub-backed snapshot sync. Active only when `epistola.support.enabled=true` (same gate
+ * as the rest of the support tier); the [EpistolaHubClient] it injects is provided by
  * `epistola-support`'s `SupportConfiguration`.
  *
- * Registering [HubBackupSyncAdapter] as the `BackupSyncPort` bean overrides the no-op fallback,
+ * Registering [HubSnapshotSyncAdapter] as the `SnapshotSyncPort` bean overrides the no-op fallback,
  * so snapshots sync to the hub only when the support tier is enabled.
  */
 @Configuration
@@ -21,10 +21,10 @@ import org.springframework.context.annotation.Configuration
     name = ["enabled"],
     havingValue = "true",
 )
-class SupportBackupsConfiguration {
+class SupportSnapshotsConfiguration {
     @Bean
-    fun backupSyncPort(
+    fun snapshotSyncPort(
         client: EpistolaHubClient,
         installationStore: InstallationStore,
-    ): BackupSyncPort = HubBackupSyncAdapter(client, installationStore)
+    ): SnapshotSyncPort = HubSnapshotSyncAdapter(client, installationStore)
 }

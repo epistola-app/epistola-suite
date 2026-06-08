@@ -1,13 +1,13 @@
 package app.epistola.suite.support.backups.ui
 
 import app.epistola.hub.client.error.HubEntitlementDeniedException
-import app.epistola.suite.backups.CatalogBackupService
-import app.epistola.suite.backups.RemoteSnapshot
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.snapshots.RemoteSnapshot
+import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -24,7 +24,7 @@ import java.time.format.DateTimeFormatter
  */
 @Component
 class BackupsHandler(
-    private val backupService: CatalogBackupService,
+    private val snapshotSync: TenantSnapshotSyncService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -36,7 +36,7 @@ class BackupsHandler(
         var entitled = true
         val snapshots =
             try {
-                backupService.listSnapshots(tenantId.key).map { it.toView() }
+                snapshotSync.listSnapshots(tenantId.key).map { it.toView() }
             } catch (e: HubEntitlementDeniedException) {
                 log.debug("Tenant {} is not entitled to backups: {}", tenantId.key.value, e.message)
                 entitled = false
@@ -48,7 +48,7 @@ class BackupsHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "backups"
-            "ready" to backupService.isReady()
+            "ready" to snapshotSync.isReady()
             "entitled" to entitled
             "snapshots" to snapshots
             "saved" to request.param("saved").orElse(null)
@@ -60,7 +60,7 @@ class BackupsHandler(
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         return try {
-            backupService.backupTenant(tenantId.key)
+            snapshotSync.syncTenant(tenantId.key)
             redirect(tenantId.key.value, "saved=backup")
         } catch (e: HubEntitlementDeniedException) {
             redirect(tenantId.key.value, "error=not-entitled")
@@ -75,7 +75,7 @@ class BackupsHandler(
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         val snapshotId = request.pathVariable("snapshotId")
         return try {
-            backupService.restoreFromSnapshot(tenantId.key, snapshotId)
+            snapshotSync.restoreFromSnapshot(tenantId.key, snapshotId)
             redirect(tenantId.key.value, "saved=restore")
         } catch (e: HubEntitlementDeniedException) {
             redirect(tenantId.key.value, "error=not-entitled")
