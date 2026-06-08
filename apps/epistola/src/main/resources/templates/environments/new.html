@@ -8,7 +8,7 @@
 
         <h1>New Environment</h1>
 
-        <div class="card create-form-card">
+        <div class="card card-narrow">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" method="post">
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">

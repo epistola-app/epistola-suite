@@ -13,8 +13,8 @@
         </div>
 
         <!-- Details -->
-        <div class="detail-section stencil-detail-section">
-            <div class="detail-section-body">
+        <div class="card page-section">
+            <div class="card-content">
                 <dl class="description-list">
                     <dt>ID</dt>
                     <dd><code th:text="${stencil.id}"></code></dd>
@@ -39,11 +39,11 @@
         </div>
 
         <!-- Versions section -->
-        <div class="detail-section">
-            <div class="detail-section-header">
+        <div class="card page-section">
+            <div class="card-header-row">
                 <h3>Versions</h3>
             </div>
-            <div class="detail-section-body" id="version-list">
+            <div class="card-content" id="version-list">
                 <th:block th:fragment="versions">
                     <div th:if="${#lists.isEmpty(versions)}" class="empty-state stencil-empty-state">
                         <div class="empty-state-title">No versions yet</div>
@@ -113,11 +113,11 @@
         </div>
 
         <!-- Usage section -->
-        <div class="detail-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
-            <div class="detail-section-header">
+        <div class="card page-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
+            <div class="card-header-row">
                 <h3>Templates using this stencil</h3>
             </div>
-            <div class="detail-section-body" id="usage-list">
+            <div class="card-content" id="usage-list">
                 <th:block th:fragment="usage">
                     <!-- Toolbar: version picker + apply button -->
                     <div th:if="${auth.has('TEMPLATE_EDIT')}" class="stencil-upgrade-bar">

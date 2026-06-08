@@ -8,7 +8,7 @@
 
         <h1>New Stencil</h1>
 
-        <div class="card create-form-card">
+        <div class="card card-narrow">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" method="post">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">

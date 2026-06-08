@@ -63,11 +63,11 @@
         <!-- VIEW MODE (default) -->
         <!-- ================================================================ -->
         <th:block th:if="${!editMode}">
-            <div class="detail-section">
-                <div class="detail-section-header">
+            <div class="card page-section">
+                <div class="card-header-row">
                     <h3 class="contract-section-title">Schema</h3>
                 </div>
-                <div class="detail-section-body">
+                <div class="card-content">
                     <th:block th:if="${!#lists.isEmpty(schemaFields)}">
                         <table class="ep-table contract-schema-table">
                             <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
@@ -99,14 +99,14 @@
 
             <!-- Examples summary (names only, edit for full details) -->
             <th:block th:if="${contractDataExamples != null && !contractDataExamples.isEmpty()}">
-                <div class="detail-section">
-                    <div class="detail-section-header">
+                <div class="card page-section">
+                    <div class="card-header-row">
                         <h3 class="contract-section-title">
                             Examples
                             <span class="contract-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
                         </h3>
                     </div>
-                    <div class="detail-section-body contract-examples-body">
+                    <div class="card-content contract-examples-body">
                         <div class="contract-examples-list">
                             <span th:each="example : ${contractDataExamples}"
                                   class="badge badge-outline" th:text="${example.name}"></span>

@@ -7,51 +7,59 @@
     -->
 
     <!-- Warning Dialog (dismissible) - shown 5 minutes before expiry -->
-    <dialog th:fragment="session-warning-dialog" id="session-warning-dialog" class="session-dialog">
-        <div class="session-dialog-content">
+    <dialog th:fragment="session-warning-dialog" id="session-warning-dialog" class="ep-dialog">
+        <div class="ep-dialog-header">
             <h2>Session Expiring Soon</h2>
+        </div>
+        <div class="ep-dialog-body">
             <p>Your session will expire in a few minutes due to inactivity.</p>
             <p>Save your work or continue working to extend your session.</p>
-            <div class="session-dialog-actions">
-                <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.dismissWarning()">OK, Got It</button>
-            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.dismissWarning()">OK, Got It</button>
         </div>
     </dialog>
 
     <!-- Expired Dialog (requires re-login) - shown when session has expired -->
-    <dialog th:fragment="session-expired-dialog" id="session-expired-dialog" class="session-dialog session-dialog-expired">
-        <div class="session-dialog-content">
-            <h2>You've Been Logged Out</h2>
+    <dialog th:fragment="session-expired-dialog" id="session-expired-dialog" class="ep-dialog">
+        <div class="ep-dialog-header">
+            <h2 class="session-expired-heading">You've Been Logged Out</h2>
+        </div>
+        <div class="ep-dialog-body">
             <p>Your session has expired due to inactivity.</p>
             <p><strong>Don't worry</strong> &mdash; your unsaved work is still here. Log in again to continue.</p>
-            <div class="session-dialog-actions">
-                <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.openLoginPopup()">Log In Again</button>
-            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.openLoginPopup()">Log In Again</button>
         </div>
     </dialog>
 
     <!-- Combined fragment for convenience -->
     <th:block th:fragment="session-dialogs">
-        <dialog id="session-warning-dialog" class="session-dialog">
-            <div class="session-dialog-content">
+        <dialog id="session-warning-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
                 <h2>Session Expiring Soon</h2>
+            </div>
+            <div class="ep-dialog-body">
                 <p>Your session will expire in a few minutes due to inactivity.</p>
                 <p>Save your work or continue working to extend your session.</p>
-                <div class="session-dialog-actions">
-                    <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.dismissWarning()">OK, Got It</button>
-                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.dismissWarning()">OK, Got It</button>
             </div>
         </dialog>
 
-        <dialog id="session-expired-dialog" class="session-dialog session-dialog-expired">
-            <div class="session-dialog-content">
-                <h2>You've Been Logged Out</h2>
+        <dialog id="session-expired-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h2 class="session-expired-heading">You've Been Logged Out</h2>
+            </div>
+            <div class="ep-dialog-body">
                 <p>Your session has expired due to inactivity.</p>
                 <p><strong>Don't worry</strong> &mdash; your unsaved work is still here. Log in again to continue.</p>
-                <div class="session-dialog-actions">
-                    <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.openLoginPopup()">Log In Again</button>
-                    <button type="button" class="ep-btn ep-btn-outline" onclick="epistola.dismissExpired()">I've Already Logged In</button>
-                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-primary" onclick="epistola.openLoginPopup()">Log In Again</button>
+                <button type="button" class="ep-btn ep-btn-outline" onclick="epistola.dismissExpired()">I've Already Logged In</button>
             </div>
         </dialog>
     </th:block>

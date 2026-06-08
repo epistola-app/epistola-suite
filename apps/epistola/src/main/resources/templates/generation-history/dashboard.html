@@ -7,20 +7,20 @@
         </div>
 
         <!-- Statistics -->
-        <div class="dashboard-stats gen-dashboard-stats">
-            <div class="stat-card">
+        <div class="stats-grid gen-dashboard-stats">
+            <div class="card card-interactive stat-card">
                 <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
                 <div class="stat-card-label">Total Generated</div>
             </div>
-            <div class="stat-card">
+            <div class="card card-interactive stat-card">
                 <div class="stat-card-value" th:text="${stats.inQueue}">0</div>
                 <div class="stat-card-label">In Queue</div>
             </div>
-            <div class="stat-card">
+            <div class="card card-interactive stat-card">
                 <div class="stat-card-value" th:text="${stats.completed}">0</div>
                 <div class="stat-card-label">Completed</div>
             </div>
-            <div class="stat-card">
+            <div class="card card-interactive stat-card">
                 <div class="stat-card-value" th:text="${stats.failed}">0</div>
                 <div class="stat-card-label">Failed</div>
             </div>

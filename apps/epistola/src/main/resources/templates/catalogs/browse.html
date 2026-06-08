@@ -14,7 +14,7 @@
         <div id="catalog-alert"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
-            <div class="card-header catalog-resources-header">
+            <div class="card-header-row catalog-resources-header">
                 <h2>Resources</h2>
                 <!-- Install All only for subscribed catalogs -->
                 <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"

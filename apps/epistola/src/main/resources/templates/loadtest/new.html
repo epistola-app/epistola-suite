@@ -15,7 +15,7 @@
             </div>
         </div>
 
-        <div class="card create-form-card loadtest-form-card">
+        <div class="card card-medium">
             <div class="card-content">
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
@@ -67,11 +67,11 @@
             </div>
         </div>
 
-        <div class="detail-section loadtest-info-section">
-            <div class="detail-section-header">
+        <div class="card page-section loadtest-info-section">
+            <div class="card-header-row">
                 <h2>Load Test Information</h2>
             </div>
-            <div class="detail-section-body loadtest-info-body">
+            <div class="card-content loadtest-info-body">
                 <ul class="loadtest-info-list">
                     <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
                     <li><strong>Batch Submission:</strong> All documents are submitted as a single batch for efficient processing</li>

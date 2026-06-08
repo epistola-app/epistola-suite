@@ -12,8 +12,9 @@
         <h1 data-testid="page-title">Tenants</h1>
 
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
-            <section class="form-section">
-                <h2>Create New Tenant</h2>
+            <section class="card page-section">
+                <div class="card-content">
+                    <h2>Create New Tenant</h2>
                 <form th:action="@{/tenants}" method="post"
                       hx-post="/tenants"
                       hx-target="#tenant-rows"
@@ -36,6 +37,7 @@
                     </div>
                     <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
                 </form>
+                </div>
             </section>
         </div>
 

@@ -8,7 +8,7 @@
 
         <h1>Upload Font</h1>
 
-        <div class="card create-form-card">
+        <div class="card card-narrow">
             <div class="card-content">
                 <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">

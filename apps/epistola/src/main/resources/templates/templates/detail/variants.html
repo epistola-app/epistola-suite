@@ -96,7 +96,7 @@
             </div>
             <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
                 <div th:each="variant : ${variants}"
-                     class="variant-card" th:classappend="${variant.isDefault} ? 'variant-card-default'"
+                     class="card card-interactive variant-card" th:classappend="${variant.isDefault} ? 'variant-card-default'"
                      th:data-variant-id="${variant.id}">
                     <div class="variant-card-header">
                         <div>
@@ -186,8 +186,8 @@
                 </div>
                 <div class="variant-no-matches" id="variant-no-matches">No variants match the selected filters.</div>
             </div>
-            <div th:if="${#lists.isEmpty(variants)}" class="detail-section">
-                <div class="detail-section-body">
+            <div th:if="${#lists.isEmpty(variants)}" class="card page-section">
+                <div class="card-content">
                     <div class="empty-state variant-empty-state">
                         <div class="empty-state-title">No variants yet</div>
                         <div class="empty-state-description">Create a variant to start designing your template.</div>

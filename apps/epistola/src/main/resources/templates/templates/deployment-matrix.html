@@ -11,8 +11,8 @@
 
             <!-- No environments -->
             <th:block th:if="${#lists.isEmpty(environments)}">
-                <div class="detail-section">
-                    <div class="detail-section-body">
+                <div class="card page-section">
+                    <div class="card-content">
                         <div class="empty-state deploy-empty-state">
                             <div class="empty-state-title">No environments configured</div>
                             <div class="empty-state-description">
@@ -26,8 +26,8 @@
 
             <!-- No variants -->
             <th:block th:if="${!#lists.isEmpty(environments) and #lists.isEmpty(variants)}">
-                <div class="detail-section">
-                    <div class="detail-section-body">
+                <div class="card page-section">
+                    <div class="card-content">
                         <div class="empty-state deploy-empty-state">
                             <div class="empty-state-title">No variants yet</div>
                             <div class="empty-state-description">
@@ -40,8 +40,8 @@
 
             <!-- Deployment matrix table -->
             <th:block th:if="${!#lists.isEmpty(environments) and !#lists.isEmpty(variants)}">
-                <div class="detail-section">
-                    <div class="detail-section-body no-padding">
+                <div class="card page-section">
+                    <div class="card-content flush">
                         <div class="deploy-table-wrapper">
                             <table class="ep-table deployment-matrix-table">
                                 <thead>

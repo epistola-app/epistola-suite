@@ -13,12 +13,12 @@
              hx-trigger="every 10s"
              hx-swap="outerHTML">
 
-            <div class="dashboard-stats consumer-dashboard-stats">
-                <div class="stat-card">
+            <div class="stats-grid consumer-dashboard-stats">
+                <div class="card card-interactive stat-card">
                     <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
                     <div class="stat-card-label">Consumers</div>
                 </div>
-                <div class="stat-card">
+                <div class="card card-interactive stat-card">
                     <div class="stat-card-value">
                         <span th:text="${report.totals.activeNodeCount}">0</span><span
                             class="consumer-total-nodes"
@@ -26,7 +26,7 @@
                     </div>
                     <div class="stat-card-label">Active nodes</div>
                 </div>
-                <div class="stat-card">
+                <div class="card card-interactive stat-card">
                     <div class="stat-card-value consumer-latest-activity" 
                          th:text="${report.totals.mostRecentNodeActivity != null
                                    ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
@@ -55,7 +55,7 @@
                      th:id="'consumer-' + ${consumer.consumerId}"
                      th:attr="data-consumer-id=${consumer.consumerId}"
                      th:classappend="${!consumer.enabled} ? ' is-disabled' : ''"
-                     class="consumer-card">
+                     class="card consumer-card">
 
                 <summary>
                     <span class="consumer-status-dot"
