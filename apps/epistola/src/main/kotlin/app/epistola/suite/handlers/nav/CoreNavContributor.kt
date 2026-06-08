@@ -4,6 +4,7 @@ import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
 import app.epistola.suite.htmx.nav.NavItem
+import app.epistola.suite.security.Permission
 import org.springframework.stereotype.Component
 
 /**
@@ -38,21 +39,21 @@ class CoreNavContributor : NavContributor {
         add(NavItem("resources", "code-lists", "Code lists", "code-lists", 50))
 
         // Operations — per-item permissions
-        if (context.hasPermission("DOCUMENT_VIEW")) {
+        if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
             add(NavItem("operations", "generation-history", "Generation", "generation-history", 10))
         }
-        if (context.hasPermission("DOCUMENT_GENERATE")) {
+        if (context.hasPermission(Permission.DOCUMENT_GENERATE)) {
             add(NavItem("operations", "load-tests", "Load Tests", "load-tests", 20))
         }
-        if (context.hasPermission("DOCUMENT_VIEW")) {
+        if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
             add(NavItem("operations", "consumers", "Consumers", "consumers", 30))
         }
-        if (context.hasPermission("TENANT_USERS")) {
+        if (context.hasPermission(Permission.TENANT_USERS)) {
             add(NavItem("operations", "api-keys", "API Keys", "api-keys", 40))
         }
 
         // Settings — managers only
-        if (context.hasPermission("TENANT_SETTINGS")) {
+        if (context.hasPermission(Permission.TENANT_SETTINGS)) {
             add(NavItem("settings", "features", "Features", "features", 10))
             add(NavItem("settings", "defaults", "Defaults", "defaults", 20))
         }

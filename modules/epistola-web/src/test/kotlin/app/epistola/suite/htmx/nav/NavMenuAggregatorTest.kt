@@ -2,6 +2,7 @@ package app.epistola.suite.htmx.nav
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.UiRequestContext
+import app.epistola.suite.security.Permission
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -9,7 +10,7 @@ class NavMenuAggregatorTest {
 
     private val tenant = TenantKey.of("acme")
 
-    private fun ctx(hasPermission: (String) -> Boolean = { true }) = UiRequestContext(tenant, hasPermission)
+    private fun ctx(hasPermission: (Permission) -> Boolean = { true }) = UiRequestContext(tenant, hasPermission)
 
     private fun contributor(
         groups: List<NavGroup> = emptyList(),
@@ -58,11 +59,11 @@ class NavMenuAggregatorTest {
             groups = listOf(NavGroup("operations", "Operations", order = 30)),
             items = { c ->
                 buildList {
-                    if (c.hasPermission("DOCUMENT_GENERATE")) add(NavItem("operations", "load-tests", "Load Tests", "load-tests", 20))
+                    if (c.hasPermission(Permission.DOCUMENT_GENERATE)) add(NavItem("operations", "load-tests", "Load Tests", "load-tests", 20))
                 }
             },
         )
-        val model = NavMenuAggregator(listOf(ops)).build(ctx(hasPermission = { it == "DOCUMENT_VIEW" }), "/tenants/acme")
+        val model = NavMenuAggregator(listOf(ops)).build(ctx(hasPermission = { it == Permission.DOCUMENT_VIEW }), "/tenants/acme")
 
         assertThat(model.groups).isEmpty()
     }

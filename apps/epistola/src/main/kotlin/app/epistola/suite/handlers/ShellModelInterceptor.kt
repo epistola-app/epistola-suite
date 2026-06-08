@@ -7,6 +7,7 @@ import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.footer.FooterFragmentResolver
 import app.epistola.suite.htmx.nav.NavMenuAggregator
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
 import jakarta.servlet.http.HttpServletRequest
@@ -63,7 +64,7 @@ class ShellModelInterceptor(
             modelAndView.addObject("auth", auth)
         }
         val auth = modelAndView.model["auth"] as AuthContext
-        modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
+        modelAndView.addObject("isManager", auth.has(Permission.TENANT_SETTINGS))
 
         if (tenantId == null) return
         val tenantKey = TenantKey.of(tenantId)
@@ -78,7 +79,7 @@ class ShellModelInterceptor(
         // contributed by modules (see NavMenuAggregator / FooterFragmentResolver); each contributor
         // resolves its own visibility, so the host owns no feature flags for them.
         if (viewName != "layout/shell") return
-        val context = UiRequestContext(tenantKey, auth::has)
+        val context = UiRequestContext(tenantKey) { auth.has(it) }
         val nav = navMenuAggregator.build(context, request.requestURI)
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
