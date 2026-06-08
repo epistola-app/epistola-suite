@@ -73,21 +73,6 @@ main.regular section {
   box-shadow: var(--ep-shadow-sm);
 }
 
-/* ── Status badges ────────────────────────────────────────────────────── */
-
-/* ── Variant tags ─────────────────────────────────────────────────────── */
-
-.tag {
-  display: inline-block;
-  padding: 0.125rem var(--ep-space-2);
-  margin: 0.125rem;
-  background-color: var(--ep-blue-100);
-  color: var(--ep-blue-800);
-  border-radius: var(--ep-radius-full);
-  font-size: var(--ep-text-xs);
-  font-weight: 500;
-}
-
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -134,22 +119,6 @@ main.regular section {
 .back-link:hover {
   color: var(--ep-primary);
 }
-
-/* ── Inline form (for create variant) ─────────────────────────────────── */
-
-/* ── Section headers ──────────────────────────────────────────────────── */
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--ep-space-4);
-}
-
-.section-header h2 {
-  margin: 0;
-}
-
 /* ── Session expiry dialogs ───────────────────────────────────────────── */
 
 .session-dialog {
@@ -251,22 +220,6 @@ main.regular section {
 .nav-card-description {
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
-}
-
-/* ── Load test metrics grid ───────────────────────────────────────────── */
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--ep-space-4);
-  margin-bottom: var(--ep-space-6);
-}
-
-.metric-card {
-  background-color: var(--ep-card);
-  padding: var(--ep-space-5);
-  border-radius: var(--ep-radius-lg);
-  border: 1px solid var(--ep-border-color);
 }
 
 .metric-label {
@@ -424,40 +377,6 @@ main.regular section {
 
 .error-summary table {
   background-color: var(--ep-card);
-}
-
-/* ── Key-value table (for configuration) ──────────────────────────────── */
-
-.key-value-table {
-  width: 100%;
-}
-
-.key-value-table th {
-  text-align: right;
-  width: 200px;
-  padding-right: var(--ep-space-4);
-  font-weight: 600;
-  color: var(--ep-muted-foreground);
-  vertical-align: top;
-}
-
-.key-value-table td {
-  color: var(--ep-foreground);
-}
-
-/* ── Pagination ───────────────────────────────────────────────────────── */
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--ep-space-3);
-  margin-top: var(--ep-space-6);
-}
-
-.pagination-info {
-  font-size: var(--ep-text-sm);
-  color: var(--ep-muted-foreground);
 }
 
 /* ── Login page ───────────────────────────────────────────────────────── */
@@ -781,14 +700,6 @@ a.stat-card:hover {
 .tab-nav-item.active {
   color: var(--ep-foreground);
   border-bottom-color: var(--ep-primary);
-}
-
-.tab-panel {
-  display: none;
-}
-
-.tab-panel.active {
-  display: block;
 }
 
 /* (Expand/collapse toggle and variant detail row styles removed — deployment matrix replaces inline versions) */

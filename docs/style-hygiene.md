@@ -166,9 +166,9 @@ Prefer names that describe the element's role in the page or component:
 ```html
 <!-- BAD -->
 <form class="ep-inline">
-
-<!-- GOOD -->
-<form class="nav-logout-form"></form>
+  <!-- GOOD -->
+  <form class="nav-logout-form"></form>
+</form>
 ```
 
 ```css
