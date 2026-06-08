@@ -1,8 +1,9 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.features.FeatureToggleService
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.footer.FooterFragmentResolver
 import app.epistola.suite.htmx.nav.NavMenuAggregator
 import app.epistola.suite.mediator.query
@@ -27,7 +28,6 @@ import org.springframework.web.servlet.ModelAndView
  */
 @Component
 class ShellModelInterceptor(
-    private val featureToggleService: FeatureToggleService,
     private val navMenuAggregator: NavMenuAggregator,
     private val footerFragmentResolver: FooterFragmentResolver,
 ) : HandlerInterceptor {
@@ -65,22 +65,23 @@ class ShellModelInterceptor(
         val auth = modelAndView.model["auth"] as AuthContext
         modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
 
-        // Editor feature toggle (gates editor UI, not nav/footer).
-        if (tenantId != null) {
-            modelAndView.addObject(
-                "stencilParametersEnabled",
-                featureToggleService.isEnabled(TenantKey.of(tenantId), KnownFeatures.STENCIL_PARAMETERS),
-            )
-        }
+        if (tenantId == null) return
+        val tenantKey = TenantKey.of(tenantId)
+
+        // Editor feature toggle (gates editor UI, not nav/footer). Read through the internal query
+        // like everything else; the per-request cache (FeatureToggleCacheFilter) shares one toggle
+        // query across this and the nav/footer contributors.
+        val toggles = ResolveFeatureToggles(tenantKey).query()
+        modelAndView.addObject("stencilParametersEnabled", toggles[KnownFeatures.STENCIL_PARAMETERS] == true)
 
         // Shell-specific attributes: the module-contributed nav menu + footer chrome. Both are
-        // contributed by modules (see NavMenuAggregator / FooterFragmentResolver), so the host
-        // owns no feature flags for them.
-        if (viewName != "layout/shell" || tenantId == null) return
-        val tenantKey = TenantKey.of(tenantId)
-        val nav = navMenuAggregator.build(tenantKey, request.requestURI, auth::has)
+        // contributed by modules (see NavMenuAggregator / FooterFragmentResolver); each contributor
+        // resolves its own visibility, so the host owns no feature flags for them.
+        if (viewName != "layout/shell") return
+        val context = UiRequestContext(tenantKey, auth::has)
+        val nav = navMenuAggregator.build(context, request.requestURI)
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
-        modelAndView.addObject("footerFragments", footerFragmentResolver.resolve(tenantKey, auth::has))
+        modelAndView.addObject("footerFragments", footerFragmentResolver.resolve(context))
     }
 }

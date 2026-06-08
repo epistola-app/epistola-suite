@@ -5,9 +5,10 @@ import app.epistola.suite.common.ids.TenantKey
 /**
  * Lightweight per-request context handed to UI-contribution SPIs (navigation, footer chrome, …).
  *
- * Feature-toggle state is intentionally absent: a contributor that needs it injects
- * `FeatureToggleService` itself (feature modules already depend on epistola-core) and looks it up
- * with [tenantKey]. This keeps feature knowledge in the owning module rather than the host.
+ * Carries the request's tenant and a resolved [hasPermission] predicate. A contributor that needs
+ * feature-toggle state injects `FeatureToggleService` and looks it up by [tenantKey]; those reads
+ * are cached per request (see `FeatureToggleService.withRequestCache`), so the lookup is cheap and
+ * feature knowledge stays in the owning module rather than the host.
  */
 data class UiRequestContext(
     val tenantKey: TenantKey,

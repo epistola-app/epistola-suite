@@ -1,11 +1,12 @@
 package app.epistola.suite.support.ui
 
-import app.epistola.suite.features.FeatureToggleService
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
 import app.epistola.suite.htmx.nav.NavItem
+import app.epistola.suite.mediator.query
 import org.springframework.stereotype.Component
 
 /**
@@ -17,16 +18,15 @@ import org.springframework.stereotype.Component
  * enabled for the tenant, matching the previous "Support hidden unless ≥1 toggle on" behavior.
  */
 @Component
-class SupportNavContributor(
-    private val featureToggles: FeatureToggleService,
-) : NavContributor {
+class SupportNavContributor : NavContributor {
 
     override fun groups(context: UiRequestContext): List<NavGroup> = listOf(
         NavGroup(key = "support", label = "Support", order = 80, testId = "nav-dropdown-support"),
     )
 
     override fun items(context: UiRequestContext): List<NavItem> {
-        val anyFeatureOn = SUPPORT_FEATURES.any { featureToggles.isEnabled(context.tenantKey, it) }
+        val toggles = ResolveFeatureToggles(context.tenantKey).query()
+        val anyFeatureOn = SUPPORT_FEATURES.any { toggles[it] == true }
         if (!anyFeatureOn) return emptyList()
         return listOf(NavItem("support", "overview", "Overview", "support", order = 0))
     }

@@ -12,7 +12,7 @@ import app.epistola.suite.htmx.UiRequestContext
  *
  * Visibility lives in the contributor, not the template: a contributor emits an item only
  * when it should be visible for the current request, deciding from [UiRequestContext.hasPermission]
- * and/or its own injected services (e.g. a feature toggle lookup keyed by [UiRequestContext.tenantKey]).
+ * and/or [UiRequestContext.isFeatureEnabled] (both resolved once per render by the host).
  * A group is shown only when it has at least one visible item.
  */
 interface NavContributor {

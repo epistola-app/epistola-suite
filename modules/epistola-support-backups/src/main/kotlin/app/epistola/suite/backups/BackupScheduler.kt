@@ -1,10 +1,11 @@
 package app.epistola.suite.backups
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.features.FeatureToggleService
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
@@ -35,7 +36,6 @@ class BackupScheduler(
     private val snapshotSync: TenantSnapshotSyncService,
     private val mediator: Mediator,
     private val schedulerLock: SchedulerLock,
-    private val featureToggleService: FeatureToggleService,
     private val jdbi: Jdbi,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,7 +56,7 @@ class BackupScheduler(
             // Backups owns the daily retained snapshot. Upgrading has its own freshness timer that
             // makes a snapshot only when none was made in the last day, so it stays dormant for
             // tenants that have backups on.
-            if (!featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS)) continue
+            if (ResolveFeatureToggles(tenantKey).query()[KnownFeatures.SUPPORT_BACKUPS] != true) continue
             try {
                 SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
                     snapshotSync.syncTenant(tenantKey)

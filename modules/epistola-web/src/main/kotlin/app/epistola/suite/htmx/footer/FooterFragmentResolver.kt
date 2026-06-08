@@ -1,6 +1,5 @@
 package app.epistola.suite.htmx.footer
 
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.UiRequestContext
 import org.springframework.stereotype.Component
 
@@ -12,13 +11,7 @@ data class FooterFragmentView(val ref: String)
 class FooterFragmentResolver(
     private val contributors: List<FooterContributor>,
 ) {
-    fun resolve(
-        tenantKey: TenantKey,
-        hasPermission: (String) -> Boolean,
-    ): List<FooterFragmentView> {
-        val ctx = UiRequestContext(tenantKey, hasPermission)
-        return contributors
-            .flatMap { it.fragments(ctx) }
-            .map { FooterFragmentView("${it.template} :: ${it.fragment}") }
-    }
+    fun resolve(context: UiRequestContext): List<FooterFragmentView> = contributors
+        .flatMap { it.fragments(context) }
+        .map { FooterFragmentView("${it.template} :: ${it.fragment}") }
 }

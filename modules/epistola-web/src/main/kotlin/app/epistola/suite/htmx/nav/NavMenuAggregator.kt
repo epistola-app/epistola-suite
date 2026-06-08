@@ -1,6 +1,5 @@
 package app.epistola.suite.htmx.nav
 
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.UiRequestContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -40,12 +39,8 @@ data class NavModel(
 class NavMenuAggregator(
     private val contributors: List<NavContributor>,
 ) {
-    fun build(
-        tenantKey: TenantKey,
-        requestPath: String,
-        hasPermission: (String) -> Boolean,
-    ): NavModel {
-        val ctx = UiRequestContext(tenantKey, hasPermission)
+    fun build(context: UiRequestContext, requestPath: String): NavModel {
+        val ctx = context
 
         // Merge group declarations by key (first declaration wins).
         val groupDecls = LinkedHashMap<String, NavGroup>()

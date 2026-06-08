@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test
 class NavMenuAggregatorTest {
 
     private val tenant = TenantKey.of("acme")
-    private val allowAll: (String) -> Boolean = { true }
+
+    private fun ctx(hasPermission: (String) -> Boolean = { true }) = UiRequestContext(tenant, hasPermission)
 
     private fun contributor(
         groups: List<NavGroup> = emptyList(),
@@ -30,7 +31,7 @@ class NavMenuAggregatorTest {
                 )
             },
         )
-        val model = NavMenuAggregator(listOf(a)).build(tenant, "/tenants/acme", allowAll)
+        val model = NavMenuAggregator(listOf(a)).build(ctx(), "/tenants/acme")
 
         assertThat(model.groups.map { it.key }).containsExactly("a", "b")
         assertThat(model.groups.first().items.map { it.sectionKey }).containsExactly("a1", "a2")
@@ -46,14 +47,13 @@ class NavMenuAggregatorTest {
             groups = listOf(NavGroup("authoring", "Authoring", order = 10)),
             items = { listOf(NavItem("authoring", "templates", "Templates", "templates", order = 10)) },
         )
-        val model = NavMenuAggregator(listOf(support, core)).build(tenant, "/tenants/acme", allowAll)
+        val model = NavMenuAggregator(listOf(support, core)).build(ctx(), "/tenants/acme")
 
         assertThat(model.groups.map { it.key }).containsExactly("authoring")
     }
 
     @Test
     fun `drops items whose permission is denied, hiding the now-empty group`() {
-        val ctx: (String) -> Boolean = { it == "DOCUMENT_VIEW" }
         val ops = contributor(
             groups = listOf(NavGroup("operations", "Operations", order = 30)),
             items = { c ->
@@ -62,7 +62,7 @@ class NavMenuAggregatorTest {
                 }
             },
         )
-        val model = NavMenuAggregator(listOf(ops)).build(tenant, "/tenants/acme", ctx)
+        val model = NavMenuAggregator(listOf(ops)).build(ctx(hasPermission = { it == "DOCUMENT_VIEW" }), "/tenants/acme")
 
         assertThat(model.groups).isEmpty()
     }
@@ -75,7 +75,7 @@ class NavMenuAggregatorTest {
         val feedback = contributor { listOf(NavItem("support", "feedback", "Feedback", "feedback", order = 10)) }
         val backups = contributor { listOf(NavItem("support", "backups", "Backups", "backups", order = 20)) }
 
-        val model = NavMenuAggregator(listOf(feedback, owner, backups)).build(tenant, "/tenants/acme", allowAll)
+        val model = NavMenuAggregator(listOf(feedback, owner, backups)).build(ctx(), "/tenants/acme")
 
         assertThat(model.groups).hasSize(1)
         val support = model.groups.single()
@@ -86,7 +86,7 @@ class NavMenuAggregatorTest {
     @Test
     fun `skips items referencing an undeclared group`() {
         val orphan = contributor { listOf(NavItem("ghost", "x", "X", "x", order = 0)) }
-        val model = NavMenuAggregator(listOf(orphan)).build(tenant, "/tenants/acme", allowAll)
+        val model = NavMenuAggregator(listOf(orphan)).build(ctx(), "/tenants/acme")
         assertThat(model.groups).isEmpty()
     }
 
@@ -104,7 +104,7 @@ class NavMenuAggregatorTest {
                 NavGroup("support", "Support", 80),
             ),
         ) { sectionItems }
-        return NavMenuAggregator(listOf(c)).build(tenant, path, allowAll).activeNavSection
+        return NavMenuAggregator(listOf(c)).build(ctx(), path).activeNavSection
     }
 
     @Test
@@ -125,7 +125,7 @@ class NavMenuAggregatorTest {
     @Test
     fun `group is active when a child item is active`() {
         val c = contributor(groups = listOf(NavGroup("authoring", "Authoring", 10))) { sectionItems }
-        val model = NavMenuAggregator(listOf(c)).build(tenant, "/tenants/acme/templates", allowAll)
+        val model = NavMenuAggregator(listOf(c)).build(ctx(), "/tenants/acme/templates")
         val authoring = model.groups.single { it.key == "authoring" }
         assertThat(authoring.active).isTrue()
         assertThat(authoring.items.single { it.sectionKey == "templates" }.active).isTrue()

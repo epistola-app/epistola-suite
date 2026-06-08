@@ -88,6 +88,26 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `withRequestCache memoizes toggles for the scope`() {
+        val tenant = createTenant("toggle-cache")
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
+
+            featureToggleService.withRequestCache {
+                assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
+
+                // Change the stored value mid-scope; the cached scope keeps the first-read value,
+                // proving a single resolve per tenant per scope.
+                SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
+                assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)).isTrue()
+            }
+
+            // Outside the scope the fresh value is read.
+            assertThat(featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)).isFalse()
+        }
+    }
+
+    @Test
     fun `resolveAll returns correct state per tenant`() {
         val tenant1 = createTenant("toggle-tenant1")
         val tenant2 = createTenant("toggle-tenant2")
