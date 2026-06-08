@@ -268,7 +268,8 @@
 
 /* ── Main content area ───────────────────────────────────────────────── */
 
-.main-content {
+.main-content,
+main.regular {
   flex: 1;
   max-width: var(--ep-max-width-base);
   margin: var(--ep-space-8) auto;
@@ -276,16 +277,19 @@
   width: 100%;
 }
 
-.main-content h1 {
+.main-content h1,
+main.regular h1 {
   margin-bottom: var(--ep-space-6);
 }
 
-.main-content h2 {
+.main-content h2,
+main.regular h2 {
   margin-bottom: var(--ep-space-4);
   font-size: var(--ep-text-xl);
 }
 
-.main-content section {
+.main-content section,
+main.regular section {
   margin-bottom: var(--ep-space-8);
 }
 
@@ -344,7 +348,8 @@
 
 /* ── HTMX swap indicator ─────────────────────────────────────────────── */
 
-.htmx-request .main-content {
+.htmx-request .main-content,
+.htmx-request main.regular {
   opacity: 0.6;
   transition: opacity 200ms;
 }
@@ -478,7 +483,8 @@
     text-align: left;
   }
 
-  .main-content {
+  .main-content,
+  main.regular {
     margin: var(--ep-space-4) auto;
     padding: 0 var(--ep-space-4);
   }

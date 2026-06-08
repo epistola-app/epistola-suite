@@ -41,37 +41,25 @@ body {
   margin-bottom: var(--ep-space-6);
 }
 
-/* Scoped styles for regular pages (not editor) */
-main.regular {
-  flex: 1;
-  max-width: 56rem;
-  margin: var(--ep-space-8) auto;
-  padding: 0 var(--ep-space-6);
-  width: 100%;
-}
+/* ── Page section (vertical rhythm) ──────────────────────────────────── */
 
-main.regular h1 {
+.page-section {
   margin-bottom: var(--ep-space-6);
 }
 
-main.regular h2 {
-  margin-bottom: var(--ep-space-4);
-  font-size: var(--ep-text-xl);
+.page-section:last-child {
+  margin-bottom: 0;
 }
 
-main.regular section {
-  margin-bottom: var(--ep-space-8);
+/* ── Stats grid ──────────────────────────────────────────────────────── */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--ep-space-4);
 }
 
 /* ── Form styles ──────────────────────────────────────────────────────── */
-
-.form-section {
-  background-color: var(--ep-card);
-  padding: var(--ep-space-6);
-  border-radius: var(--ep-radius-lg);
-  border: 1px solid var(--ep-border-color);
-  box-shadow: var(--ep-shadow-sm);
-}
 
 .tags {
   display: flex;
@@ -87,123 +75,10 @@ main.regular section {
   align-items: center;
 }
 
-/* ── Session expiry dialogs ───────────────────────────────────────────── */
+/* ── Session expired heading ──────────────────────────────────────────── */
 
-.session-dialog {
-  border: none;
-  border-radius: var(--ep-radius-xl);
-  box-shadow: var(--ep-shadow-xl);
-  padding: 0;
-  max-width: 400px;
-  width: 90%;
-}
-
-.session-dialog::backdrop {
-  background-color: rgb(0 0 0 / 0.4);
-  backdrop-filter: blur(4px);
-}
-
-.session-dialog-content {
-  padding: var(--ep-space-6);
-}
-
-.session-dialog h2 {
-  margin: 0 0 var(--ep-space-4) 0;
-  font-size: var(--ep-text-lg);
-}
-
-.session-dialog p {
-  margin: var(--ep-space-3) 0;
-  color: var(--ep-muted-foreground);
-  line-height: var(--ep-leading-normal);
-  font-size: var(--ep-text-sm);
-}
-
-.session-dialog-actions {
-  margin-top: var(--ep-space-6);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--ep-space-3);
-}
-
-.session-dialog-expired h2 {
+.session-expired-heading {
   color: var(--ep-destructive);
-}
-
-/* ── Navigation cards (tenant home) ───────────────────────────────────── */
-
-.nav-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--ep-space-4);
-}
-
-.nav-card {
-  display: flex;
-  align-items: center;
-  gap: var(--ep-space-4);
-  padding: var(--ep-space-5);
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  text-decoration: none;
-  color: var(--ep-foreground);
-  transition:
-    border-color var(--ep-transition-base),
-    box-shadow var(--ep-transition-base),
-    transform var(--ep-transition-base);
-}
-
-.nav-card:hover {
-  border-color: var(--ep-gray-300);
-  box-shadow: var(--ep-shadow-md);
-  transform: translateY(-1px);
-  text-decoration: none;
-  color: var(--ep-foreground);
-}
-
-.nav-card-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--ep-radius-lg);
-  background-color: var(--ep-blue-50);
-  color: var(--ep-primary);
-  flex-shrink: 0;
-}
-
-.nav-card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.nav-card-title {
-  font-weight: 600;
-  font-size: var(--ep-text-sm);
-  margin-bottom: var(--ep-space-0-5);
-}
-
-.nav-card-description {
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-}
-
-.metric-label {
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  font-weight: 500;
-  margin-bottom: var(--ep-space-2);
-  text-transform: uppercase;
-  letter-spacing: var(--ep-tracking-wider);
-}
-
-.metric-value {
-  font-size: var(--ep-text-2xl);
-  font-weight: 600;
-  color: var(--ep-foreground);
-  line-height: var(--ep-leading-tight);
 }
 
 /* ── Progress bar ─────────────────────────────────────────────────────── */
@@ -243,10 +118,6 @@ main.regular section {
 
 .loadtest-error {
   margin-bottom: var(--ep-space-4);
-}
-
-.loadtest-form-card {
-  max-width: 40rem;
 }
 
 .loadtest-fieldset {
@@ -332,21 +203,6 @@ main.regular section {
   font-size: var(--ep-text-sm);
 }
 
-/* ── Error summary table ──────────────────────────────────────────────── */
-
-.error-summary {
-  margin-top: var(--ep-space-8);
-}
-
-.error-summary h3 {
-  margin-bottom: var(--ep-space-4);
-  color: var(--ep-destructive);
-}
-
-.error-summary table {
-  background-color: var(--ep-card);
-}
-
 /* ── Login page ───────────────────────────────────────────────────────── */
 
 .login-container {
@@ -360,8 +216,6 @@ main.regular section {
 .login-card {
   width: 100%;
   max-width: 24rem;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
   border-radius: var(--ep-radius-xl);
   box-shadow: var(--ep-shadow-lg);
   padding: var(--ep-space-8);
@@ -420,22 +274,6 @@ main.regular section {
   border-top: 1px solid var(--ep-border-color);
 }
 
-/* ── Tenant home ──────────────────────────────────────────────────────── */
-
-.tenant-header {
-  margin-bottom: var(--ep-space-8);
-}
-
-.tenant-header h1 {
-  margin-bottom: var(--ep-space-1);
-}
-
-.tenant-header .tenant-id {
-  font-size: var(--ep-text-sm);
-  color: var(--ep-muted-foreground);
-  font-family: var(--ep-font-mono);
-}
-
 /* ── Row error highlight (load test requests) ─────────────────────────── */
 
 .row-error {
@@ -466,45 +304,14 @@ main.regular section {
   display: inline-block;
 }
 
-/* ── Preset items (theme detail) ──────────────────────────────────────── */
-
-.preset-item {
-  background: var(--ep-muted);
-  padding: var(--ep-space-4);
-  border-radius: var(--ep-radius-md);
-}
-
-.preset-styles {
-  font-family: var(--ep-font-mono);
-  font-size: var(--ep-text-sm);
-}
-
-/* ── Dashboard stats grid ────────────────────────────────────────────── */
+/* ── Dashboard stats ────────────────────────────────────────────────── */
 
 .dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--ep-space-4);
   margin-bottom: var(--ep-space-8);
 }
 
 .stat-card {
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   padding: var(--ep-space-5);
-  text-decoration: none;
-  color: var(--ep-foreground);
-  transition:
-    border-color var(--ep-transition-base),
-    box-shadow var(--ep-transition-base);
-}
-
-a.stat-card:hover {
-  border-color: var(--ep-gray-300);
-  box-shadow: var(--ep-shadow-md);
-  text-decoration: none;
-  color: var(--ep-foreground);
 }
 
 .stat-card-value {
@@ -525,39 +332,6 @@ a.stat-card:hover {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ep-space-3);
-}
-
-/* ── Detail sections (card-wrapped) ──────────────────────────────────── */
-
-.detail-section {
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  margin-bottom: var(--ep-space-6);
-}
-
-.detail-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--ep-space-4) var(--ep-space-6);
-  border-bottom: 1px solid var(--ep-border-color);
-}
-
-.detail-section-header h2,
-.detail-section-header h3 {
-  margin: 0;
-  font-size: var(--ep-text-base);
-  font-weight: 600;
-}
-
-.detail-section-body {
-  padding: var(--ep-space-6);
-}
-
-/* No padding when body contains a table directly */
-.detail-section-body.no-padding {
-  padding: 0;
 }
 
 .last-modified {
@@ -617,11 +391,7 @@ a.stat-card:hover {
 
 /* ── Create form pages ───────────────────────────────────────────────── */
 
-.create-form-card {
-  max-width: 32rem;
-}
-
-.create-form-card .card-content .form-group:last-of-type {
+.card-narrow .card-content .form-group:last-of-type {
   margin-bottom: 0;
 }
 
@@ -671,16 +441,6 @@ a.stat-card:hover {
 }
 
 /* (Expand/collapse toggle and variant detail row styles removed — deployment matrix replaces inline versions) */
-
-/* ── Danger zone ─────────────────────────────────────────────────────── */
-
-.danger-zone {
-  border-color: var(--ep-destructive);
-}
-
-.danger-zone .detail-section-header {
-  border-bottom-color: var(--ep-destructive);
-}
 
 /* ── Dialog (generic reusable dialog) ────────────────────────────────── */
 
@@ -750,7 +510,6 @@ a.stat-card:hover {
 }
 
 .changelog-loading,
-.changelog-error,
 .changelog-empty {
   color: var(--ep-muted-foreground);
 }
@@ -946,21 +705,6 @@ a.stat-card:hover {
   min-width: 8rem;
 }
 
-.deployment-cell-active {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ep-space-1);
-}
-
-.deployment-cell-actions {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.deployment-matrix-cell:hover .deployment-cell-actions {
-  opacity: 1;
-}
-
 /* ── Variant card grid ────────────────────────────────────────────────── */
 
 .variant-grid {
@@ -972,14 +716,6 @@ a.stat-card:hover {
 .variant-card {
   display: flex;
   flex-direction: column;
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
-  transition: box-shadow var(--ep-transition-base);
-}
-
-.variant-card:hover {
-  box-shadow: var(--ep-shadow-md);
 }
 
 .variant-card-default {
@@ -1099,15 +835,7 @@ a.stat-card:hover {
 }
 
 .asset-card {
-  background-color: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   overflow: hidden;
-  transition: box-shadow var(--ep-transition-base);
-}
-
-.asset-card:hover {
-  box-shadow: var(--ep-shadow-md);
 }
 
 .asset-card-preview {
@@ -1830,10 +1558,6 @@ a.stat-card:hover {
   font-size: var(--ep-text-sm);
 }
 
-.stencil-detail-section {
-  margin-bottom: var(--ep-space-6);
-}
-
 .stencil-empty {
   color: var(--ep-muted-foreground);
 }
@@ -1921,12 +1645,6 @@ a.stat-card:hover {
 .catalog-meta {
   color: var(--ep-muted-foreground);
   font-size: var(--ep-text-sm);
-}
-
-.catalog-resources-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .catalog-pin-drift {
@@ -2154,9 +1872,6 @@ a.stat-card:hover {
 
 /* Card */
 .consumer-card {
-  background: var(--ep-card);
-  border: 1px solid var(--ep-border-color);
-  border-radius: var(--ep-radius-lg);
   box-shadow: var(--ep-shadow-xs);
   margin-bottom: var(--ep-space-3);
   overflow: hidden;

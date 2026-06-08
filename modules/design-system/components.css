@@ -195,6 +195,79 @@
     border-top: 1px solid var(--ep-border-color);
   }
 
+  /* ── Card header row (horizontal title + actions) ──────────────────── */
+
+  .card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--ep-space-4) var(--ep-space-6);
+    border-bottom: 1px solid var(--ep-border-color);
+  }
+
+  .card-header-row h2,
+  .card-header-row h3 {
+    margin: 0;
+    font-size: var(--ep-text-base);
+    font-weight: 600;
+  }
+
+  /* ── Card content variants ──────────────────────────────────────────── */
+
+  .card-content.flush {
+    padding: 0;
+  }
+
+  .card-content.flush-table {
+    padding: 0;
+  }
+
+  .card-content.flush-table table {
+    margin: 0;
+  }
+
+  /* ── Card interactive (hover lift / shadow) ─────────────────────────── */
+
+  a.card,
+  .card-interactive {
+    text-decoration: none;
+    color: var(--ep-foreground);
+    transition:
+      border-color var(--ep-transition-base),
+      box-shadow var(--ep-transition-base);
+  }
+
+  a.card:hover,
+  .card-interactive:hover {
+    border-color: var(--ep-gray-300);
+    box-shadow: var(--ep-shadow-md);
+  }
+
+  .card-interactive-lift:hover {
+    transform: translateY(-1px);
+  }
+
+  /* ── Card size constraints ──────────────────────────────────────────── */
+
+  .card-narrow {
+    max-width: 32rem;
+  }
+
+  .card-medium {
+    max-width: 40rem;
+  }
+
+  /* ── Card danger-zone variant ───────────────────────────────────────── */
+
+  .card-danger {
+    border-color: var(--ep-destructive);
+  }
+
+  .card-danger > .card-header,
+  .card-danger > .card-header-row {
+    border-bottom-color: var(--ep-destructive);
+  }
+
   /* ── Form controls ────────────────────────────────────────────────────── */
 
   .ep-label {
