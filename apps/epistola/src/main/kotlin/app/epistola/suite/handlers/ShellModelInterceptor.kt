@@ -3,6 +3,8 @@ package app.epistola.suite.handlers
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.FeatureToggleService
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.htmx.footer.FooterFragmentResolver
+import app.epistola.suite.htmx.nav.NavMenuAggregator
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
@@ -17,6 +19,7 @@ import org.springframework.web.servlet.ModelAndView
  * on every tenant-scoped request.
  *
  * Adds:
+ * - `navGroups` — the module-contributed nav model (see [NavMenuAggregator])
  * - `activeNavSection` — derived from the URL path (e.g., "templates", "themes")
  * - `tenantName` — resolved from the tenant ID in the model
  *
@@ -25,6 +28,8 @@ import org.springframework.web.servlet.ModelAndView
 @Component
 class ShellModelInterceptor(
     private val featureToggleService: FeatureToggleService,
+    private val navMenuAggregator: NavMenuAggregator,
+    private val footerFragmentResolver: FooterFragmentResolver,
 ) : HandlerInterceptor {
 
     override fun postHandle(
@@ -60,52 +65,22 @@ class ShellModelInterceptor(
         val auth = modelAndView.model["auth"] as AuthContext
         modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
 
-        // Feature toggles
+        // Editor feature toggle (gates editor UI, not nav/footer).
         if (tenantId != null) {
-            val tenantKey = TenantKey.of(tenantId)
-            modelAndView.addObject(
-                "feedbackEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_FEEDBACK),
-            )
-            modelAndView.addObject(
-                "backupsEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_BACKUPS),
-            )
-            modelAndView.addObject(
-                "upgradingEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.SUPPORT_UPGRADING),
-            )
             modelAndView.addObject(
                 "stencilParametersEnabled",
-                featureToggleService.isEnabled(tenantKey, KnownFeatures.STENCIL_PARAMETERS),
+                featureToggleService.isEnabled(TenantKey.of(tenantId), KnownFeatures.STENCIL_PARAMETERS),
             )
         }
 
-        // Shell-specific attributes
-        if (viewName != "layout/shell") return
-        val path = request.requestURI
-        modelAndView.addObject("activeNavSection", resolveActiveSection(path))
-    }
-
-    private fun resolveActiveSection(path: String): String = when {
-        "/templates" in path -> "templates"
-        "/stencils" in path -> "stencils"
-        "/themes" in path -> "themes"
-        "/environments" in path -> "environments"
-        "/attributes" in path -> "attributes"
-        "/code-lists" in path -> "code-lists"
-        "/generation-history" in path -> "generation-history"
-        "/load-tests" in path -> "load-tests"
-        "/assets" in path -> "assets"
-        "/settings" in path -> "settings"
-        "/feedback" in path -> "feedback"
-        "/backups" in path -> "backups"
-        "/upgrading" in path -> "upgrading"
-        "/support" in path -> "overview"
-        "/api-keys" in path -> "api-keys"
-        "/features" in path -> "features"
-        "/catalogs" in path -> "catalogs"
-        "/admin" in path -> "admin"
-        else -> "home"
+        // Shell-specific attributes: the module-contributed nav menu + footer chrome. Both are
+        // contributed by modules (see NavMenuAggregator / FooterFragmentResolver), so the host
+        // owns no feature flags for them.
+        if (viewName != "layout/shell" || tenantId == null) return
+        val tenantKey = TenantKey.of(tenantId)
+        val nav = navMenuAggregator.build(tenantKey, request.requestURI, auth::has)
+        modelAndView.addObject("navGroups", nav.groups)
+        modelAndView.addObject("activeNavSection", nav.activeNavSection)
+        modelAndView.addObject("footerFragments", footerFragmentResolver.resolve(tenantKey, auth::has))
     }
 }

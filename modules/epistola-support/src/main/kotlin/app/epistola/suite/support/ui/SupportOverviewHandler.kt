@@ -1,4 +1,4 @@
-package app.epistola.suite.handlers
+package app.epistola.suite.support.ui
 
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId

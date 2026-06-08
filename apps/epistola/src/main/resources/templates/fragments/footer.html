@@ -46,13 +46,11 @@
 
         <script th:src="@{/js/slug-auto.js}"></script>
 
-        <!-- Feedback FAB + console capture (tenant-scoped pages only) -->
-        <th:block th:if="${tenantId != null and feedbackEnabled}" sec:authorize="isAuthenticated()">
-            <script th:src="@{/feedback/feedback-capture.js}"></script>
-            <script type="module" th:inline="javascript">
-                const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');
-                initFeedbackFab(/*[[${tenantId}]]*/ 'tenant');
-            </script>
+        <!-- Module-contributed footer chrome (see FooterContributor / FooterFragmentResolver) -->
+        <th:block sec:authorize="isAuthenticated()">
+            <th:block th:each="frag : ${footerFragments}">
+                <th:block th:replace="~{__${frag.ref}__}" />
+            </th:block>
         </th:block>
     </th:block>
 </body>
