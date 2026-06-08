@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.snapshots.RemoteSnapshot
+import app.epistola.suite.snapshots.SnapshotSyncOutcome
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.support.hubFeatureCall
 import app.epistola.suite.support.logTo
@@ -56,8 +57,15 @@ class BackupsHandler(
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         return try {
-            snapshotSync.syncTenant(tenantId.key)
-            redirect(tenantId.key.value, "saved=backup")
+            // Reflect the real outcome: a fresh upload vs. dedup (catalogs unchanged since the last
+            // backup, so nothing new is stored) — otherwise "Backup completed" misleads.
+            val query =
+                when (val outcome = snapshotSync.syncTenant(tenantId.key)) {
+                    is SnapshotSyncOutcome.Uploaded -> if (outcome.deduplicated) "saved=backup-unchanged" else "saved=backup"
+                    is SnapshotSyncOutcome.Unchanged -> "saved=backup-unchanged"
+                    SnapshotSyncOutcome.Disabled, SnapshotSyncOutcome.NotReady -> "error=hub-unavailable"
+                }
+            redirect(tenantId.key.value, query)
         } catch (e: HubEntitlementDeniedException) {
             redirect(tenantId.key.value, "error=not-entitled")
         } catch (e: HubUnavailableException) {

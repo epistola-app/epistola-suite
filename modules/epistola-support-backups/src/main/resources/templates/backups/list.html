@@ -21,6 +21,7 @@
         </p>
 
         <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
+        <div th:if="${saved == 'backup-unchanged'}" class="alert alert-info" role="status">No changes since the last backup — nothing new to store.</div>
         <div th:if="${saved == 'restore'}" class="alert alert-success" role="status">Tenant restored from the snapshot.</div>
         <div th:if="${error == 'not-entitled'}" class="alert alert-error" role="alert">This installation is not entitled to backups — contact Epistola for a service contract.</div>
         <div th:if="${error == 'backup-failed'}" class="alert alert-error" role="alert">The backup failed. Please try again or check the logs.</div>
