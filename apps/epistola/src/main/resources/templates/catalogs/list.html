@@ -66,7 +66,7 @@
                     <td><code th:text="${catalog.id}" class="catalog-id"></code></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
+                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-muted">Subscribed</span>
                     </td>
                     <td>
                         <th:block th:if="${catalog.type.name() == 'AUTHORED'}">

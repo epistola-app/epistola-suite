@@ -122,8 +122,8 @@
                             </span>
                         </div>
                         <div class="variant-card-status">
-                            <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
-                            <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-published"
+                            <span th:if="${variant.hasDraft}" class="badge badge-primary">Draft</span>
+                            <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-success"
                                   th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
                             <span th:if="${!variant.hasDraft and variant.publishedVersions.isEmpty()}"
                                   class="variant-no-versions">No versions</span>

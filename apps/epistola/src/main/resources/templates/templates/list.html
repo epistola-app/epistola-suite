@@ -68,7 +68,7 @@
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                th:text="${template.name}" class="template-name"></a>
                         </td>
-                        <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
+                        <td><span class="badge badge-muted" th:text="${template.catalogKey}"></span></td>
                         <td><code th:text="${template.id}" class="template-id"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>

@@ -98,7 +98,7 @@
                                 <div class="comment-header">
                                     <span class="comment-author">
                                         <span th:text="${comment.authorName}">Author</span>
-                                        <span th:if="${comment.source.name() == 'GITHUB'}" class="ep-badge ep-badge-outline">GitHub</span>
+                                        <span th:if="${comment.source.name() == 'GITHUB'}" class="badge badge-outline">GitHub</span>
                                     </span>
                     <span class="comment-date"
                                           th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>

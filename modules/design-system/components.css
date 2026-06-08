@@ -322,6 +322,12 @@
     border-color: var(--ep-blue-200);
   }
 
+  .badge-info {
+    background-color: var(--ep-blue-100);
+    color: var(--ep-blue-800);
+    border-color: var(--ep-blue-200);
+  }
+
   .badge-success {
     background-color: var(--ep-green-100);
     color: var(--ep-green-800);
@@ -338,6 +344,12 @@
     background-color: var(--ep-red-100);
     color: var(--ep-red-700);
     border-color: var(--ep-red-200);
+  }
+
+  .badge-muted {
+    background-color: var(--ep-gray-100);
+    color: var(--ep-gray-600);
+    border-color: var(--ep-border-color);
   }
 
   .badge-outline {

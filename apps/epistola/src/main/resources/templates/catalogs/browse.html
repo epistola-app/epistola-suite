@@ -41,12 +41,12 @@
                         <tr th:each="resource : ${resources}">
                             <td>
                                 <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
-                                <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
-                                <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
-                                <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                                <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
-                                <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
-                                <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
+                                <span th:if="${resource.type == 'theme'}" class="badge badge-muted">theme</span>
+                                <span th:if="${resource.type == 'stencil'}" class="badge badge-muted">stencil</span>
+                                <span th:if="${resource.type == 'attribute'}" class="badge badge-muted">attribute</span>
+                                <span th:if="${resource.type == 'asset'}" class="badge badge-muted">asset</span>
+                                <span th:if="${resource.type == 'codeList'}" class="badge badge-muted">code list</span>
+                                <span th:if="${resource.type == 'font'}" class="badge badge-muted">font</span>
                             </td>
                             <td>
                                 <!-- Authored: link to detail page for templates/themes/stencils -->
@@ -88,7 +88,7 @@
                             </td>
                             <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
                                 <button th:if="${count > 0}"
-                                        type="button" class="badge badge-default"
+                                        type="button" class="badge badge-muted"
                                         class="catalog-import-tag"
                                         th:text="${count}"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalog.id},type=${resource.type},slug=${resource.slug})}"
@@ -163,10 +163,10 @@
                     <tr th:each="resource : ${selected}">
                         <td>
                             <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
-                            <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
-                            <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
-                            <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
+                            <span th:if="${resource.type == 'theme'}" class="badge badge-muted">theme</span>
+                            <span th:if="${resource.type == 'stencil'}" class="badge badge-muted">stencil</span>
+                            <span th:if="${resource.type == 'attribute'}" class="badge badge-muted">attribute</span>
+                            <span th:if="${resource.type == 'asset'}" class="badge badge-muted">asset</span>
                         </td>
                         <td th:text="${resource.name}"></td>
                         <td></td>
@@ -174,10 +174,10 @@
                     <tr th:each="dep : ${dependencies}" class="catalog-dependency">
                         <td>
                             <span th:if="${dep.type == 'template'}" class="badge badge-info">template</span>
-                            <span th:if="${dep.type == 'theme'}" class="badge badge-default">theme</span>
-                            <span th:if="${dep.type == 'stencil'}" class="badge badge-default">stencil</span>
-                            <span th:if="${dep.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${dep.type == 'asset'}" class="badge badge-default">asset</span>
+                            <span th:if="${dep.type == 'theme'}" class="badge badge-muted">theme</span>
+                            <span th:if="${dep.type == 'stencil'}" class="badge badge-muted">stencil</span>
+                            <span th:if="${dep.type == 'attribute'}" class="badge badge-muted">attribute</span>
+                            <span th:if="${dep.type == 'asset'}" class="badge badge-muted">asset</span>
                         </td>
                         <td th:text="${dep.name}"></td>
                         <td><span class="catalog-dep-label">dependency</span></td>

@@ -69,7 +69,7 @@
                                 th:text="${theme.name}" class="theme-name"></a>
                             <span th:if="${isDefault}" class="badge badge-primary theme-default-badge"  data-testid="theme-default-badge">Default</span>
                         </td>
-                        <td><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
+                        <td><span class="badge badge-muted" th:text="${theme.catalogKey}"></span></td>
                         <td>
                             <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
                             <span th:unless="${theme.description != null}" class="theme-empty">-</span>

@@ -263,51 +263,6 @@ main.regular .empty-message {
 
 /* ── Status badges ────────────────────────────────────────────────────── */
 
-/* Legacy badge variants mapped to new naming */
-.badge-draft {
-  background-color: var(--ep-blue-100);
-  color: var(--ep-blue-800);
-  border-color: var(--ep-blue-200);
-}
-
-.badge-published {
-  background-color: var(--ep-green-100);
-  color: var(--ep-green-800);
-  border-color: var(--ep-green-100);
-}
-
-.badge-archived {
-  background-color: var(--ep-gray-100);
-  color: var(--ep-gray-600);
-  border-color: var(--ep-border-color);
-}
-
-/* Load test status badges */
-.badge-success {
-  background-color: var(--ep-green-100);
-  color: var(--ep-green-800);
-}
-
-.badge-info {
-  background-color: var(--ep-blue-100);
-  color: var(--ep-blue-800);
-}
-
-.badge-error {
-  background-color: var(--ep-red-100);
-  color: var(--ep-red-700);
-}
-
-.badge-warning {
-  background-color: var(--ep-amber-100);
-  color: var(--ep-amber-800);
-}
-
-.badge-default {
-  background-color: var(--ep-gray-100);
-  color: var(--ep-gray-600);
-}
-
 /* ── Variant tags ─────────────────────────────────────────────────────── */
 
 .tag {

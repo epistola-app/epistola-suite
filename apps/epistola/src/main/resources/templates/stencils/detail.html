@@ -19,7 +19,7 @@
                     <dt>ID</dt>
                     <dd><code th:text="${stencil.id}"></code></dd>
                     <dt>Catalog</dt>
-                    <dd><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></dd>
+                    <dd><span class="badge badge-muted" th:text="${stencil.catalogKey}"></span></dd>
                     <dt>Description</dt>
                     <dd>
                         <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
@@ -174,7 +174,7 @@
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
                                         th:text="${u.templateName}" class="stencil-usage-link"></a>
                                 </td>
-                                <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>
+                                <td><span class="badge badge-muted" th:text="${u.catalogKey}"></span></td>
                                 <td th:text="${u.variantId}"></td>
                                 <td th:text="'v' + ${u.versionId}"></td>
                                 <td>

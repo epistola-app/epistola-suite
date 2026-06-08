@@ -66,8 +66,7 @@
                            th:text="${cl.slug}"></a>
                     </td>
                     <td>
-                        <span class="badge" th:text="${cl.catalogKey}"
-                              th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
+                        <span class="badge badge-muted" th:text="${cl.catalogKey}"></span>
                     </td>
                     <td class="code-list-name" th:text="${cl.displayName}"></td>
                     <td>
@@ -78,7 +77,7 @@
                               th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                         <span th:if="${cl.lastRefreshedAt == null}" class="code-list-never">never</span>
                         <span th:if="${cl.lastRefreshError != null}"
-                              class="badge badge-error refresh-error-badge"
+                              class="badge badge-destructive refresh-error-badge"
                               th:title="${cl.lastRefreshError}">refresh failed</span>
                     </td>
                     <td class="actions">
