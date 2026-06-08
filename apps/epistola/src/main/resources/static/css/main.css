@@ -251,16 +251,6 @@ main.regular section {
   margin: 0;
 }
 
-/* ── Muted/centered text utilities ────────────────────────────────────── */
-
-.text-muted {
-  color: var(--ep-muted-foreground);
-}
-
-.text-center {
-  text-align: center;
-}
-
 /* ── Session expiry dialogs ───────────────────────────────────────────── */
 
 .session-dialog {
@@ -537,14 +527,6 @@ main.regular section {
   background-color: var(--ep-card);
 }
 
-/* ── Action bar ───────────────────────────────────────────────────────── */
-
-.actions-bar {
-  display: flex;
-  gap: var(--ep-space-3);
-  margin-top: var(--ep-space-8);
-}
-
 /* ── Key-value table (for configuration) ──────────────────────────────── */
 
 .key-value-table {
@@ -562,15 +544,6 @@ main.regular section {
 
 .key-value-table td {
   color: var(--ep-foreground);
-}
-
-/* ── Subtitle ─────────────────────────────────────────────────────────── */
-
-.subtitle {
-  color: var(--ep-muted-foreground);
-  margin-top: calc(-1 * var(--ep-space-2));
-  margin-bottom: var(--ep-space-6);
-  font-size: var(--ep-text-sm);
 }
 
 /* ── Pagination ───────────────────────────────────────────────────────── */
@@ -1497,57 +1470,6 @@ a.stat-card:hover {
   font-size: var(--ep-text-xs);
   color: var(--ep-muted-foreground);
   margin-top: var(--ep-space-0-5);
-}
-
-/* ── Flex layout utilities ─────────────────────────────────────────────── */
-
-.ep-flex {
-  display: flex;
-}
-
-.ep-flex-center {
-  display: flex;
-  align-items: center;
-}
-
-.ep-flex-between {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.ep-flex-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.ep-flex-wrap {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.ep-flex-1 {
-  flex: 1;
-}
-
-.ep-flex-2 {
-  flex: 2;
-}
-
-.ep-gap-1 {
-  gap: var(--ep-space-1);
-}
-
-.ep-gap-2 {
-  gap: var(--ep-space-2);
-}
-
-.ep-gap-3 {
-  gap: var(--ep-space-3);
-}
-
-.ep-gap-4 {
-  gap: var(--ep-space-4);
 }
 
 /* ── Data-hidden attribute ────────────────────────────────────────────── */
@@ -2796,9 +2718,4 @@ a.stat-card:hover {
   background: var(--ep-card);
   border: 1px dashed var(--ep-border-color);
   border-radius: var(--ep-radius-md);
-}
-
-/* ── Word break utility ───────────────────────────────────────────────── */
-.ep-word-break-all {
-  word-break: break-all;
 }

@@ -138,6 +138,14 @@
     font-size: var(--ep-text-xs);
   }
 
+  .stencil-picker-tag--muted {
+    background: var(--ep-gray-100);
+    padding: 0 var(--ep-space-1-5);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
   .stencil-picker-tag--warning {
     background: var(--ep-amber-50);
     color: var(--ep-amber-700);

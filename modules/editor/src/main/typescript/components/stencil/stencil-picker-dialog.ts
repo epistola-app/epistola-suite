@@ -203,7 +203,7 @@ export async function openStencilPickerDialog(
           ? `v${stencil.latestPublishedVersion}`
           : stencil.latestVersion
             ? `v${stencil.latestVersion} (draft)`
-            : '<span class="text-muted">no versions</span>';
+            : '<span class="stencil-picker-tag--muted">no versions</span>';
 
         const catalogBadge = stencil.catalogKey
           ? `<span class="stencil-picker-tag">${stencil.catalogKey}</span>`
