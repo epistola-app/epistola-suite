@@ -27,7 +27,7 @@ dependencies {
 
     // Epistola Hub client (Kotlin gRPC SDK) — EpistolaHubClient + generated feedback proto
     // types. epistola-support depends on it only as `implementation`, so declare it here too.
-    implementation("app.epistola.hub:client:0.3.0")
+    implementation(libs.epistola.hub.client)
 
     // Shared web/UI toolkit (HTMX functional-web DSL) for the feedback UI.
     implementation(project(":modules:epistola-web"))

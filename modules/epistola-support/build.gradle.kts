@@ -23,7 +23,7 @@ dependencies {
     // grpc-netty-shaded (runtime), grpc-protobuf, protobuf-kotlin,
     // and kotlinx-serialization-json-jvm. Verified no conflicts with the
     // rest of the suite (no other module uses gRPC).
-    implementation("app.epistola.hub:client:0.3.0")
+    implementation(libs.epistola.hub.client)
 
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter")

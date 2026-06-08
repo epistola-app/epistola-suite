@@ -37,6 +37,20 @@ dependencies {
     // component is gated on epistola.support.enabled). Pulls in the feedback domain.
     implementation(project(":modules:epistola-support-feedback"))
 
+    // Shared snapshot sync — the SnapshotSyncPort + TenantSnapshotSyncService both support features
+    // ride. Pulled in transitively by backups/upgrading; listed explicitly so its beans (no-op
+    // fallback, hub adapter, sync service) are unambiguously component-scanned.
+    implementation(project(":modules:epistola-support-snapshots"))
+
+    // Catalog backups — the daily retained-snapshot scheduler, restore, and the Backups UI. Gated
+    // by the `support-backups` feature toggle and (for hub calls) epistola.support.enabled.
+    implementation(project(":modules:epistola-support-backups"))
+
+    // Upgrading (compatibility checks) — reads the company-side compatibility results for the
+    // tenant's catalogs, shows the Upgrading UI, and owns a snapshot-freshness sweep. Separate
+    // feature from Backups (gated by `support-upgrading`); both ride the shared snapshot sync.
+    implementation(project(":modules:epistola-support-upgrading"))
+
     // Catalog module (catalog exchange for sharing templates)
 
     // Load test module (load testing functionality)
@@ -93,6 +107,8 @@ dependencies {
 
     // Testing
     testImplementation(project(":modules:testing"))
+    // Hub client error types (e.g. HubUnavailableException) for the support-page connectivity tests.
+    testImplementation(libs.epistola.hub.client)
     testImplementation("org.springframework.boot:spring-boot-micrometer-tracing-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")

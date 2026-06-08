@@ -33,6 +33,8 @@ import org.springframework.context.annotation.DependsOn
     havingValue = "true",
 )
 class SupportConfiguration {
+    private val log = org.slf4j.LoggerFactory.getLogger(SupportConfiguration::class.java)
+
     @Bean
     fun installationStore(metadata: AppMetadataService): InstallationStore = AppMetadataInstallationStore(metadata)
 
@@ -95,14 +97,27 @@ class SupportConfiguration {
         props: SupportProperties,
         discovery: HubDiscovery,
         nodeIdentity: NodeIdentity,
-    ): EpistolaHubClient = EpistolaHubClient(
-        // One node-id resolver app-wide ([NodeIdentity]); the support-tier
-        // override (epistola.support.hub.node-id) still wins when explicitly set.
-        store = store,
-        nodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: nodeIdentity.nodeId,
-        discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
-        discovery = discovery,
-    )
+    ): EpistolaHubClient {
+        val resolvedNodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: nodeIdentity.nodeId
+        return EpistolaHubClient(
+            // One node-id resolver app-wide ([NodeIdentity]); the support-tier
+            // override (epistola.support.hub.node-id) still wins when explicitly set.
+            store = store,
+            nodeId = resolvedNodeId,
+            discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
+            discovery = discovery,
+        ).also { client ->
+            // React to connectivity transitions. For now we just log; this is the seam where the
+            // change could be persisted (e.g. for cross-node connectivity history) later.
+            client.addConnectivityListener { connectivity ->
+                if (connectivity.reachable) {
+                    log.info("epistola-hub reachable again (node {})", resolvedNodeId)
+                } else {
+                    log.warn("epistola-hub unreachable (node {}): {}", resolvedNodeId, connectivity.lastError)
+                }
+            }
+        }
+    }
 
     @Bean(destroyMethod = "close")
     fun hubRegistrationRetryLoop(
