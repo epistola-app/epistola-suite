@@ -15,9 +15,10 @@
         </div>
 
         <p class="page-description">
-            A backup is a point-in-time copy of all of this tenant's catalogs, stored on the Epistola
-            hub. Daily backups run automatically; you can also back up on demand. Restoring is
-            destructive — it replaces every catalog in this tenant with the snapshot's contents.
+            A backup is a point-in-time copy of all of this tenant's <strong>published</strong> catalog
+            content, stored on the Epistola hub — unpublished drafts are not included. Daily backups run
+            automatically; you can also back up on demand. Restoring is destructive — it replaces every
+            catalog in this tenant with the snapshot's contents (any unpublished drafts are lost).
         </p>
 
         <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
@@ -73,7 +74,7 @@
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                 data-confirm-title="Restore backup"
                                 data-confirm-target="body"
-                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant and replaces it with the backup. This cannot be undone.',
+                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant — including any unpublished drafts — and replaces it with the backup''s published content. This cannot be undone.',
                                          data-confirm-url=@{/tenants/{tenantId}/backups/{snapshotId}/restore(tenantId=${tenantId},snapshotId=${snap.snapshotId})}"
                                 onclick="openConfirmDialog(this)">
                             <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
