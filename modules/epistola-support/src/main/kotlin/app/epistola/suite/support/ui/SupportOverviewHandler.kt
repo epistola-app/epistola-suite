@@ -1,13 +1,18 @@
 package app.epistola.suite.support.ui
 
+import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.support.EntitlementEffect
 import app.epistola.suite.support.HubConnectivityService
 import app.epistola.suite.support.NodeHubConnectivity
+import app.epistola.suite.support.StoredEntitlement
+import app.epistola.suite.support.SupportEntitlementService
 import app.epistola.suite.tenants.queries.GetTenant
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -23,6 +28,7 @@ import java.time.format.DateTimeFormatter
 @Component
 class SupportOverviewHandler(
     private val connectivity: HubConnectivityService,
+    private val entitlements: ObjectProvider<SupportEntitlementService>,
 ) {
     fun overview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -33,6 +39,11 @@ class SupportOverviewHandler(
         connectivity.refresh()
         val nodes = connectivity.allNodes().map { it.toView() }
 
+        val entitlementService = entitlements.ifAvailable
+        val entitlementRows = entitlementService?.entries()?.map { it.toView() } ?: emptyList()
+        val entitlementsFetchedAt =
+            entitlementService?.lastFetchedAt()?.let { FORMATTER.format(it.atOffset(ZoneOffset.UTC)) }
+
         return ServerResponse.ok().page("support/overview") {
             "pageTitle" to "Support - Epistola"
             "tenant" to tenant
@@ -40,8 +51,28 @@ class SupportOverviewHandler(
             "activeNavSection" to "overview"
             "supportEnabled" to connectivity.supportEnabled()
             "nodes" to nodes
+            "entitlements" to entitlementRows
+            "entitlementsFetchedAt" to entitlementsFetchedAt
         }
     }
+
+    private fun StoredEntitlement.toView(): EntitlementRowView = EntitlementRowView(
+        feature = featureKey,
+        description = DESCRIPTIONS_BY_KEY[featureKey].orEmpty(),
+        scope = tenant ?: "All tenants",
+        effect = if (effect == EntitlementEffect.ALLOW) "Allowed" else "Denied",
+        allowed = effect == EntitlementEffect.ALLOW,
+        expires = expiresAt?.let { FORMATTER.format(it.atOffset(ZoneOffset.UTC)) } ?: "Never",
+    )
+
+    data class EntitlementRowView(
+        val feature: String,
+        val description: String,
+        val scope: String,
+        val effect: String,
+        val allowed: Boolean,
+        val expires: String,
+    )
 
     private fun NodeHubConnectivity.toView(): NodeConnectivityView = NodeConnectivityView(
         nodeId = nodeId,
@@ -70,5 +101,9 @@ class SupportOverviewHandler(
 
     private companion object {
         val FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'")
+
+        /** Human descriptions keyed by the wire feature key, for the entitlements table. */
+        val DESCRIPTIONS_BY_KEY: Map<String, String> =
+            KnownFeatures.descriptions.entries.associate { it.key.value to it.value }
     }
 }

@@ -45,6 +45,47 @@
                     </tr>
                 </tbody>
             </table>
+
+            <h2 class="section-title">Entitlements</h2>
+            <p class="page-description">
+                Managed-services features the Epistola hub has configured for this installation. Only
+                configured features appear here; a feature with no entry is not part of your plan.
+                <span th:if="${entitlementsFetchedAt}">
+                    Last updated <span th:text="${entitlementsFetchedAt}">2026-01-01 02:00 UTC</span>.
+                </span>
+            </p>
+
+            <div th:if="${entitlements.isEmpty()}" class="alert alert-info" role="status">
+                No entitlements have been configured for this installation yet.
+            </div>
+
+            <table th:unless="${entitlements.isEmpty()}" class="ep-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Scope</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="entitlement : ${entitlements}">
+                        <td>
+                            <span th:text="${entitlement.feature}">support-backups</span>
+                            <div class="text-muted" th:if="${!#strings.isEmpty(entitlement.description)}"
+                                 th:text="${entitlement.description}">Feature description</div>
+                        </td>
+                        <td th:text="${entitlement.scope}">All tenants</td>
+                        <td>
+                            <span th:if="${entitlement.allowed}" class="ep-badge ep-badge-success"
+                                  th:text="${entitlement.effect}">Allowed</span>
+                            <span th:unless="${entitlement.allowed}" class="ep-badge ep-badge-error"
+                                  th:text="${entitlement.effect}">Denied</span>
+                        </td>
+                        <td th:text="${entitlement.expires}">Never</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </th:block>
 </body>
