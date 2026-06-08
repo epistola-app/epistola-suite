@@ -74,7 +74,7 @@
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                 data-confirm-title="Restore backup"
                                 data-confirm-target="body"
-                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant — including any unpublished drafts — and replaces it with the backup''s published content. This cannot be undone.',
+                                th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant (including any unpublished drafts) and replaces it with the published content from the backup. This cannot be undone.',
                                          data-confirm-url=@{/tenants/{tenantId}/backups/{snapshotId}/restore(tenantId=${tenantId},snapshotId=${snap.snapshotId})}"
                                 onclick="openConfirmDialog(this)">
                             <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
