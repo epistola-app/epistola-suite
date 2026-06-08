@@ -239,3 +239,8 @@ truststore` — a quick confirmation your certs were picked up.
 - A TLS failure against a CA-signed endpoint shows up as
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
+
+## Observability
+
+Prometheus scrape, OpenTelemetry agent friendliness (`observability.otelAgent`)
+and the full metric catalogue are documented in [metrics.md](metrics.md).

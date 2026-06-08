@@ -76,6 +76,10 @@ class FakeDocumentGenerationExecutor(
     override fun execute(request: DocumentGenerationRequest) {
         logger.debug("FAKE execution for request {} (no real PDF generation)", request.id.value)
 
+        // Mirror production's generation meters through the same shared code path
+        // (like emitTerminalResult below) so tests exercise the per-tenant tagging.
+        val sample = startDocumentTimer()
+        var outcome = "success"
         try {
             // Generate fake document
             val documentId = DocumentKey.generate()
@@ -88,6 +92,9 @@ class FakeDocumentGenerationExecutor(
                 "application/pdf",
                 fakePdfBytes.size.toLong(),
             )
+
+            // Mirror production: per-tenant document-size summary.
+            recordDocumentSize(request, fakePdfBytes.size.toLong())
 
             localJdbi.useTransaction<Exception> { handle ->
                 // 1. Claim completion — skip if the request was cancelled during processing
@@ -155,9 +162,13 @@ class FakeDocumentGenerationExecutor(
 
             logger.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
         } catch (e: Exception) {
+            outcome = "failure"
             logger.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
             markRequestFailed(request, e.message)
             request.batchId?.let { finalizeBatchIfComplete(it) }
+        } finally {
+            // Mirror production: per-tenant generation-duration timer.
+            sample.stop(documentDurationTimer(request, outcome, "fake"))
         }
     }
 

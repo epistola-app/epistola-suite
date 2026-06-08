@@ -6,6 +6,23 @@ Expand the name of the chart.
 {{- end }}
 
 {{/*
+OTEL_RESOURCE_ATTRIBUTES for an operator-attached OpenTelemetry agent.
+service.instance.id uses the downward-API $(POD_NAME) so it matches the app's
+own NodeIdentity (hostname → pod name). deployment.environment falls back to the
+support installation environment when not set explicitly. Extra attributes from
+observability.otelAgent.resourceAttributes are appended.
+*/}}
+{{- define "epistola.otelResourceAttributes" -}}
+{{- $a := .Values.observability.otelAgent -}}
+{{- $attrs := list "service.instance.id=$(POD_NAME)" -}}
+{{- with $a.serviceNamespace }}{{- $attrs = append $attrs (printf "service.namespace=%s" .) -}}{{- end -}}
+{{- $env := $a.deploymentEnvironment | default .Values.support.installation.environment -}}
+{{- with $env }}{{- $attrs = append $attrs (printf "deployment.environment=%s" .) -}}{{- end -}}
+{{- range $k, $v := $a.resourceAttributes }}{{- $attrs = append $attrs (printf "%s=%s" $k $v) -}}{{- end -}}
+{{- join "," $attrs -}}
+{{- end }}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.

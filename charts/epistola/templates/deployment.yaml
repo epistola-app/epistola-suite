@@ -94,6 +94,23 @@ spec:
             - name: MANAGEMENT_LOGGING_EXPORT_OTLP_ENABLED
               value: "false"
             {{- end }}
+            {{- /* Bring-your-own OpenTelemetry agent friendliness. When an
+                   operator attaches the OTel Java agent, these give it a stable
+                   identity consistent with the app's own NodeIdentity (pod name)
+                   and common metric tags. service.instance.id uses the
+                   downward-API POD_NAME, so it must be declared first for the
+                   $(POD_NAME) reference to resolve. The epistola-hub leg is
+                   configured at runtime by the support module, not here. */}}
+            {{- if .Values.observability.otelAgent.enabled }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.observability.otelAgent.serviceName | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ include "epistola.otelResourceAttributes" . | quote }}
+            {{- end }}
             {{- /* OIDC / OAuth2 login */}}
             {{- if .Values.oidc.enabled }}
             - name: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID
