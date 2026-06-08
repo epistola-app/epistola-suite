@@ -2,7 +2,6 @@ package app.epistola.suite.support
 
 import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.HubReachability
-import app.epistola.hub.proto.v1.FetchFeedbackUpdatesRequest
 import app.epistola.suite.observability.NodeIdentity
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
@@ -20,6 +19,10 @@ class HubConnectivityService(
     private val clientProvider: ObjectProvider<EpistolaHubClient>,
     private val nodeIdentity: NodeIdentity,
 ) {
+    /** The hub version reported by the most recent successful [refresh] ping on this node. */
+    @Volatile
+    private var lastServerVersion: String? = null
+
     /** Whether the support tier is wired (a hub client bean exists) on this node. */
     fun supportEnabled(): Boolean = clientProvider.ifAvailable != null
 
@@ -30,6 +33,7 @@ class HubConnectivityService(
             nodeId = nodeIdentity.nodeId,
             reachability = (connectivity?.reachability ?: HubReachability.UNKNOWN).name,
             reachable = connectivity?.reachable ?: false,
+            serverVersion = lastServerVersion,
             lastCheckedAt = connectivity?.lastCheckedAtEpochMillis?.let(Instant::ofEpochMilli),
             lastReachableAt = connectivity?.lastReachableAtEpochMillis?.let(Instant::ofEpochMilli),
             lastUnreachableAt = connectivity?.lastUnreachableAtEpochMillis?.let(Instant::ofEpochMilli),
@@ -41,15 +45,14 @@ class HubConnectivityService(
     fun allNodes(): List<NodeHubConnectivity> = listOf(currentNode())
 
     /**
-     * Pokes a cheap installation-scoped call so the client records a fresh connectivity outcome,
-     * then callers read [currentNode]. Errors are swallowed — we only want the recorded reachability,
-     * not the response. No-op when the support tier is off.
+     * Pings the hub so the client records a fresh connectivity outcome, capturing the hub version it
+     * reports. The ping is unauthenticated and neutral (not tied to any feature), so this reflects
+     * pure hub reachability. Errors are swallowed — the recorded reachability is what matters. No-op
+     * when the support tier is off.
      */
     fun refresh() {
         val client = clientProvider.ifAvailable ?: return
-        runCatching {
-            client.fetchFeedbackUpdates(FetchFeedbackUpdatesRequest.newBuilder().setAfterSeq(0).setLimit(1).build())
-        }
+        runCatching { client.ping() }.onSuccess { lastServerVersion = it }
     }
 }
 
@@ -58,6 +61,7 @@ data class NodeHubConnectivity(
     val nodeId: String,
     val reachability: String,
     val reachable: Boolean,
+    val serverVersion: String?,
     val lastCheckedAt: Instant?,
     val lastReachableAt: Instant?,
     val lastUnreachableAt: Instant?,

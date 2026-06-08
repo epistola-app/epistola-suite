@@ -52,6 +52,7 @@ class SupportOverviewHandler(
             "UNREACHABLE" -> "Not connected"
             else -> "Unknown"
         },
+        serverVersion = serverVersion ?: "—",
         lastChecked = lastCheckedAt?.let { FORMATTER.format(it.atOffset(ZoneOffset.UTC)) } ?: "—",
         lastReachable = lastReachableAt?.let { FORMATTER.format(it.atOffset(ZoneOffset.UTC)) } ?: "—",
         error = lastError.orEmpty(),
@@ -61,6 +62,7 @@ class SupportOverviewHandler(
         val nodeId: String,
         val reachable: Boolean,
         val status: String,
+        val serverVersion: String,
         val lastChecked: String,
         val lastReachable: String,
         val error: String,
