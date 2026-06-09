@@ -62,32 +62,6 @@
                             </label>
                         </div>
                     </div>
-                    <style>
-                        /* Local radio sizing: base.css applies `font: inherit` to all inputs,
-                           which makes browsers scale radio glyphs with the surrounding font-size.
-                           Pin radios to a 1rem square so they look right anywhere in this form. */
-                        .constraint-radio-group {
-                            display: flex;
-                            flex-direction: column;
-                            gap: var(--ep-space-2);
-                            margin-top: var(--ep-space-2);
-                        }
-                        .constraint-radio-group label {
-                            display: flex;
-                            align-items: center;
-                            gap: var(--ep-space-2);
-                            font-size: var(--ep-text-sm);
-                            cursor: pointer;
-                        }
-                        .constraint-radio-group input[type="radio"] {
-                            width: 1rem;
-                            height: 1rem;
-                            flex: 0 0 1rem;
-                            margin: 0;
-                            font-size: 1rem;
-                        }
-                    </style>
-
                     <div class="form-group constraint-pane constraint-pane-inline"
                          th:classappend="${errors?.containsKey('allowedValues')} ? 'error' : ''"
                          data-constraint-pane="inline" hidden>

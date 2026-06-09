@@ -22,7 +22,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: var(--ep-bg-secondary);
+  background: var(--ep-background);
 }
 
 .error-page-card {
@@ -156,6 +156,31 @@ body {
   margin-bottom: var(--ep-space-2);
 }
 
+.source-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+  margin-top: var(--ep-space-2);
+}
+
+.source-radio-group label,
+.constraint-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+  cursor: pointer;
+}
+
+.source-radio-group input[type='radio'],
+.constraint-radio-group input[type='radio'] {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  margin: 0;
+  font-size: 1rem;
+}
+
 .loadtest-test-data-input {
   font-family: var(--ep-font-mono);
 }
@@ -201,6 +226,15 @@ body {
 .pagination-info {
   color: var(--ep-muted-foreground);
   font-size: var(--ep-text-sm);
+}
+
+/* ── Attribute forms ───────────────────────────────────────────────────── */
+
+.constraint-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+  margin-top: var(--ep-space-2);
 }
 
 /* ── Login page ───────────────────────────────────────────────────────── */
@@ -2075,4 +2109,139 @@ body {
   background: var(--ep-card);
   border: 1px dashed var(--ep-border-color);
   border-radius: var(--ep-radius-md);
+}
+
+/* ── Template editor page ──────────────────────────────────────────────── */
+
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.editor-container {
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+}
+
+.editor-nav {
+  height: 48px;
+  border-bottom: 1px solid var(--ep-border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--ep-space-6);
+  background: var(--ep-white);
+  flex-shrink: 0;
+  gap: var(--ep-space-3);
+}
+
+.editor-nav-back {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  text-decoration: none;
+  color: var(--ep-foreground);
+  font-weight: 600;
+  font-size: var(--ep-text-sm);
+}
+
+.editor-nav-back:hover {
+  color: var(--ep-primary);
+  text-decoration: none;
+}
+
+.editor-nav-back .ep-icon {
+  color: var(--ep-muted-foreground);
+}
+
+.editor-nav-back:hover .ep-icon {
+  color: var(--ep-primary);
+}
+
+.editor-nav-variant {
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+}
+
+/* ── API problem type page ─────────────────────────────────────────────── */
+
+.problem-type-page-body {
+  margin: 0;
+  background: var(--ep-background);
+  color: var(--ep-foreground);
+}
+
+.problem-type-page-main {
+  max-width: var(--ep-max-width-base);
+  margin: 0 auto;
+  padding: var(--ep-space-12) var(--ep-space-6);
+}
+
+.problem-type-card {
+  background: var(--ep-card);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-xl);
+  padding: var(--ep-space-8);
+}
+
+.problem-type-eyebrow {
+  color: var(--ep-muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.problem-type-title {
+  font-size: var(--ep-text-3xl);
+  line-height: 1.05;
+  margin: var(--ep-space-2) 0 var(--ep-space-4);
+}
+
+.problem-type-inline-code {
+  background: var(--ep-blue-50);
+  border-radius: var(--ep-radius-sm);
+  color: var(--ep-blue-800);
+  padding: var(--ep-space-0-5) var(--ep-space-1-5);
+}
+
+.problem-type-details {
+  display: grid;
+  gap: var(--ep-space-4);
+  grid-template-columns: max-content 1fr;
+  margin: var(--ep-space-7) 0;
+}
+
+.problem-type-details dt {
+  color: var(--ep-muted-foreground);
+  font-weight: 700;
+}
+
+.problem-type-details dd {
+  margin: 0;
+}
+
+.problem-type-extensions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+  padding: 0;
+}
+
+.problem-type-extensions li {
+  background: var(--ep-muted);
+  border-radius: var(--ep-radius-full);
+  list-style: none;
+  padding: var(--ep-space-1) var(--ep-space-2-5);
+}
+
+.problem-type-example {
+  background: var(--ep-gray-950);
+  border-radius: var(--ep-radius-xl);
+  color: var(--ep-gray-100);
+  overflow-x: auto;
+  padding: var(--ep-space-5);
 }

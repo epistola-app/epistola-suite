@@ -152,29 +152,6 @@
                         </label>
                     </div>
                 </div>
-                <style>
-                    /* See attributes/new.html for why we pin radio size locally. */
-                    .constraint-radio-group {
-                        display: flex;
-                        flex-direction: column;
-                        gap: var(--ep-space-2);
-                        margin-top: var(--ep-space-2);
-                    }
-                    .constraint-radio-group label {
-                        display: flex;
-                        align-items: center;
-                        gap: var(--ep-space-2);
-                        font-size: var(--ep-text-sm);
-                        cursor: pointer;
-                    }
-                    .constraint-radio-group input[type="radio"] {
-                        width: 1rem;
-                        height: 1rem;
-                        flex: 0 0 1rem;
-                        margin: 0;
-                        font-size: 1rem;
-                    }
-                </style>
                 <div class="form-group constraint-pane" data-constraint-pane="inline">
                     <label class="ep-label" for="edit-attr-allowedValues">Allowed values (one per line)</label>
                     <textarea id="edit-attr-allowedValues" name="allowedValues" class="ep-textarea" rows="4"
