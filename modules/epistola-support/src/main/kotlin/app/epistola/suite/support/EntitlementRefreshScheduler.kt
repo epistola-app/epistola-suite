@@ -6,11 +6,13 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
- * Periodically refreshes the hub entitlement set so changes (new grants, revocations, expiries)
- * propagate without a restart. The initial fetch happens right after registration (see
- * [SupportConfiguration]); this keeps it current. Last-known-good is preserved on failure. Every
- * node refreshes its own shared `app_metadata` row idempotently, so no [app.epistola.suite.scheduling.SchedulerLock]
- * is needed. Active only when the support tier is enabled.
+ * Backstop refresh of the hub entitlement set. Changes normally propagate near-instantly via the
+ * revision header the hub stamps on every response (see [EntitlementRevisionTrigger]), and the
+ * initial fetch happens right after registration; this poll is the safety net for an installation
+ * with no other hub traffic and for recovering after an outage — hence a long default (6h).
+ * Last-known-good is preserved on failure. Every node refreshes its own shared `app_metadata` row
+ * idempotently, so no [app.epistola.suite.scheduling.SchedulerLock] is needed. Active only when the
+ * support tier is enabled.
  */
 @Component
 @EnableScheduling
@@ -18,7 +20,7 @@ import org.springframework.stereotype.Component
 class EntitlementRefreshScheduler(
     private val entitlementSync: EntitlementSyncService,
 ) {
-    @Scheduled(fixedDelayString = "\${epistola.support.entitlements.refresh-ms:3600000}")
+    @Scheduled(fixedDelayString = "\${epistola.support.entitlements.refresh-ms:21600000}")
     fun refresh() {
         entitlementSync.refresh()
     }
