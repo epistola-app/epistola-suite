@@ -46,10 +46,18 @@
                 </tbody>
             </table>
 
-            <h2 class="section-title">Entitlements</h2>
+            <div class="page-header">
+                <h2 class="section-title">Entitlements</h2>
+                <div class="page-actions">
+                    <form th:action="@{/tenants/{tenantId}/support/entitlements/refresh(tenantId=${tenantId})}" method="post">
+                        <button type="submit" class="ep-btn ep-btn-secondary">Refresh</button>
+                    </form>
+                </div>
+            </div>
             <p class="page-description">
                 Managed-services features the Epistola hub has configured for this installation. Only
                 configured features appear here; a feature with no entry is not part of your plan.
+                Entitlements refresh automatically; use Refresh to pull changes immediately.
                 <span th:if="${entitlementsFetchedAt}">
                     Last updated <span th:text="${entitlementsFetchedAt}">2026-01-01 02:00 UTC</span>.
                 </span>

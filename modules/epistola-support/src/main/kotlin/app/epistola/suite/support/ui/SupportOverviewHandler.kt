@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.support.EntitlementEffect
+import app.epistola.suite.support.EntitlementSyncService
 import app.epistola.suite.support.HubConnectivityService
 import app.epistola.suite.support.NodeHubConnectivity
 import app.epistola.suite.support.StoredEntitlement
@@ -29,6 +30,7 @@ import java.time.format.DateTimeFormatter
 class SupportOverviewHandler(
     private val connectivity: HubConnectivityService,
     private val entitlements: ObjectProvider<SupportEntitlementService>,
+    private val entitlementSync: ObjectProvider<EntitlementSyncService>,
 ) {
     fun overview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -54,6 +56,15 @@ class SupportOverviewHandler(
             "entitlements" to entitlementRows
             "entitlementsFetchedAt" to entitlementsFetchedAt
         }
+    }
+
+    /** Forces an immediate entitlement refresh from the hub, then returns to the overview. */
+    fun refreshEntitlements(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        // No-op when the support tier is off (no sync bean) — the page just reloads.
+        entitlementSync.ifAvailable?.refresh()
+        return ServerResponse.ok().header("HX-Redirect", "/tenants/${tenantId.key.value}/support").build()
     }
 
     private fun StoredEntitlement.toView(): EntitlementRowView = EntitlementRowView(

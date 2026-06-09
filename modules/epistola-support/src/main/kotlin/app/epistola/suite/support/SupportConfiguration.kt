@@ -139,9 +139,13 @@ class SupportConfiguration {
      */
     @Bean
     fun startHubRegistration(
+        client: EpistolaHubClient,
         loop: HubRegistrationRetryLoop,
         entitlementSync: EntitlementSyncService,
+        revisionTrigger: EntitlementRevisionTrigger,
     ): ApplicationListener<ApplicationReadyEvent> = ApplicationListener {
+        // Refresh entitlements whenever the hub reports a newer revision on any response header.
+        client.addEntitlementsRevisionListener { revision -> revisionTrigger.observe(revision) }
         loop.start()
         // If the inline registration above succeeded, credentials now exist and we fetch the
         // entitlement set immediately; otherwise this is a quiet no-op and the periodic

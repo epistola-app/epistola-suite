@@ -21,9 +21,14 @@ data class StoredEntitlement(
     val expiresAt: Instant?,
 )
 
-/** The last-known-good entitlement set pulled from the hub, with the time it was fetched. */
+/**
+ * The last-known-good entitlement set pulled from the hub, with the [revision] it corresponds to
+ * (used to decide when a hub-signalled change warrants a refresh) and the time it was fetched.
+ * [revision] defaults to 0 so a set stored before revisions existed still deserializes.
+ */
 data class StoredEntitlements(
     val entries: List<StoredEntitlement>,
+    val revision: Long = 0,
     val fetchedAt: Instant,
 )
 

@@ -14,6 +14,7 @@ class SupportOverviewRoutes(
     fun supportOverviewRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/support".nest {
             GET("", handler::overview)
+            POST("/entitlements/refresh", handler::refreshEntitlements)
         }
     }
 }

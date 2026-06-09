@@ -27,9 +27,9 @@ class EntitlementSyncService(
 
     fun refresh() {
         try {
-            val entries = client.getEntitlements().map { it.toStored() }
-            store.save(StoredEntitlements(entries, Instant.now()))
-            log.debug("Refreshed entitlements from hub: {} entr(ies)", entries.size)
+            val set = client.getEntitlements()
+            store.save(StoredEntitlements(set.entitlements.map { it.toStored() }, set.revision, Instant.now()))
+            log.debug("Refreshed entitlements from hub: {} entr(ies), revision {}", set.entitlements.size, set.revision)
         } catch (e: HubUnauthenticatedException) {
             log.debug("Not registered with the hub yet; skipping entitlement refresh: {}", e.message)
         } catch (e: HubUnavailableException) {
