@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Feedback</h1>
             <div class="page-actions">
                 <a th:href="@{/tenants/{tenantId}/feedback/sync(tenantId=${tenantId})}"
-                   class="ep-btn ep-btn-outline ep-btn-sm">
-                    Sync Settings
+                   class="ep-btn ep-btn-outline">
+                   Sync Settings
                 </a>
                 <button type="button" class="ep-btn ep-btn-primary"
                         hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
@@ -18,10 +18,10 @@
                     New Feedback
                 </button>
             </div>
-        </div>
+        </section>
 
         <!-- Filters -->
-        <div class="form-row form-row-section">
+        <section class="form-row form-row-section">
             <select class="ep-select form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
@@ -42,15 +42,15 @@
                 <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${c.name()}"
                         th:selected="${selectedCategory != null && selectedCategory.name() == c.name()}">CATEGORY</option>
             </select>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No feedback yet</div>
             <div class="empty-state-description">Submit feedback to report issues, request features, or ask questions.</div>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(feedbackItems)}" class="ep-table">
             <thead>

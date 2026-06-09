@@ -6,9 +6,11 @@
             <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}">Attributes</a> &raquo; <span>New Attribute</span>
         </nav>
 
-        <h1>New Attribute</h1>
+        <section class="page-header">
+            <h1>New Attribute</h1>
+        </section>
 
-        <div class="card card-narrow">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
@@ -131,7 +133,7 @@
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

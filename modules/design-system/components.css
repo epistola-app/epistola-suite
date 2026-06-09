@@ -188,6 +188,11 @@
     padding: var(--ep-space-6);
   }
 
+  .card-row {
+    display: flex;
+    gap: var(--ep-space-6);
+  }
+
   .card-footer {
     display: flex;
     align-items: center;
@@ -647,10 +652,16 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--ep-space-6);
 
-    & h1 {
-      margin: 0;
+    & .with-subtitle {
+      display: flex;
+      flex-direction: column;
+      gap: var(--ep-space-1);
+
+      & p {
+        font-size: var(--ep-text-sm);
+        color: var(--ep-muted-foreground);
+      }
     }
   }
 

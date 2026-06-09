@@ -9,23 +9,23 @@
             <span>Request Log</span>
         </nav>
 
-        <div class="page-header">
+        <section class="page-header">
             <h1>Request Log</h1>
             <div class="page-actions">
                 <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
                    class="ep-btn ep-btn-outline">Back to Test Details</a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(requests)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(requests)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No request data</div>
             <div class="empty-state-description">No request log entries are available for this test run.</div>
-        </div>
+        </section>
 
-        <div th:if="${!#lists.isEmpty(requests)}">
+        <section th:if="${!#lists.isEmpty(requests)}">
             <table class="ep-table">
                 <thead>
                     <tr>
@@ -76,7 +76,7 @@
                     Next
                 </a>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

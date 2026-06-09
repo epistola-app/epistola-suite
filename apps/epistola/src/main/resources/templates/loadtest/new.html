@@ -7,15 +7,17 @@
             <span>New Load Test</span>
         </nav>
 
-        <h1>New Load Test</h1>
+        <section class="page-header">
+            <h1>New Load Test</h1>
+        </section>
 
-        <div id="form-error">
+        <section id="form-error">
             <div th:if="${error}" class="alert alert-error loadtest-error">
                 <strong>Error:</strong> <span th:text="${error}"></span>
             </div>
-        </div>
+        </section>
 
-        <div class="card card-medium">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
@@ -65,9 +67,9 @@
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
 
-        <div class="card page-section loadtest-info-section">
+        <section class="card page-section">
             <div class="card-header-row">
                 <h2>Load Test Information</h2>
             </div>
@@ -80,7 +82,7 @@
                     <li><strong>Version vs Environment:</strong> Specify either an explicit version or an environment, not both</li>
                 </ul>
             </div>
-        </div>
+        </section>
     </th:block>
 
     <!--/* Error fragment: shown when form submission fails */-->

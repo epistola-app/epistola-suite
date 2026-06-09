@@ -3,11 +3,11 @@
 <body>
     <th:block th:fragment="content">
 
-        <div class="page-header">
+        <section class="page-header">
             <h1 data-testid="page-title">Consumers</h1>
-        </div>
+        </section>
 
-        <div th:fragment="results"
+        <section th:fragment="results"
              id="consumer-results"
              th:hx-get="@{/tenants/{tenantId}/consumers/refresh(tenantId=${tenantId})}"
              hx-trigger="every 10s"
@@ -35,7 +35,7 @@
                 </div>
             </div>
 
-            <div th:if="${#lists.isEmpty(report.consumers)}" class="empty-state">
+            <section th:if="${#lists.isEmpty(report.consumers)}" class="empty-state">
                 <div class="empty-state-icon">
                     <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon ep-icon-xl')}" />
                 </div>
@@ -44,12 +44,12 @@
                     No API keys have been issued for this tenant. Once an API key is issued and
                     a client starts polling, it will appear here.
                 </div>
-            </div>
+            </section>
 
-            <div th:if="${!#lists.isEmpty(report.consumers)}" class="consumer-toolbar">
+            <section th:if="${!#lists.isEmpty(report.consumers)}" class="consumer-toolbar">
                 <button type="button" class="consumer-toolbar-btn" id="consumer-expand-all">Expand all</button>
                 <button type="button" class="consumer-toolbar-btn" id="consumer-collapse-all">Collapse all</button>
-            </div>
+            </section>
 
             <details th:each="consumer : ${report.consumers}"
                      th:id="'consumer-' + ${consumer.consumerId}"
@@ -182,7 +182,7 @@
                 });
             })();
             </script>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

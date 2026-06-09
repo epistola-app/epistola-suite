@@ -6,9 +6,11 @@
             <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo; <span>New Template</span>
         </nav>
 
-        <h1>New Template</h1>
+        <section class="page-header">
+            <h1>New Template</h1>
+        </section>
 
-        <div class="card card-narrow">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post">
                     <div class="form-group">
@@ -42,7 +44,7 @@
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

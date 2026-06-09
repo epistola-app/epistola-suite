@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1 data-testid="page-title">Generation History</h1>
-        </div>
+        </section>
 
         <!-- Statistics -->
-        <div class="stats-grid gen-dashboard-stats">
+        <section class="stats-grid gen-dashboard-stats">
             <div class="card card-interactive stat-card">
                 <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
                 <div class="stat-card-label">Total Generated</div>
@@ -24,18 +24,18 @@
                 <div class="stat-card-value" th:text="${stats.failed}">0</div>
                 <div class="stat-card-label">Failed</div>
             </div>
-        </div>
+        </section>
 
         <!-- Most Used Templates -->
         <section class="gen-dashboard-section">
             <h2>Most Used Templates</h2>
-            <div th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
+            <section th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
                 <div class="empty-state-icon">
                     <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                 </div>
                 <div class="empty-state-title">No template usage data</div>
                 <div class="empty-state-description">Generate some documents to see template usage statistics.</div>
-            </div>
+            </section>
             <table th:if="${!#lists.isEmpty(templateUsage)}" class="ep-table">
                 <thead>
                     <tr>

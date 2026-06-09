@@ -2,15 +2,17 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <h1>Defaults</h1>
+        <section class="page-header">
+            <h1>Defaults</h1>
+        </section>
 
-        <div class="alert alert-success" th:if="${param.saved}">
+        <section class="alert alert-success" th:if="${param.saved}">
             Defaults saved successfully.
-        </div>
+        </section>
 
-        <div class="alert alert-error" th:if="${error}" th:text="${error}"></div>
+        <section class="alert alert-error" th:if="${error}" th:text="${error}"></section>
 
-        <div class="card">
+        <section class="card">
             <div class="card-header">
                 <h2>Default locale</h2>
                 <p class="subtitle">
@@ -50,7 +52,7 @@
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

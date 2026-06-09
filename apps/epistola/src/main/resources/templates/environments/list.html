@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Environments</h1>
             <div class="page-actions">
                 <div th:replace="~{fragments/search :: search-box(
@@ -16,9 +16,9 @@
                     New Environment
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(environments)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -29,7 +29,7 @@
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Environment
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
             <thead>

@@ -8,7 +8,7 @@
                 <span th:text="${codeList.displayName}"></span>
             </nav>
 
-            <div class="page-header">
+            <section class="page-header">
                 <div>
                     <h1 th:text="${codeList.displayName}"></h1>
                     <div class="page-subtitle">
@@ -35,27 +35,27 @@
                         Delete
                     </button>
                 </div>
-            </div>
+            </section>
 
-            <div th:if="${error != null}" class="alert alert-error code-list-error">
+            <section th:if="${error != null}" class="alert alert-error code-list-error">
                 <span th:text="${error}"></span>
-            </div>
+            </section>
 
             <p th:if="${codeList.description != null}" class="code-list-description" th:text="${codeList.description}"></p>
 
-            <div th:if="${codeList.lastRefreshedAt != null}" class="code-list-refresh-info">
+            <section th:if="${codeList.lastRefreshedAt != null}" class="code-list-refresh-info">
                 Last refreshed
                 <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                 <th:block th:if="${codeList.lastRefreshError != null}">
                     &mdash; last attempt failed: <span th:text="${codeList.lastRefreshError}"></span>
                 </th:block>
-            </div>
+            </section>
 
-            <div class="code-list-toggle">
+            <section class="code-list-toggle">
                 <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
                    class="ep-btn ep-btn-outline ep-btn-sm"
                    th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>
-            </div>
+            </section>
 
             <table class="ep-table">
                 <thead>

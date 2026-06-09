@@ -6,9 +6,11 @@
             <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Environments</a> &raquo; <span>New Environment</span>
         </nav>
 
-        <h1>New Environment</h1>
+        <section class="page-header">
+            <h1>New Environment</h1>
+        </section>
 
-        <div class="card card-narrow">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" method="post">
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
@@ -34,7 +36,7 @@
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

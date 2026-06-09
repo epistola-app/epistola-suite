@@ -268,8 +268,7 @@
 
 /* ── Main content area ───────────────────────────────────────────────── */
 
-.main-content,
-main.regular {
+.main-content {
   flex: 1;
   max-width: var(--ep-max-width-base);
   margin: var(--ep-space-8) auto;
@@ -277,20 +276,12 @@ main.regular {
   width: 100%;
 }
 
-.main-content h1,
-main.regular h1 {
-  margin-bottom: var(--ep-space-6);
-}
-
-.main-content h2,
-main.regular h2 {
-  margin-bottom: var(--ep-space-4);
-  font-size: var(--ep-text-xl);
-}
-
-.main-content section,
-main.regular section {
+.main-content section {
   margin-bottom: var(--ep-space-8);
+
+  & > * {
+    margin-bottom: var(--ep-space-4);
+  }
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────── */

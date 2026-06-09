@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Catalogs</h1>
             <div class="page-actions">
                 <button type="button" class="ep-btn ep-btn-outline"
@@ -22,12 +22,13 @@
                     New Catalog
                 </button>
             </div>
-        </div>
+        </section>
 
-        <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
+        <section class="alert alert-success" th:if="${saved}" data-testid="alert-success">
             Catalog settings updated successfully.
-        </div>
-        <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+        </section>
+
+        <section class="alert alert-danger" th:if="${error != null}" th:text="${error}"></section>
 
         <!-- Single, always-present swap region for every list mutation
              (create / remove / release / upgrade). It contains *either* the
@@ -36,15 +37,16 @@
              (which the browser's fragment parser relocates). `oob` toggles
              out-of-band replacement when the dialog fragment is the primary
              response. -->
-        <div id="catalog-list" th:fragment="catalog-list"
+        <section id="catalog-list" th:fragment="catalog-list"
              th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
-        <div th:if="${catalogs.isEmpty()}" class="empty-state">
+             
+        <section th:if="${catalogs.isEmpty()}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No catalogs yet</div>
             <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
-        </div>
+        </section>
 
         <table th:if="${!catalogs.isEmpty()}" class="ep-table">
             <thead>
@@ -128,7 +130,7 @@
                 </tr>
             </tbody>
         </table>
-        </div>
+        </section>
         <!-- /#catalog-list -->
 
         <!-- Create Catalog Dialog -->

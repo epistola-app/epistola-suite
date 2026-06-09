@@ -7,9 +7,11 @@
             <span>New code list</span>
         </nav>
 
-        <h1>New code list</h1>
+        <section class="page-header">
+            <h1>New code list</h1>
+        </section>
 
-        <div id="code-list-form-area" class="card card-narrow" th:fragment="form-card">
+        <div id="code-list-form-area" class="card" th:fragment="form-card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
                       method="post" id="code-list-form">

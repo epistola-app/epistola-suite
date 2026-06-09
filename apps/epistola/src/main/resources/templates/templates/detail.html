@@ -5,7 +5,7 @@
         <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
         <script th:src="@{/js/pdf-preview.js}"></script>
 
-        <div class="page-header">
+        <section class="page-header">
             <div>
                 <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
                 <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
@@ -13,7 +13,7 @@
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>
             </div>
-        </div>
+        </section>
 
         <!-- Tab Navigation -->
         <div class="tab-nav">

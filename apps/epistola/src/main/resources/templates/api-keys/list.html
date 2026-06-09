@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>API Keys</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_USERS')}"
@@ -11,13 +11,13 @@
                     New API key
                 </a>
             </div>
-        </div>
+        </section>
 
-        <p class="api-keys-description">
-            API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.
-        </p>
+        <section>
+            <p>API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.</p>
+        </section>
 
-        <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='key', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -28,7 +28,7 @@
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New API key
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">
             <thead>

@@ -6,9 +6,11 @@
             <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}">Fonts</a> &raquo; <span>Upload Font</span>
         </nav>
 
-        <h1>Upload Font</h1>
+        <section class="page-header">
+            <h1>Upload Font</h1>
+        </section>
 
-        <div class="card card-narrow">
+        <section class="card">
             <div class="card-content">
                 <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
@@ -74,7 +76,7 @@
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
 
         <script>
             var fontFaces = document.getElementById('font-faces');

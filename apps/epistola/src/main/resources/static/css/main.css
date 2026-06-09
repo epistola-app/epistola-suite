@@ -1196,21 +1196,6 @@ body {
   display: inline;
 }
 
-/* ── API keys list page ──────────────────────────────────────────────── */
-
-.api-keys-description {
-  color: var(--ep-muted-foreground);
-  margin-bottom: var(--ep-space-4);
-}
-
-.api-key-name {
-  font-weight: 500;
-}
-
-.api-key-empty {
-  color: var(--ep-muted-foreground);
-}
-
 /* ── Asset upload page ───────────────────────────────────────────────── */
 
 .upload-hint {
@@ -1767,30 +1752,6 @@ body {
 
 .theme-form {
   display: inline;
-}
-
-/* ── API key created page ────────────────────────────────────────────── */
-
-.api-key-created-alert {
-  margin-bottom: var(--ep-space-4);
-}
-
-.api-key-row {
-  display: flex;
-  gap: var(--ep-space-2);
-}
-
-.api-key-secret-input {
-  font-family: var(--ep-font-mono);
-  flex: 1;
-}
-
-.api-key-attributes {
-  margin-top: var(--ep-space-4);
-}
-
-.api-key-actions {
-  margin-top: var(--ep-space-4);
 }
 
 /* ── Contract breaking dialog ────────────────────────────────────────── */

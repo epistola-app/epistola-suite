@@ -7,7 +7,7 @@
             <span th:text="${'Test ' + run.id}">Test Details</span>
         </nav>
 
-        <div class="page-header">
+        <section class="page-header">
             <h1>
                 Load Test
                 <span class="badge"
@@ -31,10 +31,10 @@
                     <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
                 </form>
             </div>
-        </div>
+        </section>
 
         <!-- Configuration -->
-        <div class="card page-section">
+        <section class="card page-section">
             <div class="card-header-row">
                 <h2>Configuration</h2>
             </div>
@@ -65,10 +65,10 @@
                     <dd th:if="${run.completedAt != null}" th:text="${#temporals.format(run.completedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
                 </dl>
             </div>
-        </div>
+        </section>
 
         <!-- Metrics section (polled for updates when RUNNING) -->
-        <div id="metrics-section"
+        <section id="metrics-section"
              th:fragment="metrics-section"
              th:hx-get="${run.status.name() == 'RUNNING'} ? @{/tenants/{tenantId}/load-tests/{runId}/metrics(tenantId=${tenantId},runId=${run.id})} : ''"
              th:hx-trigger="${run.status.name() == 'RUNNING'} ? 'every 2s' : ''"
@@ -94,7 +94,7 @@
             </div>
 
             <!-- Results (shown when COMPLETED or FAILED) -->
-            <div th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="card page-section">
+            <section th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="card page-section">
                 <div class="card-header-row">
                     <h2>Results</h2>
                 </div>
@@ -170,10 +170,10 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Error Summary (if any failures) -->
-            <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="card page-section">
+            <section th:if="${run.failedCount > 0 and run.errorSummary != null}" class="card page-section">
                 <div class="card-header-row">
                     <h2>Error Summary</h2>
                 </div>
@@ -193,8 +193,8 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </div>
+            </section>
+        </section>
     </th:block>
 </body>
 </html>

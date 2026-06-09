@@ -10,7 +10,7 @@
 
         <div id="feedback-content">
             <th:block th:fragment="feedback-content">
-                <div class="page-header">
+                <section class="page-header">
                     <h1 th:text="${feedback.title}">Feedback Title</h1>
                     <div class="page-actions" th:if="${isManager}">
                         <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
@@ -24,34 +24,34 @@
                             <button type="submit" class="ep-btn ep-btn-outline">Update Status</button>
                         </form>
                     </div>
-                </div>
+                </section>
 
-                <div class="feedback-badges">
+                <section class="feedback-badges">
                     <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: category-badge(${feedback.category})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${feedback.priority})}" />
                     <span class="feedback-date"
                           th:text="'Submitted ' + ${#temporals.format(feedback.createdAt, 'yyyy-MM-dd HH:mm')}">Submitted 2026-01-01</span>
-                </div>
+                </section>
 
                 <!-- Description -->
-                <div class="card">
+                <section class="card">
                     <div class="card-content">
                         <h3>Description</h3>
                         <div class="feedback-description" th:text="${feedback.description}">Description text</div>
                     </div>
-                </div>
+                </section>
 
                 <!-- Source URL -->
-                <div th:if="${feedback.sourceUrl != null}" class="card">
+                <section th:if="${feedback.sourceUrl != null}" class="card">
                     <div class="card-content">
                         <h3>Source URL</h3>
                         <code class="feedback-url" th:text="${feedback.sourceUrl}">https://example.com</code>
                     </div>
-                </div>
+                </section>
 
                 <!-- Screenshots -->
-                <div th:if="${!#lists.isEmpty(assets)}" class="card">
+                <section th:if="${!#lists.isEmpty(assets)}" class="card">
                     <div class="card-content">
                         <h3 th:text="${#lists.size(assets) == 1} ? 'Screenshot' : 'Screenshots'">Screenshot</h3>
                         <div th:each="asset : ${assets}" class="feedback-screenshot">
@@ -60,28 +60,28 @@
                                  class="feedback-screenshot-img">
                         </div>
                     </div>
-                </div>
+                </section>
 
                 <!-- Client Metadata -->
-                <div th:if="${feedback.metadata != null}" class="card">
+                <section th:if="${feedback.metadata != null}" class="card">
                     <div class="card-content">
                         <h3>Client Information</h3>
                         <pre class="feedback-code-block feedback-code-block--short"
                              th:text="${feedback.metadata}">Metadata</pre>
                     </div>
-                </div>
+                </section>
 
                 <!-- Console Logs -->
-                <div th:if="${feedback.consoleLogs != null}" class="card">
+                <section th:if="${feedback.consoleLogs != null}" class="card">
                     <div class="card-content">
                         <h3>Console Logs</h3>
                         <pre class="feedback-code-block feedback-code-block--tall"
                              th:text="${feedback.consoleLogs}">Console output</pre>
                     </div>
-                </div>
+                </section>
 
                 <!-- Comments section -->
-                <div id="comments-section">
+                <section id="comments-section">
                     <th:block th:fragment="comments-section">
                         <h3 class="comments-heading">
                             Comments
@@ -121,7 +121,7 @@
                             </div>
                         </form>
                     </th:block>
-                </div>
+                </section>
             </th:block>
         </div>
     </th:block>

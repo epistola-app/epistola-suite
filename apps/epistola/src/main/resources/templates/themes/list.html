@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Themes</h1>
             <div class="page-actions">
                 <div th:replace="~{fragments/search :: search-box(
@@ -16,9 +16,9 @@
                     New Theme
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -35,9 +35,9 @@
                     window.location.href = url;
                 });
             </script>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(themes)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(themes)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='palette', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -48,7 +48,7 @@
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Theme
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(themes)}" class="ep-table">
             <thead>

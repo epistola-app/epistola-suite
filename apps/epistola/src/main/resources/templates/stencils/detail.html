@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <div>
                 <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" class="back-link">&larr; Stencils</a>
                 <h1 th:text="${stencil.name}">Stencil Name</h1>
@@ -10,10 +10,10 @@
                     <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
                 </p>
             </div>
-        </div>
+        </section>
 
         <!-- Details -->
-        <div class="card page-section">
+        <section class="card page-section">
             <div class="card-content">
                 <dl class="description-list">
                     <dt>ID</dt>
@@ -36,10 +36,10 @@
                     <dd th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
                 </dl>
             </div>
-        </div>
+        </section>
 
         <!-- Versions section -->
-        <div class="card page-section">
+        <section class="card page-section">
             <div class="card-header-row">
                 <h3>Versions</h3>
             </div>
@@ -110,10 +110,10 @@
                     </div>
                 </th:block>
             </div>
-        </div>
+        </section>
 
         <!-- Usage section -->
-        <div class="card page-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
+        <section class="card page-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
             <div class="card-header-row">
                 <h3>Templates using this stencil</h3>
             </div>
@@ -270,7 +270,7 @@
                     </script>
                 </th:block>
             </div>
-        </div>
+        </section>
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
 </body>

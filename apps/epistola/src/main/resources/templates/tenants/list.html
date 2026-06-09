@@ -8,10 +8,12 @@
     <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body>
-    <main class="regular">
-        <h1 data-testid="page-title">Tenants</h1>
+    <main class="main-content">
+        <section class="page-header">
+            <h1 data-testid="page-title">Tenants</h1>
+        </section>
 
-        <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
+        <section id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="card page-section">
                 <div class="card-content">
                     <h2>Create New Tenant</h2>
@@ -39,7 +41,7 @@
                 </form>
                 </div>
             </section>
-        </div>
+        </section>
 
         <section>
             <h2>Existing Tenants</h2>

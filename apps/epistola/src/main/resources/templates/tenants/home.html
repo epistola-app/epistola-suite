@@ -2,54 +2,56 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <div>
+        <section class="page-header">
+            <div class="with-subtitle">
                 <h1 data-testid="page-title" th:text="${tenant.name}">Tenant Name</h1>
                 <p class="subtitle" th:text="'ID: ' + ${tenant.id}">ID: tenant-id</p>
             </div>
-        </div>
+        </section>
 
         <!-- What's New compact teaser (always shown, emphasized when unseen) -->
-        <div th:if="${changelogSummary != null}"
-             id="whats-new-banner"
-             class="whats-new-card"
-             th:classappend="${changelogIsNew} ? 'whats-new-unseen'">
-            <div class="whats-new-row">
-                <div class="whats-new-info">
-                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
-                    <span th:if="${changelogIsNew}">
-                        <strong>What's New in v<span th:text="${changelogVersion}">0.12.0</span></strong>
-                    </span>
-                    <span th:unless="${changelogIsNew}">
-                        <span th:text="'Latest: v' + ${changelogVersion}">Latest: v0.12.0</span>
-                    </span>
-                    <span class="whats-new-summary" th:text="${changelogSummary}">6 new features, 1 fix</span>
-                </div>
-                <div class="whats-new-actions">
-                    <button type="button"
-                            class="link-button"
-                            onclick="document.getElementById('changelog-dialog').showModal()"
-                            th:hx-get="@{/changelog}"
-                            hx-target="#changelog-dialog-content"
-                            hx-swap="innerHTML"
-                            hx-trigger="click once">
-                        View details
-                    </button>
-                    <button th:if="${changelogIsNew}"
-                            type="button"
-                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                            th:hx-post="@{/changelog/acknowledge}"
-                            hx-target="#whats-new-banner"
-                            hx-swap="outerHTML"
-                            aria-label="Dismiss">
-                        <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon ep-icon-sm')}" />
-                    </button>
+        <section>
+            <div th:if="${changelogSummary != null}"
+                 id="whats-new-banner"
+                 class="whats-new-card"
+                 th:classappend="${changelogIsNew} ? 'whats-new-unseen'">
+                <div class="whats-new-row">
+                    <div class="whats-new-info">
+                        <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                        <span th:if="${changelogIsNew}">
+                            <strong>What's New in v<span th:text="${changelogVersion}">0.12.0</span></strong>
+                        </span>
+                        <span th:unless="${changelogIsNew}">
+                            <span th:text="'Latest: v' + ${changelogVersion}">Latest: v0.12.0</span>
+                        </span>
+                        <span class="whats-new-summary" th:text="${changelogSummary}">6 new features, 1 fix</span>
+                    </div>
+                    <div class="whats-new-actions">
+                        <button type="button"
+                                class="link-button"
+                                onclick="document.getElementById('changelog-dialog').showModal()"
+                                th:hx-get="@{/changelog}"
+                                hx-target="#changelog-dialog-content"
+                                hx-swap="innerHTML"
+                                hx-trigger="click once">
+                            View details
+                        </button>
+                        <button th:if="${changelogIsNew}"
+                                type="button"
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                                th:hx-post="@{/changelog/acknowledge}"
+                                hx-target="#whats-new-banner"
+                                hx-swap="outerHTML"
+                                aria-label="Dismiss">
+                            <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon ep-icon-sm')}" />
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="dashboard-grid">
-            <div class="stats-grid">
+        <section class="dashboard-grid">
+            <section class="stats-grid">
                 <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="card card-interactive stat-card">
                     <div class="stat-card-value" th:text="${templateCount}">0</div>
                     <div class="stat-card-label">Templates</div>
@@ -66,9 +68,9 @@
                     <div class="stat-card-value" th:text="${loadTestCount}">0</div>
                     <div class="stat-card-label">Load Tests</div>
                 </a>
-            </div>
+            </section>
 
-            <div class="dashboard-actions">
+            <section class="dashboard-actions">
                 <h2>Quick Actions</h2>
                 <div class="quick-links">
                     <a th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
@@ -88,8 +90,8 @@
                         Generate Document
                     </a>
                 </div>
-            </div>
-        </div>
+            </section>
+        </section>
     </th:block>
 </body>
 </html>
