@@ -65,6 +65,17 @@ class SuiteNodeRegistryIT : IntegrationTestBase() {
         assertThat(activeNodeIds).doesNotContain("stale-node")
     }
 
+    @Test
+    fun `all nodes includes stale heartbeats`() {
+        deleteNode("stale-node")
+        registry.heartbeat()
+        insertNode("stale-node", OffsetDateTime.now().minusMinutes(2))
+
+        val nodeIds = registry.allNodes().map { it.nodeId }
+
+        assertThat(nodeIds).contains(nodeIdentity.nodeId, "stale-node")
+    }
+
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM suite_nodes WHERE node_id = :nodeId")

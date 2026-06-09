@@ -91,6 +91,18 @@ class SuiteNodeRegistry(
         }
     }
 
+    fun allNodes(): List<SuiteNode> = jdbi.withHandle<List<SuiteNode>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT node_id, capabilities::text, version, joined_at, last_seen_at, metadata::text
+            FROM suite_nodes
+            ORDER BY last_seen_at DESC, node_id
+            """,
+        )
+            .map { rs, _ -> mapNode(rs) }
+            .list()
+    }
+
     private fun mapNode(rs: java.sql.ResultSet): SuiteNode = SuiteNode(
         nodeId = rs.getString("node_id"),
         capabilities = readCapabilities(rs.getString("capabilities")),
