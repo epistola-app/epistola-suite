@@ -7,6 +7,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.support.hubFeatureCall
 import app.epistola.suite.support.logTo
+import app.epistola.suite.support.upgrading.ConditionalOnSupportUpgradingModule
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.upgrading.CompatibilityCheckResult
 import app.epistola.suite.upgrading.CompatibilitySyncPort
@@ -23,6 +24,7 @@ import java.time.format.DateTimeFormatter
  * Epistola version that was tested.
  */
 @Component
+@ConditionalOnSupportUpgradingModule
 class UpgradingHandler(
     private val compatibility: CompatibilitySyncPort,
 ) {

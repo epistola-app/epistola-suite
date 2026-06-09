@@ -28,6 +28,7 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
@@ -46,6 +47,7 @@ import java.util.concurrent.TimeUnit
  * `layout/shell` chrome. Gated for visibility only by the `support-feedback` feature toggle.
  */
 @Component
+@ConditionalOnSupportFeedbackModule
 class FeedbackHandler(
     private val buildProperties: BuildProperties?,
 ) {

@@ -6,6 +6,7 @@ import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Component
  * for a later status change to reconcile (the hub keeps the operator-authoritative value).
  */
 @Component
+@ConditionalOnSupportFeedbackModule
 class OnFeedbackStatusChanged(
     private val feedbackSyncPort: FeedbackSyncPort,
 ) : EventHandler<UpdateFeedbackStatus> {

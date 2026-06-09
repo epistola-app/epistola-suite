@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Only constructed when the support tier is enabled.
  */
 @Component
+@ConditionalOnSupportModule
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class EntitlementRevisionTrigger(
     private val store: EntitlementStore,

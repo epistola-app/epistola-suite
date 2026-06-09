@@ -27,6 +27,7 @@ import org.springframework.context.annotation.DependsOn
  */
 @Configuration
 @EnableConfigurationProperties(SupportProperties::class)
+@ConditionalOnSupportModule
 @ConditionalOnProperty(
     prefix = "epistola.support",
     name = ["enabled"],

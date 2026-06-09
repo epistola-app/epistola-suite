@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -20,6 +21,7 @@ data class UpdateFeedbackStatus(
 }
 
 @Component
+@ConditionalOnSupportFeedbackModule
 class UpdateFeedbackStatusHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UpdateFeedbackStatus, Boolean> {

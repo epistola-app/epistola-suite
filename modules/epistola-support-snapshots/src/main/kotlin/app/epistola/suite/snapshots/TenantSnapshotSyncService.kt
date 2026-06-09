@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
+import app.epistola.suite.support.snapshots.ConditionalOnSupportSnapshotsModule
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -24,6 +25,7 @@ import java.time.Instant
  * permission-gated commands) — see [snapshotSystemPrincipal].
  */
 @Component
+@ConditionalOnSupportSnapshotsModule
 class TenantSnapshotSyncService(
     private val port: SnapshotSyncPort,
     private val appMetadata: AppMetadataService,

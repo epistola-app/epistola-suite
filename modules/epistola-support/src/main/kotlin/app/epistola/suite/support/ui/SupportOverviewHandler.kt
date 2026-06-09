@@ -6,6 +6,7 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.support.ConditionalOnSupportModule
 import app.epistola.suite.support.EntitlementEffect
 import app.epistola.suite.support.EntitlementSyncService
 import app.epistola.suite.support.HubConnectivityService
@@ -27,6 +28,7 @@ import java.time.format.DateTimeFormatter
  * will also host subscription/contract details in the future.
  */
 @Component
+@ConditionalOnSupportModule
 class SupportOverviewHandler(
     private val connectivity: HubConnectivityService,
     private val entitlements: ObjectProvider<SupportEntitlementService>,

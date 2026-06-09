@@ -60,6 +60,7 @@ class HubCompatibilitySyncAdapter(
  * registering it overrides the no-op fallback.
  */
 @Configuration
+@ConditionalOnSupportUpgradingModule
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class SupportUpgradingConfiguration {
     @Bean

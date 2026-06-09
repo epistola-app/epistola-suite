@@ -2,6 +2,7 @@ package app.epistola.suite.snapshots
 
 import app.epistola.suite.catalog.snapshot.TenantSnapshot
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.support.snapshots.ConditionalOnSupportSnapshotsModule
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
@@ -83,6 +84,7 @@ class NoOpSnapshotSyncAdapter : SnapshotSyncPort {
  * still wins.
  */
 @Configuration
+@ConditionalOnSupportSnapshotsModule
 class SnapshotSyncFallbackConfiguration {
     @Bean
     @ConditionalOnMissingBean(SnapshotSyncPort::class)

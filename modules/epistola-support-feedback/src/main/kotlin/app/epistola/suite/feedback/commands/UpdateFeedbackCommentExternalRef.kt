@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -15,6 +16,7 @@ data class UpdateFeedbackCommentExternalRef(
     SystemInternal
 
 @Component
+@ConditionalOnSupportFeedbackModule
 class UpdateFeedbackCommentExternalRefHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UpdateFeedbackCommentExternalRef, Boolean> {

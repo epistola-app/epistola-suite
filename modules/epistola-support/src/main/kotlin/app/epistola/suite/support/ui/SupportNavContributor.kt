@@ -7,6 +7,7 @@ import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavGroup
 import app.epistola.suite.htmx.nav.NavItem
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.ConditionalOnSupportModule
 import org.springframework.stereotype.Component
 
 /**
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component
  * enabled for the tenant, matching the previous "Support hidden unless ≥1 toggle on" behavior.
  */
 @Component
+@ConditionalOnSupportModule
 class SupportNavContributor : NavContributor {
 
     override fun groups(context: UiRequestContext): List<NavGroup> = listOf(

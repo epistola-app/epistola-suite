@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service
  * `BuildTenantSnapshot` command.
  */
 @Service
+@ConditionalOnSupportModule
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class EntitlementSyncService(
     private val mediator: Mediator,

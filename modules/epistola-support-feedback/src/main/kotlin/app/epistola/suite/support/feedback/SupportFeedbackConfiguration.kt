@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Configuration
  * the support tier is enabled.
  */
 @Configuration
+@ConditionalOnSupportFeedbackModule
 @ConditionalOnProperty(
     prefix = "epistola.support",
     name = ["enabled"],

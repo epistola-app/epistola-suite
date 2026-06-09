@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component
  * so the inbound poll scheduler can dedup and skip it.
  */
 @Component
+@ConditionalOnSupportFeedbackModule
 class OnFeedbackCommentAdded(
     private val feedbackSyncPort: FeedbackSyncPort,
 ) : EventHandler<AddFeedbackComment> {

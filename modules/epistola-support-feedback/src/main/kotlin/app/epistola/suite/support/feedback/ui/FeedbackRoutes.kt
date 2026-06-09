@@ -1,5 +1,6 @@
 package app.epistola.suite.support.feedback.ui
 
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -7,6 +8,7 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 @Configuration
+@ConditionalOnSupportFeedbackModule
 class FeedbackRoutes(private val handler: FeedbackHandler) {
     @Bean
     fun feedbackRouterFunction(): RouterFunction<ServerResponse> = router {

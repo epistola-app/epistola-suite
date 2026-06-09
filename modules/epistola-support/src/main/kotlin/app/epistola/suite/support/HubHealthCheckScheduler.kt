@@ -18,6 +18,7 @@ import java.time.Instant
 @Component
 @EnableScheduling
 @EnableConfigurationProperties(HubHealthCheckProperties::class)
+@ConditionalOnSupportModule
 @ConditionalOnProperty(
     prefix = "epistola.support",
     name = ["enabled"],

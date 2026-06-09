@@ -6,6 +6,7 @@ import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.footer.FooterContributor
 import app.epistola.suite.htmx.footer.FooterFragment
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.springframework.stereotype.Component
 
 /**
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component
  * the local toggle is on **and** the installation is entitled to it (hub-gated).
  */
 @Component
+@ConditionalOnSupportFeedbackModule
 class FeedbackFooterContributor : FooterContributor {
     override fun fragments(context: UiRequestContext): List<FooterFragment> {
         val available = ResolveAvailableFeatures(context.tenantKey).query()

@@ -6,6 +6,7 @@ import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.nav.NavContributor
 import app.epistola.suite.htmx.nav.NavItem
 import app.epistola.suite.mediator.query
+import app.epistola.suite.support.upgrading.ConditionalOnSupportUpgradingModule
 import org.springframework.stereotype.Component
 
 /**
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component
  * — the local toggle is on **and** the installation is entitled to it (hub-gated).
  */
 @Component
+@ConditionalOnSupportUpgradingModule
 class UpgradingNavContributor : NavContributor {
     override fun items(context: UiRequestContext): List<NavItem> {
         val available = ResolveAvailableFeatures(context.tenantKey).query()

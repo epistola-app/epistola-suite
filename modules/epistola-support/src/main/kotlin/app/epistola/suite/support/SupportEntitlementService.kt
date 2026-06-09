@@ -30,6 +30,7 @@ enum class EntitlementDecision {
  * core treats every feature as ungated.
  */
 @Service
+@ConditionalOnSupportModule
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class SupportEntitlementService(
     private val store: EntitlementStore,

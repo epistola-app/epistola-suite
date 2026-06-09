@@ -10,6 +10,7 @@ import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.support.backups.ConditionalOnSupportBackupsModule
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 @EnableScheduling
+@ConditionalOnSupportBackupsModule
 @ConditionalOnProperty(
     name = ["epistola.support.backups.scheduled.enabled"],
     havingValue = "true",

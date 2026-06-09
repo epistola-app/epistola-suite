@@ -21,6 +21,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -40,6 +41,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 @EnableScheduling
+@ConditionalOnSupportFeedbackModule
 @ConditionalOnProperty(
     name = ["epistola.feedback.sync.enabled"],
     havingValue = "true",
