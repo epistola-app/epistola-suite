@@ -36,8 +36,8 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
 
         given {
             tenant = tenant("Cluster Status Tenant")
-            deleteNode("stale-suite-node")
-            insertNode("stale-suite-node", OffsetDateTime.now().minusMinutes(2))
+            deleteNode("stale-cluster-node")
+            insertNode("stale-cluster-node", OffsetDateTime.now().minusMinutes(2))
         }
 
         whenever {
@@ -54,7 +54,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("Cluster")
             assertThat(body).contains(nodeIdentity.nodeId)
             assertThat(body).contains("current")
-            assertThat(body).contains("stale-suite-node")
+            assertThat(body).contains("stale-cluster-node")
             assertThat(body).contains("Stale after")
             assertThat(body).contains("hx-trigger=\"every 2s\"")
         }
@@ -92,7 +92,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
 
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("DELETE FROM suite_nodes WHERE node_id = :nodeId")
+            handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
                 .bind("nodeId", nodeId)
                 .execute()
         }
@@ -102,7 +102,7 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO suite_nodes (node_id, capabilities, joined_at, last_seen_at, metadata)
+                INSERT INTO cluster_nodes (node_id, capabilities, joined_at, last_seen_at, metadata)
                 VALUES (:nodeId, '["suite"]'::jsonb, :joinedAt, :lastSeenAt, '{}'::jsonb)
                 ON CONFLICT (node_id) DO UPDATE
                 SET last_seen_at = EXCLUDED.last_seen_at

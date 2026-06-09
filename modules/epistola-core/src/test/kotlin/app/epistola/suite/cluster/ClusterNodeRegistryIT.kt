@@ -16,10 +16,10 @@ import java.time.OffsetDateTime
         "epistola.cluster.idle-timeout-ms=30000",
     ],
 )
-class SuiteNodeRegistryIT : IntegrationTestBase() {
+class ClusterNodeRegistryIT : IntegrationTestBase() {
 
     @Autowired
-    private lateinit var registry: SuiteNodeRegistry
+    private lateinit var registry: ClusterNodeRegistry
 
     @Autowired
     private lateinit var nodeIdentity: NodeIdentity
@@ -78,7 +78,7 @@ class SuiteNodeRegistryIT : IntegrationTestBase() {
 
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("DELETE FROM suite_nodes WHERE node_id = :nodeId")
+            handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
                 .bind("nodeId", nodeId)
                 .execute()
         }
@@ -88,7 +88,7 @@ class SuiteNodeRegistryIT : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO suite_nodes (node_id, capabilities, joined_at, last_seen_at, metadata)
+                INSERT INTO cluster_nodes (node_id, capabilities, joined_at, last_seen_at, metadata)
                 VALUES (:nodeId, '["suite"]'::jsonb, :joinedAt, :lastSeenAt, '{}'::jsonb)
                 ON CONFLICT (node_id) DO UPDATE
                 SET last_seen_at = EXCLUDED.last_seen_at

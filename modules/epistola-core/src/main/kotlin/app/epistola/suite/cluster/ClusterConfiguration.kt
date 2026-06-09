@@ -12,7 +12,7 @@ class ClusterConfiguration
  * Cluster coordination settings.
  *
  * The runtime is always a cluster, even when the deployment has one node.
- * Phase 1 uses these settings only for the suite-node heartbeat registry.
+ * Phase 1 uses these settings only for the cluster-node heartbeat registry.
  * Later phases reuse the same active-node view for sticky timer events,
  * durable processes, cache invalidation subscriptions, and capability-aware
  * work claiming.

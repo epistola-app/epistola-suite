@@ -1,8 +1,8 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.cluster.ClusterNode
+import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
-import app.epistola.suite.cluster.SuiteNode
-import app.epistola.suite.cluster.SuiteNodeRegistry
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
@@ -13,7 +13,7 @@ import java.time.OffsetDateTime
 
 @Component
 class ClusterStatusHandler(
-    private val registry: SuiteNodeRegistry,
+    private val registry: ClusterNodeRegistry,
     private val properties: ClusterProperties,
 ) {
 
@@ -81,7 +81,7 @@ data class ClusterStatusReport(
 }
 
 data class ClusterNodeStatus(
-    val node: SuiteNode,
+    val node: ClusterNode,
     val isCurrent: Boolean,
     val isActive: Boolean,
     val ageSeconds: Long,

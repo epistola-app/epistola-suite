@@ -9,15 +9,15 @@ import org.springframework.stereotype.Component
 
 @Component
 @EnableScheduling
-class SuiteNodeHeartbeatScheduler(
-    private val registry: SuiteNodeRegistry,
+class ClusterNodeHeartbeatScheduler(
+    private val registry: ClusterNodeRegistry,
     private val meterRegistry: MeterRegistry,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.heartbeat-interval-ms:2000}")
-    fun heartbeat() = meterRegistry.recordScheduledTask("suite-node-heartbeat") {
+    fun heartbeat() = meterRegistry.recordScheduledTask("cluster-node-heartbeat") {
         val node = registry.heartbeat()
-        log.debug("Suite node heartbeat complete: nodeId={}", node.nodeId)
+        log.debug("Cluster node heartbeat complete: nodeId={}", node.nodeId)
     }
 }

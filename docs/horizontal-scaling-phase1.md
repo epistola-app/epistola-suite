@@ -20,7 +20,7 @@ cache invalidation are enough for now.
 The first horizontal-scaling runtime should therefore solve the actual missing
 coordination problems:
 
-- know which Suite nodes are alive
+- know which Cluster nodes are alive
 - execute timer-driven work once across replicas
 - keep scheduled and durable work sticky to the same node while healthy
 - fan out cache invalidation across nodes
@@ -47,7 +47,7 @@ It should not route every command through a cluster owner yet.
 
 ### Nodes
 
-Each running Suite process registers itself in `suite_nodes` using the existing
+Each running Suite process registers itself in `cluster_nodes` using the existing
 `NodeIdentity.nodeId`. The row records capabilities, version, join time, last
 heartbeat, and small JSON metadata.
 
@@ -149,7 +149,7 @@ The event stream should be at-least-once. Handlers must be idempotent.
 
 Implement now.
 
-Add `suite_nodes`, a heartbeat service, active-node queries, and configuration.
+Add `cluster_nodes`, a heartbeat service, active-node queries, and configuration.
 This gives the rest of the cluster runtime a factual view of node presence and
 capabilities.
 
@@ -190,7 +190,7 @@ claim `pdf-render` work. Do not split the renderer app in this phase.
 
 ## Phase 1A Implementation Details
 
-### Schema: `suite_nodes`
+### Schema: `cluster_nodes`
 
 Fields:
 
@@ -221,13 +221,13 @@ runs as a cluster runtime; a non-horizontal deployment is simply a one-node
 cluster. Keeping the registry active in that case avoids a second execution path
 for timer ownership, durable processes, and cache invalidation.
 
-`SuiteNodeRegistry`:
+`ClusterNodeRegistry`:
 
 - `heartbeat()`
 - `activeNodes()`
 - `currentNode()`
 
-`SuiteNodeHeartbeatScheduler`:
+`ClusterNodeHeartbeatScheduler`:
 
 - fixed delay from `epistola.cluster.heartbeat-interval-ms`
 - always active
@@ -299,7 +299,7 @@ Later phases should add:
 Every implementation increment should update `CHANGELOG.md` and be committed
 with a conventional commit. Suggested commits:
 
-- `feat: add suite node registry`
+- `feat: add cluster node registry`
 - `feat: add cluster timer task runner`
 - `feat: add cluster cache invalidation events`
 - `feat: add durable process runtime`
