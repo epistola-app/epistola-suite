@@ -47,6 +47,7 @@ class CoreNavContributor : NavContributor {
         }
         if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
             add(NavItem("operations", "consumers", "Consumers", "consumers", 30))
+            add(NavItem("operations", "cluster", "Cluster", "cluster", 35))
         }
         if (context.hasPermission(Permission.TENANT_USERS)) {
             add(NavItem("operations", "api-keys", "API Keys", "api-keys", 40))
