@@ -212,10 +212,14 @@ is updated on every heartbeat.
 
 `ClusterProperties`:
 
-- `epistola.cluster.enabled`
 - `epistola.cluster.heartbeat-interval-ms`
 - `epistola.cluster.idle-timeout-ms`
 - `epistola.cluster.capabilities`
+
+There is deliberately no `epistola.cluster.enabled` switch. Epistola always
+runs as a cluster runtime; a non-horizontal deployment is simply a one-node
+cluster. Keeping the registry active in that case avoids a second execution path
+for timer ownership, durable processes, and cache invalidation.
 
 `SuiteNodeRegistry`:
 
@@ -226,19 +230,22 @@ is updated on every heartbeat.
 `SuiteNodeHeartbeatScheduler`:
 
 - fixed delay from `epistola.cluster.heartbeat-interval-ms`
-- active when `epistola.cluster.enabled=true`
+- always active
 
 Default configuration:
 
 ```yaml
 epistola:
   cluster:
-    enabled: true
-    heartbeat-interval-ms: 10000
-    idle-timeout-ms: 30000
+    heartbeat-interval-ms: 2000
+    idle-timeout-ms: 10000
     capabilities:
       - suite
 ```
+
+The default 2s heartbeat / 10s idle timeout gives quick enough failover for
+sticky timer events and durable process ownership while still producing only one
+small upsert every two seconds per node.
 
 ## Out Of Scope For Phase 1
 
