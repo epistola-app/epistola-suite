@@ -36,6 +36,11 @@ class EntitlementSyncService(
             log.warn("Hub unreachable; keeping last-known-good entitlements: {}", e.message)
         } catch (e: HubException) {
             log.warn("Hub could not serve entitlements; keeping last-known-good: {}", e.message)
+        } catch (e: Exception) {
+            // Fail-open: a refresh must never crash its caller (startup listener, scheduler thread,
+            // or the rev-trigger executor) or downgrade the stored set — e.g. discovery/transport
+            // errors that aren't typed HubExceptions.
+            log.warn("Unexpected error refreshing entitlements; keeping last-known-good: {}", e.message)
         }
     }
 }
