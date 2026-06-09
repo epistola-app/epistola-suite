@@ -109,6 +109,17 @@ epistola:
     # Implementation-Version manifest entry — see GetServerInfoHandler. Don't add
     # it here as a property; the contract is the source of truth.
 
+  # Phase 1 horizontal-scaling runtime. The node registry is intentionally small:
+  # each replica heartbeats its identity and capabilities into Postgres so later
+  # clustered timer events, durable processes, cache fanout, and renderer-node
+  # capability routing have one source of cluster truth.
+  cluster:
+    enabled: true
+    heartbeat-interval-ms: 10000
+    idle-timeout-ms: 30000
+    capabilities:
+      - suite
+
   # Postgres declarative-partitioning maintenance.
   # `retention-months` applies to documents + document_generation_requests.
   # `generation-results-retention-months` applies to generation_results — kept
