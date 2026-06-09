@@ -46,9 +46,10 @@ class HubConnectivityService(
 
     /**
      * Pings the hub so the client records a fresh connectivity outcome, capturing the hub version it
-     * reports. The ping is unauthenticated and neutral (not tied to any feature), so this reflects
-     * pure hub reachability. Errors are swallowed — the recorded reachability is what matters. No-op
-     * when the support tier is off.
+     * reports. The ping is neutral (not tied to any feature), so this reflects pure hub reachability;
+     * it carries the API key once registered, so this periodic heartbeat also delivers the hub's
+     * entitlements-revision header (driving refreshes). Errors are swallowed — the recorded
+     * reachability is what matters. No-op when the support tier is off.
      */
     fun refresh() {
         val client = clientProvider.ifAvailable ?: return

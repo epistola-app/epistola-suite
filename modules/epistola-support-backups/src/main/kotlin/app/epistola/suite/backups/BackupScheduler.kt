@@ -2,7 +2,7 @@ package app.epistola.suite.backups
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
@@ -55,8 +55,9 @@ class BackupScheduler(
         for (tenantKey in tenantKeys) {
             // Backups owns the daily retained snapshot. Upgrading has its own freshness timer that
             // makes a snapshot only when none was made in the last day, so it stays dormant for
-            // tenants that have backups on.
-            if (ResolveFeatureToggles(tenantKey).query()[KnownFeatures.SUPPORT_BACKUPS] != true) continue
+            // tenants that have backups on. Skip a tenant unless the feature is available — toggled on
+            // AND hub-entitled — so we never do work that would only be rejected with PERMISSION_DENIED.
+            if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_BACKUPS] != true) continue
             try {
                 SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
                     snapshotSync.syncTenant(tenantKey)

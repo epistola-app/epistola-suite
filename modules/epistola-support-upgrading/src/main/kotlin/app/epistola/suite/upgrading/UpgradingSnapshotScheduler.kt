@@ -2,7 +2,7 @@ package app.epistola.suite.upgrading
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
@@ -60,7 +60,7 @@ class UpgradingSnapshotScheduler(
     private fun ensureAllTenants() {
         val tenantKeys = allTenantKeys()
         for (tenantKey in tenantKeys) {
-            if (ResolveFeatureToggles(tenantKey).query()[KnownFeatures.SUPPORT_UPGRADING] != true) continue
+            if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_UPGRADING] != true) continue
             if (hasFreshSnapshot(tenantKey)) continue
             try {
                 SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
