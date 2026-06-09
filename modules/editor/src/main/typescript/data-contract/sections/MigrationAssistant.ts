@@ -154,9 +154,7 @@ function renderMigrationItem(
       <div class="dc-migration-item-details">
         <div class="dc-migration-item-path">
           <code>${migration.path}</code>
-          <span class="badge badge-warning dc-migration-issue-badge">
-            ${ISSUE_LABELS[migration.issue]}
-          </span>
+          <span class="badge badge-sm badge-warning"> ${ISSUE_LABELS[migration.issue]} </span>
         </div>
         ${migration.issue === 'TYPE_MISMATCH'
           ? html`

@@ -66,14 +66,10 @@ export function renderExamplesSection(
             >
               <span class="dc-example-chip-name">${ex.name}</span>
               ${errorCount > 0
-                ? html`<span
-                    class="dc-example-chip-badge dc-example-chip-badge-error"
-                    aria-hidden="true"
+                ? html`<span class="dc-example-chip dc-example-chip-error" aria-hidden="true"
                     >${errorCount}</span
                   >`
-                : html`<span
-                    class="dc-example-chip-badge dc-example-chip-badge-ok"
-                    aria-hidden="true"
+                : html`<span class="dc-example-chip dc-example-chip-ok" aria-hidden="true"
                     >&#10003;</span
                   >`}
             </button>

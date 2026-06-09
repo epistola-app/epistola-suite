@@ -566,6 +566,12 @@
     border-color: var(--ep-border-color);
   }
 
+  .badge-sm {
+    font-size: 0.625rem;
+    padding: 0.0625rem var(--ep-space-1-5);
+    line-height: 1.4;
+  }
+
   /* ── Tables ───────────────────────────────────────────────────────────── */
 
   .ep-table {

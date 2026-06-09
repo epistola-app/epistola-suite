@@ -59,7 +59,7 @@
             <tbody id="attribute-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="attr : ${attributes}">
-                        <td class="ep-table-truncate"><code th:text="${attr.id}" th:title="${attr.id}" class="attr-id"></code></td>
+                        <td class="ep-table-truncate"><span class="badge badge-muted" th:text="${attr.id}" th:title="${attr.id}"></span></td>
                         <td><span class="badge badge-muted" th:text="${attr.catalogKey}"></span></td>
                         <td class="attr-name ep-table-truncate" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
                         <td>

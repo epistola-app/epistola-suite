@@ -482,7 +482,7 @@ function renderObjectField(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        <span class="dc-tree-type-badge" data-type="object" aria-hidden="true">object</span>
+        <span class="dc-tree-type-tag" data-type="object" aria-hidden="true">object</span>
       </summary>
       <div class="dc-tree-group-body">
         ${Object.entries(propSchema.properties).map(([nestedName, nestedProp]) =>
@@ -568,8 +568,8 @@ function renderArrayField(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">${itemType}[]</span>
-        <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
+        <span class="dc-tree-type-tag" data-type="list" aria-hidden="true">${itemType}[]</span>
+        <span class="dc-tree-count" aria-hidden="true">${items.length}</span>
       </summary>
       <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
         ${items.map((item, index) => {
@@ -665,8 +665,8 @@ function renderArrayOfObjects(
         ${groupHasErrors
           ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
-        <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
+        <span class="dc-tree-type-tag" data-type="list" aria-hidden="true">object[]</span>
+        <span class="dc-tree-count" aria-hidden="true">${items.length}</span>
       </summary>
       <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
         ${items.map((_item, index) => {

@@ -65,7 +65,7 @@
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            th:text="${catalog.name}" th:title="${catalog.name}" class="ep-table-truncate"></a>
                     </td>
-                    <td class="ep-table-truncate"><code th:text="${catalog.id}" th:title="${catalog.id}" class="catalog-id"></code></td>
+                    <td class="ep-table-truncate"><span class="badge badge-muted" th:text="${catalog.id}" th:title="${catalog.id}"></span></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-muted">Subscribed</span>

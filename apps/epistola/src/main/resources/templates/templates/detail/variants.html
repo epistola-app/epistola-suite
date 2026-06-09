@@ -101,7 +101,7 @@
                     <div class="variant-card-header">
                         <div>
                             <span class="variant-card-title" th:text="${variant.title != null ? variant.title : variant.id}"></span>
-                            <code th:if="${variant.title != null}" class="variant-card-slug" th:text="${variant.id}"></code>
+                            <span th:if="${variant.title != null}" class="badge badge-muted" th:text="${variant.id}"></span>
                         </div>
                         <span th:if="${variant.isDefault}" class="badge badge-primary">Default</span>
                     </div>

@@ -180,24 +180,10 @@
     }
   }
 
-  .ai-proposal-badge {
-    font-size: 0.625rem;
-    font-weight: 600;
+  .ai-proposal-status {
     text-transform: uppercase;
     letter-spacing: var(--ep-tracking-wider);
-    padding: var(--ep-space-0-5) var(--ep-space-2);
-    border-radius: var(--ep-radius-full);
     flex-shrink: 0;
-  }
-
-  .ai-proposal-badge-applied {
-    background: var(--ep-green-100);
-    color: var(--ep-green-800);
-  }
-
-  .ai-proposal-badge-rejected {
-    background: var(--ep-gray-100);
-    color: var(--ep-gray-500);
   }
 
   /* ── Input area ──────────────────────────────────────────────────────── */
@@ -363,15 +349,10 @@
     margin-bottom: var(--ep-space-1);
   }
 
-  .ai-attachment-badge {
+  .ai-attachment {
     display: inline-flex;
     align-items: center;
     gap: 0.2rem;
-    font-size: 0.625rem;
-    color: var(--ep-blue-600);
-    background: var(--ep-blue-50);
-    padding: var(--ep-space-0-5) var(--ep-space-1-5);
-    border-radius: var(--ep-radius-full);
     line-height: 1;
   }
 }

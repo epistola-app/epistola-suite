@@ -410,14 +410,6 @@
     padding: 4px 10px;
   }
 
-  .stencil-picker-badge {
-    font-size: var(--ep-text-xs);
-    color: var(--ep-muted-foreground);
-    padding: 1px 6px;
-    background: var(--ep-muted);
-    border-radius: 4px;
-  }
-
   .stencil-picker-error-dot {
     width: 6px;
     height: 6px;

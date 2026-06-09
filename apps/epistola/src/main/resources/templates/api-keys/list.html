@@ -47,7 +47,7 @@
                     <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
                         <td th:text="${apiKey.name}" th:title="${apiKey.name}" class="api-key-name ep-table-truncate"></td>
                         <td>
-                            <code th:text="${apiKey.keyPrefix} + '…'"></code>
+                            <span class="badge badge-muted" th:text="${apiKey.keyPrefix} + '…'"></span>
                         </td>
                         <td>
                             <span th:if="${apiKey.createdByDisplayName != null}" th:text="${apiKey.createdByDisplayName}"></span>

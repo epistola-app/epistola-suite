@@ -74,7 +74,7 @@
                             <span th:unless="${stencil.description != null}" class="stencil-empty-desc">-</span>
                         </td>
                         <td>
-                            <span th:each="tag : ${stencil.tags}" class="badge tag-badge" th:text="${tag}"></span>
+                            <span th:each="tag : ${stencil.tags}" class="badge badge-outline" th:text="${tag}"></span>
                         </td>
                         <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">

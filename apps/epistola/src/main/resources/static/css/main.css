@@ -369,17 +369,7 @@ body {
   font-weight: 500;
 }
 
-.env-id {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
-}
-
 /* ── Attributes page ─────────────────────────────────────────────────── */
-
-.attr-id {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
-}
 
 .attr-name {
   font-weight: 500;
@@ -436,10 +426,6 @@ body {
 
 .stencil-empty-desc {
   color: var(--ep-muted-foreground);
-}
-
-.tag-badge {
-  margin-right: var(--ep-space-1);
 }
 
 .tab-nav-item {
@@ -749,14 +735,6 @@ body {
   line-height: var(--ep-leading-tight);
 }
 
-.variant-card-slug {
-  display: block;
-  font-family: var(--ep-font-mono);
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-  margin-top: var(--ep-space-0-5);
-}
-
 .variant-card-body {
   flex: 1;
   padding: var(--ep-space-2) var(--ep-space-4) var(--ep-space-3);
@@ -1010,21 +988,13 @@ body {
   font-size: var(--ep-text-sm);
 }
 
-.contract-version-badge {
-  margin-left: var(--ep-space-1);
-}
-
 .contract-status-spacer {
   flex: 1;
 }
 
-.outdated-badge {
-  margin-right: var(--ep-space-1);
-}
-
 /* ── Feedback detail page ──────────────────────────────────────────── */
 
-.feedback-badges {
+.feedback-meta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ep-space-3);
@@ -1153,6 +1123,10 @@ body {
 .contract-outdated-btn {
   color: var(--ep-amber-700);
 }
+
+.contract-outdated-btn .badge {
+  margin-right: var(--ep-space-1);
+}
 .catalog-up-to-date {
   color: var(--ep-green-700);
   font-weight: 500;
@@ -1253,10 +1227,6 @@ body {
   color: var(--ep-muted-foreground);
 }
 
-.refresh-error-badge {
-  margin-left: var(--ep-space-2);
-}
-
 /* ── Code list new page ──────────────────────────────────────────────── */
 
 .code-list-fieldset {
@@ -1273,11 +1243,6 @@ body {
 
 .template-name {
   font-weight: 500;
-}
-
-.template-id {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
 }
 
 /* ── Variant versions dialog ─────────────────────────────────────────── */
@@ -1640,11 +1605,6 @@ body {
   font-weight: 500;
 }
 
-.catalog-id {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
-}
-
 .catalog-muted {
   color: var(--ep-muted-foreground);
 }
@@ -1717,10 +1677,6 @@ body {
 
 .theme-name {
   font-weight: 500;
-}
-
-.theme-default-badge {
-  margin-left: var(--ep-space-2);
 }
 
 .theme-empty {
