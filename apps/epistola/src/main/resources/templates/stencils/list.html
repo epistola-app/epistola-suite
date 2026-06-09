@@ -53,9 +53,9 @@
         <table th:if="${!#lists.isEmpty(stencils)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th class="ep-table-truncate">Name</th>
                     <th>Catalog</th>
-                    <th>Description</th>
+                    <th class="ep-table-truncate">Description</th>
                     <th>Tags</th>
                     <th>Last Modified</th>
                     <th></th>
@@ -66,11 +66,11 @@
                     <tr th:each="stencil : ${stencils}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                               th:text="${stencil.name}" class="stencil-name"></a>
+                               th:text="${stencil.name}" th:title="${stencil.name}" class="stencil-name ep-table-truncate"></a>
                         </td>
                         <td><span class="badge badge-muted" th:text="${stencil.catalogKey}"></span></td>
                         <td>
-                            <span th:if="${stencil.description != null}" th:text="${stencil.description}" class="text-truncate"></span>
+                            <span th:if="${stencil.description != null}" th:text="${stencil.description}" th:title="${stencil.description}" class="ep-table-truncate"></span>
                             <span th:unless="${stencil.description != null}" class="stencil-empty-desc">-</span>
                         </td>
                         <td>

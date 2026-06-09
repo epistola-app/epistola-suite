@@ -53,9 +53,9 @@
         <table th:if="${!#lists.isEmpty(themes)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th class="ep-table-truncate">Name</th>
                     <th>Catalog</th>
-                    <th>Description</th>
+                    <th class="ep-table-truncate">Description</th>
                     <th>Last Modified</th>
                     <th></th>
                 </tr>
@@ -66,12 +66,12 @@
                         th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
-                                th:text="${theme.name}" class="theme-name"></a>
+                                th:text="${theme.name}" th:title="${theme.name}" class="theme-name ep-table-truncate"></a>
                             <span th:if="${isDefault}" class="badge badge-primary theme-default-badge"  data-testid="theme-default-badge">Default</span>
                         </td>
                         <td><span class="badge badge-muted" th:text="${theme.catalogKey}"></span></td>
                         <td>
-                            <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
+                            <span th:if="${theme.description != null}" th:text="${theme.description}" th:title="${theme.description}" class="ep-table-truncate"></span>
                             <span th:unless="${theme.description != null}" class="theme-empty">-</span>
                         </td>
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>

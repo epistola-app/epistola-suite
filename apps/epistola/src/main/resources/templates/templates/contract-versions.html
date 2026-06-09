@@ -9,13 +9,13 @@
                     title="Close">&times;</button>
         </div>
         <div class="ep-dialog-body">
-            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table contract-versions-table">
+            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Version</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Published</th>
+                        <th scope="col">Version</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Published</th>
                     </tr>
                 </thead>
                 <tbody>

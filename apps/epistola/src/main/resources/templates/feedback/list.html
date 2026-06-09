@@ -55,8 +55,8 @@
         <table th:if="${!#lists.isEmpty(feedbackItems)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Title</th>
-                    <th>Page</th>
+                    <th class="ep-table-truncate">Title</th>
+                    <th class="ep-table-truncate">Page</th>
                     <th>Category</th>
                     <th>Status</th>
                     <th>Priority</th>
@@ -70,12 +70,14 @@
                     <tr th:each="item : ${feedbackItems}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
-                                class="feedback-title"
+                                class="feedback-title ep-table-truncate"
+                                th:title="${item.title}"
                                 th:text="${item.title}">Title</a>
                         </td>
                         <td>
                             <a th:if="${item.sourcePath != null}" th:href="${item.sourceUrl}"
-                                class="feedback-source-path"
+                                class="feedback-source-path ep-table-truncate"
+                                th:title="${item.sourcePath}"
                                 th:text="${item.sourcePath}">/path</a>
                             <span th:if="${item.sourcePath == null}" class="feedback-source-empty">—</span>
                         </td>

@@ -51,8 +51,8 @@
         <table th:if="${!catalogs.isEmpty()}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>ID</th>
+                    <th class="ep-table-truncate">Name</th>
+                    <th class="ep-table-truncate">ID</th>
                     <th>Type</th>
                     <th>Version</th>
                     <th>Last Modified</th>
@@ -63,9 +63,9 @@
                 <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
                     <td class="catalog-name">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           th:text="${catalog.name}"></a>
+                           th:text="${catalog.name}" th:title="${catalog.name}" class="ep-table-truncate"></a>
                     </td>
-                    <td><code th:text="${catalog.id}" class="catalog-id"></code></td>
+                    <td class="ep-table-truncate"><code th:text="${catalog.id}" th:title="${catalog.id}" class="catalog-id"></code></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
                         <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-muted">Subscribed</span>

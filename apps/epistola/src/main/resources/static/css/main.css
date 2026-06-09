@@ -328,16 +328,6 @@ body {
   margin-top: var(--ep-space-0-5);
 }
 
-/* ── Text truncation ──────────────────────────────────────────────────── */
-
-.text-truncate {
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: inline-block;
-}
-
 /* ── Dashboard stats ────────────────────────────────────────────────── */
 
 .dashboard-stats {
@@ -722,20 +712,7 @@ body {
 
 /* ── Deployment matrix ───────────────────────────────────────────────── */
 
-.deployment-matrix-table th {
-  text-align: center;
-}
-
-.deployment-matrix-table th:first-child {
-  text-align: left;
-}
-
-.deployment-matrix-variant {
-  white-space: nowrap;
-}
-
 .deployment-matrix-cell {
-  text-align: center;
   min-width: 8rem;
 }
 
@@ -1309,10 +1286,6 @@ body {
   margin-bottom: var(--ep-space-4);
 }
 
-.variant-versions-table {
-  font-size: var(--ep-text-sm);
-}
-
 .version-meta {
   color: var(--ep-muted-foreground);
 }
@@ -1408,18 +1381,6 @@ body {
   padding: var(--ep-space-8);
 }
 
-.deploy-table-wrapper {
-  overflow-x: auto;
-}
-
-.deploy-table-header {
-  text-align: left;
-}
-
-.deployment-matrix-table th.deploy-table-header {
-  text-align: center;
-}
-
 .deploy-variant-row {
   display: flex;
   align-items: center;
@@ -1464,11 +1425,6 @@ body {
   padding: var(--ep-space-3);
 }
 
-.contract-usage-table {
-  font-size: var(--ep-text-xs);
-  width: 100%;
-}
-
 .contract-muted {
   color: var(--ep-muted-foreground);
 }
@@ -1481,11 +1437,6 @@ body {
 .contract-section-title {
   font-size: var(--ep-text-base);
   margin: 0;
-}
-
-.contract-schema-table {
-  font-size: var(--ep-text-sm);
-  width: 100%;
 }
 
 .contract-required {
@@ -1542,10 +1493,6 @@ body {
 }
 
 /* ── Contract versions dialog ─────────────────────────────────────────── */
-
-.contract-versions-table {
-  font-size: var(--ep-text-sm);
-}
 
 .contract-versions-empty {
   color: var(--ep-muted-foreground);
@@ -1672,10 +1619,6 @@ body {
 
 .catalog-muted {
   color: var(--ep-muted-foreground);
-}
-
-.catalog-install-table {
-  margin-top: var(--ep-space-3);
 }
 
 .catalog-dependency {
@@ -1813,11 +1756,6 @@ body {
 .stencil-upgrade-select {
   width: auto;
   min-width: 10rem;
-}
-
-/* ── Table checkbox column ────────────────────────────────────────────── */
-.table-checkbox-col {
-  width: 2rem;
 }
 
 /* ── Consumer dashboard ──────────────────────────────────────────────── */

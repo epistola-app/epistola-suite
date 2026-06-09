@@ -39,7 +39,7 @@
             <table th:if="${!#lists.isEmpty(templateUsage)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Template</th>
+                        <th class="ep-table-truncate">Template</th>
                         <th>Variant</th>
                         <th>Generations</th>
                     </tr>
@@ -48,7 +48,8 @@
                     <tr th:each="usage : ${templateUsage}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
-                               class="gen-dashboard-link"
+                               class="gen-dashboard-link ep-table-truncate"
+                               th:title="${usage.templateKey}"
                                 th:text="${usage.templateKey}">template</a>
                         </td>
                         <td th:text="${usage.variantKey}">variant</td>
@@ -81,7 +82,7 @@
             <table th:if="${!#lists.isEmpty(recentJobs)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Template</th>
+                        <th class="ep-table-truncate">Template</th>
                         <th>Variant</th>
                         <th>Status</th>
                         <th>Error</th>
@@ -94,7 +95,8 @@
                         <tr th:each="job : ${recentJobs}">
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
-                                   class="gen-dashboard-link"
+                                   class="gen-dashboard-link ep-table-truncate"
+                                   th:title="${job.templateKey}"
                                     th:text="${job.templateKey}">template</a>
                             </td>
                             <td th:text="${job.variantKey}">variant</td>

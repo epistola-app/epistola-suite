@@ -51,9 +51,9 @@
         <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Slug</th>
+                    <th class="ep-table-truncate">Slug</th>
                     <th>Catalog</th>
-                    <th>Display Name</th>
+                    <th class="ep-table-truncate">Display Name</th>
                     <th>Source</th>
                     <th>Last refreshed</th>
                     <th></th>
@@ -63,12 +63,12 @@
                 <tr th:each="cl : ${codeLists}">
                     <td>
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           th:text="${cl.slug}"></a>
+                           th:text="${cl.slug}" th:title="${cl.slug}" class="ep-table-truncate"></a>
                     </td>
                     <td>
                         <span class="badge badge-muted" th:text="${cl.catalogKey}"></span>
                     </td>
-                    <td class="code-list-name" th:text="${cl.displayName}"></td>
+                    <td class="code-list-name ep-table-truncate" th:text="${cl.displayName}" th:title="${cl.displayName}"></td>
                     <td>
                         <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
                     </td>

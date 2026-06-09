@@ -22,7 +22,7 @@
                         onclick="document.getElementById('contract-usage-dialog').close()">&times;</button>
             </div>
             <div class="ep-dialog-body contract-usage-body">
-                <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table contract-usage-table">
+                <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table ep-table-dense">
                     <thead><tr><th>Variant</th><th>Version</th><th>Status</th><th>Contract</th><th>Deployed</th></tr></thead>
                     <tbody>
                         <tr th:each="v : ${allTemplateVersions}">
@@ -69,8 +69,8 @@
                 </div>
                 <div class="card-content">
                     <th:block th:if="${!#lists.isEmpty(schemaFields)}">
-                        <table class="ep-table contract-schema-table">
-                            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                        <table class="ep-table">
+                            <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Required</th><th scope="col">Description</th></tr></thead>
                             <tbody>
                                 <tr th:each="field : ${schemaFields}">
                                     <td>

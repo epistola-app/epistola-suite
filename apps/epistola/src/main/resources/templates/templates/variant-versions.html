@@ -14,15 +14,15 @@
                 <span th:text="${error}"></span>
             </div>
 
-            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table variant-versions-table">
+            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Version</th>
-                        <th>Status</th>
-                        <th>Contract</th>
-                        <th>Created</th>
-                        <th>Published</th>
-                        <th></th>
+                        <th scope="col">Version</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Contract</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Published</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>

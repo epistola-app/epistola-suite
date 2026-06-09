@@ -571,6 +571,7 @@
   .ep-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
     font-size: var(--ep-text-sm);
 
     & thead {
@@ -606,6 +607,57 @@
         color: var(--ep-foreground);
         vertical-align: middle;
       }
+    }
+  }
+
+  .ep-table-dense {
+    font-size: var(--ep-text-xs);
+
+    & thead th,
+    & tbody td {
+      padding: var(--ep-space-2) var(--ep-space-3);
+    }
+  }
+
+  .ep-table-matrix {
+    & thead th,
+    & tbody td {
+      text-align: center;
+    }
+  }
+
+  .ep-table-row-header {
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .ep-table-col-checkbox {
+    width: 2rem;
+  }
+
+  .ep-table-scroll {
+    overflow-x: auto;
+  }
+
+  .ep-table-fixed {
+    table-layout: fixed;
+  }
+
+  .ep-table-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:not(td):not(th) {
+      display: block;
+      max-width: 100%;
+    }
+
+    & > * {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 

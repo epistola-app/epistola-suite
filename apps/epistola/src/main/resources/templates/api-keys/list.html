@@ -33,7 +33,7 @@
         <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th class="ep-table-truncate">Name</th>
                     <th>Prefix</th>
                     <th>Created by</th>
                     <th>Created</th>
@@ -45,7 +45,7 @@
             <tbody id="api-key-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="apiKey : ${apiKeys}" data-testid="api-key-row" th:data-api-key-name="${apiKey.name}">
-                        <td th:text="${apiKey.name}" class="api-key-name"></td>
+                        <td th:text="${apiKey.name}" th:title="${apiKey.name}" class="api-key-name ep-table-truncate"></td>
                         <td>
                             <code th:text="${apiKey.keyPrefix} + '…'"></code>
                         </td>

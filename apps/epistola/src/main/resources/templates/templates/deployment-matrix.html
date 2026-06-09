@@ -42,17 +42,17 @@
             <th:block th:if="${!#lists.isEmpty(environments) and !#lists.isEmpty(variants)}">
                 <div class="card page-section">
                     <div class="card-content flush">
-                        <div class="deploy-table-wrapper">
-                            <table class="ep-table deployment-matrix-table">
+                        <div class="ep-table-scroll">
+                            <table class="ep-table ep-table-matrix">
                                 <thead>
                                     <tr>
-                                        <th class="deploy-table-header">Variant</th>
-                                        <th th:each="env : ${environments}" th:text="${env.name}" class="deploy-table-header"></th>
+                                        <th class="ep-table-row-header" scope="col">Variant</th>
+                                        <th th:each="env : ${environments}" th:text="${env.name}" scope="col"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr th:each="variant : ${variants}">
-                                        <td class="deployment-matrix-variant">
+                                        <td class="ep-table-row-header deployment-matrix-variant">
                                             <div class="deploy-variant-row">
                                                 <div>
                                                     <code th:text="${variant.id}" class="deploy-variant-id"></code>

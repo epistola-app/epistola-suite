@@ -34,8 +34,8 @@
         <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>ID</th>
+                    <th class="ep-table-truncate">Name</th>
+                    <th class="ep-table-truncate">ID</th>
                     <th>Created</th>
                     <th></th>
                 </tr>
@@ -43,8 +43,8 @@
             <tbody id="environment-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="env : ${environments}">
-                        <td class="env-name" th:text="${env.name}"></td>
-                        <td><code th:text="${env.id}" class="env-id"></code></td>
+                        <td class="env-name ep-table-truncate" th:text="${env.name}" th:title="${env.name}"></td>
+                        <td class="ep-table-truncate"><code th:text="${env.id}" th:title="${env.id}" class="env-id"></code></td>
                         <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <button type="button"

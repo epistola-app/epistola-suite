@@ -67,14 +67,14 @@
                             </th:block>
                         </div>
 
-                        <table class="ep-table ep-table-compact">
+                        <table class="ep-table ep-table-dense">
                             <thead>
                                 <tr>
-                                    <th>Version</th>
-                                    <th>Status</th>
-                                    <th>Created</th>
-                                    <th>Published</th>
-                                    <th></th>
+                                    <th scope="col">Version</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Created</th>
+                                    <th scope="col">Published</th>
+                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -142,19 +142,19 @@
                         <span id="upgrade-status" class="stencil-upgrade-status"></span>
                     </div>
 
-                    <table class="ep-table ep-table-compact">
+                    <table class="ep-table ep-table-dense">
                         <thead>
                             <tr>
-                                <th class="table-checkbox-col">
+                                <th class="ep-table-col-checkbox" scope="col">
                                     <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all editable draft rows">
                                 </th>
-                                <th>Template</th>
-                                <th>Catalog</th>
-                                <th>Variant</th>
-                                <th>Version</th>
-                                <th>Status</th>
-                                <th>Stencil Version</th>
-                                <th>Instances</th>
+                                <th scope="col" class="ep-table-truncate">Template</th>
+                                <th scope="col">Catalog</th>
+                                <th scope="col">Variant</th>
+                                <th scope="col">Version</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Stencil Version</th>
+                                <th scope="col">Instances</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -172,7 +172,7 @@
                                 </td>
                                 <td>
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
-                                        th:text="${u.templateName}" class="stencil-usage-link"></a>
+                                         th:text="${u.templateName}" th:title="${u.templateName}" class="stencil-usage-link ep-table-truncate"></a>
                                 </td>
                                 <td><span class="badge badge-muted" th:text="${u.catalogKey}"></span></td>
                                 <td th:text="${u.variantId}"></td>
