@@ -8,6 +8,7 @@ data class ClusterScheduledTask(
     val tenantKey: TenantKey?,
     val routingKey: String,
     val taskType: String,
+    val requiredCapability: String,
     val payload: Map<String, Any?>,
     val scheduleKind: ClusterScheduledTaskScheduleKind,
     val cronExpression: String?,

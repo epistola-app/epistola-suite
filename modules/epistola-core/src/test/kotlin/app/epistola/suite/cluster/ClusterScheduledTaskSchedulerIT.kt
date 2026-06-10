@@ -42,6 +42,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 
     @BeforeEach
     fun reset() {
+        clock.reset()
         handler.handled.clear()
         handler.failTaskKeys.clear()
         deleteTask("scheduler-success")

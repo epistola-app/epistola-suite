@@ -28,12 +28,12 @@ class ClusterScheduledTaskRegistry(
             handle.createQuery(
                 """
                 INSERT INTO cluster_tasks_scheduled (
-                    task_key, tenant_key, routing_key, task_type, payload, schedule_kind,
+                    task_key, tenant_key, routing_key, task_type, required_capability, payload, schedule_kind,
                     cron_expression, interval_ms, zone_id, failure_policy, catch_up_policy,
                     enabled, next_due_at, updated_at
                 )
                 VALUES (
-                    :taskKey, :tenantKey, :routingKey, :taskType, :payload::jsonb, :scheduleKind,
+                    :taskKey, :tenantKey, :routingKey, :taskType, :requiredCapability, :payload::jsonb, :scheduleKind,
                     :cronExpression, :intervalMs, :zoneId, :failurePolicy, :catchUpPolicy,
                     :enabled, :initialDueAt, :now
                 )
@@ -41,6 +41,7 @@ class ClusterScheduledTaskRegistry(
                 SET tenant_key = EXCLUDED.tenant_key,
                     routing_key = EXCLUDED.routing_key,
                     task_type = EXCLUDED.task_type,
+                    required_capability = EXCLUDED.required_capability,
                     payload = EXCLUDED.payload,
                     next_due_at = CASE
                         WHEN cluster_tasks_scheduled.schedule_kind <> EXCLUDED.schedule_kind
@@ -65,6 +66,7 @@ class ClusterScheduledTaskRegistry(
                 .bind("tenantKey", definition.tenantKey?.value)
                 .bind("routingKey", definition.routingKey)
                 .bind("taskType", definition.taskType)
+                .bind("requiredCapability", normalizedCapability(definition.requiredCapability))
                 .bind("payload", payloadJson)
                 .bind("scheduleKind", scheduleFields.kind.dbValue)
                 .bind("cronExpression", scheduleFields.cronExpression)
@@ -102,6 +104,7 @@ class ClusterScheduledTaskRegistry(
     fun claimDue(taskKeys: Collection<String>, batchSize: Int = properties.scheduledTasks.batchSize): List<ClusterScheduledTask> {
         if (taskKeys.isEmpty()) return emptyList()
         val now = OffsetDateTime.now(clock)
+        val activeSince = now.minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
         val leaseExpiresAt = now.plusNanos(properties.scheduledTasks.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterScheduledTask>, Exception> { handle ->
             handle.createQuery(
@@ -113,6 +116,13 @@ class ClusterScheduledTaskRegistry(
                       AND enabled = true
                       AND next_due_at <= :now
                       AND (lease_owner_node_id IS NULL OR lease_expires_at < :now)
+                      AND EXISTS (
+                          SELECT 1
+                          FROM cluster_nodes n
+                          WHERE n.node_id = :nodeId
+                            AND n.last_seen_at > :activeSince
+                            AND jsonb_exists(n.capabilities, cluster_tasks_scheduled.required_capability)
+                      )
                     ORDER BY next_due_at, task_key
                     LIMIT :batchSize
                     FOR UPDATE SKIP LOCKED
@@ -131,6 +141,7 @@ class ClusterScheduledTaskRegistry(
                 .bindList("taskKeys", taskKeys)
                 .bind("batchSize", batchSize)
                 .bind("nodeId", nodeIdentity.nodeId)
+                .bind("activeSince", activeSince)
                 .bind("now", now)
                 .bind("leaseExpiresAt", leaseExpiresAt)
                 .map { rs, _ -> mapTask(rs) }
@@ -265,6 +276,7 @@ class ClusterScheduledTaskRegistry(
         tenantKey = rs.getString("tenant_key")?.let { TenantKey.of(it) },
         routingKey = rs.getString("routing_key"),
         taskType = rs.getString("task_type"),
+        requiredCapability = rs.getString("required_capability"),
         payload = readPayload(rs.getString("payload")),
         scheduleKind = ClusterScheduledTaskScheduleKind.fromDb(rs.getString("schedule_kind")),
         cronExpression = rs.getString("cron_expression"),
@@ -297,6 +309,7 @@ class ClusterScheduledTaskRegistry(
             ${p}tenant_key,
             ${p}routing_key,
             ${p}task_type,
+            ${p}required_capability,
             ${p}payload::text AS payload,
             ${p}schedule_kind,
             ${p}cron_expression,
@@ -324,6 +337,10 @@ class ClusterScheduledTaskRegistry(
         val cronExpression: String?,
         val intervalMs: Long?,
     )
+
+    private fun normalizedCapability(requiredCapability: String): String = requiredCapability
+        .trim()
+        .ifEmpty { ClusterProperties.DEFAULT_CAPABILITY }
 
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000

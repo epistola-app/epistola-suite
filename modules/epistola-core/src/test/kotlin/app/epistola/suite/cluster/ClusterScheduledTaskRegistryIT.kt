@@ -7,6 +7,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
@@ -28,6 +29,9 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     private lateinit var registry: ClusterScheduledTaskRegistry
 
     @Autowired
+    private lateinit var nodeRegistry: ClusterNodeRegistry
+
+    @Autowired
     private lateinit var nodeIdentity: NodeIdentity
 
     @Autowired
@@ -35,6 +39,11 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var clock: MutableClock
+
+    @BeforeEach
+    fun resetClock() {
+        clock.reset()
+    }
 
     @Test
     fun `upsert creates a durable scheduled task`() {
@@ -52,6 +61,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
         assertThat(task.taskKey).isEqualTo("task-upsert")
         assertThat(task.tenantKey).isNull()
+        assertThat(task.requiredCapability).isEqualTo(ClusterProperties.DEFAULT_CAPABILITY)
         assertThat(task.payload["source"]).isEqualTo("test")
         assertThat(task.scheduleKind).isEqualTo(ClusterScheduledTaskScheduleKind.FIXED_DELAY)
         assertThat(task.nextDueAt).isAfter(now())
@@ -135,6 +145,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     @Test
     fun `claim due leases a scheduled task for the current node`() {
         seedDueTask("task-claim")
+        nodeRegistry.heartbeat()
 
         val claimed = registry.claimDue(listOf("task-claim"))
 
@@ -144,8 +155,30 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `claim due ignores scheduled tasks requiring a capability the current node does not advertise`() {
+        deleteTask("task-pdf-render")
+        registry.upsert(
+            ClusterScheduledTaskDefinition(
+                taskKey = "task-pdf-render",
+                routingKey = "system:task-pdf-render",
+                taskType = "test",
+                requiredCapability = "pdf-render",
+                schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+            ),
+        )
+        clock.advanceBy(Duration.ofSeconds(61))
+        nodeRegistry.heartbeat()
+
+        val claimed = registry.claimDue(listOf("task-pdf-render"))
+
+        assertThat(claimed).isEmpty()
+        assertThat(registry.find("task-pdf-render")?.leaseOwnerNodeId).isNull()
+    }
+
+    @Test
     fun `complete advances the next due occurrence`() {
         seedDueTask("task-complete")
+        nodeRegistry.heartbeat()
         val task = registry.claimDue(listOf("task-complete")).single()
         val nextDueAt = now().plusMinutes(5)
 
@@ -161,6 +194,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     @Test
     fun `failure releases lease and increments consecutive failures`() {
         seedDueTask("task-fail")
+        nodeRegistry.heartbeat()
         val task = registry.claimDue(listOf("task-fail")).single()
         val retryAt = now().plusMinutes(1)
 

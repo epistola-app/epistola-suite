@@ -45,7 +45,13 @@ class ClusterTimerScheduler(
 
         val activeNodes = activeNodesForTimerOwnership()
         val ownedCandidateKeys = candidates
-            .filter { ownership.isOwnedBy(it.routingKey, nodeIdentity.nodeId, activeNodes) }
+            .filter { timer ->
+                ownership.isOwnedBy(
+                    routingKey = timer.routingKey,
+                    nodeId = nodeIdentity.nodeId,
+                    nodes = activeNodes.withCapability(timer.requiredCapability),
+                )
+            }
             .map { it.timerKey }
 
         val claimed = timerRegistry.claimDue(ownedCandidateKeys)
@@ -61,6 +67,8 @@ class ClusterTimerScheduler(
         val currentNode = nodeRegistry.heartbeat()
         return (activeNodes + currentNode).distinctBy { it.nodeId }.sortedBy { it.nodeId }
     }
+
+    private fun List<ClusterNode>.withCapability(capability: String): List<ClusterNode> = filter { capability in it.capabilities }
 
     private fun dispatch(timer: ClusterTimer) {
         val handler = handlersByType[timer.timerType]

@@ -3,6 +3,10 @@ package app.epistola.suite.handlers
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
+import app.epistola.suite.cluster.ClusterScheduledTask
+import app.epistola.suite.cluster.ClusterScheduledTaskRegistry
+import app.epistola.suite.cluster.ClusterTimer
+import app.epistola.suite.cluster.ClusterTimerRegistry
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
@@ -14,6 +18,8 @@ import java.time.OffsetDateTime
 @Component
 class ClusterStatusHandler(
     private val registry: ClusterNodeRegistry,
+    private val timerRegistry: ClusterTimerRegistry,
+    private val scheduledTaskRegistry: ClusterScheduledTaskRegistry,
     private val properties: ClusterProperties,
 ) {
 
@@ -56,6 +62,8 @@ class ClusterStatusHandler(
         }
         return ClusterStatusReport(
             nodes = nodes,
+            timers = timerRegistry.list(),
+            scheduledTasks = scheduledTaskRegistry.list(),
             heartbeatIntervalMs = properties.heartbeatIntervalMs,
             idleTimeoutMs = properties.idleTimeoutMs,
             activeCount = nodes.count { it.isActive },
@@ -70,6 +78,8 @@ class ClusterStatusHandler(
 
 data class ClusterStatusReport(
     val nodes: List<ClusterNodeStatus>,
+    val timers: List<ClusterTimer>,
+    val scheduledTasks: List<ClusterScheduledTask>,
     val heartbeatIntervalMs: Long,
     val idleTimeoutMs: Long,
     val activeCount: Int,

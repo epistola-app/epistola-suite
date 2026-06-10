@@ -46,7 +46,13 @@ class ClusterScheduledTaskScheduler(
 
         val activeNodes = activeNodesForTaskOwnership()
         val ownedCandidateKeys = candidates
-            .filter { ownership.isOwnedBy(it.routingKey, nodeIdentity.nodeId, activeNodes) }
+            .filter { task ->
+                ownership.isOwnedBy(
+                    routingKey = task.routingKey,
+                    nodeId = nodeIdentity.nodeId,
+                    nodes = activeNodes.withCapability(task.requiredCapability),
+                )
+            }
             .map { it.taskKey }
 
         val claimed = taskRegistry.claimDue(ownedCandidateKeys)
@@ -62,6 +68,8 @@ class ClusterScheduledTaskScheduler(
         val currentNode = nodeRegistry.heartbeat()
         return (activeNodes + currentNode).distinctBy { it.nodeId }.sortedBy { it.nodeId }
     }
+
+    private fun List<ClusterNode>.withCapability(capability: String): List<ClusterNode> = filter { capability in it.capabilities }
 
     private fun dispatch(task: ClusterScheduledTask) {
         val handler = handlersByType[task.taskType]

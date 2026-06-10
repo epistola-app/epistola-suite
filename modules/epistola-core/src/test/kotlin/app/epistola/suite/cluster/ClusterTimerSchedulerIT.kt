@@ -42,6 +42,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     @BeforeEach
     fun reset() {
+        clock.reset()
         handler.handled.clear()
         deleteTimer("scheduler-complete")
         deleteTimer("scheduler-reschedule")

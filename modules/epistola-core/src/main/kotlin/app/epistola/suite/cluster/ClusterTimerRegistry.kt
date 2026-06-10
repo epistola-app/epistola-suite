@@ -23,6 +23,7 @@ class ClusterTimerRegistry(
         routingKey: String,
         timerType: String,
         dueAt: OffsetDateTime,
+        requiredCapability: String = ClusterProperties.DEFAULT_CAPABILITY,
         payload: Map<String, Any?> = emptyMap(),
         tenantKey: TenantKey? = null,
     ): ClusterTimer {
@@ -31,12 +32,19 @@ class ClusterTimerRegistry(
         return jdbi.withHandle<ClusterTimer, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO cluster_timers (timer_key, tenant_key, routing_key, timer_type, due_at, payload, status, updated_at)
-                VALUES (:timerKey, :tenantKey, :routingKey, :timerType, :dueAt, :payload::jsonb, 'scheduled', :now)
+                INSERT INTO cluster_timers (
+                    timer_key, tenant_key, routing_key, timer_type, required_capability,
+                    due_at, payload, status, updated_at
+                )
+                VALUES (
+                    :timerKey, :tenantKey, :routingKey, :timerType, :requiredCapability,
+                    :dueAt, :payload::jsonb, 'scheduled', :now
+                )
                 ON CONFLICT (timer_key) DO UPDATE
                 SET tenant_key = EXCLUDED.tenant_key,
                     routing_key = EXCLUDED.routing_key,
                     timer_type = EXCLUDED.timer_type,
+                    required_capability = EXCLUDED.required_capability,
                     due_at = EXCLUDED.due_at,
                     payload = EXCLUDED.payload,
                     status = 'scheduled',
@@ -51,6 +59,7 @@ class ClusterTimerRegistry(
                 .bind("tenantKey", tenantKey?.value)
                 .bind("routingKey", routingKey)
                 .bind("timerType", timerType)
+                .bind("requiredCapability", normalizedCapability(requiredCapability))
                 .bind("dueAt", dueAt)
                 .bind("payload", payloadJson)
                 .bind("now", now)
@@ -83,6 +92,7 @@ class ClusterTimerRegistry(
     fun claimDue(timerKeys: Collection<String>, batchSize: Int = properties.timers.batchSize): List<ClusterTimer> {
         if (timerKeys.isEmpty()) return emptyList()
         val now = OffsetDateTime.now(clock)
+        val activeSince = now.minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
         val leaseExpiresAt = now.plusNanos(properties.timers.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterTimer>, Exception> { handle ->
             handle.createQuery(
@@ -95,6 +105,13 @@ class ClusterTimerRegistry(
                       AND (
                           (status = 'scheduled' AND (lease_owner_node_id IS NULL OR lease_expires_at < :now))
                           OR (status = 'running' AND lease_expires_at < :now)
+                      )
+                      AND EXISTS (
+                          SELECT 1
+                          FROM cluster_nodes n
+                          WHERE n.node_id = :nodeId
+                            AND n.last_seen_at > :activeSince
+                            AND jsonb_exists(n.capabilities, cluster_timers.required_capability)
                       )
                     ORDER BY due_at, timer_key
                     LIMIT :batchSize
@@ -115,6 +132,7 @@ class ClusterTimerRegistry(
                 .bindList("timerKeys", timerKeys)
                 .bind("batchSize", batchSize)
                 .bind("nodeId", nodeIdentity.nodeId)
+                .bind("activeSince", activeSince)
                 .bind("now", now)
                 .bind("leaseExpiresAt", leaseExpiresAt)
                 .map { rs, _ -> mapTimer(rs) }
@@ -216,11 +234,26 @@ class ClusterTimerRegistry(
             .orElse(null)
     }
 
+    fun list(limit: Int = 100): List<ClusterTimer> = jdbi.withHandle<List<ClusterTimer>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT ${selectColumns()}
+            FROM cluster_timers
+            ORDER BY due_at, timer_key
+            LIMIT :limit
+            """,
+        )
+            .bind("limit", limit)
+            .map { rs, _ -> mapTimer(rs) }
+            .list()
+    }
+
     private fun mapTimer(rs: java.sql.ResultSet): ClusterTimer = ClusterTimer(
         timerKey = rs.getString("timer_key"),
         tenantKey = rs.getString("tenant_key")?.let { TenantKey.of(it) },
         routingKey = rs.getString("routing_key"),
         timerType = rs.getString("timer_type"),
+        requiredCapability = rs.getString("required_capability"),
         dueAt = rs.getObject("due_at", OffsetDateTime::class.java),
         payload = readPayload(rs.getString("payload")),
         status = ClusterTimerStatus.fromDb(rs.getString("status")),
@@ -245,6 +278,7 @@ class ClusterTimerRegistry(
             ${p}tenant_key,
             ${p}routing_key,
             ${p}timer_type,
+            ${p}required_capability,
             ${p}due_at,
             ${p}payload::text AS payload,
             ${p}status,
@@ -258,6 +292,10 @@ class ClusterTimerRegistry(
             ${p}updated_at
         """.trimIndent()
     }
+
+    private fun normalizedCapability(requiredCapability: String): String = requiredCapability
+        .trim()
+        .ifEmpty { ClusterProperties.DEFAULT_CAPABILITY }
 
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000

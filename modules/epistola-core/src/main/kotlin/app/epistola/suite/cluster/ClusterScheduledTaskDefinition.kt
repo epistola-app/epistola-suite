@@ -7,6 +7,7 @@ data class ClusterScheduledTaskDefinition(
     val routingKey: String,
     val taskType: String,
     val schedule: ClusterScheduledTaskSchedule,
+    val requiredCapability: String = ClusterProperties.DEFAULT_CAPABILITY,
     val payload: Map<String, Any?> = emptyMap(),
     val tenantKey: TenantKey? = null,
     val zoneId: String = "UTC",

@@ -8,6 +8,7 @@ data class ClusterTimer(
     val tenantKey: TenantKey?,
     val routingKey: String,
     val timerType: String,
+    val requiredCapability: String,
     val dueAt: OffsetDateTime,
     val payload: Map<String, Any?>,
     val status: ClusterTimerStatus,

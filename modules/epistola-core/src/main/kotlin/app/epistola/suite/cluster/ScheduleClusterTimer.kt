@@ -12,6 +12,7 @@ data class ScheduleClusterTimer(
     val routingKey: String,
     val timerType: String,
     val dueAt: OffsetDateTime,
+    val requiredCapability: String = ClusterProperties.DEFAULT_CAPABILITY,
     val payload: Map<String, Any?> = emptyMap(),
     val tenantKey: TenantKey? = null,
 ) : Command<ClusterTimer>,
@@ -27,6 +28,7 @@ class ScheduleClusterTimerHandler(
         routingKey = command.routingKey,
         timerType = command.timerType,
         dueAt = command.dueAt,
+        requiredCapability = command.requiredCapability,
         payload = command.payload,
     )
 }

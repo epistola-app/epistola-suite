@@ -7,20 +7,42 @@ import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicReference
 
 class MutableClock(
-    initialInstant: Instant = Instant.parse("2026-06-10T00:00:00Z"),
+    private val initialInstant: Instant = Instant.parse("2026-06-10T00:00:00Z"),
     private val zone: ZoneId = ZoneId.of("UTC"),
 ) : Clock() {
-    private val current = AtomicReference(initialInstant)
+    private val scopedCurrent: ScopedValue<AtomicReference<Instant>> = ScopedValue.newInstance()
+    private val threadCurrent = ThreadLocal.withInitial { AtomicReference(initialInstant) }
 
     override fun getZone(): ZoneId = zone
 
-    override fun withZone(zone: ZoneId): Clock = MutableClock(current.get(), zone)
+    override fun withZone(zone: ZoneId): Clock = MutableClock(instant(), zone)
 
-    override fun instant(): Instant = current.get()
+    override fun instant(): Instant = current().get()
 
     fun set(instant: Instant) {
-        current.set(instant)
+        current().set(instant)
     }
 
-    fun advanceBy(duration: Duration): Instant = current.updateAndGet { it.plus(duration) }
+    fun reset(instant: Instant = initialInstant) {
+        current().set(instant)
+    }
+
+    fun advanceBy(duration: Duration): Instant = current().updateAndGet { it.plus(duration) }
+
+    fun <T> scoped(
+        instant: Instant = initialInstant,
+        block: () -> T,
+    ): T {
+        var result: Result<T>? = null
+        ScopedValue
+            .where(scopedCurrent, AtomicReference(instant))
+            .run { result = runCatching(block) }
+        return result?.getOrThrow() ?: error("Scoped clock block did not run")
+    }
+
+    private fun current(): AtomicReference<Instant> = if (scopedCurrent.isBound) {
+        scopedCurrent.get()
+    } else {
+        threadCurrent.get()
+    }
 }

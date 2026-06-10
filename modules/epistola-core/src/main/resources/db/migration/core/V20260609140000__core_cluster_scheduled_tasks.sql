@@ -9,6 +9,7 @@ CREATE TABLE cluster_tasks_scheduled (
     tenant_key              TENANT_KEY  REFERENCES tenants(id) ON DELETE CASCADE,
     routing_key             TEXT        NOT NULL,
     task_type               TEXT        NOT NULL,
+    required_capability     TEXT        NOT NULL DEFAULT 'suite',
     payload                 JSONB       NOT NULL DEFAULT '{}'::jsonb,
     schedule_kind           TEXT        NOT NULL,
     cron_expression         TEXT,
@@ -49,12 +50,15 @@ CREATE INDEX idx_cluster_tasks_scheduled_lease_owner
     ON cluster_tasks_scheduled(lease_owner_node_id);
 CREATE INDEX idx_cluster_tasks_scheduled_routing_key
     ON cluster_tasks_scheduled(routing_key);
+CREATE INDEX idx_cluster_tasks_scheduled_required_capability
+    ON cluster_tasks_scheduled(required_capability);
 
 COMMENT ON TABLE cluster_tasks_scheduled IS 'Durable recurring task definitions claimed by active cluster nodes using Postgres leases.';
 COMMENT ON COLUMN cluster_tasks_scheduled.task_key IS 'Stable idempotency key for the scheduled task definition.';
 COMMENT ON COLUMN cluster_tasks_scheduled.tenant_key IS 'Tenant that owns this task, or NULL for system-level tasks.';
 COMMENT ON COLUMN cluster_tasks_scheduled.routing_key IS 'Affinity key used to choose the owning cluster node.';
 COMMENT ON COLUMN cluster_tasks_scheduled.task_type IS 'Handler discriminator.';
+COMMENT ON COLUMN cluster_tasks_scheduled.required_capability IS 'Node capability required to claim and execute this scheduled task.';
 COMMENT ON COLUMN cluster_tasks_scheduled.payload IS 'Small handler payload. Large data should live in domain tables.';
 COMMENT ON COLUMN cluster_tasks_scheduled.schedule_kind IS 'cron, fixed_delay, or fixed_rate.';
 COMMENT ON COLUMN cluster_tasks_scheduled.next_due_at IS 'Next occurrence to claim. Recurrence is advanced from this durable value.';

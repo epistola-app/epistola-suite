@@ -6,6 +6,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
@@ -27,6 +28,9 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     private lateinit var registry: ClusterTimerRegistry
 
     @Autowired
+    private lateinit var nodeRegistry: ClusterNodeRegistry
+
+    @Autowired
     private lateinit var nodeIdentity: NodeIdentity
 
     @Autowired
@@ -34,6 +38,11 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var clock: MutableClock
+
+    @BeforeEach
+    fun resetClock() {
+        clock.reset()
+    }
 
     @Test
     fun `schedule upserts a durable timer`() {
@@ -56,6 +65,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
 
         assertThat(first.timerKey).isEqualTo("timer-upsert")
         assertThat(first.tenantKey).isNull()
+        assertThat(first.requiredCapability).isEqualTo(ClusterProperties.DEFAULT_CAPABILITY)
         assertThat(second.routingKey).isEqualTo("tenant-b")
         assertThat(second.payload["attempt"]).isEqualTo(2)
         assertThat(second.status).isEqualTo(ClusterTimerStatus.SCHEDULED)
@@ -183,6 +193,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         deleteTimer("timer-claim")
         registry.schedule("timer-claim", "tenant-a", "test", now().plusMinutes(1))
         clock.advanceBy(Duration.ofSeconds(61))
+        nodeRegistry.heartbeat()
 
         val claimed = registry.claimDue(listOf("timer-claim"))
 
@@ -193,10 +204,30 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `claim due ignores timers requiring a capability the current node does not advertise`() {
+        deleteTimer("timer-pdf-render")
+        registry.schedule(
+            timerKey = "timer-pdf-render",
+            routingKey = "tenant-a",
+            timerType = "test",
+            dueAt = now().plusMinutes(1),
+            requiredCapability = "pdf-render",
+        )
+        clock.advanceBy(Duration.ofSeconds(61))
+        nodeRegistry.heartbeat()
+
+        val claimed = registry.claimDue(listOf("timer-pdf-render"))
+
+        assertThat(claimed).isEmpty()
+        assertThat(registry.find("timer-pdf-render")?.leaseOwnerNodeId).isNull()
+    }
+
+    @Test
     fun `complete deletes a running timer owned by the current node`() {
         deleteTimer("timer-complete")
         registry.schedule("timer-complete", "tenant-a", "test", now().plusMinutes(1))
         clock.advanceBy(Duration.ofSeconds(61))
+        nodeRegistry.heartbeat()
         registry.claimDue(listOf("timer-complete"))
 
         val completed = registry.complete("timer-complete")
@@ -207,6 +238,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Test
     fun `expired running timer can be reclaimed`() {
+        nodeRegistry.heartbeat()
         deleteTimer("timer-expired")
         insertExpiredRunningTimer("timer-expired")
 
@@ -222,6 +254,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         deleteTimer("timer-reschedule")
         registry.schedule("timer-reschedule", "tenant-a", "test", now().plusMinutes(1))
         clock.advanceBy(Duration.ofSeconds(61))
+        nodeRegistry.heartbeat()
         registry.claimDue(listOf("timer-reschedule"))
         val nextDueAt = now().plusMinutes(5)
 
