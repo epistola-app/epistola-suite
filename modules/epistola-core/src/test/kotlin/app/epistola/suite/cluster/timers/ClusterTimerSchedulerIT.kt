@@ -1,4 +1,4 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.timers
 
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat

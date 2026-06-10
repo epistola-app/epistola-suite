@@ -1,6 +1,6 @@
 package app.epistola.suite.documents.cleanup
 
-import app.epistola.suite.cluster.ClusterScheduledTaskRegistry
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi

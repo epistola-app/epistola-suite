@@ -1,4 +1,4 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.schedules
 
 import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Component

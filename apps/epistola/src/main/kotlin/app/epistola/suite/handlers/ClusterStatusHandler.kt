@@ -3,10 +3,10 @@ package app.epistola.suite.handlers
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
-import app.epistola.suite.cluster.ClusterScheduledTask
-import app.epistola.suite.cluster.ClusterScheduledTaskRegistry
-import app.epistola.suite.cluster.ClusterTimer
-import app.epistola.suite.cluster.ClusterTimerRegistry
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
+import app.epistola.suite.cluster.timers.ClusterTimer
+import app.epistola.suite.cluster.timers.ClusterTimerRegistry
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId

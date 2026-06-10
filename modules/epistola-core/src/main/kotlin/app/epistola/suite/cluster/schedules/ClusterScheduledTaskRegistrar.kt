@@ -1,4 +1,4 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.schedules
 
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent

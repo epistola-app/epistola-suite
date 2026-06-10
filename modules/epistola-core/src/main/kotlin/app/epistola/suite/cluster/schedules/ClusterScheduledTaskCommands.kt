@@ -1,4 +1,4 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.schedules
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command

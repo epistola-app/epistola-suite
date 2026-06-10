@@ -1,4 +1,4 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.schedules
 
 interface ClusterScheduledTaskHandler {
     val taskType: String

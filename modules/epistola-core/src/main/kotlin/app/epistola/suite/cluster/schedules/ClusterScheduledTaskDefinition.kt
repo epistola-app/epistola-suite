@@ -1,5 +1,6 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.common.ids.TenantKey
 
 data class ClusterScheduledTaskDefinition(

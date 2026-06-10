@@ -1,5 +1,6 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.cluster.ClusterNode
 import org.springframework.stereotype.Component
 import java.math.BigInteger
 import java.security.MessageDigest

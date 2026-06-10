@@ -1,9 +1,9 @@
 package app.epistola.suite.generation.collect.maintenance
 
-import app.epistola.suite.cluster.ClusterScheduledTask
-import app.epistola.suite.cluster.ClusterScheduledTaskDefinition
-import app.epistola.suite.cluster.ClusterScheduledTaskHandler
-import app.epistola.suite.cluster.ClusterScheduledTaskSchedule
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi

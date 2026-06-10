@@ -1,5 +1,7 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.cluster.ClusterNodeRegistry
+import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase

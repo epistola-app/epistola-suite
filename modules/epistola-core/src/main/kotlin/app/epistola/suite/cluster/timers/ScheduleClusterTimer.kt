@@ -1,5 +1,6 @@
-package app.epistola.suite.cluster
+package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
