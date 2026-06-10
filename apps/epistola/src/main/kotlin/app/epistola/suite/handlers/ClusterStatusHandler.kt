@@ -16,6 +16,14 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import java.time.OffsetDateTime
 
+/**
+ * Renders the Operations -> Cluster page.
+ *
+ * The page combines the live node registry with mediator queries for timers and
+ * scheduled tasks. Recording a heartbeat here keeps the current node fresh when
+ * an operator opens the page, while timer/task reads stay on the public
+ * command-query boundary instead of depending on internal registries.
+ */
 @Component
 class ClusterStatusHandler(
     private val registry: ClusterNodeRegistry,
@@ -75,6 +83,9 @@ class ClusterStatusHandler(
     }
 }
 
+/**
+ * Read model consumed by the cluster dashboard template.
+ */
 data class ClusterStatusReport(
     val nodes: List<ClusterNodeStatus>,
     val timers: List<ClusterTimer>,
@@ -89,6 +100,9 @@ data class ClusterStatusReport(
     val idleTimeoutSeconds: Long = idleTimeoutMs / 1_000L
 }
 
+/**
+ * Presentation state for one registered cluster node.
+ */
 data class ClusterNodeStatus(
     val node: ClusterNode,
     val isCurrent: Boolean,

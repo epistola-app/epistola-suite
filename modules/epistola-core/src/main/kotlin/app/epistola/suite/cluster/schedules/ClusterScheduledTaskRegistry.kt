@@ -9,6 +9,16 @@ import tools.jackson.databind.ObjectMapper
 import java.time.Clock
 import java.time.OffsetDateTime
 
+/**
+ * Internal persistence boundary for recurring scheduled task definitions and
+ * runtime state.
+ *
+ * Normal callers should use the mediator-facing scheduled-task commands and
+ * queries. The scheduler uses this registry directly for lease transitions:
+ * claiming due work, completing a run, recording failure, and releasing leases.
+ * Keeping those operations together avoids scattering the row-state machine and
+ * `FOR UPDATE SKIP LOCKED` claim semantics across unrelated command handlers.
+ */
 @Component
 class ClusterScheduledTaskRegistry(
     private val jdbi: Jdbi,

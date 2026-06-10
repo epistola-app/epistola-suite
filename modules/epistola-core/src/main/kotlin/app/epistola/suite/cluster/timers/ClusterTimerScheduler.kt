@@ -16,6 +16,21 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.OffsetDateTime
 
+/**
+ * Poller for one-shot cluster timers.
+ *
+ * Every Suite node runs this scheduler. Each poll reads due timer candidates,
+ * filters the active node set by the timer's required capability, applies
+ * rendezvous ownership over the routing key, and only then attempts to claim
+ * owned rows through [ClusterTimerRegistry]. Claiming uses PostgreSQL row
+ * leases, so competing nodes cannot execute the same claimed row at the same
+ * time.
+ *
+ * The scheduler dispatches handlers inside [BackgroundExecutionContext], which
+ * binds mediator context and the current application clock for background
+ * work. Missing handlers and handler failures do not drop timers; they record
+ * the error and schedule a retry.
+ */
 @Component
 @EnableScheduling
 class ClusterTimerScheduler(

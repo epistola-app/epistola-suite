@@ -7,23 +7,44 @@ import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
+/**
+ * Computes initial, successful, and failed next-due timestamps for scheduled
+ * tasks.
+ *
+ * The calculator is intentionally separate from persistence and dispatch so the
+ * recurrence rules can be tested and evolved independently. It owns the
+ * semantics of fixed delay, fixed rate, cron time zones, catch-up/coalescing,
+ * and retry backoff. Callers pass persisted task state so the calculation can
+ * distinguish the previous due time from wall-clock `now`.
+ */
 @Component
 class ClusterScheduledTaskScheduleCalculator(
     private val clock: Clock,
 ) {
 
+    /**
+     * Computes the first due time when a code definition is registered.
+     */
     fun initialDueAt(definition: ClusterScheduledTaskDefinition, now: OffsetDateTime = OffsetDateTime.now(clock)): OffsetDateTime = when (val schedule = definition.schedule) {
         is ClusterScheduledTaskSchedule.Cron -> nextCron(schedule.expression, definition.zoneId, now)
         is ClusterScheduledTaskSchedule.FixedDelay -> now.plusNanos(schedule.intervalMs * NANOS_PER_MILLI)
         is ClusterScheduledTaskSchedule.FixedRate -> now.plusNanos(schedule.intervalMs * NANOS_PER_MILLI)
     }
 
+    /**
+     * Computes the next due time after a handler has completed successfully.
+     */
     fun nextAfterSuccess(task: ClusterScheduledTask, now: OffsetDateTime = OffsetDateTime.now(clock)): OffsetDateTime = when (task.scheduleKind) {
         ClusterScheduledTaskScheduleKind.CRON -> nextCron(task.cronExpression ?: error("Cron task '${task.taskKey}' has no cron expression"), task.zoneId, baseAfterSuccess(task, now))
         ClusterScheduledTaskScheduleKind.FIXED_DELAY -> now.plusNanos(requiredInterval(task) * NANOS_PER_MILLI)
         ClusterScheduledTaskScheduleKind.FIXED_RATE -> nextFixedRate(task, now)
     }
 
+    /**
+     * Computes the next due time after a handler failure, applying the task's
+     * failure policy and exponential retry backoff when retrying the same due
+     * occurrence.
+     */
     fun nextAfterFailure(task: ClusterScheduledTask, now: OffsetDateTime = OffsetDateTime.now(clock), retryDelayMs: Long, maxRetryDelayMs: Long): OffsetDateTime = when (task.failurePolicy) {
         ClusterScheduledTaskFailurePolicy.ADVANCE_ON_FAILURE -> nextAfterSuccess(task, now)
         ClusterScheduledTaskFailurePolicy.RETRY_SAME_DUE -> now.plusNanos(backoffMs(task, retryDelayMs, maxRetryDelayMs) * NANOS_PER_MILLI)

@@ -17,6 +17,20 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.OffsetDateTime
 
+/**
+ * Poller for recurring cluster scheduled tasks.
+ *
+ * Every Suite node runs this scheduler. Each poll reads due task definitions,
+ * filters active nodes by the task's required capability, applies routing-key
+ * ownership, and claims only rows owned by the current node. Claiming is still
+ * protected by PostgreSQL row leases, so ownership is an affinity mechanism
+ * rather than the correctness boundary.
+ *
+ * Successful handlers advance the recurring definition through
+ * [ClusterScheduledTaskScheduleCalculator]. Missing handlers and thrown
+ * exceptions are recorded through the registry and scheduled according to the
+ * task's failure policy.
+ */
 @Component
 @EnableScheduling
 class ClusterScheduledTaskScheduler(

@@ -6,6 +6,9 @@ import org.springframework.web.servlet.function.RouterFunction
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
+/**
+ * Routes for the Operations -> Cluster dashboard and its HTMX refresh endpoint.
+ */
 @Configuration
 class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
     @Bean
