@@ -2,36 +2,40 @@
 
 The project enforces a strict no-inline-styles policy across all surfaces: Thymeleaf templates, TypeScript components, and CSS files. An automated test (`InlineStyleHygieneTest`) runs in CI and **fails the build** on any violation.
 
-For the app UI, the goal is not to replace inline styles with a second utility-class framework. Prefer contextual, component-scoped, or page-scoped class names that describe what the element is. Use `data-*` attributes for state and CSS custom properties only as carriers for computed values. Do not put app UI CSS in template-local `<style>` elements; keep it in the app stylesheet unless there is a deliberate documented exception.
+The design system (`modules/design-system/components.css`) provides a set of reusable classes for common patterns: buttons (`.ep-btn`, `.ep-btn-primary`), form controls (`.ep-label`, `.ep-input`, `.ep-select`, `.ep-textarea`, `.ep-checkbox`), tables (`.ep-table`, `.ep-table-truncate`), code (`.ep-code`), dialogs (`.ep-dialog`), spacing (`.ep-mt-*`, `.ep-mb-*`, `.ep-p-*`), typography (`.ep-text-*`, `.ep-font-*`), and display (`.ep-inline`). Use these when they fit.
+
+For app-specific styling that the design system doesn't cover, add contextual or page-scoped classes to corresponding folder in `apps/epistola/src/main/resources/static/css/templates`. Do not add template-local `<style>` blocks.
 
 ## Quick Reference
 
-| What                        | Allowed Pattern                                    | Banned Pattern                                        |
-| --------------------------- | -------------------------------------------------- | ----------------------------------------------------- |
-| Static presentation         | Contextual CSS class                               | `style="color: red"`                                  |
-| App template CSS placement  | Shared app stylesheet                              | Template-local `<style>` block                        |
-| State-driven styling        | Data attribute + CSS `&[data-*]`                   | `classList.add('active')`                             |
-| Computed values (pixel)     | CSS custom property + `calc()`                     | `style="--ep-depth: ${d}"` only for data carrier      |
-| Hidden elements             | `data-hidden="true"` + CSS `&[data-hidden='true']` | `classList.add('hidden')` or `style.display = 'none'` |
-| Design-system tokens        | Use existing token directly                        | `var(--ep-fake-75)` or `var(--ep-gray-50, #f9fafb)`   |
-| Conditional Thymeleaf class | `th:classappend="${active ? ' active' : _}"`       | `style="..."` or duplicate `class` attrs              |
-| Conditional Thymeleaf style | `th:style="'--ep-foo: ' + ${val}"`                 | `th:style="val ? 'display:block' : 'display:none'"`   |
+| What                        | Allowed Pattern                                                                              | Banned Pattern                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Static presentation         | Design-system class or contextual CSS class                                                  | `style="color: red"`                                          |
+| App template CSS placement  | Corresponding app stylesheet                                                                 | Template-local `<style>` block                                |
+| State-driven styling        | Data attribute + CSS `&[data-*]` or flat selector                                            | `classList.add('active')`                                     |
+| Computed values (pixel)     | In TS: `style="--ep-*: ${val}"` + `calc()` in CSS; In HTML: `th:style="'--ep-*: ' + ${val}"` | `style="padding-left: ${d}px"` or any raw presentation inline |
+| Hidden elements             | `data-hidden="true"` + CSS `[data-hidden='true']`                                            | `classList.add('hidden')` or `style.display = 'none'`         |
+| Runtime display toggles     | `element.dataset.hidden = 'true'/'false'` + CSS                                              | `element.style.display = 'none'/'block'/'flex'`               |
+| Runtime interaction state   | `document.body.dataset.dragging = 'true'` + CSS `[data-dragging]`                            | `document.body.style.cursor` or `userSelect`                  |
+| Static sizing in JS         | CSS class or CSS custom property                                                             | `element.style.maxWidth` / `style.height` / `style.width`     |
+| Design-system tokens        | Use existing token directly                                                                  | `var(--ep-fake-75)` or `var(--ep-gray-50, #f9fafb)`           |
+| Conditional Thymeleaf class | `th:classappend="${active ? ' active' : _}"`                                                 | `style="..."` or duplicate `class` attrs                      |
+| Conditional Thymeleaf style | `th:style="'--ep-foo: ' + ${val}"`                                                           | `th:style="val ? 'display:block' : 'display:none'"`           |
 
-## The Seven Checks
+## The Ten Checks
 
 ### 1. No `style="..."` in HTML templates
 
-All inline `style` attributes in Thymeleaf templates must be replaced with CSS classes.
-
-In `apps/epistola`, prefer classes that describe the page or component role over generic app-wide utility classes.
-
-Do not add template-local `<style>` blocks for app pages or fragments. Put those rules in `apps/epistola/src/main/resources/static/css/main.css` so styling stays discoverable and reusable.
+All inline `style` attributes in Thymeleaf templates must be replaced with CSS classes from the design system or app stylesheet.
 
 ```html
 <!-- BAD -->
 <div style="margin-top: 12px; font-weight: 600;">Title</div>
 
-<!-- GOOD -->
+<!-- GOOD — design-system class -->
+<div class="ep-mt-3 ep-font-semibold">Title</div>
+
+<!-- GOOD — contextual class for app-specific style -->
 <div class="template-settings-title">Title</div>
 ```
 
@@ -57,7 +61,19 @@ html`<div class="inspector-muted-text">content</div>`;
 html`<div style="--ep-depth: ${depth}">content</div>`;
 ```
 
-### 3. Design-system tokens must exist and be used consistently
+### 3. No duplicate `class` attributes
+
+Thymeleaf's XML parser rejects elements with two `class` attributes. Never produce `class="..." class="..."`.
+
+```html
+<!-- BAD — Thymeleaf responds with 500 -->
+<div class="foo" class="bar">
+  <!-- GOOD — single class attribute -->
+  <div class="foo bar"></div>
+</div>
+```
+
+### 4. Design-system tokens must exist and be used consistently
 
 Never invent new token values or use fallbacks. Every `--ep-*` token must be an exact match from the design system (`modules/design-system/tokens.css`).
 
@@ -80,11 +96,11 @@ background: var(--ep-gray-50);
 padding: var(--ep-space-1-5);
 ```
 
-The design system has a **discrete** scale, not a continuous one. There is no `gray-75` between `gray-50` and `gray-100`. There is no `6px` space token if `space-1` (4px) and `space-1-5` (6px) don't exist — pick the one that matches. The same rule applies to colors, spacing, fonts, radii, shadows, and z-indices. If the token you want doesn't exist, you are either picking a wrong value or you need to add a new token to `tokens.css`.
+The design system has a **discrete** scale, not a continuous one. There is no `gray-75` between `gray-50` and `gray-100`. There is no `18px` space token — pick the closest existing token on the discrete scale. The same rule applies to colors, spacing, fonts, radii, shadows, and z-indices. If the token you want doesn't exist, you are either picking a wrong value or you need to add a new token to `tokens.css`.
 
 **What this check covers:** This rule is enforced by the test's no-fallback regex (`var(--ep-*, <something>)`) but the intent is broader — it's about token consistency. The test catches the fallback case; human review catches the made-up-token case.
 
-### 4. No `th:style` without `--ep-*`
+### 5. No `th:style` without `--ep-*`
 
 The `th:style` attribute is only allowed for CSS custom property carriers:
 
@@ -115,9 +131,7 @@ For visibility in server-rendered UI, prefer `data-hidden="true|false"` over cla
 }
 ```
 
-Reasoning: CSS files style elements; HTML elements carry class names and data for CSS to act upon. Keep the visibility rule in CSS and let the markup only declare the state.
-
-### 5. No `var(--ep-*, <fallback>)` in TypeScript string literals
+### 6. No `var(--ep-*, <fallback>)` in TypeScript string literals
 
 The same no-fallback rule applies to JavaScript string literals:
 
@@ -129,7 +143,7 @@ const color = valid ? "var(--ep-green-600, #16a34a)" : "var(--ep-destructive, #d
 element.dataset.validity = valid ? "valid" : "invalid";
 ```
 
-### 6. No runtime `style.color` / `style.background` / `style.borderColor`
+### 7. No runtime `style.color` / `style.background` / `style.borderColor`
 
 ```typescript
 // BAD
@@ -141,7 +155,7 @@ validityEl.dataset.validity = "invalid";
 
 **Exemption:** Content-driven colors from ProseMirror marks (e.g., `el.style.color = color` where `color` comes from `mark.attrs?.color`) are allowed because the color comes from the document model, not from a hardcoded value.
 
-### 7. No `classList.add/remove/toggle/contains`
+### 8. No `classList.add/remove/toggle/contains`
 
 ```typescript
 // BAD
@@ -157,31 +171,84 @@ element.dataset.selected = isSelected ? "true" : "false";
 element.dataset.hidden === "true";
 ```
 
-## Correct Patterns
+### 9. No runtime `style.display =` assignments
 
-### Static presentation -> contextual classes
+Runtime display toggles must use the `data-hidden` attribute pattern instead of directly setting `style.display`:
 
-Prefer names that describe the element's role in the page or component:
+```typescript
+// BAD
+menuEl.style.display = "none";
+menuEl.style.display = "flex";
+editorEl.style.display = "block";
 
-```html
-<!-- BAD -->
-<form class="ep-inline">
-  <!-- GOOD -->
-  <form class="nav-logout-form"></form>
-</form>
+// GOOD — Lit template
+html`<div ?data-hidden=${!visible}>content</div>`;
+
+// GOOD — runtime DOM
+menuEl.dataset.hidden = "true";
+menuEl.dataset.hidden = "false";
 ```
 
 ```css
-.nav-logout-form {
-  display: inline;
+/* CSS for runtime toggles */
+.pm-bubble-menu[data-hidden="true"] {
+  display: none;
 }
 ```
 
-Avoid rebuilding a generic app utility layer in `apps/epistola/src/main/resources/static/css/main.css`. If a style is specific to one page, fragment, or component, name it that way.
+### 10. No runtime `style.cursor` / `style.userSelect` / `style.maxWidth` / static `style.height` / `style.width`
+
+Use body data attributes for interaction state and CSS classes for static sizing:
+
+```typescript
+// BAD
+document.body.style.cursor = "col-resize";
+document.body.style.userSelect = "none";
+dialog.style.maxWidth = "min(960px, 90vw)";
+editorEl.style.height = "100%";
+
+// GOOD — body data attribute for interaction state
+document.body.dataset.dragging = "resize-handle";
+delete document.body.dataset.dragging;
+
+// GOOD — CSS class for dialog sizing
+dialog.className = "stencil-picker-dialog stencil-picker-dialog--definitions";
+```
+
+```css
+/* Editor interaction state */
+body[data-dragging] {
+  user-select: none;
+}
+body[data-dragging="resize-handle"] {
+  cursor: col-resize;
+}
+
+/* Dialog sizing variant */
+.stencil-picker-dialog--definitions {
+  max-width: min(960px, 90vw);
+}
+```
+
+**Exemptions:** Content-driven positioning from floating-ui (`computePosition` → `style.left`/`top`), CSS custom property carriers (`style.setProperty('--ep-*', ...)`), and textarea auto-resize (`style.height = 'auto'` / `scrollHeight`) are allowed as computed values.
+
+## Correct Patterns
+
+### Static presentation → design-system or contextual class
+
+Use design-system classes (`ep-mt-*`, `ep-text-*`, `ep-btn`, etc.) when they fit the need. For app-specific styling not covered by the design system, add a contextual class to corresponding CSS file.
+
+```html
+<!-- GOOD — design-system class -->
+<span class="ep-text-sm ep-text-destructive ep-mt-1">Error message</span>
+
+<!-- GOOD — contextual class for page/template-specific style -->
+<div class="template-settings-description">Description</div>
+```
 
 ### App template CSS placement
 
-For the app UI, keep CSS in the shared stylesheet instead of embedding `<style>` elements in Thymeleaf templates.
+Keep app-specific CSS in the shared stylesheet instead of embedding `<style>` elements in Thymeleaf templates.
 
 ```html
 <!-- BAD -->
@@ -215,9 +282,10 @@ errorEl.dataset.hidden = "false";
 cell.dataset.active = condition ? "true" : "false";
 ```
 
-CSS follows the nesting pattern — data attributes go inside the base class:
+CSS selectors for data attributes can use either nesting (in editor component stylesheets) or flat selectors (in app stylesheet):
 
 ```css
+/* Editor component stylesheet — nested */
 .stencil-picker-card {
   &[data-selected="true"] {
     border-color: var(--ep-primary);
@@ -229,17 +297,10 @@ CSS follows the nesting pattern — data attributes go inside the base class:
     cursor: not-allowed;
   }
 }
-```
 
-Do **not** write standalone top-level selectors:
-
-```css
-/* BAD — not nested */
-.stencil-picker-card[data-selected="true"] {
-}
-
-/* BAD — not nested */
-[data-selected="true"] {
+/* App stylesheet — flat (equally acceptable) */
+.version-comparison-loading[data-hidden="true"] {
+  display: none;
 }
 ```
 
@@ -264,7 +325,7 @@ The CSS default (`--ep-tree-depth: 0`) ensures the property is always defined. T
 
 ### Hidden elements
 
-Always use `data-hidden="true"` + CSS `&[data-hidden='true'] { display: none; }`. Nest it inside the element's base class when the selector belongs to a component stylesheet; in app-level page CSS, a scoped selector such as `.version-comparison-loading[data-hidden='true']` is also acceptable:
+Use `data-hidden="true"` + CSS `[data-hidden='true'] { display: none; }`:
 
 ```typescript
 // Template — initially hidden
@@ -276,14 +337,14 @@ errorEl.dataset.hidden = "false"; // show
 ```
 
 ```css
+/* Editor component — nested */
 .stencil-picker-error {
   &[data-hidden="true"] {
     display: none;
   }
 }
-```
 
-```css
+/* App stylesheet — flat selector */
 .version-comparison-loading[data-hidden="true"] {
   display: none;
 }
@@ -292,13 +353,13 @@ errorEl.dataset.hidden = "false"; // show
 ## Running the Test
 
 ```bash
-# Run all 7 checks
+# Run all 10 checks
 ./gradlew :apps:epistola:test --tests "*InlineStyleHygieneTest*"
 
-# Run a single check
+# Run a single check (match on test method name fragment)
+./gradlew :apps:epistola:test --tests "*InlineStyleHygieneTest*display*"
+./gradlew :apps:epistola:test --tests "*InlineStyleHygieneTest*positioning*"
 ./gradlew :apps:epistola:test --tests "*InlineStyleHygieneTest*classList*"
-./gradlew :apps:epistola:test --tests "*InlineStyleHygieneTest*CSS*"
-./gradlew :apps:epistola:test --tests "*InlineStyleHygieneTest*TypeScript*"
 ```
 
 ## The Test File
