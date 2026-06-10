@@ -230,9 +230,9 @@
                                 </td>
                                 <td><code th:text="${task.routingKey}">routing</code></td>
                                 <td>
-                                    <span th:title="${#temporals.format(task.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
-                                          th:attr="data-local-datetime=${task.nextDueAt}"
-                                          th:text="${#temporals.format(task.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
+                                    <span th:title="${#temporals.format(entry.effectiveNextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                          th:attr="data-local-datetime=${entry.effectiveNextDueAt}"
+                                          th:text="${#temporals.format(entry.effectiveNextDueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
                                 </td>
                                 <td><code th:text="${task.leaseOwnerNodeId ?: '-'}">-</code></td>
                             </tr>

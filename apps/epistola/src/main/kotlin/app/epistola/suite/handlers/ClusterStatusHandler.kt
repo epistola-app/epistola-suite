@@ -78,26 +78,27 @@ class ClusterStatusHandler(
             timers = ListClusterTimers().query(),
             scheduledTasks = ListClusterScheduledTasks.query().map { task ->
                 val statesByNode = scheduledTaskNodeStatesByTask[task.taskKey].orEmpty().associateBy { it.nodeId }
+                val nodeStates = if (task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE) {
+                    nodes
+                        .filter { task.requiredCapability in it.node.capabilities }
+                        .sortedBy { it.node.nodeId }
+                        .map { node ->
+                            val state = statesByNode[node.node.nodeId]
+                            ClusterScheduledTaskNodeStatus(
+                                nodeId = node.node.nodeId,
+                                nodeStatusLabel = node.statusLabel,
+                                taskStatusLabel = taskStatusLabel(node, state, now),
+                                nextDueAt = state?.nextDueAt ?: task.nextDueAt,
+                                leaseExpiresAt = state?.leaseExpiresAt,
+                                consecutiveFailures = state?.consecutiveFailures ?: 0,
+                            )
+                        }
+                } else {
+                    emptyList()
+                }
                 ClusterScheduledTaskStatus(
                     task = task,
-                    nodeStates = if (task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE) {
-                        nodes
-                            .filter { task.requiredCapability in it.node.capabilities }
-                            .sortedBy { it.node.nodeId }
-                            .map { node ->
-                                val state = statesByNode[node.node.nodeId]
-                                ClusterScheduledTaskNodeStatus(
-                                    nodeId = node.node.nodeId,
-                                    nodeStatusLabel = node.statusLabel,
-                                    taskStatusLabel = taskStatusLabel(node, state, now),
-                                    nextDueAt = state?.nextDueAt ?: task.nextDueAt,
-                                    leaseExpiresAt = state?.leaseExpiresAt,
-                                    consecutiveFailures = state?.consecutiveFailures ?: 0,
-                                )
-                            }
-                    } else {
-                        emptyList()
-                    },
+                    nodeStates = nodeStates,
                 )
             },
             heartbeatIntervalMs = properties.heartbeatIntervalMs,
@@ -149,6 +150,7 @@ data class ClusterScheduledTaskStatus(
     val nodeStates: List<ClusterScheduledTaskNodeStatus>,
 ) {
     val eachCapableNode: Boolean = task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE
+    val effectiveNextDueAt: java.time.OffsetDateTime = nodeStates.minOfOrNull { it.nextDueAt } ?: task.nextDueAt
 }
 
 /**
