@@ -3,10 +3,10 @@ package app.epistola.suite.cluster.timers
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.observability.NodeIdentity
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.time.Clock
 import java.time.OffsetDateTime
 
 /**
@@ -27,7 +27,6 @@ class ClusterTimerRegistry(
     private val objectMapper: ObjectMapper,
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
-    private val clock: Clock,
 ) {
     private val payloadType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
@@ -41,7 +40,7 @@ class ClusterTimerRegistry(
         tenantKey: TenantKey? = null,
     ): ClusterTimer {
         val payloadJson = objectMapper.writeValueAsString(payload)
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         return jdbi.withHandle<ClusterTimer, Exception> { handle ->
             handle.createQuery(
                 """
@@ -82,7 +81,7 @@ class ClusterTimerRegistry(
     }
 
     fun dueCandidates(limit: Int = properties.timers.candidateScanSize): List<ClusterTimer> = jdbi.withHandle<List<ClusterTimer>, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createQuery(
             """
             SELECT ${selectColumns()}
@@ -104,7 +103,7 @@ class ClusterTimerRegistry(
 
     fun claimDue(timerKeys: Collection<String>, batchSize: Int = properties.timers.batchSize): List<ClusterTimer> {
         if (timerKeys.isEmpty()) return emptyList()
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         val activeSince = now.minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
         val leaseExpiresAt = now.plusNanos(properties.timers.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterTimer>, Exception> { handle ->
@@ -182,7 +181,7 @@ class ClusterTimerRegistry(
 
     fun reschedule(timerKey: String, nextDueAt: OffsetDateTime, payload: Map<String, Any?>? = null): Boolean {
         val payloadJson = payload?.let { objectMapper.writeValueAsString(it) }
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         return jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createUpdate(
                 """
@@ -210,7 +209,7 @@ class ClusterTimerRegistry(
     }
 
     fun retryAfterFailure(timerKey: String, retryAt: OffsetDateTime, error: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createUpdate(
             """
             UPDATE cluster_timers

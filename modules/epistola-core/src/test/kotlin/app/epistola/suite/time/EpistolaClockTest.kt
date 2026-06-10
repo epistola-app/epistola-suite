@@ -1,5 +1,9 @@
 package app.epistola.suite.time
 
+import app.epistola.suite.mediator.Command
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.Query
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -32,5 +36,40 @@ class EpistolaClockTest {
 
         assertThat(observed.first).isEqualTo(inner)
         assertThat(observed.second).isEqualTo(outer)
+    }
+
+    @Test
+    fun `current clock falls back to mediator context`() {
+        val instant = Instant.parse("2026-06-12T00:00:00Z")
+
+        val observed = EpistolaClock.withInstant(instant) {
+            MediatorContext.runWithMediator(TestMediator) {
+                EpistolaClock.instant()
+            }
+        }
+
+        assertThat(observed).isEqualTo(instant)
+    }
+
+    @Test
+    fun `local clock scope takes precedence over mediator context`() {
+        val mediatorInstant = Instant.parse("2026-06-12T00:00:00Z")
+        val localInstant = Instant.parse("2026-06-13T00:00:00Z")
+
+        val observed = EpistolaClock.withInstant(mediatorInstant) {
+            MediatorContext.runWithMediator(TestMediator) {
+                EpistolaClock.withInstant(localInstant) {
+                    EpistolaClock.instant()
+                }
+            }
+        }
+
+        assertThat(observed).isEqualTo(localInstant)
+    }
+
+    private object TestMediator : Mediator {
+        override fun <R> send(command: Command<R>): R = error("not used")
+
+        override fun <R> query(query: Query<R>): R = error("not used")
     }
 }

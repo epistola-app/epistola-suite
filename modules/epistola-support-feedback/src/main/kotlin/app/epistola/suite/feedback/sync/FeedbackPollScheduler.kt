@@ -49,9 +49,7 @@ class FeedbackPollScheduler(
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.polling.interval-ms:300000}")
     fun pollForUpdates() {
         schedulerLock.runExclusively(SchedulerLock.FEEDBACK_POLL) {
-            MediatorContext.runWithMediator(mediator) {
-                drainUpdates()
-            }
+            MediatorContext.runWithMediator(mediator) { drainUpdates() }
         }
     }
 

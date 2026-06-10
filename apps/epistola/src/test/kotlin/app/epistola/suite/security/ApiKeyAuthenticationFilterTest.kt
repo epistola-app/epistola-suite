@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.queries.GetUserByExternalId
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
@@ -23,7 +24,6 @@ import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
 import tools.jackson.databind.ObjectMapper
-import java.time.Instant
 
 /**
  * Integration test for [ApiKeyAuthenticationFilter].
@@ -132,7 +132,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
                 val created = CreateApiKey(
                     tenantId = tenant.id,
                     name = "Already Expired",
-                    expiresAt = Instant.now().minusSeconds(3600),
+                    expiresAt = EpistolaClock.instant().minusSeconds(3600),
                 ).execute()
                 plaintextKey = created.plaintextKey
             }
@@ -266,7 +266,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
                 plaintextKey = CreateApiKey(
                     tenantId = tenant.id,
                     name = "Future",
-                    expiresAt = Instant.now().plusSeconds(86400),
+                    expiresAt = EpistolaClock.instant().plusSeconds(86400),
                 ).execute().plaintextKey
             }
 

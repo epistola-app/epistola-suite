@@ -1,20 +1,20 @@
 package app.epistola.suite.cluster.timers
 
-import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.uniqueHandlersByType
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.Clock
-import java.time.OffsetDateTime
 
 /**
  * Poller for one-shot cluster timers.
@@ -26,10 +26,9 @@ import java.time.OffsetDateTime
  * leases, so competing nodes cannot execute the same claimed row at the same
  * time.
  *
- * The scheduler dispatches handlers inside [BackgroundExecutionContext], which
- * binds mediator context and the current application clock for background
- * work. Missing handlers and handler failures do not drop timers; they record
- * the error and schedule a retry.
+ * The scheduler dispatches handlers inside a [MediatorContext], which binds the
+ * mediator and current application clock. Missing handlers
+ * and handler failures do not drop timers; they record the error and schedule a retry.
  */
 @Component
 @EnableScheduling
@@ -40,8 +39,7 @@ class ClusterTimerScheduler(
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
     private val meterRegistry: MeterRegistry,
-    private val clock: Clock,
-    private val backgroundExecutionContext: BackgroundExecutionContext,
+    private val mediator: Mediator,
     handlers: List<ClusterTimerHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,7 +54,7 @@ class ClusterTimerScheduler(
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.timers.poll-interval-ms:1000}")
-    fun poll() = backgroundExecutionContext.run {
+    fun poll() = MediatorContext.runWithMediator(mediator) {
         meterRegistry.recordScheduledTask("cluster-timer-poller") {
             if (shuttingDown) return@recordScheduledTask
 
@@ -96,7 +94,7 @@ class ClusterTimerScheduler(
     private fun dispatch(timer: ClusterTimer) {
         val handler = handlersByType[timer.timerType]
         if (handler == null) {
-            val retryAt = OffsetDateTime.now(clock).plusNanos(properties.timers.retryDelayMs * NANOS_PER_MILLI)
+            val retryAt = EpistolaClock.offsetDateTime().plusNanos(properties.timers.retryDelayMs * NANOS_PER_MILLI)
             timerRegistry.retryAfterFailure(timer.timerKey, retryAt, "No handler registered for timer type '${timer.timerType}'")
             log.warn("No handler registered for cluster timer type '{}'", timer.timerType)
             return
@@ -108,7 +106,7 @@ class ClusterTimerScheduler(
                 is ClusterTimerResult.Reschedule -> timerRegistry.reschedule(timer.timerKey, result.nextDueAt, result.payload)
             }
         } catch (e: Exception) {
-            val retryAt = OffsetDateTime.now(clock).plusNanos(properties.timers.retryDelayMs * NANOS_PER_MILLI)
+            val retryAt = EpistolaClock.offsetDateTime().plusNanos(properties.timers.retryDelayMs * NANOS_PER_MILLI)
             timerRegistry.retryAfterFailure(timer.timerKey, retryAt, e.message ?: e.javaClass.name)
             log.warn("Cluster timer '{}' failed; retry scheduled for {}", timer.timerKey, retryAt, e)
         }

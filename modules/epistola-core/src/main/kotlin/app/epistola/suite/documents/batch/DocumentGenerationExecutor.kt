@@ -34,6 +34,7 @@ import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -45,7 +46,6 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.time.OffsetDateTime
 
 /**
  * Executes document generation jobs.
@@ -365,7 +365,7 @@ class DocumentGenerationExecutor(
             correlationId = request.correlationId,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
-            createdAt = OffsetDateTime.now(),
+            createdAt = EpistolaClock.offsetDateTime(),
             // Background generation runs under the JobPoller's SystemUser
             // principal, which is a real seeded `users` row — so the creator is
             // simply the bound principal (a real user for API-triggered
@@ -515,7 +515,7 @@ class DocumentGenerationExecutor(
                     sizeBytes = sizeBytes,
                     contentType = contentType,
                     error = error,
-                    completedAt = OffsetDateTime.now(),
+                    completedAt = EpistolaClock.offsetDateTime(),
                 ),
             )
         } catch (e: Exception) {

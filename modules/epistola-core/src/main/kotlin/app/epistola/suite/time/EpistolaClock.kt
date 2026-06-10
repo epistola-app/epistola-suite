@@ -1,5 +1,6 @@
 package app.epistola.suite.time
 
+import app.epistola.suite.mediator.MediatorContext
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -11,7 +12,10 @@ object EpistolaClock {
     private val scopedClock: ScopedValue<Clock> = ScopedValue.newInstance()
     private val systemClock: Clock = Clock.systemUTC()
 
-    fun current(): Clock = if (scopedClock.isBound) scopedClock.get() else systemClock
+    fun current(): Clock = when {
+        scopedClock.isBound -> scopedClock.get()
+        else -> MediatorContext.currentClockOrNull() ?: systemClock
+    }
 
     fun capture(): Clock = current()
 

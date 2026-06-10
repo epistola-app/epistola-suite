@@ -5,6 +5,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
@@ -15,7 +16,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.annotation.Bean
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
-import java.time.Clock
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
@@ -44,7 +44,6 @@ import java.time.format.DateTimeFormatter
 class PartitionMaintenanceScheduler(
     private val jdbi: Jdbi,
     private val meterRegistry: MeterRegistry,
-    private val clock: Clock,
     @Value("\${epistola.partitions.retention-months:3}")
     private val retentionMonths: Int,
     @Value("\${epistola.partitions.generation-results-retention-months:1}")
@@ -137,7 +136,7 @@ class PartitionMaintenanceScheduler(
      * Ensure the current and next month partitions exist for [config]. Idempotent.
      */
     private fun createRequiredPartitions(config: PartitionConfig) {
-        val now = YearMonth.now(clock)
+        val now = YearMonth.from(EpistolaClock.offsetDateTime())
         createPartitionForMonth(config, now)
         createPartitionForMonth(config, now.plusMonths(1))
     }
@@ -197,7 +196,7 @@ class PartitionMaintenanceScheduler(
      * Drop partitions older than the config's retention period.
      */
     private fun dropOldPartitions(config: PartitionConfig) {
-        val cutoffMonth = YearMonth.now(clock).minusMonths(config.retentionMonths.toLong())
+        val cutoffMonth = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(config.retentionMonths.toLong())
         val cutoffPartition = "${config.tableName}_${cutoffMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
 
         // Query for partitions older than retention period

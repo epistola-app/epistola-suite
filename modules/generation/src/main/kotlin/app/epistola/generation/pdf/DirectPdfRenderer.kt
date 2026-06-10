@@ -25,6 +25,7 @@ import com.itextpdf.kernel.xmp.XMPMetaFactory
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
 import java.io.OutputStream
+import java.time.Clock
 
 /**
  * Main PDF renderer that orchestrates node rendering and outputs to a stream.
@@ -92,6 +93,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         renderMode: RenderMode = RenderMode.STRICT,
         culture: RenderCulture = RenderCulture.DEFAULT,
+        clock: Clock = Clock.systemUTC(),
     ) {
         TwoPassAnalyzer.validate(document)
 
@@ -118,6 +120,7 @@ class DirectPdfRenderer(
                 headerNodes = headerNodes,
                 footerNode = footerNode,
                 scopedEvaluator = scopedEvaluator,
+                clock = clock,
             )
         } else {
             renderSinglePass(
@@ -132,6 +135,7 @@ class DirectPdfRenderer(
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
+                clock = clock,
             )
         }
     }
@@ -147,6 +151,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        clock: Clock = Clock.systemUTC(),
     ): RenderContext {
         val fontCache = FontCache(pdfaCompliant, fontFamilyResolver)
         val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults)
@@ -164,7 +169,7 @@ class DirectPdfRenderer(
             renderMode = renderMode,
             renderingDefaults = renderingDefaults,
             spacingUnit = resolvedTheme.spacingUnit,
-            systemParams = SystemParameterRegistry.buildGlobalParams(),
+            systemParams = SystemParameterRegistry.buildGlobalParams(clock),
             resolvedPageSettings = resolvedTheme.pageSettings,
             parameterSchemaProvider = parameterSchemaProvider,
         )
@@ -182,6 +187,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        clock: Clock = Clock.systemUTC(),
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -202,6 +208,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            clock = clock,
         )
 
         val headerNodes = pageHeaderNodesInDocumentOrder(document)
@@ -261,6 +268,7 @@ class DirectPdfRenderer(
         headerNodes: List<Node>,
         footerNode: Node?,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        clock: Clock = Clock.systemUTC(),
     ) {
         // pageSettings cascade: template override > theme-resolved > engine defaults.
         val pageSettings = document.pageSettingsOverride
@@ -282,6 +290,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            clock = clock,
         )
 
         val footerHeight = footerNode?.let {
@@ -318,6 +327,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            clock = clock,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
             outputStream = tempOutput,
@@ -350,6 +360,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            clock = clock,
         ).withTotalPages(totalPages)
 
         performRenderWithContext(

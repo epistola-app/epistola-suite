@@ -97,6 +97,58 @@ migration — add a new timestamped file. Folding `ALTER`s back into the origina
 
 - **Feature-toggle reads go through CQRS queries, not the service.** `GetFeatureToggles` is the permission-gated (`TENANT_SETTINGS`) read backing the admin Features page; `ResolveFeatureToggles` is its `SystemInternal` (auth-bypassing) sibling for internal use — UI rendering (nav/footer contributors, shown to any signed-in user) and background schedulers. Both delegate to `FeatureToggleService.resolveAll`, which memoizes per request via a `ScopedValue` cache (bound by `FeatureToggleCacheFilter`, same idiom as `SecurityContext`/`MediatorContext`), so a whole page render issues one toggle query per tenant. Add new toggle reads as a query; only the resolution service touches JDBI.
 
+### Application time and mediator context
+
+Application time is owned by `MediatorContext`, not by Spring injection. The
+active mediator context carries the `Mediator`, the current `Clock`, and
+optionally the current `EpistolaPrincipal`. `MediatorContext` binds that state
+with `ScopedValue`, and `EpistolaClock` resolves time from the bound context.
+
+Rules:
+
+- Use `EpistolaClock.instant()`, `offsetDateTime()`, `localDate()`, or
+  `yearMonth()` for application time.
+- Do not add direct application calls to `Instant.now()`,
+  `OffsetDateTime.now()`, `LocalDate.now()`, `ZonedDateTime.now()`, or
+  `YearMonth.now()`.
+- Do not inject Spring `Clock` for application time. The Spring `Clock` bean is
+  only a compatibility bridge for legacy/transitional code.
+- Regular commands and queries get a mediator context scope from
+  `SpringMediator`; handlers should not create their own scope.
+- Entry points that start outside an existing mediator scope and execute
+  immediately must bind a mediator context explicitly:
+
+  ```kotlin
+  MediatorContext.runWithMediator(mediator) {
+      // scheduler or startup work
+  }
+  ```
+
+- Work submitted to another thread must capture the context before submission
+  and bind it inside the runnable/callable. Virtual threads are still separate
+  threads; `ScopedValue` bindings do not automatically cross executor or
+  callback boundaries.
+
+  ```kotlin
+  executor.submit(MediatorContext.runnable(mediator, principal) {
+      // async work
+  })
+  ```
+
+- Prefer `MediatorContext.current()` / `.send()` / `.query()` inside the bound
+  scope instead of passing Spring services deeper into application operations.
+- Database `NOW()`/`now()` is still correct for database-owned timestamps,
+  triggers, row leases, claim/update comparisons, and other operations that must
+  align with the database clock.
+- The pure `modules/generation` renderer may accept an explicit `Clock` because
+  it intentionally does not depend on `epistola-core`; callers from core should
+  pass `EpistolaClock.current()`.
+- Tests should use `EpistolaClockExtension`/`testClock` or
+  `EpistolaClock.withClock`/`withInstant`, not wall-clock sleeps or direct
+  JVM `now()` calls.
+
+See [`docs/clock.md`](docs/clock.md) for the full architecture.
+
 ## Frontend Architecture
 
 The frontend uses a **server-side rendering** approach:

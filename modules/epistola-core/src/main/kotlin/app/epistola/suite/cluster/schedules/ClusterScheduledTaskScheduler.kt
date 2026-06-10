@@ -1,21 +1,21 @@
 package app.epistola.suite.cluster.schedules
 
-import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.timers.ClusterTimerOwnership
 import app.epistola.suite.cluster.uniqueHandlersByType
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.Clock
-import java.time.OffsetDateTime
 
 /**
  * Poller for recurring cluster scheduled tasks.
@@ -41,8 +41,7 @@ class ClusterScheduledTaskScheduler(
     private val properties: ClusterProperties,
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
     private val meterRegistry: MeterRegistry,
-    private val clock: Clock,
-    private val backgroundExecutionContext: BackgroundExecutionContext,
+    private val mediator: Mediator,
     handlers: List<ClusterScheduledTaskHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -57,7 +56,7 @@ class ClusterScheduledTaskScheduler(
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.scheduled-tasks.poll-interval-ms:1000}")
-    fun poll() = backgroundExecutionContext.run {
+    fun poll() = MediatorContext.runWithMediator(mediator) {
         meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
             if (shuttingDown) return@recordScheduledTask
 
@@ -115,7 +114,7 @@ class ClusterScheduledTaskScheduler(
     private fun fail(task: ClusterScheduledTask, error: String) {
         val nextDueAt = scheduleCalculator.nextAfterFailure(
             task = task,
-            now = OffsetDateTime.now(clock),
+            now = EpistolaClock.offsetDateTime(),
             retryDelayMs = properties.scheduledTasks.retryDelayMs,
             maxRetryDelayMs = properties.scheduledTasks.maxRetryDelayMs,
         )

@@ -43,9 +43,7 @@ class BackupScheduler(
     @Scheduled(cron = "\${epistola.support.backups.cron:0 0 2 * * *}")
     fun runDailyBackup() {
         schedulerLock.runExclusively(SchedulerLock.CATALOG_BACKUP) {
-            MediatorContext.runWithMediator(mediator) {
-                backupAllTenants()
-            }
+            MediatorContext.runWithMediator(mediator) { backupAllTenants() }
         }
     }
 

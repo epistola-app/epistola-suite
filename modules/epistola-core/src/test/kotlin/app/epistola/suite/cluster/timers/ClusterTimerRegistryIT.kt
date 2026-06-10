@@ -358,7 +358,6 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         objectMapper = objectMapper,
         nodeIdentity = NodeIdentity(nodeId),
         properties = properties,
-        clock = clock,
     )
 
     private fun registryFor(nodeId: String): ClusterTimerRegistry = ClusterTimerRegistry(
@@ -366,7 +365,6 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         objectMapper = objectMapper,
         nodeIdentity = NodeIdentity(nodeId),
         properties = properties,
-        clock = clock,
     )
 
     private fun uniqueKey(prefix: String): String = "$prefix-${UUID.randomUUID()}"

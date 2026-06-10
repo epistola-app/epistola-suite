@@ -68,7 +68,6 @@ class CollectConsumerThroughputPerfTest : IntegrationTestBase() {
     @MethodSource("matrix")
     fun consumerThroughput(numConsumers: Int, totalRows: Int) {
         val tenantKey = TenantKey.of("perf-${UUID.randomUUID().toString().take(8)}")
-        bulkSeed(tenantKey, totalRows)
 
         // One consumer-id, N nodes — same consumer cluster, different nodes,
         // partitions split by the ring.
@@ -84,8 +83,10 @@ class CollectConsumerThroughputPerfTest : IntegrationTestBase() {
             consumers.forEach { it.poll() }
             consumers.forEach { it.poll() }
         }
+        bulkSeed(tenantKey, totalRows)
 
         // Drain phase — start of measurement
+        val receivedSequences = ConcurrentHashMap.newKeySet<Long>()
         val received = AtomicLong(0)
         val perConsumerCount = ConcurrentHashMap<String, AtomicLong>()
         val perConsumerNonEmptyPolls = ConcurrentHashMap<String, AtomicLong>()
@@ -97,7 +98,17 @@ class CollectConsumerThroughputPerfTest : IntegrationTestBase() {
         }
 
         val startNanos = System.nanoTime()
-        val pollerThreads = consumers.map { c -> drainThread(c, totalRows.toLong(), received, perConsumerCount, perConsumerNonEmptyPolls, perConsumerTotalPolls) }
+        val pollerThreads = consumers.map { c ->
+            drainThread(
+                consumer = c,
+                target = totalRows.toLong(),
+                receivedSequences = receivedSequences,
+                received = received,
+                perConsumerCount = perConsumerCount,
+                perConsumerNonEmptyPolls = perConsumerNonEmptyPolls,
+                perConsumerTotalPolls = perConsumerTotalPolls,
+            )
+        }
         // Cap each drainer at 5 minutes — anything longer is a bug, not a perf
         // measurement worth waiting for.
         pollerThreads.forEach { it.join(5 * 60 * 1000L) }
@@ -200,6 +211,7 @@ class CollectConsumerThroughputPerfTest : IntegrationTestBase() {
     private fun drainThread(
         consumer: SimulatedConsumer,
         target: Long,
+        receivedSequences: MutableSet<Long>,
         received: AtomicLong,
         perConsumerCount: ConcurrentHashMap<String, AtomicLong>,
         perConsumerNonEmptyPolls: ConcurrentHashMap<String, AtomicLong>,
@@ -225,8 +237,11 @@ class CollectConsumerThroughputPerfTest : IntegrationTestBase() {
                     } else {
                         consecutiveEmpty = 0
                         perConsumerNonEmptyPolls[consumer.nodeId]!!.incrementAndGet()
-                        received.addAndGet(page.rows.size.toLong())
-                        perConsumerCount[consumer.nodeId]!!.addAndGet(page.rows.size.toLong())
+                        val uniqueRows = page.rows.count { receivedSequences.add(it.sequence) }.toLong()
+                        if (uniqueRows > 0) {
+                            received.addAndGet(uniqueRows)
+                            perConsumerCount[consumer.nodeId]!!.addAndGet(uniqueRows)
+                        }
                         lastSeq = page.lastSequence
                     }
                 }

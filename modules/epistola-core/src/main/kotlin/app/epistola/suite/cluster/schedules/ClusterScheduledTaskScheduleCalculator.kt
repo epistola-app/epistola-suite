@@ -1,8 +1,8 @@
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.time.EpistolaClock
 import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Component
-import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -18,14 +18,12 @@ import java.time.ZoneId
  * distinguish the previous due time from wall-clock `now`.
  */
 @Component
-class ClusterScheduledTaskScheduleCalculator(
-    private val clock: Clock,
-) {
+class ClusterScheduledTaskScheduleCalculator {
 
     /**
      * Computes the first due time when a code definition is registered.
      */
-    fun initialDueAt(definition: ClusterScheduledTaskDefinition, now: OffsetDateTime = OffsetDateTime.now(clock)): OffsetDateTime = when (val schedule = definition.schedule) {
+    fun initialDueAt(definition: ClusterScheduledTaskDefinition, now: OffsetDateTime = EpistolaClock.offsetDateTime()): OffsetDateTime = when (val schedule = definition.schedule) {
         is ClusterScheduledTaskSchedule.Cron -> nextCron(schedule.expression, definition.zoneId, now)
         is ClusterScheduledTaskSchedule.FixedDelay -> now.plusNanos(schedule.intervalMs * NANOS_PER_MILLI)
         is ClusterScheduledTaskSchedule.FixedRate -> now.plusNanos(schedule.intervalMs * NANOS_PER_MILLI)
@@ -34,7 +32,7 @@ class ClusterScheduledTaskScheduleCalculator(
     /**
      * Computes the next due time after a handler has completed successfully.
      */
-    fun nextAfterSuccess(task: ClusterScheduledTask, now: OffsetDateTime = OffsetDateTime.now(clock)): OffsetDateTime = when (task.scheduleKind) {
+    fun nextAfterSuccess(task: ClusterScheduledTask, now: OffsetDateTime = EpistolaClock.offsetDateTime()): OffsetDateTime = when (task.scheduleKind) {
         ClusterScheduledTaskScheduleKind.CRON -> nextCron(task.cronExpression ?: error("Cron task '${task.taskKey}' has no cron expression"), task.zoneId, baseAfterSuccess(task, now))
         ClusterScheduledTaskScheduleKind.FIXED_DELAY -> now.plusNanos(requiredInterval(task) * NANOS_PER_MILLI)
         ClusterScheduledTaskScheduleKind.FIXED_RATE -> nextFixedRate(task, now)
@@ -45,7 +43,7 @@ class ClusterScheduledTaskScheduleCalculator(
      * failure policy and exponential retry backoff when retrying the same due
      * occurrence.
      */
-    fun nextAfterFailure(task: ClusterScheduledTask, now: OffsetDateTime = OffsetDateTime.now(clock), retryDelayMs: Long, maxRetryDelayMs: Long): OffsetDateTime = when (task.failurePolicy) {
+    fun nextAfterFailure(task: ClusterScheduledTask, now: OffsetDateTime = EpistolaClock.offsetDateTime(), retryDelayMs: Long, maxRetryDelayMs: Long): OffsetDateTime = when (task.failurePolicy) {
         ClusterScheduledTaskFailurePolicy.ADVANCE_ON_FAILURE -> nextAfterSuccess(task, now)
         ClusterScheduledTaskFailurePolicy.RETRY_SAME_DUE -> now.plusNanos(backoffMs(task, retryDelayMs, maxRetryDelayMs) * NANOS_PER_MILLI)
     }

@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
+import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -43,7 +44,7 @@ class TenantSnapshotSyncService(
         if (!port.isReady()) return SnapshotSyncOutcome.NotReady
 
         val snapshot = BuildTenantSnapshot(tenantKey).execute()
-        val now = Instant.now()
+        val now = EpistolaClock.instant()
         val last = appMetadata.getAs<LastSnapshot>(metadataKey(tenantKey))
 
         if (last != null && last.fingerprint == snapshot.snapshotFingerprint) {
@@ -94,7 +95,7 @@ class TenantSnapshotSyncService(
     ): RestoreResult {
         val bytes = port.downloadSnapshot(tenantKey, snapshotId)
         val result = RestoreTenantSnapshot(tenantKey, bytes).execute()
-        appMetadata.setAs(metadataKey(tenantKey), LastSnapshot("", snapshotId, Instant.now().toEpochMilli()))
+        appMetadata.setAs(metadataKey(tenantKey), LastSnapshot("", snapshotId, EpistolaClock.instant().toEpochMilli()))
         log.info("Restored tenant {} from snapshot {} ({} catalogs)", tenantKey.value, snapshotId, result.restoredCatalogKeys.size)
         return result
     }

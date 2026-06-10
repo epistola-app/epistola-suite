@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.FeatureEntitlementGate
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.time.EpistolaClock
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -46,11 +47,11 @@ class SupportEntitlementService(
     fun decision(
         featureKey: FeatureKey,
         tenantKey: TenantKey,
-    ): EntitlementDecision = resolveEntitlement(store.load()?.entries.orEmpty(), featureKey.value, tenantKey.value, Instant.now())
+    ): EntitlementDecision = resolveEntitlement(store.load()?.entries.orEmpty(), featureKey.value, tenantKey.value, EpistolaClock.instant())
 
     /** All configured (non-expired) entries, for display. */
     fun entries(): List<StoredEntitlement> {
-        val now = Instant.now()
+        val now = EpistolaClock.instant()
         return store.load()?.entries?.filter { it.expiresAt == null || it.expiresAt.isAfter(now) } ?: emptyList()
     }
 

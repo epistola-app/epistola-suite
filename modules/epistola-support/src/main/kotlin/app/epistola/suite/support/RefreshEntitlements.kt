@@ -6,10 +6,10 @@ import app.epistola.hub.client.error.HubUnauthenticatedException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
-import java.time.Instant
 import app.epistola.hub.client.EntitlementEffect as ClientEntitlementEffect
 
 /**
@@ -38,7 +38,7 @@ class RefreshEntitlementsHandler(
     override fun handle(command: RefreshEntitlements) {
         try {
             val set = client.getEntitlements()
-            store.save(StoredEntitlements(set.entitlements.map { it.toStored() }, set.revision, Instant.now()))
+            store.save(StoredEntitlements(set.entitlements.map { it.toStored() }, set.revision, EpistolaClock.instant()))
             log.debug("Refreshed entitlements from hub: {} entr(ies), revision {}", set.entitlements.size, set.revision)
         } catch (e: HubUnauthenticatedException) {
             // Not registered yet — an expected no-op, not a failure. The next refresh picks it up.
