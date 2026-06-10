@@ -3,6 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.catalog.protocol.FontRef
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
+import com.itextpdf.kernel.font.PdfFont
 import com.itextpdf.layout.borders.DashedBorder
 import com.itextpdf.layout.borders.DottedBorder
 import com.itextpdf.layout.borders.SolidBorder
@@ -308,6 +309,18 @@ object StyleApplicator {
         }
         return ref
     }
+
+    /**
+     * Resolves the body [com.itextpdf.kernel.font.PdfFont] described by [styles] — the same
+     * family/weight/style a block's text renders in. Useful for elements that need to carry the
+     * content font explicitly rather than inherit iText's WinAnsi default, e.g. a list marker
+     * whose `circle`/`square` glyph only exists in the selected family.
+     */
+    internal fun resolveFont(styles: Map<String, Any>, fontCache: FontCache): PdfFont = fontCache.font(
+        parseFontRef(styles["fontFamily"]),
+        parseFontWeight(styles["fontWeight"]),
+        styles["fontStyle"] == "italic",
+    )
 
     /**
      * Parses a CSS `font-weight` value to a numeric weight clamped to 1..1000.

@@ -71,6 +71,20 @@ class FontCache(
         return builtIn(weight >= BOLD_THRESHOLD, italic)
     }
 
+    /**
+     * Returns a font guaranteed to render every glyph in [sample], preferring
+     * [preferred] (the content font) when it already covers the sample. When it
+     * doesn't — most importantly the standard WinAnsi font, which lacks the
+     * `circle` (○) / `square` (■) bullet markers — falls back to the bundled,
+     * always-embeddable Liberation Sans, which carries them. Without this a
+     * marker glyph absent from the resolved font silently vanishes from the PDF
+     * (see #401). Spaces are treated as always covered.
+     */
+    fun fontCoveringOrFallback(preferred: PdfFont, sample: String): PdfFont {
+        val covered = sample.codePoints().allMatch { cp -> cp == ' '.code || preferred.containsGlyph(cp) }
+        return if (covered) preferred else getEmbeddedFont(REGULAR)
+    }
+
     private fun builtIn(isBold: Boolean, isItalic: Boolean): PdfFont = when {
         isBold && isItalic -> boldItalic
         isBold -> bold

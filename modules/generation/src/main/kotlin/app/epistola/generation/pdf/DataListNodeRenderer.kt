@@ -2,11 +2,13 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.kernel.font.PdfFont
 import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.ListItem
+import com.itextpdf.layout.element.Text
 import com.itextpdf.layout.properties.ListNumberingType
 
 /**
@@ -20,6 +22,9 @@ import com.itextpdf.layout.properties.ListNumberingType
  * - `itemAlias`: String (defaults to "item")
  * - `indexAlias`: String (optional)
  * - `listType`: String (bullet, decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none)
+ * - `bulletStyle`: String (disc, circle, square, dash) — only applies when `listType` is "bullet";
+ *   mirrors the ProseMirror `bullet_list` `listStyle` attribute so a Text-component bullet list and a
+ *   datalist bullet list render the same glyph. Defaults to "disc".
  */
 class DataListNodeRenderer : NodeRenderer {
     override fun render(
@@ -42,8 +47,19 @@ class DataListNodeRenderer : NodeRenderer {
         val itemAlias = node.props?.get("itemAlias") as? String ?: "item"
         val indexAlias = node.props?.get("indexAlias") as? String
         val listType = node.props?.get("listType") as? String ?: "bullet"
+        val bulletStyle = node.props?.get("bulletStyle") as? String ?: "disc"
 
-        val list = createList(listType, context.renderingDefaults)
+        // The bullet marker must render in the content font (the family the items use), not
+        // iText's WinAnsi default — that default lacks the circle (○) / square (■) glyphs, so
+        // those styles would silently drop while the editor shows them (#401). When the resolved
+        // content font itself lacks the glyph, fall back to a font that has it. Numbered markers
+        // are all WinAnsi-safe, so only the bullet symbol needs the explicit font.
+        val effectiveStyles = context.inheritedStyles + (node.styles?.filterNonNullValues() ?: emptyMap())
+        val contentFont = StyleApplicator.resolveFont(effectiveStyles, context.fontCache)
+        val marker = context.renderingDefaults.bulletMarker(bulletStyle)
+        val symbolFont = context.fontCache.fontCoveringOrFallback(contentFont, marker)
+
+        val list = createList(listType, bulletStyle, symbolFont, context.renderingDefaults)
         list.setMarginBottom(context.renderingDefaults.listMarginBottom)
         list.setMarginLeft(context.renderingDefaults.listMarginLeft)
 
@@ -91,13 +107,20 @@ class DataListNodeRenderer : NodeRenderer {
         return listOf(list)
     }
 
-    private fun createList(listType: String, renderingDefaults: RenderingDefaults): List = when (listType) {
+    private fun createList(
+        listType: String,
+        bulletStyle: String,
+        symbolFont: PdfFont,
+        renderingDefaults: RenderingDefaults,
+    ): List = when (listType) {
         "decimal" -> List(ListNumberingType.DECIMAL)
         "lower-alpha" -> List(ListNumberingType.ENGLISH_LOWER)
         "upper-alpha" -> List(ListNumberingType.ENGLISH_UPPER)
         "lower-roman" -> List(ListNumberingType.ROMAN_LOWER)
         "upper-roman" -> List(ListNumberingType.ROMAN_UPPER)
         "none" -> List().apply { setListSymbol("") }
-        else -> List().apply { setListSymbol(renderingDefaults.bulletMarker()) }
+        else -> List().apply {
+            setListSymbol(Text(renderingDefaults.bulletMarker(bulletStyle)).setFont(symbolFont))
+        }
     }
 }
