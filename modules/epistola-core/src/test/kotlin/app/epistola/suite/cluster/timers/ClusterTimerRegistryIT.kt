@@ -11,8 +11,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
+import java.util.UUID
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @TestPropertySource(
     properties = [
@@ -31,6 +37,15 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var nodeIdentity: NodeIdentity
+
+    @Autowired
+    private lateinit var properties: ClusterProperties
+
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var clock: Clock
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -200,6 +215,50 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `competing nodes can only claim a timer once`() = scenario {
+        given {
+            val timerKey = uniqueKey("timer-concurrent-claim")
+            execute(
+                ScheduleClusterTimer(
+                    timerKey = timerKey,
+                    routingKey = "tenant-a",
+                    timerType = "test",
+                    dueAt = now().plusMinutes(1),
+                ),
+            )
+            testClock.advanceBy(Duration.ofSeconds(61))
+            nodeRegistry.heartbeat()
+            nodeRegistryFor("timer-node-b").heartbeat()
+            TimerClaimSetup(
+                timerKey = timerKey,
+                registries = listOf(registry, registryFor("timer-node-b")),
+            )
+        }.whenever { setup ->
+            val executor = Executors.newFixedThreadPool(2)
+            val barrier = CyclicBarrier(2)
+            try {
+                setup.registries
+                    .map { candidateRegistry ->
+                        executor.submit<List<ClusterTimer>> {
+                            barrier.await()
+                            withClock {
+                                candidateRegistry.claimDue(listOf(setup.timerKey))
+                            }
+                        }
+                    }
+                    .flatMap { it.get(10, TimeUnit.SECONDS) }
+            } finally {
+                executor.shutdownNow()
+            }
+        }.then { setup, claimed ->
+            assertThat(claimed).hasSize(1)
+            assertThat(claimed.single().timerKey).isEqualTo(setup.timerKey)
+            assertThat(registry.find(setup.timerKey)?.leaseOwnerNodeId)
+                .isIn(nodeIdentity.nodeId, "timer-node-b")
+        }
+    }
+
+    @Test
     fun `claim due ignores timers requiring a capability the current node does not advertise`() {
         deleteTimer("timer-pdf-render")
         registry.schedule(
@@ -292,5 +351,28 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         }
     }
 
+    private fun nodeRegistryFor(nodeId: String): ClusterNodeRegistry = ClusterNodeRegistry(
+        jdbi = jdbi,
+        objectMapper = objectMapper,
+        nodeIdentity = NodeIdentity(nodeId),
+        properties = properties,
+        clock = clock,
+    )
+
+    private fun registryFor(nodeId: String): ClusterTimerRegistry = ClusterTimerRegistry(
+        jdbi = jdbi,
+        objectMapper = objectMapper,
+        nodeIdentity = NodeIdentity(nodeId),
+        properties = properties,
+        clock = clock,
+    )
+
+    private fun uniqueKey(prefix: String): String = "$prefix-${UUID.randomUUID()}"
+
     private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
+
+    private data class TimerClaimSetup(
+        val timerKey: String,
+        val registries: List<ClusterTimerRegistry>,
+    )
 }

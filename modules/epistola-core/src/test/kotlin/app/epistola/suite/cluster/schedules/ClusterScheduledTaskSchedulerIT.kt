@@ -1,8 +1,8 @@
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -33,16 +33,16 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var handler: RecordingClusterScheduledTaskHandler
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
     @BeforeEach
     fun reset() {
         testClock.reset()
         handler.handled.clear()
         handler.failTaskKeys.clear()
-        deleteTask("scheduler-success")
-        deleteTask("scheduler-failure")
+        withMediator {
+            DisableClusterScheduledTask("scheduler-missing-handler").execute()
+            DisableClusterScheduledTask("scheduler-success").execute()
+            DisableClusterScheduledTask("scheduler-failure").execute()
+        }
     }
 
     @Test
@@ -73,24 +73,42 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(task?.nextDueAt).isEqualTo(now().plusSeconds(30))
     }
 
-    private fun seedDueTask(taskKey: String) {
-        registry.upsert(
-            ClusterScheduledTaskDefinition(
-                taskKey = taskKey,
-                routingKey = "system:$taskKey",
-                taskType = RecordingClusterScheduledTaskHandler.TYPE,
-                schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
-            ),
-        )
+    @Test
+    fun `poll records failure when no scheduled task handler is registered`() {
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = "scheduler-missing-handler",
+                    routingKey = "system:scheduler-missing-handler",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                ),
+            ).execute()
+        }
         testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        val task = registry.find("scheduler-missing-handler")
+        assertThat(handler.handled).isEmpty()
+        assertThat(task?.leaseOwnerNodeId).isNull()
+        assertThat(task?.consecutiveFailures).isEqualTo(1)
+        assertThat(task?.lastError).isEqualTo("No handler registered for scheduled task type 'missing-handler'")
+        assertThat(task?.nextDueAt).isEqualTo(now().plusSeconds(30))
     }
 
-    private fun deleteTask(taskKey: String) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("DELETE FROM cluster_tasks_scheduled WHERE task_key = :taskKey")
-                .bind("taskKey", taskKey)
-                .execute()
+    private fun seedDueTask(taskKey: String) {
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = taskKey,
+                    routingKey = "system:$taskKey",
+                    taskType = RecordingClusterScheduledTaskHandler.TYPE,
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                ),
+            ).execute()
         }
+        testClock.advanceBy(Duration.ofSeconds(61))
     }
 
     private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)

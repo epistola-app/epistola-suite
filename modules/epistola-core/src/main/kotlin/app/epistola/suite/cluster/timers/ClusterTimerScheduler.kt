@@ -4,6 +4,7 @@ import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
+import app.epistola.suite.cluster.uniqueHandlersByType
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
@@ -29,7 +30,7 @@ class ClusterTimerScheduler(
     handlers: List<ClusterTimerHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val handlersByType = handlers.associateBy { it.timerType }
+    private val handlersByType = uniqueHandlersByType("cluster timer handler", handlers) { it.timerType }
 
     @Volatile
     private var shuttingDown = false

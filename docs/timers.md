@@ -216,9 +216,6 @@ still active.
 
 ### Safety And Conventions
 
-- Validate duplicate `timerType` and `taskType` handlers at startup. The
-  scheduler currently builds a map from Spring beans; duplicate keys should fail
-  fast instead of being resolved implicitly.
 - Document timer creation conventions for new call sites: stable `timerKey`,
   stable `routingKey`, explicit `timerType` or `taskType`, tenant-scoped unless
   truly system-wide, explicit `requiredCapability`, and idempotent handlers.
@@ -255,6 +252,10 @@ still active.
 ### Scaling And Fairness
 
 - Review query plans and indexes against production-like timer volumes.
+- Add production-like load tests for many due timers/tasks, multiple capable
+  nodes, mixed capabilities, and handler failures.
+- Add regression coverage for fairness and starvation once bounded parallel
+  dispatch or per-type limits exist.
 - Add jitter or wakeup mechanisms if polling latency or thundering herds become
   visible. PostgreSQL `LISTEN/NOTIFY` or direct node wakeups should only be
   latency optimizations; PostgreSQL rows remain the durable source of truth.

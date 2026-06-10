@@ -12,8 +12,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
+import java.util.UUID
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @TestPropertySource(
     properties = [
@@ -32,6 +38,18 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var nodeIdentity: NodeIdentity
+
+    @Autowired
+    private lateinit var properties: ClusterProperties
+
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var scheduleCalculator: ClusterScheduledTaskScheduleCalculator
+
+    @Autowired
+    private lateinit var clock: Clock
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -151,6 +169,52 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `competing nodes can only claim a scheduled task once`() = scenario {
+        given {
+            val taskKey = uniqueKey("task-concurrent-claim")
+            execute(
+                UpsertClusterScheduledTask(
+                    ClusterScheduledTaskDefinition(
+                        taskKey = taskKey,
+                        routingKey = "system:$taskKey",
+                        taskType = "test",
+                        schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    ),
+                ),
+            )
+            testClock.advanceBy(Duration.ofSeconds(61))
+            nodeRegistry.heartbeat()
+            nodeRegistryFor("scheduled-node-b").heartbeat()
+            ScheduledTaskClaimSetup(
+                taskKey = taskKey,
+                registries = listOf(registry, registryFor("scheduled-node-b")),
+            )
+        }.whenever { setup ->
+            val executor = Executors.newFixedThreadPool(2)
+            val barrier = CyclicBarrier(2)
+            try {
+                setup.registries
+                    .map { candidateRegistry ->
+                        executor.submit<List<ClusterScheduledTask>> {
+                            barrier.await()
+                            withClock {
+                                candidateRegistry.claimDue(listOf(setup.taskKey))
+                            }
+                        }
+                    }
+                    .flatMap { it.get(10, TimeUnit.SECONDS) }
+            } finally {
+                executor.shutdownNow()
+            }
+        }.then { setup, claimed ->
+            assertThat(claimed).hasSize(1)
+            assertThat(claimed.single().taskKey).isEqualTo(setup.taskKey)
+            assertThat(registry.find(setup.taskKey)?.leaseOwnerNodeId)
+                .isIn(nodeIdentity.nodeId, "scheduled-node-b")
+        }
+    }
+
+    @Test
     fun `claim due ignores scheduled tasks requiring a capability the current node does not advertise`() {
         deleteTask("task-pdf-render")
         registry.upsert(
@@ -228,6 +292,49 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `startup registration upserts configured definitions and leaves unregistered tasks unchanged`() = scenario {
+        given {
+            val registeredKey = uniqueKey("task-startup-registered")
+            val unregisteredKey = uniqueKey("task-startup-unregistered")
+            execute(
+                UpsertClusterScheduledTask(
+                    ClusterScheduledTaskDefinition(
+                        taskKey = unregisteredKey,
+                        routingKey = "system:$unregisteredKey",
+                        taskType = "test",
+                        schedule = ClusterScheduledTaskSchedule.FixedDelay(60_000),
+                        enabled = false,
+                    ),
+                ),
+            )
+            StartupRegistrationSetup(
+                registeredKey = registeredKey,
+                unregisteredKey = unregisteredKey,
+                registrar = ClusterScheduledTaskRegistrar(
+                    registry = registry,
+                    definitions = listOf(
+                        ClusterScheduledTaskDefinition(
+                            taskKey = registeredKey,
+                            routingKey = "system:$registeredKey",
+                            taskType = "test",
+                            schedule = ClusterScheduledTaskSchedule.FixedRate(120_000),
+                            payload = mapOf("registered" to true),
+                        ),
+                    ),
+                ),
+            )
+        }.whenever { setup ->
+            setup.registrar.registerDefinitions()
+        }.then { setup, _ ->
+            val registered = registry.find(setup.registeredKey)
+            val unregistered = registry.find(setup.unregisteredKey)
+            assertThat(registered?.scheduleKind).isEqualTo(ClusterScheduledTaskScheduleKind.FIXED_RATE)
+            assertThat(registered?.payload?.get("registered")).isEqualTo(true)
+            assertThat(unregistered?.enabled).isFalse()
+        }
+    }
+
     private fun seedDueTask(taskKey: String) {
         deleteTask(taskKey)
         registry.upsert(
@@ -259,4 +366,34 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
                 .execute()
         }
     }
+
+    private fun nodeRegistryFor(nodeId: String): ClusterNodeRegistry = ClusterNodeRegistry(
+        jdbi = jdbi,
+        objectMapper = objectMapper,
+        nodeIdentity = NodeIdentity(nodeId),
+        properties = properties,
+        clock = clock,
+    )
+
+    private fun registryFor(nodeId: String): ClusterScheduledTaskRegistry = ClusterScheduledTaskRegistry(
+        jdbi = jdbi,
+        objectMapper = objectMapper,
+        nodeIdentity = NodeIdentity(nodeId),
+        properties = properties,
+        scheduleCalculator = scheduleCalculator,
+        clock = clock,
+    )
+
+    private fun uniqueKey(prefix: String): String = "$prefix-${UUID.randomUUID()}"
+
+    private data class ScheduledTaskClaimSetup(
+        val taskKey: String,
+        val registries: List<ClusterScheduledTaskRegistry>,
+    )
+
+    private data class StartupRegistrationSetup(
+        val registeredKey: String,
+        val unregisteredKey: String,
+        val registrar: ClusterScheduledTaskRegistrar,
+    )
 }

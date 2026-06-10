@@ -1,8 +1,8 @@
 package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -33,20 +33,22 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var handler: RecordingClusterTimerHandler
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
     @BeforeEach
     fun reset() {
         testClock.reset()
         handler.handled.clear()
-        deleteTimer("scheduler-complete")
-        deleteTimer("scheduler-reschedule")
+        withMediator {
+            CancelClusterTimer("scheduler-complete").execute()
+            CancelClusterTimer("scheduler-missing-handler").execute()
+            CancelClusterTimer("scheduler-reschedule").execute()
+        }
     }
 
     @Test
     fun `poll dispatches an owned timer and completes it`() {
-        registry.schedule("scheduler-complete", "tenant-a", RecordingClusterTimerHandler.TYPE, now().plusMinutes(1))
+        withMediator {
+            ScheduleClusterTimer("scheduler-complete", "tenant-a", RecordingClusterTimerHandler.TYPE, now().plusMinutes(1)).execute()
+        }
         testClock.advanceBy(Duration.ofSeconds(61))
 
         scheduler.poll()
@@ -57,13 +59,15 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     @Test
     fun `poll can reschedule a recurring timer`() {
-        registry.schedule(
-            timerKey = "scheduler-reschedule",
-            routingKey = "tenant-a",
-            timerType = RecordingClusterTimerHandler.TYPE,
-            dueAt = now().plusMinutes(1),
-            payload = mapOf("mode" to "reschedule"),
-        )
+        withMediator {
+            ScheduleClusterTimer(
+                timerKey = "scheduler-reschedule",
+                routingKey = "tenant-a",
+                timerType = RecordingClusterTimerHandler.TYPE,
+                dueAt = now().plusMinutes(1),
+                payload = mapOf("mode" to "reschedule"),
+            ).execute()
+        }
         testClock.advanceBy(Duration.ofSeconds(61))
 
         scheduler.poll()
@@ -74,15 +78,30 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
         assertThat(timer?.dueAt).isAfter(now())
     }
 
-    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
-
-    private fun deleteTimer(timerKey: String) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("DELETE FROM cluster_timers WHERE timer_key = :timerKey")
-                .bind("timerKey", timerKey)
-                .execute()
+    @Test
+    fun `poll retries timer when no handler is registered`() {
+        withMediator {
+            ScheduleClusterTimer(
+                timerKey = "scheduler-missing-handler",
+                routingKey = "tenant-a",
+                timerType = "missing-handler",
+                dueAt = now().plusMinutes(1),
+            ).execute()
         }
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        val timer = registry.find("scheduler-missing-handler")
+        assertThat(handler.handled).isEmpty()
+        assertThat(timer?.status).isEqualTo(ClusterTimerStatus.SCHEDULED)
+        assertThat(timer?.leaseOwnerNodeId).isNull()
+        assertThat(timer?.attemptCount).isEqualTo(1)
+        assertThat(timer?.lastError).isEqualTo("No handler registered for timer type 'missing-handler'")
+        assertThat(timer?.dueAt).isEqualTo(now().plusSeconds(30))
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 
     @TestConfiguration
     class TimerHandlerConfiguration {
