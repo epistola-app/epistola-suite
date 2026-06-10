@@ -8,6 +8,7 @@
 import { history } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap, chainCommands, exitCode } from 'prosemirror-commands';
+import { sinkListItem, liftListItem, splitListItem } from 'prosemirror-schema-list';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { toggleMark } from 'prosemirror-commands';
@@ -172,6 +173,25 @@ function hardBreakKeymap(schema: Schema) {
 }
 
 /**
+ * Keymap for editing lists. `Enter` splits the current list item into a new
+ * one, `Tab` sinks an item one level deeper (creating a nested sub-list),
+ * `Shift-Tab` lifts it back out. Each command returns `false` when the
+ * selection isn't inside a list item, so `Enter` falls through to `baseKeymap`
+ * and `Tab` / `Shift-Tab` keep their default focus-navigation behaviour
+ * everywhere except inside a list (where `Tab` would otherwise do nothing).
+ */
+function listKeymap(schema: Schema) {
+  const listItem = schema.nodes.list_item;
+  if (!listItem) return keymap({});
+
+  return keymap({
+    Enter: splitListItem(listItem),
+    Tab: sinkListItem(listItem),
+    'Shift-Tab': liftListItem(listItem),
+  });
+}
+
+/**
  * Create the full set of ProseMirror plugins for Epistola text blocks.
  */
 export function createPlugins(schema: Schema, _options: PluginOptions): Plugin[] {
@@ -179,6 +199,7 @@ export function createPlugins(schema: Schema, _options: PluginOptions): Plugin[]
     history(),
     markKeymap(schema),
     hardBreakKeymap(schema),
+    listKeymap(schema),
     keymap(baseKeymap),
     epistolaInputRules(schema),
     dropCursor(),
