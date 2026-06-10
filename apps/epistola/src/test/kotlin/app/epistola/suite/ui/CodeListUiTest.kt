@@ -129,7 +129,7 @@ class CodeListUiTest : BasePlaywrightTest() {
 
         page.locator("button:has-text('Create code list')").click()
 
-        assertThat(page.locator("#slug + .form-hint + .form-error")).hasText("A code-list with this ID already exists")
+        assertThat(page.locator("#slug-error")).hasText("A code-list with this ID already exists")
         // Plain boosted form: a validation error re-renders the full page, so the URL
         // is the form's POST action (the collection), not /new. The form + errors + the
         // entered values are still shown (asserted above/below).

@@ -142,7 +142,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
 
         // Only the English card should be shown
         assertThat(shownCards).hasCount(1)
-        assertThat(shownCards.first().locator(".variant-card-title")).hasText("English")
+        assertThat(shownCards.first().locator("[data-testid='variant-card-title']")).hasText("English")
     }
 
     @Test
@@ -218,7 +218,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         page.locator("select[data-filter-key='default.brand']").selectOption("acme")
 
         assertThat(shownCards).hasCount(1)
-        assertThat(shownCards.first().locator(".variant-card-title")).hasText("EN Acme")
+        assertThat(shownCards.first().locator("[data-testid='variant-card-title']")).hasText("EN Acme")
     }
 
     @Test
