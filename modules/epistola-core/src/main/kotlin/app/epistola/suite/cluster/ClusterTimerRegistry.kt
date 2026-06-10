@@ -5,6 +5,7 @@ import app.epistola.suite.observability.NodeIdentity
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.OffsetDateTime
 
 @Component
@@ -13,6 +14,7 @@ class ClusterTimerRegistry(
     private val objectMapper: ObjectMapper,
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
+    private val clock: Clock,
 ) {
     private val payloadType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
@@ -25,11 +27,12 @@ class ClusterTimerRegistry(
         tenantKey: TenantKey? = null,
     ): ClusterTimer {
         val payloadJson = objectMapper.writeValueAsString(payload)
+        val now = OffsetDateTime.now(clock)
         return jdbi.withHandle<ClusterTimer, Exception> { handle ->
             handle.createQuery(
                 """
                 INSERT INTO cluster_timers (timer_key, tenant_key, routing_key, timer_type, due_at, payload, status, updated_at)
-                VALUES (:timerKey, :tenantKey, :routingKey, :timerType, :dueAt, :payload::jsonb, 'scheduled', NOW())
+                VALUES (:timerKey, :tenantKey, :routingKey, :timerType, :dueAt, :payload::jsonb, 'scheduled', :now)
                 ON CONFLICT (timer_key) DO UPDATE
                 SET tenant_key = EXCLUDED.tenant_key,
                     routing_key = EXCLUDED.routing_key,
@@ -40,7 +43,7 @@ class ClusterTimerRegistry(
                     lease_owner_node_id = NULL,
                     lease_expires_at = NULL,
                     last_error = NULL,
-                    updated_at = NOW()
+                    updated_at = :now
                 RETURNING ${selectColumns()}
                 """,
             )
@@ -50,32 +53,37 @@ class ClusterTimerRegistry(
                 .bind("timerType", timerType)
                 .bind("dueAt", dueAt)
                 .bind("payload", payloadJson)
+                .bind("now", now)
                 .map { rs, _ -> mapTimer(rs) }
                 .one()
         }
     }
 
     fun dueCandidates(limit: Int = properties.timers.candidateScanSize): List<ClusterTimer> = jdbi.withHandle<List<ClusterTimer>, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createQuery(
             """
             SELECT ${selectColumns()}
             FROM cluster_timers
-            WHERE due_at <= NOW()
+            WHERE due_at <= :now
               AND (
-                  (status = 'scheduled' AND (lease_owner_node_id IS NULL OR lease_expires_at < NOW()))
-                  OR (status = 'running' AND lease_expires_at < NOW())
+                  (status = 'scheduled' AND (lease_owner_node_id IS NULL OR lease_expires_at < :now))
+                  OR (status = 'running' AND lease_expires_at < :now)
               )
             ORDER BY due_at, timer_key
             LIMIT :limit
             """,
         )
             .bind("limit", limit)
+            .bind("now", now)
             .map { rs, _ -> mapTimer(rs) }
             .list()
     }
 
     fun claimDue(timerKeys: Collection<String>, batchSize: Int = properties.timers.batchSize): List<ClusterTimer> {
         if (timerKeys.isEmpty()) return emptyList()
+        val now = OffsetDateTime.now(clock)
+        val leaseExpiresAt = now.plusNanos(properties.timers.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterTimer>, Exception> { handle ->
             handle.createQuery(
                 """
@@ -83,10 +91,10 @@ class ClusterTimerRegistry(
                     SELECT timer_key
                     FROM cluster_timers
                     WHERE timer_key IN (<timerKeys>)
-                      AND due_at <= NOW()
+                      AND due_at <= :now
                       AND (
-                          (status = 'scheduled' AND (lease_owner_node_id IS NULL OR lease_expires_at < NOW()))
-                          OR (status = 'running' AND lease_expires_at < NOW())
+                          (status = 'scheduled' AND (lease_owner_node_id IS NULL OR lease_expires_at < :now))
+                          OR (status = 'running' AND lease_expires_at < :now)
                       )
                     ORDER BY due_at, timer_key
                     LIMIT :batchSize
@@ -95,10 +103,10 @@ class ClusterTimerRegistry(
                 UPDATE cluster_timers t
                 SET status = 'running',
                     lease_owner_node_id = :nodeId,
-                    lease_expires_at = NOW() + (:leaseDurationMs * INTERVAL '1 millisecond'),
-                    last_started_at = NOW(),
+                    lease_expires_at = :leaseExpiresAt,
+                    last_started_at = :now,
                     attempt_count = attempt_count + 1,
-                    updated_at = NOW()
+                    updated_at = :now
                 FROM due
                 WHERE t.timer_key = due.timer_key
                 RETURNING ${selectColumns("t")}
@@ -107,7 +115,8 @@ class ClusterTimerRegistry(
                 .bindList("timerKeys", timerKeys)
                 .bind("batchSize", batchSize)
                 .bind("nodeId", nodeIdentity.nodeId)
-                .bind("leaseDurationMs", properties.timers.leaseDurationMs)
+                .bind("now", now)
+                .bind("leaseExpiresAt", leaseExpiresAt)
                 .map { rs, _ -> mapTimer(rs) }
                 .list()
         }
@@ -142,6 +151,7 @@ class ClusterTimerRegistry(
 
     fun reschedule(timerKey: String, nextDueAt: OffsetDateTime, payload: Map<String, Any?>? = null): Boolean {
         val payloadJson = payload?.let { objectMapper.writeValueAsString(it) }
+        val now = OffsetDateTime.now(clock)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createUpdate(
                 """
@@ -151,9 +161,9 @@ class ClusterTimerRegistry(
                     payload = COALESCE(:payload::jsonb, payload),
                     lease_owner_node_id = NULL,
                     lease_expires_at = NULL,
-                    last_completed_at = NOW(),
+                    last_completed_at = :now,
                     last_error = NULL,
-                    updated_at = NOW()
+                    updated_at = :now
                 WHERE timer_key = :timerKey
                   AND lease_owner_node_id = :nodeId
                   AND status = 'running'
@@ -163,11 +173,13 @@ class ClusterTimerRegistry(
                 .bind("nodeId", nodeIdentity.nodeId)
                 .bind("nextDueAt", nextDueAt)
                 .bind("payload", payloadJson)
+                .bind("now", now)
                 .execute() == 1
         }
     }
 
     fun retryAfterFailure(timerKey: String, retryAt: OffsetDateTime, error: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createUpdate(
             """
             UPDATE cluster_timers
@@ -176,7 +188,7 @@ class ClusterTimerRegistry(
                 lease_owner_node_id = NULL,
                 lease_expires_at = NULL,
                 last_error = :error,
-                updated_at = NOW()
+                updated_at = :now
             WHERE timer_key = :timerKey
               AND lease_owner_node_id = :nodeId
               AND status = 'running'
@@ -186,6 +198,7 @@ class ClusterTimerRegistry(
             .bind("nodeId", nodeIdentity.nodeId)
             .bind("retryAt", retryAt)
             .bind("error", error.take(MAX_ERROR_LENGTH))
+            .bind("now", now)
             .execute() == 1
     }
 
@@ -248,5 +261,6 @@ class ClusterTimerRegistry(
 
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000
+        const val NANOS_PER_MILLI = 1_000_000L
     }
 }

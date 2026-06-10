@@ -31,7 +31,8 @@ data class TriggerClusterScheduledTaskNow(
 ) : Command<Boolean>,
     SystemInternal
 
-data object ListClusterScheduledTasks : Query<List<ClusterScheduledTask>>,
+data object ListClusterScheduledTasks :
+    Query<List<ClusterScheduledTask>>,
     SystemInternal
 
 @Component

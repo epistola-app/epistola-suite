@@ -1,6 +1,7 @@
 package app.epistola.suite.cluster
 
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -10,6 +11,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -20,7 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList
         "epistola.cluster.timers.retry-delay-ms=30000",
     ],
 )
-@Import(ClusterTimerSchedulerIT.TimerHandlerConfiguration::class)
+@Import(ClusterTimerSchedulerIT.TimerHandlerConfiguration::class, ClusterTestClockConfiguration::class)
 class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -35,6 +37,9 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var clock: MutableClock
+
     @BeforeEach
     fun reset() {
         handler.handled.clear()
@@ -44,7 +49,8 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     @Test
     fun `poll dispatches an owned timer and completes it`() {
-        registry.schedule("scheduler-complete", "tenant-a", RecordingClusterTimerHandler.TYPE, OffsetDateTime.now().minusSeconds(1))
+        registry.schedule("scheduler-complete", "tenant-a", RecordingClusterTimerHandler.TYPE, now().plusMinutes(1))
+        clock.advanceBy(Duration.ofSeconds(61))
 
         scheduler.poll()
 
@@ -58,17 +64,20 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
             timerKey = "scheduler-reschedule",
             routingKey = "tenant-a",
             timerType = RecordingClusterTimerHandler.TYPE,
-            dueAt = OffsetDateTime.now().minusSeconds(1),
+            dueAt = now().plusMinutes(1),
             payload = mapOf("mode" to "reschedule"),
         )
+        clock.advanceBy(Duration.ofSeconds(61))
 
         scheduler.poll()
 
         val timer = registry.find("scheduler-reschedule")
         assertThat(handler.handled).containsExactly("scheduler-reschedule")
         assertThat(timer?.status).isEqualTo(ClusterTimerStatus.SCHEDULED)
-        assertThat(timer?.dueAt).isAfter(OffsetDateTime.now())
+        assertThat(timer?.dueAt).isAfter(now())
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
 
     private fun deleteTimer(timerKey: String) {
         jdbi.useHandle<Exception> { handle ->
@@ -92,7 +101,7 @@ class RecordingClusterTimerHandler : ClusterTimerHandler {
     override fun handle(timer: ClusterTimer): ClusterTimerResult {
         handled += timer.timerKey
         if (timer.payload["mode"] == "reschedule") {
-            return ClusterTimerResult.Reschedule(OffsetDateTime.now().plusMinutes(5))
+            return ClusterTimerResult.Reschedule(timer.dueAt.plusMinutes(5))
         }
         return ClusterTimerResult.Complete
     }

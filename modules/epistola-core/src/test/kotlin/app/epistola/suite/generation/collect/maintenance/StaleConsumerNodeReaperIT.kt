@@ -1,5 +1,6 @@
 package app.epistola.suite.generation.collect.maintenance
 
+import app.epistola.suite.cluster.ClusterScheduledTaskRegistry
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -18,6 +19,9 @@ class StaleConsumerNodeReaperIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var reaper: StaleConsumerNodeReaper
+
+    @Autowired
+    private lateinit var scheduledTaskRegistry: ClusterScheduledTaskRegistry
 
     private fun seedNode(tenantKey: TenantKey, nodeId: String, lastSeenAt: OffsetDateTime) {
         val consumerId = UUID.randomUUID().toString()
@@ -43,6 +47,16 @@ class StaleConsumerNodeReaperIT : IntegrationTestBase() {
             .bind("tenantKey", tenantKey)
             .mapTo(Int::class.java)
             .one()
+    }
+
+    @Test
+    fun `registers a clustered scheduled task definition`() {
+        val task = scheduledTaskRegistry.find(StaleConsumerNodeReaper.TASK_KEY)
+
+        assertThat(task).isNotNull
+        assertThat(task?.routingKey).isEqualTo(StaleConsumerNodeReaper.ROUTING_KEY)
+        assertThat(task?.taskType).isEqualTo(StaleConsumerNodeReaper.TASK_TYPE)
+        assertThat(task?.cronExpression).isEqualTo("0 0 3 * * *")
     }
 
     @Test

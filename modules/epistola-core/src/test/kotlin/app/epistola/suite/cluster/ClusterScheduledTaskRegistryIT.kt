@@ -4,11 +4,14 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
+import java.time.Duration
 import java.time.OffsetDateTime
 
 @TestPropertySource(
@@ -18,6 +21,7 @@ import java.time.OffsetDateTime
         "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
     ],
 )
+@Import(ClusterTestClockConfiguration::class)
 class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Autowired
@@ -28,6 +32,9 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var clock: MutableClock
 
     @Test
     fun `upsert creates a durable scheduled task`() {
@@ -47,7 +54,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
         assertThat(task.tenantKey).isNull()
         assertThat(task.payload["source"]).isEqualTo("test")
         assertThat(task.scheduleKind).isEqualTo(ClusterScheduledTaskScheduleKind.FIXED_DELAY)
-        assertThat(task.nextDueAt).isAfter(OffsetDateTime.now())
+        assertThat(task.nextDueAt).isAfter(now())
     }
 
     @Test
@@ -73,7 +80,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
             ),
         )
 
-        assertThat(updated.nextDueAt).isBefore(OffsetDateTime.now())
+        assertThat(updated.nextDueAt).isBefore(now())
         assertThat(updated.payload["version"]).isEqualTo(2)
     }
 
@@ -99,7 +106,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
             ),
         )
 
-        assertThat(updated.nextDueAt).isAfter(OffsetDateTime.now())
+        assertThat(updated.nextDueAt).isAfter(now())
     }
 
     @Test
@@ -140,7 +147,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     fun `complete advances the next due occurrence`() {
         seedDueTask("task-complete")
         val task = registry.claimDue(listOf("task-complete")).single()
-        val nextDueAt = OffsetDateTime.now().plusMinutes(5)
+        val nextDueAt = now().plusMinutes(5)
 
         val completed = registry.complete(task.taskKey, nextDueAt)
 
@@ -155,7 +162,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     fun `failure releases lease and increments consecutive failures`() {
         seedDueTask("task-fail")
         val task = registry.claimDue(listOf("task-fail")).single()
-        val retryAt = OffsetDateTime.now().plusMinutes(1)
+        val retryAt = now().plusMinutes(1)
 
         val failed = registry.fail(task.taskKey, retryAt, "boom")
 
@@ -187,7 +194,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
             val tasks = ListClusterScheduledTasks.query()
             assertThat(tasks.map { it.taskKey }).contains("task-command")
-            assertThat(registry.find("task-command")?.nextDueAt).isBeforeOrEqualTo(OffsetDateTime.now().plusSeconds(1))
+            assertThat(registry.find("task-command")?.nextDueAt).isEqualTo(now())
         }
     }
 
@@ -201,16 +208,19 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
-        forceDue(taskKey)
+        clock.advanceBy(Duration.ofSeconds(61))
     }
 
     private fun forceDue(taskKey: String) {
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE cluster_tasks_scheduled SET next_due_at = NOW() - INTERVAL '1 second' WHERE task_key = :taskKey")
+            handle.createUpdate("UPDATE cluster_tasks_scheduled SET next_due_at = :dueAt WHERE task_key = :taskKey")
                 .bind("taskKey", taskKey)
+                .bind("dueAt", now().minusSeconds(1))
                 .execute()
         }
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
 
     private fun deleteTask(taskKey: String) {
         jdbi.useHandle<Exception> { handle ->

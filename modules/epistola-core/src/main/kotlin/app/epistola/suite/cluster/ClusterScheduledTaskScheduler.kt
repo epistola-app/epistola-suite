@@ -3,10 +3,12 @@ package app.epistola.suite.cluster
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
+import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.OffsetDateTime
 
 @Component
@@ -19,13 +21,24 @@ class ClusterScheduledTaskScheduler(
     private val properties: ClusterProperties,
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
     private val meterRegistry: MeterRegistry,
+    private val clock: Clock,
     handlers: List<ClusterScheduledTaskHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val handlersByType = handlers.associateBy { it.taskType }
 
+    @Volatile
+    private var shuttingDown = false
+
+    @PreDestroy
+    fun shutdown() {
+        shuttingDown = true
+    }
+
     @Scheduled(fixedDelayString = "\${epistola.cluster.scheduled-tasks.poll-interval-ms:1000}")
     fun poll() = meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
+        if (shuttingDown) return@recordScheduledTask
+
         val candidates = taskRegistry.dueCandidates()
         if (candidates.isEmpty()) {
             return@recordScheduledTask
@@ -71,7 +84,7 @@ class ClusterScheduledTaskScheduler(
     private fun fail(task: ClusterScheduledTask, error: String) {
         val nextDueAt = scheduleCalculator.nextAfterFailure(
             task = task,
-            now = OffsetDateTime.now(),
+            now = OffsetDateTime.now(clock),
             retryDelayMs = properties.scheduledTasks.retryDelayMs,
             maxRetryDelayMs = properties.scheduledTasks.maxRetryDelayMs,
         )

@@ -3,11 +3,14 @@ package app.epistola.suite.cluster
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
+import java.time.Duration
 import java.time.OffsetDateTime
 
 @TestPropertySource(
@@ -17,6 +20,7 @@ import java.time.OffsetDateTime
         "epistola.cluster.timers.retry-delay-ms=30000",
     ],
 )
+@Import(ClusterTestClockConfiguration::class)
 class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Autowired
@@ -28,6 +32,9 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var clock: MutableClock
+
     @Test
     fun `schedule upserts a durable timer`() {
         deleteTimer("timer-upsert")
@@ -36,14 +43,14 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             timerKey = "timer-upsert",
             routingKey = "tenant-a",
             timerType = "test",
-            dueAt = OffsetDateTime.now().plusMinutes(1),
+            dueAt = now().plusMinutes(1),
             payload = mapOf("attempt" to 1),
         )
         val second = registry.schedule(
             timerKey = "timer-upsert",
             routingKey = "tenant-b",
             timerType = "test",
-            dueAt = OffsetDateTime.now().plusMinutes(2),
+            dueAt = now().plusMinutes(2),
             payload = mapOf("attempt" to 2),
         )
 
@@ -63,7 +70,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             timerKey = "timer-tenant",
             routingKey = tenant.id.value,
             timerType = "test",
-            dueAt = OffsetDateTime.now().plusMinutes(1),
+            dueAt = now().plusMinutes(1),
             tenantKey = tenant.id,
         )
 
@@ -79,7 +86,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             timerKey = "timer-system",
             routingKey = "system:maintenance",
             timerType = "test",
-            dueAt = OffsetDateTime.now().plusMinutes(1),
+            dueAt = now().plusMinutes(1),
         )
 
         assertThat(timer.tenantKey).isNull()
@@ -95,7 +102,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
                 timerKey = "timer-command",
                 routingKey = "tenant-command",
                 timerType = "test",
-                dueAt = OffsetDateTime.now().plusMinutes(1),
+                dueAt = now().plusMinutes(1),
                 payload = mapOf("source" to "command"),
             ).execute()
 
@@ -108,7 +115,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     @Test
     fun `cancel deletes a durable timer`() {
         deleteTimer("timer-cancel")
-        registry.schedule("timer-cancel", "tenant-a", "test", OffsetDateTime.now().plusMinutes(1))
+        registry.schedule("timer-cancel", "tenant-a", "test", now().plusMinutes(1))
 
         val cancelled = registry.cancel("timer-cancel")
 
@@ -125,7 +132,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             timerKey = "timer-cancel-tenant",
             routingKey = ownerTenant.id.value,
             timerType = "test",
-            dueAt = OffsetDateTime.now().plusMinutes(1),
+            dueAt = now().plusMinutes(1),
             tenantKey = ownerTenant.id,
         )
 
@@ -141,7 +148,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     fun `cancel command deletes a durable timer`() {
         withMediator {
             deleteTimer("timer-cancel-command")
-            registry.schedule("timer-cancel-command", "tenant-a", "test", OffsetDateTime.now().plusMinutes(1))
+            registry.schedule("timer-cancel-command", "tenant-a", "test", now().plusMinutes(1))
 
             val cancelled = CancelClusterTimer("timer-cancel-command").execute()
 
@@ -158,7 +165,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             timerKey = "timer-cascade",
             routingKey = tenant.id.value,
             timerType = "test",
-            dueAt = OffsetDateTime.now().plusMinutes(1),
+            dueAt = now().plusMinutes(1),
             tenantKey = tenant.id,
         )
 
@@ -174,7 +181,8 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     @Test
     fun `claim due leases a timer for the current node`() {
         deleteTimer("timer-claim")
-        registry.schedule("timer-claim", "tenant-a", "test", OffsetDateTime.now().minusSeconds(1))
+        registry.schedule("timer-claim", "tenant-a", "test", now().plusMinutes(1))
+        clock.advanceBy(Duration.ofSeconds(61))
 
         val claimed = registry.claimDue(listOf("timer-claim"))
 
@@ -187,7 +195,8 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     @Test
     fun `complete deletes a running timer owned by the current node`() {
         deleteTimer("timer-complete")
-        registry.schedule("timer-complete", "tenant-a", "test", OffsetDateTime.now().minusSeconds(1))
+        registry.schedule("timer-complete", "tenant-a", "test", now().plusMinutes(1))
+        clock.advanceBy(Duration.ofSeconds(61))
         registry.claimDue(listOf("timer-complete"))
 
         val completed = registry.complete("timer-complete")
@@ -211,9 +220,10 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     @Test
     fun `reschedule keeps timer with next due time`() {
         deleteTimer("timer-reschedule")
-        registry.schedule("timer-reschedule", "tenant-a", "test", OffsetDateTime.now().minusSeconds(1))
+        registry.schedule("timer-reschedule", "tenant-a", "test", now().plusMinutes(1))
+        clock.advanceBy(Duration.ofSeconds(61))
         registry.claimDue(listOf("timer-reschedule"))
-        val nextDueAt = OffsetDateTime.now().plusMinutes(5)
+        val nextDueAt = now().plusMinutes(5)
 
         val rescheduled = registry.reschedule("timer-reschedule", nextDueAt, mapOf("phase" to "next"))
 
@@ -241,13 +251,17 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
                     lease_owner_node_id, lease_expires_at, attempt_count
                 )
                 VALUES (
-                    :timerKey, 'tenant-a', 'test', NOW() - INTERVAL '1 second', '{}'::jsonb, 'running',
-                    'dead-node', NOW() - INTERVAL '1 second', 1
+                    :timerKey, 'tenant-a', 'test', :dueAt, '{}'::jsonb, 'running',
+                    'dead-node', :leaseExpiresAt, 1
                 )
                 """,
             )
                 .bind("timerKey", timerKey)
+                .bind("dueAt", now().minusSeconds(1))
+                .bind("leaseExpiresAt", now().minusSeconds(1))
                 .execute()
         }
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
 }

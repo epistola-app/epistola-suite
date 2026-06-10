@@ -5,6 +5,7 @@ import app.epistola.suite.observability.NodeIdentity
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.OffsetDateTime
 
 @Component
@@ -14,6 +15,7 @@ class ClusterScheduledTaskRegistry(
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
+    private val clock: Clock,
 ) {
     private val payloadType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
@@ -21,6 +23,7 @@ class ClusterScheduledTaskRegistry(
         val payloadJson = objectMapper.writeValueAsString(definition.payload)
         val scheduleFields = scheduleFields(definition.schedule)
         val initialDueAt = scheduleCalculator.initialDueAt(definition)
+        val now = OffsetDateTime.now(clock)
         return jdbi.withHandle<ClusterScheduledTask, Exception> { handle ->
             handle.createQuery(
                 """
@@ -32,7 +35,7 @@ class ClusterScheduledTaskRegistry(
                 VALUES (
                     :taskKey, :tenantKey, :routingKey, :taskType, :payload::jsonb, :scheduleKind,
                     :cronExpression, :intervalMs, :zoneId, :failurePolicy, :catchUpPolicy,
-                    :enabled, :initialDueAt, NOW()
+                    :enabled, :initialDueAt, :now
                 )
                 ON CONFLICT (task_key) DO UPDATE
                 SET tenant_key = EXCLUDED.tenant_key,
@@ -54,7 +57,7 @@ class ClusterScheduledTaskRegistry(
                     failure_policy = EXCLUDED.failure_policy,
                     catch_up_policy = EXCLUDED.catch_up_policy,
                     enabled = EXCLUDED.enabled,
-                    updated_at = NOW()
+                    updated_at = :now
                 RETURNING ${selectColumns()}
                 """,
             )
@@ -71,30 +74,35 @@ class ClusterScheduledTaskRegistry(
                 .bind("catchUpPolicy", definition.catchUpPolicy.dbValue)
                 .bind("enabled", definition.enabled)
                 .bind("initialDueAt", initialDueAt)
+                .bind("now", now)
                 .map { rs, _ -> mapTask(rs) }
                 .one()
         }
     }
 
     fun dueCandidates(limit: Int = properties.scheduledTasks.candidateScanSize): List<ClusterScheduledTask> = jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createQuery(
             """
             SELECT ${selectColumns()}
             FROM cluster_tasks_scheduled
             WHERE enabled = true
-              AND next_due_at <= NOW()
-              AND (lease_owner_node_id IS NULL OR lease_expires_at < NOW())
+              AND next_due_at <= :now
+              AND (lease_owner_node_id IS NULL OR lease_expires_at < :now)
             ORDER BY next_due_at, task_key
             LIMIT :limit
             """,
         )
             .bind("limit", limit)
+            .bind("now", now)
             .map { rs, _ -> mapTask(rs) }
             .list()
     }
 
     fun claimDue(taskKeys: Collection<String>, batchSize: Int = properties.scheduledTasks.batchSize): List<ClusterScheduledTask> {
         if (taskKeys.isEmpty()) return emptyList()
+        val now = OffsetDateTime.now(clock)
+        val leaseExpiresAt = now.plusNanos(properties.scheduledTasks.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterScheduledTask>, Exception> { handle ->
             handle.createQuery(
                 """
@@ -103,18 +111,18 @@ class ClusterScheduledTaskRegistry(
                     FROM cluster_tasks_scheduled
                     WHERE task_key IN (<taskKeys>)
                       AND enabled = true
-                      AND next_due_at <= NOW()
-                      AND (lease_owner_node_id IS NULL OR lease_expires_at < NOW())
+                      AND next_due_at <= :now
+                      AND (lease_owner_node_id IS NULL OR lease_expires_at < :now)
                     ORDER BY next_due_at, task_key
                     LIMIT :batchSize
                     FOR UPDATE SKIP LOCKED
                 )
                 UPDATE cluster_tasks_scheduled t
                 SET lease_owner_node_id = :nodeId,
-                    lease_expires_at = NOW() + (:leaseDurationMs * INTERVAL '1 millisecond'),
-                    last_started_at = NOW(),
+                    lease_expires_at = :leaseExpiresAt,
+                    last_started_at = :now,
                     attempt_count = attempt_count + 1,
-                    updated_at = NOW()
+                    updated_at = :now
                 FROM due
                 WHERE t.task_key = due.task_key
                 RETURNING ${selectColumns("t")}
@@ -123,23 +131,25 @@ class ClusterScheduledTaskRegistry(
                 .bindList("taskKeys", taskKeys)
                 .bind("batchSize", batchSize)
                 .bind("nodeId", nodeIdentity.nodeId)
-                .bind("leaseDurationMs", properties.scheduledTasks.leaseDurationMs)
+                .bind("now", now)
+                .bind("leaseExpiresAt", leaseExpiresAt)
                 .map { rs, _ -> mapTask(rs) }
                 .list()
         }
     }
 
     fun complete(taskKey: String, nextDueAt: OffsetDateTime): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
             SET next_due_at = :nextDueAt,
                 lease_owner_node_id = NULL,
                 lease_expires_at = NULL,
-                last_completed_at = NOW(),
+                last_completed_at = :now,
                 consecutive_failures = 0,
                 last_error = NULL,
-                updated_at = NOW()
+                updated_at = :now
             WHERE task_key = :taskKey
               AND lease_owner_node_id = :nodeId
             """,
@@ -147,20 +157,22 @@ class ClusterScheduledTaskRegistry(
             .bind("taskKey", taskKey)
             .bind("nodeId", nodeIdentity.nodeId)
             .bind("nextDueAt", nextDueAt)
+            .bind("now", now)
             .execute() == 1
     }
 
     fun fail(taskKey: String, nextDueAt: OffsetDateTime, error: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
             SET next_due_at = :nextDueAt,
                 lease_owner_node_id = NULL,
                 lease_expires_at = NULL,
-                last_failed_at = NOW(),
+                last_failed_at = :now,
                 consecutive_failures = consecutive_failures + 1,
                 last_error = :error,
-                updated_at = NOW()
+                updated_at = :now
             WHERE task_key = :taskKey
               AND lease_owner_node_id = :nodeId
             """,
@@ -169,6 +181,7 @@ class ClusterScheduledTaskRegistry(
             .bind("nodeId", nodeIdentity.nodeId)
             .bind("nextDueAt", nextDueAt)
             .bind("error", error.take(MAX_ERROR_LENGTH))
+            .bind("now", now)
             .execute() == 1
     }
 
@@ -177,19 +190,21 @@ class ClusterScheduledTaskRegistry(
     fun disable(taskKey: String, tenantKey: TenantKey? = null): Boolean = setEnabled(taskKey, tenantKey, false)
 
     fun triggerNow(taskKey: String, tenantKey: TenantKey? = null): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
-            SET next_due_at = NOW(),
+            SET next_due_at = :now,
                 lease_owner_node_id = NULL,
                 lease_expires_at = NULL,
-                updated_at = NOW()
+                updated_at = :now
             WHERE task_key = :taskKey
               AND tenant_key IS NOT DISTINCT FROM :tenantKey
             """,
         )
             .bind("taskKey", taskKey)
             .bind("tenantKey", tenantKey?.value)
+            .bind("now", now)
             .execute() == 1
     }
 
@@ -220,13 +235,14 @@ class ClusterScheduledTaskRegistry(
     }
 
     private fun setEnabled(taskKey: String, tenantKey: TenantKey?, enabled: Boolean): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = OffsetDateTime.now(clock)
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
             SET enabled = :enabled,
                 lease_owner_node_id = CASE WHEN :enabled THEN lease_owner_node_id ELSE NULL END,
                 lease_expires_at = CASE WHEN :enabled THEN lease_expires_at ELSE NULL END,
-                updated_at = NOW()
+                updated_at = :now
             WHERE task_key = :taskKey
               AND tenant_key IS NOT DISTINCT FROM :tenantKey
             """,
@@ -234,6 +250,7 @@ class ClusterScheduledTaskRegistry(
             .bind("taskKey", taskKey)
             .bind("tenantKey", tenantKey?.value)
             .bind("enabled", enabled)
+            .bind("now", now)
             .execute() == 1
     }
 
@@ -310,5 +327,6 @@ class ClusterScheduledTaskRegistry(
 
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000
+        const val NANOS_PER_MILLI = 1_000_000L
     }
 }

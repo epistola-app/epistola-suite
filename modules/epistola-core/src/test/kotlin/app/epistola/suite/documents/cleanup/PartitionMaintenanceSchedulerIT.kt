@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.cleanup
 
+import app.epistola.suite.cluster.ClusterScheduledTaskRegistry
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -23,6 +24,19 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var scheduler: PartitionMaintenanceScheduler
+
+    @Autowired
+    private lateinit var scheduledTaskRegistry: ClusterScheduledTaskRegistry
+
+    @Test
+    fun `registers a clustered scheduled task definition`() {
+        val task = scheduledTaskRegistry.find(PartitionMaintenanceScheduler.TASK_KEY)
+
+        assertThat(task).isNotNull
+        assertThat(task?.routingKey).isEqualTo(PartitionMaintenanceScheduler.ROUTING_KEY)
+        assertThat(task?.taskType).isEqualTo(PartitionMaintenanceScheduler.TASK_TYPE)
+        assertThat(task?.cronExpression).isEqualTo("0 0 2 * * ?")
+    }
 
     @Test
     fun `bootstraps current and next month partitions for generation_results`() {

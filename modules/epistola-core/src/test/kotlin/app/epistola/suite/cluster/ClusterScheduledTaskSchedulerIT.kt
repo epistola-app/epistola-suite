@@ -1,6 +1,7 @@
 package app.epistola.suite.cluster
 
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -10,6 +11,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -20,7 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList
         "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
     ],
 )
-@Import(ClusterScheduledTaskSchedulerIT.TaskHandlerConfiguration::class)
+@Import(ClusterScheduledTaskSchedulerIT.TaskHandlerConfiguration::class, ClusterTestClockConfiguration::class)
 class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -34,6 +36,9 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var clock: MutableClock
 
     @BeforeEach
     fun reset() {
@@ -52,7 +57,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         val task = registry.find("scheduler-success")
         assertThat(handler.handled).containsExactly("scheduler-success")
         assertThat(task?.leaseOwnerNodeId).isNull()
-        assertThat(task?.nextDueAt).isAfter(OffsetDateTime.now())
+        assertThat(task?.nextDueAt).isAfter(now())
         assertThat(task?.consecutiveFailures).isZero()
     }
 
@@ -68,7 +73,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(task?.leaseOwnerNodeId).isNull()
         assertThat(task?.consecutiveFailures).isEqualTo(1)
         assertThat(task?.lastError).isEqualTo("planned failure")
-        assertThat(task?.nextDueAt).isAfter(OffsetDateTime.now())
+        assertThat(task?.nextDueAt).isEqualTo(now().plusSeconds(30))
     }
 
     private fun seedDueTask(taskKey: String) {
@@ -80,11 +85,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE cluster_tasks_scheduled SET next_due_at = NOW() - INTERVAL '1 second' WHERE task_key = :taskKey")
-                .bind("taskKey", taskKey)
-                .execute()
-        }
+        clock.advanceBy(Duration.ofSeconds(61))
     }
 
     private fun deleteTask(taskKey: String) {
@@ -94,6 +95,8 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
                 .execute()
         }
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
 
     @TestConfiguration
     class TaskHandlerConfiguration {
