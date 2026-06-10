@@ -21,7 +21,7 @@
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                         onclick="document.getElementById('contract-usage-dialog').close()">&times;</button>
             </div>
-            <div class="ep-dialog-body contract-usage-body">
+            <div class="ep-dialog-body ep-p-3">
                 <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table ep-table-dense">
                     <thead><tr><th>Variant</th><th>Version</th><th>Status</th><th>Contract</th><th>Deployed</th></tr></thead>
                     <tbody>
@@ -38,16 +38,16 @@
                                     <span th:if="${v.contractVersion != latestPublishedContractId && latestPublishedContractId != null}" class="badge badge-warning" th:text="'v' + ${v.contractVersion}"></span>
                                     <span th:if="${latestPublishedContractId == null}" class="badge badge-outline" th:text="'v' + ${v.contractVersion}"></span>
                                 </th:block>
-                                <span th:if="${v.contractVersion == null}" class="contract-muted">-</span>
+                                <span th:if="${v.contractVersion == null}" class="ep-text-muted">-</span>
                             </td>
                             <td>
                                 <span th:if="${!#lists.isEmpty(v.activeEnvironments)}" th:text="${#strings.listJoin(v.activeEnvironments, ', ')}"></span>
-                                <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="contract-muted">-</span>
+                                <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="ep-text-muted">-</span>
                             </td>
                         </tr>
                     </tbody>
                 </table>
-                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="contract-empty">No template versions yet.</p>
+                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="contract-empty ep-text-muted">No template versions yet.</p>
             </div>
         </dialog>
 
@@ -78,16 +78,16 @@
                                     </td>
                                     <td><span class="badge badge-outline" th:text="${field.type}"></span></td>
                                     <td>
-                                        <span th:if="${field.required}" class="contract-required">Required</span>
-                                        <span th:unless="${field.required}" class="contract-muted">Optional</span>
+                                        <span th:if="${field.required}" class="ep-text-destructive">Required</span>
+                                        <span th:unless="${field.required}" class="ep-text-muted">Optional</span>
                                     </td>
-                                    <td class="contract-field-desc" th:text="${field.description ?: ''}"></td>
+                                    <td class="ep-text-muted" th:text="${field.description ?: ''}"></td>
                                 </tr>
                             </tbody>
                         </table>
                     </th:block>
                     <th:block th:if="${#lists.isEmpty(schemaFields)}">
-                        <p class="contract-empty-schema">
+                        <p class="contract-empty-schema ep-text-muted ep-p-4">
                             No schema defined yet.
                             <th:block th:if="${editable}">
                                 Click <strong>Edit</strong> above to define one.
@@ -103,10 +103,10 @@
                     <div class="card-header-row">
                         <h3 class="contract-section-title">
                             Examples
-                            <span class="contract-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
+                            <span class="ep-text-muted" th:text="'(' + ${contractDataExamples.size()} + ')'"></span>
                         </h3>
                     </div>
-                    <div class="card-content contract-examples-body">
+                    <div class="card-content ep-p-3">
                         <div class="contract-examples-list">
                             <span th:each="example : ${contractDataExamples}"
                                   class="badge badge-outline" th:text="${example.name}"></span>

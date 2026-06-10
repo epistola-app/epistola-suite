@@ -13,25 +13,25 @@
              hx-trigger="every 10s"
              hx-swap="outerHTML">
 
-            <div class="stats-grid consumer-dashboard-stats">
-                <div class="card card-interactive stat-card">
-                    <div class="stat-card-value" th:text="${report.totals.consumerCount}">0</div>
-                    <div class="stat-card-label">Consumers</div>
+            <div class="stats-grid ep-mb-6">
+                <div class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${report.totals.consumerCount}">0</div>
+                    <div class="ep-text-sm ep-text-muted">Consumers</div>
                 </div>
-                <div class="card card-interactive stat-card">
-                    <div class="stat-card-value">
+                <div class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                         <span th:text="${report.totals.activeNodeCount}">0</span><span
-                            class="consumer-total-nodes"
+                            class="ep-text-muted"
                             th:text="' / ' + ${report.totals.totalNodeCount}"> / 0</span>
                     </div>
-                    <div class="stat-card-label">Active nodes</div>
+                    <div class="ep-text-sm ep-text-muted">Active nodes</div>
                 </div>
-                <div class="card card-interactive stat-card">
-                    <div class="stat-card-value consumer-latest-activity" 
+                <div class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" 
                          th:text="${report.totals.mostRecentNodeActivity != null
                                    ? #temporals.format(report.totals.mostRecentNodeActivity, 'HH:mm:ss')
                                    : '—'}">—</div>
-                    <div class="stat-card-label">Most recent activity</div>
+                    <div class="ep-text-sm ep-text-muted">Most recent activity</div>
                 </div>
             </div>
 
@@ -63,20 +63,20 @@
                           th:title="${consumer.stateTitle}"></span>
 
                     <div class="consumer-identity">
-                        <div class="consumer-name" th:text="${consumer.label}">Consumer</div>
-                        <div class="consumer-meta-line">
+                        <div class="consumer-name ep-text-base ep-font-semibold" th:text="${consumer.label}">Consumer</div>
+                        <div class="consumer-meta-line ep-text-sm">
                             <code class="ep-code ep-code-muted" th:text="${consumer.keyPrefix}">epk_xxxx</code>
                             <span class="consumer-meta-sep">·</span>
                             <span th:text="${consumer.authMethod}">API key</span>
                         </div>
                     </div>
 
-                    <span class="consumer-activity-pill"
+                    <span class="consumer-activity-pill ep-text-sm"
                           th:classappend="|consumer-activity-pill--${consumer.state}|">
-                        <span class="pill-num"
+                        <span class="pill-num ep-font-semibold"
                               th:if="${consumer.state == 'HEALTHY' or consumer.state == 'MIXED' or consumer.state == 'STALE'}"
                               th:text="${consumer.activityLabel}">0 / 0</span>
-                        <span class="pill-label"
+                        <span class="pill-label ep-text-xs"
                               th:text="${consumer.state == 'DISABLED' or consumer.state == 'NOT_CONNECTED' ? consumer.activityLabel : 'active'}">active</span>
                     </span>
 
@@ -86,30 +86,30 @@
                 <div class="consumer-body">
                     <div class="consumer-stats-strip">
                         <div class="consumer-stat">
-                            <div class="consumer-stat-label">Cursor range</div>
-                            <div class="consumer-stat-value"
+                            <div class="consumer-stat-label ep-text-xs ep-mb-1">Cursor range</div>
+                            <div class="consumer-stat-value ep-text-base"
                                  th:if="${consumer.cursorSummary.partitionsTracked > 0}"
                                  th:text="${consumer.cursorSummary.minAckedSequence + ' – ' + consumer.cursorSummary.maxAckedSequence}">0 – 0</div>
-                            <div class="consumer-stat-value is-empty"
+                            <div class="consumer-stat-value is-empty ep-text-base"
                                  th:if="${consumer.cursorSummary.partitionsTracked == 0}">no cursors yet</div>
                         </div>
                         <div class="consumer-stat">
-                            <div class="consumer-stat-label">Partitions tracked</div>
-                            <div class="consumer-stat-value"
+                            <div class="consumer-stat-label ep-text-xs ep-mb-1">Partitions tracked</div>
+                            <div class="consumer-stat-value ep-text-base"
                                  th:text="${consumer.cursorSummary.partitionsTracked}">0</div>
                         </div>
                         <div class="consumer-stat">
-                            <div class="consumer-stat-label">Last advanced</div>
-                            <div class="consumer-stat-value"
+                            <div class="consumer-stat-label ep-text-xs ep-mb-1">Last advanced</div>
+                            <div class="consumer-stat-value ep-text-base"
                                  th:if="${consumer.cursorSummary.lastAdvancedAt != null}"
                                  th:title="${#temporals.format(consumer.cursorSummary.lastAdvancedAt, 'yyyy-MM-dd HH:mm:ss')}"
                                  th:text="${#temporals.format(consumer.cursorSummary.lastAdvancedAt, 'HH:mm:ss')}">—</div>
-                            <div class="consumer-stat-value is-empty"
+                            <div class="consumer-stat-value is-empty ep-text-base"
                                  th:if="${consumer.cursorSummary.lastAdvancedAt == null}">never</div>
                         </div>
                     </div>
 
-                    <div th:if="${#lists.isEmpty(consumer.nodes)}" class="consumer-body-empty">
+                    <div th:if="${#lists.isEmpty(consumer.nodes)}" class="consumer-body-empty ep-mt-3 ep-p-4 ep-text-sm">
                         No nodes have polled for this consumer yet. Make sure a client is configured to
                         use this API key and that it can reach the suite.
                     </div>
@@ -131,7 +131,7 @@
                                           th:text="${#temporals.format(node.lastSeenAt, 'HH:mm:ss')}">--</span>
                                 </td>
                                 <td>
-                                    <span class="node-row-status"
+                                    <span class="node-row-status ep-text-sm"
                                           th:classappend="${node.isActive} ? ' is-active' : ' is-stale'"
                                           th:text="${node.isActive ? 'active' : 'stale'}">active</span>
                                 </td>
@@ -139,7 +139,7 @@
                                     <code th:if="${node.isActive}" class="ep-code"
                                           th:title="${node.partitionsTitle}"
                                           th:text="${node.partitionsLabel}">0, 3, 7</code>
-                                    <span th:if="${!node.isActive}" class="consumer-stale-node"
+                                    <span th:if="${!node.isActive}" class="ep-text-sm ep-text-muted"
                                           th:title="${'Was assigned: ' + node.partitionsTitle}">— stale, not on ring</span>
                                 </td>
                             </tr>

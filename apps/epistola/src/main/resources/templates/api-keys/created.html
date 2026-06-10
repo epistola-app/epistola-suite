@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}">API Keys</a> &raquo; <span>Key created</span>
         </nav>
 
@@ -17,7 +17,7 @@
         <div class="card-content">
             <section class="alert alert-warning">
               <div>
-                <div class="alert-title">Copy this key now.</div>
+                <div class="alert-title ep-mb-1">Copy this key now.</div>
                 <p>It will not be shown again, and there is no way to recover it later.</p>
               </div>
             </section>
@@ -33,7 +33,7 @@
                         Copy
                     </button>
                 </div>
-                <span id="api-key-copy-status" class="form-hint" aria-live="polite"></span>
+                <span id="api-key-copy-status" class="ep-text-xs ep-text-muted ep-mt-1" aria-live="polite"></span>
             </section>
 
             <section>
@@ -48,7 +48,7 @@
                 </dl>
             </section>
 
-            <div class="form-actions api-key-actions">
+            <div class="form-actions api-key-actions ep-mt-6">
                 <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">Done</a>
             </div>
         </div>

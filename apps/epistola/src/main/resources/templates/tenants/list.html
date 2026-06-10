@@ -27,15 +27,15 @@
                         <input type="text" id="name" name="name" class="ep-input" required placeholder="Tenant name"
                                data-slug-source="slug"
                                th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Slug (ID)</label>
                         <input type="text" id="slug" name="slug" class="ep-input" required placeholder="my-company"
                                pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
                                th:value="${formData?.slug}">
-                        <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">3-63 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
                     <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
                 </form>

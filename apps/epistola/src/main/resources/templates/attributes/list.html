@@ -13,7 +13,7 @@
             </div>
         </section>
 
-        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -39,7 +39,7 @@
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
             </a>
@@ -61,7 +61,7 @@
                     <tr th:each="attr : ${attributes}">
                         <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${attr.id}" th:title="${attr.id}"></code></td>
                         <td><code class="ep-code" th:text="${attr.catalogKey}"></code></td>
-                        <td class="attr-name ep-table-truncate" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
+                        <td class="ep-table-truncate ep-font-medium" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
                         <td>
                             <div th:if="${attr.codeListSlug != null}" class="tags">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
@@ -124,7 +124,7 @@
               hx-swap="innerHTML"
 >
             <div class="ep-dialog-body">
-                <div th:if="${error != null}" class="alert alert-error attr-edit-error">
+                <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                     <span th:text="${error}"></span>
                 </div>
                 <div class="form-group">
@@ -134,7 +134,7 @@
                 </div>
                 <div class="form-group">
                     <label class="ep-label">Value constraint</label>
-                    <div role="radiogroup" class="constraint-radio-group">
+                    <div role="radiogroup" class="constraint-radio-group ep-mt-2">
                         <label>
                             <input type="radio" name="constraintKind" value="free"
                                    th:checked="${attribute.codeListSlug == null and #lists.isEmpty(attribute.allowedValues)}">

@@ -7,27 +7,27 @@
         </section>
 
         <!-- Statistics -->
-        <section class="stats-grid gen-dashboard-stats">
-            <div class="card card-interactive stat-card">
-                <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
-                <div class="stat-card-label">Total Generated</div>
+        <section class="stats-grid ep-mb-6">
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.totalGenerated}">0</div>
+                <div class="ep-text-sm ep-text-muted">Total Generated</div>
             </div>
-            <div class="card card-interactive stat-card">
-                <div class="stat-card-value" th:text="${stats.inQueue}">0</div>
-                <div class="stat-card-label">In Queue</div>
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.inQueue}">0</div>
+                <div class="ep-text-sm ep-text-muted">In Queue</div>
             </div>
-            <div class="card card-interactive stat-card">
-                <div class="stat-card-value" th:text="${stats.completed}">0</div>
-                <div class="stat-card-label">Completed</div>
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.completed}">0</div>
+                <div class="ep-text-sm ep-text-muted">Completed</div>
             </div>
-            <div class="card card-interactive stat-card">
-                <div class="stat-card-value" th:text="${stats.failed}">0</div>
-                <div class="stat-card-label">Failed</div>
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.failed}">0</div>
+                <div class="ep-text-sm ep-text-muted">Failed</div>
             </div>
         </section>
 
         <!-- Most Used Templates -->
-        <section class="gen-dashboard-section">
+        <section class="ep-mb-6">
             <h2>Most Used Templates</h2>
             <section th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
                 <div class="empty-state-icon">
@@ -48,7 +48,7 @@
                     <tr th:each="usage : ${templateUsage}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
-                               class="gen-dashboard-link ep-table-truncate"
+                               class="ep-table-truncate ep-font-medium"
                                th:title="${usage.templateKey}"
                                 th:text="${usage.templateKey}">template</a>
                         </td>
@@ -95,7 +95,7 @@
                         <tr th:each="job : ${recentJobs}">
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
-                                   class="gen-dashboard-link ep-table-truncate"
+                                   class="ep-table-truncate ep-font-medium"
                                    th:title="${job.templateKey}"
                                     th:text="${job.templateKey}">template</a>
                             </td>
@@ -113,7 +113,7 @@
                                       class="gen-job-error"
                                        th:title="${job.errorMessage}"
                                        th:text="${job.errorMessage}">Error</span>
-                                <span th:if="${job.errorMessage == null}" class="gen-job-empty">—</span>
+                                <span th:if="${job.errorMessage == null}" class="ep-text-muted">—</span>
                             </td>
                             <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
                             <td th:text="${job.completedAt != null ? #temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>

@@ -18,7 +18,7 @@
             </div>
         </section>
 
-        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No themes yet</div>
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <a th:if="${auth.has('THEME_EDIT')}"
-               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Theme
             </a>
@@ -66,13 +66,13 @@
                         th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
-                                th:text="${theme.name}" th:title="${theme.name}" class="theme-name ep-table-truncate"></a>
+                                th:text="${theme.name}" th:title="${theme.name}" class="ep-table-truncate ep-font-medium"></a>
                             <span th:if="${isDefault}" class="badge badge-primary" data-testid="theme-default-badge">Default</span>
                         </td>
                         <td><code class="ep-code" th:text="${theme.catalogKey}"></code></td>
                         <td>
                             <span th:if="${theme.description != null}" th:text="${theme.description}" th:title="${theme.description}" class="ep-table-truncate"></span>
-                            <span th:unless="${theme.description != null}" class="theme-empty">-</span>
+                            <span th:unless="${theme.description != null}" class="ep-text-muted">-</span>
                         </td>
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
@@ -81,7 +81,7 @@
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  class="theme-form">
+                                  class="ep-inline">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
@@ -92,7 +92,7 @@
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  class="theme-form">
+                                  class="ep-inline">
                                 <input type="hidden" name="themeId" value="">
                                 <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Clear default theme">
                                     <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />

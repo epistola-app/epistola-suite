@@ -18,7 +18,7 @@
             </div>
         </section>
 
-        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
             <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template
             </a>
@@ -67,7 +67,7 @@
                         <td class="ep-table-truncate">
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                th:title="${template.name}"
-                               th:text="${template.name}" class="template-name"></a>
+                               th:text="${template.name}" class="ep-font-medium"></a>
                         </td>
                         <td><code class="ep-code" th:text="${template.catalogKey}"></code></td>
                         <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${template.id}" th:title="${template.id}"></code></td>

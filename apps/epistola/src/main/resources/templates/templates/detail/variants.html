@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="tab-content">
         <!-- Button to open create variant dialog -->
-        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="variants-toolbar">
+        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="ep-mb-4">
             <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" onclick="document.getElementById('create-variant-dialog').showModal()" data-testid="variant-create-open">+ New Variant</button>
         </div>
 
@@ -21,7 +21,7 @@
                         <label class="ep-label" for="slug">Slug (ID)</label>
                         <input type="text" id="slug" name="slug" class="ep-input" required
                                pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" placeholder="english-newsletter">
-                        <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">URL-safe identifier (lowercase, hyphens allowed)</span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="title">Title (optional)</label>
@@ -74,7 +74,7 @@
 
         <!-- Variant card grid -->
         <div id="variants-section" th:fragment="variants-section">
-            <div id="variant-filter-bar" class="form-row form-row-section"
+            <div id="variant-filter-bar" class="form-row ep-mb-4"
                  th:if="${usedAttributeDescriptors != null and !#lists.isEmpty(usedAttributeDescriptors)}">
                 <div class="form-group form-group-inline form-group-min-width-sm form-group-compact" th:each="d : ${usedAttributeDescriptors}">
                     <label th:for="'attr-filter-' + ${d.qualifiedKey}">
@@ -91,7 +91,7 @@
                     </select>
                 </div>
             </div>
-            <div th:if="${error != null}" class="alert alert-error variant-error">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
             <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
@@ -100,7 +100,7 @@
                      th:data-variant-id="${variant.id}">
                     <div class="variant-card-header">
                         <div>
-                            <span class="variant-card-title" th:text="${variant.title != null ? variant.title : variant.id}"></span>
+                            <span data-testid="variant-card-title" class="ep-font-semibold ep-text-sm" th:text="${variant.title != null ? variant.title : variant.id}"></span>
                             <code th:if="${variant.title != null}" class="ep-code ep-code-muted ep-code-xs ep-code-suffix" th:text="${variant.id}"></code>
                         </div>
                         <span th:if="${variant.isDefault}" class="badge badge-primary">Default</span>
@@ -115,7 +115,7 @@
                             <span th:each="entry : ${variant.entries}" class="badge badge-outline"
                                   th:data-attr-key="${entry.key}" th:data-attr-value="${entry.value}"
                                   th:title="${entry.descriptor != null ? entry.descriptor.qualifiedKey + ' = ' + entry.value : entry.key + ' = ' + entry.value}">
-                                <span class="variant-catalog-prefix" 
+                                <span class="ep-text-xs ep-text-muted" 
                                       th:if="${entry.catalogLabel != ''}"
                                       th:text="${entry.catalogLabel + '.'}"></span><span
                                       th:text="${entry.slug + ' = ' + entry.value}"></span>
@@ -126,7 +126,7 @@
                             <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-success"
                                   th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
                             <span th:if="${!variant.hasDraft and variant.publishedVersions.isEmpty()}"
-                                  class="variant-no-versions">No versions</span>
+                                  class="ep-text-xs ep-text-muted">No versions</span>
                         </div>
                     </div>
                     <div class="variant-card-footer">
@@ -139,7 +139,7 @@
                               th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section"
                               hx-swap="outerHTML"
-                              class="variant-publish-form">
+                              class="ep-inline">
                             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm ep-btn-icon" title="Publish draft">
                                 <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
                             </button>
@@ -184,11 +184,11 @@
                         </button>
                     </div>
                 </div>
-                <div class="variant-no-matches" id="variant-no-matches">No variants match the selected filters.</div>
+                <div class="variant-no-matches ep-text-sm ep-text-muted ep-p-8" id="variant-no-matches">No variants match the selected filters.</div>
             </div>
             <div th:if="${#lists.isEmpty(variants)}" class="card page-section">
                 <div class="card-content">
-                    <div class="empty-state variant-empty-state">
+                    <div class="empty-state ep-p-8">
                         <div class="empty-state-title">No variants yet</div>
                         <div class="empty-state-description">Create a variant to start designing your template.</div>
                     </div>

@@ -13,10 +13,10 @@
         <section>
             <div th:if="${changelogSummary != null}"
                  id="whats-new-banner"
-                 class="whats-new-card"
+                 class="whats-new-card ep-mb-5"
                  th:classappend="${changelogIsNew} ? 'whats-new-unseen'">
                 <div class="whats-new-row">
-                    <div class="whats-new-info">
+                    <div class="whats-new-info ep-text-sm ep-text-muted">
                         <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                         <span th:if="${changelogIsNew}">
                             <strong>What's New in v<span th:text="${changelogVersion}">0.12.0</span></strong>
@@ -52,21 +52,21 @@
 
         <section class="dashboard-grid">
             <section class="stats-grid">
-                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="card card-interactive stat-card">
-                    <div class="stat-card-value" th:text="${templateCount}">0</div>
-                    <div class="stat-card-label">Templates</div>
+                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${templateCount}">0</div>
+                    <div class="ep-text-sm ep-text-muted">Templates</div>
                 </a>
-                <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="card card-interactive stat-card">
-                    <div class="stat-card-value" th:text="${themeCount}">0</div>
-                    <div class="stat-card-label">Themes</div>
+                <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${themeCount}">0</div>
+                    <div class="ep-text-sm ep-text-muted">Themes</div>
                 </a>
-                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="card card-interactive stat-card">
-                    <div class="stat-card-value" th:text="${environmentCount}">0</div>
-                    <div class="stat-card-label">Environments</div>
+                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${environmentCount}">0</div>
+                    <div class="ep-text-sm ep-text-muted">Environments</div>
                 </a>
-                <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="card card-interactive stat-card">
-                    <div class="stat-card-value" th:text="${loadTestCount}">0</div>
-                    <div class="stat-card-label">Load Tests</div>
+                <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="card card-interactive ep-p-5">
+                    <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${loadTestCount}">0</div>
+                    <div class="ep-text-sm ep-text-muted">Load Tests</div>
                 </a>
             </section>
 

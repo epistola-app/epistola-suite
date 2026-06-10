@@ -19,7 +19,7 @@
                     <input type="text" id="fb-title" name="title" class="ep-input"
                            required placeholder="Brief summary of the issue"
                            th:value="${formData?.title}">
-                    <span class="form-error" th:if="${errors?.containsKey('title')}" th:text="${errors.title}"></span>
+                    <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('title')}" th:text="${errors.title}"></span>
                 </div>
 
                 <div class="form-row">
@@ -31,7 +31,7 @@
                                     th:text="${c.name()}"
                                     th:selected="${formData?.category == c.name()}">CATEGORY</option>
                         </select>
-                        <span class="form-error" th:if="${errors?.containsKey('category')}" th:text="${errors.category}"></span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('category')}" th:text="${errors.category}"></span>
                     </div>
 
                     <div class="form-group form-group-fill" th:classappend="${errors?.containsKey('priority')} ? 'error' : ''">
@@ -41,7 +41,7 @@
                                     th:text="${p.name()}"
                                     th:selected="${formData?.priority == p.name() || (formData == null && p.name() == 'MEDIUM')}">PRIORITY</option>
                         </select>
-                        <span class="form-error" th:if="${errors?.containsKey('priority')}" th:text="${errors.priority}"></span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('priority')}" th:text="${errors.priority}"></span>
                     </div>
                 </div>
 
@@ -51,7 +51,7 @@
                               required rows="5"
                               placeholder="Describe the issue in detail..."
                               th:text="${formData?.description}"></textarea>
-                    <span class="form-error" th:if="${errors?.containsKey('description')}" th:text="${errors.description}"></span>
+                    <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('description')}" th:text="${errors.description}"></span>
                 </div>
 
                 <!-- Screenshot capture -->
@@ -67,12 +67,12 @@
                             Capture Visible
                         </button>
                     </div>
-                    <div id="fb-screenshot-unsupported" class="unsupported-screenshot">
+                    <div id="fb-screenshot-unsupported" class="unsupported-screenshot ep-text-sm ep-text-muted">
                         Screenshot capture is not supported in this browser.
                     </div>
-                    <div id="fb-screenshot-preview" class="dialog-screenshot-wrapper">
+                    <div id="fb-screenshot-preview" class="dialog-screenshot-wrapper ep-mt-2">
                         <img id="fb-screenshot-img" class="dialog-screenshot-img" alt="Screenshot preview">
-                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm fb-screenshot-remove" id="fb-screenshot-remove"
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-mt-1" id="fb-screenshot-remove"
                                 >Remove</button>
                     </div>
                 </div>

@@ -24,7 +24,7 @@
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
             <a th:if="${auth.has('TENANT_USERS')}"
-               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New API key
             </a>

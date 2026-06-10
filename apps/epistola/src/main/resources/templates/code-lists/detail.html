@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
         <th:block th:fragment="page-content">
-            <nav class="breadcrumb">
+            <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
                 <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}">Code lists</a> &raquo;
                 <span th:text="${codeList.displayName}"></span>
             </nav>
@@ -20,7 +20,7 @@
                 <div class="page-actions">
                     <form th:if="${editable and codeList.sourceUrl != null}"
                           th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
-                          method="post" class="codelist-refresh-form">
+                          method="post" class="ep-inline">
                         <button type="submit" class="ep-btn ep-btn-outline">
                             <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                             Refresh from source
@@ -37,11 +37,11 @@
                 </div>
             </section>
 
-            <section th:if="${error != null}" class="alert alert-error code-list-error">
+            <section th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </section>
 
-            <p th:if="${codeList.description != null}" class="code-list-description" th:text="${codeList.description}"></p>
+            <p th:if="${codeList.description != null}" class="ep-text-muted" th:text="${codeList.description}"></p>
 
             <section th:if="${codeList.lastRefreshedAt != null}" class="code-list-refresh-info">
                 Last refreshed
@@ -51,7 +51,7 @@
                 </th:block>
             </section>
 
-            <section class="code-list-toggle">
+            <section class="ep-my-3">
                 <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
                    class="ep-btn ep-btn-outline ep-btn-sm"
                    th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>

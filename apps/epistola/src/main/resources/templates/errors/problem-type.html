@@ -9,16 +9,16 @@
 <body class="problem-type-page-body">
 <main class="problem-type-page-main">
     <article class="problem-type-card">
-        <div class="problem-type-eyebrow">Epistola Problem Type</div>
+        <div class="problem-type-eyebrow ep-text-muted">Epistola Problem Type</div>
         <h1 class="problem-type-title" th:text="${problemType.title}">Problem Title</h1>
         <p th:text="${problemType.description}">Problem description.</p>
 
         <dl class="problem-type-details">
-            <dt>Type URI</dt>
+            <dt class="ep-text-muted">Type URI</dt>
             <dd><code class="ep-code ep-code-info" th:text="${problemType.type}">https://epistola.app/errors/example</code></dd>
-            <dt>HTTP status</dt>
+            <dt class="ep-text-muted">HTTP status</dt>
             <dd><code class="ep-code ep-code-info" th:text="${problemType.status.value()}">400</code></dd>
-            <dt>Machine code</dt>
+            <dt class="ep-text-muted">Machine code</dt>
             <dd><code class="ep-code ep-code-info" th:text="${problemType.code}">EXAMPLE</code></dd>
         </dl>
 

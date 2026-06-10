@@ -152,21 +152,21 @@
                 </div>
 
                 <!-- Mobile hamburger toggle -->
-                <button class="app-nav-hamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav">
+                <button class="app-nav-hamburger ep-text-muted" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav">
                     <th:block th:replace="~{fragments/icon :: icon(name='menu', class='ep-icon')}" />
                 </button>
             </div>
 
             <div class="app-nav-right">
-                <a th:href="@{/}" class="app-nav-tenant" title="Switch tenant">
+                <a th:href="@{/}" class="app-nav-tenant ep-text-sm ep-text-muted" title="Switch tenant">
                     <th:block th:replace="~{fragments/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
                     <span th:text="${tenantName} ?: 'Tenant'">Tenant</span>
                 </a>
 
-                <div class="app-nav-user" sec:authorize="isAuthenticated()">
-                    <span class="app-nav-username" sec:authentication="name">user</span>
+                <div class="app-nav-user ep-text-xs ep-text-muted" sec:authorize="isAuthenticated()">
+                    <span class="ep-font-medium" sec:authentication="name">user</span>
                     <span class="app-nav-separator">|</span>
-                    <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
+                    <a th:href="@{/api-docs}" class="app-nav-link-sm ep-text-xs ep-text-muted" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
                     <span class="app-nav-separator">|</span>
                     <form th:action="@{/logout}" method="post" hx-boost="false">
                         <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Logout</button>
@@ -180,65 +180,65 @@
             <div class="app-nav-mobile-backdrop"></div>
             <div class="app-nav-mobile-panel">
                 <div class="app-nav-mobile-group">
-                    <div class="app-nav-mobile-label">Authoring</div>
-                    <a th:href="@{/tenants/{id}/templates(id=${tenantId})}" class="app-nav-mobile-item"
+                    <div class="app-nav-mobile-label ep-text-xs ep-text-muted ep-font-semibold">Authoring</div>
+                    <a th:href="@{/tenants/{id}/templates(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'templates'} ? ' active' : ''" role="menuitem">Templates</a>
-                    <a th:href="@{/tenants/{id}/themes(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/themes(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'themes'} ? ' active' : ''" role="menuitem">Themes</a>
-                    <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/stencils(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'stencils'} ? ' active' : ''" role="menuitem">Stencils</a>
-                    <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/catalogs(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''" role="menuitem">Catalogs</a>
                 </div>
                 <div class="app-nav-mobile-group">
-                    <div class="app-nav-mobile-label">Resources</div>
-                    <a th:href="@{/tenants/{id}/environments(id=${tenantId})}" class="app-nav-mobile-item"
+                    <div class="app-nav-mobile-label ep-text-xs ep-text-muted ep-font-semibold">Resources</div>
+                    <a th:href="@{/tenants/{id}/environments(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'environments'} ? ' active' : ''" role="menuitem">Environments</a>
-                    <a th:href="@{/tenants/{id}/assets(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/assets(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'assets'} ? ' active' : ''" role="menuitem">Assets</a>
-                    <a th:href="@{/tenants/{id}/fonts(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/fonts(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'fonts'} ? ' active' : ''" role="menuitem">Fonts</a>
-                    <a th:href="@{/tenants/{id}/attributes(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/attributes(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''" role="menuitem">Attributes</a>
-                    <a th:href="@{/tenants/{id}/code-lists(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/code-lists(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'code-lists'} ? ' active' : ''" role="menuitem">Code lists</a>
                 </div>
                 <div class="app-nav-mobile-group">
-                    <div class="app-nav-mobile-label">Operations</div>
+                    <div class="app-nav-mobile-label ep-text-xs ep-text-muted ep-font-semibold">Operations</div>
                     <a th:if="${auth.has('DOCUMENT_VIEW')}"
-                       th:href="@{/tenants/{id}/generation-history(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:href="@{/tenants/{id}/generation-history(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'generation-history'} ? ' active' : ''" role="menuitem">Generation</a>
                     <a th:if="${auth.has('DOCUMENT_GENERATE')}"
-                       th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''" role="menuitem">Load Tests</a>
                     <a th:if="${auth.has('DOCUMENT_VIEW')}"
-                       th:href="@{/tenants/{id}/consumers(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:href="@{/tenants/{id}/consumers(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'consumers'} ? ' active' : ''" role="menuitem">Consumers</a>
                     <a th:if="${feedbackEnabled}"
-                       th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:href="@{/tenants/{id}/feedback(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''" role="menuitem">Feedback</a>
                     <a th:if="${auth.has('TENANT_USERS')}"
-                       th:href="@{/tenants/{id}/api-keys(id=${tenantId})}" class="app-nav-mobile-item"
+                       th:href="@{/tenants/{id}/api-keys(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'api-keys'} ? ' active' : ''" role="menuitem">API Keys</a>
                 </div>
                 <div th:if="${auth.has('TENANT_SETTINGS')}" class="app-nav-mobile-group">
-                    <div class="app-nav-mobile-label">Settings</div>
-                    <a th:href="@{/tenants/{id}/features(id=${tenantId})}" class="app-nav-mobile-item"
+                    <div class="app-nav-mobile-label ep-text-xs ep-text-muted ep-font-semibold">Settings</div>
+                    <a th:href="@{/tenants/{id}/features(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'features'} ? ' active' : ''" role="menuitem">Features</a>
-                    <a th:href="@{/tenants/{id}/defaults(id=${tenantId})}" class="app-nav-mobile-item"
+                    <a th:href="@{/tenants/{id}/defaults(id=${tenantId})}" class="app-nav-mobile-item ep-text-sm ep-text-muted"
                        th:classappend="${activeNavSection == 'defaults'} ? ' active' : ''" role="menuitem">Defaults</a>
                 </div>
                 <div class="app-nav-mobile-footer">
-                    <a th:href="@{/}" class="app-nav-mobile-item" role="menuitem">
+                    <a th:href="@{/}" class="app-nav-mobile-item ep-text-sm ep-text-muted" role="menuitem">
                         <th:block th:replace="~{fragments/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
                         Switch tenant
                     </a>
-                    <a th:href="@{/api-docs}" class="app-nav-mobile-item" hx-boost="false" target="_blank" rel="noopener" role="menuitem">
+                    <a th:href="@{/api-docs}" class="app-nav-mobile-item ep-text-sm ep-text-muted" hx-boost="false" target="_blank" rel="noopener" role="menuitem">
                         <th:block th:replace="~{fragments/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
                         API Docs
                     </a>
                     <form th:action="@{/logout}" method="post" hx-boost="false">
-                        <button type="submit" class="app-nav-mobile-item app-nav-mobile-logout" role="menuitem">
+                        <button type="submit" class="app-nav-mobile-item app-nav-mobile-logout ep-text-sm ep-text-muted" role="menuitem">
                             <th:block th:replace="~{fragments/icon :: icon(name='log-out', class='ep-icon ep-icon-sm')}" />
                             Logout
                         </button>

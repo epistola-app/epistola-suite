@@ -12,7 +12,7 @@
             </div>
         </section>
 
-        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -43,14 +43,14 @@
 
                 <div th:if="${!#lists.isEmpty(fonts)}" class="asset-grid">
                     <div th:each="font : ${fonts}" class="card card-interactive asset-card">
-                        <div class="asset-card-info">
-                            <div class="asset-card-name" th:text="${font.name}" th:title="${font.name}"></div>
-                            <div class="asset-card-meta">
+                        <div class="ep-p-3">
+                            <div class="ep-text-sm ep-font-medium" th:text="${font.name}" th:title="${font.name}"></div>
+                            <div class="ep-text-xs ep-text-muted ep-mt-1">
                                 <span th:text="${font.slug}"></span>
                                 <span th:text="${font.kind}"></span>
                                 <span th:text="${font.catalogKey}"></span>
                             </div>
-                            <div class="asset-card-meta font-card-variants">
+                            <div class="ep-mt-2 ep-text-xs ep-text-muted ep-mt-1">
                                 <span th:if="${#lists.isEmpty(font.variants)}" class="badge badge-muted">No faces</span>
                                 <span th:each="v : ${font.variants}"
                                       class="badge badge-success"

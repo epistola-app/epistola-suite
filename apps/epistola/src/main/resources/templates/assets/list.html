@@ -17,7 +17,7 @@
             </div>
         </section>
 
-        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -55,9 +55,9 @@
                                  th:alt="${asset.name}"
                                  loading="lazy" />
                         </div>
-                        <div class="asset-card-info">
-                            <div class="asset-card-name" th:text="${asset.name}" th:title="${asset.name}"></div>
-                            <div class="asset-card-meta">
+                        <div class="ep-p-3">
+                            <div class="ep-text-sm ep-font-medium" th:text="${asset.name}" th:title="${asset.name}"></div>
+                            <div class="ep-text-xs ep-text-muted ep-mt-1">
                                 <span th:text="${asset.mediaType.name()}"></span>
                                 <span th:text="${asset.width != null ? asset.width + ' x ' + asset.height + ' px' : 'SVG'}"></span>
                                 <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? #numbers.formatDecimal(asset.sizeBytes / 1024.0, 1, 1) + ' KB' : #numbers.formatDecimal(asset.sizeBytes / 1048576.0, 1, 1) + ' MB')}"></span>

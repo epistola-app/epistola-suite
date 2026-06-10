@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/feedback(tenantId=${tenantId})}">Feedback</a>
             &raquo;
             <span th:text="${feedback.title}">Feedback Title</span>
@@ -30,7 +30,7 @@
                     <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: category-badge(${feedback.category})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${feedback.priority})}" />
-                    <span class="feedback-date"
+                    <span class="ep-text-sm ep-text-muted"
                           th:text="'Submitted ' + ${#temporals.format(feedback.createdAt, 'yyyy-MM-dd HH:mm')}">Submitted 2026-01-01</span>
                 </section>
 
@@ -54,7 +54,7 @@
                 <section th:if="${!#lists.isEmpty(assets)}" class="card">
                     <div class="card-content">
                         <h3 th:text="${#lists.size(assets) == 1} ? 'Screenshot' : 'Screenshots'">Screenshot</h3>
-                        <div th:each="asset : ${assets}" class="feedback-screenshot">
+                        <div th:each="asset : ${assets}" class="ep-mb-3">
                             <img th:src="@{/tenants/{tenantId}/feedback/{feedbackId}/assets/{assetId}/content(tenantId=${tenantId},feedbackId=${feedback.id},assetId=${asset.id})}"
                                  alt="Feedback screenshot"
                                  class="feedback-screenshot-img">
@@ -83,24 +83,24 @@
                 <!-- Comments section -->
                 <section id="comments-section">
                     <th:block th:fragment="comments-section">
-                        <h3 class="comments-heading">
+                        <h3 class="ep-mb-4">
                             Comments
-                            <span class="comment-count"
+                            <span class="ep-text-muted"
                                   th:text="'(' + ${#lists.size(comments)} + ')'"></span>
                         </h3>
 
-                        <div th:if="${#lists.isEmpty(comments)}" class="feedback-no-comments">
+                        <div th:if="${#lists.isEmpty(comments)}" class="ep-text-muted ep-mb-4">
                             No comments yet.
                         </div>
 
                         <div th:each="comment : ${comments}" class="card feedback-comment">
                             <div class="card-content">
-                                <div class="comment-header">
-                                    <span class="comment-author">
+                                <div class="comment-header ep-mb-2">
+                                    <span class="comment-author ep-font-medium">
                                         <span th:text="${comment.authorName}">Author</span>
                                         <span th:if="${comment.source.name() == 'GITHUB'}" class="badge badge-outline">GitHub</span>
                                     </span>
-                    <span class="comment-date"
+                    <span class="ep-text-sm ep-text-muted"
                                           th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>
                                 </div>
                                 <div class="comment-body" th:text="${comment.body}">Comment text</div>
@@ -111,12 +111,12 @@
                         <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/comments(tenantId=${tenantId},id=${feedback.id})}"
                               hx-target="#comments-section"
                               hx-swap="innerHTML"
-                               class="comment-form">
+                               class="ep-mt-4">
                             <div class="form-group">
                                 <textarea name="body" class="ep-textarea" rows="3"
                                           required placeholder="Add a comment..."></textarea>
                             </div>
-                            <div class="comment-form-actions">
+                            <div class="comment-form-actions ep-mt-2">
                                 <button type="submit" class="ep-btn ep-btn-primary">Add Comment</button>
                             </div>
                         </form>

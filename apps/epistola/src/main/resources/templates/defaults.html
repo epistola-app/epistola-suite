@@ -23,7 +23,7 @@
             </div>
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/defaults/locale(tenantId=${tenantId})}" method="post">
-                    <p class="form-hint">
+                    <p class="ep-text-xs ep-text-muted ep-mt-1">
                         <strong>Effective locale:</strong>
                         <span th:text="${effectiveLocale}">en-US</span>
                         <span th:if="${tenant.defaultLocale != null}">(tenant override)</span>
@@ -46,7 +46,7 @@
                         </select>
                     </div>
 
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary">Save</button>
                         <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>

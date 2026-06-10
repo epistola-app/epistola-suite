@@ -29,12 +29,12 @@
                         <td>
                             <span th:if="${version.publishedAt != null}"
                                   th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                            <span th:unless="${version.publishedAt != null}" class="contract-version-date-empty">-</span>
+                            <span th:unless="${version.publishedAt != null}" class="ep-text-muted">-</span>
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <p th:if="${#lists.isEmpty(versions)}" class="contract-versions-empty">
+            <p th:if="${#lists.isEmpty(versions)}" class="contract-versions-empty ep-text-muted ep-p-4">
                 No contract versions yet.
             </p>
         </div>

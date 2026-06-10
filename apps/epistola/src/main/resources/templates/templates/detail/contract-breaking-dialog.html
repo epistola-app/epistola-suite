@@ -3,10 +3,10 @@
 <body>
     <th:block th:fragment="content">
         <div id="contract-breaking-content">
-            <p class="breaking-notice">
+            <p class="ep-mb-3">
                 This change is not backwards compatible. Publishing may affect existing template versions.
             </p>
-            <div th:if="${!#lists.isEmpty(breakingChanges)}" class="breaking-changes-section">
+            <div th:if="${!#lists.isEmpty(breakingChanges)}" class="ep-mb-3">
                 <strong>Breaking changes:</strong>
                 <ul class="breaking-list">
                     <li th:each="c : ${breakingChanges}">

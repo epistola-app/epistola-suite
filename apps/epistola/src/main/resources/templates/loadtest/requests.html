@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
             <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
                th:text="${'Test ' + run.id}">Test</a> &raquo;
@@ -43,7 +43,7 @@
                         <td th:text="${#temporals.format(request.startedAt, 'HH:mm:ss.SSS')}"></td>
                         <td>
                             <span th:if="${request.durationMs != null}" th:text="${request.durationMs}"></span>
-                            <span th:unless="${request.durationMs != null}" class="request-empty-value">-</span>
+                            <span th:unless="${request.durationMs != null}" class="ep-text-muted">-</span>
                         </td>
                         <td>
                             <span class="badge"
@@ -52,7 +52,7 @@
                             </span>
                         </td>
                         <td>
-                            <span th:if="${!request.success and request.errorType != null}" class="request-error-type" th:text="${request.errorType}"></span>
+                            <span th:if="${!request.success and request.errorType != null}" class="request-error-type ep-font-medium ep-text-destructive" th:text="${request.errorType}"></span>
                             <span th:if="${!request.success and request.errorMessage != null}" class="request-error-message" th:text="${request.errorMessage}"></span>
                         </td>
                     </tr>
@@ -66,7 +66,7 @@
                    class="ep-btn ep-btn-outline ep-btn-sm">
                     Previous
                 </a>
-                <span class="pagination-info">
+                <span class="ep-text-sm ep-text-muted">
                     Showing <strong th:text="${offset + 1}"></strong> -
                     <strong th:text="${offset + #lists.size(requests)}"></strong>
                 </span>

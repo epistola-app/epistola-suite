@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
 
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo;
             <span th:text="${theme.name}">Theme Name</span>
         </nav>
@@ -25,7 +25,7 @@
         <div class="card page-section">
             <div class="card-header-row">
                 <h2>Theme Editor</h2>
-                <span class="last-modified">
+                <span class="ep-text-sm ep-text-muted">
                     Last modified: <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
                 </span>
             </div>

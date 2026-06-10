@@ -18,7 +18,7 @@
             </div>
         </section>
 
-        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
             <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
@@ -44,7 +44,7 @@
             <div class="empty-state-title">No stencils yet</div>
             <div class="empty-state-description">Create a stencil to build reusable template components.</div>
             <a th:if="${auth.has('STENCIL_EDIT')}"
-               th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Stencil
             </a>
@@ -66,12 +66,12 @@
                     <tr th:each="stencil : ${stencils}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
-                               th:text="${stencil.name}" th:title="${stencil.name}" class="stencil-name ep-table-truncate"></a>
+                               th:text="${stencil.name}" th:title="${stencil.name}" class="ep-table-truncate ep-font-medium"></a>
                         </td>
                         <td><code class="ep-code" th:text="${stencil.catalogKey}"></code></td>
                         <td>
                             <span th:if="${stencil.description != null}" th:text="${stencil.description}" th:title="${stencil.description}" class="ep-table-truncate"></span>
-                            <span th:unless="${stencil.description != null}" class="stencil-empty-desc">-</span>
+                            <span th:unless="${stencil.description != null}" class="ep-text-muted">-</span>
                         </td>
                         <td>
                             <div class="tags">

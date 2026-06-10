@@ -29,7 +29,7 @@
         <div class="card page-section" id="theme-section" th:fragment="theme-section">
             <div class="card-header-row"><h3>Default Theme</h3></div>
             <div class="card-content">
-                <p class="settings-description">
+                <p class="ep-text-sm ep-text-muted ep-mb-4">
                     Set the default theme for all variants. Individual variants can override this in the editor.
                 </p>
                 <div class="form-row">
@@ -60,8 +60,8 @@
                            th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
                            onchange="updatePdfaSetting(this.checked)">
                     <span>
-                        <strong>PDF/A-2b compliance</strong>
-                        <span class="pdfa-toggle-description">
+                        <strong class="ep-text-sm">PDF/A-2b compliance</strong>
+                        <span class="pdfa-toggle-description ep-text-sm ep-text-muted">
                             Enable for long-term archival. Embeds fonts and ICC color profile, resulting in larger files.
                         </span>
                     </span>
@@ -73,7 +73,7 @@
         <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="card page-section card-danger">
             <div class="card-header-row"><h3>Danger Zone</h3></div>
             <div class="card-content">
-                <p class="settings-description">
+                <p class="ep-text-sm ep-text-muted ep-mb-4">
                     Permanently delete this template and all its variants, versions, and data.
                 </p>
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"

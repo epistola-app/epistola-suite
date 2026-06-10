@@ -2,14 +2,14 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Catalogs</a>
             &raquo; <span th:text="${catalog.name}"></span>
         </nav>
 
         <h1 th:text="${catalog.name}"></h1>
-        <p th:if="${catalog.sourceUrl}" class="catalog-meta" th:text="${catalog.sourceUrl}"></p>
-        <p th:if="${catalog.description}" class="catalog-meta" th:text="${catalog.description}"></p>
+        <p th:if="${catalog.sourceUrl}" class="ep-text-sm ep-text-muted" th:text="${catalog.sourceUrl}"></p>
+        <p th:if="${catalog.description}" class="ep-text-sm ep-text-muted" th:text="${catalog.description}"></p>
 
         <div id="catalog-alert"></div>
 
@@ -77,7 +77,7 @@
                                      published version, so any non-latest pin would be unresolvable
                                      in the target after import; this stencil currently blocks export. -->
                                 <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
-                                       class="badge badge-warning catalog-pin-drift"
+                                       class="badge badge-warning ep-ml-2"
                                       th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
                                       th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
@@ -180,7 +180,7 @@
                             <span th:if="${dep.type == 'asset'}" class="badge badge-muted">asset</span>
                         </td>
                         <td class="ep-table-truncate" th:text="${dep.name}" th:title="${dep.name}"></td>
-                        <td><span class="catalog-dep-label">dependency</span></td>
+                        <td><span class="ep-text-sm ep-text-muted">dependency</span></td>
                     </tr>
                 </tbody>
             </table>

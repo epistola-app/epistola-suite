@@ -17,7 +17,7 @@
                     <div class="feature-toggle-item" th:each="feature : ${features}" data-testid="feature-toggle" th:data-feature-key="${feature['key']}">
                         <div class="feature-toggle-info">
                             <div class="feature-toggle-name" th:text="${feature['key']}">feature-key</div>
-                            <div class="feature-toggle-description" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
+                            <div class="ep-text-xs ep-text-muted ep-mt-1" th:if="${feature['description'] != ''}" th:text="${feature['description']}"></div>
                         </div>
                         <label class="toggle-switch">
                             <input type="checkbox"
@@ -27,7 +27,7 @@
                         </label>
                     </div>
 
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary">Save Settings</button>
                         <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>

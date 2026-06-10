@@ -18,7 +18,7 @@
             <th:block th:replace="~{fragments/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
             <span th:text="${templateName}">Template Name</span>
         </a>
-        <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
+        <span class="ep-text-xs ep-text-muted" th:text="'/ ' + ${variantId}"></span>
     </nav>
     <!-- data-leader-timing is a test-only seam (issue #418): present only when
          the ?leaderTiming= query param is supplied; omitted in production. -->

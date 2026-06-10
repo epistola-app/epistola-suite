@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo; <span>New Theme</span>
         </nav>
 
@@ -27,7 +27,7 @@
                         <input type="text" id="name" name="name" class="ep-input"
                                required placeholder="Corporate Theme" data-slug-source="slug"
                                th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Theme ID (Slug)</label>
@@ -36,8 +36,8 @@
                                minlength="3" maxlength="20"
                                placeholder="corporate"
                                th:value="${formData?.slug}">
-                        <span class="form-hint">3-20 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">3-20 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="description">Description (optional)</label>
@@ -45,7 +45,7 @@
                                   placeholder="Theme description"
                                   th:text="${formData?.description}"></textarea>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Theme</button>
                         <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>

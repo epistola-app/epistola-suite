@@ -7,9 +7,9 @@
 
         <section class="page-header">
             <div>
-                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
+                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link ep-text-xs ep-text-muted ep-mb-1">&larr; Templates</a>
                 <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
-                <p th:if="${!editable}" class="readonly-notice">
+                <p th:if="${!editable}" class="ep-text-sm ep-text-muted ep-mt-1">
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>
             </div>
@@ -18,16 +18,16 @@
         <!-- Tab Navigation -->
         <div class="tab-nav">
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'variants'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'variants'} ? ' active'"
                data-testid="template-tab" data-tab-name="variants">Variants</a>
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/deployments(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'deployments'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'deployments'} ? ' active'"
                data-testid="template-tab" data-tab-name="deployments">Deployments</a>
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'data-contract'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'data-contract'} ? ' active'"
                data-testid="template-tab" data-tab-name="data-contract">Data Contract</a>
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/settings(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'settings'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'settings'} ? ' active'"
                data-testid="template-tab" data-tab-name="settings">Settings</a>
         </div>
 
