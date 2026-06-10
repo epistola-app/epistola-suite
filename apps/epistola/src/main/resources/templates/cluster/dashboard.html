@@ -78,20 +78,33 @@
                 font-size: var(--ep-text-lg);
                 margin: 0 0 var(--ep-space-3);
             }
-            .cluster-node-state-row > td {
-                background: var(--ep-gray-50);
+            .cluster-node-state-gutter {
+                background: var(--ep-card);
+                border-bottom: 0;
+            }
+            .cluster-node-state-cell {
+                background: var(--ep-blue-50);
+                border-left: 3px solid var(--ep-blue-300);
                 padding: var(--ep-space-3);
             }
             .cluster-node-state-table {
                 width: 100%;
                 border-collapse: collapse;
                 font-size: var(--ep-text-xs);
+                background: var(--ep-card);
+                border: 1px solid var(--ep-blue-200);
+                border-radius: var(--ep-radius-md);
+                overflow: hidden;
+            }
+            .cluster-node-state-table thead {
+                background: var(--ep-blue-100);
+                color: var(--ep-blue-900);
             }
             .cluster-node-state-table th,
             .cluster-node-state-table td {
                 padding: var(--ep-space-1-5) var(--ep-space-2);
                 text-align: left;
-                border-bottom: 1px solid var(--ep-border-color);
+                border-bottom: 1px solid var(--ep-blue-100);
             }
             .cluster-node-state-table tr:last-child td {
                 border-bottom: 0;
@@ -224,7 +237,8 @@
                                 <td><code th:text="${task.leaseOwnerNodeId ?: '-'}">-</code></td>
                             </tr>
                             <tr th:if="${entry.eachCapableNode}" class="cluster-node-state-row">
-                                <td colspan="7">
+                                <td class="cluster-node-state-gutter"></td>
+                                <td colspan="6" class="cluster-node-state-cell">
                                     <table class="cluster-node-state-table">
                                         <thead>
                                             <tr>
