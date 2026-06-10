@@ -4,6 +4,7 @@ import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskNodeState
 import app.epistola.suite.cluster.schedules.ListClusterScheduledTaskNodeStates
 import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
@@ -69,11 +70,36 @@ class ClusterStatusHandler(
                 ageSeconds = ageMs / MILLIS_PER_SECOND,
             )
         }
+        val scheduledTaskNodeStates = ListClusterScheduledTaskNodeStates.query()
+        val scheduledTaskNodeStatesByTask = scheduledTaskNodeStates.groupBy { it.taskKey }
+
         return ClusterStatusReport(
             nodes = nodes,
             timers = ListClusterTimers().query(),
-            scheduledTasks = ListClusterScheduledTasks.query(),
-            scheduledTaskNodeStates = ListClusterScheduledTaskNodeStates.query(),
+            scheduledTasks = ListClusterScheduledTasks.query().map { task ->
+                val statesByNode = scheduledTaskNodeStatesByTask[task.taskKey].orEmpty().associateBy { it.nodeId }
+                ClusterScheduledTaskStatus(
+                    task = task,
+                    nodeStates = if (task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE) {
+                        nodes
+                            .filter { task.requiredCapability in it.node.capabilities }
+                            .sortedBy { it.node.nodeId }
+                            .map { node ->
+                                val state = statesByNode[node.node.nodeId]
+                                ClusterScheduledTaskNodeStatus(
+                                    nodeId = node.node.nodeId,
+                                    nodeStatusLabel = node.statusLabel,
+                                    taskStatusLabel = taskStatusLabel(node, state, now),
+                                    nextDueAt = state?.nextDueAt ?: task.nextDueAt,
+                                    leaseExpiresAt = state?.leaseExpiresAt,
+                                    consecutiveFailures = state?.consecutiveFailures ?: 0,
+                                )
+                            }
+                    } else {
+                        emptyList()
+                    },
+                )
+            },
             heartbeatIntervalMs = properties.heartbeatIntervalMs,
             idleTimeoutMs = properties.idleTimeoutMs,
             activeCount = nodes.count { it.isActive },
@@ -84,6 +110,18 @@ class ClusterStatusHandler(
     private companion object {
         const val MILLIS_PER_SECOND = 1_000L
     }
+
+    private fun taskStatusLabel(
+        node: ClusterNodeStatus,
+        state: ClusterScheduledTaskNodeState?,
+        now: java.time.OffsetDateTime,
+    ): String = when {
+        !node.isActive -> "stale"
+        state?.leaseExpiresAt?.isAfter(now) == true -> "leased"
+        (state?.consecutiveFailures ?: 0) > 0 -> "retrying"
+        state == null -> "pending"
+        else -> "scheduled"
+    }
 }
 
 /**
@@ -92,8 +130,7 @@ class ClusterStatusHandler(
 data class ClusterStatusReport(
     val nodes: List<ClusterNodeStatus>,
     val timers: List<ClusterTimer>,
-    val scheduledTasks: List<ClusterScheduledTask>,
-    val scheduledTaskNodeStates: List<ClusterScheduledTaskNodeState>,
+    val scheduledTasks: List<ClusterScheduledTaskStatus>,
     val heartbeatIntervalMs: Long,
     val idleTimeoutMs: Long,
     val activeCount: Int,
@@ -103,6 +140,28 @@ data class ClusterStatusReport(
     val heartbeatIntervalSeconds: Long = heartbeatIntervalMs / 1_000L
     val idleTimeoutSeconds: Long = idleTimeoutMs / 1_000L
 }
+
+/**
+ * Presentation state for one scheduled task and its per-node execution state.
+ */
+data class ClusterScheduledTaskStatus(
+    val task: ClusterScheduledTask,
+    val nodeStates: List<ClusterScheduledTaskNodeStatus>,
+) {
+    val eachCapableNode: Boolean = task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE
+}
+
+/**
+ * Presentation state for one node that is relevant to an all-node scheduled task.
+ */
+data class ClusterScheduledTaskNodeStatus(
+    val nodeId: String,
+    val nodeStatusLabel: String,
+    val taskStatusLabel: String,
+    val nextDueAt: java.time.OffsetDateTime,
+    val leaseExpiresAt: java.time.OffsetDateTime?,
+    val consecutiveFailures: Int,
+)
 
 /**
  * Presentation state for one registered cluster node.
