@@ -1,0 +1,19 @@
+/*
+ * Error Pages (403, 404, 500, generic)
+ *
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.error-page-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--ep-background);
+}
+
+.error-page-card {
+  text-align: center;
+  max-width: 480px;
+  padding: var(--ep-space-8);
+}

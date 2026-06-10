@@ -1,0 +1,83 @@
+/*
+ * Feedback Pages
+ *
+ * Feedback list, detail, submit form, comments.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.feedback-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-6);
+}
+
+#feedback-content > .card {
+  margin-bottom: var(--ep-space-6);
+}
+
+#feedback-content .card h3 {
+  margin-bottom: var(--ep-space-3);
+}
+
+.feedback-description {
+  white-space: pre-wrap;
+}
+
+.feedback-comment + .feedback-comment {
+  margin-top: var(--ep-space-3);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.comment-author {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+.comment-body {
+  white-space: pre-wrap;
+}
+
+.comment-form-actions {
+  display: flex;
+  gap: var(--ep-space-3);
+}
+
+/* Feedback code block */
+.feedback-code-block {
+  overflow-y: auto;
+  background: var(--ep-muted);
+  padding: var(--ep-space-3);
+  border-radius: var(--ep-radius);
+}
+
+.feedback-code-block--tall {
+  max-height: 300px;
+}
+
+.feedback-code-block--short {
+  max-height: 200px;
+}
+
+/* Feedback submit-success dialog */
+.feedback-success-body {
+  padding: var(--ep-space-8) var(--ep-space-4);
+  text-align: center;
+}
+
+/* Feedback submit form */
+.feedback-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-4);
+}
+
+.fb-screenshot-actions {
+  display: flex;
+  gap: var(--ep-space-2);
+}

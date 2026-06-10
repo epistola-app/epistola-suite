@@ -1,0 +1,123 @@
+/*
+ * Variant Pages
+ *
+ * Variant card grid, variant detail, version comparison.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+/* Variant card grid */
+.variant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--ep-space-4);
+}
+
+.variant-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.variant-card-default {
+  background-color: var(--ep-blue-50);
+  border-color: var(--ep-blue-200);
+}
+
+.variant-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--ep-space-2);
+  padding: var(--ep-space-4) var(--ep-space-4) var(--ep-space-2);
+}
+
+.variant-card-body {
+  flex: 1;
+  padding: var(--ep-space-2) var(--ep-space-4) var(--ep-space-3);
+}
+
+.variant-card-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-1);
+}
+
+.variant-card-footer {
+  display: flex;
+  gap: var(--ep-space-1);
+  padding: var(--ep-space-2) var(--ep-space-4);
+  border-top: 1px solid var(--ep-border-color);
+  align-items: center;
+}
+
+.variant-card-default .variant-card-footer {
+  border-top-color: var(--ep-blue-200);
+}
+
+.variant-no-matches {
+  display: none;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+
+/* Version comparison */
+.version-comparison-controls {
+  flex-shrink: 0;
+}
+
+.version-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ep-space-4);
+  flex: 1;
+  min-height: 0;
+}
+
+.version-comparison-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.version-comparison-label {
+  padding: var(--ep-space-2) 0;
+  flex-shrink: 0;
+}
+
+.version-comparison-frame-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  overflow: hidden;
+}
+
+.version-comparison-frame-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.version-comparison-empty,
+.version-comparison-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Variant detail page */
+.variant-add-attr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+/* Version comparison dialog body */
+.comparison-dialog-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  max-height: calc(90vh - 5rem);
+  padding: var(--ep-space-4);
+}

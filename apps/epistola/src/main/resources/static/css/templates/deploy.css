@@ -1,0 +1,15 @@
+/*
+ * Deployment Matrix
+ *
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.deployment-matrix-cell {
+  min-width: 8rem;
+}
+
+.deploy-variant-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}

@@ -1,0 +1,17 @@
+/*
+ * Code List Pages
+ *
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.code-list-refresh-info {
+  font-size: var(--ep-text-xs);
+  color: var(--ep-muted-foreground);
+  margin-bottom: var(--ep-space-3);
+}
+
+.code-list-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--ep-space-4);
+}

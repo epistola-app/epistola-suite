@@ -1,0 +1,94 @@
+/*
+ * Load Test Pages
+ *
+ * Load test list, new, detail, request log, generation history.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.loadtest-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--ep-space-6);
+}
+
+.loadtest-info-list {
+  margin: 0;
+  padding-left: var(--ep-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+}
+
+.source-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+  margin-top: var(--ep-space-2);
+}
+
+.source-radio-group label,
+.constraint-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+  cursor: pointer;
+}
+
+.source-radio-group input[type='radio'],
+.constraint-radio-group input[type='radio'] {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.loadtest-test-data-input {
+  font-family: var(--ep-font-mono);
+}
+
+.request-error-message {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.row-error {
+  background-color: var(--ep-red-50);
+}
+
+.error-type {
+  display: block;
+  font-size: var(--ep-text-xs);
+}
+
+.error-message {
+  display: block;
+}
+
+.constraint-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+}
+
+/* Generation history dashboard */
+.gen-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--ep-space-3);
+}
+
+.gen-dashboard-header h2 {
+  margin: 0;
+}
+
+.gen-job-error {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

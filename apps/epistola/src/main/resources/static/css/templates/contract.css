@@ -1,0 +1,84 @@
+/*
+ * Contract Pages
+ *
+ * Contract status bar, breaking dialog, versions dialog.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.contract-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-2) var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+  border: 1px solid var(--ep-gray-200);
+  border-radius: var(--ep-radius-md);
+  font-size: var(--ep-text-sm);
+}
+
+.contract-status-spacer {
+  flex: 1;
+}
+
+.contract-empty {
+  text-align: center;
+}
+
+.contract-section-title {
+  margin: 0;
+}
+
+.contract-examples-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+}
+
+/* Contract dialog widths */
+.dialog-contract-breaking {
+  max-width: 600px;
+}
+
+.dialog-contract-usage {
+  max-width: 700px;
+}
+
+.dialog-screenshot-img {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: var(--ep-radius);
+}
+
+.dialog-screenshot-wrapper {
+  display: none;
+  width: 100%;
+  max-height: 200px;
+}
+
+.unsupported-screenshot {
+  display: none;
+}
+
+.feedback-screenshot-img {
+  max-width: 100%;
+  border-radius: var(--ep-radius);
+  border: 1px solid var(--ep-border);
+}
+
+/* Contract versions dialog */
+.contract-versions-empty {
+  color: var(--ep-muted-foreground);
+  text-align: center;
+  padding: var(--ep-space-4);
+}
+
+/* Contract breaking dialog */
+.breaking-actions {
+  display: flex;
+  gap: var(--ep-space-2);
+  justify-content: flex-end;
+}
+
+.contract-outdated-btn .badge {
+  margin-right: var(--ep-space-1);
+}
