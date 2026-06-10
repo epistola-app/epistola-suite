@@ -43,7 +43,7 @@
                     <dt>Template</dt>
                     <dd>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <code class="run-template-key" th:text="${run.templateKey}" ></code>
+                        <code class="ep-code ep-code-muted ep-code-xs" th:text="${run.templateKey}" ></code>
                     </dd>
                     <dt>Variant</dt>
                     <dd th:text="${run.variantKey}"></dd>
@@ -51,7 +51,7 @@
                     <dd>
                         <span th:if="${run.versionKey != null}" th:text="${run.versionKey}"></span>
                         <span th:if="${run.environmentKey != null}">
-                            Environment: <code th:text="${run.environmentKey}"></code>
+                            Environment: <code class="ep-code" th:text="${run.environmentKey}"></code>
                         </span>
                         <span th:if="${run.versionKey == null and run.environmentKey == null}" class="run-empty-value">-</span>
                     </dd>

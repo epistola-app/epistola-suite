@@ -65,7 +65,7 @@
                     <div class="consumer-identity">
                         <div class="consumer-name" th:text="${consumer.label}">Consumer</div>
                         <div class="consumer-meta-line">
-                            <code class="consumer-key" th:text="${consumer.keyPrefix}">epk_xxxx</code>
+                            <code class="ep-code ep-code-muted" th:text="${consumer.keyPrefix}">epk_xxxx</code>
                             <span class="consumer-meta-sep">·</span>
                             <span th:text="${consumer.authMethod}">API key</span>
                         </div>
@@ -125,7 +125,7 @@
                         </thead>
                         <tbody>
                             <tr th:each="node : ${consumer.nodes}">
-                                <td><code th:text="${node.nodeId}">node-id</code></td>
+                                <td><code class="ep-code" th:text="${node.nodeId}">node-id</code></td>
                                 <td>
                                     <span th:title="${#temporals.format(node.lastSeenAt, 'yyyy-MM-dd HH:mm:ss')}"
                                           th:text="${#temporals.format(node.lastSeenAt, 'HH:mm:ss')}">--</span>
@@ -136,7 +136,7 @@
                                           th:text="${node.isActive ? 'active' : 'stale'}">active</span>
                                 </td>
                                 <td>
-                                    <code th:if="${node.isActive}" class="consumer-node-partitions"
+                                    <code th:if="${node.isActive}" class="ep-code"
                                           th:title="${node.partitionsTitle}"
                                           th:text="${node.partitionsLabel}">0, 3, 7</code>
                                     <span th:if="${!node.isActive}" class="consumer-stale-node"

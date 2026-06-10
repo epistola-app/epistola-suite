@@ -241,7 +241,7 @@
                 <tbody>
                     <tr th:each="usage : ${usages}">
                         <td class="ep-table-truncate" th:text="${usage.referencedByName}" th:title="${usage.referencedByName}"></td>
-                        <td><code th:text="${usage.referencedByCatalog}"></code></td>
+                        <td><code class="ep-code" th:text="${usage.referencedByCatalog}"></code></td>
                     </tr>
                 </tbody>
             </table>

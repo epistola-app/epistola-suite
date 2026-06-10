@@ -41,7 +41,7 @@
     <!-- Fragment: edit variant form (loaded into dialog via HTMX) -->
     <th:block th:fragment="edit-variant-form">
         <div class="ep-dialog-header">
-            <h3>Edit Variant: <code th:text="${variant.id}"></code></h3>
+            <h3>Edit Variant: <code class="ep-code" th:text="${variant.id}"></code></h3>
         </div>
         <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
               hx-target="#variants-section"
@@ -64,7 +64,7 @@
                            th:data-hidden="${hasValue ? 'false' : 'true'}">
                         <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
                             <span th:text="${d.displayName}"></span>
-                            <code class="attr-qualified-key" 
+                            <code class="ep-code ep-code-muted ep-code-xs attr-qualified-key" 
                                   th:text="${d.qualifiedKey}"></code>
                         </label>
                         <select th:id="'edit-attr_' + ${d.qualifiedKey}"

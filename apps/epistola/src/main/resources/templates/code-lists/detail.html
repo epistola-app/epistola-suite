@@ -12,7 +12,7 @@
                 <div>
                     <h1 th:text="${codeList.displayName}"></h1>
                     <div class="page-subtitle">
-                        <code th:text="${codeList.catalogKey + '/' + codeList.slug}"></code>
+                        <code class="ep-code" th:text="${codeList.catalogKey + '/' + codeList.slug}"></code>
                         <span class="badge badge-outline" th:text="${codeList.sourceType}"></span>
                         <span th:if="${!editable}" class="badge badge-muted">Read-only</span>
                     </div>
@@ -95,7 +95,7 @@
                 <div class="empty-state-description">
                     <th:block th:if="${codeList.sourceType.name() == 'URL'}">
                         Click "Refresh from source" to fetch entries from
-                        <code th:text="${codeList.sourceUrl}"></code>.
+                        <code class="ep-code" th:text="${codeList.sourceUrl}"></code>.
                     </th:block>
                     <th:block th:if="${codeList.sourceType.name() != 'URL'}">
                         This code list is empty.

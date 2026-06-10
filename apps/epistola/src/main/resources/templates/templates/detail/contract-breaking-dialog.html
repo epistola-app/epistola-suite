@@ -10,7 +10,7 @@
                 <strong>Breaking changes:</strong>
                 <ul class="breaking-list">
                     <li th:each="c : ${breakingChanges}">
-                        <code th:text="${c.path}"></code> — <span th:text="${c.description}"></span>
+                        <code class="ep-code" th:text="${c.path}"></code> — <span th:text="${c.description}"></span>
                     </li>
                 </ul>
             </div>

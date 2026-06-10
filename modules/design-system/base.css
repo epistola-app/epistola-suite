@@ -108,10 +108,6 @@
   /* Inline code */
   code {
     font-family: var(--ep-font-mono);
-    font-size: var(--ep-text-sm);
-    background-color: var(--ep-muted);
-    padding: var(--ep-space-0-5) var(--ep-space-1-5);
-    border-radius: var(--ep-radius-sm);
   }
 
   /* Paragraph spacing */

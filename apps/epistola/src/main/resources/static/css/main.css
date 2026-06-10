@@ -197,11 +197,6 @@ body {
 
 /* ── Load test detail / request log pages ─────────────────────────────── */
 
-.run-template-key {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
-}
-
 .run-empty-value {
   color: var(--ep-muted-foreground);
 }
@@ -931,7 +926,7 @@ body {
 #comparison-frame-b[data-hidden='true'],
 .confirm-dialog-error[data-hidden='true'],
 .ep-depth-indent {
-  padding-left: calc(var(--ep-depth, 0) * 16px);
+  margin-left: calc(var(--ep-depth, 0) * 16px);
 }
 
 .ep-fieldset-reset {
@@ -1028,6 +1023,8 @@ body {
 
 .feedback-url {
   font-size: var(--ep-text-sm);
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-all;
 }
 
@@ -1146,8 +1143,6 @@ body {
 }
 
 .attr-qualified-key {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
   margin-left: var(--ep-space-2);
 }
 
@@ -1352,10 +1347,6 @@ body {
   gap: var(--ep-space-2);
 }
 
-.deploy-variant-id {
-  font-size: var(--ep-text-xs);
-}
-
 .deploy-variant-title {
   color: var(--ep-muted-foreground);
   font-size: var(--ep-text-xs);
@@ -1532,8 +1523,6 @@ body {
 }
 
 .variant-attr-key {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
   margin-left: var(--ep-space-2);
 }
 
@@ -1542,8 +1531,6 @@ body {
 }
 
 .variant-filter-key {
-  color: var(--ep-muted-foreground);
-  font-size: var(--ep-text-xs);
   margin-left: var(--ep-space-1);
 }
 
@@ -1728,10 +1715,6 @@ body {
   font-size: var(--ep-text-xl);
 }
 
-.consumer-node-partitions {
-  font-size: var(--ep-text-sm);
-}
-
 .consumer-stale-node {
   font-size: var(--ep-text-sm);
   color: var(--ep-muted-foreground);
@@ -1849,11 +1832,6 @@ body {
   font-size: var(--ep-text-sm);
   color: var(--ep-gray-500);
   flex-wrap: wrap;
-}
-
-.consumer-key {
-  font-family: var(--ep-font-mono);
-  color: var(--ep-gray-600);
 }
 
 .consumer-meta-sep {
@@ -2097,6 +2075,7 @@ body {
 
 .problem-type-inline-code {
   background: var(--ep-blue-50);
+  border-color: var(--ep-blue-200);
   border-radius: var(--ep-radius-sm);
   color: var(--ep-blue-800);
   padding: var(--ep-space-0-5) var(--ep-space-1-5);

@@ -117,7 +117,7 @@
     <!-- Fragment: edit attribute form (loaded into dialog via HTMX) -->
     <th:block th:fragment="edit-attribute-form">
         <div class="ep-dialog-header">
-            <h3>Edit Attribute: <code th:text="${attribute.id}"></code></h3>
+            <h3>Edit Attribute: <code class="ep-code" th:text="${attribute.id}"></code></h3>
         </div>
         <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${attribute.catalogKey},attributeId=${attribute.id})}"
               hx-target="#attribute-rows"

@@ -74,7 +74,7 @@
                             <tbody>
                                 <tr th:each="field : ${schemaFields}">
                                     <td>
-                                        <code class="ep-depth-indent" th:style="'--ep-depth: ' + ${field.depth}" th:text="${field.name}"></code>
+                                        <code class="ep-code ep-depth-indent" th:style="'--ep-depth: ' + ${field.depth}" th:text="${field.name}"></code>
                                     </td>
                                     <td><span class="badge badge-outline" th:text="${field.type}"></span></td>
                                     <td>

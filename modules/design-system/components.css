@@ -509,6 +509,29 @@
     margin-bottom: var(--ep-space-1);
   }
 
+  /* ── Inline code ───────────────────────────────────────────────────────── */
+
+  .ep-code {
+    display: inline-block;
+    padding: var(--ep-space-0-5) var(--ep-space-1-5);
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-sm);
+    line-height: var(--ep-leading-none);
+    color: var(--ep-foreground);
+    background-color: var(--ep-muted);
+    border: var(--ep-border-width) solid var(--ep-border-color);
+    border-radius: var(--ep-radius-sm);
+    white-space: nowrap;
+  }
+
+  .ep-code-muted {
+    color: var(--ep-muted-foreground);
+  }
+
+  .ep-code-xs {
+    font-size: var(--ep-text-xs);
+  }
+
   /* ── Badges ───────────────────────────────────────────────────────────── */
 
   .badge {
