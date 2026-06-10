@@ -1,0 +1,228 @@
+# Timers
+
+## Summary
+
+Epistola uses PostgreSQL-backed cluster timers for delayed and recurring
+background work. The implementation is intentionally self-contained: PostgreSQL
+is the durable source of truth, every Suite node can poll for work, and row
+leases ensure a timer is executed by only one node at a time.
+
+There are two timer shapes today:
+
+- one-shot timers in `cluster_timers`
+- recurring scheduled tasks in `cluster_tasks_scheduled`
+
+One-shot timers live in `app.epistola.suite.cluster.timers`. Scheduled tasks
+live in `app.epistola.suite.cluster.schedules`. Shared node presence,
+capabilities, and cluster configuration stay in `app.epistola.suite.cluster`.
+
+## Node Registry
+
+Timers depend on the cluster node registry. Each running Suite process
+heartbeats into `cluster_nodes` with:
+
+- `node_id`
+- advertised capabilities, currently usually `suite`
+- join time and last-seen time
+- version and metadata
+
+Timer pollers use this registry to decide which nodes are active and whether
+the current node is eligible to run a timer requiring a specific capability.
+
+## One-Shot Timers
+
+A one-shot timer represents delayed work that should run once, unless its
+handler explicitly reschedules it.
+
+The mediator-facing API is `ScheduleClusterTimer` and `CancelClusterTimer`.
+Scheduling stores:
+
+- `timer_key`: stable idempotency key
+- `tenant_key`: optional tenant scope, `NULL` for system timers
+- `routing_key`: affinity key used to pick the owning node
+- `timer_type`: logical handler dispatch key
+- `required_capability`: node capability required to run the timer
+- `due_at`: when the timer becomes claimable
+- `payload`: JSON payload for the handler
+
+Scheduling is an upsert by `timer_key`. Re-scheduling the same timer key
+replaces the due time, routing metadata, payload, and clears any previous lease
+or error state.
+
+## Timer Handlers
+
+A timer handler implements `ClusterTimerHandler`:
+
+```kotlin
+interface ClusterTimerHandler {
+    val timerType: String
+
+    fun handle(timer: ClusterTimer): ClusterTimerResult
+}
+```
+
+`timerType` is the dispatch key. It is not derived from the Kotlin class name.
+Every timer type that can be scheduled should have exactly one Spring bean
+advertising the same `timerType`.
+
+Handlers return one of:
+
+- `Complete`: delete the timer after successful execution
+- `Reschedule(nextDueAt, payload)`: keep the timer and make it due again later
+
+Handlers must be idempotent. Execution is at-least-once: a node can crash after
+doing side effects but before completing the timer row, and another node may
+reclaim it after the lease expires.
+
+## One-Shot Timer Flow
+
+1. Application code dispatches `ScheduleClusterTimer` through the mediator.
+2. `ClusterTimerRegistry.schedule` upserts a row in `cluster_timers`.
+3. Every node runs `ClusterTimerScheduler.poll` on its local Spring schedule.
+4. The poller loads due candidates from PostgreSQL.
+5. The poller filters active nodes to those advertising the timer's
+   `required_capability`.
+6. Rendezvous ownership over `routing_key` decides which active capable node
+   should own the timer.
+7. Only the owning node attempts to claim the timer.
+8. `ClusterTimerRegistry.claimDue` updates the row to `running` with
+   `lease_owner_node_id` and `lease_expires_at`, using `FOR UPDATE SKIP LOCKED`.
+9. The scheduler looks up the handler by `timer.timerType`.
+10. The handler runs inside `BackgroundExecutionContext`, which binds the
+    mediator context and captures the current `EpistolaClock`.
+11. The scheduler completes, reschedules, or retries the timer depending on the
+    handler result or exception.
+
+The ownership step is a routing optimization and affinity mechanism. The lease
+step is the correctness mechanism.
+
+## Missing Handlers And Failures
+
+If no handler is registered for a claimed timer's `timerType`, the timer is not
+dropped. The scheduler records an error and retries it after the configured
+retry delay.
+
+If a handler throws, the scheduler also records the error and retries later.
+The timer remains durable until it completes, is rescheduled, or is cancelled.
+
+If a node dies while holding a lease, another active capable node can reclaim
+the timer after `lease_expires_at`.
+
+## Recurring Scheduled Tasks
+
+Scheduled tasks are durable recurring timer definitions. They are stored
+separately from one-shot timers because they need schedule shape, enabled state,
+failure policy, catch-up policy, and rolling execution metadata.
+
+The table is `cluster_tasks_scheduled`. A scheduled task stores:
+
+- `task_key`: stable idempotency key
+- `tenant_key`: optional tenant scope, `NULL` for system tasks
+- `routing_key`: affinity key used to pick the owning node
+- `task_type`: logical handler dispatch key
+- `required_capability`: node capability required to run the task
+- `payload`: JSON payload for the handler
+- schedule shape: cron, fixed delay, or fixed rate
+- failure and catch-up policy
+- `enabled`
+- `next_due_at`
+- lease and execution metadata
+
+The mediator-facing controls are:
+
+- `UpsertClusterScheduledTask`
+- `EnableClusterScheduledTask`
+- `DisableClusterScheduledTask`
+- `TriggerClusterScheduledTaskNow`
+- `ListClusterScheduledTasks`
+
+The current recurring task registrar registers definitions at startup. This
+means the database row is durable, while code remains the source of truth for
+the task definition.
+
+## Scheduled Task Flow
+
+The scheduled-task flow mirrors one-shot timers:
+
+1. Startup registrars upsert task definitions.
+2. Every node runs `ClusterScheduledTaskScheduler.poll`.
+3. The poller loads due enabled tasks.
+4. Ownership is calculated from `routing_key` across active capable nodes.
+5. The owning node claims the task row with a PostgreSQL lease.
+6. The scheduler dispatches to a `ClusterScheduledTaskHandler` by `taskType`.
+7. On success, `ClusterScheduledTaskScheduleCalculator` calculates the next due
+   occurrence and the lease is released.
+8. On failure, failure policy decides whether to retry the same occurrence or
+   advance to a future occurrence.
+
+Scheduled tasks are not implemented by creating a chain of one-shot timer rows.
+The recurring definition is the durable state. This avoids losing the schedule
+if a process fails before it can insert the next one-shot timer occurrence.
+
+## Ordering Guarantees
+
+Timers do not provide global ordering.
+
+Within a single timer key, updates are serialized by the row. A claimed timer
+cannot be claimed again until it completes, is rescheduled, fails back to
+scheduled state, or its lease expires.
+
+Across different timer keys or task keys, ordering is best-effort by due time
+and key during candidate selection, but parallel nodes and leases mean handlers
+must not depend on cross-timer ordering.
+
+If strict domain ordering is needed, model it in the domain data or use a
+single stable key whose handler advances one durable state machine step at a
+time.
+
+## Capability And Affinity
+
+Both one-shot timers and scheduled tasks carry `required_capability`.
+
+Today the default capability is `suite`. Future node types, such as a slim PDF
+renderer process, can advertise different capabilities. A timer requiring that
+capability will only be owned and claimed by nodes that advertise it.
+
+Affinity is based on `routing_key`. The same routing key should usually map to
+the same node while the active capable node set is stable. This keeps caches hot
+and avoids unnecessary movement. If that node disappears, ownership naturally
+moves to another active capable node.
+
+## Time And Tests
+
+Runtime time comes from the Spring `Clock` bean, which delegates to
+`EpistolaClock`. Background timer execution runs through
+`BackgroundExecutionContext`, so it has a mediator context and a captured clock.
+
+Integration tests use a per-test `MutableClock` bound through
+`EpistolaClockExtension`. Tests can advance time deterministically instead of
+using sleeps or Awaitility.
+
+## Operational View
+
+The Operations -> Cluster page shows:
+
+- active and stale nodes
+- node capabilities
+- known timers
+- known scheduled tasks
+- required capabilities for timers and scheduled tasks
+
+This page is the first place to inspect whether work is stuck because no active
+node advertises the required capability, a handler is failing, or a lease is
+still active.
+
+## Current Boundaries
+
+Timers are for delayed and recurring background work. They are not a general
+message bus and they do not broadcast to every node.
+
+Current non-goals:
+
+- cross-node cache invalidation fanout
+- distributed command routing for normal request-path commands
+- durable multi-step sagas/processes
+- node-to-node wakeups
+
+Those can build on the same node registry and clock/mediator background context,
+but they should remain separate concepts.
