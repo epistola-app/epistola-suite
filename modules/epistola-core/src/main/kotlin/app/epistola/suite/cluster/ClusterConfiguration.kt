@@ -22,6 +22,7 @@ data class ClusterProperties(
     val heartbeatIntervalMs: Long = 2_000,
     val idleTimeoutMs: Long = 10_000,
     val capabilities: List<String> = listOf(DEFAULT_CAPABILITY),
+    val timers: ClusterTimerProperties = ClusterTimerProperties(),
 ) {
     fun normalizedCapabilities(): List<String> = capabilities
         .map { it.trim() }
@@ -33,3 +34,11 @@ data class ClusterProperties(
         const val DEFAULT_CAPABILITY = "suite"
     }
 }
+
+data class ClusterTimerProperties(
+    val pollIntervalMs: Long = 1_000,
+    val leaseDurationMs: Long = 30_000,
+    val retryDelayMs: Long = 30_000,
+    val batchSize: Int = 25,
+    val candidateScanSize: Int = 250,
+)
