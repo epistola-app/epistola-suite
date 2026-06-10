@@ -196,8 +196,6 @@
   align-items: center;
   gap: var(--ep-space-1-5);
   padding: var(--ep-space-1) var(--ep-space-3);
-  font-size: var(--ep-text-sm);
-  color: var(--ep-muted-foreground);
   text-decoration: none;
   border: 1px solid var(--ep-border-color);
   border-radius: var(--ep-radius-md);
@@ -216,12 +214,6 @@
   display: flex;
   align-items: center;
   gap: var(--ep-space-2);
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
-}
-
-.app-nav-username {
-  font-weight: 500;
 }
 
 .app-nav-separator {
@@ -229,8 +221,6 @@
 }
 
 .app-nav-link-sm {
-  font-size: var(--ep-text-xs);
-  color: var(--ep-muted-foreground);
   text-decoration: none;
   transition: color var(--ep-transition-fast);
 }
@@ -257,7 +247,6 @@
   border: none;
   padding: var(--ep-space-2);
   cursor: pointer;
-  color: var(--ep-muted-foreground);
   border-radius: var(--ep-radius-md);
 }
 
@@ -425,9 +414,6 @@
   }
 
   .app-nav-mobile-label {
-    font-size: var(--ep-text-xs);
-    font-weight: 600;
-    color: var(--ep-muted-foreground);
     text-transform: uppercase;
     letter-spacing: var(--ep-tracking-wider);
     padding: var(--ep-space-1) var(--ep-space-3);
@@ -438,8 +424,6 @@
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
-    font-size: var(--ep-text-sm);
-    color: var(--ep-muted-foreground);
     text-decoration: none;
     border-radius: var(--ep-radius-md);
     transition: var(--ep-transition-colors);
@@ -454,7 +438,6 @@
   .app-nav-mobile-item.active {
     color: var(--ep-foreground);
     background: var(--ep-muted);
-    font-weight: 500;
   }
 
   .app-nav-mobile-footer {

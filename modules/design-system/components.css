@@ -559,7 +559,7 @@
   }
 
   .ep-code-indent {
-    margin-left: calc(var(--ep-depth, 0) * var(--ep-space-4));
+    margin-left: calc(var(--ep-depth) * var(--ep-space-4));
   }
 
   /* ── Badges ───────────────────────────────────────────────────────────── */
@@ -962,5 +962,153 @@
     padding: var(--ep-space-3);
     font-size: var(--ep-text-sm);
     color: var(--ep-red-400);
+  }
+
+  /* ── Utility primitives ──────────────────────────────────────────────── */
+
+  /* Text color */
+  .ep-text-muted {
+    color: var(--ep-muted-foreground);
+  }
+
+  .ep-text-destructive {
+    color: var(--ep-destructive);
+  }
+
+  .ep-text-success {
+    color: var(--ep-success);
+  }
+
+  .ep-text-warning {
+    color: var(--ep-amber-700);
+  }
+
+  .ep-text-primary {
+    color: var(--ep-primary);
+  }
+
+  /* Font size */
+  .ep-text-xs {
+    font-size: var(--ep-text-xs);
+  }
+
+  .ep-text-sm {
+    font-size: var(--ep-text-sm);
+  }
+
+  .ep-text-base {
+    font-size: var(--ep-text-base);
+  }
+
+  .ep-text-lg {
+    font-size: var(--ep-text-lg);
+  }
+
+  .ep-text-xl {
+    font-size: var(--ep-text-xl);
+  }
+
+  .ep-text-2xl {
+    font-size: var(--ep-text-2xl);
+  }
+
+  .ep-text-3xl {
+    font-size: var(--ep-text-3xl);
+  }
+
+  /* Font weight */
+  .ep-font-medium {
+    font-weight: 500;
+  }
+
+  .ep-font-semibold {
+    font-weight: 600;
+  }
+
+  .ep-font-bold {
+    font-weight: 700;
+  }
+
+  /* Margin top */
+  .ep-mt-1 {
+    margin-top: var(--ep-space-1);
+  }
+
+  .ep-mt-2 {
+    margin-top: var(--ep-space-2);
+  }
+
+  .ep-mt-3 {
+    margin-top: var(--ep-space-3);
+  }
+
+  .ep-mt-4 {
+    margin-top: var(--ep-space-4);
+  }
+
+  .ep-mt-6 {
+    margin-top: var(--ep-space-6);
+  }
+
+  /* Margin bottom */
+  .ep-mb-1 {
+    margin-bottom: var(--ep-space-1);
+  }
+
+  .ep-mb-2 {
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .ep-mb-3 {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .ep-mb-4 {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .ep-mb-6 {
+    margin-bottom: var(--ep-space-6);
+  }
+
+  .ep-mb-8 {
+    margin-bottom: var(--ep-space-8);
+  }
+
+  /* Margin left */
+  .ep-ml-2 {
+    margin-left: var(--ep-space-2);
+  }
+
+  /* Margin vertical (shorthand) */
+  .ep-my-3 {
+    margin-top: var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  /* Padding */
+  .ep-p-3 {
+    padding: var(--ep-space-3);
+  }
+
+  .ep-p-4 {
+    padding: var(--ep-space-4);
+  }
+
+  .ep-p-5 {
+    padding: var(--ep-space-5);
+  }
+
+  .ep-p-6 {
+    padding: var(--ep-space-6);
+  }
+
+  .ep-p-8 {
+    padding: var(--ep-space-8);
+  }
+
+  /* Display */
+  .ep-inline {
+    display: inline;
   }
 }
