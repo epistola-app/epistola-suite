@@ -1,7 +1,6 @@
 package app.epistola.suite.cluster
 
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -22,7 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList
         "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
     ],
 )
-@Import(ClusterScheduledTaskSchedulerIT.TaskHandlerConfiguration::class, ClusterTestClockConfiguration::class)
+@Import(ClusterScheduledTaskSchedulerIT.TaskHandlerConfiguration::class)
 class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -37,12 +36,9 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    @Autowired
-    private lateinit var clock: MutableClock
-
     @BeforeEach
     fun reset() {
-        clock.reset()
+        testClock.reset()
         handler.handled.clear()
         handler.failTaskKeys.clear()
         deleteTask("scheduler-success")
@@ -86,7 +82,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
     }
 
     private fun deleteTask(taskKey: String) {
@@ -97,7 +93,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         }
     }
 
-    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 
     @TestConfiguration
     class TaskHandlerConfiguration {

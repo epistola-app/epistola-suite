@@ -1,5 +1,6 @@
 package app.epistola.suite.cluster
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
@@ -22,6 +23,7 @@ class ClusterScheduledTaskScheduler(
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
     handlers: List<ClusterScheduledTaskHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -36,27 +38,29 @@ class ClusterScheduledTaskScheduler(
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.scheduled-tasks.poll-interval-ms:1000}")
-    fun poll() = meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
-        if (shuttingDown) return@recordScheduledTask
+    fun poll() = backgroundExecutionContext.run {
+        meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
+            if (shuttingDown) return@recordScheduledTask
 
-        val candidates = taskRegistry.dueCandidates()
-        if (candidates.isEmpty()) {
-            return@recordScheduledTask
-        }
-
-        val activeNodes = activeNodesForTaskOwnership()
-        val ownedCandidateKeys = candidates
-            .filter { task ->
-                ownership.isOwnedBy(
-                    routingKey = task.routingKey,
-                    nodeId = nodeIdentity.nodeId,
-                    nodes = activeNodes.withCapability(task.requiredCapability),
-                )
+            val candidates = taskRegistry.dueCandidates()
+            if (candidates.isEmpty()) {
+                return@recordScheduledTask
             }
-            .map { it.taskKey }
 
-        val claimed = taskRegistry.claimDue(ownedCandidateKeys)
-        claimed.forEach { task -> dispatch(task) }
+            val activeNodes = activeNodesForTaskOwnership()
+            val ownedCandidateKeys = candidates
+                .filter { task ->
+                    ownership.isOwnedBy(
+                        routingKey = task.routingKey,
+                        nodeId = nodeIdentity.nodeId,
+                        nodes = activeNodes.withCapability(task.requiredCapability),
+                    )
+                }
+                .map { it.taskKey }
+
+            val claimed = taskRegistry.claimDue(ownedCandidateKeys)
+            claimed.forEach { task -> dispatch(task) }
+        }
     }
 
     private fun activeNodesForTaskOwnership(): List<ClusterNode> {

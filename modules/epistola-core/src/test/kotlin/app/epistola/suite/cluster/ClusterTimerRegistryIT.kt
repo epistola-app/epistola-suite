@@ -3,13 +3,11 @@ package app.epistola.suite.cluster
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -21,7 +19,6 @@ import java.time.OffsetDateTime
         "epistola.cluster.timers.retry-delay-ms=30000",
     ],
 )
-@Import(ClusterTestClockConfiguration::class)
 class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Autowired
@@ -36,12 +33,9 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    @Autowired
-    private lateinit var clock: MutableClock
-
     @BeforeEach
     fun resetClock() {
-        clock.reset()
+        testClock.reset()
     }
 
     @Test
@@ -192,7 +186,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     fun `claim due leases a timer for the current node`() {
         deleteTimer("timer-claim")
         registry.schedule("timer-claim", "tenant-a", "test", now().plusMinutes(1))
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
 
         val claimed = registry.claimDue(listOf("timer-claim"))
@@ -213,7 +207,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             dueAt = now().plusMinutes(1),
             requiredCapability = "pdf-render",
         )
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
 
         val claimed = registry.claimDue(listOf("timer-pdf-render"))
@@ -226,7 +220,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     fun `complete deletes a running timer owned by the current node`() {
         deleteTimer("timer-complete")
         registry.schedule("timer-complete", "tenant-a", "test", now().plusMinutes(1))
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
         registry.claimDue(listOf("timer-complete"))
 
@@ -253,7 +247,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     fun `reschedule keeps timer with next due time`() {
         deleteTimer("timer-reschedule")
         registry.schedule("timer-reschedule", "tenant-a", "test", now().plusMinutes(1))
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
         registry.claimDue(listOf("timer-reschedule"))
         val nextDueAt = now().plusMinutes(5)
@@ -296,5 +290,5 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         }
     }
 
-    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 }

@@ -1,7 +1,6 @@
 package app.epistola.suite.cluster
 
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -22,7 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList
         "epistola.cluster.timers.retry-delay-ms=30000",
     ],
 )
-@Import(ClusterTimerSchedulerIT.TimerHandlerConfiguration::class, ClusterTestClockConfiguration::class)
+@Import(ClusterTimerSchedulerIT.TimerHandlerConfiguration::class)
 class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -37,12 +36,9 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    @Autowired
-    private lateinit var clock: MutableClock
-
     @BeforeEach
     fun reset() {
-        clock.reset()
+        testClock.reset()
         handler.handled.clear()
         deleteTimer("scheduler-complete")
         deleteTimer("scheduler-reschedule")
@@ -51,7 +47,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
     @Test
     fun `poll dispatches an owned timer and completes it`() {
         registry.schedule("scheduler-complete", "tenant-a", RecordingClusterTimerHandler.TYPE, now().plusMinutes(1))
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
 
         scheduler.poll()
 
@@ -68,7 +64,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
             dueAt = now().plusMinutes(1),
             payload = mapOf("mode" to "reschedule"),
         )
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
 
         scheduler.poll()
 
@@ -78,7 +74,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
         assertThat(timer?.dueAt).isAfter(now())
     }
 
-    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 
     private fun deleteTimer(timerKey: String) {
         jdbi.useHandle<Exception> { handle ->

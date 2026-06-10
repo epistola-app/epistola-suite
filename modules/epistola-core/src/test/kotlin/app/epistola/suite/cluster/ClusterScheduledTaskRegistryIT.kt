@@ -4,13 +4,11 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.MutableClock
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -22,7 +20,6 @@ import java.time.OffsetDateTime
         "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
     ],
 )
-@Import(ClusterTestClockConfiguration::class)
 class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Autowired
@@ -37,12 +34,9 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    @Autowired
-    private lateinit var clock: MutableClock
-
     @BeforeEach
     fun resetClock() {
-        clock.reset()
+        testClock.reset()
     }
 
     @Test
@@ -166,7 +160,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
         nodeRegistry.heartbeat()
 
         val claimed = registry.claimDue(listOf("task-pdf-render"))
@@ -242,7 +236,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
-        clock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(Duration.ofSeconds(61))
     }
 
     private fun forceDue(taskKey: String) {
@@ -254,7 +248,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
         }
     }
 
-    private fun now(): OffsetDateTime = OffsetDateTime.now(clock)
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 
     private fun deleteTask(taskKey: String) {
         jdbi.useHandle<Exception> { handle ->

@@ -1,5 +1,6 @@
 package app.epistola.suite.cluster
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
@@ -21,6 +22,7 @@ class ClusterTimerScheduler(
     private val properties: ClusterProperties,
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
     handlers: List<ClusterTimerHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -35,27 +37,29 @@ class ClusterTimerScheduler(
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.timers.poll-interval-ms:1000}")
-    fun poll() = meterRegistry.recordScheduledTask("cluster-timer-poller") {
-        if (shuttingDown) return@recordScheduledTask
+    fun poll() = backgroundExecutionContext.run {
+        meterRegistry.recordScheduledTask("cluster-timer-poller") {
+            if (shuttingDown) return@recordScheduledTask
 
-        val candidates = timerRegistry.dueCandidates()
-        if (candidates.isEmpty()) {
-            return@recordScheduledTask
-        }
-
-        val activeNodes = activeNodesForTimerOwnership()
-        val ownedCandidateKeys = candidates
-            .filter { timer ->
-                ownership.isOwnedBy(
-                    routingKey = timer.routingKey,
-                    nodeId = nodeIdentity.nodeId,
-                    nodes = activeNodes.withCapability(timer.requiredCapability),
-                )
+            val candidates = timerRegistry.dueCandidates()
+            if (candidates.isEmpty()) {
+                return@recordScheduledTask
             }
-            .map { it.timerKey }
 
-        val claimed = timerRegistry.claimDue(ownedCandidateKeys)
-        claimed.forEach { timer -> dispatch(timer) }
+            val activeNodes = activeNodesForTimerOwnership()
+            val ownedCandidateKeys = candidates
+                .filter { timer ->
+                    ownership.isOwnedBy(
+                        routingKey = timer.routingKey,
+                        nodeId = nodeIdentity.nodeId,
+                        nodes = activeNodes.withCapability(timer.requiredCapability),
+                    )
+                }
+                .map { it.timerKey }
+
+            val claimed = timerRegistry.claimDue(ownedCandidateKeys)
+            claimed.forEach { timer -> dispatch(timer) }
+        }
     }
 
     private fun activeNodesForTimerOwnership(): List<ClusterNode> {

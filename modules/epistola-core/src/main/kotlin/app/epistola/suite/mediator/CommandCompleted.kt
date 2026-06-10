@@ -1,5 +1,6 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.time.EpistolaClock
 import java.time.Instant
 
 /**
@@ -15,5 +16,5 @@ import java.time.Instant
 data class CommandCompleted<C : Command<*>>(
     val command: C,
     val result: Any?,
-    val occurredAt: Instant = Instant.now(),
+    val occurredAt: Instant = EpistolaClock.instant(),
 )
