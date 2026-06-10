@@ -59,7 +59,9 @@ export function renderSchemaFieldListItem(
         : html`<span class="dc-field-expand-spacer"></span>`}
 
       <span class="dc-field-list-item-name">${field.name}</span>
-      <span class="dc-field-type-badge">${FIELD_TYPE_LABELS[field.type]}</span>
+      <span class="badge badge-sm badge-outline dc-field-type-tag"
+        >${FIELD_TYPE_LABELS[field.type]}</span
+      >
       ${field.required ? html`<span class="dc-field-required-dot"></span>` : nothing}
     </div>
 

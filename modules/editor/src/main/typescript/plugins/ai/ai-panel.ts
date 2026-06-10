@@ -298,7 +298,9 @@ export class EpistolaAiPanel extends LitElement {
           ? html` <div class="ai-message-attachments">
               ${msg.attachments.map(
                 (a) => html`
-                  <span class="ai-attachment-badge">${icon('file-text', 10)} ${a.name}</span>
+                  <span class="badge badge-sm badge-info ai-attachment"
+                    >${icon('file-text', 10)} ${a.name}</span
+                  >
                 `,
               )}
             </div>`
@@ -336,7 +338,8 @@ export class EpistolaAiPanel extends LitElement {
   private _renderProposalBadge(status: ProposalStatus): TemplateResult {
     if (status === 'pending') return html``;
     const label = status === 'applied' ? 'Applied' : 'Rejected';
-    return html`<span class="ai-proposal-badge ai-proposal-badge-${status}">${label}</span>`;
+    const colorClass = status === 'applied' ? 'badge-success' : 'badge-muted';
+    return html`<span class="badge badge-sm ai-proposal-status ${colorClass}">${label}</span>`;
   }
 }
 

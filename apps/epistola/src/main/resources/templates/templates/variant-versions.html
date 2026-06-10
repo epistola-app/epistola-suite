@@ -3,26 +3,26 @@
 <body>
     <th:block th:fragment="content">
         <div class="ep-dialog-header">
-            <h3>Version History: <code th:text="${variant.id}"></code></h3>
+            <h3>Version History: <code class="ep-code" th:text="${variant.id}"></code></h3>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                     onclick="document.getElementById('version-history-dialog').close()"
                     title="Close">&times;</button>
         </div>
         <div class="ep-dialog-body">
             <!-- Error message -->
-            <div th:if="${error != null}" class="alert alert-error variant-version-error">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
 
-            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table variant-versions-table">
+            <table th:if="${!#lists.isEmpty(versions)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Version</th>
-                        <th>Status</th>
-                        <th>Contract</th>
-                        <th>Created</th>
-                        <th>Published</th>
-                        <th></th>
+                        <th scope="col">Version</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Contract</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Published</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,14 +34,14 @@
                             <span th:if="${version.status.name() == 'ARCHIVED'}" class="badge badge-outline">Archived</span>
                         </td>
                         <td>
-                            <span th:if="${version.contractVersion != null}" th:text="'v' + ${version.contractVersion}" class="version-meta"></span>
-                            <span th:unless="${version.contractVersion != null}" class="version-meta">-</span>
+                            <span th:if="${version.contractVersion != null}" th:text="'v' + ${version.contractVersion}" class="ep-text-muted"></span>
+                            <span th:unless="${version.contractVersion != null}" class="ep-text-muted">-</span>
                         </td>
                         <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td>
                             <span th:if="${version.publishedAt != null}"
                                   th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                            <span th:unless="${version.publishedAt != null}" class="version-meta">-</span>
+                            <span th:unless="${version.publishedAt != null}" class="ep-text-muted">-</span>
                         </td>
                         <td class="actions">
                             <!-- Draft actions -->
@@ -112,13 +112,13 @@
                 </tbody>
             </table>
 
-            <div th:if="${#lists.isEmpty(versions)}" class="empty-state version-empty-state">
+            <div th:if="${#lists.isEmpty(versions)}" class="empty-state ep-p-6">
                 <div class="empty-state-title">No versions yet</div>
                 <div class="empty-state-description">Create a draft to start building this variant.</div>
             </div>
 
             <!-- Create Draft button if no draft exists -->
-            <div th:unless="${variant.hasDraft}" class="version-create-draft">
+            <div th:unless="${variant.hasDraft}" class="ep-mt-4">
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                       method="post"
                       th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"

@@ -208,9 +208,7 @@ describe('renderMigrationDialog', () => {
 
   it('renders TYPE_MISMATCH issue badge', () => {
     const div = renderDialog([makeMigration()]);
-    expect(div.querySelector('.dc-migration-issue-badge')?.textContent?.trim()).toBe(
-      'Type mismatch',
-    );
+    expect(div.querySelector('.badge-warning')?.textContent?.trim()).toBe('Type mismatch');
   });
 
   it('renders MISSING_REQUIRED issue badge', () => {
@@ -220,16 +218,12 @@ describe('renderMigrationDialog', () => {
         currentValue: undefined as unknown as string,
       }),
     ]);
-    expect(div.querySelector('.dc-migration-issue-badge')?.textContent?.trim()).toBe(
-      'Missing required',
-    );
+    expect(div.querySelector('.badge-warning')?.textContent?.trim()).toBe('Missing required');
   });
 
   it('renders UNKNOWN_FIELD issue badge', () => {
     const div = renderDialog([makeMigration({ issue: 'UNKNOWN_FIELD' })]);
-    expect(div.querySelector('.dc-migration-issue-badge')?.textContent?.trim()).toBe(
-      'Unknown field',
-    );
+    expect(div.querySelector('.badge-warning')?.textContent?.trim()).toBe('Unknown field');
   });
 
   it('renders MISSING_REQUIRED expected type info', () => {

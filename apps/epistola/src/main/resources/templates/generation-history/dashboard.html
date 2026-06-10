@@ -2,45 +2,45 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1 data-testid="page-title">Generation History</h1>
-        </div>
+        </section>
 
         <!-- Statistics -->
-        <div class="dashboard-stats gen-dashboard-stats">
-            <div class="stat-card">
-                <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
-                <div class="stat-card-label">Total Generated</div>
+        <section class="stats-grid ep-mb-6">
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.totalGenerated}">0</div>
+                <div class="ep-text-sm ep-text-muted">Total Generated</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-card-value" th:text="${stats.inQueue}">0</div>
-                <div class="stat-card-label">In Queue</div>
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.inQueue}">0</div>
+                <div class="ep-text-sm ep-text-muted">In Queue</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-card-value" th:text="${stats.completed}">0</div>
-                <div class="stat-card-label">Completed</div>
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.completed}">0</div>
+                <div class="ep-text-sm ep-text-muted">Completed</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-card-value" th:text="${stats.failed}">0</div>
-                <div class="stat-card-label">Failed</div>
+            <div class="card card-interactive ep-p-5">
+                <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${stats.failed}">0</div>
+                <div class="ep-text-sm ep-text-muted">Failed</div>
             </div>
-        </div>
+        </section>
 
         <!-- Most Used Templates -->
-        <section class="gen-dashboard-section">
+        <section class="ep-mb-6">
             <h2>Most Used Templates</h2>
-            <div th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
+            <section th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
                 <div class="empty-state-icon">
                     <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                 </div>
                 <div class="empty-state-title">No template usage data</div>
                 <div class="empty-state-description">Generate some documents to see template usage statistics.</div>
-            </div>
+            </section>
             <table th:if="${!#lists.isEmpty(templateUsage)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Template</th>
-                        <th>Variant</th>
+                        <th class="ep-table-truncate">Template</th>
+                        <th class="ep-table-truncate">Variant</th>
                         <th>Generations</th>
                     </tr>
                 </thead>
@@ -48,7 +48,8 @@
                     <tr th:each="usage : ${templateUsage}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
-                               class="gen-dashboard-link"
+                               class="ep-table-truncate ep-font-medium"
+                               th:title="${usage.templateKey}"
                                 th:text="${usage.templateKey}">template</a>
                         </td>
                         <td th:text="${usage.variantKey}">variant</td>
@@ -62,7 +63,7 @@
         <section>
             <div class="gen-dashboard-header">
                 <h2>Recent Jobs</h2>
-                <select class="ep-input ep-input-sm"
+                <select class="ep-select form-control-auto"
                         hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
                         hx-target="#job-rows"
                         hx-swap="innerHTML"
@@ -81,7 +82,7 @@
             <table th:if="${!#lists.isEmpty(recentJobs)}" class="ep-table">
                 <thead>
                     <tr>
-                        <th>Template</th>
+                        <th class="ep-table-truncate">Template</th>
                         <th>Variant</th>
                         <th>Status</th>
                         <th>Error</th>
@@ -94,10 +95,11 @@
                         <tr th:each="job : ${recentJobs}">
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
-                                   class="gen-dashboard-link"
+                                   class="ep-table-truncate ep-font-medium"
+                                   th:title="${job.templateKey}"
                                     th:text="${job.templateKey}">template</a>
                             </td>
-                            <td th:text="${job.variantKey}">variant</td>
+                            <td class="ep-table-truncate" th:title="${job.variantKey}" th:text="${job.variantKey}">variant</td>
                             <td>
                                 <span class="badge"
                                       th:classappend="${job.status.name() == 'COMPLETED' ? 'badge-success' :
@@ -108,10 +110,10 @@
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"
-                                        class="gen-job-error"
-                                      th:title="${job.errorMessage}"
-                                      th:text="${job.errorMessage}">Error</span>
-                                <span th:if="${job.errorMessage == null}" class="gen-job-empty">—</span>
+                                      class="gen-job-error"
+                                       th:title="${job.errorMessage}"
+                                       th:text="${job.errorMessage}">Error</span>
+                                <span th:if="${job.errorMessage == null}" class="ep-text-muted">—</span>
                             </td>
                             <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
                             <td th:text="${job.completedAt != null ? #temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>

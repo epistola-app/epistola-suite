@@ -5,15 +5,15 @@
         <div id="deployment-matrix">
 
             <!-- Error banner (e.g., contract compatibility issues) -->
-            <div th:if="${error != null}" class="alert alert-error deploy-error">
+            <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
             </div>
 
             <!-- No environments -->
             <th:block th:if="${#lists.isEmpty(environments)}">
-                <div class="detail-section">
-                    <div class="detail-section-body">
-                        <div class="empty-state deploy-empty-state">
+                <div class="card page-section">
+                    <div class="card-content">
+                        <div class="empty-state ep-p-8">
                             <div class="empty-state-title">No environments configured</div>
                             <div class="empty-state-description">
                                 <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId},catalogId=${catalogId})}">Create an environment</a>
@@ -26,9 +26,9 @@
 
             <!-- No variants -->
             <th:block th:if="${!#lists.isEmpty(environments) and #lists.isEmpty(variants)}">
-                <div class="detail-section">
-                    <div class="detail-section-body">
-                        <div class="empty-state deploy-empty-state">
+                <div class="card page-section">
+                    <div class="card-content">
+                        <div class="empty-state ep-p-8">
                             <div class="empty-state-title">No variants yet</div>
                             <div class="empty-state-description">
                                 Create a variant in the Variants tab to start deploying.
@@ -40,23 +40,23 @@
 
             <!-- Deployment matrix table -->
             <th:block th:if="${!#lists.isEmpty(environments) and !#lists.isEmpty(variants)}">
-                <div class="detail-section">
-                    <div class="detail-section-body no-padding">
-                        <div class="deploy-table-wrapper">
-                            <table class="ep-table deployment-matrix-table">
+                <div class="card page-section">
+                    <div class="card-content flush">
+                        <div class="ep-table-scroll">
+                            <table class="ep-table ep-table-matrix">
                                 <thead>
                                     <tr>
-                                        <th class="deploy-table-header">Variant</th>
-                                        <th th:each="env : ${environments}" th:text="${env.name}" class="deploy-table-header"></th>
+                                        <th class="ep-table-row-header" scope="col">Variant</th>
+                                        <th th:each="env : ${environments}" th:text="${env.name}" scope="col"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr th:each="variant : ${variants}">
-                                        <td class="deployment-matrix-variant">
+                                        <td class="ep-table-row-header deployment-matrix-variant">
                                             <div class="deploy-variant-row">
                                                 <div>
-                                                    <code th:text="${variant.id}" class="deploy-variant-id"></code>
-                                                    <span th:if="${variant.title != null}" class="deploy-variant-title" 
+                                                    <code th:text="${variant.id}" class="ep-code ep-code-xs"></code>
+                                                    <span th:if="${variant.title != null}" class="ep-text-xs ep-text-muted" 
                                                           th:text="${variant.title}"></span>
                                                 </div>
                                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
@@ -73,10 +73,10 @@
                                                 versions=${versionsByVariant.getOrDefault(variant.id, {})}"
                                             >
                                                 <th:block th:if="${!#lists.isEmpty(versions)}">
-                                                    <form class="deploy-form">
+                                                    <form class="ep-inline">
                                                         <input type="hidden" name="variantId" th:value="${variant.id}" />
                                                         <input type="hidden" name="environmentId" th:value="${env.id}" />
-                                                        <select name="versionId" class="ep-select deploy-select" 
+                                                        <select name="versionId" class="ep-select ep-text-xs" 
                                                                 th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/deployments(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}"
                                                                 hx-target="#deployment-matrix" hx-swap="outerHTML"
                                                                 hx-trigger="change" hx-include="closest form">
@@ -90,7 +90,7 @@
                                                     </form>
                                                 </th:block>
                                                 <th:block th:if="${#lists.isEmpty(versions)}">
-                                                    <span class="deploy-empty">&mdash;</span>
+                                                    <span class="ep-text-muted">&mdash;</span>
                                                 </th:block>
                                             </th:block>
                                         </td>

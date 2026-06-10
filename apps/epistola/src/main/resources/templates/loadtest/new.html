@@ -2,20 +2,22 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
             <span>New Load Test</span>
         </nav>
 
-        <h1>New Load Test</h1>
+        <section class="page-header">
+            <h1>New Load Test</h1>
+        </section>
 
-        <div id="form-error">
-            <div th:if="${error}" class="alert alert-error loadtest-error">
+        <section id="form-error">
+            <div th:if="${error}" class="alert alert-error ep-mb-4">
                 <strong>Error:</strong> <span th:text="${error}"></span>
             </div>
-        </div>
+        </section>
 
-        <div class="card create-form-card loadtest-form-card">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
                       th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
@@ -23,7 +25,7 @@
                       hx-swap="innerHTML"
                       hx-disinherit="hx-target hx-swap">
                     <fieldset class="loadtest-fieldset">
-                        <legend class="loadtest-legend">Template Configuration</legend>
+                        <legend class="ep-text-lg ep-font-semibold ep-mb-4">Template Configuration</legend>
 
                         <div class="form-group">
                             <label class="ep-label" for="templateId">Template</label>
@@ -38,7 +40,7 @@
                                         th:text="${template.name} + ' (' + ${template.catalogKey} + '/' + ${template.id} + ')'">
                                 </option>
                             </select>
-                            <span class="form-hint">Select the template to test</span>
+                            <span class="ep-text-xs ep-text-muted ep-mt-1">Select the template to test</span>
                         </div>
 
                         <div id="template-options-section">
@@ -49,29 +51,29 @@
                     </fieldset>
 
                     <fieldset class="loadtest-fieldset">
-                        <legend class="loadtest-legend">Load Test Parameters</legend>
+                        <legend class="ep-text-lg ep-font-semibold ep-mb-4">Load Test Parameters</legend>
 
                         <div class="form-group">
                             <label class="ep-label" for="targetCount">Target Count</label>
                             <input type="number" id="targetCount" name="targetCount" class="ep-input"
                                    required value="100" min="1" max="10000">
-                            <span class="form-hint">Number of documents to generate (1-10,000)</span>
+                            <span class="ep-text-xs ep-text-muted ep-mt-1">Number of documents to generate (1-10,000)</span>
                         </div>
                     </fieldset>
 
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary">Start Load Test</button>
                         <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
 
-        <div class="detail-section loadtest-info-section">
-            <div class="detail-section-header">
+        <section class="card page-section">
+            <div class="card-header-row">
                 <h2>Load Test Information</h2>
             </div>
-            <div class="detail-section-body loadtest-info-body">
+            <div class="card-content loadtest-info-body">
                 <ul class="loadtest-info-list">
                     <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
                     <li><strong>Batch Submission:</strong> All documents are submitted as a single batch for efficient processing</li>
@@ -80,12 +82,12 @@
                     <li><strong>Version vs Environment:</strong> Specify either an explicit version or an environment, not both</li>
                 </ul>
             </div>
-        </div>
+        </section>
     </th:block>
 
     <!--/* Error fragment: shown when form submission fails */-->
     <th:block th:fragment="form-error">
-        <div class="alert alert-error loadtest-error">
+        <div class="alert alert-error ep-mb-4">
             <strong>Error:</strong> <span th:text="${error}"></span>
         </div>
     </th:block>
@@ -97,7 +99,7 @@
             <select id="variantId" name="variantId" class="ep-select" disabled>
                 <option value="">Select a template first...</option>
             </select>
-            <span class="form-hint">Template variant to use</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1">Template variant to use</span>
         </div>
 
         <div class="form-group">
@@ -105,7 +107,7 @@
             <select id="versionId" name="versionId" class="ep-select" disabled>
                 <option value="">Select a variant first...</option>
             </select>
-            <span class="form-hint">Explicit version (leave blank to use environment)</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1">Explicit version (leave blank to use environment)</span>
         </div>
 
         <div class="form-group">
@@ -113,17 +115,17 @@
             <select id="environmentId" name="environmentId" class="ep-select" disabled>
                 <option value="">Select a template first...</option>
             </select>
-            <span class="form-hint">Environment to determine version (leave blank if using explicit version)</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1">Environment to determine version (leave blank if using explicit version)</span>
         </div>
 
         <fieldset class="ep-fieldset-reset">
-            <legend class="loadtest-sublegend">Test Data</legend>
+            <legend class="ep-text-sm ep-font-semibold ep-mb-2">Test Data</legend>
             <div class="form-group">
                 <label class="ep-label" for="testData">JSON Data</label>
                 <textarea id="testData" name="testData" class="ep-textarea loadtest-test-data-input" required
                           rows="6" 
                           placeholder="Select a template to load data examples..."></textarea>
-                <span class="form-hint">Select a template to load data examples, or enter JSON manually</span>
+                <span class="ep-text-xs ep-text-muted ep-mt-1">Select a template to load data examples, or enter JSON manually</span>
             </div>
         </fieldset>
     </th:block>
@@ -143,7 +145,7 @@
                         th:selected="${#strings.toString(variant.id) == selectedVariantId}">
                 </option>
             </select>
-            <span class="form-hint">Template variant to use</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1">Template variant to use</span>
         </div>
 
         <!--/* Version dropdown: hidden when an environment is selected */-->
@@ -162,8 +164,8 @@
                         th:selected="${#strings.toString(version.id) == selectedVersionId}">
                 </option>
             </select>
-            <span class="form-hint" th:if="${#lists.isEmpty(versions)}">No versions available for this variant</span>
-            <span class="form-hint" th:unless="${#lists.isEmpty(versions)}">Select a version, or leave as "Use environment" to resolve from environment</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1" th:if="${#lists.isEmpty(versions)}">No versions available for this variant</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1" th:unless="${#lists.isEmpty(versions)}">Select a version, or leave as "Use environment" to resolve from environment</span>
         </div>
 
         <!--/* Environment dropdown: hidden when a version is explicitly selected */-->
@@ -181,11 +183,11 @@
                         th:selected="${#strings.toString(env.id) == selectedEnvironmentId}">
                 </option>
             </select>
-            <span class="form-hint">Environment to determine version from</span>
+            <span class="ep-text-xs ep-text-muted ep-mt-1">Environment to determine version from</span>
         </div>
 
-        <fieldset class="loadtest-fieldset-no-margin">
-            <legend class="loadtest-sublegend">Test Data</legend>
+        <fieldset class="ep-fieldset-reset">
+            <legend class="ep-text-sm ep-font-semibold ep-mb-2">Test Data</legend>
 
             <!--/* Template has data examples: show example selector */-->
             <th:block th:if="${!#lists.isEmpty(dataExamples)}">
@@ -203,7 +205,7 @@
                                 th:selected="${example.id == selectedExampleId}">
                         </option>
                     </select>
-                    <span class="form-hint">Select a pre-defined data example to use as test data</span>
+                    <span class="ep-text-xs ep-text-muted ep-mt-1">Select a pre-defined data example to use as test data</span>
                 </div>
                 <div class="form-group">
                     <label class="ep-label" for="testData">JSON Data</label>
@@ -211,8 +213,8 @@
                               rows="10" 
                               th:readonly="${!#strings.isEmpty(selectedExampleId)}"
                               th:text="${testData}"></textarea>
-                    <span class="form-hint" th:if="${#strings.isEmpty(selectedExampleId)}">Select a data example above, or enter JSON manually</span>
-                    <span class="form-hint" th:unless="${#strings.isEmpty(selectedExampleId)}">Pre-filled from selected data example (read-only)</span>
+                    <span class="ep-text-xs ep-text-muted ep-mt-1" th:if="${#strings.isEmpty(selectedExampleId)}">Select a data example above, or enter JSON manually</span>
+                    <span class="ep-text-xs ep-text-muted ep-mt-1" th:unless="${#strings.isEmpty(selectedExampleId)}">Pre-filled from selected data example (read-only)</span>
                 </div>
             </th:block>
 
@@ -223,7 +225,7 @@
                     <textarea id="testData" name="testData" class="ep-textarea loadtest-test-data-input" required
                               rows="10" 
                               placeholder="Enter JSON test data..."></textarea>
-                    <span class="form-hint">This template has no data examples. Enter JSON test data manually.</span>
+                    <span class="ep-text-xs ep-text-muted ep-mt-1">This template has no data examples. Enter JSON test data manually.</span>
                 </div>
             </th:block>
         </fieldset>

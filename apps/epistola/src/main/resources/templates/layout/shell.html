@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle} ?: 'Epistola'">Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <link rel="stylesheet" th:href="@{/css/shell.css}">
     <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body class="app-shell" hx-boost="true">

@@ -1,0 +1,78 @@
+/*
+ * Dashboard
+ *
+ * Dashboard stats, quick links, dashboard grid, What's New teaser.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-3);
+}
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-6);
+}
+
+.dashboard-actions h2 {
+  margin-bottom: var(--ep-space-3);
+}
+
+/* What's New compact teaser */
+.whats-new-card {
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-3) var(--ep-space-4);
+  background: var(--ep-muted);
+}
+
+.whats-new-card.whats-new-unseen {
+  border-color: var(--ep-blue-200);
+  background: var(--ep-blue-50);
+}
+
+.whats-new-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ep-space-4);
+}
+
+.whats-new-info {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  min-width: 0;
+}
+
+.whats-new-unseen .whats-new-info {
+  color: var(--ep-blue-800);
+}
+
+.whats-new-info strong {
+  white-space: nowrap;
+}
+
+.whats-new-summary {
+  white-space: nowrap;
+}
+
+.whats-new-summary::before {
+  content: '\2014';
+  margin: 0 var(--ep-space-1);
+  opacity: 0.4;
+}
+
+.whats-new-unseen .whats-new-summary {
+  color: var(--ep-blue-600);
+}
+
+.whats-new-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  flex-shrink: 0;
+}

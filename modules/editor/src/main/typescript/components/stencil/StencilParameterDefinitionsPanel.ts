@@ -148,7 +148,7 @@ export class StencilParameterDefinitionsPanel extends LitElement {
           data-hasError=${hasError}
           >${row.name || '(unnamed)'}</span
         >
-        <span class="stencil-picker-badge">${typeLabel}</span>
+        <span class="badge badge-sm badge-muted">${typeLabel}</span>
         ${row.required
           ? html`<span title="Required" class="stencil-params-required-dot"></span>`
           : nothing}

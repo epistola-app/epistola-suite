@@ -175,14 +175,7 @@
     white-space: nowrap;
   }
 
-  .dc-field-type-badge {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--ep-gray-400);
-    background: var(--ep-gray-100);
-    padding: 1px var(--ep-space-1-5);
-    border-radius: var(--ep-radius-sm);
-    white-space: nowrap;
+  .dc-field-type-tag {
     flex-shrink: 0;
   }
 
@@ -637,7 +630,7 @@
         border-top-right-radius: var(--ep-radius-md);
         border-top-right-radius: var(--ep-radius-md);
 
-        & .dc-tree-type-badge {
+        & .dc-tree-type-tag {
           background: var(--ep-gray-200);
         }
       }
@@ -696,8 +689,8 @@
     }
   }
 
-  /* Type and count badges */
-  .dc-tree-type-badge {
+  /* Type and count indicators */
+  .dc-tree-type-tag {
     font-size: 10px;
     color: var(--ep-gray-400);
     font-weight: 400;
@@ -719,7 +712,7 @@
     }
   }
 
-  .dc-tree-count-badge {
+  .dc-tree-count {
     font-size: 10px;
     color: var(--ep-gray-500);
     font-weight: 600;
@@ -1143,7 +1136,7 @@
     text-overflow: ellipsis;
   }
 
-  .dc-example-chip-badge {
+  .dc-example-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1155,12 +1148,12 @@
     line-height: 1;
   }
 
-  .dc-example-chip-badge-ok {
+  .dc-example-chip-ok {
     color: var(--ep-green-700);
     background: var(--ep-green-50);
   }
 
-  .dc-example-chip-badge-error {
+  .dc-example-chip-error {
     color: var(--ep-white);
     background: var(--ep-red-500);
     padding: 0 4px;
@@ -1354,11 +1347,6 @@
     color: var(--ep-gray-700);
   }
 
-  .dc-migration-issue-badge {
-    font-size: 10px;
-    padding: 0 var(--ep-space-1-5);
-  }
-
   .dc-migration-item-conversion {
     display: flex;
     align-items: center;
@@ -1499,7 +1487,7 @@
     border: 1px solid var(--ep-gray-200);
   }
 
-  .dc-breaking-change-badge {
+  .dc-breaking-change-label {
     display: inline-block;
     padding: var(--ep-space-0-5) var(--ep-space-2);
     font-size: var(--ep-text-xs);
@@ -1510,23 +1498,23 @@
     white-space: nowrap;
   }
 
-  .dc-breaking-change-removed .dc-breaking-change-badge {
+  .dc-breaking-change-removed .dc-breaking-change-label {
     background: var(--ep-red-100);
     color: var(--ep-red-700);
   }
 
-  .dc-breaking-change-renamed .dc-breaking-change-badge {
+  .dc-breaking-change-renamed .dc-breaking-change-label {
     background: var(--ep-amber-100);
     color: var(--ep-amber-700);
   }
 
-  .dc-breaking-change-type_changed .dc-breaking-change-badge {
+  .dc-breaking-change-type_changed .dc-breaking-change-label {
     background: var(--ep-blue-100);
     color: var(--ep-blue-700);
   }
 
-  .dc-breaking-change-required_added .dc-breaking-change-badge,
-  .dc-breaking-change-made_required .dc-breaking-change-badge {
+  .dc-breaking-change-required_added .dc-breaking-change-label,
+  .dc-breaking-change-made_required .dc-breaking-change-label {
     background: var(--ep-amber-100);
     color: var(--ep-amber-700);
   }

@@ -2,19 +2,19 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Code lists</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary">
+                   th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Code List
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
-            <select id="catalog-filter" class="ep-input">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
+            <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -30,9 +30,9 @@
                     window.location.href = url;
                 });
             </script>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(codeLists)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(codeLists)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='list', class='ep-icon ep-icon-xl')}" />
             </div>
@@ -42,18 +42,18 @@
                 Use them to constrain variant attribute values to a curated set.
             </div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Slug</th>
+                    <th class="ep-table-truncate">Slug</th>
                     <th>Catalog</th>
-                    <th>Display Name</th>
+                    <th class="ep-table-truncate">Display Name</th>
                     <th>Source</th>
                     <th>Last refreshed</th>
                     <th></th>
@@ -63,27 +63,24 @@
                 <tr th:each="cl : ${codeLists}">
                     <td>
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           th:text="${cl.slug}"></a>
+                           th:text="${cl.slug}" th:title="${cl.slug}" class="ep-table-truncate"></a>
                     </td>
-                    <td>
-                        <span class="badge" th:text="${cl.catalogKey}"
-                              th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
-                    </td>
-                    <td class="code-list-name" th:text="${cl.displayName}"></td>
+                    <td><code class="ep-code" th:text="${cl.catalogKey}"></code></td>
+                    <td class="ep-table-truncate ep-font-medium" th:text="${cl.displayName}" th:title="${cl.displayName}"></td>
                     <td>
                         <span class="badge badge-outline" th:text="${cl.sourceType}"></span>
                     </td>
                     <td>
                         <span th:if="${cl.lastRefreshedAt != null}"
                               th:text="${#temporals.format(cl.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                        <span th:if="${cl.lastRefreshedAt == null}" class="code-list-never">never</span>
+                        <span th:if="${cl.lastRefreshedAt == null}" class="ep-text-muted">never</span>
                         <span th:if="${cl.lastRefreshError != null}"
-                              class="badge badge-error refresh-error-badge"
+                              class="badge badge-destructive"
                               th:title="${cl.lastRefreshError}">refresh failed</span>
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           class="btn btn-sm btn-ghost">View</a>
+                           class="ep-btn ep-btn-ghost ep-btn-sm">View</a>
                     </td>
                 </tr>
             </tbody>

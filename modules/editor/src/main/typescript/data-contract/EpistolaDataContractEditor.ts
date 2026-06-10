@@ -251,7 +251,7 @@ export class EpistolaDataContractEditor extends LitElement {
                   ${this._breakingChanges.map(
                     (c) => html`
                       <li class="dc-breaking-change dc-breaking-change-${c.type}">
-                        <span class="dc-breaking-change-badge">${c.type.replace('_', ' ')}</span>
+                        <span class="dc-breaking-change-label">${c.type.replace('_', ' ')}</span>
                         ${c.description}
                       </li>
                     `,

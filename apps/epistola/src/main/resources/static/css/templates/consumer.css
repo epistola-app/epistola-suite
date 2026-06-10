@@ -1,0 +1,229 @@
+/*
+ * Consumer Dashboard
+ *
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+/* Toolbar */
+.consumer-toolbar {
+  display: flex;
+  gap: var(--ep-space-2);
+}
+
+.consumer-toolbar-btn {
+  background: transparent;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-1-5) var(--ep-space-3);
+  cursor: pointer;
+}
+
+.consumer-toolbar-btn:hover {
+  background: var(--ep-gray-50);
+  color: var(--ep-gray-900);
+}
+
+/* Card */
+.consumer-card {
+  box-shadow: var(--ep-shadow-xs);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+
+.consumer-card:hover {
+  box-shadow: var(--ep-shadow-sm);
+}
+
+.consumer-card.is-disabled {
+  background: var(--ep-gray-50);
+  box-shadow: none;
+}
+
+/* Summary (collapsed header row) */
+.consumer-card > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: var(--ep-space-4) var(--ep-space-5);
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--ep-space-4);
+}
+
+.consumer-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.consumer-card > summary:hover {
+  background: var(--ep-gray-50);
+}
+
+.consumer-card.is-disabled > summary:hover {
+  background: var(--ep-gray-100);
+}
+
+/* Status dot */
+.consumer-status-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--ep-radius-full);
+  background: var(--ep-gray-300);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px var(--ep-gray-100);
+}
+
+.consumer-status-dot--HEALTHY {
+  background: var(--ep-green-500);
+  box-shadow: 0 0 0 3px var(--ep-green-100);
+}
+
+.consumer-status-dot--MIXED {
+  background: var(--ep-amber-500);
+  box-shadow: 0 0 0 3px var(--ep-amber-100);
+}
+
+.consumer-status-dot--DISABLED {
+  background: var(--ep-red-500);
+  box-shadow: 0 0 0 3px var(--ep-red-100);
+}
+
+/* Identity block */
+.consumer-identity {
+  min-width: 0;
+}
+
+.consumer-name {
+  color: var(--ep-gray-900);
+  line-height: 1.3;
+  margin: 0 0 var(--ep-space-1) 0;
+}
+
+.consumer-card.is-disabled .consumer-name {
+  text-decoration: line-through;
+  color: var(--ep-gray-500);
+}
+
+.consumer-meta-line {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  flex-wrap: wrap;
+}
+
+.consumer-meta-sep {
+  color: var(--ep-gray-300);
+}
+
+/* Activity pill */
+.consumer-activity-pill {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ep-space-1-5);
+  padding: var(--ep-space-1) var(--ep-space-3);
+  border-radius: var(--ep-radius-full);
+  font-variant-numeric: tabular-nums;
+  background: var(--ep-gray-100);
+  color: var(--ep-gray-600);
+  white-space: nowrap;
+}
+
+.consumer-activity-pill--HEALTHY {
+  background: var(--ep-green-50);
+  color: var(--ep-green-800);
+}
+
+.consumer-activity-pill--MIXED {
+  background: var(--ep-amber-50);
+  color: var(--ep-amber-800);
+}
+
+.consumer-activity-pill--DISABLED {
+  background: var(--ep-red-50);
+  color: var(--ep-red-700);
+}
+
+/* Chevron */
+.consumer-chevron {
+  color: var(--ep-gray-400);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.consumer-card[open] > summary > .consumer-chevron {
+  transform: rotate(90deg);
+}
+
+/* Expanded body */
+.consumer-body {
+  padding: var(--ep-space-4) var(--ep-space-5) var(--ep-space-5);
+  border-top: 1px solid var(--ep-border-color);
+  background: linear-gradient(180deg, var(--ep-gray-50) 0%, transparent 60px);
+}
+
+/* Stats strip */
+.consumer-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ep-space-3);
+}
+
+.consumer-stat {
+  background: var(--ep-card);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  padding: var(--ep-space-3) var(--ep-space-4);
+}
+
+.consumer-stat-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.consumer-stat-value {
+  font-family: var(--ep-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.consumer-stat-value.is-empty {
+  font-family: var(--ep-font-sans);
+  font-style: italic;
+}
+
+/* Nodes table */
+.consumer-body .ep-table {
+  margin-top: var(--ep-space-2);
+}
+
+.node-row-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-1-5);
+}
+
+.node-row-status::before {
+  content: '';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--ep-radius-full);
+  background: var(--ep-gray-300);
+}
+
+.node-row-status.is-active {
+  color: var(--ep-green-700);
+}
+
+.node-row-status.is-active::before {
+  background: var(--ep-green-500);
+}
+
+.node-row-status.is-stale {
+  color: var(--ep-gray-500);
+}
+
+.consumer-body-empty {
+  text-align: center;
+  background: var(--ep-card);
+  border: 1px dashed var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+}

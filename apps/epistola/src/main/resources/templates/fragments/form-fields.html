@@ -28,8 +28,8 @@
                th:placeholder="${placeholder}"
                th:value="${formData?.get(name)}"
                th:attr="required=${required},pattern=${pattern},minlength=${minlength},maxlength=${maxlength}">
-        <span class="form-hint" th:if="${hint != null}" th:text="${hint}"></span>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span class="ep-text-xs ep-text-muted ep-mt-1" th:if="${hint != null}" th:text="${hint}"></span>
+        <span id="form-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
     </div>
 
     <!--
@@ -56,14 +56,14 @@
          class="form-group"
          th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
-        <textarea class="ep-input"
+        <textarea class="ep-textarea"
                   th:id="${name}"
                   th:name="${name}"
                   th:placeholder="${placeholder}"
                   th:rows="${rows ?: 5}"
                   th:attr="required=${required},minlength=${minlength},maxlength=${maxlength}"
                   th:text="${formData?.get(name)}"></textarea>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span id="form-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
     </div>
 
     <!--
@@ -78,7 +78,7 @@
          class="form-group"
          th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
-        <select class="ep-input"
+        <select class="ep-select"
                 th:id="${name}"
                 th:name="${name}"
                 th:attr="required=${required}">
@@ -88,7 +88,7 @@
                     th:text="${option.name}"
                     th:selected="${option.id == selectedValue}"></option>
         </select>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span id="form-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
     </div>
 
     <!--
@@ -106,7 +106,7 @@
                    th:checked="${checked}">
             <span th:text="${label}"></span>
         </label>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span id="form-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
     </div>
 
     <!--
@@ -119,7 +119,7 @@
          class="form-group"
          th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
         <th:block th:replace="${content}"></th:block>
-        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+        <span id="form-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
     </div>
 
     <!--
@@ -127,7 +127,7 @@
     - name: The form field name
     -->
     <span th:fragment="error(name)"
-          class="form-error"
+          class="ep-text-sm ep-text-destructive ep-mt-1"
           th:if="${errors?.containsKey(name)}"
           th:text="${errors.get(name)}"></span>
 
@@ -137,7 +137,7 @@
     - cancelUrl: URL for cancel button
     -->
     <div th:fragment="form-actions(submitText, cancelUrl)"
-         class="form-actions">
+         class="form-actions ep-mt-6">
         <button type="submit" class="ep-btn ep-btn-primary" th:text="${submitText ?: 'Save'}"></button>
         <a th:href="${cancelUrl}" class="ep-btn ep-btn-outline">Cancel</a>
     </div>

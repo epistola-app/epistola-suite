@@ -3,16 +3,16 @@
 <body>
     <th:block th:fragment="content">
         <th:block th:fragment="page-content">
-            <nav class="breadcrumb">
+            <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
                 <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}">Code lists</a> &raquo;
                 <span th:text="${codeList.displayName}"></span>
             </nav>
 
-            <div class="page-header">
+            <section class="page-header">
                 <div>
                     <h1 th:text="${codeList.displayName}"></h1>
                     <div class="page-subtitle">
-                        <code th:text="${codeList.catalogKey + '/' + codeList.slug}"></code>
+                        <code class="ep-code" th:text="${codeList.catalogKey + '/' + codeList.slug}"></code>
                         <span class="badge badge-outline" th:text="${codeList.sourceType}"></span>
                         <span th:if="${!editable}" class="badge badge-muted">Read-only</span>
                     </div>
@@ -20,14 +20,14 @@
                 <div class="page-actions">
                     <form th:if="${editable and codeList.sourceUrl != null}"
                           th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
-                          method="post" class="codelist-refresh-form">
-                        <button type="submit" class="btn btn-outline">
+                          method="post" class="ep-inline">
+                        <button type="submit" class="ep-btn ep-btn-outline">
                             <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                             Refresh from source
                         </button>
                     </form>
                     <button th:if="${editable}" type="button"
-                            class="btn btn-outline btn-destructive"
+                            class="ep-btn ep-btn-outline ep-btn-destructive"
                             data-confirm-title="Delete code list"
                             data-confirm-target="#main-content"
                             th:attr="data-confirm-message='Delete code list &quot;' + ${codeList.displayName} + '&quot;? Bound attributes must be unbound first.',data-confirm-url=@{/tenants/{tenantId}/code-lists/{c}/{s}/delete(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
@@ -35,27 +35,27 @@
                         Delete
                     </button>
                 </div>
-            </div>
+            </section>
 
-            <div th:if="${error != null}" class="alert alert-error code-list-error">
+            <section th:if="${error != null}" class="alert alert-error ep-mb-4">
                 <span th:text="${error}"></span>
-            </div>
+            </section>
 
-            <p th:if="${codeList.description != null}" class="code-list-description" th:text="${codeList.description}"></p>
+            <p th:if="${codeList.description != null}" class="ep-text-muted" th:text="${codeList.description}"></p>
 
-            <div th:if="${codeList.lastRefreshedAt != null}" class="code-list-refresh-info">
+            <section th:if="${codeList.lastRefreshedAt != null}" class="code-list-refresh-info">
                 Last refreshed
                 <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                 <th:block th:if="${codeList.lastRefreshError != null}">
                     &mdash; last attempt failed: <span th:text="${codeList.lastRefreshError}"></span>
                 </th:block>
-            </div>
+            </section>
 
-            <div class="code-list-toggle">
+            <section class="ep-my-3">
                 <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
-                   class="btn btn-sm btn-outline"
+                   class="ep-btn ep-btn-outline ep-btn-sm"
                    th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>
-            </div>
+            </section>
 
             <table class="ep-table">
                 <thead>
@@ -71,7 +71,7 @@
                         <tr th:fragment="entry-row"
                             th:id="'entry-row-' + ${entry.code}"
                             th:class="${entry.hidden ? 'entry-hidden' : ''}">
-                            <td><code th:text="${entry.code}"></code></td>
+                            <td><code class="ep-code" th:text="${entry.code}"></code></td>
                             <td th:text="${entry.label}"></td>
                             <td th:text="${entry.sortOrder}"></td>
                             <td>
@@ -80,7 +80,7 @@
                                       th:hx-vals="'{&quot;hidden&quot;:&quot;' + ${!entry.hidden} + '&quot;}'"
                                       th:hx-target="'#entry-row-' + ${entry.code}"
                                       hx-swap="outerHTML">
-                                    <button type="submit" class="btn btn-sm btn-ghost"
+                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm"
                                             th:text="${entry.hidden ? 'Unhide' : 'Hide'}"></button>
                                 </form>
                                 <span th:if="${!editable and entry.hidden}" class="badge badge-muted">hidden</span>
@@ -95,7 +95,7 @@
                 <div class="empty-state-description">
                     <th:block th:if="${codeList.sourceType.name() == 'URL'}">
                         Click "Refresh from source" to fetch entries from
-                        <code th:text="${codeList.sourceUrl}"></code>.
+                        <code class="ep-code" th:text="${codeList.sourceUrl}"></code>.
                     </th:block>
                     <th:block th:if="${codeList.sourceType.name() != 'URL'}">
                         This code list is empty.

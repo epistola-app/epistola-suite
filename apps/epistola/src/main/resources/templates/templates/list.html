@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Templates</h1>
             <div class="page-actions">
                 <div th:replace="~{fragments/search :: search-box(
@@ -16,10 +16,10 @@
                     New Template
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
-            <select id="catalog-filter" class="ep-input">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
+            <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -35,27 +35,27 @@
                     window.location.href = url;
                 });
             </script>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(templates)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
             <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th class="ep-table-truncate">Name</th>
                     <th>Catalog</th>
-                    <th>ID</th>
+                    <th class="ep-table-truncate">ID</th>
                     <th>Variants</th>
                     <th>Last Modified</th>
                     <th></th>
@@ -64,12 +64,13 @@
             <tbody id="template-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
-                        <td>
+                        <td class="ep-table-truncate">
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
-                               th:text="${template.name}" class="template-name"></a>
+                               th:title="${template.name}"
+                               th:text="${template.name}" class="ep-font-medium"></a>
                         </td>
-                        <td><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
-                        <td><code th:text="${template.id}" class="template-id"></code></td>
+                        <td><code class="ep-code" th:text="${template.catalogKey}"></code></td>
+                        <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${template.id}" th:title="${template.id}"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
@@ -83,6 +84,7 @@
                 </th:block>
             </tbody>
         </table>
+
     </th:block>
 </body>
 </html>

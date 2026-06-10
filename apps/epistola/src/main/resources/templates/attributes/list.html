@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Attributes</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
@@ -11,10 +11,10 @@
                     New Attribute
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="catalog-filter-bar">
-            <select id="catalog-filter" class="ep-input">
+        <section th:if="${catalogs != null && !catalogs.isEmpty()}" class="ep-mb-4">
+            <select id="catalog-filter" class="ep-select">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -30,27 +30,27 @@
                     window.location.href = url;
                 });
             </script>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(attributes)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(attributes)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='tag', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(attributes)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th class="ep-table-truncate">ID</th>
                     <th>Catalog</th>
-                    <th>Display Name</th>
+                    <th class="ep-table-truncate">Display Name</th>
                     <th>Allowed Values</th>
                     <th>Created</th>
                     <th></th>
@@ -59,13 +59,13 @@
             <tbody id="attribute-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="attr : ${attributes}">
-                        <td><code th:text="${attr.id}" class="attr-id"></code></td>
-                        <td><span class="badge badge-default" th:text="${attr.catalogKey}"></span></td>
-                        <td class="attr-name" th:text="${attr.displayName}"></td>
+                        <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${attr.id}" th:title="${attr.id}"></code></td>
+                        <td><code class="ep-code" th:text="${attr.catalogKey}"></code></td>
+                        <td class="ep-table-truncate ep-font-medium" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
                         <td>
                             <div th:if="${attr.codeListSlug != null}" class="tags">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
-                                   class="badge badge-default"
+                                   class="badge badge-muted ep-table-truncate"
                                    th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
                                    th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
                             </div>
@@ -117,14 +117,14 @@
     <!-- Fragment: edit attribute form (loaded into dialog via HTMX) -->
     <th:block th:fragment="edit-attribute-form">
         <div class="ep-dialog-header">
-            <h3>Edit Attribute: <code th:text="${attribute.id}"></code></h3>
+            <h3>Edit Attribute: <code class="ep-code" th:text="${attribute.id}"></code></h3>
         </div>
         <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${attribute.catalogKey},attributeId=${attribute.id})}"
               hx-target="#attribute-rows"
               hx-swap="innerHTML"
 >
             <div class="ep-dialog-body">
-                <div th:if="${error != null}" class="alert alert-error attr-edit-error">
+                <div th:if="${error != null}" class="alert alert-error ep-mb-4">
                     <span th:text="${error}"></span>
                 </div>
                 <div class="form-group">
@@ -134,7 +134,7 @@
                 </div>
                 <div class="form-group">
                     <label class="ep-label">Value constraint</label>
-                    <div role="radiogroup" class="constraint-radio-group">
+                    <div role="radiogroup" class="constraint-radio-group ep-mt-2">
                         <label>
                             <input type="radio" name="constraintKind" value="free"
                                    th:checked="${attribute.codeListSlug == null and #lists.isEmpty(attribute.allowedValues)}">
@@ -152,29 +152,6 @@
                         </label>
                     </div>
                 </div>
-                <style>
-                    /* See attributes/new.html for why we pin radio size locally. */
-                    .constraint-radio-group {
-                        display: flex;
-                        flex-direction: column;
-                        gap: var(--ep-space-2);
-                        margin-top: var(--ep-space-2);
-                    }
-                    .constraint-radio-group label {
-                        display: flex;
-                        align-items: center;
-                        gap: var(--ep-space-2);
-                        font-size: var(--ep-text-sm);
-                        cursor: pointer;
-                    }
-                    .constraint-radio-group input[type="radio"] {
-                        width: 1rem;
-                        height: 1rem;
-                        flex: 0 0 1rem;
-                        margin: 0;
-                        font-size: 1rem;
-                    }
-                </style>
                 <div class="form-group constraint-pane" data-constraint-pane="inline">
                     <label class="ep-label" for="edit-attr-allowedValues">Allowed values (one per line)</label>
                     <textarea id="edit-attr-allowedValues" name="allowedValues" class="ep-textarea" rows="4"
@@ -183,7 +160,7 @@
                 </div>
                 <div class="form-group constraint-pane" data-constraint-pane="code-list">
                     <label class="ep-label" for="edit-attr-codeList">Code list</label>
-                    <select id="edit-attr-codeList" name="codeList" class="ep-input">
+                    <select id="edit-attr-codeList" name="codeList" class="ep-select">
                         <option value="">&mdash; Select a code list &mdash;</option>
                         <th:block th:each="cl : ${codeLists}">
                             <option th:value="${cl.catalogKey + '/' + cl.slug}"

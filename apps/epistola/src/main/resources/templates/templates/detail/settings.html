@@ -3,9 +3,9 @@
 <body>
     <th:block th:fragment="tab-content">
         <!-- Details -->
-        <div class="detail-section">
-            <div class="detail-section-header"><h3>Details</h3></div>
-            <div class="detail-section-body">
+        <div class="card page-section">
+            <div class="card-header-row"><h3>Details</h3></div>
+            <div class="card-content">
                 <dl class="description-list">
                     <dt>Name</dt>
                     <dd>
@@ -16,7 +16,7 @@
                                onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.originalName;this.blur();}">
                     </dd>
                     <dt>ID</dt>
-                    <dd><code th:text="${template.id}"></code></dd>
+                    <dd><code class="ep-code" th:text="${template.id}"></code></dd>
                     <dt>Created</dt>
                     <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
                     <dt>Modified</dt>
@@ -26,14 +26,14 @@
         </div>
 
         <!-- Default Theme -->
-        <div class="detail-section" id="theme-section" th:fragment="theme-section">
-            <div class="detail-section-header"><h3>Default Theme</h3></div>
-            <div class="detail-section-body">
-                <p class="settings-description">
+        <div class="card page-section" id="theme-section" th:fragment="theme-section">
+            <div class="card-header-row"><h3>Default Theme</h3></div>
+            <div class="card-content">
+                <p class="ep-text-sm ep-text-muted ep-mb-4">
                     Set the default theme for all variants. Individual variants can override this in the editor.
                 </p>
                 <div class="form-row">
-                    <div class="form-group form-group-no-margin">
+                    <div class="form-group form-group-inline form-group-fill">
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" onchange="updateTheme(this)">
                             <option value="">No theme (use variant defaults)</option>
@@ -52,16 +52,16 @@
         </div>
 
         <!-- Output Settings -->
-        <div class="detail-section" id="output-settings-section">
-            <div class="detail-section-header"><h3>Output Settings</h3></div>
-            <div class="detail-section-body">
+        <div class="card page-section" id="output-settings-section">
+            <div class="card-header-row"><h3>Output Settings</h3></div>
+            <div class="card-content">
                 <label class="pdfa-toggle-label">
                     <input type="checkbox" class="ep-checkbox pdfa-toggle-checkbox" id="pdfa-toggle"
                            th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
                            onchange="updatePdfaSetting(this.checked)">
                     <span>
-                        <strong>PDF/A-2b compliance</strong>
-                        <span class="pdfa-toggle-description">
+                        <strong class="ep-text-sm">PDF/A-2b compliance</strong>
+                        <span class="pdfa-toggle-description ep-text-sm ep-text-muted">
                             Enable for long-term archival. Embeds fonts and ICC color profile, resulting in larger files.
                         </span>
                     </span>
@@ -70,10 +70,10 @@
         </div>
 
         <!-- Danger Zone -->
-        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="detail-section danger-zone">
-            <div class="detail-section-header"><h3>Danger Zone</h3></div>
-            <div class="detail-section-body">
-                <p class="settings-description">
+        <div th:if="${auth.has('TEMPLATE_EDIT') and editable}" class="card page-section card-danger">
+            <div class="card-header-row"><h3>Danger Zone</h3></div>
+            <div class="card-content">
+                <p class="ep-text-sm ep-text-muted ep-mb-4">
                     Permanently delete this template and all its variants, versions, and data.
                 </p>
                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"

@@ -2,13 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Environments</a> &raquo; <span>New Environment</span>
         </nav>
 
-        <h1>New Environment</h1>
+        <section class="page-header">
+            <h1>New Environment</h1>
+        </section>
 
-        <div class="card create-form-card">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" method="post">
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
@@ -16,7 +18,7 @@
                         <input type="text" id="name" name="name" class="ep-input"
                                required placeholder="Production" data-slug-source="slug"
                                th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Environment ID (Slug)</label>
@@ -25,16 +27,16 @@
                                minlength="3" maxlength="30"
                                placeholder="production"
                                th:value="${formData?.slug}">
-                        <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">3-30 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Environment</button>
                         <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

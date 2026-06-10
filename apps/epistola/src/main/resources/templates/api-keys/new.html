@@ -2,13 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}">API Keys</a> &raquo; <span>New API key</span>
         </nav>
 
-        <h1>New API key</h1>
+        <section class="page-header">
+            <h1>New API key</h1>
+        </section>
 
-        <div id="api-key-form-area" class="card create-form-card">
+        <div id="api-key-form-area" class="card card-narrow">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}"
                       method="post">
@@ -19,17 +21,17 @@
                                placeholder="e.g. CI integration"
                                th:value="${formData?.name}"
                                autofocus>
-                        <span class="form-hint">A short label so you can recognise this key later. Max 100 characters.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">A short label so you can recognise this key later. Max 100 characters.</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('expiresAt')} ? 'error' : ''">
                         <label class="ep-label" for="expiresAt">Expires (optional)</label>
                         <input type="date" id="expiresAt" name="expiresAt" class="ep-input"
                                th:value="${formData?.expiresAt}">
-                        <span class="form-hint">Leave blank for a key that never expires.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Leave blank for a key that never expires.</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('expiresAt')}" th:text="${errors.expiresAt}"></span>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create API key</button>
                         <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>

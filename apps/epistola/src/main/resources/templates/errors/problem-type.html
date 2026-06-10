@@ -4,119 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${problemType.title + ' | Epistola Error'}">Epistola Error</title>
-    <style>
-        body {
-            color: #172033;
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            background: #f7f8fb;
-        }
-
-        main {
-            max-width: 840px;
-            margin: 0 auto;
-            padding: 56px 24px 72px;
-        }
-
-        a {
-            color: #2556d9;
-        }
-
-        .eyebrow {
-            color: #667085;
-            font-size: 0.78rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .card {
-            background: #fff;
-            border: 1px solid #d8deea;
-            border-radius: 20px;
-            box-shadow: 0 24px 60px rgba(31, 42, 68, 0.08);
-            padding: 32px;
-        }
-
-        h1 {
-            font-size: clamp(2rem, 6vw, 3.5rem);
-            line-height: 1.05;
-            margin: 8px 0 16px;
-        }
-
-        code {
-            background: #eef2ff;
-            border-radius: 6px;
-            color: #243b8f;
-            padding: 2px 6px;
-        }
-
-        dl {
-            display: grid;
-            gap: 16px;
-            grid-template-columns: max-content 1fr;
-            margin: 28px 0;
-        }
-
-        dt {
-            color: #667085;
-            font-weight: 700;
-        }
-
-        dd {
-            margin: 0;
-        }
-
-        .extensions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 0;
-        }
-
-        .extensions li {
-            background: #f2f4f7;
-            border-radius: 999px;
-            list-style: none;
-            padding: 4px 10px;
-        }
-
-        pre {
-            background: #101828;
-            border-radius: 14px;
-            color: #f2f4f7;
-            overflow-x: auto;
-            padding: 18px;
-        }
-    </style>
+    <th:block th:replace="~{fragments/styles :: styles}" />
 </head>
-<body>
-<main>
-    <article class="card">
-        <div class="eyebrow">Epistola Problem Type</div>
-        <h1 th:text="${problemType.title}">Problem Title</h1>
+<body class="problem-type-page-body">
+<main class="problem-type-page-main">
+    <article class="problem-type-card">
+        <div class="problem-type-eyebrow ep-text-muted">Epistola Problem Type</div>
+        <h1 class="problem-type-title" th:text="${problemType.title}">Problem Title</h1>
         <p th:text="${problemType.description}">Problem description.</p>
 
-        <dl>
-            <dt>Type URI</dt>
-            <dd><code th:text="${problemType.type}">https://epistola.app/errors/example</code></dd>
-            <dt>HTTP status</dt>
-            <dd><code th:text="${problemType.status.value()}">400</code></dd>
-            <dt>Machine code</dt>
-            <dd><code th:text="${problemType.code}">EXAMPLE</code></dd>
+        <dl class="problem-type-details">
+            <dt class="ep-text-muted">Type URI</dt>
+            <dd><code class="ep-code ep-code-info" th:text="${problemType.type}">https://epistola.app/errors/example</code></dd>
+            <dt class="ep-text-muted">HTTP status</dt>
+            <dd><code class="ep-code ep-code-info" th:text="${problemType.status.value()}">400</code></dd>
+            <dt class="ep-text-muted">Machine code</dt>
+            <dd><code class="ep-code ep-code-info" th:text="${problemType.code}">EXAMPLE</code></dd>
         </dl>
 
         <section th:if="${!problemType.extensionFields.isEmpty()}">
             <h2>Extension Members</h2>
-            <ul class="extensions">
-                <li th:each="field : ${problemType.extensionFields}"><code th:text="${field}">code</code></li>
+            <ul class="problem-type-extensions">
+                <li th:each="field : ${problemType.extensionFields}"><code class="ep-code ep-code-info" th:text="${field}">code</code></li>
             </ul>
         </section>
 
         <section>
             <h2>Example</h2>
-            <pre th:text="${exampleJson}">{}</pre>
+            <pre class="problem-type-example" th:text="${exampleJson}">{}</pre>
         </section>
 
         <p><a href="/api-docs">View the full API reference</a></p>

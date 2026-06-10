@@ -101,17 +101,13 @@
   /* Separator */
   hr {
     border: none;
-    border-top: 1px solid var(--ep-border-color);
+    border-top: var(--ep-border);
     margin: var(--ep-space-4) 0;
   }
 
   /* Inline code */
   code {
     font-family: var(--ep-font-mono);
-    font-size: 0.875em;
-    background-color: var(--ep-muted);
-    padding: 0.125em 0.375em;
-    border-radius: var(--ep-radius-sm);
   }
 
   /* Paragraph spacing */

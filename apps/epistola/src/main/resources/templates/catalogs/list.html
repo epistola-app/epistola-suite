@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Catalogs</h1>
             <div class="page-actions">
                 <button type="button" class="ep-btn ep-btn-outline"
@@ -22,12 +22,13 @@
                     New Catalog
                 </button>
             </div>
-        </div>
+        </section>
 
-        <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
+        <section class="alert alert-success" th:if="${saved}" data-testid="alert-success">
             Catalog settings updated successfully.
-        </div>
-        <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+        </section>
+
+        <section class="alert alert-danger" th:if="${error != null}" th:text="${error}"></section>
 
         <!-- Single, always-present swap region for every list mutation
              (create / remove / release / upgrade). It contains *either* the
@@ -36,21 +37,22 @@
              (which the browser's fragment parser relocates). `oob` toggles
              out-of-band replacement when the dialog fragment is the primary
              response. -->
-        <div id="catalog-list" th:fragment="catalog-list"
+        <section id="catalog-list" th:fragment="catalog-list"
              th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
-        <div th:if="${catalogs.isEmpty()}" class="empty-state">
+             
+        <section th:if="${catalogs.isEmpty()}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No catalogs yet</div>
             <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
-        </div>
+        </section>
 
         <table th:if="${!catalogs.isEmpty()}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>ID</th>
+                    <th class="ep-table-truncate">Name</th>
+                    <th class="ep-table-truncate">ID</th>
                     <th>Type</th>
                     <th>Version</th>
                     <th>Last Modified</th>
@@ -59,14 +61,14 @@
             </thead>
             <tbody>
                 <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
-                    <td class="catalog-name">
+                    <td class="ep-font-medium">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
-                           th:text="${catalog.name}"></a>
+                           th:text="${catalog.name}" th:title="${catalog.name}" class="ep-table-truncate"></a>
                     </td>
-                    <td><code th:text="${catalog.id}" class="catalog-id"></code></td>
+                    <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${catalog.id}" th:title="${catalog.id}"></code></td>
                     <td>
                         <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
+                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-muted">Subscribed</span>
                     </td>
                     <td>
                         <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
@@ -128,7 +130,7 @@
                 </tr>
             </tbody>
         </table>
-        </div>
+        </section>
         <!-- /#catalog-list -->
 
         <!-- Create Catalog Dialog -->
@@ -151,7 +153,7 @@
                                required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
                                minlength="3" maxlength="50"
                                placeholder="my-templates">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">3-50 characters, lowercase letters, numbers, and hyphens only</span>
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
@@ -182,13 +184,13 @@
                         <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
                                required placeholder="https://example.com/catalog.json"
                                value="classpath:epistola/catalogs/demo/catalog.json">
-                        <span class="form-hint">
-                            URL to the catalog manifest (<code>.json</code>). Supports <code>https://</code>, <code>classpath:</code>, and <code>file:///</code>.
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">
+                            URL to the catalog manifest (<code class="ep-code">.json</code>). Supports <code class="ep-code">https://</code>, <code class="ep-code">classpath:</code>, and <code class="ep-code">file:///</code>.
                         </span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="authType">Authentication</label>
-                        <select id="authType" name="authType" class="ep-input">
+                        <select id="authType" name="authType" class="ep-select">
                             <option value="NONE">None (public catalog)</option>
                             <option value="BEARER">Bearer Token</option>
                             <option value="API_KEY">API Key</option>
@@ -226,7 +228,7 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">Catalog type</label>
-                        <div class="catalog-radio-group">
+                        <div class="catalog-radio-group ep-mt-2">
                             <label class="catalog-radio-label">
                                 <input type="radio" name="catalogType" value="AUTHORED" checked />
                                 Authored
@@ -236,11 +238,11 @@
                                 Subscribed (read-only)
                             </label>
                         </div>
-                        <span class="form-hint">Authored catalogs can be edited. Subscribed catalogs are read-only.</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Authored catalogs can be edited. Subscribed catalogs are read-only.</span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label">If this catalog already exists (Authored)</label>
-                        <div class="catalog-radio-group">
+                        <div class="catalog-radio-group ep-mt-2">
                             <label class="catalog-radio-label">
                                 <input type="radio" name="authoredMode" value="MERGE" checked />
                                 Merge
@@ -250,14 +252,14 @@
                                 Replace
                             </label>
                         </div>
-                        <span class="form-hint">Merge: update from the ZIP, keep resources you have locally that the ZIP doesn't. Replace: make the catalog exactly the ZIP (deletes local-only resources). Ignored for new or subscribed catalogs; your release history is never changed.</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Merge: update from the ZIP, keep resources you have locally that the ZIP doesn't. Replace: make the catalog exactly the ZIP (deletes local-only resources). Ignored for new or subscribed catalogs; your release history is never changed.</span>
                     </div>
                     <div class="form-group">
                         <label class="catalog-radio-label">
                             <input type="checkbox" name="onStencilConflict" value="RENUMBER" />
                             Allow renumber on stencil version conflict
                         </label>
-                        <span class="form-hint">Only for Authored Merge. If a stencil version in the ZIP collides with a different existing one, install the new content at the next version number and rewrite this ZIP's template pins to match. Without this, conflicts abort the import.</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Only for Authored Merge. If a stencil version in the ZIP collides with a different existing one, install the new content at the next version number and rewrite this ZIP's template pins to match. Without this, conflicts abort the import.</span>
                     </div>
                 </div>
                 <div class="ep-dialog-footer">
@@ -341,16 +343,16 @@
                     <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
                     <div class="form-group">
                         <span class="ep-label">Current published version</span>
-                        <p class="release-version-row">
+                        <p class="ep-mt-1">
                             <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
                             <strong th:if="${status.latestVersion == null}" class="catalog-muted">none — not published yet</strong>
-                            <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
-                            <span class="form-hint" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
+                            <span class="ep-text-xs ep-text-muted ep-mt-1" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
+                            <span class="ep-text-xs ep-text-muted ep-mt-1" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
                         </p>
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>
-                        <div class="catalog-bump-row">
+                        <div class="catalog-bump-row ep-mt-1">
                             <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                     th:attr="data-version=${status.suggestedNext.patch}"
                                     th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
@@ -367,11 +369,11 @@
                         <input type="text" id="release-version" name="version" class="ep-input"
                                required pattern="^\d+\.\d+\.\d+$"
                                th:value="${status.suggestedNext.patch}">
-                        <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Semantic version: MAJOR.MINOR.PATCH</span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="release-notes">Release notes</label>
-                        <textarea id="release-notes" name="notes" class="ep-input" rows="3"
+                        <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
                                   placeholder="What changed in this release?"></textarea>
                     </div>
                 </div>
@@ -401,11 +403,11 @@
                 <div class="alert alert-error">
                     <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                     <div>
-                        <div class="alert-title">
+                        <div class="alert-title ep-mb-1">
                             Stencil version-pins in catalog '<span th:text="${catalogId}"></span>'
                             are out of sync with the latest published version.
                         </div>
-                        <p class="catalog-alert-body">
+                        <p class="ep-mt-1">
                             The export only ships the latest published version of each stencil. Templates
                             that pin a different (or older) version would not resolve in the target.
                             Republish the templates against the latest version of each stencil below
@@ -416,7 +418,7 @@
 
                 <div class="form-group">
                     <span class="ep-label">Affected stencils</span>
-                    <ul class="catalog-conflict-list">
+                    <ul class="catalog-conflict-list ep-mt-1">
                         <li th:each="s : ${stencilVersionExportConflicts}">
                             <strong th:text="${s.name}"></strong>
                             (<span class="catalog-muted" th:text="${s.slug}"></span>)
@@ -441,17 +443,17 @@
         <div class="alert alert-error">
             <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
             <div>
-                <div class="alert-title">
+                <div class="alert-title ep-mb-1">
                     Import blocked: stencil version conflicts in catalog '<span th:text="${catalogId}"></span>'.
                 </div>
-                <p class="catalog-alert-body">
+                <p class="ep-mt-1">
                     Some stencil versions in the ZIP already exist in the target catalog with different content.
                     Either fix this at the source (republish the source catalog so the conflicting versions match),
                     or re-upload here with <strong>Allow renumber on stencil version conflict</strong> enabled —
                     the new content will install at the next available version number and the ZIP's template pins
                     will be rewritten to match.
                 </p>
-                <ul class="catalog-conflict-list">
+                <ul class="catalog-conflict-list ep-mt-1">
                     <li th:each="s : ${stencilImportConflicts}">
                         <strong th:text="${s.name}"></strong>
                         (<span class="catalog-muted" th:text="${s.slug}"></span>)
@@ -476,13 +478,13 @@
               th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
 
         <span th:case="'UP_TO_DATE'" title="Up to date"
-              class="catalog-up-to-date"
+              class="ep-text-success ep-font-medium"
               th:text="${installedVersion != null ? 'v' + installedVersion : 'Up to date'}">v1.0.0</span>
 
         <span th:case="'UPDATE_AVAILABLE'"
               class="catalog-version-row">
             <span class="catalog-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '—'}">v1.0.0</span>
-            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm catalog-bump-btn" 
+            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-font-medium" 
                     th:title="${'Update available' + (availableVersion != null ? ' — v' + availableVersion : '') + '. Review the changes before applying.'}"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
@@ -492,12 +494,12 @@
         <span th:case="'ZIP_MANAGED'" class="catalog-muted"
               title="ZIP-managed — no source URL. Import a newer ZIP as a Subscribed catalog to upgrade it.">
             <span th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
-            <span class="catalog-zip-label">· ZIP</span>
+            <span class="ep-text-xs">· ZIP</span>
         </span>
 
         <span th:case="'CHECK_FAILED'" title="Could not reach the source — try again later">
             <span class="catalog-muted" th:text="${installedVersion != null ? 'v' + installedVersion : '-'}">-</span>
-            <span class="catalog-muted catalog-check-failed">· check failed</span>
+            <span class="catalog-muted ep-text-xs">· check failed</span>
         </span>
 
         <span th:case="*" class="catalog-muted"
@@ -520,7 +522,7 @@
                     <th:block th:if="${diff != null}">
                         <div class="form-group">
                             <span class="ep-label">Version</span>
-                            <p class="upgrade-version-row">
+                            <p class="ep-mt-1">
                                 <strong th:text="${diff.previousVersion != null ? 'v' + diff.previousVersion : '—'}"></strong>
                                 →
                                 <strong th:text="${'v' + diff.newVersion}"></strong>
@@ -529,7 +531,7 @@
 
                         <div class="alert alert-danger" th:if="${diff.hasConflicts}">
                             <strong>Cannot apply — resources are still in use:</strong>
-                            <ul class="upgrade-conflict-list">
+                            <ul class="upgrade-conflict-list ep-mt-1">
                                 <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>
                             </ul>
                         </div>
@@ -540,15 +542,15 @@
 
                         <div class="form-group" th:if="${diff.hasChanges}">
                             <span class="ep-label">Changes</span>
-                            <ul class="upgrade-changes-list">
+                            <ul class="upgrade-changes-list ep-mt-1">
                                 <li th:if="${!diff.changed.isEmpty()}">
                                     <strong th:text="${diff.changed.size()}"></strong> changed
-                                    <span class="form-hint"
+                                    <span class="ep-text-xs ep-text-muted ep-mt-1"
                                           th:text="${'(' + #strings.listJoin(diff.changed.![type + '/' + slug], ', ') + ')'}"></span>
                                 </li>
                                 <li th:if="${!diff.removed.isEmpty()}">
                                     <strong th:text="${diff.removed.size()}"></strong> removed
-                                    <span class="form-hint"
+                                    <span class="ep-text-xs ep-text-muted ep-mt-1"
                                           th:text="${'(' + #strings.listJoin(diff.removed.![type + '/' + slug], ', ') + ')'}"></span>
                                 </li>
                                 <li th:if="${!diff.added.isEmpty()}">
@@ -562,14 +564,14 @@
 
                         <div class="form-group" th:if="${!diff.added.isEmpty()}">
                             <span class="ep-label">Also install new resources</span>
-                            <div class="upgrade-new-resources">
+                            <div class="upgrade-new-resources ep-mt-1">
                                 <label th:each="a : ${diff.added}"
                                        class="catalog-radio-label">
                                     <input type="checkbox" name="newSlugs" th:value="${a.slug}" />
                                     <span th:text="${a.type} + '/' + ${a.slug}"></span>
                                 </label>
                             </div>
-                            <span class="form-hint">By default an upgrade only updates resources you already installed.</span>
+                            <span class="ep-text-xs ep-text-muted ep-mt-1">By default an upgrade only updates resources you already installed.</span>
                         </div>
                     </th:block>
                 </div>

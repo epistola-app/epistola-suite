@@ -5,29 +5,29 @@
         <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
         <script th:src="@{/js/pdf-preview.js}"></script>
 
-        <div class="page-header">
+        <section class="page-header">
             <div>
-                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
+                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link ep-text-xs ep-text-muted ep-mb-1">&larr; Templates</a>
                 <h1 data-testid="page-title" th:text="${template.name}">Template Name</h1>
-                <p th:if="${!editable}" class="readonly-notice">
+                <p th:if="${!editable}" class="ep-text-sm ep-text-muted ep-mt-1">
                     <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
                 </p>
             </div>
-        </div>
+        </section>
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'variants'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'variants'} ? ' active'"
                data-testid="template-tab" data-tab-name="variants">Variants</a>
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/deployments(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'deployments'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'deployments'} ? ' active'"
                data-testid="template-tab" data-tab-name="deployments">Deployments</a>
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'data-contract'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'data-contract'} ? ' active'"
                data-testid="template-tab" data-tab-name="data-contract">Data Contract</a>
             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/settings(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-               class="tab-nav-item" th:classappend="${activeTab == 'settings'} ? ' active'"
+               class="tab-nav-item ep-font-medium ep-text-sm ep-text-muted" th:classappend="${activeTab == 'settings'} ? ' active'"
                data-testid="template-tab" data-tab-name="settings">Settings</a>
         </div>
 
@@ -41,7 +41,7 @@
     <!-- Fragment: edit variant form (loaded into dialog via HTMX) -->
     <th:block th:fragment="edit-variant-form">
         <div class="ep-dialog-header">
-            <h3>Edit Variant: <code th:text="${variant.id}"></code></h3>
+            <h3>Edit Variant: <code class="ep-code" th:text="${variant.id}"></code></h3>
         </div>
         <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
               hx-target="#variants-section"
@@ -58,13 +58,13 @@
                      template stays Thymeleaf-simple. -->
                 <div th:if="${attributeDescriptors != null and !#lists.isEmpty(attributeDescriptors)}"
                      id="edit-attr-rows" data-attr-rows>
-                    <div class="form-group" th:each="d : ${attributeDescriptors}"
+                    <div class="form-group form-group-hidden" th:each="d : ${attributeDescriptors}"
                          th:data-attr-row="${d.qualifiedKey}"
                          th:with="hasValue=${(presentQualifiedKeys != null and presentQualifiedKeys.contains(d.qualifiedKey)) or (presentRawKeys != null and presentRawKeys.contains(d.bareSlug))}"
                            th:data-hidden="${hasValue ? 'false' : 'true'}">
                         <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
                             <span th:text="${d.displayName}"></span>
-                            <code class="attr-qualified-key" 
+                            <code class="ep-code ep-code-muted ep-code-xs ep-code-suffix" 
                                   th:text="${d.qualifiedKey}"></code>
                         </label>
                         <select th:id="'edit-attr_' + ${d.qualifiedKey}"
@@ -77,7 +77,7 @@
                         </select>
                     </div>
                     <!-- Add-attribute picker. -->
-                    <div class="form-group" data-add-attr-picker>
+                    <div class="form-group form-group-inline" data-add-attr-picker>
                         <label class="ep-label" for="edit-add-attr">Add attribute</label>
                         <div class="add-attr-row">
                             <select id="edit-add-attr" class="ep-select" data-add-attr-select>

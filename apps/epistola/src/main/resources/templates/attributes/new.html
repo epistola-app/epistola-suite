@@ -2,18 +2,20 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}">Attributes</a> &raquo; <span>New Attribute</span>
         </nav>
 
-        <h1>New Attribute</h1>
+        <section class="page-header">
+            <h1>New Attribute</h1>
+        </section>
 
-        <div class="card create-form-card">
+        <section class="card">
             <div class="card-content">
                 <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input">
+                        <select id="catalog" name="catalog" class="ep-select">
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"
@@ -25,7 +27,7 @@
                         <input type="text" id="displayName" name="displayName" class="ep-input"
                                required placeholder="Language" data-slug-source="slug"
                                th:value="${formData?.displayName}">
-                        <span class="form-error" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
                     </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
                         <label class="ep-label" for="slug">Attribute ID (Slug)</label>
@@ -34,12 +36,12 @@
                                minlength="3" maxlength="50"
                                placeholder="language"
                                th:value="${formData?.slug}">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label">Value constraint</label>
-                        <div role="radiogroup" class="constraint-radio-group">
+                        <div role="radiogroup" class="constraint-radio-group ep-mt-2">
                             <label>
                                 <input type="radio" name="constraintKind" value="free"
                                        th:checked="${formData?.constraintKind == null or formData?.constraintKind == 'free'}"
@@ -60,32 +62,6 @@
                             </label>
                         </div>
                     </div>
-                    <style>
-                        /* Local radio sizing: base.css applies `font: inherit` to all inputs,
-                           which makes browsers scale radio glyphs with the surrounding font-size.
-                           Pin radios to a 1rem square so they look right anywhere in this form. */
-                        .constraint-radio-group {
-                            display: flex;
-                            flex-direction: column;
-                            gap: var(--ep-space-2);
-                            margin-top: var(--ep-space-2);
-                        }
-                        .constraint-radio-group label {
-                            display: flex;
-                            align-items: center;
-                            gap: var(--ep-space-2);
-                            font-size: var(--ep-text-sm);
-                            cursor: pointer;
-                        }
-                        .constraint-radio-group input[type="radio"] {
-                            width: 1rem;
-                            height: 1rem;
-                            flex: 0 0 1rem;
-                            margin: 0;
-                            font-size: 1rem;
-                        }
-                    </style>
-
                     <div class="form-group constraint-pane constraint-pane-inline"
                          th:classappend="${errors?.containsKey('allowedValues')} ? 'error' : ''"
                          data-constraint-pane="inline" hidden>
@@ -93,14 +69,14 @@
                         <textarea id="allowedValues" name="allowedValues" class="ep-textarea" rows="4"
                                   placeholder="dutch&#10;english&#10;german"
                                   th:text="${formData?.allowedValues}"></textarea>
-                        <span class="form-hint">Each line becomes one allowed value. Order does not matter.</span>
-                        <span class="form-error" th:if="${errors?.containsKey('allowedValues')}" th:text="${errors.allowedValues}"></span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Each line becomes one allowed value. Order does not matter.</span>
+                        <span class="ep-text-sm ep-text-destructive ep-mt-1" th:if="${errors?.containsKey('allowedValues')}" th:text="${errors.allowedValues}"></span>
                     </div>
 
                     <div class="form-group constraint-pane constraint-pane-code-list"
                          data-constraint-pane="code-list" hidden>
                         <label class="ep-label" for="codeList">Code list</label>
-                        <select id="codeList" name="codeList" class="ep-input">
+                        <select id="codeList" name="codeList" class="ep-select">
                             <option value="">&mdash; Select a code list &mdash;</option>
                             <th:block th:each="cl : ${codeLists}">
                                 <option th:value="${cl.catalogKey + '/' + cl.slug}"
@@ -108,7 +84,7 @@
                                         th:selected="${formData?.codeList == cl.catalogKey + '/' + cl.slug}"></option>
                             </th:block>
                         </select>
-                        <span class="form-hint">Variant values must match an entry of this code list. Hidden entries are still accepted.</span>
+                        <span class="ep-text-xs ep-text-muted ep-mt-1">Variant values must match an entry of this code list. Hidden entries are still accepted.</span>
                     </div>
                     <script>
                     (function () {
@@ -125,13 +101,13 @@
                         refresh();
                     })();
                     </script>
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Attribute</button>
                         <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
     </th:block>
 </body>
 </html>

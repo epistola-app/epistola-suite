@@ -1,0 +1,37 @@
+/*
+ * Template Settings Page
+ *
+ * PDF/A toggle, stencil label, template name, attribute rows.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+/* PDF/A toggle */
+.pdfa-toggle-checkbox {
+  margin-top: 3px;
+  width: auto;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.pdfa-toggle-label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ep-space-3);
+  cursor: pointer;
+}
+
+.pdfa-toggle-description {
+  display: block;
+  margin-top: 2px;
+}
+
+/* Template name input */
+.template-name-input {
+  max-width: 300px;
+}
+
+.add-attr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}

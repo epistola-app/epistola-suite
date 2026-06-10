@@ -2,18 +2,20 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}">Assets</a> &raquo; <span>Upload Asset</span>
         </nav>
 
-        <h1>Upload Asset</h1>
+        <section class="page-header">
+            <h1>Upload Asset</h1>
+        </section>
 
-        <div class="card create-form-card">
+        <section class="card">
             <div class="card-content">
                 <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input" required>
+                        <select id="catalog" name="catalog" class="ep-select" required>
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"></option>
@@ -21,32 +23,32 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label">Image file</label>
-                        <div id="asset-upload-zone" class="asset-upload-zone"
+                        <div id="asset-upload-zone" class="asset-upload-zone ep-mb-6"
                              ondragover="event.preventDefault(); this.classList.add('dragover')"
                              ondragleave="this.classList.remove('dragover')"
                              ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event)">
-                            <div class="asset-upload-content">
+                            <div class="ep-text-muted">
                                 <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
-                                <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
-                                <p class="upload-hint">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
+                                <p>Drag and drop an image here or <label class="ep-text-primary ep-font-medium" for="asset-file-input">browse</label></p>
+                                <p class="ep-text-sm ep-text-muted">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
                             </div>
                             <input type="file" id="asset-file-input" name="file"
                                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
                                     class="file-input-hidden"
                                     required />
                         </div>
-                        <div id="file-preview" class="file-preview" data-hidden="true">
+                        <div id="file-preview" class="ep-mt-3" data-hidden="true">
                             <span id="file-name"></span>
                         </div>
-                        <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
+                        <span id="asset-upload-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:text="${error}"></span>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
                         <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
 
         <script>
             var uploadForm = document.getElementById('asset-upload-form');

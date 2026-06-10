@@ -1,0 +1,26 @@
+/*
+ * Stencil Pages
+ *
+ * Stencil list, detail, upgrade.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.stencil-upgrade-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-3);
+}
+
+.usage-row-subscribed {
+  opacity: 0.5;
+}
+
+.stencil-upgrade-label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.stencil-upgrade-select {
+  width: auto;
+  min-width: 10rem;
+}

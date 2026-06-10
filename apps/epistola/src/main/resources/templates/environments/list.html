@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Environments</h1>
             <div class="page-actions">
                 <div th:replace="~{fragments/search :: search-box(
@@ -16,26 +16,26 @@
                     New Environment
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(environments)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No environments yet</div>
             <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Environment
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>ID</th>
+                    <th class="ep-table-truncate">Name</th>
+                    <th class="ep-table-truncate">ID</th>
                     <th>Created</th>
                     <th></th>
                 </tr>
@@ -43,8 +43,8 @@
             <tbody id="environment-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="env : ${environments}">
-                        <td class="env-name" th:text="${env.name}"></td>
-                        <td><code th:text="${env.id}" class="env-id"></code></td>
+                        <td class="ep-table-truncate ep-font-medium" th:text="${env.name}" th:title="${env.name}"></td>
+                        <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${env.id}" th:title="${env.id}"></code></td>
                         <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <button type="button"

@@ -131,7 +131,7 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         fun `close button is positioned to the right of the title`() {
             openFeedbackDialog()
 
-            val header = page.locator(".ep-dialog-header")
+            val header = page.locator("#feedback-fab-dialog .ep-dialog-header")
             val title = header.locator("h2")
             val closeButton = header.locator("button")
 

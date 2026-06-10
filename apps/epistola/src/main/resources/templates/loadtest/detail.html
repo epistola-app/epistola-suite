@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
             <span th:text="${'Test ' + run.id}">Test Details</span>
         </nav>
 
-        <div class="page-header">
+        <section class="page-header">
             <h1>
                 Load Test
                 <span class="badge"
@@ -27,23 +27,23 @@
                 <form th:if="${run.status.name() == 'RUNNING'}"
                       th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
                       method="post"
-                      class="loadtest-cancel-form">
+                      class="ep-inline">
                     <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
                 </form>
             </div>
-        </div>
+        </section>
 
         <!-- Configuration -->
-        <div class="detail-section">
-            <div class="detail-section-header">
+        <section class="card page-section">
+            <div class="card-header-row">
                 <h2>Configuration</h2>
             </div>
-            <div class="detail-section-body">
+            <div class="card-content">
                 <dl class="description-list">
                     <dt>Template</dt>
                     <dd>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <code class="run-template-key" th:text="${run.templateKey}" ></code>
+                        <code class="ep-code ep-code-muted ep-code-xs" th:text="${run.templateKey}" ></code>
                     </dd>
                     <dt>Variant</dt>
                     <dd th:text="${run.variantKey}"></dd>
@@ -51,9 +51,9 @@
                     <dd>
                         <span th:if="${run.versionKey != null}" th:text="${run.versionKey}"></span>
                         <span th:if="${run.environmentKey != null}">
-                            Environment: <code th:text="${run.environmentKey}"></code>
+                            Environment: <code class="ep-code" th:text="${run.environmentKey}"></code>
                         </span>
-                        <span th:if="${run.versionKey == null and run.environmentKey == null}" class="run-empty-value">-</span>
+                        <span th:if="${run.versionKey == null and run.environmentKey == null}" class="ep-text-muted">-</span>
                     </dd>
                     <dt>Target Count</dt>
                     <dd th:text="${run.targetCount}"></dd>
@@ -65,26 +65,26 @@
                     <dd th:if="${run.completedAt != null}" th:text="${#temporals.format(run.completedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
                 </dl>
             </div>
-        </div>
+        </section>
 
         <!-- Metrics section (polled for updates when RUNNING) -->
-        <div id="metrics-section"
+        <section id="metrics-section"
              th:fragment="metrics-section"
              th:hx-get="${run.status.name() == 'RUNNING'} ? @{/tenants/{tenantId}/load-tests/{runId}/metrics(tenantId=${tenantId},runId=${run.id})} : ''"
              th:hx-trigger="${run.status.name() == 'RUNNING'} ? 'every 2s' : ''"
              hx-swap="outerHTML">
 
             <!-- Progress (shown when RUNNING) -->
-            <div th:if="${run.status.name() == 'RUNNING'}" class="detail-section">
-                <div class="detail-section-header">
+            <div th:if="${run.status.name() == 'RUNNING'}" class="card page-section">
+                <div class="card-header-row">
                     <h2>Progress</h2>
-                    <span class="run-progress-label">
+                    <span class="run-progress-label ep-text-sm ep-text-muted">
                         <strong th:text="${run.completedCount + run.failedCount}"></strong> /
                         <strong th:text="${run.targetCount}"></strong>
                         (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
                     </span>
                 </div>
-                <div class="detail-section-body">
+                <div class="card-content">
                     <div class="progress-container">
                         <div class="progress-bar"
                              th:style="'--ep-bar-width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
@@ -94,90 +94,90 @@
             </div>
 
             <!-- Results (shown when COMPLETED or FAILED) -->
-            <div th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="detail-section">
-                <div class="detail-section-header">
+            <section th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="card page-section">
+                <div class="card-header-row">
                     <h2>Results</h2>
                 </div>
-                <div class="detail-section-body">
-                    <div class="dashboard-stats">
-                        <div class="stat-card">
-                            <div class="stat-card-value" th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></div>
-                            <div class="stat-card-label">Requests</div>
+                <div class="card-content">
+                    <div class="stats-grid">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1" th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></div>
+                            <div class="ep-text-sm ep-text-muted">Requests</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.successRatePercent != null}"
                                       th:text="${#numbers.formatDecimal(run.successRatePercent, 1, 1)} + '%'"></span>
                                 <span th:unless="${run.successRatePercent != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Success Rate</div>
+                            <div class="ep-text-sm ep-text-muted">Success Rate</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.avgResponseTimeMs != null}"
                                       th:text="${#numbers.formatDecimal(run.avgResponseTimeMs, 1, 0)} + ' ms'"></span>
                                 <span th:unless="${run.avgResponseTimeMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Avg Response Time</div>
+                            <div class="ep-text-sm ep-text-muted">Avg Response Time</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.requestsPerSecond != null}"
                                       th:text="${#numbers.formatDecimal(run.requestsPerSecond, 1, 2)}"></span>
                                 <span th:unless="${run.requestsPerSecond != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Requests/sec</div>
+                            <div class="ep-text-sm ep-text-muted">Requests/sec</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.p50ResponseTimeMs != null}"
                                       th:text="${run.p50ResponseTimeMs} + ' ms'"></span>
                                 <span th:unless="${run.p50ResponseTimeMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">p50 (Median)</div>
+                            <div class="ep-text-sm ep-text-muted">p50 (Median)</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.p95ResponseTimeMs != null}"
                                       th:text="${run.p95ResponseTimeMs} + ' ms'"></span>
                                 <span th:unless="${run.p95ResponseTimeMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">p95</div>
+                            <div class="ep-text-sm ep-text-muted">p95</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.p99ResponseTimeMs != null}"
                                       th:text="${run.p99ResponseTimeMs} + ' ms'"></span>
                                 <span th:unless="${run.p99ResponseTimeMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">p99</div>
+                            <div class="ep-text-sm ep-text-muted">p99</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}"
                                       th:text="${run.minResponseTimeMs + ' / ' + run.maxResponseTimeMs + ' ms'}"></span>
                                 <span th:unless="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Min / Max</div>
+                            <div class="ep-text-sm ep-text-muted">Min / Max</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-card-value">
+                        <div class="card card-interactive ep-p-5">
+                            <div class="stat-card-value ep-text-2xl ep-font-semibold ep-mb-1">
                                 <span th:if="${run.totalDurationMs != null}"
                                       th:text="${#numbers.formatDecimal(run.totalDurationMs / 1000.0, 1, 2)} + ' sec'"></span>
                                 <span th:unless="${run.totalDurationMs != null}">-</span>
                             </div>
-                            <div class="stat-card-label">Total Duration</div>
+                            <div class="ep-text-sm ep-text-muted">Total Duration</div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Error Summary (if any failures) -->
-            <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="detail-section">
-                <div class="detail-section-header">
+            <section th:if="${run.failedCount > 0 and run.errorSummary != null}" class="card page-section">
+                <div class="card-header-row">
                     <h2>Error Summary</h2>
                 </div>
-                <div class="detail-section-body no-padding">
+                <div class="card-content flush">
                     <table class="ep-table">
                         <thead>
                             <tr>
@@ -193,8 +193,8 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </div>
+            </section>
+        </section>
     </th:block>
 </body>
 </html>

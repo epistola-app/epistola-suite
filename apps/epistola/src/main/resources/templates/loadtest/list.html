@@ -2,31 +2,31 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Load Tests</h1>
             <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Load Test
             </a>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(runs)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(runs)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='activity', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No load tests yet</div>
             <div class="empty-state-description">Run a load test to measure document generation performance.</div>
-            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary empty-state-action">
+            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary ep-mt-4">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Load Test
             </a>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(runs)}" class="ep-table">
             <thead>
                 <tr>
                     <th>Started</th>
-                    <th>Template</th>
+                    <th class="ep-table-truncate">Template</th>
                     <th>Status</th>
                     <th>Requests</th>
                     <th>Success Rate</th>
@@ -38,9 +38,9 @@
                 <tr th:each="run : ${runs}">
                     <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td>
-                        <strong th:text="${run.templateKey}"></strong>
-                        <span class="template-separator">/</span>
-                        <span th:text="${run.variantKey}"></span>
+                        <span class="ep-table-truncate"
+                              th:title="${run.templateKey + ' / ' + run.variantKey}"
+                              th:text="${run.templateKey + ' / ' + run.variantKey}"></span>
                     </td>
                     <td>
                         <span class="badge"
@@ -53,7 +53,7 @@
                     </td>
                     <td>
                         <span th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></span>
-                            <span th:if="${run.status.name() == 'RUNNING'}" class="progress-percent">
+                            <span th:if="${run.status.name() == 'RUNNING'}" class="ep-text-muted">
                                 (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
                             </span>
                     </td>

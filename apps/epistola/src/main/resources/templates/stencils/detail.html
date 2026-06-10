@@ -2,33 +2,35 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <div>
-                <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" class="back-link">&larr; Stencils</a>
+                <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" class="back-link ep-text-xs ep-text-muted ep-mb-1">&larr; Stencils</a>
                 <h1 th:text="${stencil.name}">Stencil Name</h1>
-                <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="stencil-readonly-notice">
+                <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="ep-text-sm ep-text-muted ep-mt-1">
                     <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
                 </p>
             </div>
-        </div>
+        </section>
 
         <!-- Details -->
-        <div class="detail-section stencil-detail-section">
-            <div class="detail-section-body">
+        <section class="card page-section">
+            <div class="card-content">
                 <dl class="description-list">
                     <dt>ID</dt>
-                    <dd><code th:text="${stencil.id}"></code></dd>
+                    <dd><code class="ep-code" th:text="${stencil.id}"></code></dd>
                     <dt>Catalog</dt>
-                    <dd><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></dd>
+                    <dd><code class="ep-code" th:text="${stencil.catalogKey}"></code></dd>
                     <dt>Description</dt>
                     <dd>
                         <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
-                        <span th:unless="${stencil.description != null}" class="stencil-empty">No description</span>
+                        <span th:unless="${stencil.description != null}" class="ep-text-muted">No description</span>
                     </dd>
                     <dt>Tags</dt>
                     <dd>
-                        <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge badge-outline stencil-tag" th:text="${tag}"></span>
-                        <span th:if="${stencil.tags.isEmpty()}" class="stencil-empty">No tags</span>
+                        <div th:if="${!stencil.tags.isEmpty()}" class="tags">
+                            <span th:each="tag : ${stencil.tags}" class="badge badge-outline ep-table-truncate" th:title="${tag}" th:text="${tag}"></span>
+                        </div>
+                        <span th:if="${stencil.tags.isEmpty()}" class="ep-text-muted">No tags</span>
                     </dd>
                     <dt>Created</dt>
                     <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
@@ -36,29 +38,29 @@
                     <dd th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
                 </dl>
             </div>
-        </div>
+        </section>
 
         <!-- Versions section -->
-        <div class="detail-section">
-            <div class="detail-section-header">
+        <section class="card page-section">
+            <div class="card-header-row">
                 <h3>Versions</h3>
             </div>
-            <div class="detail-section-body" id="version-list">
+            <div class="card-content" id="version-list">
                 <th:block th:fragment="versions">
-                    <div th:if="${#lists.isEmpty(versions)}" class="empty-state stencil-empty-state">
+                    <div th:if="${#lists.isEmpty(versions)}" class="empty-state ep-p-6">
                         <div class="empty-state-title">No versions yet</div>
                         <div class="empty-state-description">Add a stencil block in the template editor to create content.</div>
                     </div>
 
                     <div th:if="${!#lists.isEmpty(versions)}">
                         <!-- New Draft button when no draft exists -->
-                        <div th:if="${auth.has('STENCIL_EDIT') and stencil.catalogType.name() == 'AUTHORED'}" class="stencil-draft-actions">
+                        <div th:if="${auth.has('STENCIL_EDIT') and stencil.catalogType.name() == 'AUTHORED'}" class="ep-mb-3">
                             <th:block th:with="hasDraft=${versions.?[status.name() == 'DRAFT'].size() > 0}">
                                 <form th:unless="${hasDraft}"
                                       th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
                                       hx-target="#version-list"
                                       hx-swap="innerHTML"
-                                       class="stencil-inline-form">
+                                       class="form-inline">
                                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">
                                         <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                                         New Draft
@@ -67,14 +69,14 @@
                             </th:block>
                         </div>
 
-                        <table class="ep-table ep-table-compact">
+                        <table class="ep-table ep-table-dense">
                             <thead>
                                 <tr>
-                                    <th>Version</th>
-                                    <th>Status</th>
-                                    <th>Created</th>
-                                    <th>Published</th>
-                                    <th></th>
+                                    <th scope="col">Version</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Created</th>
+                                    <th scope="col">Published</th>
+                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -88,19 +90,19 @@
                                     <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                                     <td>
                                         <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                                        <span th:unless="${version.publishedAt != null}" class="stencil-empty">-</span>
+                                        <span th:unless="${version.publishedAt != null}" class="ep-text-muted">-</span>
                                     </td>
                                     <td class="actions">
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
-                                              hx-target="#version-list" hx-swap="innerHTML" class="stencil-inline-form">
+                                              hx-target="#version-list" hx-swap="innerHTML" class="form-inline">
                                             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" title="Publish">Publish</button>
                                         </form>
                                         <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
                                               th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
                                               hx-target="#version-list" hx-swap="innerHTML"
                                               hx-confirm="Archive version? It will no longer be available for insertion into templates."
-                                              class="stencil-inline-form">
+                                              class="form-inline">
                                             <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Archive">Archive</button>
                                         </form>
                                     </td>
@@ -110,14 +112,14 @@
                     </div>
                 </th:block>
             </div>
-        </div>
+        </section>
 
         <!-- Usage section -->
-        <div class="detail-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
-            <div class="detail-section-header">
+        <section class="card page-section" th:if="${usage != null and !#lists.isEmpty(usage)}">
+            <div class="card-header-row">
                 <h3>Templates using this stencil</h3>
             </div>
-            <div class="detail-section-body" id="usage-list">
+            <div class="card-content" id="usage-list">
                 <th:block th:fragment="usage">
                     <!-- Toolbar: version picker + apply button -->
                     <div th:if="${auth.has('TEMPLATE_EDIT')}" class="stencil-upgrade-bar">
@@ -142,19 +144,19 @@
                         <span id="upgrade-status" class="stencil-upgrade-status"></span>
                     </div>
 
-                    <table class="ep-table ep-table-compact">
+                    <table class="ep-table ep-table-dense">
                         <thead>
                             <tr>
-                                <th class="table-checkbox-col">
+                                <th class="ep-table-col-checkbox" scope="col">
                                     <input type="checkbox" id="select-all-usage" onchange="toggleSelectAll(this.checked)" title="Select all editable draft rows">
                                 </th>
-                                <th>Template</th>
-                                <th>Catalog</th>
-                                <th>Variant</th>
-                                <th>Version</th>
-                                <th>Status</th>
-                                <th>Stencil Version</th>
-                                <th>Instances</th>
+                                <th scope="col" class="ep-table-truncate">Template</th>
+                                <th scope="col">Catalog</th>
+                                <th scope="col">Variant</th>
+                                <th scope="col">Version</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Stencil Version</th>
+                                <th scope="col">Instances</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -172,9 +174,9 @@
                                 </td>
                                 <td>
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
-                                        th:text="${u.templateName}" class="stencil-usage-link"></a>
+                                         th:text="${u.templateName}" th:title="${u.templateName}" class="ep-table-truncate ep-font-medium"></a>
                                 </td>
-                                <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>
+                                <td><code class="ep-code" th:text="${u.catalogKey}"></code></td>
                                 <td th:text="${u.variantId}"></td>
                                 <td th:text="'v' + ${u.versionId}"></td>
                                 <td>
@@ -270,7 +272,7 @@
                     </script>
                 </th:block>
             </div>
-        </div>
+        </section>
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
 </body>

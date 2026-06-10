@@ -1,0 +1,106 @@
+/*
+ * Asset Manager & Font Upload
+ *
+ * Asset grid, upload zone, font face rows, feature toggles.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.asset-upload-zone {
+  border: 2px dashed var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  padding: var(--ep-space-8);
+  text-align: center;
+  transition:
+    border-color var(--ep-transition-base),
+    background-color var(--ep-transition-base);
+  cursor: pointer;
+}
+
+.asset-upload-zone:hover,
+.asset-upload-zone.dragover {
+  border-color: var(--ep-primary);
+  background-color: var(--ep-blue-50);
+}
+
+.asset-upload-content p {
+  margin: var(--ep-space-2) 0 0;
+}
+
+.asset-upload-link:hover {
+  text-decoration: underline;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--ep-space-4);
+}
+
+.asset-card {
+  overflow: hidden;
+}
+
+.asset-card-preview {
+  aspect-ratio: 4 / 3;
+  background-color: var(--ep-gray-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.asset-card-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.asset-card-meta span:not(:last-child)::after {
+  content: '\00b7';
+  margin-left: var(--ep-space-2);
+}
+
+.asset-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--ep-space-3) var(--ep-space-2);
+}
+
+/* Feature toggle items (asset/font list pages) */
+.feature-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-4);
+  padding: var(--ep-space-3) 0;
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.feature-toggle-item:last-of-type {
+  border-bottom: none;
+}
+
+.feature-toggle-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-toggle-name {
+  color: var(--ep-foreground);
+}
+
+/* Font face rows */
+.font-face-row {
+  display: flex;
+  gap: var(--ep-space-2);
+  align-items: flex-end;
+}
+
+.font-face-field {
+  flex: 1;
+}
+
+.font-face-field--file {
+  flex: 2;
+}

@@ -6,58 +6,11 @@
     <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
     <th:block th:replace="~{fragments/htmx :: htmx}" />
-    <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
     <!-- AI plugin CSS — loaded conditionally when AI plugin is enabled -->
     <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins != null and enabledPlugins.contains('ai')}">
     <!-- TODO: Remove static fallback once backend provides enabledPlugins -->
     <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins == null}">
-    <style>
-        .editor-page {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-        .editor-container {
-            flex: 1;
-            overflow: hidden;
-            width: 100%;
-        }
-        .editor-nav {
-            height: 48px;
-            border-bottom: 1px solid var(--ep-border-color);
-            display: flex;
-            align-items: center;
-            padding: 0 var(--ep-space-6);
-            background: var(--ep-white);
-            flex-shrink: 0;
-            gap: var(--ep-space-3);
-        }
-        .editor-nav-back {
-            display: flex;
-            align-items: center;
-            gap: var(--ep-space-2);
-            text-decoration: none;
-            color: var(--ep-foreground);
-            font-weight: 600;
-            font-size: var(--ep-text-sm);
-        }
-        .editor-nav-back:hover {
-            color: var(--ep-primary);
-            text-decoration: none;
-        }
-        .editor-nav-back .ep-icon {
-            color: var(--ep-muted-foreground);
-        }
-        .editor-nav-back:hover .ep-icon {
-            color: var(--ep-primary);
-        }
-        .editor-nav-variant {
-            font-size: var(--ep-text-xs);
-            color: var(--ep-muted-foreground);
-        }
-    </style>
 </head>
 <body class="editor-page">
     <nav class="editor-nav">
@@ -65,7 +18,7 @@
             <th:block th:replace="~{fragments/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
             <span th:text="${templateName}">Template Name</span>
         </a>
-        <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
+        <span class="ep-text-xs ep-text-muted" th:text="'/ ' + ${variantId}"></span>
     </nav>
     <!-- data-leader-timing is a test-only seam (issue #418): present only when
          the ?leaderTiming= query param is supplied; omitted in production. -->

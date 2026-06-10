@@ -2,18 +2,20 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}">Fonts</a> &raquo; <span>Upload Font</span>
         </nav>
 
-        <h1>Upload Font</h1>
+        <section class="page-header">
+            <h1>Upload Font</h1>
+        </section>
 
-        <div class="card create-form-card">
+        <section class="card">
             <div class="card-content">
                 <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input" required>
+                        <select id="catalog" name="catalog" class="ep-select" required>
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"></option>
@@ -24,7 +26,7 @@
                         <input type="text" id="slug" name="slug" class="ep-input"
                                placeholder="acme-sans" pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
                                minlength="2" maxlength="64" required />
-                        <span class="font-form-hint">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
+                        <span class="ep-text-sm ep-text-muted">Lowercase letters, digits, hyphens. 2&ndash;64 chars.</span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="name">Display name</label>
@@ -33,7 +35,7 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="kind">Kind</label>
-                        <select id="kind" name="kind" class="ep-input" required>
+                        <select id="kind" name="kind" class="ep-select" required>
                             <option value="sans">Sans</option>
                             <option value="serif">Serif</option>
                             <option value="mono">Mono</option>
@@ -43,12 +45,12 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="ep-label">Faces <span class="font-form-hint">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
+                        <label class="ep-label">Faces <span class="ep-text-sm ep-text-muted">(TTF or OTF) &mdash; one row per weight/italic face</span></label>
                         <div id="font-faces">
                             <div class="font-face-row form-group">
                                 <div class="font-face-field font-face-field--file">
                                     <label class="ep-label">File</label>
-                                    <input type="file" name="file"
+                                    <input type="file" name="file" class="ep-input"
                                            accept="font/ttf,font/otf,.ttf,.otf" />
                                 </div>
                                 <div class="font-face-field font-face-field--weight">
@@ -58,7 +60,7 @@
                                 </div>
                                 <div class="font-face-field font-face-field--italic">
                                     <label class="ep-label">Italic</label>
-                                    <select name="italic" class="ep-input">
+                                    <select name="italic" class="ep-select">
                                         <option value="false">No</option>
                                         <option value="true">Yes</option>
                                     </select>
@@ -66,15 +68,15 @@
                             </div>
                         </div>
                         <button type="button" id="add-face-btn" class="ep-btn ep-btn-outline ep-btn-sm">+ Add face</button>
-                        <span id="font-upload-error" class="form-error" th:text="${error}"></span>
+                        <span id="font-upload-error" class="ep-text-sm ep-text-destructive ep-mt-1" th:text="${error}"></span>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions ep-mt-6">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Upload</button>
                         <a th:href="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
                     </div>
                 </form>
             </div>
-        </div>
+        </section>
 
         <script>
             var fontFaces = document.getElementById('font-faces');

@@ -2,19 +2,19 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
+        <nav class="breadcrumb ep-mb-4 ep-text-sm ep-text-muted">
             <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Catalogs</a>
             &raquo; <span th:text="${catalog.name}"></span>
         </nav>
 
         <h1 th:text="${catalog.name}"></h1>
-        <p th:if="${catalog.sourceUrl}" class="catalog-meta" th:text="${catalog.sourceUrl}"></p>
-        <p th:if="${catalog.description}" class="catalog-meta" th:text="${catalog.description}"></p>
+        <p th:if="${catalog.sourceUrl}" class="ep-text-sm ep-text-muted" th:text="${catalog.sourceUrl}"></p>
+        <p th:if="${catalog.description}" class="ep-text-sm ep-text-muted" th:text="${catalog.description}"></p>
 
         <div id="catalog-alert"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
-            <div class="card-header catalog-resources-header">
+            <div class="card-header-row catalog-resources-header">
                 <h2>Resources</h2>
                 <!-- Install All only for subscribed catalogs -->
                 <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"
@@ -29,9 +29,9 @@
                     <thead>
                         <tr>
                             <th>Type</th>
-                            <th>Name</th>
-                            <th>Slug</th>
-                            <th>Description</th>
+                            <th class="ep-table-truncate">Name</th>
+                            <th class="ep-table-truncate">Slug</th>
+                            <th class="ep-table-truncate">Description</th>
                             <th>Used by</th>
                             <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Status</th>
                             <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Actions</th>
@@ -41,34 +41,34 @@
                         <tr th:each="resource : ${resources}">
                             <td>
                                 <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
-                                <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
-                                <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
-                                <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                                <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
-                                <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
-                                <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
+                                <span th:if="${resource.type == 'theme'}" class="badge badge-muted">theme</span>
+                                <span th:if="${resource.type == 'stencil'}" class="badge badge-muted">stencil</span>
+                                <span th:if="${resource.type == 'attribute'}" class="badge badge-muted">attribute</span>
+                                <span th:if="${resource.type == 'asset'}" class="badge badge-muted">asset</span>
+                                <span th:if="${resource.type == 'codeList'}" class="badge badge-muted">code list</span>
+                                <span th:if="${resource.type == 'font'}" class="badge badge-muted">font</span>
                             </td>
                             <td>
                                 <!-- Authored: link to detail page for templates/themes/stencils -->
                                 <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
                                     <a th:if="${resource.type == 'template'}"
                                        th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
-                                       th:text="${resource.name}"></a>
+                                       th:text="${resource.name}" th:title="${resource.name}" class="ep-table-truncate"></a>
                                     <a th:if="${resource.type == 'theme'}"
                                        th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
-                                       th:text="${resource.name}"></a>
+                                       th:text="${resource.name}" th:title="${resource.name}" class="ep-table-truncate"></a>
                                     <a th:if="${resource.type == 'stencil'}"
                                        th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
-                                       th:text="${resource.name}"></a>
+                                       th:text="${resource.name}" th:title="${resource.name}" class="ep-table-truncate"></a>
                                     <a th:if="${resource.type == 'attribute'}"
                                        th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalog.id})}"
-                                       th:text="${resource.name}"></a>
+                                       th:text="${resource.name}" th:title="${resource.name}" class="ep-table-truncate"></a>
                                     <a th:if="${resource.type == 'asset'}"
                                        th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId},catalog=${catalog.id})}"
-                                       th:text="${resource.name}"></a>
+                                       th:text="${resource.name}" th:title="${resource.name}" class="ep-table-truncate"></a>
                                 </th:block>
                                 <!-- Subscribed: plain text -->
-                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
+                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}" th:title="${resource.name}" class="ep-table-truncate"></span>
                                 <!-- Version-pin drift warning: shown when published templates in this
                                      catalog pin a stencil version that is not the latest published —
                                      either because different templates pin different versions
@@ -77,18 +77,18 @@
                                      published version, so any non-latest pin would be unresolvable
                                      in the target after import; this stencil currently blocks export. -->
                                 <span th:if="${resource.type == 'stencil' and stencilVersionConflicts != null and stencilVersionConflicts.containsKey(resource.slug)}"
-                                       class="badge badge-warning catalog-pin-drift"
+                                       class="badge badge-warning ep-ml-2"
                                       th:title="'Stencil version-pin drift: ' + ${stencilVersionConflicts.get(resource.slug)} + '. Republish template usages against the latest published version before exporting.'"
                                       th:text="'Pin drift: ' + ${stencilVersionConflicts.get(resource.slug)}"></span>
                             </td>
-                            <td><code th:text="${resource.slug}"></code></td>
+                            <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${resource.slug}" th:title="${resource.slug}"></code></td>
                             <td>
-                                <span th:if="${resource.description}" th:text="${resource.description}"></span>
+                                <span th:if="${resource.description}" th:text="${resource.description}" th:title="${resource.description}" class="ep-table-truncate"></span>
                                 <span th:unless="${resource.description}" class="catalog-muted">-</span>
                             </td>
                             <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
                                 <button th:if="${count > 0}"
-                                        type="button" class="badge badge-default"
+                                        type="button" class="badge badge-muted"
                                         class="catalog-import-tag"
                                         th:text="${count}"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalog.id},type=${resource.type},slug=${resource.slug})}"
@@ -151,36 +151,36 @@
         <div class="ep-dialog-body">
             <p>The following resources will be installed:</p>
 
-            <table class="ep-table catalog-install-table">
+            <table class="ep-table">
                 <thead>
                     <tr>
-                        <th>Type</th>
-                        <th>Name</th>
-                        <th></th>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="ep-table-truncate">Name</th>
+                        <th scope="col">Notes</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="resource : ${selected}">
                         <td>
                             <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
-                            <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
-                            <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
-                            <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
+                            <span th:if="${resource.type == 'theme'}" class="badge badge-muted">theme</span>
+                            <span th:if="${resource.type == 'stencil'}" class="badge badge-muted">stencil</span>
+                            <span th:if="${resource.type == 'attribute'}" class="badge badge-muted">attribute</span>
+                            <span th:if="${resource.type == 'asset'}" class="badge badge-muted">asset</span>
                         </td>
-                        <td th:text="${resource.name}"></td>
+                        <td class="ep-table-truncate" th:text="${resource.name}" th:title="${resource.name}"></td>
                         <td></td>
                     </tr>
                     <tr th:each="dep : ${dependencies}" class="catalog-dependency">
                         <td>
                             <span th:if="${dep.type == 'template'}" class="badge badge-info">template</span>
-                            <span th:if="${dep.type == 'theme'}" class="badge badge-default">theme</span>
-                            <span th:if="${dep.type == 'stencil'}" class="badge badge-default">stencil</span>
-                            <span th:if="${dep.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${dep.type == 'asset'}" class="badge badge-default">asset</span>
+                            <span th:if="${dep.type == 'theme'}" class="badge badge-muted">theme</span>
+                            <span th:if="${dep.type == 'stencil'}" class="badge badge-muted">stencil</span>
+                            <span th:if="${dep.type == 'attribute'}" class="badge badge-muted">attribute</span>
+                            <span th:if="${dep.type == 'asset'}" class="badge badge-muted">asset</span>
                         </td>
-                        <td th:text="${dep.name}"></td>
-                        <td><span class="catalog-dep-label">dependency</span></td>
+                        <td class="ep-table-truncate" th:text="${dep.name}" th:title="${dep.name}"></td>
+                        <td><span class="ep-text-sm ep-text-muted">dependency</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -234,14 +234,14 @@
             <table class="ep-table" th:if="${!usages.isEmpty()}">
                 <thead>
                     <tr>
-                        <th>Template</th>
+                        <th class="ep-table-truncate">Template</th>
                         <th>Catalog</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="usage : ${usages}">
-                        <td th:text="${usage.referencedByName}"></td>
-                        <td><code th:text="${usage.referencedByCatalog}"></code></td>
+                        <td class="ep-table-truncate" th:text="${usage.referencedByName}" th:title="${usage.referencedByName}"></td>
+                        <td><code class="ep-code" th:text="${usage.referencedByCatalog}"></code></td>
                     </tr>
                 </tbody>
             </table>

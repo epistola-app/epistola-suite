@@ -1,0 +1,68 @@
+/*
+ * Catalog Pages
+ *
+ * Catalog browse, list, import.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+.catalog-import-tag {
+  cursor: pointer;
+  border: none;
+  background: var(--ep-muted);
+  padding: 2px 8px;
+  border-radius: var(--ep-radius);
+}
+
+.catalog-version-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ep-space-1);
+}
+
+.catalog-dependency {
+  opacity: 0.7;
+}
+
+.catalog-subtle {
+  opacity: 0.6;
+}
+
+.catalog-radio-group {
+  display: flex;
+  gap: var(--ep-space-4);
+  margin-top: var(--ep-space-2);
+}
+
+.catalog-radio-label {
+  display: flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+}
+
+.catalog-bump-row {
+  display: flex;
+  gap: var(--ep-space-2);
+  margin-top: var(--ep-space-1);
+}
+
+.catalog-conflict-list {
+  margin-top: var(--ep-space-1);
+  padding-left: var(--ep-space-5);
+}
+
+.upgrade-conflict-list {
+  margin-top: var(--ep-space-1);
+  padding-left: var(--ep-space-4);
+}
+
+.upgrade-changes-list {
+  margin-top: var(--ep-space-1);
+  padding-left: var(--ep-space-4);
+}
+
+.upgrade-new-resources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1);
+  margin-top: var(--ep-space-1);
+}

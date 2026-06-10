@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
+        <section class="page-header">
             <h1>Feedback</h1>
             <div class="page-actions">
                 <a th:href="@{/tenants/{tenantId}/feedback/sync(tenantId=${tenantId})}"
-                   class="ep-btn ep-btn-outline ep-btn-sm">
-                    Sync Settings
+                   class="ep-btn ep-btn-outline">
+                   Sync Settings
                 </a>
                 <button type="button" class="ep-btn ep-btn-primary"
                         hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
@@ -18,11 +18,11 @@
                     New Feedback
                 </button>
             </div>
-        </div>
+        </section>
 
         <!-- Filters -->
-        <div class="feedback-filters">
-            <select class="ep-input ep-input-sm"
+        <section class="form-row ep-mb-4">
+            <select class="ep-select form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -32,7 +32,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
-            <select class="ep-input ep-input-sm"
+            <select class="ep-select form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -42,21 +42,21 @@
                 <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${c.name()}"
                         th:selected="${selectedCategory != null && selectedCategory.name() == c.name()}">CATEGORY</option>
             </select>
-        </div>
+        </section>
 
-        <div th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
+        <section th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
             <div class="empty-state-icon">
                 <th:block th:replace="~{fragments/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No feedback yet</div>
             <div class="empty-state-description">Submit feedback to report issues, request features, or ask questions.</div>
-        </div>
+        </section>
 
         <table th:if="${!#lists.isEmpty(feedbackItems)}" class="ep-table">
             <thead>
                 <tr>
-                    <th>Title</th>
-                    <th>Page</th>
+                    <th class="ep-table-truncate">Title</th>
+                    <th class="ep-table-truncate">Page</th>
                     <th>Category</th>
                     <th>Status</th>
                     <th>Priority</th>
@@ -70,14 +70,16 @@
                     <tr th:each="item : ${feedbackItems}">
                         <td>
                             <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
-                                class="feedback-title"
+                                class="ep-table-truncate ep-font-medium"
+                                th:title="${item.title}"
                                 th:text="${item.title}">Title</a>
                         </td>
                         <td>
                             <a th:if="${item.sourcePath != null}" th:href="${item.sourceUrl}"
-                                class="feedback-source-path"
+                                class="ep-table-truncate ep-text-sm ep-text-muted"
+                                th:title="${item.sourcePath}"
                                 th:text="${item.sourcePath}">/path</a>
-                            <span th:if="${item.sourcePath == null}" class="feedback-source-empty">—</span>
+                            <span th:if="${item.sourcePath == null}" class="ep-text-muted">—</span>
                         </td>
                         <td><th:block th:insert="~{feedback/fragments/badges :: category-badge(${item.category})}" /></td>
                         <td><th:block th:insert="~{feedback/fragments/badges :: status-badge(${item.status})}" /></td>
