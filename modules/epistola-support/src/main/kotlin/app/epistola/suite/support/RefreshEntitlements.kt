@@ -28,6 +28,7 @@ class RefreshEntitlements :
     SystemInternal
 
 @Component
+@ConditionalOnSupportModule
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class RefreshEntitlementsHandler(
     private val client: EpistolaHubClient,

@@ -10,6 +10,7 @@ import app.epistola.suite.security.requirePermission
 import app.epistola.suite.snapshots.RemoteSnapshot
 import app.epistola.suite.snapshots.SnapshotSyncOutcome
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
+import app.epistola.suite.support.backups.ConditionalOnSupportBackupsModule
 import app.epistola.suite.support.hubFeatureCall
 import app.epistola.suite.support.logTo
 import app.epistola.suite.tenants.queries.GetTenant
@@ -27,6 +28,7 @@ import java.time.format.DateTimeFormatter
  * (no service contract) render an informational state rather than an error.
  */
 @Component
+@ConditionalOnSupportBackupsModule
 class BackupsHandler(
     private val snapshotSync: TenantSnapshotSyncService,
 ) {

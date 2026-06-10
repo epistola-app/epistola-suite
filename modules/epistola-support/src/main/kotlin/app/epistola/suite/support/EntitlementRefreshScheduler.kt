@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 @EnableScheduling
+@ConditionalOnSupportModule
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class EntitlementRefreshScheduler(
     private val entitlementSync: EntitlementSyncService,

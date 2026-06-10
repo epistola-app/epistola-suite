@@ -12,6 +12,7 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.support.feedback.ConditionalOnSupportFeedbackModule
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -33,6 +34,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 @EnableScheduling
+@ConditionalOnSupportFeedbackModule
 @ConditionalOnProperty(
     name = ["epistola.feedback.sync.polling.enabled"],
     havingValue = "true",

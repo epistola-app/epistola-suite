@@ -15,6 +15,7 @@ import java.time.Instant
  * is a list so the UI is ready for multiple nodes once cross-node aggregation lands.
  */
 @Component
+@ConditionalOnSupportModule
 class HubConnectivityService(
     private val clientProvider: ObjectProvider<EpistolaHubClient>,
     private val nodeIdentity: NodeIdentity,

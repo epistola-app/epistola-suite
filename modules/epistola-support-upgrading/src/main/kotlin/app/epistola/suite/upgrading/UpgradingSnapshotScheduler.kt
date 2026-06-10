@@ -10,6 +10,7 @@ import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.support.upgrading.ConditionalOnSupportUpgradingModule
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -34,6 +35,7 @@ import java.time.Instant
 @Component
 @EnableScheduling
 @EnableConfigurationProperties(UpgradingSnapshotProperties::class)
+@ConditionalOnSupportUpgradingModule
 @ConditionalOnProperty(
     name = ["epistola.support.upgrading.snapshot.scheduled.enabled"],
     havingValue = "true",

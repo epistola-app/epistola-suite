@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration
  * so snapshots sync to the hub only when the support tier is enabled.
  */
 @Configuration
+@ConditionalOnSupportSnapshotsModule
 @ConditionalOnProperty(
     prefix = "epistola.support",
     name = ["enabled"],

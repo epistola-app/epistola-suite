@@ -1,6 +1,7 @@
 package app.epistola.suite.upgrading
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.support.upgrading.ConditionalOnSupportUpgradingModule
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
@@ -51,6 +52,7 @@ class NoOpCompatibilitySyncAdapter : CompatibilitySyncPort {
  * is kept so an explicit/test override still wins.
  */
 @Configuration
+@ConditionalOnSupportUpgradingModule
 class CompatibilitySyncFallbackConfiguration {
     @Bean
     @ConditionalOnMissingBean(CompatibilitySyncPort::class)
