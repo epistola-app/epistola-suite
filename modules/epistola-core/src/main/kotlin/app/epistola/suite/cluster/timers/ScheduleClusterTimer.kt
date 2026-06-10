@@ -8,6 +8,14 @@ import app.epistola.suite.security.SystemInternal
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
+/**
+ * Creates or replaces a one-shot cluster timer.
+ *
+ * Use this command from application code instead of calling
+ * [ClusterTimerRegistry] directly. The `timerKey` is an idempotency key:
+ * scheduling the same key again replaces the timer's due time, routing
+ * metadata, payload, and clears any previous lease/error state.
+ */
 data class ScheduleClusterTimer(
     val timerKey: String,
     val routingKey: String,
@@ -19,6 +27,10 @@ data class ScheduleClusterTimer(
 ) : Command<ClusterTimer>,
     SystemInternal
 
+/**
+ * Command handler that delegates the durable write to the internal timer
+ * persistence boundary.
+ */
 @Component
 class ScheduleClusterTimerHandler(
     private val registry: ClusterTimerRegistry,

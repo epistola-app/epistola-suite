@@ -1,6 +1,7 @@
 package app.epistola.suite.cluster.timers
 
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -28,9 +29,6 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
     private lateinit var scheduler: ClusterTimerScheduler
 
     @Autowired
-    private lateinit var registry: ClusterTimerRegistry
-
-    @Autowired
     private lateinit var handler: RecordingClusterTimerHandler
 
     @BeforeEach
@@ -54,7 +52,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
         scheduler.poll()
 
         assertThat(handler.handled).containsExactly("scheduler-complete")
-        assertThat(registry.find("scheduler-complete")).isNull()
+        assertThat(findTimer("scheduler-complete")).isNull()
     }
 
     @Test
@@ -72,7 +70,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
         scheduler.poll()
 
-        val timer = registry.find("scheduler-reschedule")
+        val timer = findTimer("scheduler-reschedule")
         assertThat(handler.handled).containsExactly("scheduler-reschedule")
         assertThat(timer?.status).isEqualTo(ClusterTimerStatus.SCHEDULED)
         assertThat(timer?.dueAt).isAfter(now())
@@ -92,7 +90,7 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
         scheduler.poll()
 
-        val timer = registry.find("scheduler-missing-handler")
+        val timer = findTimer("scheduler-missing-handler")
         assertThat(handler.handled).isEmpty()
         assertThat(timer?.status).isEqualTo(ClusterTimerStatus.SCHEDULED)
         assertThat(timer?.leaseOwnerNodeId).isNull()
@@ -102,6 +100,10 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
     }
 
     private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
+
+    private fun findTimer(timerKey: String): ClusterTimer? = withMediator {
+        GetClusterTimer(timerKey).query()
+    }
 
     @TestConfiguration
     class TimerHandlerConfiguration {

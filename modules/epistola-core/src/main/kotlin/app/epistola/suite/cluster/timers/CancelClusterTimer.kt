@@ -6,12 +6,21 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
 import org.springframework.stereotype.Component
 
+/**
+ * Cancels a one-shot cluster timer.
+ *
+ * When `tenantKey` is supplied, the cancel is tenant-scoped and will not delete
+ * a system timer or another tenant's timer with the same key.
+ */
 data class CancelClusterTimer(
     val timerKey: String,
     val tenantKey: TenantKey? = null,
 ) : Command<Boolean>,
     SystemInternal
 
+/**
+ * Command handler for the mediator-facing timer cancellation API.
+ */
 @Component
 class CancelClusterTimerHandler(
     private val registry: ClusterTimerRegistry,

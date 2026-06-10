@@ -3,6 +3,7 @@ package app.epistola.suite.cluster.timers
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -129,7 +130,8 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
 
             assertThat(timer.timerKey).isEqualTo("timer-command")
             assertThat(timer.payload["source"]).isEqualTo("command")
-            assertThat(registry.find("timer-command")?.routingKey).isEqualTo("tenant-command")
+            assertThat(GetClusterTimer("timer-command").query()?.routingKey).isEqualTo("tenant-command")
+            assertThat(ListClusterTimers().query().map { it.timerKey }).contains("timer-command")
         }
     }
 
@@ -174,7 +176,7 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             val cancelled = CancelClusterTimer("timer-cancel-command").execute()
 
             assertThat(cancelled).isTrue()
-            assertThat(registry.find("timer-cancel-command")).isNull()
+            assertThat(GetClusterTimer("timer-cancel-command").query()).isNull()
         }
     }
 

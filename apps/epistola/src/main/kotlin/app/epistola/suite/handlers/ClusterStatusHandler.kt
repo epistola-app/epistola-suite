@@ -4,12 +4,13 @@ import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
-import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
+import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
 import app.epistola.suite.cluster.timers.ClusterTimer
-import app.epistola.suite.cluster.timers.ClusterTimerRegistry
+import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.mediator.query
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -18,8 +19,6 @@ import java.time.OffsetDateTime
 @Component
 class ClusterStatusHandler(
     private val registry: ClusterNodeRegistry,
-    private val timerRegistry: ClusterTimerRegistry,
-    private val scheduledTaskRegistry: ClusterScheduledTaskRegistry,
     private val properties: ClusterProperties,
 ) {
 
@@ -62,8 +61,8 @@ class ClusterStatusHandler(
         }
         return ClusterStatusReport(
             nodes = nodes,
-            timers = timerRegistry.list(),
-            scheduledTasks = scheduledTaskRegistry.list(),
+            timers = ListClusterTimers().query(),
+            scheduledTasks = ListClusterScheduledTasks.query(),
             heartbeatIntervalMs = properties.heartbeatIntervalMs,
             idleTimeoutMs = properties.idleTimeoutMs,
             activeCount = nodes.count { it.isActive },

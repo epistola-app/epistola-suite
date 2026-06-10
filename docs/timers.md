@@ -49,6 +49,11 @@ Scheduling is an upsert by `timer_key`. Re-scheduling the same timer key
 replaces the due time, routing metadata, payload, and clears any previous lease
 or error state.
 
+The mediator-facing read API is `GetClusterTimer` and `ListClusterTimers`.
+Application and operations code should use these commands and queries. The
+`ClusterTimerRegistry` remains an internal persistence boundary for scheduler
+lease transitions and command/query handlers.
+
 ## Timer Handlers
 
 A timer handler implements `ClusterTimerHandler`:

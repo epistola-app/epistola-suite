@@ -9,6 +9,18 @@ import tools.jackson.databind.ObjectMapper
 import java.time.Clock
 import java.time.OffsetDateTime
 
+/**
+ * Internal persistence boundary for one-shot cluster timer state transitions.
+ *
+ * Application code should use the mediator-facing timer commands and queries
+ * rather than depending on this component. The scheduler uses the registry
+ * directly because claiming, completing, retrying, and rescheduling are lease
+ * transitions that need one cohesive SQL boundary.
+ *
+ * We may split these methods into command/query/operation handlers later, but
+ * keep them together for now to avoid duplicating the lease SQL and ownership
+ * checks while the timer model is still evolving.
+ */
 @Component
 class ClusterTimerRegistry(
     private val jdbi: Jdbi,
