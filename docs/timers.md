@@ -212,6 +212,79 @@ This page is the first place to inspect whether work is stuck because no active
 node advertises the required capability, a handler is failing, or a lease is
 still active.
 
+## TODO
+
+### Safety And Conventions
+
+- Validate duplicate `timerType` and `taskType` handlers at startup. The
+  scheduler currently builds a map from Spring beans; duplicate keys should fail
+  fast instead of being resolved implicitly.
+- Document timer creation conventions for new call sites: stable `timerKey`,
+  stable `routingKey`, explicit `timerType` or `taskType`, tenant-scoped unless
+  truly system-wide, explicit `requiredCapability`, and idempotent handlers.
+- Add payload versioning conventions. Timer payloads are JSON, so long-lived
+  timers need validation and a migration story across deployments.
+
+### Operations
+
+- Add operations controls for retry-now, cancel timer, trigger scheduled task
+  now, enable scheduled task, and disable scheduled task.
+- Surface payload, last error, lease owner, lease expiry, attempt count, and
+  required capability clearly in the Operations -> Cluster page.
+- Consider an admin-only stale lease action, but keep normal recovery based on
+  lease expiry.
+
+### Retry And Failure Policy
+
+- Add configurable retry policy beyond the current fixed retry delay.
+- Support max attempts or max consecutive failures.
+- Add a dead-letter or paused-failed state so permanently failing work does not
+  retry forever.
+- Make manual retry from operations clear and auditable.
+
+### Scheduled Task Lifecycle
+
+- Define what happens when a code-defined scheduled task is removed or renamed.
+  Options include leaving the database row disabled, tombstoning it, or deleting
+  system-defined rows during startup reconciliation.
+- Decide whether startup registration should record definition ownership and
+  source metadata.
+- Keep scheduled tasks as durable recurring definitions, not chains of one-shot
+  timer rows.
+
+### Scaling And Fairness
+
+- Review query plans and indexes against production-like timer volumes.
+- Add jitter or wakeup mechanisms if polling latency or thundering herds become
+  visible. PostgreSQL `LISTEN/NOTIFY` or direct node wakeups should only be
+  latency optimizations; PostgreSQL rows remain the durable source of truth.
+- Decide whether dispatch should remain sequential per node or use bounded
+  parallelism.
+- If parallel dispatch is added, preserve per-routing-key serial execution when
+  a handler or domain model requires it.
+- Add fairness controls if one timer type or capability can starve others.
+
+### Migration Candidates
+
+- Continue moving only cluster-relevant scheduled work. Duplicate-safe per-node
+  health checks and local maintenance can stay local.
+- Prefer cluster timers for work where duplicate execution is noisy, expensive,
+  or incorrect.
+- Keep document generation on its existing claiming path until the PDF renderer
+  split needs capability-aware claiming.
+
+### Future Architecture
+
+- Use timers as wakeups for durable processes instead of modeling long-running
+  sagas as handlers that repeatedly reschedule themselves.
+- Keep cache invalidation fanout separate from timers. Fanout events should use
+  an event stream where every node can observe relevant events.
+- Define the capability taxonomy before introducing non-suite workers, for
+  example `suite`, `pdf-render`, and possibly maintenance-specific
+  capabilities.
+- Expand clock and mediator context coverage so all timer-created background
+  work has consistent time, security, and mediator behavior.
+
 ## Current Boundaries
 
 Timers are for delayed and recurring background work. They are not a general
