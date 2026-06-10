@@ -520,8 +520,8 @@
   .toggle-switch {
     position: relative;
     display: inline-block;
-    width: 2.75rem;
-    height: 1.5rem;
+    width: var(--ep-switch-width);
+    height: var(--ep-switch-height);
     flex-shrink: 0;
   }
 
@@ -543,10 +543,10 @@
   .toggle-switch-slider::before {
     content: '';
     position: absolute;
-    height: 1.125rem;
-    width: 1.125rem;
-    left: 0.1875rem;
-    bottom: 0.1875rem;
+    height: var(--ep-switch-thumb);
+    width: var(--ep-switch-thumb);
+    left: var(--ep-switch-thumb-inset);
+    bottom: var(--ep-switch-thumb-inset);
     background-color: var(--ep-white);
     border-radius: var(--ep-radius-full);
     transition: transform 0.2s;
@@ -557,12 +557,12 @@
   }
 
   .toggle-switch input:checked + .toggle-switch-slider::before {
-    transform: translateX(1.25rem);
+    transform: translateX(var(--ep-switch-thumb-motion));
   }
 
   .toggle-switch input:focus-visible + .toggle-switch-slider {
-    outline: 2px solid var(--ep-primary);
-    outline-offset: 2px;
+    outline: var(--ep-switch-focus-ring) solid var(--ep-primary);
+    outline-offset: var(--ep-switch-focus-ring);
   }
 
   /* ── Inline code ───────────────────────────────────────────────────────── */

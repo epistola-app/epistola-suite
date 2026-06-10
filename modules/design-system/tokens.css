@@ -183,6 +183,14 @@
   --ep-h-11: 2.75rem;
   --ep-h-12: 3rem;
 
+  /* ── Toggle switch ──────────────────────────────────────────────────── */
+  --ep-switch-width: 2.75rem;
+  --ep-switch-height: 1.5rem;
+  --ep-switch-thumb: 1.125rem;
+  --ep-switch-thumb-inset: 0.1875rem;
+  --ep-switch-thumb-motion: 1.25rem;
+  --ep-switch-focus-ring: 2px;
+
   /* ── Z-index scale ──────────────────────────────────────────────────── */
   --ep-z-dropdown: 10;
   --ep-z-sticky: 20;
