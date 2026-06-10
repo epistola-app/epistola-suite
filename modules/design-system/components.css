@@ -481,6 +481,12 @@
     display: inline;
   }
 
+  .ep-fieldset-reset {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
   .form-control-auto {
     width: auto;
   }
@@ -530,6 +536,30 @@
 
   .ep-code-xs {
     font-size: var(--ep-text-xs);
+  }
+
+  .ep-code-suffix {
+    margin-inline-start: var(--ep-space-2);
+  }
+
+  .ep-code-suffix-tight {
+    margin-inline-start: var(--ep-space-1);
+  }
+
+  .ep-code-wrap {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  .ep-code-info {
+    color: var(--ep-blue-800);
+    background-color: var(--ep-blue-50);
+    border-color: var(--ep-blue-200);
+  }
+
+  .ep-code-indent {
+    margin-left: calc(var(--ep-depth, 0) * var(--ep-space-4));
   }
 
   /* ── Badges ───────────────────────────────────────────────────────────── */

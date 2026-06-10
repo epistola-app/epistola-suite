@@ -39,7 +39,7 @@
                              th:data-attr-row="${d.qualifiedKey}">
                             <label class="ep-label" th:for="'create-attr_' + ${d.qualifiedKey}">
                                 <span th:text="${d.displayName}"></span>
-                                <code class="ep-code ep-code-muted ep-code-xs variant-attr-key" 
+                                <code class="ep-code ep-code-muted ep-code-xs ep-code-suffix" 
                                       th:text="${d.qualifiedKey}"></code>
                             </label>
                             <select th:id="'create-attr_' + ${d.qualifiedKey}"
@@ -79,7 +79,7 @@
                 <div class="form-group form-group-inline form-group-min-width-sm form-group-compact" th:each="d : ${usedAttributeDescriptors}">
                     <label th:for="'attr-filter-' + ${d.qualifiedKey}">
                         <span th:text="${d.displayName}"></span>
-                        <code class="ep-code ep-code-muted ep-code-xs variant-filter-key" 
+                        <code class="ep-code ep-code-muted ep-code-xs ep-code-suffix-tight" 
                               th:text="${d.qualifiedKey}"></code>
                     </label>
                     <select class="ep-select" th:id="'attr-filter-' + ${d.qualifiedKey}"

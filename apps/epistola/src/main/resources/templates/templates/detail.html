@@ -64,7 +64,7 @@
                            th:data-hidden="${hasValue ? 'false' : 'true'}">
                         <label class="ep-label" th:for="'edit-attr_' + ${d.qualifiedKey}">
                             <span th:text="${d.displayName}"></span>
-                            <code class="ep-code ep-code-muted ep-code-xs attr-qualified-key" 
+                            <code class="ep-code ep-code-muted ep-code-xs ep-code-suffix" 
                                   th:text="${d.qualifiedKey}"></code>
                         </label>
                         <select th:id="'edit-attr_' + ${d.qualifiedKey}"

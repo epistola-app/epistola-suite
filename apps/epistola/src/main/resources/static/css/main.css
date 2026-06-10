@@ -189,12 +189,6 @@ body {
   display: inline;
 }
 
-.loadtest-fieldset-no-margin {
-  border: none;
-  padding: 0;
-  margin: 0;
-}
-
 /* ── Load test detail / request log pages ─────────────────────────────── */
 
 .run-empty-value {
@@ -924,15 +918,8 @@ body {
 .version-comparison-empty[data-hidden='true'],
 #comparison-frame-a[data-hidden='true'],
 #comparison-frame-b[data-hidden='true'],
-.confirm-dialog-error[data-hidden='true'],
-.ep-depth-indent {
-  margin-left: calc(var(--ep-depth, 0) * 16px);
-}
-
-.ep-fieldset-reset {
-  border: none;
-  padding: 0;
-  margin: 0;
+.confirm-dialog-error[data-hidden='true'] {
+  display: none;
 }
 
 /* ── Template settings: PDF/A toggle ──────────────────────────────────── */
@@ -1019,13 +1006,6 @@ body {
 
 .feedback-description {
   white-space: pre-wrap;
-}
-
-.feedback-url {
-  font-size: var(--ep-text-sm);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-all;
 }
 
 .feedback-screenshot {
@@ -1140,10 +1120,6 @@ body {
   color: var(--ep-muted-foreground);
   margin-top: var(--ep-space-1);
   font-size: var(--ep-text-sm);
-}
-
-.attr-qualified-key {
-  margin-left: var(--ep-space-2);
 }
 
 .add-attr-row {
@@ -1522,16 +1498,8 @@ body {
   margin-bottom: var(--ep-space-4);
 }
 
-.variant-attr-key {
-  margin-left: var(--ep-space-2);
-}
-
 .variant-publish-form {
   display: inline;
-}
-
-.variant-filter-key {
-  margin-left: var(--ep-space-1);
 }
 
 .variant-add-attr-row {
@@ -2071,14 +2039,6 @@ body {
   font-size: var(--ep-text-3xl);
   line-height: 1.05;
   margin: var(--ep-space-2) 0 var(--ep-space-4);
-}
-
-.problem-type-inline-code {
-  background: var(--ep-blue-50);
-  border-color: var(--ep-blue-200);
-  border-radius: var(--ep-radius-sm);
-  color: var(--ep-blue-800);
-  padding: var(--ep-space-0-5) var(--ep-space-1-5);
 }
 
 .problem-type-details {

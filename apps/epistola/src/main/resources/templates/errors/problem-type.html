@@ -15,17 +15,17 @@
 
         <dl class="problem-type-details">
             <dt>Type URI</dt>
-            <dd><code class="ep-code problem-type-inline-code" th:text="${problemType.type}">https://epistola.app/errors/example</code></dd>
+            <dd><code class="ep-code ep-code-info" th:text="${problemType.type}">https://epistola.app/errors/example</code></dd>
             <dt>HTTP status</dt>
-            <dd><code class="ep-code problem-type-inline-code" th:text="${problemType.status.value()}">400</code></dd>
+            <dd><code class="ep-code ep-code-info" th:text="${problemType.status.value()}">400</code></dd>
             <dt>Machine code</dt>
-            <dd><code class="ep-code problem-type-inline-code" th:text="${problemType.code}">EXAMPLE</code></dd>
+            <dd><code class="ep-code ep-code-info" th:text="${problemType.code}">EXAMPLE</code></dd>
         </dl>
 
         <section th:if="${!problemType.extensionFields.isEmpty()}">
             <h2>Extension Members</h2>
             <ul class="problem-type-extensions">
-                <li th:each="field : ${problemType.extensionFields}"><code class="ep-code problem-type-inline-code" th:text="${field}">code</code></li>
+                <li th:each="field : ${problemType.extensionFields}"><code class="ep-code ep-code-info" th:text="${field}">code</code></li>
             </ul>
         </section>
 
