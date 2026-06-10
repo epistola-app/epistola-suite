@@ -5,7 +5,7 @@ import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.uniqueHandlersByType
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
 import app.epistola.suite.time.EpistolaClock
@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component
  * leases, so competing nodes cannot execute the same claimed row at the same
  * time.
  *
- * The scheduler dispatches handlers inside a captured [MediatorExecutionContext],
- * which binds mediator context and the current application clock. Missing handlers
+ * The scheduler dispatches handlers inside a [MediatorContext], which binds the
+ * mediator and current application clock. Missing handlers
  * and handler failures do not drop timers; they record the error and schedule a retry.
  */
 @Component
@@ -54,7 +54,7 @@ class ClusterTimerScheduler(
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.timers.poll-interval-ms:1000}")
-    fun poll() = MediatorExecutionContext.capture(mediator).bind {
+    fun poll() = MediatorContext.runWithMediator(mediator) {
         meterRegistry.recordScheduledTask("cluster-timer-poller") {
             if (shuttingDown) return@recordScheduledTask
 

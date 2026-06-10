@@ -1,7 +1,7 @@
 package app.epistola.suite.support
 
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -24,7 +24,7 @@ class EntitlementSyncService(
 
     fun refresh() {
         runCatching {
-            MediatorExecutionContext.capture(mediator).bind { RefreshEntitlements().execute() }
+            MediatorContext.runWithMediator(mediator) { RefreshEntitlements().execute() }
         }.onFailure { e ->
             log.warn("Entitlement refresh failed; keeping last-known-good entitlements: {}", e.message)
         }

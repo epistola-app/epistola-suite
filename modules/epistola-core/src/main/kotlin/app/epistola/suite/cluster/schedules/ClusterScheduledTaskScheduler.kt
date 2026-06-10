@@ -6,7 +6,7 @@ import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.timers.ClusterTimerOwnership
 import app.epistola.suite.cluster.uniqueHandlersByType
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
 import app.epistola.suite.time.EpistolaClock
@@ -56,7 +56,7 @@ class ClusterScheduledTaskScheduler(
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.scheduled-tasks.poll-interval-ms:1000}")
-    fun poll() = MediatorExecutionContext.capture(mediator).bind {
+    fun poll() = MediatorContext.runWithMediator(mediator) {
         meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
             if (shuttingDown) return@recordScheduledTask
 

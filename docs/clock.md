@@ -53,10 +53,11 @@ plus `EpistolaClock`.
 
 ## Context Propagation
 
-Code that starts outside an existing mediator scope captures a
-`MediatorExecutionContext` with `MediatorExecutionContext.capture(mediator)`.
-The context object can then bind itself around work or be converted into a
-runnable/callable for executor handoffs.
+Code that starts outside an existing mediator scope and executes immediately
+uses `MediatorContext.runWithMediator(mediator)`. Work that crosses an executor
+or callback boundary captures a `MediatorExecutionContext` with
+`MediatorExecutionContext.capture(mediator)`, then converts that context into a
+runnable/callable for the handoff.
 
 `MediatorExecutionContext` carries:
 
@@ -64,10 +65,10 @@ runnable/callable for executor handoffs.
 - `clock`
 - optionally `principal`
 
-Use `MediatorExecutionContext.capture(mediator)` for scheduler-style entrypoints.
-Use `MediatorExecutionContext.capture(mediator, principal)` when the work needs
-a system/user principal. When work crosses a thread boundary, capture the
-context before submitting and execute `context.runnable { ... }` or
+Use `MediatorContext.runWithMediator(mediator)` for scheduler-style entrypoints
+that bind and execute immediately. Use `MediatorExecutionContext.capture(mediator, principal)`
+when work crosses a thread boundary and needs a system/user principal. Capture
+the context before submitting and execute `context.runnable { ... }` or
 `context.callable { ... }`.
 
 Scoped values do not propagate to new threads automatically. The captured
@@ -97,7 +98,8 @@ Use one of:
 - `EpistolaClock.instant()` or another helper for application time
 - `MediatorContext.currentClock()` when code specifically needs the execution
   context clock
-- `MediatorExecutionContext.capture(mediator)` for scheduled work and executor handoffs
+- `MediatorContext.runWithMediator(mediator)` for scheduled work that executes immediately
+- `MediatorExecutionContext.capture(mediator)` for executor handoffs
 - the delegating Spring `Clock` only for transitional injected-clock code
 
 Avoid direct application calls to:

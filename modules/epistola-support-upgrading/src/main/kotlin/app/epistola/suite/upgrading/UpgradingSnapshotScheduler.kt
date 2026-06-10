@@ -4,7 +4,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveAvailableFeatures
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
@@ -51,7 +51,7 @@ class UpgradingSnapshotScheduler(
     @Scheduled(cron = "\${epistola.support.upgrading.snapshot.cron:0 0 * * * *}")
     fun ensureFreshSnapshots() {
         schedulerLock.runExclusively(SchedulerLock.UPGRADING_SNAPSHOT) {
-            MediatorExecutionContext.capture(mediator).bind { ensureAllTenants() }
+            MediatorContext.runWithMediator(mediator) { ensureAllTenants() }
         }
     }
 

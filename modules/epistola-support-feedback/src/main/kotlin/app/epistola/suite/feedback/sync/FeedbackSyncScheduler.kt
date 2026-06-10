@@ -16,7 +16,7 @@ import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
 import app.epistola.suite.feedback.queries.ListUnsyncedComments
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
@@ -56,13 +56,13 @@ class FeedbackSyncScheduler(
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
     fun retryPendingSync() {
         schedulerLock.runExclusively(SchedulerLock.FEEDBACK_RETRY) {
-            MediatorExecutionContext.capture(mediator).bind {
-                if (!feedbackSyncPort.isEnabled()) return@bind
+            MediatorContext.runWithMediator(mediator) {
+                if (!feedbackSyncPort.isEnabled()) return@runWithMediator
                 // Skip the whole sweep until registered, so we neither call the hub nor burn
                 // sync attempts during the startup window before registration completes.
                 if (!feedbackSyncPort.isReady()) {
                     log.debug("Feedback sync target not ready yet (installation not registered); skipping retry sweep")
-                    return@bind
+                    return@runWithMediator
                 }
                 retryPendingFeedback()
                 retryPendingComments()

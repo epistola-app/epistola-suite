@@ -115,11 +115,11 @@ Rules:
   only a compatibility bridge for legacy/transitional code.
 - Regular commands and queries get a mediator execution context from
   `SpringMediator`; handlers should not create their own context.
-- Entry points that start outside an existing mediator scope must capture and
-  bind a context explicitly:
+- Entry points that start outside an existing mediator scope and execute
+  immediately must bind a mediator context explicitly:
 
   ```kotlin
-  MediatorExecutionContext.capture(mediator).bind {
+  MediatorContext.runWithMediator(mediator) {
       // scheduler or startup work
   }
   ```
