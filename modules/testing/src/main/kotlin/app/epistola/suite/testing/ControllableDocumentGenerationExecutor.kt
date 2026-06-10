@@ -7,6 +7,7 @@ import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -90,7 +91,7 @@ class ControllableDocumentGenerationExecutor(
     ): DocumentKey {
         park(request)
         val documentId = DocumentKey.of(UUID.randomUUID())
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
 
         jdbi.inTransaction<Unit, Exception> { handle ->
             // Mark the request COMPLETED and link the fake document.
@@ -153,7 +154,7 @@ class ControllableDocumentGenerationExecutor(
     /** Terminate as FAILED with an error message. Emits a FAILED result. */
     fun fail(request: DocumentGenerationRequest, error: String) {
         park(request)
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

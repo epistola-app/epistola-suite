@@ -2,78 +2,70 @@
 
 ## Summary
 
-Epistola has a shared application clock abstraction called `EpistolaClock`.
-It is a small `ScopedValue`-backed facade over `java.time.Clock`.
+Epistola application time is owned by the mediator execution context.
 
-The goal is to make application time explicit, deterministic in tests, and
-safe to carry through mediator and background execution. We are not fully there
-yet: the current implementation supports cluster timers and the test
-infrastructure, while older code may still call `Instant.now()`,
-`OffsetDateTime.now()`, or `LocalDate.now()` directly.
+`MediatorContext` binds a `MediatorExecutionContext`, which carries the
+application `Mediator` and the current `Clock`. `EpistolaClock` is the static
+facade over that context: code can call `EpistolaClock.instant()`,
+`offsetDateTime()`, `localDate()`, or `yearMonth()` without taking a Spring
+dependency.
 
-## Current Implementation
+The default clock is `Clock.systemUTC()`. Tests and background entrypoints can
+bind a different clock for deterministic execution.
 
-`EpistolaClock` lives in `app.epistola.suite.time`.
+## Mediator Execution Context
 
-It exposes:
+`MediatorExecutionContext` lives in `app.epistola.suite.mediator` and contains:
 
-- `current()`: returns the scoped clock if one is bound, otherwise UTC system
-  time
-- `capture()`: captures the current clock for later execution
-- `instant()`
-- `offsetDateTime()`
-- `localDate(zone)`
-- `yearMonth(zone)`
-- `withClock(clock) { ... }`
-- `withInstant(instant) { ... }`
+- `mediator`
+- `clock`
 
-The default clock is `Clock.systemUTC()`.
+`MediatorContext.runWithMediator(mediator) { ... }` captures the active
+`EpistolaClock` and binds a full execution context. `SpringMediator` also
+creates an execution context when it is called directly outside an existing
+context, so command/query handlers have a clock boundary even without an HTTP
+filter or scheduler wrapper.
 
-`EpistolaClock` is intentionally static. Code can use it without requiring a
-Spring dependency, and framework entry points can bind scoped time around a
-block of work.
+`MediatorContext.current()` still returns the bound mediator. Use
+`MediatorContext.currentClock()` only when context ownership matters explicitly;
+most application code should use `EpistolaClock`.
+
+## EpistolaClock
+
+`EpistolaClock` resolves the current clock in this order:
+
+1. a local `EpistolaClock.withClock(...)` override
+2. the clock bound in `MediatorContext`
+3. UTC system time
+
+The local override exists for tests and small scoped overrides. The mediator
+execution context is the normal application boundary.
 
 ## Spring Clock Bean
 
-`EpistolaClockConfiguration` provides a `Clock` bean when no other `Clock` bean
-is present.
+`EpistolaClockConfiguration` provides a delegating Spring `Clock` bean when no
+other `Clock` bean is present.
 
-That bean delegates back to `EpistolaClock.current()`. This means code that
-already injects `Clock` can participate in scoped time without changing every
-call site immediately.
-
-This is important for cluster timers and scheduled tasks because their
-registries already use an injected `Clock`. Tests can bind a scoped mutable
-clock and the registry code observes that time through the delegating Spring
-bean.
-
-## Scoped Values
-
-`EpistolaClock.withClock(clock) { ... }` binds the clock for the current scoped
-execution. Nested scopes are allowed and restore the previous clock when the
-inner scope exits.
-
-The scoped clock does not automatically flow to arbitrary new threads. When
-work crosses thread boundaries, the current clock must be captured and rebound
-in the new execution context.
+This bean is a compatibility bridge for any remaining Spring-managed component
+that already injects `Clock`. New code should not introduce Spring `Clock`
+injection unless there is a concrete reason; prefer mediator-bound execution
+plus `EpistolaClock`.
 
 ## Background Execution
 
-`BackgroundExecutionContext` is the current bridge for background work.
+`BackgroundExecutionContext` is the standard boundary for scheduled work and
+executor handoffs. It captures the active clock and binds:
 
-It captures the current `EpistolaClock`, then runs the block with:
+- `MediatorContext` with a full `MediatorExecutionContext`
+- optionally `SecurityContext` for system/user scoped work
 
-- the captured clock rebound
-- a `MediatorContext` bound to the application mediator
-- optionally a `SecurityContext` principal for system/user scoped work
+Use `run`, `runAs`, `wrap`, `wrapCallable`, or `wrapAs` when work starts outside
+an HTTP request or crosses a thread boundary. Scoped values do not propagate to
+new threads automatically.
 
-Cluster timer and scheduled-task pollers use this context before claiming and
-dispatching work. That gives timer handlers a mediator context and consistent
-clock behavior.
-
-For executor handoffs, `BackgroundExecutionContext.wrap` and `wrapCallable`
-capture the clock at wrapping time and rebind it when the runnable/callable is
-executed.
+Cluster timer and scheduled-task pollers, support schedulers, and executor
+handoffs use this boundary so background work sees the same mediator and clock
+model as request work.
 
 ## Test Infrastructure
 
@@ -83,121 +75,44 @@ Integration tests inherit `EpistolaClockExtension` through
 The extension creates a per-test `MutableClock`, binds it through
 `EpistolaClock`, and exposes it as `testClock`.
 
-Tests can use:
-
 ```kotlin
 testClock.reset()
 testClock.advanceBy(Duration.ofSeconds(30))
 ```
 
-This lets timer and schedule tests advance time deterministically without
-sleeping, polling with Awaitility, or sharing one mutable singleton clock across
-parallel tests.
+This lets timer and scheduler tests advance time deterministically without
+sleeping, Awaitility, or shared global mutable state.
 
-## Current Users
+## Design Rules
 
-The current clock work was introduced to support clustered timers and scheduled
-tasks.
+Use one of:
 
-Current direct users include:
+- `EpistolaClock.instant()` or another helper for application time
+- `MediatorContext.currentClock()` when code specifically needs the execution
+  context clock
+- `BackgroundExecutionContext` for scheduled work and executor handoffs
+- the delegating Spring `Clock` only for transitional injected-clock code
 
-- cluster timer registries and pollers through the Spring `Clock` bean
-- scheduled-task registries and pollers through the Spring `Clock` bean
-- `CommandCompleted` event timestamps through `EpistolaClock.instant()`
-- focused unit and integration tests through `EpistolaClockExtension`
-
-This is not yet a repo-wide migration. Many older code paths still use direct
-JDK time calls.
-
-## Design Rules For New Code
-
-New application code should prefer one of:
-
-- inject `Clock` when already inside Spring-managed code
-- call `EpistolaClock.instant()` or another helper when a static access point is
-  more appropriate
-- use `BackgroundExecutionContext` for background work that needs mediator
-  access or may cross thread boundaries
-
-Avoid direct calls to:
+Avoid direct application calls to:
 
 - `Instant.now()`
 - `OffsetDateTime.now()`
 - `LocalDate.now()`
 - `YearMonth.now()`
 
-Direct JDK calls are still acceptable in infrastructure where real wall-clock
-time is explicitly intended, but that should be the exception rather than the
-default for application behavior.
+Keep database `NOW()`/`now()` for DB-owned timestamps and comparisons where
+DB-clock alignment is intentional, such as triggers, row leases, claim/update
+timestamps, and queries comparing database-owned timestamp columns.
 
-## Why Not Only Inject Clock
+## Current Transitional Areas
 
-Injected `Clock` works well inside Spring beans, but Epistola also has:
+No production application component should inject Spring `Clock` for application
+time. The remaining explicit `Clock` parameters are the mediator execution
+context/facade mechanics and the generation module's pure rendering API, where
+`epistola-core` is intentionally not a dependency.
 
-- mediator command/query/event objects
-- static helper paths
-- tests that need scoped time around a whole invocation
-- background work that may not be created directly by Spring
-
-`EpistolaClock` gives those paths one shared source of time without forcing
-every object to carry a `Clock` dependency. The Spring `Clock` bean remains
-useful because it lets existing injected-clock code participate in the same
-scope.
-
-## Future Direction
-
-The target state is that mediator execution has an explicit execution context
-that includes the application clock.
-
-In that future:
-
-- every command/query/event handler runs with an `EpistolaClock` scope
-- background work always enters through `BackgroundExecutionContext` or an
-  equivalent mediator-bound runner
-- async handoffs capture and rebind both mediator context and clock context
-- tests can advance time at the mediator boundary and all participating code
-  observes the same deterministic time
-
-This should be implemented deliberately. A blind sweep replacing every
-`now()` call would be risky because some calls may intentionally use real
-wall-clock time.
-
-## Migration Plan
-
-1. Keep `EpistolaClock` and the delegating Spring `Clock` as the stable API.
-2. Require new background workers to use `BackgroundExecutionContext`.
-3. Add mediator-level clock binding so command/query/event handlers can rely on
-   a scoped clock by default.
-4. Gradually migrate application-level direct `now()` calls in touched code.
-5. Leave infrastructure wall-clock calls explicit and documented.
-6. Add linting or review guidance once the intended boundaries are clear.
-
-Good early migration candidates:
-
-- command/event timestamps
-- retry and backoff calculations
-- scheduled work
-- tenant-visible timestamps created by application workflows
-- tests that currently depend on sleeps or wall-clock timing
-
-Lower-priority or intentionally wall-clock areas:
-
-- metrics emission timestamps
-- low-level logging
-- external library internals
-- infrastructure health checks where real time is the signal
-
-## Open Questions
-
-- Should mediator context own the clock directly, or should it only guarantee
-  that an `EpistolaClock` scope exists?
-- Should command dispatch capture time once per top-level command, or should
-  nested commands observe fresh current time?
-- Do we need named test clocks for scenarios with multiple independent time
-  domains, or is one scoped application clock enough?
-- Which direct wall-clock usages are intentional infrastructure behavior?
-- Should system background work always run with a system principal and mediator
-  context, or are there legitimate non-mediated workers?
+Infrastructure liveness and metrics code may intentionally use real wall-clock
+time when the signal is elapsed process time rather than application time.
 
 ## Related Documentation
 

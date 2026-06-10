@@ -14,11 +14,11 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
-import java.time.OffsetDateTime
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -85,7 +85,7 @@ class ExportCatalogZipHandler(
             }
             else -> release.latestVersion
         }
-        val releasedAt = if (version.endsWith("-dev")) null else OffsetDateTime.now().toString()
+        val releasedAt = if (version.endsWith("-dev")) null else EpistolaClock.offsetDateTime().toString()
         val manifest = content.toManifest(
             ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
         )

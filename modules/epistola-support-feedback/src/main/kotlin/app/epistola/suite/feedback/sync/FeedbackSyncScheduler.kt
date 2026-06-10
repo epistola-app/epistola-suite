@@ -1,5 +1,6 @@
 package app.epistola.suite.feedback.sync
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.common.ids.FeedbackId
@@ -15,8 +16,6 @@ import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
 import app.epistola.suite.feedback.queries.ListUnsyncedComments
-import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
@@ -47,7 +46,7 @@ import org.springframework.stereotype.Component
 )
 class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
-    private val mediator: Mediator,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
     private val schedulerLock: SchedulerLock,
     private val meterRegistry: MeterRegistry,
 ) {
@@ -56,13 +55,13 @@ class FeedbackSyncScheduler(
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
     fun retryPendingSync() {
         schedulerLock.runExclusively(SchedulerLock.FEEDBACK_RETRY) {
-            MediatorContext.runWithMediator(mediator) {
-                if (!feedbackSyncPort.isEnabled()) return@runWithMediator
+            backgroundExecutionContext.run {
+                if (!feedbackSyncPort.isEnabled()) return@run
                 // Skip the whole sweep until registered, so we neither call the hub nor burn
                 // sync attempts during the startup window before registration completes.
                 if (!feedbackSyncPort.isReady()) {
                     log.debug("Feedback sync target not ready yet (installation not registered); skipping retry sweep")
-                    return@runWithMediator
+                    return@run
                 }
                 retryPendingFeedback()
                 retryPendingComments()

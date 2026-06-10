@@ -1,11 +1,10 @@
 package app.epistola.suite.feedback.sync
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
 import app.epistola.suite.feedback.commands.SyncFeedbackStatus
 import app.epistola.suite.feedback.queries.GetFeedbackByExternalRef
-import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
@@ -40,7 +39,7 @@ import org.springframework.stereotype.Component
 )
 class FeedbackPollScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
-    private val mediator: Mediator,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
     private val appMetadata: AppMetadataService,
     private val schedulerLock: SchedulerLock,
 ) {
@@ -49,9 +48,7 @@ class FeedbackPollScheduler(
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.polling.interval-ms:300000}")
     fun pollForUpdates() {
         schedulerLock.runExclusively(SchedulerLock.FEEDBACK_POLL) {
-            MediatorContext.runWithMediator(mediator) {
-                drainUpdates()
-            }
+            backgroundExecutionContext.run { drainUpdates() }
         }
     }
 

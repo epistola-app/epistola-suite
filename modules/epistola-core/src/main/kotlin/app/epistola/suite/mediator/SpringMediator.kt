@@ -11,6 +11,7 @@ import app.epistola.suite.security.currentUser
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.security.requireTenantAccess
 import app.epistola.suite.security.requireTenantManager
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
@@ -55,7 +56,7 @@ class SpringMediator(
         ConcurrentHashMap()
 
     @Suppress("UNCHECKED_CAST")
-    override fun <R> send(command: Command<R>): R {
+    override fun <R> send(command: Command<R>): R = withExecutionContext {
         enforceAuthorization(command)
 
         val commandName = command::class.simpleName ?: "Unknown"
@@ -70,7 +71,7 @@ class SpringMediator(
 
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
-        return try {
+        try {
             val result = handler.handle(command)
             logger.debug("Command {} completed successfully", commandName)
 
@@ -96,7 +97,7 @@ class SpringMediator(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <R> query(query: Query<R>): R {
+    override fun <R> query(query: Query<R>): R = withExecutionContext {
         enforceAuthorization(query)
 
         val queryName = query::class.simpleName ?: "Unknown"
@@ -111,7 +112,7 @@ class SpringMediator(
 
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
-        return try {
+        try {
             val result = handler.handle(query)
             logger.debug("Query {} completed successfully", queryName)
             result
@@ -127,6 +128,16 @@ class SpringMediator(
                     .register(meterRegistry),
             )
         }
+    }
+
+    private fun <R> withExecutionContext(block: () -> R): R {
+        if (MediatorContext.isBound()) {
+            return block()
+        }
+        return MediatorContext.runWithContext(
+            MediatorExecutionContext(mediator = this, clock = EpistolaClock.capture()),
+            block,
+        )
     }
 
     private fun <R> invokeEventHandlers(command: Command<R>, result: R, phase: EventPhase) {

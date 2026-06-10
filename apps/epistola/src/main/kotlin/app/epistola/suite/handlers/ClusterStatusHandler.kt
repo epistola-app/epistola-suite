@@ -11,10 +11,10 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
-import java.time.OffsetDateTime
 
 /**
  * Renders the Operations -> Cluster page.
@@ -57,7 +57,7 @@ class ClusterStatusHandler(
 
     private fun loadReport(): ClusterStatusReport {
         val currentNode = registry.heartbeat()
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
         val nodes = registry.allNodes().map { node ->
             val ageMs = java.time.Duration.between(node.lastSeenAt, now).toMillis().coerceAtLeast(0)
             ClusterNodeStatus(

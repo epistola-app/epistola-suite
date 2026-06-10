@@ -1,5 +1,6 @@
 package app.epistola.generation
 
+import java.time.Clock
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -137,7 +138,7 @@ object SystemParameterRegistry {
     )
 
     /** Build global system parameters that are available in all contexts (body, headers, footers). */
-    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(
-        mapOf("render.time" to OffsetDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+    fun buildGlobalParams(clock: Clock = Clock.systemUTC()): Map<String, Any?> = buildNestedMap(
+        mapOf("render.time" to OffsetDateTime.now(clock.withZone(ZoneId.of("UTC"))).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
     )
 }

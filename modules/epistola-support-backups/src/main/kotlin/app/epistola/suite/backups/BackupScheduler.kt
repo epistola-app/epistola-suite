@@ -1,10 +1,9 @@
 package app.epistola.suite.backups
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveAvailableFeatures
-import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
@@ -34,7 +33,7 @@ import org.springframework.stereotype.Component
 )
 class BackupScheduler(
     private val snapshotSync: TenantSnapshotSyncService,
-    private val mediator: Mediator,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
     private val schedulerLock: SchedulerLock,
     private val jdbi: Jdbi,
 ) {
@@ -43,9 +42,7 @@ class BackupScheduler(
     @Scheduled(cron = "\${epistola.support.backups.cron:0 0 2 * * *}")
     fun runDailyBackup() {
         schedulerLock.runExclusively(SchedulerLock.CATALOG_BACKUP) {
-            MediatorContext.runWithMediator(mediator) {
-                backupAllTenants()
-            }
+            backgroundExecutionContext.run { backupAllTenants() }
         }
     }
 

@@ -372,7 +372,6 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
         objectMapper = objectMapper,
         nodeIdentity = NodeIdentity(nodeId),
         properties = properties,
-        clock = clock,
     )
 
     private fun registryFor(nodeId: String): ClusterScheduledTaskRegistry = ClusterScheduledTaskRegistry(
@@ -381,7 +380,6 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
         nodeIdentity = NodeIdentity(nodeId),
         properties = properties,
         scheduleCalculator = scheduleCalculator,
-        clock = clock,
     )
 
     private fun uniqueKey(prefix: String): String = "$prefix-${UUID.randomUUID()}"

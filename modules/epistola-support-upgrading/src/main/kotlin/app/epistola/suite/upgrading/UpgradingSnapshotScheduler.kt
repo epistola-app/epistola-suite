@@ -1,15 +1,15 @@
 package app.epistola.suite.upgrading
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveAvailableFeatures
-import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -18,7 +18,6 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Duration
-import java.time.Instant
 
 /**
  * Keeps a current snapshot available for the compatibility ("Upgrading") check. For every tenant
@@ -41,7 +40,7 @@ import java.time.Instant
 )
 class UpgradingSnapshotScheduler(
     private val snapshotSync: TenantSnapshotSyncService,
-    private val mediator: Mediator,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
     private val schedulerLock: SchedulerLock,
     private val properties: UpgradingSnapshotProperties,
     private val jdbi: Jdbi,
@@ -51,9 +50,7 @@ class UpgradingSnapshotScheduler(
     @Scheduled(cron = "\${epistola.support.upgrading.snapshot.cron:0 0 * * * *}")
     fun ensureFreshSnapshots() {
         schedulerLock.runExclusively(SchedulerLock.UPGRADING_SNAPSHOT) {
-            MediatorContext.runWithMediator(mediator) {
-                ensureAllTenants()
-            }
+            backgroundExecutionContext.run { ensureAllTenants() }
         }
     }
 
@@ -75,7 +72,7 @@ class UpgradingSnapshotScheduler(
     /** True when a snapshot was synced (by any feature) within [UpgradingSnapshotProperties.maxAge]. */
     private fun hasFreshSnapshot(tenantKey: TenantKey): Boolean {
         val last = snapshotSync.lastSnapshotAt(tenantKey) ?: return false
-        return Duration.between(last, Instant.now()) < properties.maxAge
+        return Duration.between(last, EpistolaClock.instant()) < properties.maxAge
     }
 
     private fun allTenantKeys(): List<TenantKey> = jdbi.withHandle<List<TenantKey>, Exception> { handle ->

@@ -2,6 +2,7 @@ package app.epistola.suite.background
 
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.MediatorExecutionContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.time.EpistolaClock
@@ -14,7 +15,7 @@ class BackgroundExecutionContext(
     private val mediator: Mediator,
 ) {
     fun <T> run(block: () -> T): T = runWithClock(EpistolaClock.capture()) {
-        MediatorContext.runWithMediator(mediator, block)
+        MediatorContext.runWithContext(MediatorExecutionContext(mediator = mediator, clock = EpistolaClock.current()), block)
     }
 
     fun <T> runAs(
@@ -28,7 +29,7 @@ class BackgroundExecutionContext(
         val clock = EpistolaClock.capture()
         return Runnable {
             runWithClock(clock) {
-                MediatorContext.runWithMediator(mediator, block)
+                MediatorContext.runWithContext(MediatorExecutionContext(mediator = mediator, clock = clock), block)
             }
         }
     }
@@ -37,7 +38,7 @@ class BackgroundExecutionContext(
         val clock = EpistolaClock.capture()
         return Callable {
             runWithClock(clock) {
-                MediatorContext.runWithMediator(mediator, block)
+                MediatorContext.runWithContext(MediatorExecutionContext(mediator = mediator, clock = clock), block)
             }
         }
     }
@@ -49,7 +50,7 @@ class BackgroundExecutionContext(
         val clock = EpistolaClock.capture()
         return Runnable {
             runWithClock(clock) {
-                MediatorContext.runWithMediator(mediator) {
+                MediatorContext.runWithContext(MediatorExecutionContext(mediator = mediator, clock = clock)) {
                     SecurityContext.runWithPrincipal(principal, block)
                 }
             }

@@ -3,10 +3,10 @@ package app.epistola.suite.cluster.schedules
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.observability.NodeIdentity
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.time.Clock
 import java.time.OffsetDateTime
 
 /**
@@ -26,7 +26,6 @@ class ClusterScheduledTaskRegistry(
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
-    private val clock: Clock,
 ) {
     private val payloadType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
@@ -34,7 +33,7 @@ class ClusterScheduledTaskRegistry(
         val payloadJson = objectMapper.writeValueAsString(definition.payload)
         val scheduleFields = scheduleFields(definition.schedule)
         val initialDueAt = scheduleCalculator.initialDueAt(definition)
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         return jdbi.withHandle<ClusterScheduledTask, Exception> { handle ->
             handle.createQuery(
                 """
@@ -94,7 +93,7 @@ class ClusterScheduledTaskRegistry(
     }
 
     fun dueCandidates(limit: Int = properties.scheduledTasks.candidateScanSize): List<ClusterScheduledTask> = jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createQuery(
             """
             SELECT ${selectColumns()}
@@ -114,7 +113,7 @@ class ClusterScheduledTaskRegistry(
 
     fun claimDue(taskKeys: Collection<String>, batchSize: Int = properties.scheduledTasks.batchSize): List<ClusterScheduledTask> {
         if (taskKeys.isEmpty()) return emptyList()
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         val activeSince = now.minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
         val leaseExpiresAt = now.plusNanos(properties.scheduledTasks.leaseDurationMs * NANOS_PER_MILLI)
         return jdbi.inTransaction<List<ClusterScheduledTask>, Exception> { handle ->
@@ -161,7 +160,7 @@ class ClusterScheduledTaskRegistry(
     }
 
     fun complete(taskKey: String, nextDueAt: OffsetDateTime): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
@@ -184,7 +183,7 @@ class ClusterScheduledTaskRegistry(
     }
 
     fun fail(taskKey: String, nextDueAt: OffsetDateTime, error: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
@@ -212,7 +211,7 @@ class ClusterScheduledTaskRegistry(
     fun disable(taskKey: String, tenantKey: TenantKey? = null): Boolean = setEnabled(taskKey, tenantKey, false)
 
     fun triggerNow(taskKey: String, tenantKey: TenantKey? = null): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
@@ -257,7 +256,7 @@ class ClusterScheduledTaskRegistry(
     }
 
     private fun setEnabled(taskKey: String, tenantKey: TenantKey?, enabled: Boolean): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val now = OffsetDateTime.now(clock)
+        val now = EpistolaClock.offsetDateTime()
         handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled

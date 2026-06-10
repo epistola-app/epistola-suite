@@ -13,12 +13,12 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.time.EpistolaClock
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
-import java.time.Instant
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -85,7 +85,7 @@ class BuildTenantSnapshotHandler(
         }
 
         val snapshotFingerprint = rollUpFingerprint(entries)
-        val capturedAt = Instant.now()
+        val capturedAt = EpistolaClock.instant()
         val manifest =
             SnapshotManifest(
                 schemaVersion = SNAPSHOT_SCHEMA_VERSION,

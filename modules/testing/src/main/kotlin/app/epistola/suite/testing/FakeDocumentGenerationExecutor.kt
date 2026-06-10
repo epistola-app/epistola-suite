@@ -9,6 +9,7 @@ import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -225,7 +226,7 @@ class FakeDocumentGenerationExecutor(
                     sizeBytes = sizeBytes,
                     contentType = contentType,
                     error = error,
-                    completedAt = java.time.OffsetDateTime.now(),
+                    completedAt = EpistolaClock.offsetDateTime(),
                 ),
             )
         } catch (e: Exception) {

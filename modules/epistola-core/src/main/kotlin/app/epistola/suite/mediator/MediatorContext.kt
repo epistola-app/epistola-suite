@@ -1,5 +1,8 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.time.EpistolaClock
+import java.time.Clock
+
 /**
  * Provides thread-scoped access to the Mediator instance using ScopedValue.
  *
@@ -16,20 +19,26 @@ package app.epistola.suite.mediator
  * - Use `MediatorContext.runWithMediator(mediator) { ... }` to explicitly bind scope
  */
 object MediatorContext {
-    private val scopedMediator: ScopedValue<Mediator> = ScopedValue.newInstance()
+    private val scopedContext: ScopedValue<MediatorExecutionContext> = ScopedValue.newInstance()
 
     /**
      * Returns the currently bound Mediator instance.
      *
      * @throws IllegalStateException if no mediator is bound in the current scope
      */
-    fun current(): Mediator = scopedMediator.orElseThrow {
+    fun current(): Mediator = currentExecutionContext().mediator
+
+    fun currentExecutionContext(): MediatorExecutionContext = scopedContext.orElseThrow {
         IllegalStateException(
             "No Mediator bound to current scope. " +
                 "Ensure code is running within MediatorFilter (HTTP requests) " +
                 "or MediatorContext.runWithMediator() (tests/background tasks).",
         )
     }
+
+    fun currentClockOrNull(): Clock? = if (scopedContext.isBound) scopedContext.get().clock else null
+
+    fun currentClock(): Clock = currentExecutionContext().clock
 
     /**
      * Runs the given block with the specified mediator bound to the current scope.
@@ -45,10 +54,15 @@ object MediatorContext {
     fun <T> runWithMediator(
         mediator: Mediator,
         block: () -> T,
-    ): T = ScopedValue.where(scopedMediator, mediator).call<T, RuntimeException>(block)
+    ): T = runWithContext(MediatorExecutionContext(mediator = mediator, clock = EpistolaClock.capture()), block)
+
+    fun <T> runWithContext(
+        context: MediatorExecutionContext,
+        block: () -> T,
+    ): T = ScopedValue.where(scopedContext, context).call<T, RuntimeException>(block)
 
     /**
      * Checks if a mediator is currently bound to the scope.
      */
-    fun isBound(): Boolean = scopedMediator.isBound
+    fun isBound(): Boolean = scopedContext.isBound
 }

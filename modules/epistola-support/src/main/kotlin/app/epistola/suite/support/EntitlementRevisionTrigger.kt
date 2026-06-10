@@ -1,5 +1,6 @@
 package app.epistola.suite.support
 
+import app.epistola.suite.background.BackgroundExecutionContext
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class EntitlementRevisionTrigger(
     private val store: EntitlementStore,
     private val entitlementSync: EntitlementSyncService,
+    private val backgroundExecutionContext: BackgroundExecutionContext,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -34,14 +36,16 @@ class EntitlementRevisionTrigger(
         if (revision <= storedRevision) return
         // Coalesce: if a refresh is already running it will pull the latest revision anyway.
         if (!refreshing.compareAndSet(false, true)) return
-        executor.execute {
-            try {
-                log.debug("Hub signalled entitlements revision {} > stored {}; refreshing", revision, storedRevision)
-                entitlementSync.refresh()
-            } finally {
-                refreshing.set(false)
-            }
-        }
+        executor.execute(
+            backgroundExecutionContext.wrap {
+                try {
+                    log.debug("Hub signalled entitlements revision {} > stored {}; refreshing", revision, storedRevision)
+                    entitlementSync.refresh()
+                } finally {
+                    refreshing.set(false)
+                }
+            },
+        )
     }
 
     @PreDestroy

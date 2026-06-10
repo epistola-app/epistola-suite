@@ -3,6 +3,7 @@ package app.epistola.suite.apikeys
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.time.EpistolaClock
 import java.time.Instant
 
 /**
@@ -31,7 +32,7 @@ data class ApiKey(
      */
     val createdByDisplayName: String? = null,
 ) {
-    fun isExpired(): Boolean = expiresAt != null && Instant.now().isAfter(expiresAt)
+    fun isExpired(now: Instant = EpistolaClock.instant()): Boolean = expiresAt != null && now.isAfter(expiresAt)
 
     fun isUsable(): Boolean = enabled && !isExpired()
 }
