@@ -1,8 +1,10 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.time.EpistolaClock
 import java.time.Clock
+import java.util.concurrent.Callable
 
 /**
  * Provides thread-scoped access to the Mediator instance using ScopedValue.
@@ -29,7 +31,7 @@ object MediatorContext {
      */
     fun current(): Mediator = currentExecutionContext().mediator
 
-    fun currentExecutionContext(): MediatorExecutionContext = scopedContext.orElseThrow {
+    private fun currentExecutionContext(): MediatorExecutionContext = scopedContext.orElseThrow {
         IllegalStateException(
             "No Mediator bound to current scope. " +
                 "Ensure code is running within MediatorFilter (HTTP requests) " +
@@ -41,7 +43,7 @@ object MediatorContext {
 
     fun currentClock(): Clock = currentExecutionContext().clock
 
-    fun capture(): MediatorExecutionContext {
+    internal fun capture(): MediatorExecutionContext {
         val context = currentExecutionContext()
         return context.copy(
             clock = EpistolaClock.capture(),
@@ -65,7 +67,19 @@ object MediatorContext {
         block: () -> T,
     ): T = runWithContext(MediatorExecutionContext(mediator = mediator, clock = EpistolaClock.capture()), block)
 
-    fun <T> runWithContext(
+    fun runnable(
+        mediator: Mediator,
+        principal: EpistolaPrincipal? = SecurityContext.currentOrNull(),
+        block: () -> Unit,
+    ): Runnable = MediatorExecutionContext.capture(mediator, principal).runnable(block)
+
+    fun <T> callable(
+        mediator: Mediator,
+        principal: EpistolaPrincipal? = SecurityContext.currentOrNull(),
+        block: () -> T,
+    ): Callable<T> = MediatorExecutionContext.capture(mediator, principal).callable(block)
+
+    internal fun <T> runWithContext(
         context: MediatorExecutionContext,
         block: () -> T,
     ): T = ScopedValue.where(scopedContext, context).call<T, RuntimeException> {

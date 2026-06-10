@@ -2,28 +2,30 @@
 
 ## Summary
 
-Epistola application time is owned by the mediator execution context.
+Epistola application time is owned by mediator context.
 
-`MediatorContext` binds a `MediatorExecutionContext`, which carries the
-application `Mediator` and the current `Clock`. `EpistolaClock` is the static
-facade over that context: code can call `EpistolaClock.instant()`,
+`MediatorContext` binds the application `Mediator` and the current `Clock`.
+`EpistolaClock` is the static facade over that context: code can call
+`EpistolaClock.instant()`,
 `offsetDateTime()`, `localDate()`, or `yearMonth()` without taking a Spring
 dependency.
 
 The default clock is `Clock.systemUTC()`. Tests and background entrypoints can
 bind a different clock for deterministic execution.
 
-## Mediator Execution Context
+## Mediator Context
 
-`MediatorExecutionContext` lives in `app.epistola.suite.mediator` and contains:
+`MediatorContext` lives in `app.epistola.suite.mediator` and contains scoped
+execution state:
 
 - `mediator`
 - `clock`
+- optionally `principal`
 
 `MediatorContext.runWithMediator(mediator) { ... }` captures the active
-`EpistolaClock` and binds a full execution context. `SpringMediator` also
-creates an execution context when it is called directly outside an existing
-context, so command/query handlers have a clock boundary even without an HTTP
+`EpistolaClock` and binds a full mediator context. `SpringMediator` also
+creates a mediator context scope when it is called directly outside an existing
+scope, so command/query handlers have a clock boundary even without an HTTP
 filter or scheduler wrapper.
 
 `MediatorContext.current()` still returns the bound mediator. Use
@@ -38,8 +40,8 @@ most application code should use `EpistolaClock`.
 2. the clock bound in `MediatorContext`
 3. UTC system time
 
-The local override exists for tests and small scoped overrides. The mediator
-execution context is the normal application boundary.
+The local override exists for tests and small scoped overrides. Mediator context
+is the normal application boundary.
 
 ## Spring Clock Bean
 
@@ -55,25 +57,18 @@ plus `EpistolaClock`.
 
 Code that starts outside an existing mediator scope and executes immediately
 uses `MediatorContext.runWithMediator(mediator)`. Work that crosses an executor
-or callback boundary captures a `MediatorExecutionContext` with
-`MediatorExecutionContext.capture(mediator)`, then converts that context into a
-runnable/callable for the handoff.
-
-`MediatorExecutionContext` carries:
-
-- `mediator`
-- `clock`
-- optionally `principal`
+or callback boundary uses `MediatorContext.runnable(...)` or
+`MediatorContext.callable(...)`, which captures the current mediator context at
+submission time and re-binds it inside the submitted work.
 
 Use `MediatorContext.runWithMediator(mediator)` for scheduler-style entrypoints
-that bind and execute immediately. Use `MediatorExecutionContext.capture(mediator, principal)`
-when work crosses a thread boundary and needs a system/user principal. Capture
-the context before submitting and execute `context.runnable { ... }` or
-`context.callable { ... }`.
+that bind and execute immediately. Use
+`MediatorContext.runnable(mediator, principal) { ... }` when work crosses a
+thread boundary and needs a system/user principal.
 
-Scoped values do not propagate to new threads automatically. The captured
-context is the propagation object; "background" is just one place where that
-propagation is needed.
+Scoped values do not propagate to new threads automatically. The
+`MediatorContext` handoff helpers capture and re-bind the context; "background"
+is just one place where that propagation is needed.
 
 ## Test Infrastructure
 
@@ -99,7 +94,7 @@ Use one of:
 - `MediatorContext.currentClock()` when code specifically needs the execution
   context clock
 - `MediatorContext.runWithMediator(mediator)` for scheduled work that executes immediately
-- `MediatorExecutionContext.capture(mediator)` for executor handoffs
+- `MediatorContext.runnable(...)` / `MediatorContext.callable(...)` for executor handoffs
 - the delegating Spring `Clock` only for transitional injected-clock code
 
 Avoid direct application calls to:
@@ -116,9 +111,9 @@ timestamps, and queries comparing database-owned timestamp columns.
 ## Current Transitional Areas
 
 No production application component should inject Spring `Clock` for application
-time. The remaining explicit `Clock` parameters are the mediator execution
-context/facade mechanics and the generation module's pure rendering API, where
-`epistola-core` is intentionally not a dependency.
+time. The remaining explicit `Clock` parameters are the mediator context facade
+mechanics and the generation module's pure rendering API, where `epistola-core`
+is intentionally not a dependency.
 
 Infrastructure liveness and metrics code may intentionally use real wall-clock
 time when the signal is elapsed process time rather than application time.

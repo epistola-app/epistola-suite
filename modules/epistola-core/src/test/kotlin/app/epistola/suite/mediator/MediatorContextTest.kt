@@ -5,11 +5,10 @@ import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.time.EpistolaClock
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.time.Clock
 import java.time.Instant
-import java.time.ZoneId
 
 class MediatorContextTest {
     @Test
@@ -17,7 +16,7 @@ class MediatorContextTest {
         val instant = Instant.parse("2026-06-10T10:15:30Z")
         val mediator = TestMediator
 
-        val observed = app.epistola.suite.time.EpistolaClock.withInstant(instant) {
+        val observed = EpistolaClock.withInstant(instant) {
             MediatorContext.runWithMediator(mediator) {
                 MediatorContext.current() to MediatorContext.currentClock().instant()
             }
@@ -28,57 +27,68 @@ class MediatorContextTest {
     }
 
     @Test
-    fun `runWithContext binds explicit clock`() {
+    fun `runWithMediator binds explicit clock scope`() {
         val instant = Instant.parse("2026-06-11T10:15:30Z")
 
-        val observed = MediatorContext.runWithContext(
-            MediatorExecutionContext(TestMediator, Clock.fixed(instant, ZoneId.of("UTC"))),
-        ) {
-            MediatorContext.currentClock().instant()
+        val observed = EpistolaClock.withInstant(instant) {
+            MediatorContext.runWithMediator(TestMediator) {
+                MediatorContext.currentClock().instant()
+            }
         }
 
         assertThat(observed).isEqualTo(instant)
     }
 
     @Test
-    fun `capture includes effective clock and principal`() {
+    fun `runnable captures effective clock and principal`() {
         val instant = Instant.parse("2026-06-12T10:15:30Z")
         val principal = principal()
+        var observed: Triple<Mediator, Instant, EpistolaPrincipal>? = null
 
-        val context = app.epistola.suite.time.EpistolaClock.withInstant(instant) {
+        val capturingRunnable = EpistolaClock.withInstant(instant) {
             SecurityContext.runWithPrincipal(principal) {
                 MediatorContext.runWithMediator(TestMediator) {
-                    MediatorContext.capture()
+                    MediatorContext.runnable(TestMediator) {
+                        observed = Triple(
+                            MediatorContext.current(),
+                            MediatorContext.currentClock().instant(),
+                            SecurityContext.current(),
+                        )
+                    }
                 }
             }
         }
 
-        assertThat(context.mediator).isSameAs(TestMediator)
-        assertThat(context.clock.instant()).isEqualTo(instant)
-        assertThat(context.principal).isEqualTo(principal)
+        capturingRunnable.run()
+        val actual = requireNotNull(observed)
+
+        assertThat(actual.first).isSameAs(TestMediator)
+        assertThat(actual.second).isEqualTo(instant)
+        assertThat(actual.third).isEqualTo(principal)
     }
 
     @Test
-    fun `context bind restores mediator clock and principal`() {
+    fun `runnable can bind an explicit principal`() {
         val instant = Instant.parse("2026-06-13T10:15:30Z")
         val principal = principal()
-        val context = MediatorExecutionContext(
-            mediator = TestMediator,
-            clock = Clock.fixed(instant, ZoneId.of("UTC")),
-            principal = principal,
-        )
+        var observed: Triple<Mediator, Instant, EpistolaPrincipal>? = null
 
-        val observed = context.bind {
-            Triple(
-                MediatorContext.current(),
-                MediatorContext.currentClock().instant(),
-                SecurityContext.current(),
-            )
+        val capturingRunnable = EpistolaClock.withInstant(instant) {
+            MediatorContext.runnable(TestMediator, principal) {
+                observed = Triple(
+                    MediatorContext.current(),
+                    MediatorContext.currentClock().instant(),
+                    SecurityContext.current(),
+                )
+            }
         }
 
-        assertThat(observed.first).isSameAs(TestMediator)
-        assertThat(observed.second).isEqualTo(instant)
-        assertThat(observed.third).isEqualTo(principal)
+        capturingRunnable.run()
+        val actual = requireNotNull(observed)
+
+        assertThat(actual.first).isSameAs(TestMediator)
+        assertThat(actual.second).isEqualTo(instant)
+        assertThat(actual.third).isEqualTo(principal)
     }
 
     private fun principal(): EpistolaPrincipal = EpistolaPrincipal(

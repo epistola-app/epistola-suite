@@ -99,10 +99,10 @@ migration — add a new timestamped file. Folding `ALTER`s back into the origina
 
 ### Application time and mediator context
 
-Application time is owned by `MediatorExecutionContext`, not by Spring injection.
-The active context carries the `Mediator`, the current `Clock`, and optionally
-the current `EpistolaPrincipal`. `MediatorContext` binds that context with
-`ScopedValue`, and `EpistolaClock` resolves time from the bound context.
+Application time is owned by `MediatorContext`, not by Spring injection. The
+active mediator context carries the `Mediator`, the current `Clock`, and
+optionally the current `EpistolaPrincipal`. `MediatorContext` binds that state
+with `ScopedValue`, and `EpistolaClock` resolves time from the bound context.
 
 Rules:
 
@@ -113,8 +113,8 @@ Rules:
   `YearMonth.now()`.
 - Do not inject Spring `Clock` for application time. The Spring `Clock` bean is
   only a compatibility bridge for legacy/transitional code.
-- Regular commands and queries get a mediator execution context from
-  `SpringMediator`; handlers should not create their own context.
+- Regular commands and queries get a mediator context scope from
+  `SpringMediator`; handlers should not create their own scope.
 - Entry points that start outside an existing mediator scope and execute
   immediately must bind a mediator context explicitly:
 
@@ -130,8 +130,7 @@ Rules:
   callback boundaries.
 
   ```kotlin
-  val context = MediatorExecutionContext.capture(mediator, principal)
-  executor.submit(context.runnable {
+  executor.submit(MediatorContext.runnable(mediator, principal) {
       // async work
   })
   ```

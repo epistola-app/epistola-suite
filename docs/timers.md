@@ -199,8 +199,9 @@ moves to another active capable node.
 Runtime time comes from `EpistolaClock`, which resolves through
 `MediatorContext`. Timer and scheduled-task pollers bind same-thread work with
 `MediatorContext.runWithMediator(mediator)`, so handlers have mediator context
-and the current application clock. Use `MediatorExecutionContext.capture(...)`
-only when work crosses an executor or callback boundary.
+and the current application clock. Use `MediatorContext.runnable(...)` or
+`MediatorContext.callable(...)` when work crosses an executor or callback
+boundary.
 
 Integration tests use a per-test `MutableClock` bound through
 `EpistolaClockExtension`. Tests can advance time deterministically instead of

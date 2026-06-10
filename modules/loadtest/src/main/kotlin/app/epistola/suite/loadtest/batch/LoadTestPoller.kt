@@ -5,7 +5,7 @@ import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.TenantRole
@@ -67,9 +67,8 @@ class LoadTestPoller(
             logger.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
 
             // Execute on virtual thread, don't block the scheduler
-            val context = MediatorExecutionContext.capture(mediator, SYSTEM_PRINCIPAL)
             executor.submit(
-                context.runnable {
+                MediatorContext.runnable(mediator, SYSTEM_PRINCIPAL) {
                     try {
                         loadTestExecutor.execute(run)
                     } catch (e: Exception) {

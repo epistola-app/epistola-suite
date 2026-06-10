@@ -3,7 +3,6 @@ package app.epistola.suite.time
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
-import app.epistola.suite.mediator.MediatorExecutionContext
 import app.epistola.suite.mediator.Query
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -40,28 +39,28 @@ class EpistolaClockTest {
     }
 
     @Test
-    fun `current clock falls back to mediator execution context`() {
+    fun `current clock falls back to mediator context`() {
         val instant = Instant.parse("2026-06-12T00:00:00Z")
 
-        val observed = MediatorContext.runWithContext(
-            MediatorExecutionContext(TestMediator, Clock.fixed(instant, ZoneId.of("UTC"))),
-        ) {
-            EpistolaClock.instant()
+        val observed = EpistolaClock.withInstant(instant) {
+            MediatorContext.runWithMediator(TestMediator) {
+                EpistolaClock.instant()
+            }
         }
 
         assertThat(observed).isEqualTo(instant)
     }
 
     @Test
-    fun `local clock scope takes precedence over mediator execution context`() {
+    fun `local clock scope takes precedence over mediator context`() {
         val mediatorInstant = Instant.parse("2026-06-12T00:00:00Z")
         val localInstant = Instant.parse("2026-06-13T00:00:00Z")
 
-        val observed = MediatorContext.runWithContext(
-            MediatorExecutionContext(TestMediator, Clock.fixed(mediatorInstant, ZoneId.of("UTC"))),
-        ) {
-            EpistolaClock.withInstant(localInstant) {
-                EpistolaClock.instant()
+        val observed = EpistolaClock.withInstant(mediatorInstant) {
+            MediatorContext.runWithMediator(TestMediator) {
+                EpistolaClock.withInstant(localInstant) {
+                    EpistolaClock.instant()
+                }
             }
         }
 

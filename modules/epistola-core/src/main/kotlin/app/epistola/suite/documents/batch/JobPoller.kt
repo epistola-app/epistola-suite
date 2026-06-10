@@ -5,7 +5,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.mediator.MediatorExecutionContext
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
@@ -182,8 +182,7 @@ class JobPoller(
     fun requestDrain() {
         if (shuttingDown.get()) return
         if (drainRequested.compareAndSet(false, true)) {
-            val context = MediatorExecutionContext.capture(mediator)
-            drainExecutor.submit(context.runnable { drain() })
+            drainExecutor.submit(MediatorContext.runnable(mediator) { drain() })
         }
     }
 
@@ -254,9 +253,8 @@ class JobPoller(
                     logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
-                    val context = MediatorExecutionContext.capture(mediator, systemPrincipal(request.tenantKey))
                     jobThreadExecutor.submit(
-                        context.runnable {
+                        MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
                             var jobOutcome = "success"
                             try {
                                 jobExecutor.execute(request)

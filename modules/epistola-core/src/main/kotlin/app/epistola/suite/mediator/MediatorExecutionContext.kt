@@ -6,13 +6,11 @@ import app.epistola.suite.time.EpistolaClock
 import java.time.Clock
 import java.util.concurrent.Callable
 
-data class MediatorExecutionContext(
+internal data class MediatorExecutionContext(
     val mediator: Mediator,
     val clock: Clock = Clock.systemUTC(),
     val principal: EpistolaPrincipal? = null,
 ) {
-    fun withPrincipal(principal: EpistolaPrincipal): MediatorExecutionContext = copy(principal = principal)
-
     fun <T> bind(block: () -> T): T = MediatorContext.runWithContext(this, block)
 
     fun runnable(block: () -> Unit): Runnable = Runnable { bind(block) }

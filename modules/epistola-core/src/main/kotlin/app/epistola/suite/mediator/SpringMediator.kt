@@ -11,7 +11,6 @@ import app.epistola.suite.security.currentUser
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.security.requireTenantAccess
 import app.epistola.suite.security.requireTenantManager
-import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
@@ -134,10 +133,7 @@ class SpringMediator(
         if (MediatorContext.isBound()) {
             return block()
         }
-        return MediatorContext.runWithContext(
-            MediatorExecutionContext(mediator = this, clock = EpistolaClock.capture()),
-            block,
-        )
+        return MediatorContext.runWithMediator(this, block)
     }
 
     private fun <R> invokeEventHandlers(command: Command<R>, result: R, phase: EventPhase) {
