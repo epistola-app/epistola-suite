@@ -166,10 +166,12 @@
                         <td><code th:text="${entry.versionLabel}">-</code></td>
                         <td>
                             <span th:title="${#temporals.format(entry.node.joinedAt, 'yyyy-MM-dd HH:mm:ss')}"
-                                  th:text="${#temporals.format(entry.node.joinedAt, 'HH:mm:ss')}">--</span>
+                                  th:attr="data-local-datetime=${entry.node.joinedAt}"
+                                  th:text="${#temporals.format(entry.node.joinedAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
                         </td>
                         <td>
                             <span th:title="${#temporals.format(entry.node.lastSeenAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                  th:attr="data-local-datetime-title=${entry.node.lastSeenAt}"
                                   th:text="${entry.ageLabel}">just now</span>
                         </td>
                     </tr>
@@ -204,7 +206,8 @@
                             <td><code th:text="${task.routingKey}">routing</code></td>
                             <td>
                                 <span th:title="${#temporals.format(task.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
-                                      th:text="${#temporals.format(task.nextDueAt, 'HH:mm:ss')}">--</span>
+                                      th:attr="data-local-datetime=${task.nextDueAt}"
+                                      th:text="${#temporals.format(task.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
                             </td>
                             <td><code th:text="${task.leaseOwnerNodeId ?: '-'}">-</code></td>
                         </tr>
@@ -229,12 +232,14 @@
                                 <td><code th:text="${state.nodeId}">node</code></td>
                                 <td>
                                     <span th:title="${#temporals.format(state.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
-                                          th:text="${#temporals.format(state.nextDueAt, 'HH:mm:ss')}">--</span>
+                                          th:attr="data-local-datetime=${state.nextDueAt}"
+                                          th:text="${#temporals.format(state.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
                                 </td>
                                 <td>
                                     <span th:if="${state.leaseExpiresAt != null}"
                                           th:title="${#temporals.format(state.leaseExpiresAt, 'yyyy-MM-dd HH:mm:ss')}"
-                                          th:text="${#temporals.format(state.leaseExpiresAt, 'HH:mm:ss')}">--</span>
+                                          th:attr="data-local-datetime=${state.leaseExpiresAt}"
+                                          th:text="${#temporals.format(state.leaseExpiresAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
                                     <code th:if="${state.leaseExpiresAt == null}">-</code>
                                 </td>
                                 <td><code th:text="${state.consecutiveFailures}">0</code></td>
@@ -270,7 +275,8 @@
                             <td><code th:text="${timer.routingKey}">routing</code></td>
                             <td>
                                 <span th:title="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}"
-                                      th:text="${#temporals.format(timer.dueAt, 'HH:mm:ss')}">--</span>
+                                      th:attr="data-local-datetime=${timer.dueAt}"
+                                      th:text="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
                             </td>
                             <td th:text="${timer.status.dbValue}">scheduled</td>
                         </tr>
@@ -278,6 +284,53 @@
                 </table>
             </div>
         </div>
+        <script>
+            (function () {
+                const formatter = new Intl.DateTimeFormat(undefined, {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    timeZoneName: 'short'
+                });
+
+                function format(value) {
+                    const date = new Date(value);
+                    return Number.isNaN(date.getTime()) ? null : formatter.format(date);
+                }
+
+                function formatClusterDateTimes(root) {
+                    root.querySelectorAll('[data-local-datetime]').forEach(function (element) {
+                        const formatted = format(element.dataset.localDatetime);
+                        if (formatted) {
+                            element.textContent = formatted;
+                            element.title = formatted;
+                        }
+                    });
+                    root.querySelectorAll('[data-local-datetime-title]').forEach(function (element) {
+                        const formatted = format(element.dataset.localDatetimeTitle);
+                        if (formatted) {
+                            element.title = formatted;
+                        }
+                    });
+                }
+
+                window.epistolaFormatClusterDateTimes = formatClusterDateTimes;
+                formatClusterDateTimes(document);
+
+                if (!window.epistolaClusterDateTimesInstalled) {
+                    window.epistolaClusterDateTimesInstalled = true;
+                    document.addEventListener('DOMContentLoaded', function () {
+                        window.epistolaFormatClusterDateTimes(document);
+                    });
+                    document.body.addEventListener('htmx:afterSwap', function (event) {
+                        window.epistolaFormatClusterDateTimes(event.target);
+                    });
+                }
+            })();
+        </script>
     </th:block>
 </body>
 </html>
