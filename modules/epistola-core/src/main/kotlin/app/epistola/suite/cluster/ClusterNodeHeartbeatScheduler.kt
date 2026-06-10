@@ -7,6 +7,13 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
+/**
+ * Periodically records this process in the cluster node registry.
+ *
+ * Heartbeats are intentionally cheap and always enabled. Other cluster
+ * primitives derive active/stale node state from the same registry, so there is
+ * no separate "clustering disabled" mode for single-node deployments.
+ */
 @Component
 @EnableScheduling
 class ClusterNodeHeartbeatScheduler(

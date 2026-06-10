@@ -7,6 +7,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import java.time.Duration
 import java.time.OffsetDateTime
 
 @TestPropertySource(
@@ -46,7 +47,7 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
         deleteNode(nodeIdentity.nodeId)
 
         val first = registry.heartbeat()
-        Thread.sleep(5)
+        testClock.advanceBy(Duration.ofMillis(5))
         val second = registry.heartbeat()
 
         assertThat(second.joinedAt).isEqualTo(first.joinedAt)
@@ -57,7 +58,7 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
     fun `active nodes excludes stale heartbeats`() {
         deleteNode("stale-node")
         registry.heartbeat()
-        insertNode("stale-node", OffsetDateTime.now().minusMinutes(2))
+        insertNode("stale-node", now().minusMinutes(2))
 
         val activeNodeIds = registry.activeNodes().map { it.nodeId }
 
@@ -69,7 +70,7 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
     fun `all nodes includes stale heartbeats`() {
         deleteNode("stale-node")
         registry.heartbeat()
-        insertNode("stale-node", OffsetDateTime.now().minusMinutes(2))
+        insertNode("stale-node", now().minusMinutes(2))
 
         val nodeIds = registry.allNodes().map { it.nodeId }
 
@@ -100,4 +101,6 @@ class ClusterNodeRegistryIT : IntegrationTestBase() {
                 .execute()
         }
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 }

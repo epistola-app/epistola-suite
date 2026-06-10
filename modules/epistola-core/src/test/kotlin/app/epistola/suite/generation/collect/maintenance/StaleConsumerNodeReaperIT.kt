@@ -1,5 +1,7 @@
 package app.epistola.suite.generation.collect.maintenance
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskScheduler
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
@@ -7,6 +9,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -18,6 +21,12 @@ class StaleConsumerNodeReaperIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var reaper: StaleConsumerNodeReaper
+
+    @Autowired
+    private lateinit var clusterScheduledTaskScheduler: ClusterScheduledTaskScheduler
+
+    @Autowired
+    private lateinit var scheduledTaskRegistry: ClusterScheduledTaskRegistry
 
     private fun seedNode(tenantKey: TenantKey, nodeId: String, lastSeenAt: OffsetDateTime) {
         val consumerId = UUID.randomUUID().toString()
@@ -46,6 +55,16 @@ class StaleConsumerNodeReaperIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `registers a clustered scheduled task definition`() {
+        val task = scheduledTaskRegistry.find(StaleConsumerNodeReaper.TASK_KEY)
+
+        assertThat(task).isNotNull
+        assertThat(task?.routingKey).isEqualTo(StaleConsumerNodeReaper.ROUTING_KEY)
+        assertThat(task?.taskType).isEqualTo(StaleConsumerNodeReaper.TASK_TYPE)
+        assertThat(task?.cronExpression).isEqualTo("0 0 3 * * *")
+    }
+
+    @Test
     fun `deletes rows older than retention window and keeps fresher rows`() {
         val tenant = createTenant("Reaper Test").id
         val now = OffsetDateTime.now()
@@ -66,6 +85,28 @@ class StaleConsumerNodeReaperIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `cluster scheduled task poll runs stale consumer node reaper handler after time advances past due`() = scenario {
+        given {
+            val task = scheduledTaskRegistry.find(StaleConsumerNodeReaper.TASK_KEY)
+                ?: error("Stale consumer node reaper scheduled task was not registered")
+            val tenant = createTenant("Reaper Cluster Poll Test").id
+            val now = OffsetDateTime.now()
+            seedNode(tenant, "fresh", now.minusMinutes(5))
+            seedNode(tenant, "stale", now.minusDays(30))
+            assertThat(countNodes(tenant)).isEqualTo(2)
+            StaleConsumerReaperPollSetup(
+                tenantKey = tenant,
+                nextDueAt = task.nextDueAt,
+            )
+        }.whenever { setup ->
+            advancePast(setup.nextDueAt)
+            clusterScheduledTaskScheduler.poll()
+        }.then { setup, _ ->
+            assertThat(countNodes(setup.tenantKey)).isEqualTo(1)
+        }
+    }
+
+    @Test
     fun `is a no-op when no rows are old enough`() {
         val tenant = createTenant("Reaper No-op Test").id
         val now = OffsetDateTime.now()
@@ -79,4 +120,14 @@ class StaleConsumerNodeReaperIT : IntegrationTestBase() {
 
         assertThat(countNodes(tenant)).isEqualTo(2)
     }
+
+    private fun advancePast(dueAt: OffsetDateTime) {
+        testClock.set(dueAt.toInstant().minusSeconds(1))
+        testClock.advanceBy(Duration.ofSeconds(2))
+    }
+
+    private data class StaleConsumerReaperPollSetup(
+        val tenantKey: TenantKey,
+        val nextDueAt: OffsetDateTime,
+    )
 }

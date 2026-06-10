@@ -117,6 +117,12 @@ epistola:
   cluster:
     heartbeat-interval-ms: 2000
     idle-timeout-ms: 10000
+    timers:
+      poll-interval-ms: 1000
+      lease-duration-ms: 30000
+      retry-delay-ms: 30000
+      batch-size: 25
+      candidate-scan-size: 250
     capabilities:
       - suite
 

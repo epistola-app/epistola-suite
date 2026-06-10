@@ -3,14 +3,27 @@ package app.epistola.suite.handlers
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
+import app.epistola.suite.cluster.timers.ClusterTimer
+import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.mediator.query
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import java.time.OffsetDateTime
 
+/**
+ * Renders the Operations -> Cluster page.
+ *
+ * The page combines the live node registry with mediator queries for timers and
+ * scheduled tasks. Recording a heartbeat here keeps the current node fresh when
+ * an operator opens the page, while timer/task reads stay on the public
+ * command-query boundary instead of depending on internal registries.
+ */
 @Component
 class ClusterStatusHandler(
     private val registry: ClusterNodeRegistry,
@@ -56,6 +69,8 @@ class ClusterStatusHandler(
         }
         return ClusterStatusReport(
             nodes = nodes,
+            timers = ListClusterTimers().query(),
+            scheduledTasks = ListClusterScheduledTasks.query(),
             heartbeatIntervalMs = properties.heartbeatIntervalMs,
             idleTimeoutMs = properties.idleTimeoutMs,
             activeCount = nodes.count { it.isActive },
@@ -68,8 +83,13 @@ class ClusterStatusHandler(
     }
 }
 
+/**
+ * Read model consumed by the cluster dashboard template.
+ */
 data class ClusterStatusReport(
     val nodes: List<ClusterNodeStatus>,
+    val timers: List<ClusterTimer>,
+    val scheduledTasks: List<ClusterScheduledTask>,
     val heartbeatIntervalMs: Long,
     val idleTimeoutMs: Long,
     val activeCount: Int,
@@ -80,6 +100,9 @@ data class ClusterStatusReport(
     val idleTimeoutSeconds: Long = idleTimeoutMs / 1_000L
 }
 
+/**
+ * Presentation state for one registered cluster node.
+ */
 data class ClusterNodeStatus(
     val node: ClusterNode,
     val isCurrent: Boolean,

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.OffsetDateTime
 
 /**
@@ -21,6 +22,7 @@ class ClusterNodeRegistry(
     private val objectMapper: ObjectMapper,
     private val nodeIdentity: NodeIdentity,
     private val properties: ClusterProperties,
+    private val clock: Clock,
     private val buildProperties: BuildProperties? = null,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -28,7 +30,7 @@ class ClusterNodeRegistry(
     private val metadataType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
     fun heartbeat(): ClusterNode {
-        val now = OffsetDateTime.now()
+        val now = OffsetDateTime.now(clock)
         val capabilities = properties.normalizedCapabilities()
         val capabilitiesJson = objectMapper.writeValueAsString(capabilities)
         val metadataJson = objectMapper.writeValueAsString(emptyMap<String, Any?>())
@@ -75,7 +77,7 @@ class ClusterNodeRegistry(
     }
 
     fun activeNodes(): List<ClusterNode> {
-        val activeSince = OffsetDateTime.now().minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
+        val activeSince = OffsetDateTime.now(clock).minusNanos(properties.idleTimeoutMs * NANOS_PER_MILLI)
         return jdbi.withHandle<List<ClusterNode>, Exception> { handle ->
             handle.createQuery(
                 """

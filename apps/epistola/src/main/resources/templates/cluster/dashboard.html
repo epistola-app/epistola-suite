@@ -71,6 +71,13 @@
                 border-radius: var(--ep-radius-lg);
                 background: var(--ep-card);
             }
+            .cluster-work-section {
+                margin-top: var(--ep-space-8);
+            }
+            .cluster-work-section h2 {
+                font-size: var(--ep-text-lg);
+                margin: 0 0 var(--ep-space-3);
+            }
             @media (max-width: 900px) {
                 .cluster-summary {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -161,6 +168,74 @@
                     </tr>
                 </tbody>
             </table>
+
+            <div class="cluster-work-section">
+                <h2>Scheduled tasks</h2>
+                <div th:if="${#lists.isEmpty(report.scheduledTasks)}" class="cluster-empty">
+                    No cluster scheduled tasks are registered.
+                </div>
+                <table th:if="${!#lists.isEmpty(report.scheduledTasks)}" class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Type</th>
+                            <th>Capability</th>
+                            <th>Routing key</th>
+                            <th>Next due</th>
+                            <th>Lease owner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="task : ${report.scheduledTasks}">
+                            <td><code th:text="${task.taskKey}">task-key</code></td>
+                            <td><code th:text="${task.taskType}">type</code></td>
+                            <td>
+                                <span class="cluster-capability" th:text="${task.requiredCapability}">suite</span>
+                            </td>
+                            <td><code th:text="${task.routingKey}">routing</code></td>
+                            <td>
+                                <span th:title="${#temporals.format(task.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                      th:text="${#temporals.format(task.nextDueAt, 'HH:mm:ss')}">--</span>
+                            </td>
+                            <td><code th:text="${task.leaseOwnerNodeId ?: '-'}">-</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cluster-work-section">
+                <h2>Timers</h2>
+                <div th:if="${#lists.isEmpty(report.timers)}" class="cluster-empty">
+                    No cluster timers are scheduled.
+                </div>
+                <table th:if="${!#lists.isEmpty(report.timers)}" class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Timer</th>
+                            <th>Type</th>
+                            <th>Capability</th>
+                            <th>Routing key</th>
+                            <th>Due</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="timer : ${report.timers}">
+                            <td><code th:text="${timer.timerKey}">timer-key</code></td>
+                            <td><code th:text="${timer.timerType}">type</code></td>
+                            <td>
+                                <span class="cluster-capability" th:text="${timer.requiredCapability}">suite</span>
+                            </td>
+                            <td><code th:text="${timer.routingKey}">routing</code></td>
+                            <td>
+                                <span th:title="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                      th:text="${#temporals.format(timer.dueAt, 'HH:mm:ss')}">--</span>
+                            </td>
+                            <td th:text="${timer.status.dbValue}">scheduled</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </th:block>
 </body>

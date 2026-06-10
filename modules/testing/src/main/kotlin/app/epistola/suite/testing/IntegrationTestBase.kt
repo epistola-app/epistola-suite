@@ -13,6 +13,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -42,12 +43,16 @@ import org.springframework.test.context.ActiveProfiles
 )
 @ActiveProfiles("test")
 @Tag("integration")
+@ExtendWith(EpistolaClockExtension::class)
 abstract class IntegrationTestBase {
     @Autowired
     protected lateinit var mediator: Mediator
 
     @Autowired(required = false)
     private var jobPoller: JobPoller? = null
+
+    protected val testClock: MutableClock
+        get() = EpistolaClockExtension.current()
 
     @BeforeEach
     fun awaitIdleJobPoller() {
