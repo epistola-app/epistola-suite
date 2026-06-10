@@ -23,6 +23,7 @@ data class ClusterProperties(
     val idleTimeoutMs: Long = 10_000,
     val capabilities: List<String> = listOf(DEFAULT_CAPABILITY),
     val timers: ClusterTimerProperties = ClusterTimerProperties(),
+    val scheduledTasks: ClusterScheduledTaskProperties = ClusterScheduledTaskProperties(),
 ) {
     fun normalizedCapabilities(): List<String> = capabilities
         .map { it.trim() }
@@ -41,4 +42,13 @@ data class ClusterTimerProperties(
     val retryDelayMs: Long = 30_000,
     val batchSize: Int = 25,
     val candidateScanSize: Int = 250,
+)
+
+data class ClusterScheduledTaskProperties(
+    val pollIntervalMs: Long = 1_000,
+    val leaseDurationMs: Long = 30_000,
+    val retryDelayMs: Long = 30_000,
+    val maxRetryDelayMs: Long = 300_000,
+    val batchSize: Int = 10,
+    val candidateScanSize: Int = 100,
 )
