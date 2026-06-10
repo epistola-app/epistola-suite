@@ -47,6 +47,10 @@ tasks.withType<Test> {
 }
 
 val testSourceSet = sourceSets.named("test")
+val perfTestExplicitlyRequested =
+    gradle.startParameter.taskNames.any { requested ->
+        requested == "perfTest" || requested.endsWith(":perfTest")
+    }
 
 tasks.register<Test>("unitTest") {
     description = "Runs unit tests (no Spring context, no Docker required)"
@@ -115,7 +119,9 @@ tasks.named("check") {
 // Perf tests — opt-in via `@Tag("perf")`. Excluded from `integrationTest` so the
 // regular IT cycle stays fast. Run on demand with `:perfTest --tests ...`.
 // Bigger heap + longer per-test timeout because perf tests bulk-insert lots of
-// rows and run multiple parallel virtual threads against Postgres.
+// rows and often stress one shared Testcontainers Postgres deliberately. Keep
+// the task itself serialized; each perf case controls its own workload
+// concurrency.
 tasks.register<Test>("perfTest") {
     description = "Runs performance tests (Spring + Testcontainers, opt-in)"
     group = "verification"
@@ -123,7 +129,10 @@ tasks.register<Test>("perfTest") {
     classpath = testSourceSet.get().runtimeClasspath
     useJUnitPlatform { includeTags("perf") }
     jvmArgs("-XX:+UseParallelGC", "-Xms512m", "-Xmx2g")
+    maxParallelForks = 1
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
     timeout.set(Duration.ofMinutes(15))
     testLogging { events("passed", "skipped", "failed", "standardOut") }
     filter { isFailOnNoMatchingTests = false }
+    enabled = perfTestExplicitlyRequested
 }

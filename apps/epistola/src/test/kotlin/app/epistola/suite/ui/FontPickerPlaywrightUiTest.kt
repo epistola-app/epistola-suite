@@ -15,7 +15,6 @@ import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
-import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import org.assertj.core.api.Assertions.assertThat as assertThatJ
 
@@ -58,7 +57,13 @@ class FontPickerPlaywrightUiTest : BasePlaywrightTest() {
         // load has populated its options with the bundled "Inter" family.
         val fontSelect = page.locator("#inspector-style-fontFamily")
         fontSelect.waitFor()
-        assertThat(fontSelect).containsText("Inter")
+        page.waitForFunction(
+            """() => {
+                const select = document.querySelector('#inspector-style-fontFamily');
+                if (!select) return false;
+                return Array.from(select.options).some((option) => option.textContent?.trim() === 'Inter');
+            }""",
+        )
 
         // Pick Inter by its visible label and assert the canvas content
         // element now resolves to the namespaced @font-face family.
