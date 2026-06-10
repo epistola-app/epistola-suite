@@ -33,7 +33,7 @@
     font-weight: 500;
     line-height: 1;
     border-radius: var(--btn-radius);
-    border: 1px solid var(--btn-border-color);
+    border: var(--ep-border-width) solid var(--btn-border-color);
     background-color: var(--btn-bg);
     color: var(--btn-color);
     cursor: pointer;
@@ -158,7 +158,7 @@
 
   .card {
     background-color: var(--ep-card);
-    border: 1px solid var(--ep-border-color);
+    border: var(--ep-border);
     border-radius: var(--ep-radius-lg);
     box-shadow: var(--ep-shadow-sm);
   }
@@ -168,7 +168,7 @@
     flex-direction: column;
     gap: var(--ep-space-1-5);
     padding: var(--ep-space-6);
-    border-bottom: 1px solid var(--ep-border-color);
+    border-bottom: var(--ep-border);
   }
 
   .card-title {
@@ -197,7 +197,7 @@
     display: flex;
     align-items: center;
     padding: var(--ep-space-6);
-    border-top: 1px solid var(--ep-border-color);
+    border-top: var(--ep-border);
   }
 
   /* ── Card header row (horizontal title + actions) ──────────────────── */
@@ -207,7 +207,7 @@
     justify-content: space-between;
     align-items: center;
     padding: var(--ep-space-4) var(--ep-space-6);
-    border-bottom: 1px solid var(--ep-border-color);
+    border-bottom: var(--ep-border);
   }
 
   .card-header-row h2,
@@ -249,17 +249,17 @@
   }
 
   .card-interactive-lift:hover {
-    transform: translateY(-1px);
+    transform: translateY(calc(var(--ep-border-width) * -1));
   }
 
   /* ── Card size constraints ──────────────────────────────────────────── */
 
   .card-narrow {
-    max-width: 32rem;
+    max-width: var(--ep-max-width-xs);
   }
 
   .card-medium {
-    max-width: 40rem;
+    max-width: var(--ep-max-width-sm);
   }
 
   /* ── Card danger-zone variant ───────────────────────────────────────── */
@@ -292,7 +292,7 @@
     line-height: var(--ep-leading-normal);
     color: var(--ep-foreground);
     background-color: var(--ep-white);
-    border: 1px solid var(--ep-input-border);
+    border: var(--ep-border-width) solid var(--ep-input-border);
     border-radius: var(--ep-radius-md);
     transition: var(--ep-transition-colors);
 
@@ -324,7 +324,7 @@
       &::file-selector-button {
         margin-right: var(--ep-space-3);
         border: 0;
-        border-right: 1px solid var(--ep-input-border);
+        border-right: var(--ep-border-width) solid var(--ep-input-border);
         background: var(--ep-gray-50);
         color: var(--ep-foreground);
         padding: var(--ep-space-2) var(--ep-space-3);
@@ -344,14 +344,14 @@
   .ep-textarea {
     display: flex;
     width: 100%;
-    min-height: 5rem;
-    max-height: 20rem;
+    min-height: calc(var(--ep-space-10) * 2);
+    max-height: calc(var(--ep-space-10) * 8);
     padding: var(--ep-space-2) var(--ep-space-3);
     font-size: var(--ep-text-sm);
     line-height: var(--ep-leading-normal);
     color: var(--ep-foreground);
     background-color: var(--ep-white);
-    border: 1px solid var(--ep-input-border);
+    border: var(--ep-border-width) solid var(--ep-input-border);
     border-radius: var(--ep-radius-md);
     resize: vertical;
     transition: var(--ep-transition-colors);
@@ -381,7 +381,7 @@
     line-height: var(--ep-leading-normal);
     color: var(--ep-foreground);
     background-color: var(--ep-white);
-    border: 1px solid var(--ep-input-border);
+    border: var(--ep-border-width) solid var(--ep-input-border);
     border-radius: var(--ep-radius-md);
     transition: var(--ep-transition-colors);
 
@@ -398,10 +398,10 @@
   }
 
   .ep-checkbox {
-    width: 1rem;
-    height: 1rem;
+    width: var(--ep-space-4);
+    height: var(--ep-space-4);
     border-radius: var(--ep-radius-sm);
-    border: 1px solid var(--ep-input-border);
+    border: var(--ep-border-width) solid var(--ep-input-border);
     accent-color: var(--ep-primary);
   }
 
@@ -494,7 +494,7 @@
   }
 
   .form-group-min-width-sm {
-    min-width: 10rem;
+    min-width: calc(var(--ep-space-10) * 4);
   }
 
   .form-group-hidden[data-hidden='true'] {
@@ -514,12 +514,12 @@
   .badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem var(--ep-space-2-5);
+    padding: var(--ep-space-0-5) var(--ep-space-2-5);
     font-size: var(--ep-text-xs);
     font-weight: 500;
     line-height: var(--ep-leading-normal);
     border-radius: var(--ep-radius-full);
-    border: 1px solid transparent;
+    border: var(--ep-border-width) solid transparent;
     white-space: nowrap;
     transition: var(--ep-transition-colors);
   }
@@ -567,8 +567,8 @@
   }
 
   .badge-sm {
-    font-size: 0.625rem;
-    padding: 0.0625rem var(--ep-space-1-5);
+    font-size: calc(var(--ep-text-xs) * 0.9);
+    padding: var(--ep-space-0-5) var(--ep-space-1-5);
     line-height: 1.4;
   }
 
@@ -581,7 +581,7 @@
     font-size: var(--ep-text-sm);
 
     & thead {
-      border-bottom: 1px solid var(--ep-border-color);
+      border-bottom: var(--ep-border);
 
       & th {
         padding: var(--ep-space-3) var(--ep-space-4);
@@ -596,7 +596,7 @@
 
     & tbody {
       & tr {
-        border-bottom: 1px solid var(--ep-border-color);
+        border-bottom: var(--ep-border);
         transition: background-color var(--ep-transition-fast);
 
         &:last-child {
@@ -638,7 +638,7 @@
   }
 
   .ep-table-col-checkbox {
-    width: 2rem;
+    width: var(--ep-space-8);
   }
 
   .ep-table-scroll {
@@ -673,8 +673,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1rem;
-    height: 1rem;
+    width: var(--ep-space-4);
+    height: var(--ep-space-4);
     flex-shrink: 0;
 
     & svg {
@@ -684,25 +684,25 @@
   }
 
   .ep-icon-sm {
-    width: 0.875rem;
-    height: 0.875rem;
+    width: var(--ep-text-sm);
+    height: var(--ep-text-sm);
   }
 
   .ep-icon-lg {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: var(--ep-space-5);
+    height: var(--ep-space-5);
   }
 
   .ep-icon-xl {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: var(--ep-space-6);
+    height: var(--ep-space-6);
   }
 
   /* ── Layout helpers ───────────────────────────────────────────────────── */
 
   .separator {
     border: none;
-    border-top: 1px solid var(--ep-border-color);
+    border-top: var(--ep-border);
     margin: var(--ep-space-4) 0;
   }
 
@@ -733,8 +733,8 @@
     color: var(--ep-muted-foreground);
 
     & .empty-state-icon {
-      width: 3rem;
-      height: 3rem;
+      width: var(--ep-space-12);
+      height: var(--ep-space-12);
       margin-bottom: var(--ep-space-4);
       color: var(--ep-gray-300);
     }
@@ -748,7 +748,7 @@
 
     & .empty-state-description {
       font-size: var(--ep-text-sm);
-      max-width: 24rem;
+      max-width: var(--ep-max-width-3xs);
     }
   }
 
@@ -792,7 +792,7 @@
     gap: var(--ep-space-3);
     padding: var(--ep-space-4);
     border-radius: var(--ep-radius-lg);
-    border: 1px solid transparent;
+    border: var(--ep-border-width) solid transparent;
     font-size: var(--ep-text-sm);
     line-height: var(--ep-leading-normal);
 
@@ -833,13 +833,13 @@
     border-radius: var(--ep-radius-xl);
     box-shadow: var(--ep-shadow-xl);
     padding: 0;
-    max-width: 28rem;
+    max-width: var(--ep-max-width-2xs);
     width: 90%;
   }
 
   .ep-dialog::backdrop {
-    background: rgb(0 0 0 / 0.4);
-    backdrop-filter: blur(4px);
+    background: var(--ep-backdrop-color);
+    backdrop-filter: var(--ep-backdrop-blur);
   }
 
   .ep-dialog-header {
@@ -847,7 +847,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--ep-space-4) var(--ep-space-6);
-    border-bottom: 1px solid var(--ep-border-color);
+    border-bottom: var(--ep-border);
 
     & h2,
     & h3 {
@@ -865,25 +865,25 @@
     justify-content: flex-end;
     gap: var(--ep-space-3);
     padding: var(--ep-space-4) var(--ep-space-6);
-    border-top: 1px solid var(--ep-border-color);
+    border-top: var(--ep-border);
   }
 
   .ep-dialog-wide {
-    max-width: 40rem;
+    max-width: var(--ep-max-width-sm);
   }
 
   .ep-dialog-fullscreen {
-    max-width: 95vw;
-    width: 95vw;
-    max-height: 90vh;
-    height: 90vh;
+    max-width: var(--ep-dialog-width-fullscreen);
+    width: var(--ep-dialog-width-fullscreen);
+    max-height: var(--ep-dialog-height-fullscreen);
+    height: var(--ep-dialog-height-fullscreen);
     background: var(--ep-card);
   }
 
   /* ── Panel patterns (existing, updated) ──────────────────────────────── */
 
   .panel-heading {
-    font-size: 0.6875rem;
+    font-size: var(--ep-text-xs);
     font-weight: 600;
     color: var(--ep-muted-foreground);
     text-transform: uppercase;

@@ -151,6 +151,7 @@
 
   /* ── Borders ────────────────────────────────────────────────────────── */
   --ep-border: 1px solid var(--ep-border-color);
+  --ep-border-width: 1px;
 
   /* ── Shadows (5 levels, multi-layer) ────────────────────────────────── */
   --ep-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
@@ -192,9 +193,20 @@
   /* ── Sidebar width (editor-specific, kept here for central reference) ── */
   --ep-sidebar-width: 18rem;
 
-  /* ── Max widths (editor-specific, kept here for central reference) ── */
+  /* ── Max widths ───────────────────────────────────────────────── */
+  --ep-max-width-3xs: 24rem;
+  --ep-max-width-2xs: 28rem;
+  --ep-max-width-xs: 32rem;
   --ep-max-width-sm: 40rem;
   --ep-max-width-base: 56rem;
   --ep-max-width-lg: 72rem;
   --ep-max-width-xl: 88rem;
+
+  /* ── Dialog backdrop ──────────────────────────────────────────────── */
+  --ep-backdrop-color: rgb(0 0 0 / 0.4);
+  --ep-backdrop-blur: blur(4px);
+
+  /* ── Dialog fullscreen ────────────────────────────────────────────── */
+  --ep-dialog-width-fullscreen: 95vw;
+  --ep-dialog-height-fullscreen: 90vh;
 }
