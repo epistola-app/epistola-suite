@@ -69,8 +69,8 @@
                                th:title="${template.name}"
                                th:text="${template.name}" class="template-name"></a>
                         </td>
-                        <td><span class="badge badge-muted" th:text="${template.catalogKey}"></span></td>
-                        <td class="ep-table-truncate"><span class="badge badge-muted" th:text="${template.id}" th:title="${template.id}"></span></td>
+                        <td><code class="ep-code" th:text="${template.catalogKey}"></code></td>
+                        <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${template.id}" th:title="${template.id}"></code></td>
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">

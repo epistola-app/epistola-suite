@@ -38,11 +38,9 @@
                 <tr th:each="run : ${runs}">
                     <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td>
-                        <span class="ep-table-truncate" th:title="${run.templateKey + ' / ' + run.variantKey}">
-                            <strong th:text="${run.templateKey}"></strong>
-                            <span class="template-separator">/</span>
-                            <span th:text="${run.variantKey}"></span>
-                        </span>
+                        <span class="ep-table-truncate"
+                              th:title="${run.templateKey + ' / ' + run.variantKey}"
+                              th:text="${run.templateKey + ' / ' + run.variantKey}"></span>
                     </td>
                     <td>
                         <span class="badge"

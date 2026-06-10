@@ -625,6 +625,13 @@
     line-height: 1.4;
   }
 
+  .badge-truncate {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* ── Tables ───────────────────────────────────────────────────────────── */
 
   .ep-table {

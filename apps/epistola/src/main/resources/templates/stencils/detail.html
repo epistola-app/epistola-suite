@@ -17,9 +17,9 @@
             <div class="card-content">
                 <dl class="description-list">
                     <dt>ID</dt>
-                    <dd><span class="badge badge-muted" th:text="${stencil.id}"></span></dd>
+                    <dd><code class="ep-code" th:text="${stencil.id}"></code></dd>
                     <dt>Catalog</dt>
-                    <dd><span class="badge badge-muted" th:text="${stencil.catalogKey}"></span></dd>
+                    <dd><code class="ep-code" th:text="${stencil.catalogKey}"></code></dd>
                     <dt>Description</dt>
                     <dd>
                         <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
@@ -27,7 +27,9 @@
                     </dd>
                     <dt>Tags</dt>
                     <dd>
-                        <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge badge-outline stencil-tag" th:text="${tag}"></span>
+                        <div th:if="${!stencil.tags.isEmpty()}" class="tags">
+                            <span th:each="tag : ${stencil.tags}" class="badge badge-outline ep-table-truncate" th:title="${tag}" th:text="${tag}"></span>
+                        </div>
                         <span th:if="${stencil.tags.isEmpty()}" class="stencil-empty">No tags</span>
                     </dd>
                     <dt>Created</dt>
@@ -174,7 +176,7 @@
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
                                          th:text="${u.templateName}" th:title="${u.templateName}" class="stencil-usage-link ep-table-truncate"></a>
                                 </td>
-                                <td><span class="badge badge-muted" th:text="${u.catalogKey}"></span></td>
+                                <td><code class="ep-code" th:text="${u.catalogKey}"></code></td>
                                 <td th:text="${u.variantId}"></td>
                                 <td th:text="'v' + ${u.versionId}"></td>
                                 <td>

@@ -65,9 +65,7 @@
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
                            th:text="${cl.slug}" th:title="${cl.slug}" class="ep-table-truncate"></a>
                     </td>
-                    <td>
-                        <span class="badge badge-muted" th:text="${cl.catalogKey}"></span>
-                    </td>
+                    <td><code class="ep-code" th:text="${cl.catalogKey}"></code></td>
                     <td class="code-list-name ep-table-truncate" th:text="${cl.displayName}" th:title="${cl.displayName}"></td>
                     <td>
                         <span class="badge badge-outline" th:text="${cl.sourceType}"></span>

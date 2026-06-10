@@ -106,10 +106,6 @@ body {
   margin-top: var(--ep-space-4);
 }
 
-.template-separator {
-  color: var(--ep-muted-foreground);
-}
-
 .progress-percent {
   color: var(--ep-muted-foreground);
 }
@@ -210,6 +206,9 @@ body {
 
 .request-error-message {
   color: var(--ep-muted-foreground);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .pagination-info {
@@ -1301,6 +1300,9 @@ body {
 .gen-job-error {
   font-size: var(--ep-text-sm);
   color: var(--ep-muted-foreground);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .gen-job-empty {
@@ -1458,10 +1460,6 @@ body {
 
 .stencil-empty {
   color: var(--ep-muted-foreground);
-}
-
-.stencil-tag {
-  margin-right: var(--ep-space-1);
 }
 
 .stencil-empty-state {

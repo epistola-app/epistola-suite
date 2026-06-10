@@ -71,7 +71,7 @@
                         <tr th:fragment="entry-row"
                             th:id="'entry-row-' + ${entry.code}"
                             th:class="${entry.hidden ? 'entry-hidden' : ''}">
-                            <td><span class="badge badge-muted" th:text="${entry.code}"></span></td>
+                            <td><code class="ep-code" th:text="${entry.code}"></code></td>
                             <td th:text="${entry.label}"></td>
                             <td th:text="${entry.sortOrder}"></td>
                             <td>

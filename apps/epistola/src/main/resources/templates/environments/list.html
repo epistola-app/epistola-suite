@@ -44,7 +44,7 @@
                 <th:block th:fragment="rows">
                     <tr th:each="env : ${environments}">
                         <td class="env-name ep-table-truncate" th:text="${env.name}" th:title="${env.name}"></td>
-                        <td class="ep-table-truncate"><span class="badge badge-muted" th:text="${env.id}" th:title="${env.id}"></span></td>
+                        <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${env.id}" th:title="${env.id}"></code></td>
                         <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
                             <button type="button"

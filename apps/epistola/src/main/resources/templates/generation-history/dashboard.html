@@ -40,7 +40,7 @@
                 <thead>
                     <tr>
                         <th class="ep-table-truncate">Template</th>
-                        <th>Variant</th>
+                        <th class="ep-table-truncate">Variant</th>
                         <th>Generations</th>
                     </tr>
                 </thead>
@@ -99,7 +99,7 @@
                                    th:title="${job.templateKey}"
                                     th:text="${job.templateKey}">template</a>
                             </td>
-                            <td th:text="${job.variantKey}">variant</td>
+                            <td class="ep-table-truncate" th:title="${job.variantKey}" th:text="${job.variantKey}">variant</td>
                             <td>
                                 <span class="badge"
                                       th:classappend="${job.status.name() == 'COMPLETED' ? 'badge-success' :
@@ -110,9 +110,9 @@
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"
-                                        class="gen-job-error"
-                                      th:title="${job.errorMessage}"
-                                      th:text="${job.errorMessage}">Error</span>
+                                      class="gen-job-error"
+                                       th:title="${job.errorMessage}"
+                                       th:text="${job.errorMessage}">Error</span>
                                 <span th:if="${job.errorMessage == null}" class="gen-job-empty">—</span>
                             </td>
                             <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>

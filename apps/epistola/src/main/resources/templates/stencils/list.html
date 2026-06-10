@@ -68,13 +68,15 @@
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" th:title="${stencil.name}" class="stencil-name ep-table-truncate"></a>
                         </td>
-                        <td><span class="badge badge-muted" th:text="${stencil.catalogKey}"></span></td>
+                        <td><code class="ep-code" th:text="${stencil.catalogKey}"></code></td>
                         <td>
                             <span th:if="${stencil.description != null}" th:text="${stencil.description}" th:title="${stencil.description}" class="ep-table-truncate"></span>
                             <span th:unless="${stencil.description != null}" class="stencil-empty-desc">-</span>
                         </td>
                         <td>
-                            <span th:each="tag : ${stencil.tags}" class="badge badge-outline" th:text="${tag}"></span>
+                            <div class="tags">
+                                <span th:each="tag : ${stencil.tags}" class="badge badge-outline ep-table-truncate" th:title="${tag}" th:text="${tag}"></span>
+                            </div>
                         </td>
                         <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">

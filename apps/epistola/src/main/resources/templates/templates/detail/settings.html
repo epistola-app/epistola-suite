@@ -16,7 +16,7 @@
                                onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.originalName;this.blur();}">
                     </dd>
                     <dt>ID</dt>
-                    <dd><span class="badge badge-muted" th:text="${template.id}"></span></dd>
+                    <dd><code class="ep-code" th:text="${template.id}"></code></dd>
                     <dt>Created</dt>
                     <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
                     <dt>Modified</dt>

@@ -59,13 +59,13 @@
             <tbody id="attribute-rows">
                 <th:block th:fragment="rows">
                     <tr th:each="attr : ${attributes}">
-                        <td class="ep-table-truncate"><span class="badge badge-muted" th:text="${attr.id}" th:title="${attr.id}"></span></td>
-                        <td><span class="badge badge-muted" th:text="${attr.catalogKey}"></span></td>
+                        <td class="ep-table-truncate"><code class="ep-code ep-table-truncate" th:text="${attr.id}" th:title="${attr.id}"></code></td>
+                        <td><code class="ep-code" th:text="${attr.catalogKey}"></code></td>
                         <td class="attr-name ep-table-truncate" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
                         <td>
                             <div th:if="${attr.codeListSlug != null}" class="tags">
                                 <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
-                                   class="badge badge-muted"
+                                   class="badge badge-muted ep-table-truncate"
                                    th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
                                    th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
                             </div>
