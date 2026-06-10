@@ -48,9 +48,42 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         )
 
         assertThat(first.timerKey).isEqualTo("timer-upsert")
+        assertThat(first.tenantKey).isNull()
         assertThat(second.routingKey).isEqualTo("tenant-b")
         assertThat(second.payload["attempt"]).isEqualTo(2)
         assertThat(second.status).isEqualTo(ClusterTimerStatus.SCHEDULED)
+    }
+
+    @Test
+    fun `schedule can create a tenant-scoped timer`() {
+        val tenant = createTenant("Timer Tenant")
+        deleteTimer("timer-tenant")
+
+        val timer = registry.schedule(
+            timerKey = "timer-tenant",
+            routingKey = tenant.id.value,
+            timerType = "test",
+            dueAt = OffsetDateTime.now().plusMinutes(1),
+            tenantKey = tenant.id,
+        )
+
+        assertThat(timer.tenantKey).isEqualTo(tenant.id)
+        assertThat(registry.find("timer-tenant")?.tenantKey).isEqualTo(tenant.id)
+    }
+
+    @Test
+    fun `schedule can create a system timer`() {
+        deleteTimer("timer-system")
+
+        val timer = registry.schedule(
+            timerKey = "timer-system",
+            routingKey = "system:maintenance",
+            timerType = "test",
+            dueAt = OffsetDateTime.now().plusMinutes(1),
+        )
+
+        assertThat(timer.tenantKey).isNull()
+        assertThat(registry.find("timer-system")?.tenantKey).isNull()
     }
 
     @Test
@@ -84,6 +117,27 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `cancel respects tenant scope`() {
+        val ownerTenant = createTenant("Timer Owner")
+        val otherTenant = createTenant("Timer Other")
+        deleteTimer("timer-cancel-tenant")
+        registry.schedule(
+            timerKey = "timer-cancel-tenant",
+            routingKey = ownerTenant.id.value,
+            timerType = "test",
+            dueAt = OffsetDateTime.now().plusMinutes(1),
+            tenantKey = ownerTenant.id,
+        )
+
+        val wrongTenantCancelled = registry.cancel("timer-cancel-tenant", otherTenant.id)
+        val ownerCancelled = registry.cancel("timer-cancel-tenant", ownerTenant.id)
+
+        assertThat(wrongTenantCancelled).isFalse()
+        assertThat(ownerCancelled).isTrue()
+        assertThat(registry.find("timer-cancel-tenant")).isNull()
+    }
+
+    @Test
     fun `cancel command deletes a durable timer`() {
         withMediator {
             deleteTimer("timer-cancel-command")
@@ -94,6 +148,27 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
             assertThat(cancelled).isTrue()
             assertThat(registry.find("timer-cancel-command")).isNull()
         }
+    }
+
+    @Test
+    fun `tenant scoped timers cascade when tenant is deleted`() {
+        val tenant = createTenant("Timer Cascade")
+        deleteTimer("timer-cascade")
+        registry.schedule(
+            timerKey = "timer-cascade",
+            routingKey = tenant.id.value,
+            timerType = "test",
+            dueAt = OffsetDateTime.now().plusMinutes(1),
+            tenantKey = tenant.id,
+        )
+
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("DELETE FROM tenants WHERE id = :tenantKey")
+                .bind("tenantKey", tenant.id)
+                .execute()
+        }
+
+        assertThat(registry.find("timer-cascade")).isNull()
     }
 
     @Test

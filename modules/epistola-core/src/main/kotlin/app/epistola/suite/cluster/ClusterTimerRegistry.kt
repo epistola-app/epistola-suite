@@ -1,5 +1,6 @@
 package app.epistola.suite.cluster
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.observability.NodeIdentity
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -21,15 +22,17 @@ class ClusterTimerRegistry(
         timerType: String,
         dueAt: OffsetDateTime,
         payload: Map<String, Any?> = emptyMap(),
+        tenantKey: TenantKey? = null,
     ): ClusterTimer {
         val payloadJson = objectMapper.writeValueAsString(payload)
         return jdbi.withHandle<ClusterTimer, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO cluster_timers (timer_key, routing_key, timer_type, due_at, payload, status, updated_at)
-                VALUES (:timerKey, :routingKey, :timerType, :dueAt, :payload::jsonb, 'scheduled', NOW())
+                INSERT INTO cluster_timers (timer_key, tenant_key, routing_key, timer_type, due_at, payload, status, updated_at)
+                VALUES (:timerKey, :tenantKey, :routingKey, :timerType, :dueAt, :payload::jsonb, 'scheduled', NOW())
                 ON CONFLICT (timer_key) DO UPDATE
-                SET routing_key = EXCLUDED.routing_key,
+                SET tenant_key = EXCLUDED.tenant_key,
+                    routing_key = EXCLUDED.routing_key,
                     timer_type = EXCLUDED.timer_type,
                     due_at = EXCLUDED.due_at,
                     payload = EXCLUDED.payload,
@@ -42,6 +45,7 @@ class ClusterTimerRegistry(
                 """,
             )
                 .bind("timerKey", timerKey)
+                .bind("tenantKey", tenantKey?.value)
                 .bind("routingKey", routingKey)
                 .bind("timerType", timerType)
                 .bind("dueAt", dueAt)
@@ -123,14 +127,16 @@ class ClusterTimerRegistry(
             .execute() == 1
     }
 
-    fun cancel(timerKey: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    fun cancel(timerKey: String, tenantKey: TenantKey? = null): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createUpdate(
             """
             DELETE FROM cluster_timers
             WHERE timer_key = :timerKey
+              AND tenant_key IS NOT DISTINCT FROM :tenantKey
             """,
         )
             .bind("timerKey", timerKey)
+            .bind("tenantKey", tenantKey?.value)
             .execute() == 1
     }
 
@@ -199,6 +205,7 @@ class ClusterTimerRegistry(
 
     private fun mapTimer(rs: java.sql.ResultSet): ClusterTimer = ClusterTimer(
         timerKey = rs.getString("timer_key"),
+        tenantKey = rs.getString("tenant_key")?.let { TenantKey.of(it) },
         routingKey = rs.getString("routing_key"),
         timerType = rs.getString("timer_type"),
         dueAt = rs.getObject("due_at", OffsetDateTime::class.java),
@@ -222,6 +229,7 @@ class ClusterTimerRegistry(
         val p = prefix?.let { "$it." } ?: ""
         return """
             ${p}timer_key,
+            ${p}tenant_key,
             ${p}routing_key,
             ${p}timer_type,
             ${p}due_at,

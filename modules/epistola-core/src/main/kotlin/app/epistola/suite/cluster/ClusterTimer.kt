@@ -1,9 +1,11 @@
 package app.epistola.suite.cluster
 
+import app.epistola.suite.common.ids.TenantKey
 import java.time.OffsetDateTime
 
 data class ClusterTimer(
     val timerKey: String,
+    val tenantKey: TenantKey?,
     val routingKey: String,
     val timerType: String,
     val dueAt: OffsetDateTime,
