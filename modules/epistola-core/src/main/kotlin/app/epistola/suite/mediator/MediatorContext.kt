@@ -1,5 +1,6 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.time.EpistolaClock
 import java.time.Clock
 
@@ -40,6 +41,14 @@ object MediatorContext {
 
     fun currentClock(): Clock = currentExecutionContext().clock
 
+    fun capture(): MediatorExecutionContext {
+        val context = currentExecutionContext()
+        return context.copy(
+            clock = EpistolaClock.capture(),
+            principal = SecurityContext.currentOrNull(),
+        )
+    }
+
     /**
      * Runs the given block with the specified mediator bound to the current scope.
      *
@@ -59,7 +68,14 @@ object MediatorContext {
     fun <T> runWithContext(
         context: MediatorExecutionContext,
         block: () -> T,
-    ): T = ScopedValue.where(scopedContext, context).call<T, RuntimeException>(block)
+    ): T = ScopedValue.where(scopedContext, context).call<T, RuntimeException> {
+        val principal = context.principal
+        if (principal == null) {
+            block()
+        } else {
+            SecurityContext.runWithPrincipal(principal, block)
+        }
+    }
 
     /**
      * Checks if a mediator is currently bound to the scope.

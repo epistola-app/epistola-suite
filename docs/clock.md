@@ -51,21 +51,28 @@ that already injects `Clock`. New code should not introduce Spring `Clock`
 injection unless there is a concrete reason; prefer mediator-bound execution
 plus `EpistolaClock`.
 
-## Background Execution
+## Context Propagation
 
-`BackgroundExecutionContext` is the standard boundary for scheduled work and
-executor handoffs. It captures the active clock and binds:
+Code that starts outside an existing mediator scope captures a
+`MediatorExecutionContext` with `MediatorExecutionContext.capture(mediator)`.
+The context object can then bind itself around work or be converted into a
+runnable/callable for executor handoffs.
 
-- `MediatorContext` with a full `MediatorExecutionContext`
-- optionally `SecurityContext` for system/user scoped work
+`MediatorExecutionContext` carries:
 
-Use `run`, `runAs`, `wrap`, `wrapCallable`, or `wrapAs` when work starts outside
-an HTTP request or crosses a thread boundary. Scoped values do not propagate to
-new threads automatically.
+- `mediator`
+- `clock`
+- optionally `principal`
 
-Cluster timer and scheduled-task pollers, support schedulers, and executor
-handoffs use this boundary so background work sees the same mediator and clock
-model as request work.
+Use `MediatorExecutionContext.capture(mediator)` for scheduler-style entrypoints.
+Use `MediatorExecutionContext.capture(mediator, principal)` when the work needs
+a system/user principal. When work crosses a thread boundary, capture the
+context before submitting and execute `context.runnable { ... }` or
+`context.callable { ... }`.
+
+Scoped values do not propagate to new threads automatically. The captured
+context is the propagation object; "background" is just one place where that
+propagation is needed.
 
 ## Test Infrastructure
 
@@ -90,7 +97,7 @@ Use one of:
 - `EpistolaClock.instant()` or another helper for application time
 - `MediatorContext.currentClock()` when code specifically needs the execution
   context clock
-- `BackgroundExecutionContext` for scheduled work and executor handoffs
+- `MediatorExecutionContext.capture(mediator)` for scheduled work and executor handoffs
 - the delegating Spring `Clock` only for transitional injected-clock code
 
 Avoid direct application calls to:

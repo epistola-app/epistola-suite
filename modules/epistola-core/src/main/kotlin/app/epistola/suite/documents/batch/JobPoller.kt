@@ -1,10 +1,11 @@
 package app.epistola.suite.documents.batch
 
-import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorExecutionContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
@@ -53,7 +54,7 @@ class JobPoller(
     private val properties: JobPollingProperties,
     private val batchSizer: AdaptiveBatchSizer,
     private val meterRegistry: MeterRegistry,
-    private val backgroundExecutionContext: BackgroundExecutionContext,
+    private val mediator: Mediator,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
@@ -181,7 +182,8 @@ class JobPoller(
     fun requestDrain() {
         if (shuttingDown.get()) return
         if (drainRequested.compareAndSet(false, true)) {
-            drainExecutor.submit(backgroundExecutionContext.wrap { drain() })
+            val context = MediatorExecutionContext.capture(mediator)
+            drainExecutor.submit(context.runnable { drain() })
         }
     }
 
@@ -252,8 +254,9 @@ class JobPoller(
                     logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
+                    val context = MediatorExecutionContext.capture(mediator, systemPrincipal(request.tenantKey))
                     jobThreadExecutor.submit(
-                        backgroundExecutionContext.wrapAs(systemPrincipal(request.tenantKey)) {
+                        context.runnable {
                             var jobOutcome = "success"
                             try {
                                 jobExecutor.execute(request)

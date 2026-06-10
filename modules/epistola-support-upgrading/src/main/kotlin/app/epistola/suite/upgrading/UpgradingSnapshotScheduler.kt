@@ -1,9 +1,10 @@
 package app.epistola.suite.upgrading
 
-import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveAvailableFeatures
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorExecutionContext
 import app.epistola.suite.mediator.query
 import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
@@ -40,7 +41,7 @@ import java.time.Duration
 )
 class UpgradingSnapshotScheduler(
     private val snapshotSync: TenantSnapshotSyncService,
-    private val backgroundExecutionContext: BackgroundExecutionContext,
+    private val mediator: Mediator,
     private val schedulerLock: SchedulerLock,
     private val properties: UpgradingSnapshotProperties,
     private val jdbi: Jdbi,
@@ -50,7 +51,7 @@ class UpgradingSnapshotScheduler(
     @Scheduled(cron = "\${epistola.support.upgrading.snapshot.cron:0 0 * * * *}")
     fun ensureFreshSnapshots() {
         schedulerLock.runExclusively(SchedulerLock.UPGRADING_SNAPSHOT) {
-            backgroundExecutionContext.run { ensureAllTenants() }
+            MediatorExecutionContext.capture(mediator).bind { ensureAllTenants() }
         }
     }
 

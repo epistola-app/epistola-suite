@@ -93,8 +93,8 @@ reclaim it after the lease expires.
 8. `ClusterTimerRegistry.claimDue` updates the row to `running` with
    `lease_owner_node_id` and `lease_expires_at`, using `FOR UPDATE SKIP LOCKED`.
 9. The scheduler looks up the handler by `timer.timerType`.
-10. The handler runs inside `BackgroundExecutionContext`, which binds the
-    mediator context and captures the current `EpistolaClock`.
+10. The handler runs inside a captured `MediatorExecutionContext`, which binds
+    the mediator context, principal when present, and current `EpistolaClock`.
 11. The scheduler completes, reschedules, or retries the timer depending on the
     handler result or exception.
 
@@ -195,9 +195,10 @@ moves to another active capable node.
 
 ## Time And Tests
 
-Runtime time comes from the Spring `Clock` bean, which delegates to
-`EpistolaClock`. Background timer execution runs through
-`BackgroundExecutionContext`, so it has a mediator context and a captured clock.
+Runtime time comes from `EpistolaClock`, which resolves through
+`MediatorContext`. Timer execution captures and binds a
+`MediatorExecutionContext`, so handlers have mediator context and the captured
+clock.
 
 Integration tests use a per-test `MutableClock` bound through
 `EpistolaClockExtension`. Tests can advance time deterministically instead of

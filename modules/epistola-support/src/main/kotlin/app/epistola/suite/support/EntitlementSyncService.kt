@@ -1,6 +1,7 @@
 package app.epistola.suite.support
 
-import app.epistola.suite.background.BackgroundExecutionContext
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorExecutionContext
 import app.epistola.suite.mediator.execute
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -17,13 +18,13 @@ import org.springframework.stereotype.Service
 @Service
 @ConditionalOnProperty(prefix = "epistola.support", name = ["enabled"], havingValue = "true")
 class EntitlementSyncService(
-    private val backgroundExecutionContext: BackgroundExecutionContext,
+    private val mediator: Mediator,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun refresh() {
         runCatching {
-            backgroundExecutionContext.run { RefreshEntitlements().execute() }
+            MediatorExecutionContext.capture(mediator).bind { RefreshEntitlements().execute() }
         }.onFailure { e ->
             log.warn("Entitlement refresh failed; keeping last-known-good entitlements: {}", e.message)
         }

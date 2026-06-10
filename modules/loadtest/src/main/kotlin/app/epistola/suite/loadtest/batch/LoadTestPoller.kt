@@ -1,10 +1,11 @@
 package app.epistola.suite.loadtest.batch
 
-import app.epistola.suite.background.BackgroundExecutionContext
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorExecutionContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.TenantRole
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class LoadTestPoller(
     private val jdbi: Jdbi,
     private val loadTestExecutor: LoadTestExecutor,
-    private val backgroundExecutionContext: BackgroundExecutionContext,
+    private val mediator: Mediator,
     @Value("\${epistola.loadtest.polling.max-concurrent-tests:1}")
     private val maxConcurrentTests: Int,
     @Value("\${epistola.loadtest.polling.stale-timeout-minutes:10}")
@@ -66,8 +67,9 @@ class LoadTestPoller(
             logger.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
 
             // Execute on virtual thread, don't block the scheduler
+            val context = MediatorExecutionContext.capture(mediator, SYSTEM_PRINCIPAL)
             executor.submit(
-                backgroundExecutionContext.wrapAs(SYSTEM_PRINCIPAL) {
+                context.runnable {
                     try {
                         loadTestExecutor.execute(run)
                     } catch (e: Exception) {
