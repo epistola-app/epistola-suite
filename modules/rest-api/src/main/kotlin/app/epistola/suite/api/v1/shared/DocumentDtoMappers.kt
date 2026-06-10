@@ -21,6 +21,7 @@ import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.time.EpistolaClock
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -72,7 +73,7 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
     status = GenerationJobResponse.Status.PENDING,
     jobType = GenerationJobResponse.JobType.BATCH,
     totalCount = 0, // Count not available without querying - caller should use batch endpoints
-    createdAt = java.time.OffsetDateTime.now(),
+    createdAt = EpistolaClock.offsetDateTime(),
 )
 
 // ==================== Document Generation Item ====================

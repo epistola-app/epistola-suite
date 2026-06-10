@@ -5,6 +5,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -140,7 +141,7 @@ class ListConsumerStatusHandler(
 ) : QueryHandler<ListConsumerStatus, ConsumerStatusReport> {
 
     override fun handle(query: ListConsumerStatus): ConsumerStatusReport {
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
         val activeSince = now.minusNanos(idleTimeoutMs * 1_000_000)
         // Nodes whose last heartbeat is older than this disappear from the report
         // entirely (not just from the totals). The page is for "what's currently

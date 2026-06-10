@@ -8,10 +8,10 @@ import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.time.EpistolaClock
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import java.time.Instant
 
 class ApiKeyIntegrationTest : BaseIntegrationTest() {
 
@@ -96,13 +96,14 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `API key domain model expiry and usability checks`() {
+        val now = EpistolaClock.instant()
         val activeKey = ApiKey(
             id = app.epistola.suite.common.ids.ApiKeyKey.generate(),
             tenantKey = app.epistola.suite.common.ids.TenantKey.of("test-tenant"),
             name = "Active",
             keyPrefix = "epk_test1234...",
             enabled = true,
-            createdAt = Instant.now(),
+            createdAt = now,
             lastUsedAt = null,
             expiresAt = null,
             createdBy = null,
@@ -110,7 +111,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         assertThat(activeKey.isExpired()).isFalse()
         assertThat(activeKey.isUsable()).isTrue()
 
-        val expiredKey = activeKey.copy(expiresAt = Instant.now().minusSeconds(3600))
+        val expiredKey = activeKey.copy(expiresAt = now.minusSeconds(3600))
         assertThat(expiredKey.isExpired()).isTrue()
         assertThat(expiredKey.isUsable()).isFalse()
 
@@ -118,7 +119,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
         assertThat(disabledKey.isExpired()).isFalse()
         assertThat(disabledKey.isUsable()).isFalse()
 
-        val futureExpiryKey = activeKey.copy(expiresAt = Instant.now().plusSeconds(86400))
+        val futureExpiryKey = activeKey.copy(expiresAt = now.plusSeconds(86400))
         assertThat(futureExpiryKey.isExpired()).isFalse()
         assertThat(futureExpiryKey.isUsable()).isTrue()
     }

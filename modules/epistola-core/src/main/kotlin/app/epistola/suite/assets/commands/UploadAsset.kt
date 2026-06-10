@@ -16,11 +16,11 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
-import java.time.OffsetDateTime
 
 /**
  * Command to upload a new asset.
@@ -74,7 +74,7 @@ class UploadAssetHandler(
         }
 
         val id = command.id ?: AssetKey.generate()
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
         val auditUser = currentUserIdOrNull()?.value
 
         logger.info(

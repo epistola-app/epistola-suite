@@ -1,14 +1,20 @@
 package app.epistola.suite.documents.cleanup
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.time.EpistolaClock
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.annotation.Bean
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -30,7 +36,6 @@ import java.time.format.DateTimeFormatter
  * `epistola.partitions.generation-results-retention-months` (default 1).
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(
     name = ["epistola.partitions.enabled"],
     havingValue = "true",
@@ -38,12 +43,16 @@ import java.time.format.DateTimeFormatter
 )
 class PartitionMaintenanceScheduler(
     private val jdbi: Jdbi,
+    private val meterRegistry: MeterRegistry,
     @Value("\${epistola.partitions.retention-months:3}")
     private val retentionMonths: Int,
     @Value("\${epistola.partitions.generation-results-retention-months:1}")
     private val generationResultsRetentionMonths: Int,
-) {
+    @Value("\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
+    private val maintenanceCron: String,
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
     @Volatile
     private var shuttingDown = false
@@ -62,6 +71,14 @@ class PartitionMaintenanceScheduler(
         )
     }
 
+    @Bean
+    fun partitionMaintenanceScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.Cron(maintenanceCron),
+    )
+
     /**
      * Initialize partitions after application is ready and Flyway migrations have completed.
      * Creates current month and next month partitions to bootstrap the system.
@@ -73,42 +90,45 @@ class PartitionMaintenanceScheduler(
     }
 
     /**
-     * Run partition maintenance daily at 2 AM.
+     * Run partition maintenance.
      *
-     * Multi-instance safe: every Suite pod runs `@Scheduled`, but only one
-     * acquires the Postgres advisory lock at a time. The others log a debug
-     * message and skip — the partition CREATE/DROP statements are not
-     * idempotent on collision (raw `CREATE TABLE` would fail with "relation
-     * already exists" if two pods raced past the existence probe).
+     * The recurring path is driven by `cluster_tasks_scheduled`, which gives
+     * the task a stable owning node. The transaction-level advisory lock stays
+     * as protection for startup initialization, which still runs on every node.
      *
      * `pg_try_advisory_xact_lock` auto-releases when the wrapping transaction
      * commits or rolls back, so we cannot leak the lock if this call dies
      * mid-flight.
      */
-    @Scheduled(cron = "\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
+    override fun handle(task: ClusterScheduledTask) {
+        maintainPartitions()
+    }
+
     fun maintainPartitions() {
         if (shuttingDown) return
 
-        jdbi.useTransaction<Exception> { handle ->
-            val acquired = handle.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
-                .bind("key", PARTITION_MAINTENANCE_LOCK_KEY)
-                .mapTo(Boolean::class.java)
-                .one()
-            if (!acquired) {
-                logger.debug("Partition maintenance skipped — another instance holds the lock")
-                return@useTransaction
-            }
-
-            logger.info("Starting partition maintenance")
-            partitionConfigs.forEach { config ->
-                try {
-                    createRequiredPartitions(config)
-                    dropOldPartitions(config)
-                } catch (e: Exception) {
-                    logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+        meterRegistry.recordScheduledTask("partition-maintenance") {
+            jdbi.useTransaction<Exception> { handle ->
+                val acquired = handle.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
+                    .bind("key", PARTITION_MAINTENANCE_LOCK_KEY)
+                    .mapTo(Boolean::class.java)
+                    .one()
+                if (!acquired) {
+                    logger.debug("Partition maintenance skipped — another instance holds the lock")
+                    return@useTransaction
                 }
+
+                logger.info("Starting partition maintenance")
+                partitionConfigs.forEach { config ->
+                    try {
+                        createRequiredPartitions(config)
+                        dropOldPartitions(config)
+                    } catch (e: Exception) {
+                        logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
+                    }
+                }
+                logger.info("Partition maintenance completed")
             }
-            logger.info("Partition maintenance completed")
         }
     }
 
@@ -116,7 +136,7 @@ class PartitionMaintenanceScheduler(
      * Ensure the current and next month partitions exist for [config]. Idempotent.
      */
     private fun createRequiredPartitions(config: PartitionConfig) {
-        val now = YearMonth.now()
+        val now = YearMonth.from(EpistolaClock.offsetDateTime())
         createPartitionForMonth(config, now)
         createPartitionForMonth(config, now.plusMonths(1))
     }
@@ -176,7 +196,7 @@ class PartitionMaintenanceScheduler(
      * Drop partitions older than the config's retention period.
      */
     private fun dropOldPartitions(config: PartitionConfig) {
-        val cutoffMonth = YearMonth.now().minusMonths(config.retentionMonths.toLong())
+        val cutoffMonth = YearMonth.from(EpistolaClock.offsetDateTime()).minusMonths(config.retentionMonths.toLong())
         val cutoffPartition = "${config.tableName}_${cutoffMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
 
         // Query for partitions older than retention period
@@ -224,7 +244,11 @@ class PartitionMaintenanceScheduler(
         val retentionMonths: Int,
     )
 
-    private companion object {
+    companion object {
+        const val TASK_KEY = "core.partition-maintenance"
+        const val ROUTING_KEY = "system:core.partition-maintenance"
+        const val TASK_TYPE = "core.partition-maintenance"
+
         // Stable bigint key for `pg_try_advisory_xact_lock`. Application-defined,
         // not derived from anything dynamic, so all instances try to acquire the
         // same lock. Picked from the high range to avoid collision with any

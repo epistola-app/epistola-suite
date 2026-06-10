@@ -9,10 +9,10 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import java.time.OffsetDateTime
 
 /**
  * Heartbeat from a consumer node + return its current partition assignment.
@@ -49,7 +49,7 @@ class TouchConsumerNodeHandler(
 ) : CommandHandler<TouchConsumerNode, PartitionAssignment> {
 
     override fun handle(command: TouchConsumerNode): PartitionAssignment {
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
         val activeSince = now.minusNanos(idleTimeoutMs * 1_000_000)
 
         // Read other active nodes; build the union with this node so that this

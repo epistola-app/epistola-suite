@@ -2,13 +2,12 @@ package app.epistola.suite.generation.collect.queries
 
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.security.SystemInternal
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import java.io.File
-import java.net.InetAddress
 import java.util.jar.JarFile
 
 /**
@@ -20,7 +19,7 @@ import java.util.jar.JarFile
  *                     manifest entry. The contract is the source of truth;
  *                     hardcoding it in the suite would be one place to forget
  *                     to bump on every contract upgrade.
- *   - nodeId        — opaque per-process identifier (env override or hostname).
+ *   - nodeId        — opaque per-process identifier (see [NodeIdentity]).
  *
  * SystemInternal — `/ping` may be called unauthenticated, and even when
  * authenticated the response is the same. There's no tenant or user context.
@@ -41,17 +40,12 @@ class GetServerInfoHandler(
     // (it does in the production build but may be absent in unit-test contexts).
     // Optional injection keeps unit tests from needing the full build.
     private val buildProperties: BuildProperties? = null,
-    @Value("\${epistola.node-id:#{null}}")
-    private val configuredNodeId: String?,
+    private val nodeIdentity: NodeIdentity,
 ) : QueryHandler<GetServerInfo, ServerInfo> {
 
     override fun handle(query: GetServerInfo): ServerInfo {
         val serverVersion = buildProperties?.version ?: "dev"
-        val nodeId = configuredNodeId
-            ?: System.getenv("EPISTOLA_NODE_ID")
-            ?: System.getenv("HOSTNAME")
-            ?: runCatching { InetAddress.getLocalHost().hostName }.getOrElse { "unknown" }
-        return ServerInfo(serverVersion = serverVersion, apiVersion = contractVersion, nodeId = nodeId)
+        return ServerInfo(serverVersion = serverVersion, apiVersion = contractVersion, nodeId = nodeIdentity.nodeId)
     }
 
     private companion object {

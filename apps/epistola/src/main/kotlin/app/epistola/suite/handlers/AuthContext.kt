@@ -2,20 +2,24 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.effectivePermissions
 
 /**
  * Exposed to Thymeleaf templates as `auth`.
  *
- * Provides a single [has] method that checks both tenant-scoped permissions
- * (e.g., "TEMPLATE_EDIT") and platform roles (e.g., "TENANT_MANAGER").
- * The role-to-permission mapping stays in Kotlin code — templates only
- * reference permission/role names as strings.
+ * Provides a [has] check over both tenant-scoped permissions (e.g., [Permission.TEMPLATE_EDIT])
+ * and platform roles (e.g., "TENANT_MANAGER"). Kotlin callers should use the typed
+ * [has]([Permission]) overload; templates use the string overload (Thymeleaf can't reference
+ * enum constants), so the role-to-permission mapping stays in Kotlin and templates only name them.
  */
 class AuthContext(
     private val grantedNames: Set<String>,
 ) {
     fun has(name: String): Boolean = name in grantedNames
+
+    /** Type-safe permission check for Kotlin callers. */
+    fun has(permission: Permission): Boolean = has(permission.name)
 
     companion object {
         /** No permissions granted. Used as default so templates never need null checks. */

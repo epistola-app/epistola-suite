@@ -9,13 +9,13 @@ import app.epistola.suite.generation.collect.queries.GetServerInfo
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.time.EpistolaClock
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.context.request.ServletRequestAttributes
-import java.time.OffsetDateTime
 import app.epistola.api.model.PartitionAssignment as WirePartitionAssignment
 
 /**
@@ -36,7 +36,7 @@ import app.epistola.api.model.PartitionAssignment as WirePartitionAssignment
 class EpistolaSystemApi : SystemApi {
 
     override fun ping(pingRequest: PingRequest?): ResponseEntity<PongResponse> {
-        val now = OffsetDateTime.now()
+        val now = EpistolaClock.offsetDateTime()
         val principal = SecurityContext.currentOrNull()
 
         if (principal == null) {

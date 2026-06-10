@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <style>
+            .cluster-summary {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: var(--ep-space-4);
+                margin-bottom: var(--ep-space-6);
+            }
+            .cluster-node-status {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--ep-space-1-5);
+                font-size: var(--ep-text-sm);
+                font-weight: 500;
+                text-transform: capitalize;
+            }
+            .cluster-node-status::before {
+                content: "";
+                width: 0.5rem;
+                height: 0.5rem;
+                border-radius: var(--ep-radius-full);
+                background: var(--ep-gray-300);
+            }
+            .cluster-node-status.is-active {
+                color: var(--ep-green-700);
+            }
+            .cluster-node-status.is-active::before {
+                background: var(--ep-green-500);
+                box-shadow: 0 0 0 3px var(--ep-green-100);
+            }
+            .cluster-node-status.is-stale {
+                color: var(--ep-amber-700);
+            }
+            .cluster-node-status.is-stale::before {
+                background: var(--ep-amber-500);
+                box-shadow: 0 0 0 3px var(--ep-amber-100);
+            }
+            .cluster-current-pill {
+                display: inline-flex;
+                align-items: center;
+                border-radius: var(--ep-radius-full);
+                background: var(--ep-blue-50);
+                color: var(--ep-blue-700);
+                font-size: var(--ep-text-xs);
+                font-weight: 600;
+                padding: var(--ep-space-0-5) var(--ep-space-2);
+                margin-left: var(--ep-space-2);
+            }
+            .cluster-capabilities {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--ep-space-1);
+            }
+            .cluster-capability {
+                display: inline-flex;
+                align-items: center;
+                border-radius: var(--ep-radius-full);
+                background: var(--ep-gray-100);
+                color: var(--ep-gray-700);
+                font-size: var(--ep-text-xs);
+                padding: var(--ep-space-0-5) var(--ep-space-2);
+            }
+            .cluster-empty {
+                padding: var(--ep-space-8);
+                text-align: center;
+                color: var(--ep-gray-500);
+                border: 1px dashed var(--ep-border-color);
+                border-radius: var(--ep-radius-lg);
+                background: var(--ep-card);
+            }
+            .cluster-work-section {
+                margin-top: var(--ep-space-8);
+            }
+            .cluster-work-section h2 {
+                font-size: var(--ep-text-lg);
+                margin: 0 0 var(--ep-space-3);
+            }
+            @media (max-width: 900px) {
+                .cluster-summary {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+            }
+            @media (max-width: 560px) {
+                .cluster-summary {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+
+        <div class="page-header">
+            <h1 data-testid="page-title">Cluster</h1>
+        </div>
+
+        <div th:fragment="results"
+             id="cluster-results"
+             th:hx-get="@{/tenants/{tenantId}/cluster/refresh(tenantId=${tenantId})}"
+             hx-trigger="every 2s"
+             hx-swap="outerHTML">
+
+            <div class="cluster-summary">
+                <div class="stat-card">
+                    <div class="stat-card-value" th:text="${report.totalCount}">0</div>
+                    <div class="stat-card-label">Known nodes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value">
+                        <span th:text="${report.activeCount}">0</span><span
+                            class="ep-text-muted"
+                            th:text="' / ' + ${report.totalCount}"> / 0</span>
+                    </div>
+                    <div class="stat-card-label">Active nodes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" th:text="${report.heartbeatIntervalSeconds + 's'}">2s</div>
+                    <div class="stat-card-label">Heartbeat</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-value" th:text="${report.idleTimeoutSeconds + 's'}">10s</div>
+                    <div class="stat-card-label">Stale after</div>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(report.nodes)}" class="cluster-empty">
+                No cluster nodes have registered yet.
+            </div>
+
+            <table th:if="${!#lists.isEmpty(report.nodes)}" class="ep-table">
+                <thead>
+                    <tr>
+                        <th>Node ID</th>
+                        <th>Status</th>
+                        <th>Capabilities</th>
+                        <th>Version</th>
+                        <th>Joined</th>
+                        <th>Last seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="entry : ${report.nodes}">
+                        <td>
+                            <code th:text="${entry.node.nodeId}">node-id</code>
+                            <span th:if="${entry.isCurrent}" class="cluster-current-pill">current</span>
+                        </td>
+                        <td>
+                            <span class="cluster-node-status"
+                                  th:classappend="${entry.isActive} ? ' is-active' : ' is-stale'"
+                                  th:text="${entry.statusLabel}">active</span>
+                        </td>
+                        <td>
+                            <div class="cluster-capabilities">
+                                <span th:each="capability : ${entry.node.capabilities}"
+                                      class="cluster-capability"
+                                      th:text="${capability}">suite</span>
+                            </div>
+                        </td>
+                        <td><code th:text="${entry.versionLabel}">-</code></td>
+                        <td>
+                            <span th:title="${#temporals.format(entry.node.joinedAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                  th:text="${#temporals.format(entry.node.joinedAt, 'HH:mm:ss')}">--</span>
+                        </td>
+                        <td>
+                            <span th:title="${#temporals.format(entry.node.lastSeenAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                  th:text="${entry.ageLabel}">just now</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="cluster-work-section">
+                <h2>Scheduled tasks</h2>
+                <div th:if="${#lists.isEmpty(report.scheduledTasks)}" class="cluster-empty">
+                    No cluster scheduled tasks are registered.
+                </div>
+                <table th:if="${!#lists.isEmpty(report.scheduledTasks)}" class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Type</th>
+                            <th>Capability</th>
+                            <th>Routing key</th>
+                            <th>Next due</th>
+                            <th>Lease owner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="task : ${report.scheduledTasks}">
+                            <td><code th:text="${task.taskKey}">task-key</code></td>
+                            <td><code th:text="${task.taskType}">type</code></td>
+                            <td>
+                                <span class="cluster-capability" th:text="${task.requiredCapability}">suite</span>
+                            </td>
+                            <td><code th:text="${task.routingKey}">routing</code></td>
+                            <td>
+                                <span th:title="${#temporals.format(task.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                      th:text="${#temporals.format(task.nextDueAt, 'HH:mm:ss')}">--</span>
+                            </td>
+                            <td><code th:text="${task.leaseOwnerNodeId ?: '-'}">-</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cluster-work-section">
+                <h2>Timers</h2>
+                <div th:if="${#lists.isEmpty(report.timers)}" class="cluster-empty">
+                    No cluster timers are scheduled.
+                </div>
+                <table th:if="${!#lists.isEmpty(report.timers)}" class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Timer</th>
+                            <th>Type</th>
+                            <th>Capability</th>
+                            <th>Routing key</th>
+                            <th>Due</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="timer : ${report.timers}">
+                            <td><code th:text="${timer.timerKey}">timer-key</code></td>
+                            <td><code th:text="${timer.timerType}">type</code></td>
+                            <td>
+                                <span class="cluster-capability" th:text="${timer.requiredCapability}">suite</span>
+                            </td>
+                            <td><code th:text="${timer.routingKey}">routing</code></td>
+                            <td>
+                                <span th:title="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}"
+                                      th:text="${#temporals.format(timer.dueAt, 'HH:mm:ss')}">--</span>
+                            </td>
+                            <td th:text="${timer.status.dbValue}">scheduled</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

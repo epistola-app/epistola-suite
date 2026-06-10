@@ -71,7 +71,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         consumerId: UUID,
         partition: Int,
         lastAckedSequence: Long,
-        updatedAt: OffsetDateTime = OffsetDateTime.now(),
+        updatedAt: OffsetDateTime = now(),
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -128,7 +128,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
     @Test
     fun `groups multiple nodes under the same consumer and surfaces partitions + cursor summary`() {
         val tenant = createTenant("Multi Node Tenant")
-        val now = OffsetDateTime.now()
+        val now = now()
         val consumerId = seedApiKey(tenant.id, "Production Plugin", lastUsedAt = now)
         seedNode(tenant.id, consumerId, "node-a", listOf(0, 5, 17), now.minusSeconds(2))
         seedNode(tenant.id, consumerId, "node-b", listOf(11, 23, 42), now.minusSeconds(5))
@@ -162,7 +162,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
     fun `marks nodes whose last_seen_at is older than the idle window as stale`() {
         val tenant = createTenant("Staleness Tenant")
         val consumerId = seedApiKey(tenant.id, "Mixed Plugin")
-        val now = OffsetDateTime.now()
+        val now = now()
         seedNode(tenant.id, consumerId, "fresh", listOf(1), now.minusSeconds(5))
         // Default idle-timeout-ms is 60_000; 10 minutes is comfortably past it.
         seedNode(tenant.id, consumerId, "stale", listOf(2), now.minusMinutes(10))
@@ -186,7 +186,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         seedApiKey(tenantA.id, "Alpha Service")
         // tenantB has its own consumer that must NOT bleed into tenantA's report.
         val isolated = seedApiKey(tenantB.id, "Other Tenant Service")
-        seedNode(tenantB.id, isolated, "n1", listOf(0), OffsetDateTime.now())
+        seedNode(tenantB.id, isolated, "n1", listOf(0), now())
 
         val report = withMediator { ListConsumerStatus(tenantA.id).query() }
 
@@ -211,7 +211,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         // in the report (it remains in the DB until the reaper sweeps it).
         val tenant = createTenant("Hide Window Tenant")
         val consumerId = seedApiKey(tenant.id, "Mixed Plugin")
-        val now = OffsetDateTime.now()
+        val now = now()
         seedNode(tenant.id, consumerId, "fresh-stale", listOf(1), now.minusMinutes(15))
         seedNode(tenant.id, consumerId, "long-gone", listOf(2), now.minusHours(3))
 
@@ -227,7 +227,7 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         val tenant = createTenant("Activity Tenant")
         val a = seedApiKey(tenant.id, "Plugin A")
         val b = seedApiKey(tenant.id, "Plugin B")
-        val now = OffsetDateTime.now()
+        val now = now()
         seedNode(tenant.id, a, "n-a", listOf(0), now.minusSeconds(30))
         seedNode(tenant.id, b, "n-b", listOf(1), now.minusSeconds(2))
 
@@ -239,4 +239,6 @@ class ListConsumerStatusHandlerIT : IntegrationTestBase() {
         assertThat(report.totals.mostRecentNodeActivity!!.toEpochSecond())
             .isGreaterThanOrEqualTo(expectedFloor)
     }
+
+    private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
 }

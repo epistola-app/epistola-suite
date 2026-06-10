@@ -10,6 +10,7 @@ import app.epistola.hub.client.port.InstallationStore
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.observability.NodeIdentity
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -32,8 +33,13 @@ import org.springframework.context.annotation.DependsOn
     havingValue = "true",
 )
 class SupportConfiguration {
+    private val log = org.slf4j.LoggerFactory.getLogger(SupportConfiguration::class.java)
+
     @Bean
     fun installationStore(metadata: AppMetadataService): InstallationStore = AppMetadataInstallationStore(metadata)
+
+    @Bean
+    fun entitlementStore(metadata: AppMetadataService): EntitlementStore = EntitlementStore(metadata)
 
     /**
      * Resolved during context refresh. `installations.get()` reads
@@ -93,12 +99,28 @@ class SupportConfiguration {
         store: InstallationStore,
         props: SupportProperties,
         discovery: HubDiscovery,
-    ): EpistolaHubClient = EpistolaHubClient(
-        store = store,
-        nodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: EpistolaHubClient.detectNodeId(),
-        discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
-        discovery = discovery,
-    )
+        nodeIdentity: NodeIdentity,
+    ): EpistolaHubClient {
+        val resolvedNodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: nodeIdentity.nodeId
+        return EpistolaHubClient(
+            // One node-id resolver app-wide ([NodeIdentity]); the support-tier
+            // override (epistola.support.hub.node-id) still wins when explicitly set.
+            store = store,
+            nodeId = resolvedNodeId,
+            discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
+            discovery = discovery,
+        ).also { client ->
+            // React to connectivity transitions. For now we just log; this is the seam where the
+            // change could be persisted (e.g. for cross-node connectivity history) later.
+            client.addConnectivityListener { connectivity ->
+                if (connectivity.reachable) {
+                    log.info("epistola-hub reachable again (node {})", resolvedNodeId)
+                } else {
+                    log.warn("epistola-hub unreachable (node {}): {}", resolvedNodeId, connectivity.lastError)
+                }
+            }
+        }
+    }
 
     @Bean(destroyMethod = "close")
     fun hubRegistrationRetryLoop(
@@ -117,6 +139,17 @@ class SupportConfiguration {
      */
     @Bean
     fun startHubRegistration(
+        client: EpistolaHubClient,
         loop: HubRegistrationRetryLoop,
-    ): ApplicationListener<ApplicationReadyEvent> = ApplicationListener { loop.start() }
+        entitlementSync: EntitlementSyncService,
+        revisionTrigger: EntitlementRevisionTrigger,
+    ): ApplicationListener<ApplicationReadyEvent> = ApplicationListener {
+        // Refresh entitlements whenever the hub reports a newer revision on any response header.
+        client.addEntitlementsRevisionListener { revision -> revisionTrigger.observe(revision) }
+        loop.start()
+        // If the inline registration above succeeded, credentials now exist and we fetch the
+        // entitlement set immediately; otherwise this is a quiet no-op and the periodic
+        // refresh (EntitlementRefreshScheduler) picks it up once registration completes.
+        entitlementSync.refresh()
+    }
 }

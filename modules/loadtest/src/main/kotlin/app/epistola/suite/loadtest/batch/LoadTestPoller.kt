@@ -8,8 +8,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -18,7 +18,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.InetAddress
-import java.time.OffsetDateTime
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -36,8 +35,8 @@ import java.util.concurrent.atomic.AtomicInteger
 )
 class LoadTestPoller(
     private val jdbi: Jdbi,
-    private val mediator: Mediator,
     private val loadTestExecutor: LoadTestExecutor,
+    private val mediator: Mediator,
     @Value("\${epistola.loadtest.polling.max-concurrent-tests:1}")
     private val maxConcurrentTests: Int,
     @Value("\${epistola.loadtest.polling.stale-timeout-minutes:10}")
@@ -68,21 +67,18 @@ class LoadTestPoller(
             logger.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
 
             // Execute on virtual thread, don't block the scheduler
-            executor.submit {
-                try {
-                    // Bind system principal + mediator for the virtual thread
-                    SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
-                        MediatorContext.runWithMediator(mediator) {
-                            loadTestExecutor.execute(run)
-                        }
+            executor.submit(
+                MediatorContext.runnable(mediator, SYSTEM_PRINCIPAL) {
+                    try {
+                        loadTestExecutor.execute(run)
+                    } catch (e: Exception) {
+                        logger.error("Load test execution failed for run {}: {}", run.id, e.message, e)
+                        markRunFailed(run.id, e.message)
+                    } finally {
+                        activeTests.decrementAndGet()
                     }
-                } catch (e: Exception) {
-                    logger.error("Load test execution failed for run {}: {}", run.id, e.message, e)
-                    markRunFailed(run.id, e.message)
-                } finally {
-                    activeTests.decrementAndGet()
-                }
-            }
+                },
+            )
         }
     }
 
@@ -160,7 +156,7 @@ class LoadTestPoller(
             )
                 .bind("pendingStatus", LoadTestStatus.PENDING.name)
                 .bind("runningStatus", LoadTestStatus.RUNNING.name)
-                .bind("staleThreshold", OffsetDateTime.now().minusMinutes(staleTimeoutMinutes.toLong()))
+                .bind("staleThreshold", EpistolaClock.offsetDateTime().minusMinutes(staleTimeoutMinutes.toLong()))
                 .execute()
         }
 

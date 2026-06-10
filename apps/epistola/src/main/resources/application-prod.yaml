@@ -10,6 +10,18 @@ spring:
   session:
     timeout: 8h
 
+# Isolate the actuator/management endpoints (health, info, prometheus) onto a
+# separate port so they are NOT served on the public application port. The
+# management port is meant to stay cluster-internal (never exposed via the
+# Service/Ingress); an in-cluster Prometheus scrapes it directly. Kubernetes
+# liveness/readiness probes use /livez and /readyz on the MAIN port instead
+# (management.endpoint.health.probes.add-additional-paths in application.yaml),
+# because a separate management context can report healthy even when the main
+# application is not.
+management:
+  server:
+    port: 4040
+
 epistola:
   # Migrations run as a separate step in production (Helm migration Job / init
   # container, or a manual EPISTOLA_RUN_MODE=migrate run). App pods must only

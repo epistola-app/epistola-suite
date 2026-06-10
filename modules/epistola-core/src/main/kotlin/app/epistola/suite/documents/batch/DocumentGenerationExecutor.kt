@@ -34,6 +34,7 @@ import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -45,7 +46,6 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.time.OffsetDateTime
 
 /**
  * Executes document generation jobs.
@@ -115,10 +115,7 @@ class DocumentGenerationExecutor(
             )
 
             // Record document size
-            DistributionSummary.builder("epistola.generation.document.size.bytes")
-                .tag("template", templateName)
-                .register(meterRegistry)
-                .record(document.sizeBytes.toDouble())
+            recordDocumentSize(request, document.sizeBytes)
 
             // Save document metadata and mark request as completed
             val transitioned = saveDocumentAndMarkCompleted(request.id, document)
@@ -167,14 +164,41 @@ class DocumentGenerationExecutor(
                 finalizeBatchIfComplete(batchId)
             }
         } finally {
-            sample.stop(
-                Timer.builder("epistola.generation.document.duration")
-                    .tag("outcome", outcome)
-                    .tag("template", templateName)
-                    .tag("path", renderPath)
-                    .register(meterRegistry),
-            )
+            sample.stop(documentDurationTimer(request, outcome, renderPath))
         }
+    }
+
+    /**
+     * Starts a generation-duration sample. Exposed so subclasses (e.g. the test
+     * fake executor) record the same `epistola.generation.document.duration`
+     * timer through the same code path as production.
+     */
+    protected fun startDocumentTimer(): Timer.Sample = Timer.start(meterRegistry)
+
+    /**
+     * Builds the per-tenant `epistola.generation.document.duration` timer. The
+     * `tenant` tag (bounded by tenants × templates) lets an operator attribute
+     * generation latency / failures per tenant. Single source of the tag set so
+     * the real and fake executors stay in parity.
+     */
+    protected fun documentDurationTimer(
+        request: DocumentGenerationRequest,
+        outcome: String,
+        renderPath: String,
+    ): Timer = Timer.builder("epistola.generation.document.duration")
+        .tag("tenant", request.tenantKey.value)
+        .tag("outcome", outcome)
+        .tag("template", request.templateKey.value)
+        .tag("path", renderPath)
+        .register(meterRegistry)
+
+    /** Records the per-tenant `epistola.generation.document.size.bytes` summary. */
+    protected fun recordDocumentSize(request: DocumentGenerationRequest, sizeBytes: Long) {
+        DistributionSummary.builder("epistola.generation.document.size.bytes")
+            .tag("tenant", request.tenantKey.value)
+            .tag("template", request.templateKey.value)
+            .register(meterRegistry)
+            .record(sizeBytes.toDouble())
     }
 
     /**
@@ -341,7 +365,7 @@ class DocumentGenerationExecutor(
             correlationId = request.correlationId,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
-            createdAt = OffsetDateTime.now(),
+            createdAt = EpistolaClock.offsetDateTime(),
             // Background generation runs under the JobPoller's SystemUser
             // principal, which is a real seeded `users` row — so the creator is
             // simply the bound principal (a real user for API-triggered
@@ -491,7 +515,7 @@ class DocumentGenerationExecutor(
                     sizeBytes = sizeBytes,
                     contentType = contentType,
                     error = error,
-                    completedAt = OffsetDateTime.now(),
+                    completedAt = EpistolaClock.offsetDateTime(),
                 ),
             )
         } catch (e: Exception) {

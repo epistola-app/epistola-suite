@@ -23,10 +23,16 @@ dependencies {
     // grpc-netty-shaded (runtime), grpc-protobuf, protobuf-kotlin,
     // and kotlinx-serialization-json-jvm. Verified no conflicts with the
     // rest of the suite (no other module uses gRPC).
-    implementation("app.epistola.hub:client:0.1.0")
+    implementation(libs.epistola.hub.client)
 
-    // Spring Boot
+    // Shared web/UI toolkit (HTMX functional-web DSL + NavContributor SPI). The base support
+    // module owns the Support → Overview page and the "Support" nav group.
+    implementation(project(":modules:epistola-web"))
+
+    // Spring Boot — base + UI (functional routing + Thymeleaf) for the Overview page.
     implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")

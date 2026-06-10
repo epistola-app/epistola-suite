@@ -1,11 +1,16 @@
 package app.epistola.suite.generation.collect.maintenance
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.observability.recordScheduledTask
+import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
@@ -24,7 +29,6 @@ import org.springframework.stereotype.Component
  * `epistola.collect.stale-node-retention-hours` (default 24).
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(
     name = ["epistola.collect.reaper.enabled"],
     havingValue = "true",
@@ -32,13 +36,28 @@ import org.springframework.stereotype.Component
 )
 class StaleConsumerNodeReaper(
     private val jdbi: Jdbi,
+    private val meterRegistry: MeterRegistry,
     @Value("\${epistola.collect.stale-node-retention-hours:24}")
     private val retentionHours: Long,
-) {
+    @Value("\${epistola.collect.reaper.cron:0 0 3 * * *}")
+    private val cron: String,
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
-    @Scheduled(cron = "\${epistola.collect.reaper.cron:0 0 3 * * *}")
-    fun reap() {
+    @Bean
+    fun staleConsumerNodeReaperScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.Cron(cron),
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        reap()
+    }
+
+    fun reap() = meterRegistry.recordScheduledTask("stale-consumer-reaper") {
         val deleted = deleteStaleNodes()
         if (deleted > 0) {
             logger.info("Reaped {} stale consumer_node_assignments rows (retentionHours={})", deleted, retentionHours)
@@ -60,5 +79,11 @@ class StaleConsumerNodeReaper(
         )
             .bind("retentionHours", retentionHours.toInt())
             .execute()
+    }
+
+    companion object {
+        const val TASK_KEY = "core.stale-consumer-node-reaper"
+        const val ROUTING_KEY = "system:core.stale-consumer-node-reaper"
+        const val TASK_TYPE = "core.stale-consumer-node-reaper"
     }
 }

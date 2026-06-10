@@ -63,7 +63,12 @@ epistola-suite-modules/
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `X-API-Key` auth). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
-- **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) will arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …). The current `modules/feedback/` will be renamed to `modules/epistola-support-feedback/` in a follow-up PR.
+- **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …).
+- **modules/epistola-support-feedback**: The complete feedback feature — domain (model + commands/queries + migrations + static JS), the sync engine (`FeedbackSyncPort` + drivers + no-op fallback), the UI (handlers + `templates/feedback/**`), and the `HubFeedbackSyncAdapter`. The feature is freely usable; only the hub **sync** (the paid server component) is gated on `epistola.support.enabled` (no-op adapter keeps feedback local otherwise). UI visibility is gated by the `support-feedback` feature toggle.
+- **modules/epistola-support-snapshots**: The **shared snapshot-sync layer** that both the Backups and Upgrading features depend on. Building/restoring a tenant snapshot is an `epistola-core` primitive (`catalog/snapshot/` — `BuildTenantSnapshot` / `RestoreTenantSnapshot`); this module owns moving it to/from the hub: `SnapshotSyncPort` + `HubSnapshotSyncAdapter` (client-streaming upload / server-streaming download over the hub `CatalogSyncService`) + a no-op fallback, the `TenantSnapshotSyncService` (build → fingerprint-dedup → upload, plus the `app_metadata` **last-sync timestamp** that lets the two features coordinate), and the background `snapshotSystemPrincipal`. The hub calls are gated on `epistola.support.enabled`; the snapshot build/restore are not. Backups and Upgrading depend on this module, not on each other.
+- **modules/epistola-support-backups**: The **Backups feature** — the daily retained-snapshot `BackupScheduler` (per tenant with `support-backups` on; `SchedulerLock.CATALOG_BACKUP`; active when `epistola.support.backups.scheduled.enabled=true`) and the Backups UI (list / back up now / restore-with-confirmation, `templates/backups/**`). It rides `TenantSnapshotSyncService`; it owns no snapshot mechanics. UI visibility is gated by the `support-backups` feature toggle.
+- **modules/epistola-support-upgrading**: The **Upgrading (compatibility) feature** — a read-only `CompatibilitySyncPort` + `HubCompatibilitySyncAdapter` that fetch the company-side compatibility-check results live, the Upgrading UI (`templates/upgrading/**`), and its **own** `UpgradingSnapshotScheduler` that tops up snapshot freshness: it makes a snapshot only when none was synced (by Backups _or_ itself) within `epistola.support.upgrading.snapshot.max-age` (default 24h), reading the shared last-sync timestamp (`SchedulerLock.UPGRADING_SNAPSHOT`). UI visibility is gated by the `support-upgrading` feature toggle.
+- **modules/epistola-web**: Shared web/UI toolkit — the HTMX functional-web DSL (`app.epistola.suite.htmx`) used by the host app and any feature module that contributes UI.
 - **modules/testing**: Shared test infrastructure — `IntegrationTestBase`, Testcontainers, fixture/scenario DSLs (not production code)
 
 ### Database migrations are module-owned
@@ -82,8 +87,67 @@ migration — add a new timestamped file. Folding `ALTER`s back into the origina
 ### Commercial-tier architecture (forward direction)
 
 - **`epistola-support`** owns commercial-tier infrastructure (hub client, registration, credentials). Per-feature modules layer on top.
-- Per-feature modules MAY ship **UI** (Thymeleaf templates + `@Component` handlers in their own `src/main/resources/templates/...`). Spring/Thymeleaf merges classpath templates from every JAR; CSP and security wiring apply automatically. `apps/epistola` keeps being the host that composes UI from contributing modules — relax the "UI only in `apps/epistola`" rule when a support-tier feature module needs to contribute UI.
-- **Extension points** (e.g., "add a Quality tab to the template page") use small SPIs in core, introduced one-at-a-time as features need them. Pattern: feature module ships a `TemplateDetailTab` `@Component` + a UI handler returning an HTMX fragment; host page collects all contributions and renders a tab strip with `hx-get` lazy-load. No SPI exists yet — add the first one when the first contributing feature lands.
+- **`epistola-web`** is the shared web/UI toolkit (the HTMX functional-web DSL — `htmx{}`, `page()`, `form{}`, request extensions — in package `app.epistola.suite.htmx`). Both `apps/epistola` and any per-feature UI module depend on it, so feature modules can host handlers/templates without depending on the app. The host app still owns the page chrome (`layout/shell`, `layout/nav`, `fragments/*`).
+- Per-feature modules MAY ship **UI** (Thymeleaf templates + `@Component` handlers in their own `src/main/resources/templates/...`). Spring/Thymeleaf merges classpath templates from every JAR; CSP and security wiring apply automatically. `apps/epistola` keeps being the host that composes UI from contributing modules — relax the "UI only in `apps/epistola`" rule when a feature module needs to contribute UI. **First example:** `epistola-support-feedback` ships the whole feedback feature including its UI (handlers + `templates/feedback/**`); the feature is freely usable and only the hub _sync_ (the paid server component) is gated on `epistola.support.enabled`.
+- **Extension points** use small SPIs, introduced one-at-a-time as features need them; the host collects all `@Component` contributions and composes them. Two exist, both in `epistola-web` and both handed the shared per-request `UiRequestContext` (`app.epistola.suite.htmx`: `tenantKey` + a `hasPermission` predicate). A contributor that needs feature state reads it through the `ResolveFeatureToggles(tenantKey)` query (see feature-toggle reads below), not by injecting a service:
+  - **Navigation** — `NavContributor` (package `app.epistola.suite.htmx.nav`). A module declares `NavGroup`s and emits `NavItem`s for a request (filtering on permission and/or toggles); `NavMenuAggregator` merges all contributors, drops empty groups, and derives the active section from the request path, and `layout/nav` just iterates `navGroups`. The host's own menu is a `CoreNavContributor` in `apps/epistola`; `epistola-support` owns the Support group + Overview; each `epistola-support-*` feature module ships a contributor for its item.
+  - **Footer chrome** — `FooterContributor` (package `app.epistola.suite.htmx.footer`) returns Thymeleaf `FooterFragment`s (`template :: fragment`); `FooterFragmentResolver` collects them and `fragments/footer` `th:replace`s each. Example: `epistola-support-feedback`'s `FeedbackFooterContributor` injects the feedback FAB.
+
+  Follow this shape for the next extension point (e.g. a `TemplateDetailTab` SPI: feature module ships a `@Component` + a UI handler returning an HTMX fragment; host page renders a tab strip with `hx-get` lazy-load) — add it when the first contributing feature needs it.
+
+- **Feature-toggle reads go through CQRS queries, not the service.** `GetFeatureToggles` is the permission-gated (`TENANT_SETTINGS`) read backing the admin Features page; `ResolveFeatureToggles` is its `SystemInternal` (auth-bypassing) sibling for internal use — UI rendering (nav/footer contributors, shown to any signed-in user) and background schedulers. Both delegate to `FeatureToggleService.resolveAll`, which memoizes per request via a `ScopedValue` cache (bound by `FeatureToggleCacheFilter`, same idiom as `SecurityContext`/`MediatorContext`), so a whole page render issues one toggle query per tenant. Add new toggle reads as a query; only the resolution service touches JDBI.
+
+### Application time and mediator context
+
+Application time is owned by `MediatorContext`, not by Spring injection. The
+active mediator context carries the `Mediator`, the current `Clock`, and
+optionally the current `EpistolaPrincipal`. `MediatorContext` binds that state
+with `ScopedValue`, and `EpistolaClock` resolves time from the bound context.
+
+Rules:
+
+- Use `EpistolaClock.instant()`, `offsetDateTime()`, `localDate()`, or
+  `yearMonth()` for application time.
+- Do not add direct application calls to `Instant.now()`,
+  `OffsetDateTime.now()`, `LocalDate.now()`, `ZonedDateTime.now()`, or
+  `YearMonth.now()`.
+- Do not inject Spring `Clock` for application time. The Spring `Clock` bean is
+  only a compatibility bridge for legacy/transitional code.
+- Regular commands and queries get a mediator context scope from
+  `SpringMediator`; handlers should not create their own scope.
+- Entry points that start outside an existing mediator scope and execute
+  immediately must bind a mediator context explicitly:
+
+  ```kotlin
+  MediatorContext.runWithMediator(mediator) {
+      // scheduler or startup work
+  }
+  ```
+
+- Work submitted to another thread must capture the context before submission
+  and bind it inside the runnable/callable. Virtual threads are still separate
+  threads; `ScopedValue` bindings do not automatically cross executor or
+  callback boundaries.
+
+  ```kotlin
+  executor.submit(MediatorContext.runnable(mediator, principal) {
+      // async work
+  })
+  ```
+
+- Prefer `MediatorContext.current()` / `.send()` / `.query()` inside the bound
+  scope instead of passing Spring services deeper into application operations.
+- Database `NOW()`/`now()` is still correct for database-owned timestamps,
+  triggers, row leases, claim/update comparisons, and other operations that must
+  align with the database clock.
+- The pure `modules/generation` renderer may accept an explicit `Clock` because
+  it intentionally does not depend on `epistola-core`; callers from core should
+  pass `EpistolaClock.current()`.
+- Tests should use `EpistolaClockExtension`/`testClock` or
+  `EpistolaClock.withClock`/`withInstant`, not wall-clock sleeps or direct
+  JVM `now()` calls.
+
+See [`docs/clock.md`](docs/clock.md) for the full architecture.
 
 ## Frontend Architecture
 

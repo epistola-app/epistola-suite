@@ -4,8 +4,9 @@ import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.MeterRegistry
@@ -25,6 +26,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Scheduled poller that claims and executes pending document generation jobs.
@@ -52,6 +54,7 @@ class JobPoller(
     private val properties: JobPollingProperties,
     private val batchSizer: AdaptiveBatchSizer,
     private val meterRegistry: MeterRegistry,
+    private val mediator: Mediator,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
@@ -79,6 +82,11 @@ class JobPoller(
 
     // Cached pending count, updated each drain cycle
     private val pendingCount = AtomicInteger(0)
+
+    // Wall-clock of the last drain cycle, for the liveness heartbeat exposed to
+    // the health indicator. The scheduled poll fires every interval-ms even when
+    // idle, so a stale value means the poller thread is wedged.
+    private val lastPollAtMs = AtomicLong(System.currentTimeMillis())
 
     // Micrometer counters for observability
     private val jobsClaimedCounter = meterRegistry.counter("epistola.jobs.claimed.total")
@@ -174,9 +182,16 @@ class JobPoller(
     fun requestDrain() {
         if (shuttingDown.get()) return
         if (drainRequested.compareAndSet(false, true)) {
-            drainExecutor.submit { drain() }
+            drainExecutor.submit(MediatorContext.runnable(mediator) { drain() })
         }
     }
+
+    /**
+     * Milliseconds since the last drain cycle. Consumed by the job-poller health
+     * indicator: the scheduled poll fires every `interval-ms` even when idle, so
+     * a large value means the drain thread is wedged.
+     */
+    fun lastPollAgeMillis(): Long = System.currentTimeMillis() - lastPollAtMs.get()
 
     /**
      * Continuously claim and process jobs until queue empty or at capacity.
@@ -185,6 +200,7 @@ class JobPoller(
     private fun drain() {
         while (true) {
             drainRequested.set(false) // Reset flag, will be set again if more work needed
+            lastPollAtMs.set(System.currentTimeMillis()) // heartbeat for the health indicator
 
             // Update pending count for metrics (lightweight query, piggybacks on poll cycle)
             updatePendingCount()
@@ -237,49 +253,49 @@ class JobPoller(
                     logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
-                    jobThreadExecutor.submit {
-                        var jobOutcome = "success"
-                        try {
-                            SecurityContext.runWithPrincipal(systemPrincipal(request.tenantKey)) {
+                    jobThreadExecutor.submit(
+                        MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
+                            var jobOutcome = "success"
+                            try {
                                 jobExecutor.execute(request)
-                            }
-                            jobsCompletedCounter.increment()
-                        } catch (e: Exception) {
-                            jobOutcome = "failure"
-                            logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
-                            jobsFailedCounter.increment()
-                            markRequestFailed(request.id, e.message)
-                        } finally {
-                            // Record duration via Micrometer timer and report to adaptive batch sizer
-                            val sample = jobTimers.remove(request.id)
-                            val durationMs = sample?.let {
-                                val timer = Timer.builder("epistola.jobs.duration")
-                                    .tag("outcome", jobOutcome)
-                                    .register(meterRegistry)
-                                val nanos = it.stop(timer)
-                                nanos / 1_000_000 // convert to ms for batch sizer
-                            }
-                            val newActiveCount = synchronized(idleLatchLock) {
-                                val count = activeJobs.decrementAndGet()
-                                if (count == 0) {
-                                    idleLatch.countDown()
+                                jobsCompletedCounter.increment()
+                            } catch (e: Exception) {
+                                jobOutcome = "failure"
+                                logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
+                                jobsFailedCounter.increment()
+                                markRequestFailed(request.id, e.message)
+                            } finally {
+                                // Record duration via Micrometer timer and report to adaptive batch sizer
+                                val sample = jobTimers.remove(request.id)
+                                val durationMs = sample?.let {
+                                    val timer = Timer.builder("epistola.jobs.duration")
+                                        .tag("outcome", jobOutcome)
+                                        .register(meterRegistry)
+                                    val nanos = it.stop(timer)
+                                    nanos / 1_000_000 // convert to ms for batch sizer
                                 }
-                                count
+                                val newActiveCount = synchronized(idleLatchLock) {
+                                    val count = activeJobs.decrementAndGet()
+                                    if (count == 0) {
+                                        idleLatch.countDown()
+                                    }
+                                    count
+                                }
+                                if (durationMs != null) {
+                                    batchSizer.recordJobCompletion(durationMs)
+                                    logger.info(
+                                        "Job completed: {} in {}ms | Active: {}/{}",
+                                        request.id.value,
+                                        durationMs,
+                                        newActiveCount,
+                                        properties.maxConcurrentJobs,
+                                    )
+                                }
+                                // Signal: slot freed, check for more work immediately
+                                requestDrain()
                             }
-                            if (durationMs != null) {
-                                batchSizer.recordJobCompletion(durationMs)
-                                logger.info(
-                                    "Job completed: {} in {}ms | Active: {}/{}",
-                                    request.id.value,
-                                    durationMs,
-                                    newActiveCount,
-                                    properties.maxConcurrentJobs,
-                                )
-                            }
-                            // Signal: slot freed, check for more work immediately
-                            requestDrain()
-                        }
-                    }
+                        },
+                    )
                 }
             }
 

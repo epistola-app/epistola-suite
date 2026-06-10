@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -48,7 +49,7 @@ class CreateApiKeyHandler(
             name = command.name,
             keyPrefix = keyPrefix,
             enabled = true,
-            createdAt = Instant.now(),
+            createdAt = EpistolaClock.instant(),
             lastUsedAt = null,
             expiresAt = command.expiresAt,
             createdBy = command.createdBy,

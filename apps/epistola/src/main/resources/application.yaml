@@ -109,6 +109,23 @@ epistola:
     # Implementation-Version manifest entry — see GetServerInfoHandler. Don't add
     # it here as a property; the contract is the source of truth.
 
+  # Phase 1 horizontal-scaling runtime. The node registry is intentionally small:
+  # each replica heartbeats its identity and capabilities into Postgres so later
+  # clustered timer events, durable processes, cache fanout, and renderer-node
+  # capability routing have one source of cluster truth. A single deployment is
+  # treated as a one-node cluster.
+  cluster:
+    heartbeat-interval-ms: 2000
+    idle-timeout-ms: 10000
+    timers:
+      poll-interval-ms: 1000
+      lease-duration-ms: 30000
+      retry-delay-ms: 30000
+      batch-size: 25
+      candidate-scan-size: 250
+    capabilities:
+      - suite
+
   # Postgres declarative-partitioning maintenance.
   # `retention-months` applies to documents + document_generation_requests.
   # `generation-results-retention-months` applies to generation_results — kept
@@ -120,9 +137,18 @@ epistola:
     generation-results-retention-months: 1
     maintenance-cron: "0 0 2 * * ?" # daily at 02:00
 
+  # Observability — installation-wide stat gauges (epistola.installation.*).
+  # Every replica runs the schedule, but only the holder of a Postgres advisory
+  # lock publishes the counts each round (the rest report NaN, which is omitted),
+  # so there is exactly one live series across the fleet.
+  metrics:
+    installation-stats:
+      enabled: true
+      interval-ms: 60000
+
   # Feature toggles — global defaults (tenant-level overrides stored in DB)
   features:
-    feedback: true
+    support-feedback: true
     stencil-parameters: true
 
   # Application-wide default locale used for date/number formatting.
@@ -131,14 +157,15 @@ epistola:
   i18n:
     default-locale: "en-US"
 
-  # Feedback sync configuration (provider-agnostic)
-  # Controls outbound sync retry and inbound polling.
+  # Feedback sync scheduling. Feedback syncs to epistola-hub when the support
+  # tier is enabled (epistola.support.enabled=true); otherwise these schedulers
+  # run but do nothing (no-op sync target). Sync is installation-wide.
   feedback:
     sync:
-      enabled: true # Enable outbound sync scheduler
-      retry-interval-ms: 60000 # Retry interval for failed syncs
+      enabled: true # Enable the outbound retry scheduler
+      retry-interval-ms: 60000 # Retry interval for failed pushes
       polling:
-        enabled: false # Enable inbound polling
+        enabled: false # Enable inbound polling (status/comment changes from the hub)
         interval-ms: 300000 # Poll interval (default 5 min)
 
   # Optional commercial support tier (epistola-hub integration).
@@ -154,6 +181,21 @@ epistola:
       # Override the per-pod node id. Blank → auto-detect from
       # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
       node-id: ""
+    # Catalog backups — the daily retained-snapshot run. Per tenant, gated by the
+    # `support-backups` feature toggle; snapshots reach the hub only when enabled above.
+    backups:
+      scheduled:
+        enabled: false # Run the daily backup sweep
+      cron: "0 0 2 * * *" # Daily at 02:00
+    # Compatibility ("Upgrading") — keep a recent snapshot for the company-side check.
+    # The sweep makes a snapshot only when none was synced (by backups or itself) within
+    # max-age, so it stays dormant when the daily backup already keeps one fresh.
+    upgrading:
+      snapshot:
+        scheduled:
+          enabled: false # Run the freshness sweep
+        cron: "0 0 * * * *" # Hourly
+        max-age: 24h
 
   # Installation identity. Required when epistola.support.enabled=true;
   # ignored otherwise. Override per environment via
@@ -174,12 +216,32 @@ management:
     health:
       probes:
         enabled: true
+        # Expose liveness/readiness ALSO at /livez and /readyz on the MAIN
+        # application port. In production the actuator endpoints move to a
+        # separate management port (see application-prod.yaml); Kubernetes
+        # probes must stay on the main port because the management context can
+        # report healthy even when the main app is not. Always-on (not just
+        # prod) so the Helm probe paths work in every profile.
+        add-additional-paths: true
       show-details: never
   health:
     livenessState:
       enabled: true
     readinessState:
       enabled: true
+  metrics:
+    distribution:
+      # Publish histogram buckets for latency timers so percentiles (p95/p99)
+      # can be aggregated server-side ACROSS instances. Client-side percentiles
+      # cannot be summed; histogram buckets can. Required for trustworthy
+      # latency dashboards over a remote fleet.
+      percentiles-histogram:
+        http.server.requests: true
+        epistola.generation.document.duration: true
+        epistola.storage.operation.duration: true
+        epistola.mediator.command.duration: true
+        epistola.mediator.query.duration: true
+        epistola.jobs.duration: true
   otlp:
     metrics:
       export:
