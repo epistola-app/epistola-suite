@@ -4,6 +4,8 @@ import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskNodeState
+import app.epistola.suite.cluster.schedules.ListClusterScheduledTaskNodeStates
 import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
 import app.epistola.suite.cluster.timers.ClusterTimer
 import app.epistola.suite.cluster.timers.ListClusterTimers
@@ -71,6 +73,7 @@ class ClusterStatusHandler(
             nodes = nodes,
             timers = ListClusterTimers().query(),
             scheduledTasks = ListClusterScheduledTasks.query(),
+            scheduledTaskNodeStates = ListClusterScheduledTaskNodeStates.query(),
             heartbeatIntervalMs = properties.heartbeatIntervalMs,
             idleTimeoutMs = properties.idleTimeoutMs,
             activeCount = nodes.count { it.isActive },
@@ -90,6 +93,7 @@ data class ClusterStatusReport(
     val nodes: List<ClusterNodeStatus>,
     val timers: List<ClusterTimer>,
     val scheduledTasks: List<ClusterScheduledTask>,
+    val scheduledTaskNodeStates: List<ClusterScheduledTaskNodeState>,
     val heartbeatIntervalMs: Long,
     val idleTimeoutMs: Long,
     val activeCount: Int,

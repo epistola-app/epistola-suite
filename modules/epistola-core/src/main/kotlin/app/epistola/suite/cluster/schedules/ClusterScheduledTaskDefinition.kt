@@ -21,6 +21,7 @@ data class ClusterScheduledTaskDefinition(
     val routingKey: String,
     val taskType: String,
     val schedule: ClusterScheduledTaskSchedule,
+    val executionScope: ClusterScheduledTaskExecutionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
     val requiredCapability: String = ClusterProperties.DEFAULT_CAPABILITY,
     val payload: Map<String, Any?> = emptyMap(),
     val tenantKey: TenantKey? = null,
@@ -29,6 +30,23 @@ data class ClusterScheduledTaskDefinition(
     val catchUpPolicy: ClusterScheduledTaskCatchUpPolicy = ClusterScheduledTaskCatchUpPolicy.COALESCE,
     val enabled: Boolean = true,
 )
+
+/**
+ * Execution cardinality for each scheduled occurrence.
+ */
+enum class ClusterScheduledTaskExecutionScope(val dbValue: String) {
+    /** One active capable node runs each due occurrence. */
+    SINGLE_OWNER("single_owner"),
+
+    /** Every active capable node runs each due occurrence independently. */
+    EACH_CAPABLE_NODE("each_capable_node"),
+    ;
+
+    companion object {
+        fun fromDb(value: String): ClusterScheduledTaskExecutionScope = entries.firstOrNull { it.dbValue == value }
+            ?: error("Unknown cluster scheduled task execution scope '$value'")
+    }
+}
 
 /**
  * Supported recurring schedule expressions.

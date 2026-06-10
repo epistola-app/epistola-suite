@@ -6,6 +6,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.Isolated
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -20,6 +21,7 @@ import java.time.format.DateTimeFormatter
  * default 1) distinct from the default `retention-months` (3) used by
  * documents/document_generation_requests.
  */
+@Isolated("Drops and recreates shared partition tables while asserting scheduler side effects")
 class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
 
     @Autowired

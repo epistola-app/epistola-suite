@@ -1,5 +1,10 @@
 package app.epistola.suite.loadtest.batch
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.loadtest.model.LoadTestRunKey
@@ -15,7 +20,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.util.concurrent.Executors
@@ -41,17 +46,28 @@ class LoadTestPoller(
     private val maxConcurrentTests: Int,
     @Value("\${epistola.loadtest.polling.stale-timeout-minutes:10}")
     private val staleTimeoutMinutes: Int,
-) {
+    @Value("\${epistola.loadtest.polling.interval-ms:5000}")
+    private val intervalMs: Long,
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeTests = AtomicInteger(0)
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
-    /**
-     * Poll for pending load tests and claim one if capacity allows.
-     * Runs on a fixed delay to ensure continuous polling without overlapping.
-     */
-    @Scheduled(fixedDelayString = "\${epistola.loadtest.polling.interval-ms:5000}")
+    @Bean
+    fun loadTestPollerScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        poll()
+    }
+
     fun poll() {
         if (activeTests.get() >= maxConcurrentTests) {
             logger.debug("Max concurrent tests reached ({}), skipping poll", maxConcurrentTests)
@@ -166,6 +182,10 @@ class LoadTestPoller(
     }
 
     companion object {
+        const val TASK_KEY = "loadtest.poller"
+        const val ROUTING_KEY = "system:loadtest.poller"
+        const val TASK_TYPE = "loadtest.poller"
+
         /** System principal for load test execution — runs with full access. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
             userId = UserKey.of(java.util.UUID.nameUUIDFromBytes("loadtest@epistola.app".toByteArray())),

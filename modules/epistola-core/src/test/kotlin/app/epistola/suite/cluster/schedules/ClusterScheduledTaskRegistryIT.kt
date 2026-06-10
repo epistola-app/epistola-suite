@@ -169,6 +169,40 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `each capable node tasks maintain independent node state`() = scenario {
+        given {
+            val taskKey = uniqueKey("task-each-node")
+            execute(
+                UpsertClusterScheduledTask(
+                    ClusterScheduledTaskDefinition(
+                        taskKey = taskKey,
+                        routingKey = "system:$taskKey",
+                        taskType = "test",
+                        schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+                    ),
+                ),
+            )
+            testClock.advanceBy(Duration.ofSeconds(61))
+            nodeRegistry.heartbeat()
+            nodeRegistryFor("scheduled-node-b").heartbeat()
+            ScheduledTaskClaimSetup(
+                taskKey = taskKey,
+                registries = listOf(registry, registryFor("scheduled-node-b")),
+            )
+        }.whenever { setup ->
+            setup.registries.flatMap { candidateRegistry ->
+                withClock { candidateRegistry.claimDue(listOf(setup.taskKey)) }
+            }
+        }.then { setup, claimed ->
+            assertThat(claimed).hasSize(2)
+            assertThat(claimed.map { it.taskKey }).containsOnly(setup.taskKey)
+            assertThat(registry.listNodeStates().filter { it.taskKey == setup.taskKey }.map { it.nodeId })
+                .containsExactlyInAnyOrder(nodeIdentity.nodeId, "scheduled-node-b")
+        }
+    }
+
+    @Test
     fun `competing nodes can only claim a scheduled task once`() = scenario {
         given {
             val taskKey = uniqueKey("task-concurrent-claim")
