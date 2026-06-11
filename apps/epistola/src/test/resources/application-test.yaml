@@ -21,9 +21,8 @@ epistola:
   demo:
     enabled: false # Disable demo loading in tests
   generation:
-    synchronous: true # Execute jobs immediately in tests (no polling needed)
     polling:
-      enabled: false # Disable poller when using synchronous execution
+      enabled: false # App tests use the fake executor; no JobPoller needed
       interval-ms: 500
       max-concurrent-jobs: 5
       stale-timeout-minutes: 1
