@@ -48,6 +48,9 @@ class ClusterNodeRegistry(
                 RETURNING node_id, capabilities::text, version, joined_at, last_seen_at, metadata::text
                 """,
             )
+                // Liveness probe: fail fast on a degraded DB so the shared
+                // maintenance thread retries next tick instead of wedging.
+                .setQueryTimeout(LIVENESS_QUERY_TIMEOUT_SECONDS)
                 .bind("nodeId", nodeIdentity.nodeId)
                 .bind("capabilities", capabilitiesJson)
                 .bind("version", version)
@@ -123,5 +126,6 @@ class ClusterNodeRegistry(
 
     private companion object {
         const val NANOS_PER_MILLI = 1_000_000L
+        const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
     }
 }

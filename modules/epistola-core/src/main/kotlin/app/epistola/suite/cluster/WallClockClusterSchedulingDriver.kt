@@ -10,22 +10,20 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 
 /**
- * Production scheduling substrate: ticks the cluster scheduling engines on
- * fixed wall-clock delays.
+ * Production scheduling substrate: ticks the cluster *poller* engines on fixed
+ * wall-clock delays.
  *
  * This class owns only the *when* (the `@Scheduled` wakeups); the engines own
  * the *what* and stay directly invokable. See [ClusterSchedulingDriver].
+ *
+ * The node heartbeat is deliberately *not* driven here — it runs on the
+ * dedicated [ClusterMaintenanceExecutor] thread so a slow handler on this
+ * `@Scheduled` pool can never starve liveness (see [ClusterNodeHeartbeatScheduler]).
  */
 class WallClockClusterSchedulingDriver(
-    private val heartbeat: ClusterNodeHeartbeatScheduler,
     private val timers: ClusterTimerScheduler,
     private val tasks: ClusterScheduledTaskScheduler,
 ) : ClusterSchedulingDriver {
-
-    @Scheduled(fixedDelayString = "\${epistola.cluster.heartbeat-interval-ms:2000}")
-    fun heartbeatTick() {
-        heartbeat.heartbeat()
-    }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.timers.poll-interval-ms:1000}")
     fun timerTick() {
@@ -61,8 +59,7 @@ class ClusterSchedulingConfiguration {
         matchIfMissing = true,
     )
     fun wallClockClusterSchedulingDriver(
-        heartbeat: ClusterNodeHeartbeatScheduler,
         timers: ClusterTimerScheduler,
         tasks: ClusterScheduledTaskScheduler,
-    ): WallClockClusterSchedulingDriver = WallClockClusterSchedulingDriver(heartbeat, timers, tasks)
+    ): WallClockClusterSchedulingDriver = WallClockClusterSchedulingDriver(timers, tasks)
 }

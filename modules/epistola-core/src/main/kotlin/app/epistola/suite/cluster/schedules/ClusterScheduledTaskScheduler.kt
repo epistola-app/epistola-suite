@@ -1,5 +1,7 @@
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.cluster.ClusterLeaseRenewer
+import app.epistola.suite.cluster.ClusterMaintenanceExecutor
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
@@ -45,6 +47,7 @@ class ClusterScheduledTaskScheduler(
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
+    private val maintenanceExecutor: ClusterMaintenanceExecutor,
     handlers: List<ClusterScheduledTaskHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -53,9 +56,15 @@ class ClusterScheduledTaskScheduler(
     @Volatile
     private var shuttingDown = false
 
+    private val leaseRenewer = ClusterLeaseRenewer(
+        scheduler = maintenanceExecutor.scheduler,
+        renewIntervalMs = properties.scheduledTasks.leaseDurationMs / 3,
+    ) { keys -> MediatorContext.runWithMediator(mediator) { taskRegistry.renewLeases(keys) } }
+
     @PreDestroy
     fun shutdown() {
         shuttingDown = true
+        leaseRenewer.close()
     }
 
     @EventListener(ContextClosedEvent::class)
@@ -91,7 +100,7 @@ class ClusterScheduledTaskScheduler(
                 .map { it.taskKey }
 
             val claimed = taskRegistry.claimDue(ownedCandidateKeys)
-            claimed.forEach { task -> dispatch(task) }
+            claimed.forEach { task -> leaseRenewer.withRenewal(task.taskKey) { dispatch(task) } }
             dispatched = claimed.size
         }
         dispatched
@@ -118,7 +127,11 @@ class ClusterScheduledTaskScheduler(
         }
 
         try {
-            handler.handle(task)
+            // Per-taskType timing/outcome so a single slow or failing task is
+            // visible in the fleet metrics, not hidden inside the poll-cycle timer.
+            meterRegistry.recordScheduledTask("cluster-scheduled-task:${task.taskType}") {
+                handler.handle(task)
+            }
             val nextDueAt = scheduleCalculator.nextAfterSuccess(task)
             taskRegistry.complete(task.taskKey, nextDueAt)
         } catch (e: Exception) {

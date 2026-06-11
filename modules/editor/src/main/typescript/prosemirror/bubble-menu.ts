@@ -9,7 +9,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { Schema, MarkType, NodeType } from 'prosemirror-model';
 import { toggleMark, setBlockType } from 'prosemirror-commands';
-import { wrapInList, liftListItem } from 'prosemirror-schema-list';
+import { wrapInList, liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { computePosition, offset, flip, shift } from '@floating-ui/dom';
 import { TEXT_SHORTCUT_COMMAND_IDS, getTextBubbleTitle } from '../shortcuts/text-runtime.js';
 
@@ -64,6 +64,17 @@ interface ButtonDef {
   className: string;
   isActive: (view: EditorView) => boolean;
   command: (view: EditorView) => void;
+  /** When provided and it returns false, the button is hidden for the current selection. */
+  isVisible?: (view: EditorView) => boolean;
+}
+
+/** True when the selection sits inside a list item (any list type / depth). */
+function inListItem(view: EditorView): boolean {
+  const { $from } = view.state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type === view.state.schema.nodes.list_item) return true;
+  }
+  return false;
 }
 
 function createButtonDefs(schema: Schema): ButtonDef[] {
@@ -252,6 +263,28 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
         }
       },
     });
+
+    // Outdent: lift the current item one level (Shift-Tab). Shown only in a list.
+    if (schema.nodes.list_item) {
+      defs.push({
+        label: '⇤',
+        title: 'Outdent (Shift-Tab)',
+        className: 'pm-bubble-btn list-outdent-btn',
+        isActive: () => false,
+        isVisible: (view) => inListItem(view),
+        command: (view) => liftListItem(schema.nodes.list_item)(view.state, view.dispatch, view),
+      });
+
+      // Indent: sink the current item into a nested sub-list (Tab). Shown only in a list.
+      defs.push({
+        label: '⇥',
+        title: 'Indent / sub-list (Tab)',
+        className: 'pm-bubble-btn list-indent-btn',
+        isActive: () => false,
+        isVisible: (view) => inListItem(view),
+        command: (view) => sinkListItem(schema.nodes.list_item)(view.state, view.dispatch, view),
+      });
+    }
   }
 
   // Separator
@@ -397,8 +430,9 @@ function showMenu(
 
   menuEl.style.display = 'flex';
 
-  // Update active states
+  // Update active + visibility states
   for (const { el, def } of buttons) {
+    el.style.display = def.isVisible && !def.isVisible(view) ? 'none' : '';
     if (def.isActive(view)) {
       el.classList.add('active');
     } else {

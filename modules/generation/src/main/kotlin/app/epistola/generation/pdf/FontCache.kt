@@ -6,6 +6,7 @@ import com.itextpdf.io.font.constants.StandardFonts
 import com.itextpdf.kernel.font.PdfFont
 import com.itextpdf.kernel.font.PdfFontFactory
 import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy
+import com.itextpdf.layout.element.Text
 import org.slf4j.LoggerFactory
 
 /**
@@ -70,6 +71,29 @@ class FontCache(
         }
         return builtIn(weight >= BOLD_THRESHOLD, italic)
     }
+
+    /**
+     * Returns a font guaranteed to render every glyph in [sample], preferring
+     * [preferred] (the content font) when it already covers the sample. When it
+     * doesn't — most importantly the standard WinAnsi font, which lacks the
+     * `circle` (○) / `square` (■) bullet markers — falls back to the bundled,
+     * always-embeddable Liberation Sans, which carries them. Without this a
+     * marker glyph absent from the resolved font silently vanishes from the PDF
+     * (see #401). Spaces are treated as always covered.
+     */
+    fun fontCoveringOrFallback(preferred: PdfFont, sample: String): PdfFont {
+        val covered = sample.codePoints().allMatch { cp -> cp == ' '.code || preferred.containsGlyph(cp) }
+        return if (covered) preferred else getEmbeddedFont(REGULAR)
+    }
+
+    /**
+     * Builds the [Text] used as a list's bullet marker: the glyph [marker] rendered in
+     * [contentFont], or the bundled fallback when that font lacks the glyph (see
+     * [fontCoveringOrFallback]). Both list renderers — the `datalist` and the Text-component
+     * `bullet_list` — construct their marker here, so the two paths stay glyph-for-glyph
+     * identical with the same fallback behaviour (#401).
+     */
+    fun listMarker(marker: String, contentFont: PdfFont): Text = Text(marker).setFont(fontCoveringOrFallback(contentFont, marker))
 
     private fun builtIn(isBold: Boolean, isItalic: Boolean): PdfFont = when {
         isBold && isItalic -> boldItalic

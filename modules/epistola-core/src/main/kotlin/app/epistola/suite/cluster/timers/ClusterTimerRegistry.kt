@@ -152,6 +152,36 @@ class ClusterTimerRegistry(
         }
     }
 
+    /**
+     * Extends the lease on running timers this node owns so a handler that runs
+     * longer than [ClusterTimerProperties.leaseDurationMs] is not reclaimed by
+     * another node. Only rows still leased to this node and still `running` are
+     * touched. Returns the number of leases renewed.
+     */
+    fun renewLeases(timerKeys: Collection<String>): Int {
+        if (timerKeys.isEmpty()) return 0
+        val now = EpistolaClock.offsetDateTime()
+        val leaseExpiresAt = now.plusNanos(properties.timers.leaseDurationMs * NANOS_PER_MILLI)
+        return jdbi.withHandle<Int, Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE cluster_timers
+                SET lease_expires_at = :leaseExpiresAt,
+                    updated_at = :now
+                WHERE timer_key IN (<timerKeys>)
+                  AND lease_owner_node_id = :nodeId
+                  AND status = 'running'
+                """,
+            )
+                .setQueryTimeout(LIVENESS_QUERY_TIMEOUT_SECONDS)
+                .bindList("timerKeys", timerKeys)
+                .bind("nodeId", nodeIdentity.nodeId)
+                .bind("leaseExpiresAt", leaseExpiresAt)
+                .bind("now", now)
+                .execute()
+        }
+    }
+
     fun complete(timerKey: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createUpdate(
             """
@@ -312,5 +342,6 @@ class ClusterTimerRegistry(
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000
         const val NANOS_PER_MILLI = 1_000_000L
+        const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
     }
 }

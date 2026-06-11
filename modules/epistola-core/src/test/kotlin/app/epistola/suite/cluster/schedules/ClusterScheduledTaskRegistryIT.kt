@@ -302,6 +302,68 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `complete by a stale owner is a no-op after another node reclaims the task`() {
+        seedDueTask("task-reclaim-complete")
+        nodeRegistry.heartbeat()
+        val claimedByA = registry.claimDue(listOf("task-reclaim-complete")).single()
+        assertThat(claimedByA.leaseOwnerNodeId).isEqualTo(nodeIdentity.nodeId)
+
+        // A's lease lapses; B reclaims the same occurrence.
+        testClock.advanceBy(Duration.ofSeconds(31))
+        nodeRegistryFor("scheduled-node-b").heartbeat()
+        val claimedByB = registryFor("scheduled-node-b").claimDue(listOf("task-reclaim-complete")).single()
+        assertThat(claimedByB.leaseOwnerNodeId).isEqualTo("scheduled-node-b")
+
+        // A — believing it still owns the work — tries to complete it.
+        val completedByA = registry.complete("task-reclaim-complete", now().plusMinutes(5))
+
+        val stored = registry.find("task-reclaim-complete")
+        assertThat(completedByA).isFalse()
+        assertThat(stored?.leaseOwnerNodeId).isEqualTo("scheduled-node-b")
+        assertThat(stored?.lastCompletedAt).isNull()
+        assertThat(stored?.nextDueAt).isNotEqualTo(now().plusMinutes(5))
+    }
+
+    @Test
+    fun `fail by a stale owner is a no-op after another node reclaims the task`() {
+        seedDueTask("task-reclaim-fail")
+        nodeRegistry.heartbeat()
+        registry.claimDue(listOf("task-reclaim-fail")).single()
+
+        testClock.advanceBy(Duration.ofSeconds(31))
+        nodeRegistryFor("scheduled-node-b").heartbeat()
+        registryFor("scheduled-node-b").claimDue(listOf("task-reclaim-fail")).single()
+
+        val failedByA = registry.fail("task-reclaim-fail", now().plusMinutes(1), "stale")
+
+        val stored = registry.find("task-reclaim-fail")
+        assertThat(failedByA).isFalse()
+        assertThat(stored?.leaseOwnerNodeId).isEqualTo("scheduled-node-b")
+        assertThat(stored?.consecutiveFailures).isZero()
+        assertThat(stored?.lastError).isNull()
+    }
+
+    @Test
+    fun `renewing a lease keeps the task owned so another node cannot reclaim it`() {
+        seedDueTask("task-renew")
+        nodeRegistry.heartbeat()
+        registry.claimDue(listOf("task-renew")).single() // lease expires in 30s
+
+        // Just before the original lease lapses, A renews it.
+        testClock.advanceBy(Duration.ofSeconds(25))
+        assertThat(registry.renewLeases(listOf("task-renew"))).isEqualTo(1)
+
+        // Past the original 30s lease, but the renewal pushed it out another 30s.
+        testClock.advanceBy(Duration.ofSeconds(10))
+        nodeRegistryFor("scheduled-node-b").heartbeat()
+        val nodeB = registryFor("scheduled-node-b")
+
+        assertThat(nodeB.renewLeases(listOf("task-renew"))).isZero() // B owns nothing to renew
+        assertThat(nodeB.claimDue(listOf("task-renew"))).isEmpty() // lease still held by A
+        assertThat(registry.find("task-renew")?.leaseOwnerNodeId).isEqualTo(nodeIdentity.nodeId)
+    }
+
+    @Test
     fun `commands can disable enable trigger and list tasks`() {
         withMediator {
             deleteTask("task-command")
