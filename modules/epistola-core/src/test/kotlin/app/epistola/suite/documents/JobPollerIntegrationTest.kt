@@ -88,10 +88,8 @@ class JobPollerIntegrationTest {
     )
 
     private fun <T> withAuthentication(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        TestPrincipalUsers.ensure(mediator, testUser)
-        SecurityContext.runWithPrincipal(testUser) {
-            block()
-        }
+        // Ensures the principal's `users` row (audit FKs) and binds it for authz in one step.
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser, block)
     }
 
     @Test
