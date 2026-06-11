@@ -7,8 +7,8 @@ import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.SystemInternal
+import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -72,7 +72,10 @@ private val BUNDLED_FACES = listOf(
 )
 
 @Component
-class EnsureSystemFontsHandler : CommandHandler<EnsureSystemFonts, Unit> {
+class EnsureSystemFontsHandler(
+    private val jdbi: Jdbi,
+    private val fontCatalogWriter: FontCatalogWriter,
+) : CommandHandler<EnsureSystemFonts, Unit> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -95,23 +98,30 @@ class EnsureSystemFontsHandler : CommandHandler<EnsureSystemFonts, Unit> {
 
     override fun handle(command: EnsureSystemFonts) {
         val tenantId = TenantId(command.tenantKey)
-        for (font in SYSTEM_FONTS) {
-            val variants = BUNDLED_FACES.map { face ->
-                ImportFontVariant(
-                    weight = face.weight,
-                    italic = face.italic,
-                    source = FontVariantSource.CLASSPATH,
-                    classpathLocation = classpathLocation(font.slug, face.token),
+        // All eight bundled families in ONE transaction via the shared writer —
+        // previously this dispatched one ImportFont command (and one transaction +
+        // existence SELECT) per family. The faces are all classpath, hashed from
+        // the writer's per-JVM cache.
+        jdbi.inTransaction<Unit, Exception> { handle ->
+            for (font in SYSTEM_FONTS) {
+                val variants = BUNDLED_FACES.map { face ->
+                    ImportFontVariant(
+                        weight = face.weight,
+                        italic = face.italic,
+                        source = FontVariantSource.CLASSPATH,
+                        classpathLocation = classpathLocation(font.slug, face.token),
+                    )
+                }
+                fontCatalogWriter.writeFont(
+                    handle = handle,
+                    tenantId = tenantId,
+                    catalogKey = SYSTEM_CATALOG_KEY,
+                    slug = font.slug,
+                    name = font.name,
+                    kind = font.kind.wire,
+                    variants = variants,
                 )
             }
-            ImportFont(
-                tenantId = tenantId,
-                catalogKey = SYSTEM_CATALOG_KEY,
-                slug = font.slug,
-                name = font.name,
-                kind = font.kind.wire,
-                variants = variants,
-            ).execute()
         }
         log.debug(
             "Ensured {} system font families for tenant {}",

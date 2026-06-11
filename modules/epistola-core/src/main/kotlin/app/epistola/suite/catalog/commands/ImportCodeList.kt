@@ -46,20 +46,10 @@ class ImportCodeListHandler(
         val codeListSlug = CodeListKey.of(command.slug)
 
         return jdbi.inTransaction<InstallStatus, Exception> { handle ->
-            val exists = handle.createQuery(
-                """
-                SELECT COUNT(*) > 0
-                FROM code_lists
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .bind("slug", codeListSlug)
-                .mapTo(Boolean::class.java)
-                .one()
-
-            handle.createUpdate(
+            // `xmax = 0` is true only for the freshly INSERTed row and false when
+            // the ON CONFLICT branch UPDATEd an existing one — so the upsert reports
+            // INSTALLED vs UPDATED itself, without a preceding existence SELECT.
+            val inserted = handle.createQuery(
                 """
                 INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, description, source_type, source_url, auth_type, created_at, updated_at)
                 VALUES (:slug, :tenantKey, :catalogKey, :displayName, :description, 'INLINE', NULL, 'NONE', NOW(), NOW())
@@ -67,6 +57,7 @@ class ImportCodeListHandler(
                 SET display_name  = :displayName,
                     description   = :description,
                     updated_at = NOW()
+                RETURNING (xmax = 0) AS inserted
                 """,
             )
                 .bind("slug", codeListSlug)
@@ -74,7 +65,8 @@ class ImportCodeListHandler(
                 .bind("catalogKey", command.catalogKey)
                 .bind("displayName", command.displayName)
                 .bind("description", command.description)
-                .execute()
+                .mapTo(Boolean::class.java)
+                .one()
 
             // Replace entries atomically. Hidden flags and sort order land
             // straight from the catalog file — the importing tenant doesn't
@@ -110,7 +102,7 @@ class ImportCodeListHandler(
                 batch.execute()
             }
 
-            if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED
+            if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
         }
     }
 }
