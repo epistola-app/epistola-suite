@@ -496,10 +496,13 @@ export class EpistolaInspector extends LitElement {
   // -----------------------------------------------------------------------
 
   private _renderInspectorFields(node: Node, def: ComponentDefinition): unknown {
+    const props = node.props ?? {};
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Properties</div>
-        ${def.inspector.map((field) => this._renderField(node, field))}
+        ${def.inspector
+          .filter((field) => field.visibleWhen?.(props) ?? true)
+          .map((field) => this._renderField(node, field))}
       </div>
     `;
   }

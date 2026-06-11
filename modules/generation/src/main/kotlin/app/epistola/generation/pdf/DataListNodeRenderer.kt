@@ -7,6 +7,7 @@ import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.ListItem
+import com.itextpdf.layout.element.Text
 import com.itextpdf.layout.properties.ListNumberingType
 
 /**
@@ -20,6 +21,9 @@ import com.itextpdf.layout.properties.ListNumberingType
  * - `itemAlias`: String (defaults to "item")
  * - `indexAlias`: String (optional)
  * - `listType`: String (bullet, decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none)
+ * - `bulletStyle`: String (disc, circle, square, dash) — only applies when `listType` is "bullet";
+ *   mirrors the ProseMirror `bullet_list` `listStyle` attribute so a Text-component bullet list and a
+ *   datalist bullet list render the same glyph. Defaults to "disc".
  */
 class DataListNodeRenderer : NodeRenderer {
     override fun render(
@@ -42,8 +46,24 @@ class DataListNodeRenderer : NodeRenderer {
         val itemAlias = node.props?.get("itemAlias") as? String ?: "item"
         val indexAlias = node.props?.get("indexAlias") as? String
         val listType = node.props?.get("listType") as? String ?: "bullet"
+        val bulletStyle = node.props?.get("bulletStyle") as? String ?: "disc"
 
-        val list = createList(listType, context.renderingDefaults)
+        // The list items inherit their font from this node's resolved style cascade
+        // (inherited + preset + inline). Compute it once, up front, and reuse it for BOTH the
+        // marker and the items, so the marker renders in exactly the font the items use — even
+        // when a stylePreset changes the family/weight.
+        val inheritedContext = context.withInheritedStylesFrom(node)
+
+        // The bullet marker must render in that content font, not iText's WinAnsi default — that
+        // default lacks the circle (○) / square (■) glyphs, so those styles would silently drop
+        // while the editor shows them (#401). FontCache.listMarker falls back to a font that has
+        // the glyph when the content font doesn't. Built via the same helper the Text-component
+        // list uses, so both paths render the marker identically. Numbered/none markers are all
+        // WinAnsi-safe and ignore this symbol.
+        val contentFont = StyleApplicator.resolveFont(inheritedContext.inheritedStyles, context.fontCache)
+        val bulletSymbol = context.fontCache.listMarker(context.renderingDefaults.bulletMarker(bulletStyle), contentFont)
+
+        val list = createList(listType, bulletSymbol)
         list.setMarginBottom(context.renderingDefaults.listMarginBottom)
         list.setMarginLeft(context.renderingDefaults.listMarginLeft)
 
@@ -59,9 +79,6 @@ class DataListNodeRenderer : NodeRenderer {
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
         )
-
-        // Compute inherited styles once for all iterations
-        val inheritedContext = context.withInheritedStylesFrom(node)
 
         for ((index, item) in iterable.withIndex()) {
             val itemContext = context.loopContext.toMutableMap()
@@ -91,13 +108,13 @@ class DataListNodeRenderer : NodeRenderer {
         return listOf(list)
     }
 
-    private fun createList(listType: String, renderingDefaults: RenderingDefaults): List = when (listType) {
+    private fun createList(listType: String, bulletSymbol: Text): List = when (listType) {
         "decimal" -> List(ListNumberingType.DECIMAL)
         "lower-alpha" -> List(ListNumberingType.ENGLISH_LOWER)
         "upper-alpha" -> List(ListNumberingType.ENGLISH_UPPER)
         "lower-roman" -> List(ListNumberingType.ROMAN_LOWER)
         "upper-roman" -> List(ListNumberingType.ROMAN_UPPER)
         "none" -> List().apply { setListSymbol("") }
-        else -> List().apply { setListSymbol(renderingDefaults.bulletMarker()) }
+        else -> List().apply { setListSymbol(bulletSymbol) }
     }
 }

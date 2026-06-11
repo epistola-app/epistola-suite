@@ -69,7 +69,7 @@ Preview rendering (`TemplatePreviewHandler`) always uses the default `pdfaCompli
 | Standard | Helvetica (built-in)  | Non-embedded, references PDF standard 14 fonts                       |
 | PDF/A    | Liberation Sans (TTF) | Force-embedded via `PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED` |
 
-Liberation Sans is metrically compatible with Helvetica — documents render identically in both modes for WinAnsi-representable content, but PDF/A embeds the actual font data (~400 KB for all 4 variants). Note the modes are **not** fully identical: standard Helvetica's WinAnsi encoding can't represent some glyphs (e.g. the `circle`/`square` bullet markers), which embedded Liberation Sans renders fine. See [`fonts.md`](fonts.md) for the full font model, known gaps, and the customer-font roadmap.
+Liberation Sans is metrically compatible with Helvetica — documents render identically in both modes for WinAnsi-representable content, but PDF/A embeds the actual font data (~400 KB for all 4 variants). Note the modes are **not** fully identical for content that falls back to the **built-in** font: standard Helvetica's WinAnsi encoding can't represent some glyphs that embedded Liberation Sans renders fine. (Bullet list markers are no longer subject to this — they render in the list's resolved content family, and when even that lacks the glyph the marker falls back to the always-embeddable Liberation Sans, so `circle`/`square` render in both modes regardless of the configured font; see [`editor-features.md`](editor-features.md).) See [`fonts.md`](fonts.md) for the full font model, known gaps, and the customer-font roadmap.
 
 Font variants available: regular, bold, italic, bold-italic.
 
