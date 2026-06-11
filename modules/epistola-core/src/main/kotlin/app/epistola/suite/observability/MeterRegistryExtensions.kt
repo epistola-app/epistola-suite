@@ -14,11 +14,11 @@ import io.micrometer.core.instrument.Timer
  * stalled scheduler, and on the failure rate to catch a broken one. Re-throws so
  * existing error handling/logging is unaffected.
  */
-fun MeterRegistry.recordScheduledTask(task: String, block: () -> Unit) {
+fun <T> MeterRegistry.recordScheduledTask(task: String, block: () -> T): T {
     val sample = Timer.start(this)
     var outcome = "success"
     try {
-        block()
+        return block()
     } catch (e: Throwable) {
         outcome = "failure"
         throw e

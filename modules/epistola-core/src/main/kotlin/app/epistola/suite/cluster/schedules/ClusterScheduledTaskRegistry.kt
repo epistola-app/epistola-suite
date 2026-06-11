@@ -280,6 +280,55 @@ class ClusterScheduledTaskRegistry(
         }
     }
 
+    /**
+     * Extends the lease on tasks this node is currently executing so a handler
+     * that runs longer than [ClusterScheduledTaskProperties.leaseDurationMs] is
+     * not reclaimed by another node. Only rows still leased to this node are
+     * touched, so a row reclaimed after a genuine stall is left alone. Returns the
+     * number of leases renewed (single-owner + per-node).
+     */
+    fun renewLeases(taskKeys: Collection<String>): Int {
+        if (taskKeys.isEmpty()) return 0
+        val now = EpistolaClock.offsetDateTime()
+        val leaseExpiresAt = now.plusNanos(properties.scheduledTasks.leaseDurationMs * NANOS_PER_MILLI)
+        return jdbi.withHandle<Int, Exception> { handle ->
+            val singleOwner = handle.createUpdate(
+                """
+                UPDATE cluster_tasks_scheduled
+                SET lease_expires_at = :leaseExpiresAt,
+                    updated_at = :now
+                WHERE task_key IN (<taskKeys>)
+                  AND execution_scope = :singleOwner
+                  AND lease_owner_node_id = :nodeId
+                """,
+            )
+                .bindList("taskKeys", taskKeys)
+                .bind("singleOwner", ClusterScheduledTaskExecutionScope.SINGLE_OWNER.dbValue)
+                .bind("nodeId", nodeIdentity.nodeId)
+                .bind("leaseExpiresAt", leaseExpiresAt)
+                .bind("now", now)
+                .execute()
+
+            val perNode = handle.createUpdate(
+                """
+                UPDATE cluster_tasks_scheduled_node_state
+                SET lease_expires_at = :leaseExpiresAt,
+                    updated_at = :now
+                WHERE task_key IN (<taskKeys>)
+                  AND node_id = :nodeId
+                  AND lease_expires_at IS NOT NULL
+                """,
+            )
+                .bindList("taskKeys", taskKeys)
+                .bind("nodeId", nodeIdentity.nodeId)
+                .bind("leaseExpiresAt", leaseExpiresAt)
+                .bind("now", now)
+                .execute()
+
+            singleOwner + perNode
+        }
+    }
+
     fun complete(taskKey: String, nextDueAt: OffsetDateTime): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         val now = EpistolaClock.offsetDateTime()
         val singletonCompleted = handle.createUpdate(
@@ -362,7 +411,7 @@ class ClusterScheduledTaskRegistry(
             SET next_due_at = :nextDueAt,
                 lease_expires_at = NULL,
                 last_failed_at = :now,
-                consecutive_failures = consecutive_failures + 1,
+                consecutive_failures = s.consecutive_failures + 1,
                 last_error = :error,
                 updated_at = :now
             FROM cluster_tasks_scheduled t

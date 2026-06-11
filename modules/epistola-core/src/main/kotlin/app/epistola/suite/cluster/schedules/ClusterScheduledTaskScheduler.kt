@@ -1,5 +1,6 @@
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.cluster.ClusterLeaseRenewer
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
@@ -52,9 +53,15 @@ class ClusterScheduledTaskScheduler(
     @Volatile
     private var shuttingDown = false
 
+    private val leaseRenewer = ClusterLeaseRenewer(
+        threadName = "cluster-scheduled-task-lease-renewer",
+        renewIntervalMs = properties.scheduledTasks.leaseDurationMs / 3,
+    ) { keys -> MediatorContext.runWithMediator(mediator) { taskRegistry.renewLeases(keys) } }
+
     @PreDestroy
     fun shutdown() {
         shuttingDown = true
+        leaseRenewer.close()
     }
 
     @EventListener(ContextClosedEvent::class)
@@ -89,7 +96,7 @@ class ClusterScheduledTaskScheduler(
                 .map { it.taskKey }
 
             val claimed = taskRegistry.claimDue(ownedCandidateKeys)
-            claimed.forEach { task -> dispatch(task) }
+            claimed.forEach { task -> leaseRenewer.withRenewal(task.taskKey) { dispatch(task) } }
         }
     }
 
@@ -114,7 +121,11 @@ class ClusterScheduledTaskScheduler(
         }
 
         try {
-            handler.handle(task)
+            // Per-taskType timing/outcome so a single slow or failing task is
+            // visible in the fleet metrics, not hidden inside the poll-cycle timer.
+            meterRegistry.recordScheduledTask("cluster-scheduled-task:${task.taskType}") {
+                handler.handle(task)
+            }
             val nextDueAt = scheduleCalculator.nextAfterSuccess(task)
             taskRegistry.complete(task.taskKey, nextDueAt)
         } catch (e: Exception) {
