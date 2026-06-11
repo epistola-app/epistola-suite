@@ -4,6 +4,7 @@ import jakarta.annotation.PreDestroy
 import org.springframework.stereotype.Component
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 /**
  * Single shared daemon thread for this node's lightweight periodic cluster
@@ -26,8 +27,24 @@ class ClusterMaintenanceExecutor {
         Thread(runnable, "cluster-maintenance").apply { isDaemon = true }
     }
 
+    /**
+     * Stop the maintenance thread gracefully on context shutdown. We let an
+     * in-flight beat (heartbeat/lease renewal) finish within a short grace window
+     * rather than racing it against datasource teardown — `shutdownNow()` would
+     * not wait, so a beat caught mid-flight could log a spurious connection
+     * failure as the pool closes underneath it. Force-stop only if the grace
+     * window elapses.
+     */
     @PreDestroy
     fun shutdown() {
-        scheduler.shutdownNow()
+        scheduler.shutdown()
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow()
+            }
+        } catch (e: InterruptedException) {
+            scheduler.shutdownNow()
+            Thread.currentThread().interrupt()
+        }
     }
 }

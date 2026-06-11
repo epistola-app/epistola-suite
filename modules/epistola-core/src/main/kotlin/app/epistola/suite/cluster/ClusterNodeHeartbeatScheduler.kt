@@ -36,6 +36,7 @@ class ClusterNodeHeartbeatScheduler(
     private val maintenanceExecutor: ClusterMaintenanceExecutor,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val failureLog = HeartbeatFailureLog(log)
 
     @Volatile
     private var shuttingDown = false
@@ -66,16 +67,17 @@ class ClusterNodeHeartbeatScheduler(
      * Heartbeat wrapper for the maintenance thread. A `scheduleWithFixedDelay`
      * task that throws is silently cancelled forever, so a transient database
      * blip must never be allowed to stop the heartbeat: swallow after recording.
+     *
+     * Logging is deduplicated via [HeartbeatFailureLog] so a sustained outage
+     * (e.g. the database is unreachable for a while) does not flood the log with
+     * a full-stack WARN on every interval.
      */
     private fun runHeartbeatSafely() {
         try {
             heartbeat()
+            failureLog.recordSuccess()
         } catch (e: Exception) {
-            if (shuttingDown) {
-                log.debug("Cluster node heartbeat interrupted during shutdown")
-            } else {
-                log.warn("Cluster node heartbeat failed: {}", e.message, e)
-            }
+            failureLog.recordFailure(e, shuttingDown)
         }
     }
 
