@@ -303,7 +303,7 @@ class GenerateDocumentBatchHandler(
             val inserted = batch.execute().sum()
             logger.info("Created batch {} with {} requests for tenant {}", batchId.value, inserted, command.tenantId)
 
-            // Requests stay in PENDING status - the JobPoller will pick them up
+            // Requests stay in PENDING status - the JobPoller drains them on its next poll.
             batchId
         }
 

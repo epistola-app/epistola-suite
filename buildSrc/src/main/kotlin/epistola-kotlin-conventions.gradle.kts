@@ -83,7 +83,9 @@ tasks.register<Test>("integrationTest") {
         includeTags("integration")
         excludeTags("ui", "perf")
     }
-    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
+    // Heap/GC flags inherited from the `tasks.withType<Test>` baseline above (1g) —
+    // JUnit class-level concurrency boots distinct Spring contexts in parallel and
+    // each context load's component scan transiently costs ~100MB+, so 512m OOMs.
     testLogging { events("passed", "skipped", "failed") }
     filter { isFailOnNoMatchingTests = false }
 }

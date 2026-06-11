@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.TestPropertySource
 
 /**
  * Base class for integration tests across all modules.
@@ -40,7 +41,12 @@ import org.springframework.test.context.ActiveProfiles
     TestcontainersConfiguration::class,
     FakeExecutorTestConfiguration::class,
     UnloggedTablesTestConfiguration::class,
+    DeterministicSchedulingTestConfiguration::class,
 )
+// Inherited and merged into subclasses (unlike @SpringBootTest properties, which a
+// subclass's own @SpringBootTest replaces wholesale) — selects the deterministic
+// scheduling substrate for every integration test. See DeterministicClusterScheduling.
+@TestPropertySource(properties = ["epistola.cluster.scheduling-substrate=test"])
 @ActiveProfiles("test")
 @Tag("integration")
 @ExtendWith(EpistolaClockExtension::class)
@@ -51,8 +57,32 @@ abstract class IntegrationTestBase {
     @Autowired(required = false)
     private var jobPoller: JobPoller? = null
 
+    @Autowired(required = false)
+    private var deterministicScheduling: DeterministicClusterScheduling? = null
+
     protected val testClock: MutableClock
         get() = EpistolaClockExtension.current()
+
+    /**
+     * Deterministic driver for cluster timers and scheduled tasks. Use
+     * `scheduling.advanceTimeBy(...)` to simulate time passing *and* run the
+     * work that became due, or `scheduling.runDue()` to run what is already due.
+     * [testClock] alone moves time without firing anything.
+     */
+    protected val scheduling: DeterministicClusterScheduling
+        get() = deterministicScheduling
+            ?: error("Deterministic scheduling is not active — epistola.cluster.scheduling-substrate is overridden away from 'test'")
+
+    /**
+     * Synchronously processes [tenantKey]'s PENDING document-generation jobs and returns
+     * the count. Generation is **opt-in** in tests: nothing drains automatically (no
+     * enqueue event, no autonomous poll under the test substrate), so a test only renders
+     * documents when it explicitly calls this. Tests that just assert on the created
+     * request (PENDING status, metadata, validation) should NOT call it. Tenant-scoped, so
+     * it never touches another concurrently-running test's jobs. No-op (returns 0) when the
+     * `JobPoller` bean is absent (e.g. `epistola.generation.polling.enabled=false`).
+     */
+    protected fun drainGenerationJobs(tenantKey: TenantKey): Int = jobPoller?.drainTenant(tenantKey) ?: 0
 
     @BeforeEach
     fun awaitIdleJobPoller() {

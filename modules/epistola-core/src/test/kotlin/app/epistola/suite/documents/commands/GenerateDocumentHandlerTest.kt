@@ -6,6 +6,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.TemplateVariantNotFoundException
+import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -25,7 +27,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
     private lateinit var context: org.springframework.context.ApplicationContext
 
     @Test
-    fun `creates generation request with valid inputs`() = withAuthentication {
+    fun `creates generation request with valid inputs`(): Unit = withAuthentication {
         // Debug: List all command handlers
         val handlers = context.getBeansOfType(app.epistola.suite.mediator.CommandHandler::class.java)
         println("DEBUG: Found ${handlers.size} command handlers")
@@ -69,7 +71,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `fails with non-existent template`() = withAuthentication {
+    fun `fails with non-existent template`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val data = objectMapper.createObjectNode().put("test", "value")
 
@@ -85,12 +87,12 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     filename = "test.pdf",
                 ),
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
+        }.isInstanceOf(TemplateVariantNotFoundException::class.java)
             .hasMessageContaining("Template")
     }
 
     @Test
-    fun `fails with non-existent version`() = withAuthentication {
+    fun `fails with non-existent version`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -112,7 +114,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     filename = "test.pdf",
                 ),
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
+        }.isInstanceOf(VersionNotFoundException::class.java)
             .hasMessageContaining("Version")
     }
 

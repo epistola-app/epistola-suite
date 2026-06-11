@@ -65,7 +65,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `passes through when header is blank`() = withMediator {
+        fun `passes through when header is blank`(): Unit = withMediator {
             request.addHeader("X-API-Key", "  ")
 
             filter.doFilter(request, response, filterChain)
@@ -77,7 +77,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
     @Nested
     inner class InvalidApiKey {
         @Test
-        fun `returns 401 for key without epk_ prefix`() = withMediator {
+        fun `returns 401 for key without epk_ prefix`(): Unit = withMediator {
             request.addHeader("X-API-Key", "invalid_key_format")
 
             filter.doFilter(request, response, filterChain)
@@ -88,7 +88,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `returns 401 for unknown key hash`() = withMediator {
+        fun `returns 401 for unknown key hash`(): Unit = withMediator {
             request.addHeader("X-API-Key", "epk_unknown_key_that_doesnt_exist")
 
             filter.doFilter(request, response, filterChain)

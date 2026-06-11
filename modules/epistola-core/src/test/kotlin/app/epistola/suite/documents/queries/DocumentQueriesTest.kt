@@ -8,7 +8,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -18,11 +17,9 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
-import java.util.concurrent.TimeUnit
 
 class DocumentQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
@@ -31,7 +28,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     private lateinit var contentStore: ContentStore
 
     @Test
-    fun `GetGenerationJob returns job with items`() = withAuthentication {
+    fun `GetGenerationJob returns job with items`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -71,7 +68,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetGenerationJob returns null for non-existent job`() = withAuthentication {
+    fun `GetGenerationJob returns null for non-existent job`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val randomId = GenerationRequestKey.generate()
 
@@ -81,7 +78,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetGenerationJob returns null for job from different tenant`() = withAuthentication {
+    fun `GetGenerationJob returns null for job from different tenant`(): Unit = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -118,7 +115,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ListGenerationJobs filters by status`() = withAuthentication {
+    fun `ListGenerationJobs filters by status`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -150,14 +147,8 @@ class DocumentQueriesTest : IntegrationTestBase() {
             )
         }
 
-        // Wait for at least one to complete
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .until {
-                val jobs = mediator.query(ListGenerationJobs(tenant.id, RequestStatus.COMPLETED, 10, 0))
-                jobs.isNotEmpty()
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // List all jobs
         val allJobs = mediator.query(ListGenerationJobs(tenant.id, null, 10, 0))
@@ -170,7 +161,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ListGenerationJobs respects pagination`() = withAuthentication {
+    fun `ListGenerationJobs respects pagination`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -220,7 +211,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetDocument returns document with content`() = withAuthentication {
+    fun `GetDocument returns document with content`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -249,17 +240,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             ),
         )
 
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
+        assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
         val documentId = job.items[0].documentKey!!
 
         val document = mediator.query(GetDocument(tenant.id, documentId))
@@ -280,7 +265,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetDocument returns null for non-existent document`() = withAuthentication {
+    fun `GetDocument returns null for non-existent document`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
 
         val document = mediator.query(GetDocument(tenant.id, DocumentKey.generate()))
@@ -289,7 +274,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ListDocuments filters by template`() = withAuthentication {
+    fun `ListDocuments filters by template`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
 
@@ -322,10 +307,9 @@ class DocumentQueriesTest : IntegrationTestBase() {
             ),
         )!!
 
-        // Generate documents for template1 and track request IDs
-        val requests = mutableListOf<GenerationRequestKey>()
+        // Generate documents for template1
         (1..2).forEach { i ->
-            val request = mediator.send(
+            mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
                     templateId = template1.id,
@@ -336,11 +320,10 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     filename = "template1-$i.pdf",
                 ),
             )
-            requests.add(request.id)
         }
 
         // Generate document for template2
-        val request3 = mediator.send(
+        mediator.send(
             GenerateDocument(
                 tenantId = tenant.id,
                 templateId = template2.id,
@@ -351,18 +334,9 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 filename = "template2.pdf",
             ),
         )
-        requests.add(request3.id)
 
-        // Wait for all specific jobs to complete
-        await()
-            .atMost(30, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .until {
-                requests.all { requestId ->
-                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                    job?.request?.status == RequestStatus.COMPLETED
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // List all documents
         val allDocs = mediator.query(ListDocuments(tenantId = tenant.id, limit = 10))

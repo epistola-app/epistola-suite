@@ -17,10 +17,8 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
-import java.util.concurrent.TimeUnit
 
 class GenerationHistoryQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
@@ -65,15 +63,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         // Generate 3 requests
         repeat(3) { i -> generateRequest(setup, "doc-$i.pdf") }
 
-        // Wait for all to complete
-        await()
-            .atMost(15, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .until {
-                withAuthentication {
-                    GetGenerationStats(setup.tenant.id).query().completed >= 3
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(setup.tenant.id)
 
         val stats = withAuthentication { GetGenerationStats(setup.tenant.id).query() }
 
@@ -115,15 +106,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         repeat(3) { i -> generateRequest(setup1, "popular-$i.pdf") }
         generateRequest(setup2, "less-popular.pdf")
 
-        // Wait for all to complete
-        await()
-            .atMost(15, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .until {
-                withAuthentication {
-                    GetGenerationStats(setup1.tenant.id).query().completed >= 4
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(setup1.tenant.id)
 
         val usage = withAuthentication { GetTemplateUsage(setup1.tenant.id).query() }
 
@@ -167,15 +151,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         generateRequest(setup1, "a.pdf")
         generateRequest(setup2, "b.pdf")
 
-        // Wait for both to complete
-        await()
-            .atMost(15, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .until {
-                withAuthentication {
-                    GetGenerationStats(setup1.tenant.id).query().completed >= 2
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(setup1.tenant.id)
 
         val usage = withAuthentication { GetTemplateUsage(setup1.tenant.id, limit = 1).query() }
 

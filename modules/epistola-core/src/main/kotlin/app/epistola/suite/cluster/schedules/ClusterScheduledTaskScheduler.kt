@@ -17,18 +17,20 @@ import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.ContextClosedEvent
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
- * Poller for recurring cluster scheduled tasks.
+ * Polling engine for recurring cluster scheduled tasks.
  *
- * Every Suite node runs this scheduler. Each poll reads due task definitions,
- * filters active nodes by the task's required capability, applies routing-key
- * ownership, and claims only rows owned by the current node. Claiming is still
- * protected by PostgreSQL row leases, so ownership is an affinity mechanism
- * rather than the correctness boundary.
+ * Each [poll] reads due task definitions, filters active nodes by the task's
+ * required capability, applies routing-key ownership, and claims only rows
+ * owned by the current node. Claiming is still protected by PostgreSQL row
+ * leases, so ownership is an affinity mechanism rather than the correctness
+ * boundary.
+ *
+ * This engine owns *what* a poll does, not *when* it runs — the active
+ * [app.epistola.suite.cluster.ClusterSchedulingDriver] decides the cadence
+ * (wall-clock ticks in production, explicit invocation in tests).
  *
  * Successful handlers advance the recurring definition through
  * [ClusterScheduledTaskScheduleCalculator]. Missing handlers and thrown
@@ -36,7 +38,6 @@ import org.springframework.stereotype.Component
  * task's failure policy.
  */
 @Component
-@EnableScheduling
 class ClusterScheduledTaskScheduler(
     private val nodeRegistry: ClusterNodeRegistry,
     private val taskRegistry: ClusterScheduledTaskRegistry,
@@ -71,8 +72,9 @@ class ClusterScheduledTaskScheduler(
         shuttingDown = true
     }
 
-    @Scheduled(fixedDelayString = "\${epistola.cluster.scheduled-tasks.poll-interval-ms:1000}")
-    fun poll() = MediatorContext.runWithMediator(mediator) {
+    /** Runs one poll cycle and returns the number of tasks claimed and dispatched. */
+    fun poll(): Int = MediatorContext.runWithMediator(mediator) {
+        var dispatched = 0
         meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
             if (shuttingDown) return@recordScheduledTask
 
@@ -99,7 +101,9 @@ class ClusterScheduledTaskScheduler(
 
             val claimed = taskRegistry.claimDue(ownedCandidateKeys)
             claimed.forEach { task -> leaseRenewer.withRenewal(task.taskKey) { dispatch(task) } }
+            dispatched = claimed.size
         }
+        dispatched
     }
 
     private fun activeNodesForTaskOwnership(): List<ClusterNode> {
