@@ -14,6 +14,17 @@ java {
     }
 }
 
+// The Spring Boot BOM (imported via io.spring.dependency-management in each module) manages
+// org.jetbrains.kotlin:* and would otherwise override the Kotlin compiler/scripting artifacts on
+// the Kotlin Gradle plugin's compiler classpath to the BOM's kotlin.version. When that diverges
+// from our Kotlin plugin version the compiler/scripting libs mismatch and the build dies with an
+// internal compiler error (ClassNotFoundException ...ExpectedLocationUtilKt). Pin the managed
+// kotlin.version to OUR Kotlin version so the BOM never clobbers the compiler classpath.
+val kotlinVersion =
+    extensions.getByType<org.gradle.api.artifacts.VersionCatalogsExtension>()
+        .named("libs").findVersion("kotlin").get().requiredVersion
+extra["kotlin.version"] = kotlinVersion
+
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")

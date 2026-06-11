@@ -56,7 +56,7 @@ class OidcBackchannelConfiguration(
             val backchannelOidcBase = "$backchannelBaseUrl$issuerPath/protocol/openid-connect"
 
             ClientRegistration.withRegistrationId(registrationId)
-                .clientId(reg.clientId)
+                .clientId(reg.clientId ?: error("client-id is required for registration '$registrationId'"))
                 .clientSecret(reg.clientSecret)
                 .scope(reg.scope)
                 .redirectUri(reg.redirectUri ?: "{baseUrl}/login/oauth2/code/{registrationId}")
