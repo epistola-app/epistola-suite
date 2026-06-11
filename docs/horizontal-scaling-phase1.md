@@ -61,18 +61,17 @@ Future capability:
 
 ### Timers And Scheduled Tasks
 
-Scheduled tasks are timer events.
+Scheduled tasks are durable recurring definitions in PostgreSQL. Spring
+`@Scheduled` remains only as the local wakeup for cluster heartbeat, one-shot
+timer polling, and scheduled-task polling; business jobs register native task
+definitions instead.
 
-Today, Spring `@Scheduled` methods are local tick sources. In a cluster, the
-tick should only mean "check whether this timer event is due." The cluster
-runtime should then claim the due timer event through PostgreSQL and execute it
-once.
+Task rows carry a stable `task_key`, a routing key for sticky ownership, a
+required node capability, and an execution scope:
 
-Future task rows should carry:
-
-- a stable `task_key`
-- an `affinity_key`
-- a sticky preferred owner
+- `single_owner`: one capable node runs each occurrence.
+- `each_capable_node`: every active capable node runs each occurrence with its
+  own `(task_key, node_id)` runtime state.
 - a lease owner and expiry
 - last started/completed timestamps
 - last error
@@ -169,8 +168,7 @@ Existing candidates:
 - installation stats publisher
 - partition maintenance
 - stale reapers where duplicate work is noisy
-
-Per-node health checks should stay per-node.
+- per-node health checks and local poller wakeups using `each_capable_node`
 
 ### Phase 1C: Cache Invalidation Event Stream
 

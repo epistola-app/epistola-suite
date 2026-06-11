@@ -126,6 +126,7 @@ The table is `cluster_tasks_scheduled`. A scheduled task stores:
 - `tenant_key`: optional tenant scope, `NULL` for system tasks
 - `routing_key`: affinity key used to pick the owning node
 - `task_type`: logical handler dispatch key
+- `execution_scope`: `single_owner` or `each_capable_node`
 - `required_capability`: node capability required to run the task
 - `payload`: JSON payload for the handler
 - schedule shape: cron, fixed delay, or fixed rate
@@ -141,6 +142,7 @@ The mediator-facing controls are:
 - `DisableClusterScheduledTask`
 - `TriggerClusterScheduledTaskNow`
 - `ListClusterScheduledTasks`
+- `ListClusterScheduledTaskNodeStates`
 
 The current recurring task registrar registers definitions at startup. This
 means the database row is durable, while code remains the source of truth for
@@ -153,13 +155,23 @@ The scheduled-task flow mirrors one-shot timers:
 1. Startup registrars upsert task definitions.
 2. Every node runs `ClusterScheduledTaskScheduler.poll`.
 3. The poller loads due enabled tasks.
-4. Ownership is calculated from `routing_key` across active capable nodes.
-5. The owning node claims the task row with a PostgreSQL lease.
-6. The scheduler dispatches to a `ClusterScheduledTaskHandler` by `taskType`.
-7. On success, `ClusterScheduledTaskScheduleCalculator` calculates the next due
+4. `single_owner` tasks calculate ownership from `routing_key` across active
+   capable nodes.
+5. `each_capable_node` tasks are claimable by every active node that advertises
+   the task's required capability.
+6. Singleton tasks claim the task row; all-node tasks claim their
+   `(task_key, node_id)` runtime row in `cluster_tasks_scheduled_node_state`.
+7. The scheduler dispatches to a `ClusterScheduledTaskHandler` by `taskType`.
+8. On success, `ClusterScheduledTaskScheduleCalculator` calculates the next due
    occurrence and the lease is released.
-8. On failure, failure policy decides whether to retry the same occurrence or
+9. On failure, failure policy decides whether to retry the same occurrence or
    advance to a future occurrence.
+
+Use `single_owner` for installation-wide work that should run once per
+occurrence, such as feedback polling, backups, stale reapers, and cleanup. Use
+`each_capable_node` for per-process work, such as local health probes and local
+queue drain triggers, where every capable node needs its own cadence and crash
+recovery state.
 
 Scheduled tasks are not implemented by creating a chain of one-shot timer rows.
 The recurring definition is the durable state. This avoids losing the schedule
@@ -215,6 +227,7 @@ The Operations -> Cluster page shows:
 - node capabilities
 - known timers
 - known scheduled tasks
+- per-node scheduled-task state for all-node tasks
 - required capabilities for timers and scheduled tasks
 
 This page is the first place to inspect whether work is stuck because no active
@@ -276,12 +289,14 @@ still active.
 
 ### Migration Candidates
 
-- Continue moving only cluster-relevant scheduled work. Duplicate-safe per-node
-  health checks and local maintenance can stay local.
-- Prefer cluster timers for work where duplicate execution is noisy, expensive,
-  or incorrect.
-- Keep document generation on its existing claiming path until the PDF renderer
-  split needs capability-aware claiming.
+- Keep Spring `@Scheduled` usage limited to native cluster wakeups: node
+  heartbeat, one-shot timer polling, and recurring scheduled-task polling.
+- Prefer native scheduled tasks for recurring business work. Choose
+  `single_owner` when duplicate execution is noisy, expensive, or incorrect;
+  choose `each_capable_node` when every capable process needs local work.
+- Keep document generation execution on its existing row-claiming path until the
+  PDF renderer split needs capability-aware claiming; the native scheduled task
+  only provides the per-node drain wakeup.
 
 ### Future Architecture
 

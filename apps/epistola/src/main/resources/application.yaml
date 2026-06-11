@@ -138,9 +138,9 @@ epistola:
     maintenance-cron: "0 0 2 * * ?" # daily at 02:00
 
   # Observability — installation-wide stat gauges (epistola.installation.*).
-  # Every replica runs the schedule, but only the holder of a Postgres advisory
-  # lock publishes the counts each round (the rest report NaN, which is omitted),
-  # so there is exactly one live series across the fleet.
+  # Runs as an all-node native scheduled task, but only the holder of a Postgres
+  # advisory lock publishes the counts each round (the rest report NaN, which is
+  # omitted), so there is exactly one live series across the fleet.
   metrics:
     installation-stats:
       enabled: true

@@ -13,6 +13,8 @@ import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.context.event.ContextClosedEvent
+import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -55,11 +57,17 @@ class ClusterScheduledTaskScheduler(
         shuttingDown = true
     }
 
+    @EventListener(ContextClosedEvent::class)
+    fun contextClosing() {
+        shuttingDown = true
+    }
+
     @Scheduled(fixedDelayString = "\${epistola.cluster.scheduled-tasks.poll-interval-ms:1000}")
     fun poll() = MediatorContext.runWithMediator(mediator) {
         meterRegistry.recordScheduledTask("cluster-scheduled-task-poller") {
             if (shuttingDown) return@recordScheduledTask
 
+            nodeRegistry.heartbeat()
             val candidates = taskRegistry.dueCandidates()
             if (candidates.isEmpty()) {
                 return@recordScheduledTask
@@ -68,11 +76,15 @@ class ClusterScheduledTaskScheduler(
             val activeNodes = activeNodesForTaskOwnership()
             val ownedCandidateKeys = candidates
                 .filter { task ->
-                    ownership.isOwnedBy(
-                        routingKey = task.routingKey,
-                        nodeId = nodeIdentity.nodeId,
-                        nodes = activeNodes.withCapability(task.requiredCapability),
-                    )
+                    when (task.executionScope) {
+                        ClusterScheduledTaskExecutionScope.SINGLE_OWNER -> ownership.isOwnedBy(
+                            routingKey = task.routingKey,
+                            nodeId = nodeIdentity.nodeId,
+                            nodes = activeNodes.withCapability(task.requiredCapability),
+                        )
+
+                        ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE -> true
+                    }
                 }
                 .map { it.taskKey }
 

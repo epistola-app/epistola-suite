@@ -1,12 +1,17 @@
 package app.epistola.suite.observability
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicReference
 
@@ -34,7 +39,6 @@ import java.util.concurrent.atomic.AtomicReference
  * partitioned table every minute would not be free.
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(
     name = ["epistola.metrics.installation-stats.enabled"],
     havingValue = "true",
@@ -42,9 +46,12 @@ import java.util.concurrent.atomic.AtomicReference
 )
 class InstallationStatsPublisher(
     private val jdbi: Jdbi,
+    @Value("\${epistola.metrics.installation-stats.interval-ms:60000}")
+    private val intervalMs: Long,
     meterRegistry: MeterRegistry,
-) {
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
     // NaN until this replica is the lock holder for a round — Micrometer omits
     // NaN-valued gauges from export, so non-leaders publish nothing.
@@ -59,7 +66,19 @@ class InstallationStatsPublisher(
         }
     }
 
-    @Scheduled(fixedDelayString = "\${epistola.metrics.installation-stats.interval-ms:60000}")
+    @Bean
+    fun installationStatsScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        publish()
+    }
+
     fun publish() {
         jdbi.useTransaction<Exception> { handle ->
             val acquired = handle.createQuery("SELECT pg_try_advisory_xact_lock(:key)")
@@ -99,5 +118,9 @@ class InstallationStatsPublisher(
         // Stable bigint key for pg_try_advisory_xact_lock, distinct from the
         // partition-maintenance key. "EpInstS1".
         private const val INSTALLATION_STATS_LOCK_KEY: Long = 0x4570_496E_7374_5331L
+
+        const val TASK_KEY = "core.installation-stats"
+        const val ROUTING_KEY = "system:core.installation-stats"
+        const val TASK_TYPE = "core.installation-stats"
     }
 }

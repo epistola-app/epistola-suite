@@ -276,7 +276,7 @@ The codebase is maintainable today, but the architecture is at the point where i
 - UI feature modules may depend on `epistola-web`, but `epistola-web` may only depend on core/domain-level APIs.
 - Route paths are unique by HTTP method.
 - Navigation group and section keys are unique.
-- Feature modules do not register schedulers unless guarded by an installation-level property or advisory lock where multi-pod execution matters.
+- Feature modules register native scheduled-task definitions for recurring work; choose `single_owner` for once-per-cluster work and `each_capable_node` for per-node work.
 - CSP policy does not regress by reintroducing new external script hosts.
 
 ## Closing View

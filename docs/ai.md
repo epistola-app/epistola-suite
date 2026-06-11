@@ -274,7 +274,7 @@ data class Reference(
 )
 ```
 
-A scheduled task (`@Scheduled`) evicts conversations that have been inactive for longer than `ttl-minutes`.
+A native scheduled task evicts conversations that have been inactive for longer than `ttl-minutes`.
 
 ### File Upload & Text Extraction
 

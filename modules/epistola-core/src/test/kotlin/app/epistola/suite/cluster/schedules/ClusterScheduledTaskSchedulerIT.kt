@@ -42,6 +42,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
             DisableClusterScheduledTask("scheduler-missing-handler").execute()
             DisableClusterScheduledTask("scheduler-success").execute()
             DisableClusterScheduledTask("scheduler-failure").execute()
+            DisableClusterScheduledTask("scheduler-each-node").execute()
         }
     }
 
@@ -56,6 +57,29 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(task?.leaseOwnerNodeId).isNull()
         assertThat(task?.nextDueAt).isAfter(now())
         assertThat(task?.consecutiveFailures).isZero()
+    }
+
+    @Test
+    fun `poll dispatches an each capable node scheduled task`() {
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = "scheduler-each-node",
+                    routingKey = "system:scheduler-each-node",
+                    taskType = RecordingClusterScheduledTaskHandler.TYPE,
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+                ),
+            ).execute()
+        }
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        val nodeState = registry.listNodeStates().single { it.taskKey == "scheduler-each-node" }
+        assertThat(handler.handled).containsExactly("scheduler-each-node")
+        assertThat(nodeState.nextDueAt).isAfter(now())
+        assertThat(nodeState.consecutiveFailures).isZero()
     }
 
     @Test

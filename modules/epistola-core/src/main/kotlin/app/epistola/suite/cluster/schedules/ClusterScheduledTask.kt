@@ -21,6 +21,7 @@ data class ClusterScheduledTask(
     val tenantKey: TenantKey?,
     val routingKey: String,
     val taskType: String,
+    val executionScope: ClusterScheduledTaskExecutionScope,
     val requiredCapability: String,
     val payload: Map<String, Any?>,
     val scheduleKind: ClusterScheduledTaskScheduleKind,
@@ -32,6 +33,25 @@ data class ClusterScheduledTask(
     val enabled: Boolean,
     val nextDueAt: OffsetDateTime,
     val leaseOwnerNodeId: String?,
+    val leaseExpiresAt: OffsetDateTime?,
+    val lastStartedAt: OffsetDateTime?,
+    val lastCompletedAt: OffsetDateTime?,
+    val lastFailedAt: OffsetDateTime?,
+    val attemptCount: Int,
+    val consecutiveFailures: Int,
+    val lastError: String?,
+    val createdAt: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+)
+
+/**
+ * Per-node runtime state for an [ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE]
+ * scheduled task.
+ */
+data class ClusterScheduledTaskNodeState(
+    val taskKey: String,
+    val nodeId: String,
+    val nextDueAt: OffsetDateTime,
     val leaseExpiresAt: OffsetDateTime?,
     val lastStartedAt: OffsetDateTime?,
     val lastCompletedAt: OffsetDateTime?,

@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 @SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -90,6 +91,38 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `GET dashboard renders effective per-node next due for each capable node tasks`() = fixture {
+        lateinit var tenant: Tenant
+        val taskKey = "test.each-node-effective-due"
+        val definitionDueAt = OffsetDateTime.of(2000, 1, 2, 3, 4, 5, 0, ZoneOffset.UTC)
+        val nodeDueAt = OffsetDateTime.of(2099, 1, 2, 3, 4, 5, 0, ZoneOffset.UTC)
+
+        given {
+            tenant = tenant("Cluster Effective Due Tenant")
+            deleteScheduledTask(taskKey)
+            insertEachNodeScheduledTask(taskKey, definitionDueAt)
+            insertScheduledTaskNodeState(taskKey, nodeIdentity.nodeId, nodeDueAt)
+        }
+
+        whenever {
+            restTemplate.getForEntity(
+                "/tenants/${tenant.id}/cluster",
+                String::class.java,
+            )
+        }
+
+        then {
+            deleteScheduledTask(taskKey)
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains(taskKey)
+            assertThat(body).contains("2099-01-02 03:04:05")
+            assertThat(body).doesNotContain("2000-01-02 03:04:05")
+        }
+    }
+
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
@@ -111,6 +144,56 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
                 .bind("nodeId", nodeId)
                 .bind("joinedAt", lastSeenAt)
                 .bind("lastSeenAt", lastSeenAt)
+                .execute()
+        }
+    }
+
+    private fun deleteScheduledTask(taskKey: String) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("DELETE FROM cluster_tasks_scheduled WHERE task_key = :taskKey")
+                .bind("taskKey", taskKey)
+                .execute()
+        }
+    }
+
+    private fun insertEachNodeScheduledTask(
+        taskKey: String,
+        nextDueAt: OffsetDateTime,
+    ) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO cluster_tasks_scheduled (
+                    task_key, routing_key, task_type, required_capability, payload,
+                    schedule_kind, interval_ms, enabled, next_due_at, execution_scope
+                )
+                VALUES (
+                    :taskKey, 'system:test.each-node-effective-due', 'test.each-node-effective-due',
+                    'suite', '{}'::jsonb, 'fixed_delay', 60000, true, :nextDueAt, 'each_capable_node'
+                )
+                """,
+            )
+                .bind("taskKey", taskKey)
+                .bind("nextDueAt", nextDueAt)
+                .execute()
+        }
+    }
+
+    private fun insertScheduledTaskNodeState(
+        taskKey: String,
+        nodeId: String,
+        nextDueAt: OffsetDateTime,
+    ) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO cluster_tasks_scheduled_node_state (task_key, node_id, next_due_at)
+                VALUES (:taskKey, :nodeId, :nextDueAt)
+                """,
+            )
+                .bind("taskKey", taskKey)
+                .bind("nodeId", nodeId)
+                .bind("nextDueAt", nextDueAt)
                 .execute()
         }
     }
