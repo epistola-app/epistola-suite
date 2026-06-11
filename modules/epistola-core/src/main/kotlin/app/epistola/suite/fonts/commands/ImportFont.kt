@@ -17,6 +17,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import java.util.Optional
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * A single font-face pointer carried by [ImportFont], keyed by CSS numeric
@@ -145,18 +147,32 @@ class ImportFontHandler(
      * `null` rather than failing the import — the family fingerprint treats a
      * null hash as a mismatch, so a never-hashed face still fails a published
      * render loudly instead of silently rendering wrong.
+     *
+     * A classpath face's bytes are immutable for the life of the JVM and the
+     * system catalog re-imports the same faces into every tenant, so its hash is
+     * cached by location ([classpathContentHash]) — otherwise each tenant
+     * bootstrap re-reads and re-hashes the same bundled TTFs (the dominant cost
+     * of `EnsureSystemFonts`). Asset faces are hashed live (their bytes are
+     * tenant-owned and mutable).
      */
-    private fun contentHash(tenantKey: TenantKey, variant: ImportFontVariant): String? {
-        val bytes = runCatching {
-            when (variant.source) {
-                FontVariantSource.CLASSPATH -> variant.classpathLocation?.let { location ->
-                    this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
-                }
-                FontVariantSource.ASSET -> variant.assetKey?.let { assetKey ->
-                    GetAssetContent(tenantKey, assetKey).query()?.content
-                }
-            }
-        }.getOrNull() ?: return null
-        return sha256Hex(bytes)
+    private fun contentHash(tenantKey: TenantKey, variant: ImportFontVariant): String? = when (variant.source) {
+        FontVariantSource.CLASSPATH -> variant.classpathLocation?.let(::classpathContentHash)
+        FontVariantSource.ASSET -> variant.assetKey?.let { assetKey ->
+            runCatching { GetAssetContent(tenantKey, assetKey).query()?.content }
+                .getOrNull()?.let(::sha256Hex)
+        }
+    }
+
+    private fun classpathContentHash(location: String): String? = CLASSPATH_HASH_CACHE.computeIfAbsent(location) { loc ->
+        Optional.ofNullable(
+            runCatching { ImportFontHandler::class.java.classLoader.getResourceAsStream(loc)?.readBytes() }
+                .getOrNull()
+                ?.let(::sha256Hex),
+        )
+    }.orElse(null)
+
+    private companion object {
+        /** location -> SHA-256 hex (absent value = unreadable), computed once per JVM. */
+        private val CLASSPATH_HASH_CACHE = ConcurrentHashMap<String, Optional<String>>()
     }
 }
