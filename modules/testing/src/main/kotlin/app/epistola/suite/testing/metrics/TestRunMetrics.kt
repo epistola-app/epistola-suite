@@ -1,6 +1,7 @@
 package app.epistola.suite.testing.metrics
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -25,6 +26,12 @@ object TestRunMetrics {
     /** Fresh ApplicationContext boots (test-context cache misses) in this JVM. */
     val contextBoots = AtomicLong(0)
 
+    /** Boot time (millis) of each fresh ApplicationContext — initializer → context refreshed. */
+    val contextBootMillis = CopyOnWriteArrayList<Long>()
+
+    /** One-off Testcontainers Postgres container startup time (millis); 0 if never started. */
+    val postgresStartupMillis = AtomicLong(0)
+
     /** Per-test-class wall time in millis (max across executions of the same class). */
     val classDurationsMs = ConcurrentHashMap<String, Long>()
 
@@ -36,6 +43,14 @@ object TestRunMetrics {
 
     fun recordClassDuration(className: String, millis: Long) {
         classDurationsMs.merge(className, millis, ::maxOf)
+    }
+
+    fun recordContextBootNanos(nanos: Long) {
+        contextBootMillis.add(nanos / 1_000_000)
+    }
+
+    fun recordPostgresStartupNanos(nanos: Long) {
+        postgresStartupMillis.set(nanos / 1_000_000)
     }
 
     fun recordCommand(name: String, nanos: Long) {
@@ -51,6 +66,8 @@ object TestRunMetrics {
 
     fun reset() {
         contextBoots.set(0)
+        contextBootMillis.clear()
+        postgresStartupMillis.set(0)
         classDurationsMs.clear()
         commandStats.clear()
         queryStats.clear()

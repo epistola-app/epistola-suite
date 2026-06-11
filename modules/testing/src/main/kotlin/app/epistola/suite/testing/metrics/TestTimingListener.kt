@@ -67,6 +67,9 @@ class TestTimingListener : TestExecutionListener {
             |  "wallMillis": $wallMillis,
             |  "classCount": ${ranked.size},
             |  "contextBoots": ${TestRunMetrics.contextBoots.get()},
+            |  "contextBootMillisTotal": ${TestRunMetrics.contextBootMillis.sum()},
+            |  "contextBootMillisMax": ${TestRunMetrics.contextBootMillis.maxOrNull() ?: 0},
+            |  "postgresStartupMillis": ${TestRunMetrics.postgresStartupMillis.get()},
             |  "tenantsCreated": ${TestRunMetrics.tenantsCreated()},
             |  "classes": [
             |${ranked.joinToString(",\n") { (name, millis) -> """    { "name": ${name.quoted()}, "millis": $millis }""" }}
@@ -90,11 +93,16 @@ class TestTimingListener : TestExecutionListener {
         val label = System.getProperty("epistola.test.metrics.label") ?: "test"
         val sb = StringBuilder()
         sb.appendLine()
+        val boots = TestRunMetrics.contextBootMillis
         sb.appendLine("──── test-run metrics [$label] ────")
         sb.appendLine(
             "wall=${wallMillis}ms  classes=${ranked.size}  " +
-                "contextBoots=${TestRunMetrics.contextBoots.get()}  " +
                 "tenantsCreated=${TestRunMetrics.tenantsCreated()}",
+        )
+        sb.appendLine(
+            "contextBoots=${TestRunMetrics.contextBoots.get()} " +
+                "(total=${boots.sum()}ms, max=${boots.maxOrNull() ?: 0}ms)  " +
+                "postgresStartup=${TestRunMetrics.postgresStartupMillis.get()}ms",
         )
         sb.appendLine("slowest classes:")
         ranked.take(TOP_N).forEach { (name, millis) ->
