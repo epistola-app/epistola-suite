@@ -1,5 +1,6 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.cluster.WallClockClusterSchedulingDriver
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -67,6 +68,11 @@ class JobPollerIntegrationTest {
 
     @Autowired
     private lateinit var contentStore: ContentStore
+
+    // This test does not extend IntegrationTestBase, so it must get the production
+    // wall-clock scheduling substrate by default — required injection guards that.
+    @Autowired
+    private lateinit var wallClockDriver: WallClockClusterSchedulingDriver
 
     private val objectMapper = ObjectMapper()
 
