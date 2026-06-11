@@ -31,7 +31,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     private lateinit var contentStore: ContentStore
 
     @Test
-    fun `GetGenerationJob returns job with items`() = withAuthentication {
+    fun `GetGenerationJob returns job with items`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -71,7 +71,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetGenerationJob returns null for non-existent job`() = withAuthentication {
+    fun `GetGenerationJob returns null for non-existent job`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val randomId = GenerationRequestKey.generate()
 
@@ -81,7 +81,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetGenerationJob returns null for job from different tenant`() = withAuthentication {
+    fun `GetGenerationJob returns null for job from different tenant`(): Unit = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -118,7 +118,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ListGenerationJobs filters by status`() = withAuthentication {
+    fun `ListGenerationJobs filters by status`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -155,8 +155,10 @@ class DocumentQueriesTest : IntegrationTestBase() {
             .atMost(10, TimeUnit.SECONDS)
             .pollInterval(100, TimeUnit.MILLISECONDS)
             .until {
-                val jobs = mediator.query(ListGenerationJobs(tenant.id, RequestStatus.COMPLETED, 10, 0))
-                jobs.isNotEmpty()
+                SecurityContext.runWithPrincipal(testUser) {
+                    val jobs = mediator.query(ListGenerationJobs(tenant.id, RequestStatus.COMPLETED, 10, 0))
+                    jobs.isNotEmpty()
+                }
             }
 
         // List all jobs
@@ -170,7 +172,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ListGenerationJobs respects pagination`() = withAuthentication {
+    fun `ListGenerationJobs respects pagination`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -220,7 +222,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetDocument returns document with content`() = withAuthentication {
+    fun `GetDocument returns document with content`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -280,7 +282,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GetDocument returns null for non-existent document`() = withAuthentication {
+    fun `GetDocument returns null for non-existent document`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
 
         val document = mediator.query(GetDocument(tenant.id, DocumentKey.generate()))
@@ -289,7 +291,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ListDocuments filters by template`() = withAuthentication {
+    fun `ListDocuments filters by template`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
 
@@ -358,9 +360,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             .atMost(30, TimeUnit.SECONDS)
             .pollInterval(200, TimeUnit.MILLISECONDS)
             .until {
-                requests.all { requestId ->
-                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                    job?.request?.status == RequestStatus.COMPLETED
+                SecurityContext.runWithPrincipal(testUser) {
+                    requests.all { requestId ->
+                        val job = mediator.query(GetGenerationJob(tenant.id, requestId))
+                        job?.request?.status == RequestStatus.COMPLETED
+                    }
                 }
             }
 

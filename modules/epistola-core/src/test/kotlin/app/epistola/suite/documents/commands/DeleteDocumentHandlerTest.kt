@@ -24,7 +24,7 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test
-    fun `deletes document successfully`() = withAuthentication {
+    fun `deletes document successfully`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -83,7 +83,7 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `returns false for non-existent document`() = withAuthentication {
+    fun `returns false for non-existent document`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
 
         val deleted = mediator.send(DeleteDocument(tenant.id, DocumentKey.generate()))
@@ -92,7 +92,7 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `returns false for document from different tenant`() = withAuthentication {
+    fun `returns false for document from different tenant`(): Unit = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 

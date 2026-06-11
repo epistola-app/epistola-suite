@@ -32,7 +32,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     private val testPngBytes = createMinimalPng()
 
     @Test
-    fun `upload and retrieve asset`() = withMediator {
+    fun `upload and retrieve asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
         val asset = UploadAsset(
@@ -54,10 +54,12 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `list assets returns uploaded assets in reverse chronological order`() = withMediator {
+    fun `list assets returns uploaded assets in reverse chronological order`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
         UploadAsset(tenant.id, "first.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
+        // The frozen test clock would give both uploads the same created_at and tie the ordering.
+        testClock.advanceBy(java.time.Duration.ofSeconds(1))
         UploadAsset(tenant.id, "second.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
         val assets = ListAssets(tenantId = tenant.id).query()
@@ -68,7 +70,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `list assets with search filter`() = withMediator {
+    fun `list assets with search filter`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
         UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
@@ -81,7 +83,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `get asset metadata`() = withMediator {
+    fun `get asset metadata`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
@@ -93,7 +95,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `get asset content`() = withMediator {
+    fun `get asset content`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
@@ -105,7 +107,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `get asset returns null for non-existent asset`() = withMediator {
+    fun `get asset returns null for non-existent asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
         val asset = GetAsset(tenantId = tenant.id, assetId = AssetKey.generate()).query()
@@ -114,7 +116,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `delete asset`() = withMediator {
+    fun `delete asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val uploaded = UploadAsset(tenant.id, "test.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
@@ -126,7 +128,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `delete returns false for non-existent asset`() = withMediator {
+    fun `delete returns false for non-existent asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
 
         val deleted = DeleteAsset(tenantId = tenant.id, assetId = AssetKey.generate()).execute()
@@ -135,7 +137,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `tenant isolation - cannot see other tenant assets`() = withMediator {
+    fun `tenant isolation - cannot see other tenant assets`(): Unit = withMediator {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -152,7 +154,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `tenant isolation - cannot get other tenant asset content`() = withMediator {
+    fun `tenant isolation - cannot get other tenant asset content`(): Unit = withMediator {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -187,7 +189,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `upload SVG with null dimensions`() = withMediator {
+    fun `upload SVG with null dimensions`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\"><rect fill=\"red\" width=\"100\" height=\"100\"/></svg>".toByteArray()
 
@@ -231,7 +233,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `find asset usages returns template info for referenced asset`() = withMediator {
+    fun `find asset usages returns template info for referenced asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val asset = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
@@ -253,7 +255,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `find asset usages returns empty for unused asset`() = withMediator {
+    fun `find asset usages returns empty for unused asset`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val asset = UploadAsset(tenant.id, "unused.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()
 
@@ -263,7 +265,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `delete asset succeeds when asset removed from template`() = withMediator {
+    fun `delete asset succeeds when asset removed from template`(): Unit = withMediator {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val asset = UploadAsset(tenant.id, "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1, CatalogKey.DEFAULT).execute()

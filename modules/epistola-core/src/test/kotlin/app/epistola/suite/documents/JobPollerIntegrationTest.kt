@@ -23,6 +23,7 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import org.assertj.core.api.Assertions.assertThat
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit
  * requests and processes them correctly with real PDF rendering.
  */
 @SpringBootTest(
+    classes = [app.epistola.suite.testing.TestApplication::class],
     properties = [
         "epistola.demo.enabled=false",
     ],
@@ -80,13 +82,14 @@ class JobPollerIntegrationTest {
     )
 
     private fun <T> withAuthentication(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        TestPrincipalUsers.ensure(mediator, testUser)
         SecurityContext.runWithPrincipal(testUser) {
             block()
         }
     }
 
     @Test
-    fun `JobPoller processes pending requests asynchronously with real PDF generation`() = withAuthentication {
+    fun `JobPoller processes pending requests asynchronously with real PDF generation`(): Unit = withAuthentication {
         // Create test data
         val tenant = mediator.send(
             CreateTenant(

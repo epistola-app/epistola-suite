@@ -5,6 +5,8 @@ import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.documents.GenerationJobNotCancellableException
+import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -14,6 +16,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -23,17 +26,16 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test
-    fun `returns false for non-existent job`() = withAuthentication {
+    fun `throws not found for non-existent job`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val randomId = GenerationRequestKey.generate()
 
-        val cancelled = mediator.send(CancelGenerationJob(tenant.id, randomId))
-
-        assertThat(cancelled).isFalse()
+        assertThatThrownBy { mediator.send(CancelGenerationJob(tenant.id, randomId)) }
+            .isInstanceOf(GenerationJobNotFoundException::class.java)
     }
 
     @Test
-    fun `returns false for job from different tenant`() = withAuthentication {
+    fun `throws not found for job from different tenant`(): Unit = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -65,13 +67,12 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
         )
 
         // Try to cancel with different tenant
-        val cancelled = mediator.send(CancelGenerationJob(tenant2.id, request.id))
-
-        assertThat(cancelled).isFalse()
+        assertThatThrownBy { mediator.send(CancelGenerationJob(tenant2.id, request.id)) }
+            .isInstanceOf(GenerationJobNotFoundException::class.java)
     }
 
     @Test
-    fun `cannot cancel completed job`() = withAuthentication {
+    fun `cannot cancel completed job`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -115,9 +116,8 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
                 }
             }
 
-        // Try to cancel completed job
-        val cancelled = mediator.send(CancelGenerationJob(tenant.id, request.id))
-
-        assertThat(cancelled).isFalse()
+        // Try to cancel a job that already reached a terminal state
+        assertThatThrownBy { mediator.send(CancelGenerationJob(tenant.id, request.id)) }
+            .isInstanceOf(GenerationJobNotCancellableException::class.java)
     }
 }

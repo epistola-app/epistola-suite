@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 class MediatorAuthorizationTest : IntegrationTestBase() {
 
     @Test
-    fun `RequiresPermission command succeeds with correct permission`() = withAuthentication {
+    fun `RequiresPermission command succeeds with correct permission`(): Unit = withAuthentication {
         // testUser has all roles (including MANAGER which grants TENANT_SETTINGS)
         val tenant = CreateTenant(id = TenantKey.of("authz-perm-ok"), name = "Auth Test").let { mediator.send(it) }
         assertThat(tenant.name).isEqualTo("Auth Test")
