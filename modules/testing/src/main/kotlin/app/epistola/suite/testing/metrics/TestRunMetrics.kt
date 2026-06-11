@@ -1,0 +1,71 @@
+package app.epistola.suite.testing.metrics
+
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * Process-wide collector for test-run performance metrics.
+ *
+ * Populated only by cross-cutting hooks — never from individual tests:
+ * - [TestTimingListener] (a JUnit Platform [org.junit.platform.launcher.TestExecutionListener]
+ *   auto-registered via `META-INF/services`) records per-class wall time and writes
+ *   the end-of-run report.
+ * - [ContextBootCounter] (a Spring [org.springframework.context.ApplicationContextInitializer]
+ *   registered via `META-INF/spring.factories`) counts fresh `ApplicationContext`
+ *   boots — i.e. test-context cache misses, the cost driver behind context fragmentation.
+ * - [MetricsRecordingMediator] (a `@Primary` [app.epistola.suite.mediator.Mediator]
+ *   decorator) times every command/query dispatched through the mediator, so the
+ *   per-operation cost profile (e.g. `CreateTenant`, which bootstraps the system
+ *   catalog) is captured centrally — including nested dispatches — with no per-test code.
+ *
+ * This makes test performance evidence permanent and monitorable on every run
+ * instead of something to eyeball locally. See `docs/testing.md`.
+ */
+object TestRunMetrics {
+    /** Fresh ApplicationContext boots (test-context cache misses) in this JVM. */
+    val contextBoots = AtomicLong(0)
+
+    /** Per-test-class wall time in millis (max across executions of the same class). */
+    val classDurationsMs = ConcurrentHashMap<String, Long>()
+
+    /** Command simple-name -> aggregated dispatch stats (count + total time). */
+    val commandStats = ConcurrentHashMap<String, DispatchStat>()
+
+    /** Query simple-name -> aggregated dispatch stats (count + total time). */
+    val queryStats = ConcurrentHashMap<String, DispatchStat>()
+
+    fun recordClassDuration(className: String, millis: Long) {
+        classDurationsMs.merge(className, millis, ::maxOf)
+    }
+
+    fun recordCommand(name: String, nanos: Long) {
+        commandStats.computeIfAbsent(name) { DispatchStat() }.record(nanos)
+    }
+
+    fun recordQuery(name: String, nanos: Long) {
+        queryStats.computeIfAbsent(name) { DispatchStat() }.record(nanos)
+    }
+
+    /** Tenants created during the run — derived from the `CreateTenant` command count. */
+    fun tenantsCreated(): Long = commandStats["CreateTenant"]?.count?.get() ?: 0
+
+    fun reset() {
+        contextBoots.set(0)
+        classDurationsMs.clear()
+        commandStats.clear()
+        queryStats.clear()
+    }
+
+    /** Thread-safe count + total-nanos accumulator for one command/query type. */
+    class DispatchStat {
+        val count = AtomicLong(0)
+        val totalNanos = AtomicLong(0)
+
+        fun record(nanos: Long) {
+            count.incrementAndGet()
+            totalNanos.addAndGet(nanos)
+        }
+
+        fun totalMillis(): Long = totalNanos.get() / 1_000_000
+    }
+}

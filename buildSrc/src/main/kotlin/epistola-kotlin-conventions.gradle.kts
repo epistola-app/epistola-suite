@@ -52,6 +52,16 @@ tasks.withType<Test> {
         "-Xmx1g",
     )
 
+    // Cross-cutting test-run metrics (see modules/testing .../metrics). A JUnit
+    // Platform listener + Spring context-boot counter write a per-task JSON report
+    // here so test performance (wall time, context boots, tenant bootstraps, slowest
+    // classes) is captured on every run and monitorable over time, not eyeballed.
+    systemProperty(
+        "epistola.test.metrics.outDir",
+        layout.buildDirectory.dir("test-metrics").get().asFile.absolutePath,
+    )
+    systemProperty("epistola.test.metrics.label", "${project.name}-$name")
+
     testLogging {
         events("passed", "skipped", "failed")
     }
