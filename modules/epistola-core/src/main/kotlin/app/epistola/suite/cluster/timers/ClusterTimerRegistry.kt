@@ -173,6 +173,7 @@ class ClusterTimerRegistry(
                   AND status = 'running'
                 """,
             )
+                .setQueryTimeout(LIVENESS_QUERY_TIMEOUT_SECONDS)
                 .bindList("timerKeys", timerKeys)
                 .bind("nodeId", nodeIdentity.nodeId)
                 .bind("leaseExpiresAt", leaseExpiresAt)
@@ -341,5 +342,6 @@ class ClusterTimerRegistry(
     private companion object {
         const val MAX_ERROR_LENGTH = 2_000
         const val NANOS_PER_MILLI = 1_000_000L
+        const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
     }
 }
