@@ -114,6 +114,22 @@ The timer remains durable until it completes, is rescheduled, or is cancelled.
 If a node dies while holding a lease, another active capable node can reclaim
 the timer after `lease_expires_at`.
 
+## Liveness And Long-Running Handlers
+
+Two mechanisms keep a slow handler from being mistaken for a dead node and
+re-run elsewhere:
+
+- **The node heartbeat runs on its own dedicated executor**
+  (`ClusterNodeHeartbeatScheduler`), not the shared Spring `@Scheduled` pool. A
+  handler that blocks a poller thread therefore cannot starve the heartbeat,
+  mark a healthy node stale, or shift routing-key ownership.
+- **The pollers renew the lease while a handler runs** (`ClusterLeaseRenewer` +
+  `renewLeases` on each registry). A handler that legitimately runs longer than
+  the lease duration keeps its lease fresh on a background thread, so another
+  node will not reclaim and re-run the in-flight occurrence — even across a
+  membership change. Execution is still **at-least-once**: handlers should be
+  idempotent for the crash case, where renewal stops and the lease lapses.
+
 ## Recurring Scheduled Tasks
 
 Scheduled tasks are durable recurring timer definitions. They are stored

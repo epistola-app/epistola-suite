@@ -127,7 +127,7 @@ The hot path should be:
 3. check local subscription indexes
 4. skip irrelevant events without reading or deserializing payload JSON
 5. load/deserialize payload only for interested handlers
-6. invoke local handlers through `BackgroundExecutionContext`
+6. invoke local handlers through `MediatorContext.runnable(...)` / `.callable(...)`
 7. advance the local cursor
 
 This makes all-node fanout viable for control and business events. It should
