@@ -43,6 +43,12 @@ class ClusterNodeHeartbeatScheduler(
 
     @PostConstruct
     fun start() {
+        // Only self-schedule under the wall-clock substrate. The deterministic test
+        // substrate drives the heartbeat explicitly (poll()/runDue()) inside the bound
+        // test clock; an autonomous heartbeat there runs on this thread with the system
+        // clock and would write a `last_seen_at` that undercuts a test which advanced its
+        // clock forward — racing the active-node check in claimDue. See ClusterProperties.
+        if (!properties.autonomousSchedulingEnabled()) return
         val intervalMs = properties.heartbeatIntervalMs.coerceAtLeast(1)
         task = maintenanceExecutor.scheduler.scheduleWithFixedDelay(::runHeartbeatSafely, 0, intervalMs, TimeUnit.MILLISECONDS)
     }

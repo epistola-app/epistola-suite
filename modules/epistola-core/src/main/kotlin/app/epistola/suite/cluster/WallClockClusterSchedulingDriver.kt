@@ -55,7 +55,7 @@ class ClusterSchedulingConfiguration {
     @ConditionalOnProperty(
         prefix = "epistola.cluster",
         name = ["scheduling-substrate"],
-        havingValue = "wall-clock",
+        havingValue = ClusterProperties.SUBSTRATE_WALL_CLOCK,
         matchIfMissing = true,
     )
     fun wallClockClusterSchedulingDriver(

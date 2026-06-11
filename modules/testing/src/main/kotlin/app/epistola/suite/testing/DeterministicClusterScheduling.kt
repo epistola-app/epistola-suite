@@ -1,6 +1,7 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.cluster.ClusterNodeHeartbeatScheduler
+import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.cluster.ClusterSchedulingDriver
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskScheduler
 import app.epistola.suite.cluster.timers.ClusterTimerScheduler
@@ -78,7 +79,7 @@ class DeterministicSchedulingTestConfiguration {
     @ConditionalOnProperty(
         prefix = "epistola.cluster",
         name = ["scheduling-substrate"],
-        havingValue = "test",
+        havingValue = ClusterProperties.SUBSTRATE_TEST,
     )
     fun deterministicClusterScheduling(
         heartbeat: ClusterNodeHeartbeatScheduler,
