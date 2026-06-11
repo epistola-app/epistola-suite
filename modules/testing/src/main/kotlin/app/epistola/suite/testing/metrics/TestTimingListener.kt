@@ -85,8 +85,8 @@ class TestTimingListener : TestExecutionListener {
         )
     }
 
-    private fun dispatchJson(stats: Map<String, TestRunMetrics.DispatchStat>): String = stats.entries.sortedByDescending { it.value.totalNanos.get() }.joinToString(",\n") { (name, s) ->
-        """    { "name": ${name.quoted()}, "count": ${s.count.get()}, "totalMillis": ${s.totalMillis()} }"""
+    private fun dispatchJson(stats: Map<String, TestRunMetrics.DispatchStat>): String = stats.entries.sortedByDescending { it.value.selfNanos.get() }.joinToString(",\n") { (name, s) ->
+        """    { "name": ${name.quoted()}, "count": ${s.count.get()}, "selfMillis": ${s.selfMillis()}, "totalMillis": ${s.totalMillis()} }"""
     }
 
     private fun printSummary(wallMillis: Long, ranked: List<Map.Entry<String, Long>>) {
@@ -108,9 +108,9 @@ class TestTimingListener : TestExecutionListener {
         ranked.take(TOP_N).forEach { (name, millis) ->
             sb.appendLine("  ${millis.toString().padStart(7)}ms  ${name.substringAfterLast('.')}")
         }
-        sb.appendLine("costliest commands (count, total — incl. nested):")
-        TestRunMetrics.commandStats.entries.sortedByDescending { it.value.totalNanos.get() }.take(TOP_N).forEach { (name, s) ->
-            sb.appendLine("  ${s.totalMillis().toString().padStart(7)}ms  x${s.count.get()}  $name")
+        sb.appendLine("costliest commands (self ms = excl. nested; total = incl. nested):")
+        TestRunMetrics.commandStats.entries.sortedByDescending { it.value.selfNanos.get() }.take(TOP_N).forEach { (name, s) ->
+            sb.appendLine("  self=${s.selfMillis().toString().padStart(6)}ms  total=${s.totalMillis().toString().padStart(6)}ms  x${s.count.get()}  $name")
         }
         sb.append("──────────────────────────────────")
         println(sb)

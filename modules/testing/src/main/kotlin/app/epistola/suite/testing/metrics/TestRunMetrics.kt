@@ -53,12 +53,12 @@ object TestRunMetrics {
         postgresStartupMillis.set(nanos / 1_000_000)
     }
 
-    fun recordCommand(name: String, nanos: Long) {
-        commandStats.computeIfAbsent(name) { DispatchStat() }.record(nanos)
+    fun recordCommand(name: String, inclusiveNanos: Long, selfNanos: Long) {
+        commandStats.computeIfAbsent(name) { DispatchStat() }.record(inclusiveNanos, selfNanos)
     }
 
-    fun recordQuery(name: String, nanos: Long) {
-        queryStats.computeIfAbsent(name) { DispatchStat() }.record(nanos)
+    fun recordQuery(name: String, inclusiveNanos: Long, selfNanos: Long) {
+        queryStats.computeIfAbsent(name) { DispatchStat() }.record(inclusiveNanos, selfNanos)
     }
 
     /** Tenants created during the run — derived from the `CreateTenant` command count. */
@@ -73,16 +73,26 @@ object TestRunMetrics {
         queryStats.clear()
     }
 
-    /** Thread-safe count + total-nanos accumulator for one command/query type. */
+    /**
+     * Thread-safe accumulator for one command/query type:
+     * - [totalNanos] is **inclusive** time (the dispatch and everything it nested),
+     * - [selfNanos] is **exclusive** time (this dispatch minus its nested dispatches)
+     *   — the metric that says where work actually happens (a leaf DB write vs. an
+     *   orchestrator that only delegates).
+     */
     class DispatchStat {
         val count = AtomicLong(0)
         val totalNanos = AtomicLong(0)
+        val selfNanos = AtomicLong(0)
 
-        fun record(nanos: Long) {
+        fun record(inclusiveNanos: Long, selfNanos: Long) {
             count.incrementAndGet()
-            totalNanos.addAndGet(nanos)
+            totalNanos.addAndGet(inclusiveNanos)
+            this.selfNanos.addAndGet(selfNanos)
         }
 
         fun totalMillis(): Long = totalNanos.get() / 1_000_000
+
+        fun selfMillis(): Long = selfNanos.get() / 1_000_000
     }
 }

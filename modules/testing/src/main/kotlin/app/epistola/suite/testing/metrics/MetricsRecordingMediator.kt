@@ -16,21 +16,33 @@ import app.epistola.suite.mediator.Query
  * falls out of the `CreateTenant` count with no per-test instrumentation.
  */
 class MetricsRecordingMediator(val delegate: Mediator) : Mediator {
-    override fun <R> send(command: Command<R>): R {
-        val start = System.nanoTime()
-        try {
-            return delegate.send(command)
-        } finally {
-            TestRunMetrics.recordCommand(command::class.simpleName ?: "Unknown", System.nanoTime() - start)
-        }
-    }
+    // Per-thread stack of "child time" accumulators (one frame per in-flight
+    // dispatch). Nested dispatches run synchronously on the same thread, so each
+    // frame collects the inclusive time of its direct children; self = inclusive
+    // − children. Work handed to another thread starts a fresh stack there.
+    private val childNanosStack = ThreadLocal.withInitial { ArrayDeque<LongArray>() }
 
-    override fun <R> query(query: Query<R>): R {
+    override fun <R> send(command: Command<R>): R = timed(command::class.simpleName ?: "Unknown", isCommand = true) { delegate.send(command) }
+
+    override fun <R> query(query: Query<R>): R = timed(query::class.simpleName ?: "Unknown", isCommand = false) { delegate.query(query) }
+
+    private inline fun <R> timed(name: String, isCommand: Boolean, block: () -> R): R {
+        val stack = childNanosStack.get()
+        val frame = longArrayOf(0L) // accumulated inclusive time of this dispatch's children
+        stack.addLast(frame)
         val start = System.nanoTime()
         try {
-            return delegate.query(query)
+            return block()
         } finally {
-            TestRunMetrics.recordQuery(query::class.simpleName ?: "Unknown", System.nanoTime() - start)
+            val inclusive = System.nanoTime() - start
+            stack.removeLast()
+            stack.lastOrNull()?.let { it[0] += inclusive } // contribute to the parent's child time
+            val self = inclusive - frame[0]
+            if (isCommand) {
+                TestRunMetrics.recordCommand(name, inclusive, self)
+            } else {
+                TestRunMetrics.recordQuery(name, inclusive, self)
+            }
         }
     }
 }
