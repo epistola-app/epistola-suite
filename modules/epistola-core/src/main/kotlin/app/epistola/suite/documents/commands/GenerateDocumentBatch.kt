@@ -13,7 +13,6 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
-import app.epistola.suite.documents.batch.GenerationBatchCreatedEvent
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -24,7 +23,6 @@ import app.epistola.suite.templates.services.VariantSelectionCriteria
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
@@ -120,7 +118,6 @@ data class GenerateDocumentBatch(
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
     private val variantResolver: VariantResolver,
-    private val eventPublisher: ApplicationEventPublisher,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -306,14 +303,9 @@ class GenerateDocumentBatchHandler(
             val inserted = batch.execute().sum()
             logger.info("Created batch {} with {} requests for tenant {}", batchId.value, inserted, command.tenantId)
 
-            // Requests stay in PENDING status - the JobPoller will pick them up
+            // Requests stay in PENDING status - the JobPoller drains them on its next poll.
             batchId
         }
-
-        // Published after the insert transaction commits so the JobPoller's claim
-        // query sees the rows — nudges an immediate drain instead of waiting for the
-        // scheduled fallback poll.
-        eventPublisher.publishEvent(GenerationBatchCreatedEvent(batchId, command.tenantId))
 
         return batchId
     }

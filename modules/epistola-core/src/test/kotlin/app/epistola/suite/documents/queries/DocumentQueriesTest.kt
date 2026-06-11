@@ -8,7 +8,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -18,11 +17,9 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
-import java.util.concurrent.TimeUnit
 
 class DocumentQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
@@ -150,16 +147,8 @@ class DocumentQueriesTest : IntegrationTestBase() {
             )
         }
 
-        // Wait for at least one to complete
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .until {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val jobs = mediator.query(ListGenerationJobs(tenant.id, RequestStatus.COMPLETED, 10, 0))
-                    jobs.isNotEmpty()
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // List all jobs
         val allJobs = mediator.query(ListGenerationJobs(tenant.id, null, 10, 0))
@@ -251,17 +240,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             ),
         )
 
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
+        assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
         val documentId = job.items[0].documentKey!!
 
         val document = mediator.query(GetDocument(tenant.id, documentId))
@@ -324,10 +307,9 @@ class DocumentQueriesTest : IntegrationTestBase() {
             ),
         )!!
 
-        // Generate documents for template1 and track request IDs
-        val requests = mutableListOf<GenerationRequestKey>()
+        // Generate documents for template1
         (1..2).forEach { i ->
-            val request = mediator.send(
+            mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
                     templateId = template1.id,
@@ -338,11 +320,10 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     filename = "template1-$i.pdf",
                 ),
             )
-            requests.add(request.id)
         }
 
         // Generate document for template2
-        val request3 = mediator.send(
+        mediator.send(
             GenerateDocument(
                 tenantId = tenant.id,
                 templateId = template2.id,
@@ -353,20 +334,9 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 filename = "template2.pdf",
             ),
         )
-        requests.add(request3.id)
 
-        // Wait for all specific jobs to complete
-        await()
-            .atMost(30, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .until {
-                SecurityContext.runWithPrincipal(testUser) {
-                    requests.all { requestId ->
-                        val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                        job?.request?.status == RequestStatus.COMPLETED
-                    }
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // List all documents
         val allDocs = mediator.query(ListDocuments(tenantId = tenant.id, limit = 10))

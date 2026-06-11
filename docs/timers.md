@@ -284,11 +284,15 @@ tests can still drive a single cycle directly (`scheduler.poll()`). A test that
 genuinely needs the production loop can opt back in with
 `@TestPropertySource(properties = ["epistola.cluster.scheduling-substrate=wall-clock"])`.
 
-Newly enqueued document generation jobs do not depend on any scheduler tick:
-creating a request publishes `GenerationRequestCreatedEvent` /
-`GenerationBatchCreatedEvent` after commit and `GenerationRequestDrainListener`
-nudges the `JobPoller` drain loop immediately. The recurring
-`core.document-job-poller` scheduled task remains the production safety net.
+Document generation jobs drain explicitly, not on enqueue. Production relies on
+the recurring `core.document-job-poller` scheduled task (FixedDelay) plus
+completion-chaining, so a freshly enqueued request starts within the poll
+interval — there is intentionally no enqueue-time nudge of the local node's
+poller (which would assume the enqueueing node can render). For deterministic or
+targeted draining, `JobPoller.drainTenant(tenantKey)` claims and runs only that
+tenant's PENDING jobs synchronously on the calling thread; tests drive it via
+`IntegrationTestBase.drainGenerationJobs(tenant.id)` and otherwise do not render
+documents at all.
 
 ## Operational View
 

@@ -25,7 +25,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -82,9 +81,6 @@ class JobPoller(
 
     // Flag to coalesce multiple drain requests into one
     private val drainRequested = AtomicBoolean(false)
-
-    // Track job timers for duration recording
-    private val jobTimers = ConcurrentHashMap<GenerationRequestKey, Timer.Sample>()
 
     // Cached pending count, updated each drain cycle
     private val pendingCount = AtomicInteger(0)
@@ -257,33 +253,14 @@ class JobPoller(
                         }
                     }
 
-                    // Track timer sample for duration recording
-                    jobTimers[request.id] = Timer.start(meterRegistry)
-
                     logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
                     jobThreadExecutor.submit(
                         MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
-                            var jobOutcome = "success"
                             try {
-                                jobExecutor.execute(request)
-                                jobsCompletedCounter.increment()
-                            } catch (e: Exception) {
-                                jobOutcome = "failure"
-                                logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
-                                jobsFailedCounter.increment()
-                                markRequestFailed(request.id, e.message)
+                                executeClaimed(request)
                             } finally {
-                                // Record duration via Micrometer timer and report to adaptive batch sizer
-                                val sample = jobTimers.remove(request.id)
-                                val durationMs = sample?.let {
-                                    val timer = Timer.builder("epistola.jobs.duration")
-                                        .tag("outcome", jobOutcome)
-                                        .register(meterRegistry)
-                                    val nanos = it.stop(timer)
-                                    nanos / 1_000_000 // convert to ms for batch sizer
-                                }
                                 val newActiveCount = synchronized(idleLatchLock) {
                                     val count = activeJobs.decrementAndGet()
                                     if (count == 0) {
@@ -291,16 +268,7 @@ class JobPoller(
                                     }
                                     count
                                 }
-                                if (durationMs != null) {
-                                    batchSizer.recordJobCompletion(durationMs)
-                                    logger.info(
-                                        "Job completed: {} in {}ms | Active: {}/{}",
-                                        request.id.value,
-                                        durationMs,
-                                        newActiveCount,
-                                        properties.maxConcurrentJobs,
-                                    )
-                                }
+                                logger.debug("Slot freed after {} (active jobs: {})", request.id.value, newActiveCount)
                                 // Signal: slot freed, check for more work immediately
                                 requestDrain()
                             }
@@ -314,6 +282,60 @@ class JobPoller(
                 break // No more requests, exit drain loop
             }
         }
+    }
+
+    /**
+     * Synchronously claims and executes every PENDING request for [tenantKey] on the
+     * **calling thread**, returning the number processed. This is the explicit,
+     * tenant-scoped counterpart to the autonomous [drain]: deterministic (no virtual
+     * threads, no `awaitIdle`) and isolated (claims only this tenant's rows), which is
+     * what tests want when they actually need a document generated, and what an
+     * operator "process now for tenant X" action would use.
+     *
+     * Each job runs under the tenant's system principal via [MediatorContext.runnable],
+     * which also captures the caller's clock — so under the deterministic test substrate
+     * generation executes in the bound test clock.
+     */
+    fun drainTenant(tenantKey: TenantKey): Int {
+        var processed = 0
+        while (true) {
+            val requests = claimPendingRequests(properties.maxConcurrentJobs, tenantKey)
+            if (requests.isEmpty()) break
+            jobsClaimedCounter.increment(requests.size.toDouble())
+            requests.forEach { request ->
+                MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
+                    executeClaimed(request)
+                }.run()
+                processed++
+            }
+        }
+        return processed
+    }
+
+    /**
+     * Executes one claimed request and records its outcome: runs the executor, bumps the
+     * completed/failed counters and the duration timer, and marks the row FAILED on
+     * exception (so a partial batch failure does not abort the rest). Shared by the
+     * autonomous drain and [drainTenant] so both have identical metrics and failure
+     * semantics. Must run within a [MediatorContext] bound to the request's tenant principal.
+     */
+    private fun executeClaimed(request: DocumentGenerationRequest) {
+        val sample = Timer.start(meterRegistry)
+        var outcome = "success"
+        try {
+            jobExecutor.execute(request)
+            jobsCompletedCounter.increment()
+        } catch (e: Exception) {
+            outcome = "failure"
+            logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
+            jobsFailedCounter.increment()
+            markRequestFailed(request.id, e.message)
+        }
+        val durationMs = sample.stop(
+            Timer.builder("epistola.jobs.duration").tag("outcome", outcome).register(meterRegistry),
+        ) / 1_000_000
+        batchSizer.recordJobCompletion(durationMs)
+        logger.info("Job completed: {} in {}ms (outcome={})", request.id.value, durationMs, outcome)
     }
 
     /**
@@ -339,13 +361,17 @@ class JobPoller(
      * @param batchSize Maximum number of requests to claim
      * @return List of claimed requests (may be empty if no pending requests available)
      */
-    private fun claimPendingRequests(batchSize: Int): List<DocumentGenerationRequest> = jdbi.inTransaction<List<DocumentGenerationRequest>, Exception> { handle ->
-        // PostgreSQL: Use CTE to select and update atomically
+    private fun claimPendingRequests(batchSize: Int, tenantKey: TenantKey? = null): List<DocumentGenerationRequest> = jdbi.inTransaction<List<DocumentGenerationRequest>, Exception> { handle ->
+        // PostgreSQL: Use CTE to select and update atomically. The optional tenant filter
+        // backs the explicit, tenant-scoped drain (drainTenant) so processing one tenant's
+        // queue cannot claim another tenant's pending work.
+        val tenantFilter = if (tenantKey != null) "AND tenant_key = :tenant" else ""
         handle.createQuery(
             """
                 WITH claimed AS (
                     SELECT id FROM document_generation_requests
                     WHERE status = 'PENDING'
+                    $tenantFilter
                     ORDER BY created_at
                     LIMIT :batchSize
                     FOR UPDATE SKIP LOCKED
@@ -382,6 +408,7 @@ class JobPoller(
         )
             .bind("batchSize", batchSize)
             .bind("instanceId", instanceId)
+            .apply { if (tenantKey != null) bind("tenant", tenantKey) }
             .mapTo<DocumentGenerationRequest>()
             .list()
     }

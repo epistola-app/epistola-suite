@@ -311,8 +311,11 @@ testClock.advanceBy(Duration.ofMinutes(5))
 ```
 
 Do not add `Thread.sleep`/Awaitility waits for scheduler ticks — drive them.
-Document generation jobs need no tick at all: enqueueing publishes an event
-that nudges the `JobPoller` drain immediately. See
+Document generation is **opt-in** in tests: nothing drains automatically, so a
+test only renders a document when it explicitly calls
+`drainGenerationJobs(tenant.id)` (synchronous, tenant-scoped) and then asserts on
+the result. Tests that only need the created request (PENDING status, metadata,
+validation) should not call it. See
 [`docs/timers.md`](timers.md#scheduling-substrate-trigger-vs-engine).
 
 ## Performance Optimizations

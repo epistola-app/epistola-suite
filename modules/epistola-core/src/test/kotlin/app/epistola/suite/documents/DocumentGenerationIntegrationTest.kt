@@ -86,20 +86,12 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             assertThat(request.id).isNotNull()
             assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
 
-            // Wait for job to complete
-            await()
-                .atMost(10, TimeUnit.SECONDS)
-                .pollInterval(100, TimeUnit.MILLISECONDS)
-                .untilAsserted {
-                    SecurityContext.runWithPrincipal(testUser) {
-                        val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
-                        assertThat(job).isNotNull
-                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                    }
-                }
+            // Drain the tenant's pending generation jobs synchronously
+            drainGenerationJobs(setup.tenant.id)
 
             // Verify job result
             val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
             assertThat(job.items).hasSize(1)
 
             val item = job.items[0]
@@ -146,16 +138,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 ),
             )
         }.then { setup, request ->
-            // Wait for the job to complete so the executor has recorded its meters
-            await()
-                .atMost(10, TimeUnit.SECONDS)
-                .pollInterval(100, TimeUnit.MILLISECONDS)
-                .untilAsserted {
-                    SecurityContext.runWithPrincipal(testUser) {
-                        val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
-                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                    }
-                }
+            // Drain so the executor records its meters
+            drainGenerationJobs(setup.tenant.id)
+
+            val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
 
             val tenantTag = setup.tenant.id.value
 
@@ -218,19 +205,12 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             GenerationRequestKey(uuid)
         }
 
-        // Wait for completion
-        await()
-            .atMost(15, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // Verify all items completed (in flattened structure, each request is an "item")
         val job = mediator.query(GetGenerationJob(tenant.id, requestId))!!
+        assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
         // Note: In the flattened structure, items list contains just this one request
         // To verify all 5 requests completed, check the documents
         assertThat(job.items).hasSize(1)
@@ -305,25 +285,8 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         // Generate batch
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
-        // Get one of the request IDs from the batch to check status
-        val requestId = jdbi.withHandle<GenerationRequestKey, Exception> { handle ->
-            val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
-                .bind("batchId", batchId)
-                .mapTo(java.util.UUID::class.java)
-                .one()
-            GenerationRequestKey(uuid)
-        }
-
-        // Wait for completion
-        await()
-            .atMost(15, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // Verify partial success - need to check all requests in the batch, not just one
         val allRequests = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
@@ -430,7 +393,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         )!!
 
         // Create multiple requests
-        val requests = (1..3).map {
+        (1..3).forEach {
             mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
@@ -444,16 +407,8 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             )
         }
 
-        // Wait for at least one to complete
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .until {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val jobs = mediator.query(ListGenerationJobs(tenant.id, RequestStatus.COMPLETED, 10, 0))
-                    jobs.isNotEmpty()
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // List all jobs
         val allJobs = mediator.query(ListGenerationJobs(tenant.id, null, 10, 0))
@@ -491,18 +446,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 ),
             )
 
-            // Wait for completion
-            await()
-                .atMost(10, TimeUnit.SECONDS)
-                .pollInterval(100, TimeUnit.MILLISECONDS)
-                .untilAsserted {
-                    SecurityContext.runWithPrincipal(testUser) {
-                        val job = query(GetGenerationJob(setup.tenant.id, request.id))
-                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                    }
-                }
+            // Drain the tenant's pending generation jobs synchronously
+            drainGenerationJobs(setup.tenant.id)
 
             val job = query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
             job.items[0].documentKey!!
         }.then { setup, documentId ->
             // Delete document
@@ -553,16 +501,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             ),
         )
 
-        // Wait for completion
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant1.id, request1.id))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+        // Drain tenant 1's pending generation jobs synchronously
+        drainGenerationJobs(tenant1.id)
+
+        val job1 = mediator.query(GetGenerationJob(tenant1.id, request1.id))!!
+        assertThat(job1.request.status).isEqualTo(RequestStatus.COMPLETED)
 
         // Tenant 2 should not be able to access tenant 1's job
         val job2 = mediator.query(GetGenerationJob(tenant2.id, request1.id))
@@ -614,23 +557,8 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
 
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
-        // Wait for completion
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                // Check if all requests in the batch are completed
-                val completed = jdbi.withHandle<Boolean, Exception> { handle ->
-                    val count = handle.createQuery(
-                        "SELECT COUNT(*) FROM document_generation_requests WHERE batch_id = :batchId AND status = 'COMPLETED'",
-                    )
-                        .bind("batchId", batchId)
-                        .mapTo(Int::class.java)
-                        .one()
-                    count == 2
-                }
-                assertThat(completed).isTrue()
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // Verify correlation IDs on all requests in the batch
         val allRequests = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
@@ -831,23 +759,8 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
         assertThat(batchId.value).isNotNull()
 
-        // Wait for completion and verify auto-generated filenames
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                // Check if all requests in the batch are completed
-                val completed = jdbi.withHandle<Boolean, Exception> { handle ->
-                    val count = handle.createQuery(
-                        "SELECT COUNT(*) FROM document_generation_requests WHERE batch_id = :batchId AND status = 'COMPLETED'",
-                    )
-                        .bind("batchId", batchId)
-                        .mapTo(Int::class.java)
-                        .one()
-                    count == 2
-                }
-                assertThat(completed).isTrue()
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         val documents = mediator.query(ListDocuments(tenant.id, template.id))
         assertThat(documents).hasSize(2)
@@ -904,25 +817,10 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             ),
         )
 
-        val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
+        mediator.send(GenerateDocumentBatch(tenant.id, items))
 
-        // Wait for completion
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                // Check if all requests in the batch are completed
-                val completed = jdbi.withHandle<Boolean, Exception> { handle ->
-                    val count = handle.createQuery(
-                        "SELECT COUNT(*) FROM document_generation_requests WHERE batch_id = :batchId AND status = 'COMPLETED'",
-                    )
-                        .bind("batchId", batchId)
-                        .mapTo(Int::class.java)
-                        .one()
-                    count == 3
-                }
-                assertThat(completed).isTrue()
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         // Filter by correlationId
         val filteredDocuments = mediator.query(
@@ -967,19 +865,12 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 ),
             )
         }.then { setup, request ->
-            // Wait for completion
-            await()
-                .atMost(10, TimeUnit.SECONDS)
-                .pollInterval(100, TimeUnit.MILLISECONDS)
-                .untilAsserted {
-                    SecurityContext.runWithPrincipal(testUser) {
-                        val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
-                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-                    }
-                }
+            // Drain the tenant's pending generation jobs synchronously
+            drainGenerationJobs(setup.tenant.id)
 
             // Verify correlationId on job item
             val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
             assertThat(job.items).hasSize(1)
             assertThat(job.items[0].correlationId).isEqualTo("single-order-789")
 

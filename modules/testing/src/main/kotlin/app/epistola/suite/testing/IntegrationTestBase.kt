@@ -73,6 +73,17 @@ abstract class IntegrationTestBase {
         get() = deterministicScheduling
             ?: error("Deterministic scheduling is not active — epistola.cluster.scheduling-substrate is overridden away from 'test'")
 
+    /**
+     * Synchronously processes [tenantKey]'s PENDING document-generation jobs and returns
+     * the count. Generation is **opt-in** in tests: nothing drains automatically (no
+     * enqueue event, no autonomous poll under the test substrate), so a test only renders
+     * documents when it explicitly calls this. Tests that just assert on the created
+     * request (PENDING status, metadata, validation) should NOT call it. Tenant-scoped, so
+     * it never touches another concurrently-running test's jobs. No-op (returns 0) when the
+     * `JobPoller` bean is absent (e.g. `epistola.generation.polling.enabled=false`).
+     */
+    protected fun drainGenerationJobs(tenantKey: TenantKey): Int = jobPoller?.drainTenant(tenantKey) ?: 0
+
     @BeforeEach
     fun awaitIdleJobPoller() {
         jobPoller?.awaitIdle()

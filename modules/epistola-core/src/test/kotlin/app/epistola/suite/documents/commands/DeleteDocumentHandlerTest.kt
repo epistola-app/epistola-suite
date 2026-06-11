@@ -7,7 +7,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -15,10 +14,8 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
-import java.util.concurrent.TimeUnit
 
 class DeleteDocumentHandlerTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
@@ -54,20 +51,8 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
             ),
         )
 
-        // Wait for completion
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                    assertThat(job!!.request.status).isIn(
-                        app.epistola.suite.documents.model.RequestStatus.COMPLETED,
-                        app.epistola.suite.documents.model.RequestStatus.FAILED,
-                        app.epistola.suite.documents.model.RequestStatus.CANCELLED,
-                    )
-                }
-            }
+        // Drain the tenant's pending generation jobs synchronously
+        drainGenerationJobs(tenant.id)
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
         val documentId = job.items[0].documentKey!!
@@ -123,19 +108,8 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
             ),
         )
 
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(tenant1.id, request.id))
-                    assertThat(job!!.request.status).isIn(
-                        app.epistola.suite.documents.model.RequestStatus.COMPLETED,
-                        app.epistola.suite.documents.model.RequestStatus.FAILED,
-                        app.epistola.suite.documents.model.RequestStatus.CANCELLED,
-                    )
-                }
-            }
+        // Drain tenant 1's pending generation jobs synchronously
+        drainGenerationJobs(tenant1.id)
 
         val job = mediator.query(GetGenerationJob(tenant1.id, request.id))!!
         val documentId = job.items[0].documentKey!!
