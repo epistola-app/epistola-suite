@@ -2,6 +2,7 @@ package app.epistola.suite.loadtest.cleanup
 
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.time.EpistolaClock
@@ -39,6 +40,7 @@ class LoadTestCleanupScheduler(
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
         schedule = ClusterScheduledTaskSchedule.Cron(cron),
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
     )
 
     override fun handle(task: ClusterScheduledTask) {

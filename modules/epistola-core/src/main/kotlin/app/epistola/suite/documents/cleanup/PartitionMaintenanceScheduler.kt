@@ -2,6 +2,7 @@ package app.epistola.suite.documents.cleanup
 
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.observability.recordScheduledTask
@@ -77,6 +78,9 @@ class PartitionMaintenanceScheduler(
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
         schedule = ClusterScheduledTaskSchedule.Cron(maintenanceCron),
+        // The recurring path is single-owner; the advisory lock below additionally
+        // guards the ApplicationReadyEvent startup path, which runs on every node.
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
     )
 
     /**
