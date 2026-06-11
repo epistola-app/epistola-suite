@@ -2,6 +2,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ResourceLoader
@@ -17,6 +18,7 @@ class CatalogClient(
     private val catalogRestClient: RestClient,
     private val objectMapper: ObjectMapper,
     private val resourceLoader: ResourceLoader,
+    private val schemaMigrator: CatalogSchemaMigrator,
     @Value("\${epistola.catalog.allow-http:false}") private val allowHttp: Boolean = false,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -31,8 +33,12 @@ class CatalogClient(
     fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest {
         validateUrl(url, allowedSchemes)
         logger.debug("Fetching catalog manifest from {}", url)
-        return readLocal(url, CatalogManifest::class.java)
-            ?: fetchHttp(url, authType, credential)
+        // Fetch raw bytes and route through the schema migrator (version gate +
+        // wire-format upgrade chain) before binding. This is the single remote
+        // chokepoint, so every consumer — install, browse, upgrade-check,
+        // fingerprint — sees a current-shape manifest.
+        val bytes = readLocalBinary(url) ?: fetchHttpBinary(url, authType, credential)
+        return schemaMigrator.migrateAndBindManifest(bytes)
     }
 
     fun fetchResourceDetail(detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
