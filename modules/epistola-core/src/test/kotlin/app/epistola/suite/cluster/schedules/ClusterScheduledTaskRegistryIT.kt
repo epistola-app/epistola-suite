@@ -417,6 +417,7 @@ class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
                             payload = mapOf("registered" to true),
                         ),
                     ),
+                    nodeIdentity = nodeIdentity,
                 ),
             )
         }.whenever { setup ->

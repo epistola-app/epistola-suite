@@ -154,7 +154,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `poll records failure when no scheduled task handler is registered`() {
+    fun `poll quietly skips and advances when no scheduled task handler is registered`() {
         withMediator {
             UpsertClusterScheduledTask(
                 ClusterScheduledTaskDefinition(
@@ -169,12 +169,16 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 
         scheduler.poll()
 
+        // A missing handler means the definition was almost certainly removed from
+        // code and the row is awaiting retirement. The scheduler must not accrue
+        // failure/error state, and must advance next-due so it does not re-claim in
+        // a tight loop before the reconciler retires it.
         val task = registry.find("scheduler-missing-handler")
         assertThat(handler.handled).isEmpty()
         assertThat(task?.leaseOwnerNodeId).isNull()
-        assertThat(task?.consecutiveFailures).isEqualTo(1)
-        assertThat(task?.lastError).isEqualTo("No handler registered for scheduled task type 'missing-handler'")
-        assertThat(task?.nextDueAt).isEqualTo(now().plusSeconds(30))
+        assertThat(task?.consecutiveFailures).isZero()
+        assertThat(task?.lastError).isNull()
+        assertThat(task?.nextDueAt).isAfter(now())
     }
 
     private fun seedDueTask(taskKey: String) {

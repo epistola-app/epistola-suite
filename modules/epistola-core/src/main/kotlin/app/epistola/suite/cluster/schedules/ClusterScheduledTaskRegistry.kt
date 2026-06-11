@@ -71,6 +71,11 @@ class ClusterScheduledTaskRegistry(
                     failure_policy = EXCLUDED.failure_policy,
                     catch_up_policy = EXCLUDED.catch_up_policy,
                     enabled = EXCLUDED.enabled,
+                    -- Re-appearing in code reclaims a code-managed task and
+                    -- clears any prior retirement (the definition is back).
+                    management_mode = 'code',
+                    retired_at = NULL,
+                    retirement_reason = NULL,
                     updated_at = :now
                 RETURNING ${selectColumns()}
                 """,
@@ -476,6 +481,185 @@ class ClusterScheduledTaskRegistry(
         updated
     }
 
+    /**
+     * Records that this node actively registered [taskKeys] (one row per task)
+     * and prunes this node's registration rows for any task it no longer
+     * registers. The combined set of active-node registrations is what
+     * reconciliation uses to decide whether a code-defined task is orphaned, so a
+     * node that restarts on a build lacking a task must stop vouching for it.
+     */
+    fun recordNodeRegistrations(taskKeys: Collection<String>, buildVersion: String?) {
+        val nodeId = nodeIdentity.nodeId
+        val now = EpistolaClock.offsetDateTime()
+        jdbi.useTransaction<Exception> { handle ->
+            if (taskKeys.isEmpty()) {
+                handle.createUpdate("DELETE FROM cluster_scheduled_task_registrations WHERE node_id = :nodeId")
+                    .bind("nodeId", nodeId)
+                    .execute()
+                return@useTransaction
+            }
+
+            handle.createUpdate(
+                """
+                DELETE FROM cluster_scheduled_task_registrations
+                WHERE node_id = :nodeId
+                  AND task_key NOT IN (<taskKeys>)
+                """,
+            )
+                .bindList("taskKeys", taskKeys)
+                .bind("nodeId", nodeId)
+                .execute()
+
+            val batch = handle.prepareBatch(
+                """
+                INSERT INTO cluster_scheduled_task_registrations (task_key, node_id, build_version, registered_at)
+                VALUES (:taskKey, :nodeId, :buildVersion, :now)
+                ON CONFLICT (task_key, node_id) DO UPDATE
+                SET build_version = EXCLUDED.build_version,
+                    registered_at = EXCLUDED.registered_at
+                """,
+            )
+            taskKeys.forEach { taskKey ->
+                batch
+                    .bind("taskKey", taskKey)
+                    .bind("nodeId", nodeId)
+                    .bind("buildVersion", buildVersion)
+                    .bind("now", now)
+                    .add()
+            }
+            batch.execute()
+        }
+    }
+
+    /**
+     * Returns code-managed, not-yet-retired tasks that no currently-active node
+     * vouches for and whose newest registration is older than [graceBefore]. The
+     * grace window guards against a node that is briefly absent (restart) or has
+     * not yet run its startup registrar.
+     */
+    fun findRetirableCodeTasks(activeNodeIds: Collection<String>, graceBefore: OffsetDateTime): List<ClusterScheduledTask> {
+        // An empty IN () is invalid SQL; a sentinel that cannot be a real node id
+        // keeps the "no active node vouches" semantics when the fleet view is empty.
+        val nodeIds = activeNodeIds.ifEmpty { listOf(" __no_active_node__") }
+        return jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT ${selectColumns("t")}
+                FROM cluster_tasks_scheduled t
+                WHERE t.management_mode = 'code'
+                  AND t.retired_at IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM cluster_scheduled_task_registrations r
+                      WHERE r.task_key = t.task_key
+                        AND r.node_id IN (<nodeIds>)
+                  )
+                  AND COALESCE(
+                      (SELECT MAX(r2.registered_at) FROM cluster_scheduled_task_registrations r2 WHERE r2.task_key = t.task_key),
+                      t.created_at
+                  ) < :graceBefore
+                ORDER BY t.task_key
+                """,
+            )
+                .bindList("nodeIds", nodeIds)
+                .bind("graceBefore", graceBefore)
+                .map { rs, _ -> mapTask(rs) }
+                .list()
+        }
+    }
+
+    /**
+     * Soft-retires a code-managed task: disables it, clears any lease, and records
+     * when and why. The row stays visible in Operations until it is purged.
+     */
+    fun retire(taskKey: String, reason: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        handle.createUpdate(
+            """
+            UPDATE cluster_tasks_scheduled
+            SET retired_at = :now,
+                enabled = false,
+                lease_owner_node_id = NULL,
+                lease_expires_at = NULL,
+                retirement_reason = :reason,
+                updated_at = :now
+            WHERE task_key = :taskKey
+              AND management_mode = 'code'
+              AND retired_at IS NULL
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("reason", reason.take(MAX_ERROR_LENGTH))
+            .bind("now", now)
+            .execute() == 1
+    }
+
+    /**
+     * Hard-deletes tasks retired before [cutoff]. Per-node state and registration
+     * rows cascade. Returns the number of definitions purged.
+     */
+    fun purgeRetiredBefore(cutoff: OffsetDateTime): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createUpdate(
+            """
+            DELETE FROM cluster_tasks_scheduled
+            WHERE retired_at IS NOT NULL
+              AND retired_at < :cutoff
+            """,
+        )
+            .bind("cutoff", cutoff)
+            .execute()
+    }
+
+    /**
+     * Releases the lease and advances [taskKey] to [nextDueAt] without recording a
+     * failure or error. Used when no handler is registered for a claimed task: the
+     * task is almost certainly orphaned and awaiting retirement, so it should not
+     * accrue failure/error state or be reclaimed in a tight loop.
+     */
+    fun skipNoHandler(taskKey: String, nextDueAt: OffsetDateTime): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        val singletonSkipped = handle.createUpdate(
+            """
+            UPDATE cluster_tasks_scheduled
+            SET next_due_at = :nextDueAt,
+                lease_owner_node_id = NULL,
+                lease_expires_at = NULL,
+                updated_at = :now
+            WHERE task_key = :taskKey
+              AND execution_scope = :singleOwner
+              AND lease_owner_node_id = :nodeId
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("singleOwner", ClusterScheduledTaskExecutionScope.SINGLE_OWNER.dbValue)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("nextDueAt", nextDueAt)
+            .bind("now", now)
+            .execute() == 1
+        if (singletonSkipped) return@withHandle true
+
+        handle.createUpdate(
+            """
+            UPDATE cluster_tasks_scheduled_node_state s
+            SET next_due_at = :nextDueAt,
+                lease_expires_at = NULL,
+                updated_at = :now
+            FROM cluster_tasks_scheduled t
+            WHERE s.task_key = t.task_key
+              AND s.task_key = :taskKey
+              AND s.node_id = :nodeId
+              AND t.execution_scope = :eachCapableNode
+              AND s.lease_expires_at IS NOT NULL
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("eachCapableNode", ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE.dbValue)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("nextDueAt", nextDueAt)
+            .bind("now", now)
+            .execute() == 1
+    }
+
     fun find(taskKey: String): ClusterScheduledTask? = jdbi.withHandle<ClusterScheduledTask?, Exception> { handle ->
         handle.createQuery(
             """
@@ -602,6 +786,9 @@ class ClusterScheduledTaskRegistry(
         attemptCount = rs.getInt("attempt_count"),
         consecutiveFailures = rs.getInt("consecutive_failures"),
         lastError = rs.getString("last_error"),
+        managementMode = rs.getString("management_mode"),
+        retiredAt = rs.getObject("retired_at", OffsetDateTime::class.java),
+        retirementReason = rs.getString("retirement_reason"),
         createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
         updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
     )
@@ -651,6 +838,9 @@ class ClusterScheduledTaskRegistry(
             ${p}attempt_count,
             ${p}consecutive_failures,
             ${p}last_error,
+            ${p}management_mode,
+            ${p}retired_at,
+            ${p}retirement_reason,
             ${p}created_at,
             ${p}updated_at
         """.trimIndent()
@@ -680,6 +870,9 @@ class ClusterScheduledTaskRegistry(
         COALESCE(s.attempt_count, 0) AS attempt_count,
         COALESCE(s.consecutive_failures, 0) AS consecutive_failures,
         s.last_error,
+        t.management_mode,
+        t.retired_at,
+        t.retirement_reason,
         t.created_at,
         t.updated_at
     """.trimIndent()

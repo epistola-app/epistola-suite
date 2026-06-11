@@ -40,9 +40,34 @@ data class ClusterScheduledTask(
     val attemptCount: Int,
     val consecutiveFailures: Int,
     val lastError: String?,
+    /**
+     * `code` for definitions owned by application code (eligible for automatic
+     * retirement when they disappear) or `manual` for operator-created tasks
+     * (never auto-retired).
+     */
+    val managementMode: String,
+    /**
+     * When the task was soft-retired because no active node still vouches for its
+     * code definition. `null` means the task is active. Retired rows stay visible
+     * in Operations until they are purged after the retention window.
+     */
+    val retiredAt: OffsetDateTime?,
+    /** Human-readable reason the task was retired, or `null` when active. */
+    val retirementReason: String?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 )
+
+/**
+ * Management mode for a scheduled task row.
+ */
+enum class ClusterScheduledTaskManagementMode(val dbValue: String) {
+    /** Definition owned by application code; auto-retired when it disappears. */
+    CODE("code"),
+
+    /** Operator-created; never auto-retired. */
+    MANUAL("manual"),
+}
 
 /**
  * Per-node runtime state for an [ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE]

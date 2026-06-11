@@ -87,4 +87,21 @@ data class ClusterScheduledTaskProperties(
     val maxRetryDelayMs: Long = 300_000,
     val batchSize: Int = 10,
     val candidateScanSize: Int = 100,
+    /**
+     * How often the `core.scheduled-task-reconciliation` task retires orphaned
+     * code-defined definitions and purges long-retired rows. Default hourly.
+     */
+    val reconciliationIntervalMs: Long = 3_600_000,
+    /**
+     * A code-defined task is only retired once its newest node registration is
+     * older than this. The grace window absorbs node restarts and nodes that have
+     * not yet run their startup registrar, so a brief absence does not retire a
+     * still-present definition. Default 15 minutes.
+     */
+    val reconciliationGracePeriodMs: Long = 900_000,
+    /**
+     * How long a soft-retired task is retained (visible in Operations) before it
+     * is hard-deleted. Default 7 days.
+     */
+    val retiredRetentionMs: Long = 604_800_000,
 )

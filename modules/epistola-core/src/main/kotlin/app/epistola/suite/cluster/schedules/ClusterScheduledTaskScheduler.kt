@@ -123,8 +123,16 @@ class ClusterScheduledTaskScheduler(
     private fun dispatch(task: ClusterScheduledTask) {
         val handler = handlersByType[task.taskType]
         if (handler == null) {
-            fail(task, "No handler registered for scheduled task type '${task.taskType}'")
-            log.warn("No handler registered for cluster scheduled task type '{}'", task.taskType)
+            // A missing handler almost always means the definition was removed
+            // from code and the row is awaiting retirement by the reconciler.
+            // Quietly release the lease and advance to the next occurrence instead
+            // of recording a failure: no error-state spam, and no tight
+            // claim→fail→reclaim loop while reconciliation retires the row.
+            log.warn(
+                "No handler registered for cluster scheduled task type '{}' (orphaned? awaiting retirement)",
+                task.taskType,
+            )
+            taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))
             return
         }
 
