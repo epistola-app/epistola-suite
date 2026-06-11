@@ -72,7 +72,13 @@ tasks.register<Test>("integrationTest") {
         includeTags("integration")
         excludeTags("ui", "perf")
     }
-    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
+    // 1g, not 512m: JUnit class-level concurrency boots distinct Spring contexts in
+    // parallel (one per unique @SpringBootTest config), and every context load runs a
+    // full classpath component scan whose classfile metadata transiently costs
+    // ~100MB+. On a 2-core CI runner at most 2 contexts load at once; on a 10-core
+    // dev machine ~7 can, which intermittently OOMs a 512m heap with
+    // "GC overhead limit exceeded" mid-scan and fails a random victim test.
+    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx1g")
     testLogging { events("passed", "skipped", "failed") }
     filter { isFailOnNoMatchingTests = false }
 }
@@ -111,6 +117,9 @@ tasks.register<Test>("uiTest") {
 // so `gradle build` still covers UI end-to-end — through the right task.
 tasks.named<Test>("test") {
     useJUnitPlatform { excludeTags("ui", "perf") }
+    // Same 1g headroom as integrationTest — this catch-all also boots Spring
+    // contexts concurrently (see the integrationTest comment above).
+    maxHeapSize = "1g"
 }
 tasks.named("check") {
     dependsOn("uiTest")
