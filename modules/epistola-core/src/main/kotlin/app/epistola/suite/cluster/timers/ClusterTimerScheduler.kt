@@ -1,5 +1,7 @@
 package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.cluster.ClusterLeaseRenewer
+import app.epistola.suite.cluster.ClusterMaintenanceExecutor
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
@@ -40,6 +42,7 @@ class ClusterTimerScheduler(
     private val properties: ClusterProperties,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
+    private val maintenanceExecutor: ClusterMaintenanceExecutor,
     handlers: List<ClusterTimerHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -48,9 +51,15 @@ class ClusterTimerScheduler(
     @Volatile
     private var shuttingDown = false
 
+    private val leaseRenewer = ClusterLeaseRenewer(
+        scheduler = maintenanceExecutor.scheduler,
+        renewIntervalMs = properties.timers.leaseDurationMs / 3,
+    ) { keys -> MediatorContext.runWithMediator(mediator) { timerRegistry.renewLeases(keys) } }
+
     @PreDestroy
     fun shutdown() {
         shuttingDown = true
+        leaseRenewer.close()
     }
 
     @Scheduled(fixedDelayString = "\${epistola.cluster.timers.poll-interval-ms:1000}")
@@ -75,7 +84,7 @@ class ClusterTimerScheduler(
                 .map { it.timerKey }
 
             val claimed = timerRegistry.claimDue(ownedCandidateKeys)
-            claimed.forEach { timer -> dispatch(timer) }
+            claimed.forEach { timer -> leaseRenewer.withRenewal(timer.timerKey) { dispatch(timer) } }
         }
     }
 
@@ -101,7 +110,8 @@ class ClusterTimerScheduler(
         }
 
         try {
-            when (val result = handler.handle(timer)) {
+            val result = meterRegistry.recordScheduledTask("cluster-timer:${timer.timerType}") { handler.handle(timer) }
+            when (result) {
                 ClusterTimerResult.Complete -> timerRegistry.complete(timer.timerKey)
                 is ClusterTimerResult.Reschedule -> timerRegistry.reschedule(timer.timerKey, result.nextDueAt, result.payload)
             }

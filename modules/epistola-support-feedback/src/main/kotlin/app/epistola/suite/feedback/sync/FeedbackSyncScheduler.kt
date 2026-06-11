@@ -2,6 +2,7 @@ package app.epistola.suite.feedback.sync
 
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.FeedbackAssetId
@@ -61,6 +62,7 @@ class FeedbackSyncScheduler(
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
         schedule = ClusterScheduledTaskSchedule.FixedDelay(properties.retryIntervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
     )
 
     override fun handle(task: ClusterScheduledTask) {

@@ -324,6 +324,26 @@ class ClusterTimerRegistryIT : IntegrationTestBase() {
         assertThat(timer?.leaseOwnerNodeId).isNull()
     }
 
+    @Test
+    fun `renewing a lease keeps the timer owned so another node cannot reclaim it`() {
+        deleteTimer("timer-renew")
+        registry.schedule("timer-renew", "tenant-a", "test", now().plusMinutes(1))
+        testClock.advanceBy(Duration.ofSeconds(61))
+        nodeRegistry.heartbeat()
+        registry.claimDue(listOf("timer-renew")).single() // lease expires in 30s
+
+        testClock.advanceBy(Duration.ofSeconds(25))
+        assertThat(registry.renewLeases(listOf("timer-renew"))).isEqualTo(1)
+
+        testClock.advanceBy(Duration.ofSeconds(10)) // past the original lease, inside the renewed one
+        nodeRegistryFor("timer-node-b").heartbeat()
+        val nodeB = registryFor("timer-node-b")
+
+        assertThat(nodeB.renewLeases(listOf("timer-renew"))).isZero()
+        assertThat(nodeB.claimDue(listOf("timer-renew"))).isEmpty()
+        assertThat(registry.find("timer-renew")?.leaseOwnerNodeId).isEqualTo(nodeIdentity.nodeId)
+    }
+
     private fun deleteTimer(timerKey: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM cluster_timers WHERE timer_key = :timerKey")
