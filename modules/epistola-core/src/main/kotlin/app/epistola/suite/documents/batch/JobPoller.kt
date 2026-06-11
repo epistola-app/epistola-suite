@@ -1,11 +1,17 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
 import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.MeterRegistry
@@ -15,7 +21,7 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
@@ -53,8 +59,10 @@ class JobPoller(
     private val properties: JobPollingProperties,
     private val batchSizer: AdaptiveBatchSizer,
     private val meterRegistry: MeterRegistry,
-) {
+    private val mediator: Mediator,
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeJobs = AtomicInteger(0)
     private val shuttingDown = AtomicBoolean(false)
@@ -164,12 +172,16 @@ class JobPoller(
             .execute()
     }
 
-    /**
-     * Scheduled poll that triggers a drain. Serves as fallback safety net.
-     * The primary driver is on-completion re-polling via [requestDrain].
-     */
-    @Scheduled(fixedDelayString = "\${epistola.generation.polling.interval-ms:5000}")
-    fun scheduledPoll() {
+    @Bean
+    fun jobPollerScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(properties.intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
         requestDrain()
     }
 
@@ -180,7 +192,7 @@ class JobPoller(
     fun requestDrain() {
         if (shuttingDown.get()) return
         if (drainRequested.compareAndSet(false, true)) {
-            drainExecutor.submit { drain() }
+            drainExecutor.submit(MediatorContext.runnable(mediator) { drain() })
         }
     }
 
@@ -251,49 +263,49 @@ class JobPoller(
                     logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
-                    jobThreadExecutor.submit {
-                        var jobOutcome = "success"
-                        try {
-                            SecurityContext.runWithPrincipal(systemPrincipal(request.tenantKey)) {
+                    jobThreadExecutor.submit(
+                        MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
+                            var jobOutcome = "success"
+                            try {
                                 jobExecutor.execute(request)
-                            }
-                            jobsCompletedCounter.increment()
-                        } catch (e: Exception) {
-                            jobOutcome = "failure"
-                            logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
-                            jobsFailedCounter.increment()
-                            markRequestFailed(request.id, e.message)
-                        } finally {
-                            // Record duration via Micrometer timer and report to adaptive batch sizer
-                            val sample = jobTimers.remove(request.id)
-                            val durationMs = sample?.let {
-                                val timer = Timer.builder("epistola.jobs.duration")
-                                    .tag("outcome", jobOutcome)
-                                    .register(meterRegistry)
-                                val nanos = it.stop(timer)
-                                nanos / 1_000_000 // convert to ms for batch sizer
-                            }
-                            val newActiveCount = synchronized(idleLatchLock) {
-                                val count = activeJobs.decrementAndGet()
-                                if (count == 0) {
-                                    idleLatch.countDown()
+                                jobsCompletedCounter.increment()
+                            } catch (e: Exception) {
+                                jobOutcome = "failure"
+                                logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
+                                jobsFailedCounter.increment()
+                                markRequestFailed(request.id, e.message)
+                            } finally {
+                                // Record duration via Micrometer timer and report to adaptive batch sizer
+                                val sample = jobTimers.remove(request.id)
+                                val durationMs = sample?.let {
+                                    val timer = Timer.builder("epistola.jobs.duration")
+                                        .tag("outcome", jobOutcome)
+                                        .register(meterRegistry)
+                                    val nanos = it.stop(timer)
+                                    nanos / 1_000_000 // convert to ms for batch sizer
                                 }
-                                count
+                                val newActiveCount = synchronized(idleLatchLock) {
+                                    val count = activeJobs.decrementAndGet()
+                                    if (count == 0) {
+                                        idleLatch.countDown()
+                                    }
+                                    count
+                                }
+                                if (durationMs != null) {
+                                    batchSizer.recordJobCompletion(durationMs)
+                                    logger.info(
+                                        "Job completed: {} in {}ms | Active: {}/{}",
+                                        request.id.value,
+                                        durationMs,
+                                        newActiveCount,
+                                        properties.maxConcurrentJobs,
+                                    )
+                                }
+                                // Signal: slot freed, check for more work immediately
+                                requestDrain()
                             }
-                            if (durationMs != null) {
-                                batchSizer.recordJobCompletion(durationMs)
-                                logger.info(
-                                    "Job completed: {} in {}ms | Active: {}/{}",
-                                    request.id.value,
-                                    durationMs,
-                                    newActiveCount,
-                                    properties.maxConcurrentJobs,
-                                )
-                            }
-                            // Signal: slot freed, check for more work immediately
-                            requestDrain()
-                        }
-                    }
+                        },
+                    )
                 }
             }
 
@@ -395,6 +407,10 @@ class JobPoller(
     }
 
     companion object {
+        const val TASK_KEY = "core.document-job-poller"
+        const val ROUTING_KEY = "system:core.document-job-poller"
+        const val TASK_TYPE = "core.document-job-poller"
+
         /**
          * Creates a system principal for background job execution.
          *

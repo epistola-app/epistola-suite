@@ -21,6 +21,7 @@ import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
 
 /**
@@ -118,6 +119,7 @@ class ScenarioBuilder(private val namespace: String) {
     @ScenarioDsl
     inner class GivenScope {
         private val capturedMediator = MediatorContext.current()
+        private val capturedClock = EpistolaClock.capture()
 
         /**
          * Executes a command and returns its result.
@@ -128,6 +130,12 @@ class ScenarioBuilder(private val namespace: String) {
          * Executes a query and returns its result.
          */
         fun <R> query(query: Query<R>): R = capturedMediator.query(query)
+
+        /**
+         * Runs a callback with the clock captured when the scenario was created.
+         * Use this for test callbacks that execute on a different thread.
+         */
+        fun <R> withClock(block: () -> R): R = EpistolaClock.withClock(capturedClock, block)
 
         /**
          * Creates a tenant with a unique ID within the namespace.
@@ -233,6 +241,7 @@ class GivenResult<G>(
 class WhenScope {
     // Capture mediator reference to support awaitility and other thread-switching callbacks
     private val capturedMediator = MediatorContext.current()
+    private val capturedClock = EpistolaClock.capture()
 
     /**
      * Executes a command and returns its result.
@@ -243,6 +252,12 @@ class WhenScope {
      * Executes a query and returns its result.
      */
     fun <R> query(query: Query<R>): R = capturedMediator.query(query)
+
+    /**
+     * Runs a callback with the clock captured when the scenario entered the
+     * action phase. Use this for test callbacks that execute on a different thread.
+     */
+    fun <R> withClock(block: () -> R): R = EpistolaClock.withClock(capturedClock, block)
 }
 
 /**
@@ -274,8 +289,12 @@ class WhenResult<G, W>(
  */
 @ScenarioDsl
 class ThenScope {
-    fun <R> execute(command: Command<R>): R = MediatorContext.current().send(command)
-    fun <R> query(query: Query<R>): R = MediatorContext.current().query(query)
+    private val capturedMediator = MediatorContext.current()
+    private val capturedClock = EpistolaClock.capture()
+
+    fun <R> execute(command: Command<R>): R = capturedMediator.send(command)
+    fun <R> query(query: Query<R>): R = capturedMediator.query(query)
+    fun <R> withClock(block: () -> R): R = EpistolaClock.withClock(capturedClock, block)
 }
 
 // ============================================================================

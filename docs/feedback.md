@@ -145,11 +145,11 @@ JavaScript module that monkey-patches `console.*` methods to buffer the last 100
 - Triggered after feedback creation (event listener, fires `AFTER_COMMIT`)
 - Creates a GitHub issue with description, source URL, console logs, and screenshot
 - Adds tenant label (e.g., `tenant:acme`)
-- On failure: sync_status stays PENDING, retried by scheduled job
+- On failure: sync_status stays PENDING, retried by the native scheduled task
 
 ### Inbound Sync (GitHub → Epistola)
 
-- Polling-based: `FeedbackPollScheduler` periodically fetches comments and status changes from GitHub
+- Polling-based: `FeedbackPollScheduler` is registered as a native scheduled task and periodically fetches comments and status changes from GitHub
 - Processes new comments → `SyncFeedbackComment`
 - Processes issue state changes (closed/reopened) → `UpdateFeedbackStatus`
 - Tenant lookup: match repo + label against `feedback_sync_config`

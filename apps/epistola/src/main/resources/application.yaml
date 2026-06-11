@@ -109,6 +109,23 @@ epistola:
     # Implementation-Version manifest entry — see GetServerInfoHandler. Don't add
     # it here as a property; the contract is the source of truth.
 
+  # Phase 1 horizontal-scaling runtime. The node registry is intentionally small:
+  # each replica heartbeats its identity and capabilities into Postgres so later
+  # clustered timer events, durable processes, cache fanout, and renderer-node
+  # capability routing have one source of cluster truth. A single deployment is
+  # treated as a one-node cluster.
+  cluster:
+    heartbeat-interval-ms: 2000
+    idle-timeout-ms: 10000
+    timers:
+      poll-interval-ms: 1000
+      lease-duration-ms: 30000
+      retry-delay-ms: 30000
+      batch-size: 25
+      candidate-scan-size: 250
+    capabilities:
+      - suite
+
   # Postgres declarative-partitioning maintenance.
   # `retention-months` applies to documents + document_generation_requests.
   # `generation-results-retention-months` applies to generation_results — kept
@@ -121,9 +138,9 @@ epistola:
     maintenance-cron: "0 0 2 * * ?" # daily at 02:00
 
   # Observability — installation-wide stat gauges (epistola.installation.*).
-  # Every replica runs the schedule, but only the holder of a Postgres advisory
-  # lock publishes the counts each round (the rest report NaN, which is omitted),
-  # so there is exactly one live series across the fleet.
+  # Runs as an all-node native scheduled task, but only the holder of a Postgres
+  # advisory lock publishes the counts each round (the rest report NaN, which is
+  # omitted), so there is exactly one live series across the fleet.
   metrics:
     installation-stats:
       enabled: true

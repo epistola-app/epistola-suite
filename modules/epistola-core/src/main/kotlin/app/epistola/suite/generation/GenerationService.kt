@@ -17,6 +17,7 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
+import app.epistola.suite.time.EpistolaClock
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
@@ -104,6 +105,7 @@ class GenerationService(
             renderingDefaults = renderingDefaults,
             renderMode = RenderMode.PREVIEW,
             culture = culture,
+            clock = EpistolaClock.current(),
         )
     }
 
@@ -145,6 +147,7 @@ class GenerationService(
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
             culture = culture,
+            clock = EpistolaClock.current(),
         )
     }
 
@@ -162,7 +165,7 @@ class GenerationService(
         outputStream: OutputStream,
         metadata: PdfMetadata = PdfMetadata(),
     ) {
-        pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream, metadata = metadata)
+        pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream, metadata = metadata, clock = EpistolaClock.current())
     }
 
     /**

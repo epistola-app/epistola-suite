@@ -1,5 +1,10 @@
 package app.epistola.suite.feedback.sync
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.common.ids.FeedbackId
@@ -19,14 +24,12 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
@@ -35,11 +38,10 @@ import org.springframework.stereotype.Component
  * id. Items that exceed max retries are marked FAILED and no longer retried.
  *
  * Only active when `epistola.feedback.sync.enabled` is true, and only does work when a real
- * sync target is wired (the support tier is enabled). In a multi-pod deployment [SchedulerLock]
- * ensures only one instance runs the sweep per cycle.
+ * sync target is wired (the support tier is enabled). The native scheduled-task lease ensures
+ * only one node runs the sweep per cycle.
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(
     name = ["epistola.feedback.sync.enabled"],
     havingValue = "true",
@@ -48,25 +50,36 @@ import org.springframework.stereotype.Component
 class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
-    private val schedulerLock: SchedulerLock,
+    private val properties: FeedbackSyncProperties,
     private val meterRegistry: MeterRegistry,
-) {
+) : ClusterScheduledTaskHandler {
     private val log = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
-    @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
+    @Bean
+    fun feedbackRetryScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(properties.retryIntervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        retryPendingSync()
+    }
+
     fun retryPendingSync() {
-        schedulerLock.runExclusively(SchedulerLock.FEEDBACK_RETRY) {
-            MediatorContext.runWithMediator(mediator) {
-                if (!feedbackSyncPort.isEnabled()) return@runWithMediator
-                // Skip the whole sweep until registered, so we neither call the hub nor burn
-                // sync attempts during the startup window before registration completes.
-                if (!feedbackSyncPort.isReady()) {
-                    log.debug("Feedback sync target not ready yet (installation not registered); skipping retry sweep")
-                    return@runWithMediator
-                }
-                retryPendingFeedback()
-                retryPendingComments()
+        MediatorContext.runWithMediator(mediator) {
+            if (!feedbackSyncPort.isEnabled()) return@runWithMediator
+            // Skip the whole sweep until registered, so we neither call the hub nor burn
+            // sync attempts during the startup window before registration completes.
+            if (!feedbackSyncPort.isReady()) {
+                log.debug("Feedback sync target not ready yet (installation not registered); skipping retry sweep")
+                return@runWithMediator
             }
+            retryPendingFeedback()
+            retryPendingComments()
         }
     }
 
@@ -160,5 +173,11 @@ class FeedbackSyncScheduler(
             log.debug("Feedback {} sync attempt {} failed, will retry", feedback.id, nextAttempt)
             UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.PENDING, incrementAttempts = true).execute()
         }
+    }
+
+    companion object {
+        const val TASK_KEY = "feedback.sync.retry"
+        const val ROUTING_KEY = "system:feedback.sync.retry"
+        const val TASK_TYPE = "feedback.sync.retry"
     }
 }

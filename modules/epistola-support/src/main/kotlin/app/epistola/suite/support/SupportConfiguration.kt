@@ -38,6 +38,9 @@ class SupportConfiguration {
     @Bean
     fun installationStore(metadata: AppMetadataService): InstallationStore = AppMetadataInstallationStore(metadata)
 
+    @Bean
+    fun entitlementStore(metadata: AppMetadataService): EntitlementStore = EntitlementStore(metadata)
+
     /**
      * Resolved during context refresh. `installations.get()` reads
      * `app_metadata`, so we must wait for Flyway. Spring Boot adds
@@ -136,6 +139,17 @@ class SupportConfiguration {
      */
     @Bean
     fun startHubRegistration(
+        client: EpistolaHubClient,
         loop: HubRegistrationRetryLoop,
-    ): ApplicationListener<ApplicationReadyEvent> = ApplicationListener { loop.start() }
+        entitlementSync: EntitlementSyncService,
+        revisionTrigger: EntitlementRevisionTrigger,
+    ): ApplicationListener<ApplicationReadyEvent> = ApplicationListener {
+        // Refresh entitlements whenever the hub reports a newer revision on any response header.
+        client.addEntitlementsRevisionListener { revision -> revisionTrigger.observe(revision) }
+        loop.start()
+        // If the inline registration above succeeded, credentials now exist and we fetch the
+        // entitlement set immediately; otherwise this is a quiet no-op and the periodic
+        // refresh (EntitlementRefreshScheduler) picks it up once registration completes.
+        entitlementSync.refresh()
+    }
 }

@@ -1,9 +1,9 @@
 package app.epistola.suite.storage
 
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import java.io.ByteArrayInputStream
 import java.io.InputStream
-import java.time.OffsetDateTime
 
 /**
  * PostgreSQL-backed content store using a dedicated `content_store` key-value table.
@@ -32,7 +32,7 @@ class PostgresContentStore(
                 .bind("content", bytes)
                 .bind("contentType", contentType)
                 .bind("sizeBytes", sizeBytes)
-                .bind("createdAt", OffsetDateTime.now())
+                .bind("createdAt", EpistolaClock.offsetDateTime())
                 .execute()
         }
     }

@@ -1,10 +1,15 @@
 package app.epistola.suite.documents.cleanup
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskRegistry
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskScheduler
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.Isolated
 import org.springframework.beans.factory.annotation.Autowired
+import java.time.Duration
+import java.time.OffsetDateTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
@@ -16,6 +21,7 @@ import java.time.format.DateTimeFormatter
  * default 1) distinct from the default `retention-months` (3) used by
  * documents/document_generation_requests.
  */
+@Isolated("Drops and recreates shared partition tables while asserting scheduler side effects")
 class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -24,11 +30,27 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var scheduler: PartitionMaintenanceScheduler
 
+    @Autowired
+    private lateinit var clusterScheduledTaskScheduler: ClusterScheduledTaskScheduler
+
+    @Autowired
+    private lateinit var scheduledTaskRegistry: ClusterScheduledTaskRegistry
+
+    @Test
+    fun `registers a clustered scheduled task definition`() {
+        val task = scheduledTaskRegistry.find(PartitionMaintenanceScheduler.TASK_KEY)
+
+        assertThat(task).isNotNull
+        assertThat(task?.routingKey).isEqualTo(PartitionMaintenanceScheduler.ROUTING_KEY)
+        assertThat(task?.taskType).isEqualTo(PartitionMaintenanceScheduler.TASK_TYPE)
+        assertThat(task?.cronExpression).isEqualTo("0 0 2 * * ?")
+    }
+
     @Test
     fun `bootstraps current and next month partitions for generation_results`() {
         scheduler.maintainPartitions()
 
-        val now = YearMonth.now()
+        val now = YearMonth.now(testClock)
         val curSuffix = now.format(DateTimeFormatter.ofPattern("yyyy_MM"))
         val nextSuffix = now.plusMonths(1).format(DateTimeFormatter.ofPattern("yyyy_MM"))
 
@@ -41,11 +63,37 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `cluster scheduled task poll runs partition maintenance handler after time advances past due`() = scenario {
+        given {
+            val task = scheduledTaskRegistry.find(PartitionMaintenanceScheduler.TASK_KEY)
+                ?: error("Partition maintenance scheduled task was not registered")
+            val nextMonth = YearMonth.from(task.nextDueAt).plusMonths(1)
+            val nextSuffix = nextMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))
+            val sentinelTable = "generation_results_$nextSuffix"
+            jdbi.useHandle<Exception> { handle ->
+                handle.execute("DROP TABLE IF EXISTS $sentinelTable CASCADE")
+            }
+            assertThat(tableExists(sentinelTable)).isFalse
+            PartitionMaintenancePollSetup(
+                sentinelTable = sentinelTable,
+                nextDueAt = task.nextDueAt,
+            )
+        }.whenever { setup ->
+            advancePast(setup.nextDueAt)
+            clusterScheduledTaskScheduler.poll()
+        }.then { setup, _ ->
+            assertThat(tableExists(setup.sentinelTable))
+                .`as`("cluster scheduled task poll should dispatch partition maintenance")
+                .isTrue
+        }
+    }
+
+    @Test
     fun `is idempotent — re-running maintenance does not throw or create duplicates`() {
         scheduler.maintainPartitions()
         scheduler.maintainPartitions()
 
-        val now = YearMonth.now()
+        val now = YearMonth.now(testClock)
         val curSuffix = now.format(DateTimeFormatter.ofPattern("yyyy_MM"))
         // Exactly one current-month partition for each managed table.
         assertThat(countTablesLike("generation_results_$curSuffix")).isEqualTo(1)
@@ -57,7 +105,7 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
     fun `drops a manually-created old partition past the retention window`() {
         // generation_results uses the 1-month default; create a 2-year-old partition
         // so it's well past the cutoff and must be swept.
-        val ancient = YearMonth.now().minusYears(2)
+        val ancient = YearMonth.now(testClock).minusYears(2)
         val ancientSuffix = ancient.format(DateTimeFormatter.ofPattern("yyyy_MM"))
         val name = "generation_results_$ancientSuffix"
         jdbi.useHandle<Exception> { handle ->
@@ -88,7 +136,7 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
         // (other parallel ITs in this suite insert into it), so dropping it would
         // destroy their rows. Next-month exists (created by prior maintainPartitions
         // calls in other tests) but is empty.
-        val nextMonth = YearMonth.now().plusMonths(1)
+        val nextMonth = YearMonth.now(testClock).plusMonths(1)
         val nextSuffix = nextMonth.format(DateTimeFormatter.ofPattern("yyyy_MM"))
         val sentinelTable = "generation_results_$nextSuffix"
 
@@ -151,4 +199,14 @@ class PartitionMaintenanceSchedulerIT : IntegrationTestBase() {
             .mapTo(Int::class.java)
             .one()
     }
+
+    private fun advancePast(dueAt: OffsetDateTime) {
+        testClock.set(dueAt.toInstant().minusSeconds(1))
+        testClock.advanceBy(Duration.ofSeconds(2))
+    }
+
+    private data class PartitionMaintenancePollSetup(
+        val sentinelTable: String,
+        val nextDueAt: OffsetDateTime,
+    )
 }

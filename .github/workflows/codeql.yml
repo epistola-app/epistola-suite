@@ -67,7 +67,16 @@ jobs:
 
       - name: Build backend
         if: matrix.build-mode == 'manual'
-        run: gradle classes --no-daemon --no-build-cache
+        # CodeQL's manual build mode reserves almost all of the runner's RAM for
+        # its extractor (CODEQL_RAM defaults to total - 2g ≈ 14.5g on a 16g
+        # runner), which starves the Kotlin compile daemon and fails compileKotlin
+        # with "OutOfMemoryError: Java heap space". Cap CodeQL's budget to leave
+        # headroom and give the Gradle/Kotlin JVMs explicit, bounded heaps.
+        env:
+          CODEQL_RAM: "6144"
+          CODEQL_EXTRACTOR_JAVA_RAM: "6144"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g"
+        run: gradle classes --no-daemon --no-build-cache -Pkotlin.daemon.jvmargs=-Xmx4g
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4

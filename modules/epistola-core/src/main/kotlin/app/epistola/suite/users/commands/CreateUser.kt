@@ -4,12 +4,12 @@ import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
-import java.time.OffsetDateTime
 
 /**
  * Command to create a new user.
@@ -30,12 +30,13 @@ class CreateUserHandler(
 ) : CommandHandler<CreateUser, User> {
     override fun handle(command: CreateUser): User {
         val userId = UserKey.generate()
+        val createdAt = EpistolaClock.offsetDateTime()
 
         jdbi.withHandleUnchecked { handle ->
             handle.createUpdate(
                 """
                 INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
-                VALUES (:id, :externalId, :email, :displayName, :provider, true, NOW())
+                VALUES (:id, :externalId, :email, :displayName, :provider, true, :createdAt)
                 """,
             )
                 .bind("id", userId.value)
@@ -43,6 +44,7 @@ class CreateUserHandler(
                 .bind("email", command.email)
                 .bind("displayName", command.displayName)
                 .bind("provider", command.provider.name)
+                .bind("createdAt", createdAt)
                 .execute()
         }
 
@@ -54,7 +56,7 @@ class CreateUserHandler(
             provider = command.provider,
             tenantMemberships = emptyMap(),
             enabled = true,
-            createdAt = OffsetDateTime.now(),
+            createdAt = createdAt,
             lastLoginAt = null,
         )
     }

@@ -85,12 +85,12 @@ virtual nodes per real node — so a 10 → 11 suite scale-up
 reshuffles only ~10% of consumer connections. At 16k consumers
 that's ~1.6k reconnects on a scale event. Bursty but bounded.
 
-## Server-side bookkeeping — `suite_nodes` heartbeat table
+## Server-side bookkeeping — `cluster_nodes` heartbeat table
 
 Exact same shape as `consumer_node_assignments` from v0.3:
 
 ```sql
-CREATE TABLE suite_nodes (
+CREATE TABLE cluster_nodes (
     instance_id  TEXT PRIMARY KEY,    -- self-chosen (pod name, hostname)
     base_url     TEXT NOT NULL,       -- where peers can reach this instance
     last_seen_at TIMESTAMPTZ NOT NULL,
@@ -136,7 +136,7 @@ disagree on ownership.
 
 **Design choice: the receiving suite instance is authoritative.**
 When a connection arrives at suite-S, S asks "based on my current
-view of `suite_nodes`, am I the right owner for this consumer
+view of `cluster_nodes`, am I the right owner for this consumer
 node?" If yes, accept the SSE upgrade. If no, respond with
 `307 Temporary Redirect` to the correct `base_url`. The client
 follows the redirect.
@@ -244,14 +244,14 @@ if the suite ever grows beyond a single PG cluster.
 
 ### Suite
 
-- New table `suite_nodes` + heartbeat `@Scheduled` (mirror of
+- New table `cluster_nodes` + heartbeat `@Scheduled` (mirror of
   the existing `consumer_node_assignments` pattern in
   `TouchConsumerNode`).
 - New `ServerRing` class — a thin wrapper around the existing
   `ConsistentHashRing` with the consumer-node-id → suite-instance
   mapping.
-- New query `GetActiveSuiteNodes` returning the cluster view from
-  `suite_nodes`.
+- New query `GetActiveClusterNodes` returning the cluster view from
+  `cluster_nodes`.
 - New public endpoint `GET /api/cluster/nodes` returning that view
   (anonymous read OK — no secrets in the response).
 - New internal endpoint `POST /internal/push` for peer-to-peer
@@ -304,7 +304,7 @@ Not now. Captured so they're not forgotten:
    2× its normal connection rate. Need to ensure thread-pool /
    accept-queue limits don't trigger.
 4. **Registry-table query load at large suite-cluster sizes.**
-   Every suite instance polls `suite_nodes` every N seconds; every
+   Every suite instance polls `cluster_nodes` every N seconds; every
    client polls `/api/cluster/nodes` every 30 s. At 100 suite
    instances + 16k clients that's nontrivial query load even
    though the table is tiny. Cacheable with a short TTL, but

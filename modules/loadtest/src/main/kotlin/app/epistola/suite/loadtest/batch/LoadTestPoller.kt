@@ -1,5 +1,10 @@
 package app.epistola.suite.loadtest.batch
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.loadtest.model.LoadTestRunKey
@@ -8,17 +13,16 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.net.InetAddress
-import java.time.OffsetDateTime
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -36,23 +40,34 @@ import java.util.concurrent.atomic.AtomicInteger
 )
 class LoadTestPoller(
     private val jdbi: Jdbi,
-    private val mediator: Mediator,
     private val loadTestExecutor: LoadTestExecutor,
+    private val mediator: Mediator,
     @Value("\${epistola.loadtest.polling.max-concurrent-tests:1}")
     private val maxConcurrentTests: Int,
     @Value("\${epistola.loadtest.polling.stale-timeout-minutes:10}")
     private val staleTimeoutMinutes: Int,
-) {
+    @Value("\${epistola.loadtest.polling.interval-ms:5000}")
+    private val intervalMs: Long,
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeTests = AtomicInteger(0)
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
-    /**
-     * Poll for pending load tests and claim one if capacity allows.
-     * Runs on a fixed delay to ensure continuous polling without overlapping.
-     */
-    @Scheduled(fixedDelayString = "\${epistola.loadtest.polling.interval-ms:5000}")
+    @Bean
+    fun loadTestPollerScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        poll()
+    }
+
     fun poll() {
         if (activeTests.get() >= maxConcurrentTests) {
             logger.debug("Max concurrent tests reached ({}), skipping poll", maxConcurrentTests)
@@ -68,21 +83,18 @@ class LoadTestPoller(
             logger.info("Claimed load test run {} (active tests: {})", run.id, activeTests.get())
 
             // Execute on virtual thread, don't block the scheduler
-            executor.submit {
-                try {
-                    // Bind system principal + mediator for the virtual thread
-                    SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
-                        MediatorContext.runWithMediator(mediator) {
-                            loadTestExecutor.execute(run)
-                        }
+            executor.submit(
+                MediatorContext.runnable(mediator, SYSTEM_PRINCIPAL) {
+                    try {
+                        loadTestExecutor.execute(run)
+                    } catch (e: Exception) {
+                        logger.error("Load test execution failed for run {}: {}", run.id, e.message, e)
+                        markRunFailed(run.id, e.message)
+                    } finally {
+                        activeTests.decrementAndGet()
                     }
-                } catch (e: Exception) {
-                    logger.error("Load test execution failed for run {}: {}", run.id, e.message, e)
-                    markRunFailed(run.id, e.message)
-                } finally {
-                    activeTests.decrementAndGet()
-                }
-            }
+                },
+            )
         }
     }
 
@@ -160,7 +172,7 @@ class LoadTestPoller(
             )
                 .bind("pendingStatus", LoadTestStatus.PENDING.name)
                 .bind("runningStatus", LoadTestStatus.RUNNING.name)
-                .bind("staleThreshold", OffsetDateTime.now().minusMinutes(staleTimeoutMinutes.toLong()))
+                .bind("staleThreshold", EpistolaClock.offsetDateTime().minusMinutes(staleTimeoutMinutes.toLong()))
                 .execute()
         }
 
@@ -170,6 +182,10 @@ class LoadTestPoller(
     }
 
     companion object {
+        const val TASK_KEY = "loadtest.poller"
+        const val ROUTING_KEY = "system:loadtest.poller"
+        const val TASK_TYPE = "loadtest.poller"
+
         /** System principal for load test execution — runs with full access. */
         private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
             userId = UserKey.of(java.util.UUID.nameUUIDFromBytes("loadtest@epistola.app".toByteArray())),

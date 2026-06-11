@@ -1,5 +1,10 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.observability.recordScheduledTask
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
@@ -7,7 +12,7 @@ import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -28,8 +33,9 @@ class StaleJobRecovery(
     private val meterRegistry: MeterRegistry,
     @Value("\${epistola.generation.polling.stale-timeout-minutes:10}")
     private val staleTimeoutMinutes: Long,
-) {
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
     @Volatile
     private var shuttingDown = false
@@ -40,10 +46,19 @@ class StaleJobRecovery(
         shuttingDown = true
     }
 
-    /**
-     * Check for and recover stale jobs every minute.
-     */
-    @Scheduled(fixedRate = 60000) // Every minute
+    @Bean
+    fun staleJobRecoveryScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedRate(INTERVAL_MS),
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        recoverStaleJobs()
+    }
+
     fun recoverStaleJobs() {
         if (shuttingDown) return
 
@@ -85,5 +100,12 @@ class StaleJobRecovery(
                 logger.warn("Recovered {} stale jobs (reset to PENDING)", requestsReset)
             }
         }
+    }
+
+    companion object {
+        const val TASK_KEY = "core.stale-job-recovery"
+        const val ROUTING_KEY = "system:core.stale-job-recovery"
+        const val TASK_TYPE = "core.stale-job-recovery"
+        const val INTERVAL_MS = 60_000L
     }
 }

@@ -1,5 +1,11 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.time.EpistolaClock
+import java.time.Clock
+import java.util.concurrent.Callable
+
 /**
  * Provides thread-scoped access to the Mediator instance using ScopedValue.
  *
@@ -16,18 +22,32 @@ package app.epistola.suite.mediator
  * - Use `MediatorContext.runWithMediator(mediator) { ... }` to explicitly bind scope
  */
 object MediatorContext {
-    private val scopedMediator: ScopedValue<Mediator> = ScopedValue.newInstance()
+    private val scopedContext: ScopedValue<MediatorExecutionContext> = ScopedValue.newInstance()
 
     /**
      * Returns the currently bound Mediator instance.
      *
      * @throws IllegalStateException if no mediator is bound in the current scope
      */
-    fun current(): Mediator = scopedMediator.orElseThrow {
+    fun current(): Mediator = currentExecutionContext().mediator
+
+    private fun currentExecutionContext(): MediatorExecutionContext = scopedContext.orElseThrow {
         IllegalStateException(
             "No Mediator bound to current scope. " +
                 "Ensure code is running within MediatorFilter (HTTP requests) " +
                 "or MediatorContext.runWithMediator() (tests/background tasks).",
+        )
+    }
+
+    fun currentClockOrNull(): Clock? = if (scopedContext.isBound) scopedContext.get().clock else null
+
+    fun currentClock(): Clock = currentExecutionContext().clock
+
+    internal fun capture(): MediatorExecutionContext {
+        val context = currentExecutionContext()
+        return context.copy(
+            clock = EpistolaClock.capture(),
+            principal = SecurityContext.currentOrNull(),
         )
     }
 
@@ -45,10 +65,34 @@ object MediatorContext {
     fun <T> runWithMediator(
         mediator: Mediator,
         block: () -> T,
-    ): T = ScopedValue.where(scopedMediator, mediator).call<T, RuntimeException>(block)
+    ): T = runWithContext(MediatorExecutionContext(mediator = mediator, clock = EpistolaClock.capture()), block)
+
+    fun runnable(
+        mediator: Mediator,
+        principal: EpistolaPrincipal? = SecurityContext.currentOrNull(),
+        block: () -> Unit,
+    ): Runnable = MediatorExecutionContext.capture(mediator, principal).runnable(block)
+
+    fun <T> callable(
+        mediator: Mediator,
+        principal: EpistolaPrincipal? = SecurityContext.currentOrNull(),
+        block: () -> T,
+    ): Callable<T> = MediatorExecutionContext.capture(mediator, principal).callable(block)
+
+    internal fun <T> runWithContext(
+        context: MediatorExecutionContext,
+        block: () -> T,
+    ): T = ScopedValue.where(scopedContext, context).call<T, RuntimeException> {
+        val principal = context.principal
+        if (principal == null) {
+            block()
+        } else {
+            SecurityContext.runWithPrincipal(principal, block)
+        }
+    }
 
     /**
      * Checks if a mediator is currently bound to the scope.
      */
-    fun isBound(): Boolean = scopedMediator.isBound
+    fun isBound(): Boolean = scopedContext.isBound
 }

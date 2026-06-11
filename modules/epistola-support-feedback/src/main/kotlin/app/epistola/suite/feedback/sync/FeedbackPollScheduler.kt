@@ -1,5 +1,10 @@
 package app.epistola.suite.feedback.sync
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
 import app.epistola.suite.feedback.commands.SyncFeedbackStatus
@@ -10,12 +15,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
-import app.epistola.suite.scheduling.SchedulerLock
 import app.epistola.suite.security.SecurityContext
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
@@ -28,11 +31,9 @@ import org.springframework.stereotype.Component
  * (no wall-clock involved). Only active when `epistola.feedback.sync.polling.enabled=true`,
  * and only does work when a real sync target is wired (the support tier is enabled).
  *
- * In a multi-pod deployment every instance schedules this; [SchedulerLock] ensures only one
- * polls per cycle.
+ * The native scheduled-task lease ensures only one node polls per cycle.
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(
     name = ["epistola.feedback.sync.polling.enabled"],
     havingValue = "true",
@@ -42,17 +43,26 @@ class FeedbackPollScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
     private val appMetadata: AppMetadataService,
-    private val schedulerLock: SchedulerLock,
-) {
+    private val properties: FeedbackSyncProperties,
+) : ClusterScheduledTaskHandler {
     private val log = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
 
-    @Scheduled(fixedDelayString = "\${epistola.feedback.sync.polling.interval-ms:300000}")
+    @Bean
+    fun feedbackPollScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(properties.polling.intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
+        pollForUpdates()
+    }
+
     fun pollForUpdates() {
-        schedulerLock.runExclusively(SchedulerLock.FEEDBACK_POLL) {
-            MediatorContext.runWithMediator(mediator) {
-                drainUpdates()
-            }
-        }
+        MediatorContext.runWithMediator(mediator) { drainUpdates() }
     }
 
     private fun drainUpdates() {
@@ -153,5 +163,9 @@ class FeedbackPollScheduler(
 
         /** Bound on pages drained per cycle so one run can't loop unbounded on a large backlog. */
         private const val MAX_PAGES_PER_RUN = 50
+
+        const val TASK_KEY = "feedback.sync.poll"
+        const val ROUTING_KEY = "system:feedback.sync.poll"
+        const val TASK_TYPE = "feedback.sync.poll"
     }
 }

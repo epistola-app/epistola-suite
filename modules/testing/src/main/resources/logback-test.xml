@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- Quiet framework startup noise in tests (Spring Boot startup, Flyway,
+         Hikari, Testcontainers, JDBI/Spring config all log at INFO); keep our
+         own application logs at INFO for debugging and failure context.
+         Logback prefers logback-test.xml over the production logback-spring.xml
+         when both are on the classpath, so this override applies to tests only. -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    <logger name="app.epistola" level="INFO"/>
+</configuration>
