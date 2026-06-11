@@ -67,6 +67,13 @@ data object ListClusterScheduledTasks :
     SystemInternal
 
 /**
+ * Lists per-node runtime state for all-node scheduled tasks.
+ */
+data object ListClusterScheduledTaskNodeStates :
+    Query<List<ClusterScheduledTaskNodeState>>,
+    SystemInternal
+
+/**
  * Command handler that persists scheduled task definitions through the internal
  * scheduled-task registry.
  */
@@ -115,4 +122,14 @@ class ListClusterScheduledTasksHandler(
     private val registry: ClusterScheduledTaskRegistry,
 ) : QueryHandler<ListClusterScheduledTasks, List<ClusterScheduledTask>> {
     override fun handle(query: ListClusterScheduledTasks): List<ClusterScheduledTask> = registry.list()
+}
+
+/**
+ * Query handler used by Operations and tests to inspect per-node scheduled task state.
+ */
+@Component
+class ListClusterScheduledTaskNodeStatesHandler(
+    private val registry: ClusterScheduledTaskRegistry,
+) : QueryHandler<ListClusterScheduledTaskNodeStates, List<ClusterScheduledTaskNodeState>> {
+    override fun handle(query: ListClusterScheduledTaskNodeStates): List<ClusterScheduledTaskNodeState> = registry.listNodeStates()
 }

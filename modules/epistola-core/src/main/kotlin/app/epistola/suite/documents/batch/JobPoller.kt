@@ -1,5 +1,10 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.cluster.schedules.ClusterScheduledTask
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
+import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.JobPollingProperties
@@ -16,7 +21,7 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
@@ -55,8 +60,9 @@ class JobPoller(
     private val batchSizer: AdaptiveBatchSizer,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
-) {
+) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+    override val taskType: String = TASK_TYPE
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeJobs = AtomicInteger(0)
     private val shuttingDown = AtomicBoolean(false)
@@ -166,12 +172,16 @@ class JobPoller(
             .execute()
     }
 
-    /**
-     * Scheduled poll that triggers a drain. Serves as fallback safety net.
-     * The primary driver is on-completion re-polling via [requestDrain].
-     */
-    @Scheduled(fixedDelayString = "\${epistola.generation.polling.interval-ms:5000}")
-    fun scheduledPoll() {
+    @Bean
+    fun jobPollerScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
+        taskKey = TASK_KEY,
+        routingKey = ROUTING_KEY,
+        taskType = TASK_TYPE,
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(properties.intervalMs),
+        executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+    )
+
+    override fun handle(task: ClusterScheduledTask) {
         requestDrain()
     }
 
@@ -397,6 +407,10 @@ class JobPoller(
     }
 
     companion object {
+        const val TASK_KEY = "core.document-job-poller"
+        const val ROUTING_KEY = "system:core.document-job-poller"
+        const val TASK_TYPE = "core.document-job-poller"
+
         /**
          * Creates a system principal for background job execution.
          *
