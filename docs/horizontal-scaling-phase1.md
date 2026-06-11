@@ -62,9 +62,10 @@ Future capability:
 ### Timers And Scheduled Tasks
 
 Scheduled tasks are durable recurring definitions in PostgreSQL. Spring
-`@Scheduled` remains only as the local wakeup for cluster heartbeat, one-shot
-timer polling, and scheduled-task polling; business jobs register native task
-definitions instead.
+`@Scheduled` remains only inside `WallClockClusterSchedulingDriver` — the
+production scheduling substrate that ticks the heartbeat, one-shot timer, and
+scheduled-task engines (see `docs/timers.md`, "Scheduling Substrate"); business
+jobs register native task definitions instead.
 
 Task rows carry a stable `task_key`, a routing key for sticky ownership, a
 required node capability, and an execution scope:

@@ -12,26 +12,26 @@ import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
- * Poller for one-shot cluster timers.
+ * Polling engine for one-shot cluster timers.
  *
- * Every Suite node runs this scheduler. Each poll reads due timer candidates,
- * filters the active node set by the timer's required capability, applies
- * rendezvous ownership over the routing key, and only then attempts to claim
- * owned rows through [ClusterTimerRegistry]. Claiming uses PostgreSQL row
- * leases, so competing nodes cannot execute the same claimed row at the same
- * time.
+ * Each [poll] reads due timer candidates, filters the active node set by the
+ * timer's required capability, applies rendezvous ownership over the routing
+ * key, and only then attempts to claim owned rows through
+ * [ClusterTimerRegistry]. Claiming uses PostgreSQL row leases, so competing
+ * nodes cannot execute the same claimed row at the same time.
  *
- * The scheduler dispatches handlers inside a [MediatorContext], which binds the
+ * This engine owns *what* a poll does, not *when* it runs — the active
+ * [app.epistola.suite.cluster.ClusterSchedulingDriver] decides the cadence
+ * (wall-clock ticks in production, explicit invocation in tests).
+ *
+ * The engine dispatches handlers inside a [MediatorContext], which binds the
  * mediator and current application clock. Missing handlers
  * and handler failures do not drop timers; they record the error and schedule a retry.
  */
 @Component
-@EnableScheduling
 class ClusterTimerScheduler(
     private val nodeRegistry: ClusterNodeRegistry,
     private val timerRegistry: ClusterTimerRegistry,
@@ -53,8 +53,9 @@ class ClusterTimerScheduler(
         shuttingDown = true
     }
 
-    @Scheduled(fixedDelayString = "\${epistola.cluster.timers.poll-interval-ms:1000}")
-    fun poll() = MediatorContext.runWithMediator(mediator) {
+    /** Runs one poll cycle and returns the number of timers claimed and dispatched. */
+    fun poll(): Int = MediatorContext.runWithMediator(mediator) {
+        var dispatched = 0
         meterRegistry.recordScheduledTask("cluster-timer-poller") {
             if (shuttingDown) return@recordScheduledTask
 
@@ -76,7 +77,9 @@ class ClusterTimerScheduler(
 
             val claimed = timerRegistry.claimDue(ownedCandidateKeys)
             claimed.forEach { timer -> dispatch(timer) }
+            dispatched = claimed.size
         }
+        dispatched
     }
 
     private fun activeNodesForTimerOwnership(): List<ClusterNode> {

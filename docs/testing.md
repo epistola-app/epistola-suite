@@ -290,6 +290,31 @@ val variantId = TestIdHelpers.nextVariantId()     // var-001, var-002, ...
 val environmentId = TestIdHelpers.nextEnvironmentId()
 ```
 
+### Scheduled work: `scheduling` (deterministic substrate)
+
+Integration tests never run the production wall-clock scheduler loop — it
+cannot see the per-test `ScopedValue` clock and its autonomous ticks would race
+parallel test classes on installation-wide state. `IntegrationTestBase` selects
+the deterministic substrate (`epistola.cluster.scheduling-substrate=test`) and
+exposes a driver that runs due cluster timers and scheduled tasks explicitly,
+synchronously, on the test thread:
+
+```kotlin
+// "a day passes and due scheduled work runs"
+scheduling.advanceTimeBy(Duration.ofHours(25))
+
+// run what is already due without moving the clock
+scheduling.runDue()
+
+// move time without firing anything
+testClock.advanceBy(Duration.ofMinutes(5))
+```
+
+Do not add `Thread.sleep`/Awaitility waits for scheduler ticks — drive them.
+Document generation jobs need no tick at all: enqueueing publishes an event
+that nudges the `JobPoller` drain immediately. See
+[`docs/timers.md`](timers.md#scheduling-substrate-trigger-vs-engine).
+
 ## Performance Optimizations
 
 - **Testcontainers reuse** — containers persist across test runs (`withReuse(true)`)

@@ -31,6 +31,13 @@ data class ClusterProperties(
     val capabilities: List<String> = listOf(DEFAULT_CAPABILITY),
     val timers: ClusterTimerProperties = ClusterTimerProperties(),
     val scheduledTasks: ClusterScheduledTaskProperties = ClusterScheduledTaskProperties(),
+    /**
+     * Which [ClusterSchedulingDriver] ticks the scheduling engines:
+     * `wall-clock` (production default, `@Scheduled` fixed delays) or `test`
+     * (deterministic driver from `modules/testing`, driven explicitly on the
+     * test thread). Read as a bean condition, not injected.
+     */
+    val schedulingSubstrate: String = "wall-clock",
 ) {
     fun normalizedCapabilities(): List<String> = capabilities
         .map { it.trim() }

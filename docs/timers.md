@@ -16,6 +16,32 @@ One-shot timers live in `app.epistola.suite.cluster.timers`. Scheduled tasks
 live in `app.epistola.suite.cluster.schedules`. Shared node presence,
 capabilities, and cluster configuration stay in `app.epistola.suite.cluster`.
 
+## Scheduling Substrate (Trigger vs Engine)
+
+Scheduling is split into two layers:
+
+- **Engines** own _what_ happens on a tick: `ClusterNodeHeartbeatScheduler`,
+  `ClusterTimerScheduler`, and `ClusterScheduledTaskScheduler` perform
+  due-selection, ownership, lease claiming, and dispatch. They are plain
+  components with directly invokable `heartbeat()` / `poll()` methods and carry
+  no `@Scheduled` annotations.
+- **A driver** owns _when_ the engines run (`ClusterSchedulingDriver`).
+  Selection is property-gated by `epistola.cluster.scheduling-substrate`:
+  - `wall-clock` (default): `WallClockClusterSchedulingDriver` ticks the
+    engines on the `epistola.cluster.*-interval-ms` fixed delays. This is the
+    production substrate.
+  - `test`: the deterministic driver from `modules/testing`
+    (`DeterministicClusterScheduling`) replaces the loop; tests run due work
+    explicitly and synchronously on the test thread. `IntegrationTestBase`
+    selects this substrate for all integration tests.
+
+The split exists because a wall-clock loop can never participate in test time:
+the test clock is bound via `ScopedValue` on the test thread, so a background
+scheduler thread always evaluates `next_due_at <= now` against the system
+clock — and its autonomous ticks race concurrently-running test classes on
+installation-wide state (timers and scheduled tasks are not tenant-scoped).
+See "Time And Tests" below.
+
 ## Node Registry
 
 Timers depend on the cluster node registry. Each running Suite process
@@ -216,8 +242,32 @@ and the current application clock. Use `MediatorContext.runnable(...)` or
 boundary.
 
 Integration tests use a per-test `MutableClock` bound through
-`EpistolaClockExtension`. Tests can advance time deterministically instead of
-using sleeps or Awaitility.
+`EpistolaClockExtension`, and the deterministic scheduling substrate instead of
+the wall-clock loop (see "Scheduling Substrate" above). `IntegrationTestBase`
+exposes both:
+
+```kotlin
+// time passes AND due timers/scheduled tasks run, synchronously, in test time
+scheduling.advanceTimeBy(Duration.ofHours(25))
+
+// run what is already due without moving the clock
+scheduling.runDue()
+
+// move time without firing anything
+testClock.advanceBy(Duration.ofMinutes(5))
+```
+
+`runDue()` loops timers and scheduled tasks to quiescence, so a handler that
+schedules immediately-due follow-up work also runs before it returns. Engine
+tests can still drive a single cycle directly (`scheduler.poll()`). A test that
+genuinely needs the production loop can opt back in with
+`@TestPropertySource(properties = ["epistola.cluster.scheduling-substrate=wall-clock"])`.
+
+Newly enqueued document generation jobs do not depend on any scheduler tick:
+creating a request publishes `GenerationRequestCreatedEvent` /
+`GenerationBatchCreatedEvent` after commit and `GenerationRequestDrainListener`
+nudges the `JobPoller` drain loop immediately. The recurring
+`core.document-job-poller` scheduled task remains the production safety net.
 
 ## Operational View
 
@@ -289,8 +339,9 @@ still active.
 
 ### Migration Candidates
 
-- Keep Spring `@Scheduled` usage limited to native cluster wakeups: node
-  heartbeat, one-shot timer polling, and recurring scheduled-task polling.
+- Keep Spring `@Scheduled` usage limited to `WallClockClusterSchedulingDriver`,
+  the production substrate that ticks the heartbeat, one-shot timer, and
+  recurring scheduled-task engines.
 - Prefer native scheduled tasks for recurring business work. Choose
   `single_owner` when duplicate execution is noisy, expensive, or incorrect;
   choose `each_capable_node` when every capable process needs local work.
