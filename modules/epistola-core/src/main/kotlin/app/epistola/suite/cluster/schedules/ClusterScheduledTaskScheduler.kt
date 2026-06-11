@@ -1,6 +1,7 @@
 package app.epistola.suite.cluster.schedules
 
 import app.epistola.suite.cluster.ClusterLeaseRenewer
+import app.epistola.suite.cluster.ClusterMaintenanceExecutor
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
@@ -45,6 +46,7 @@ class ClusterScheduledTaskScheduler(
     private val scheduleCalculator: ClusterScheduledTaskScheduleCalculator,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
+    private val maintenanceExecutor: ClusterMaintenanceExecutor,
     handlers: List<ClusterScheduledTaskHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -54,7 +56,7 @@ class ClusterScheduledTaskScheduler(
     private var shuttingDown = false
 
     private val leaseRenewer = ClusterLeaseRenewer(
-        threadName = "cluster-scheduled-task-lease-renewer",
+        scheduler = maintenanceExecutor.scheduler,
         renewIntervalMs = properties.scheduledTasks.leaseDurationMs / 3,
     ) { keys -> MediatorContext.runWithMediator(mediator) { taskRegistry.renewLeases(keys) } }
 

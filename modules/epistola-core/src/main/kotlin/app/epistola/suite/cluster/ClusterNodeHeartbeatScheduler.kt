@@ -6,8 +6,7 @@ import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /**
@@ -22,29 +21,27 @@ import java.util.concurrent.TimeUnit
  * 1); a single slow handler would otherwise starve a `@Scheduled` heartbeat,
  * making a perfectly healthy node look stale, shifting routing-key ownership, and
  * — once its lease expires — letting another node re-run the in-flight occurrence.
- * Running the heartbeat on its own dedicated single-thread executor decouples it
- * from all handler work, so the registry view stays accurate no matter how long a
- * handler blocks.
+ * Running the heartbeat on the shared [ClusterMaintenanceExecutor] thread (which
+ * never runs handler work) decouples it from all handler work, so the registry
+ * view stays accurate no matter how long a handler blocks.
  */
 @Component
 class ClusterNodeHeartbeatScheduler(
     private val registry: ClusterNodeRegistry,
     private val properties: ClusterProperties,
     private val meterRegistry: MeterRegistry,
+    private val maintenanceExecutor: ClusterMaintenanceExecutor,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Volatile
     private var shuttingDown = false
-
-    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
-        Thread(runnable, "cluster-node-heartbeat").apply { isDaemon = true }
-    }
+    private var task: ScheduledFuture<*>? = null
 
     @PostConstruct
     fun start() {
         val intervalMs = properties.heartbeatIntervalMs.coerceAtLeast(1)
-        executor.scheduleWithFixedDelay(::runHeartbeatSafely, 0, intervalMs, TimeUnit.MILLISECONDS)
+        task = maintenanceExecutor.scheduler.scheduleWithFixedDelay(::runHeartbeatSafely, 0, intervalMs, TimeUnit.MILLISECONDS)
     }
 
     /**
@@ -57,7 +54,7 @@ class ClusterNodeHeartbeatScheduler(
     }
 
     /**
-     * Heartbeat wrapper for the dedicated executor. A `scheduleWithFixedDelay`
+     * Heartbeat wrapper for the maintenance thread. A `scheduleWithFixedDelay`
      * task that throws is silently cancelled forever, so a transient database
      * blip must never be allowed to stop the heartbeat: swallow after recording.
      */
@@ -76,6 +73,6 @@ class ClusterNodeHeartbeatScheduler(
     @PreDestroy
     fun stop() {
         shuttingDown = true
-        executor.shutdownNow()
+        task?.cancel(false)
     }
 }

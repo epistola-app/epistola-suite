@@ -119,16 +119,21 @@ the timer after `lease_expires_at`.
 Two mechanisms keep a slow handler from being mistaken for a dead node and
 re-run elsewhere:
 
-- **The node heartbeat runs on its own dedicated executor**
-  (`ClusterNodeHeartbeatScheduler`), not the shared Spring `@Scheduled` pool. A
-  handler that blocks a poller thread therefore cannot starve the heartbeat,
-  mark a healthy node stale, or shift routing-key ownership.
+- **The node heartbeat does not share the Spring `@Scheduled` pool** with
+  handler dispatch (`ClusterNodeHeartbeatScheduler`). A handler that blocks a
+  poller thread therefore cannot starve the heartbeat, mark a healthy node
+  stale, or shift routing-key ownership.
 - **The pollers renew the lease while a handler runs** (`ClusterLeaseRenewer` +
   `renewLeases` on each registry). A handler that legitimately runs longer than
-  the lease duration keeps its lease fresh on a background thread, so another
-  node will not reclaim and re-run the in-flight occurrence — even across a
-  membership change. Execution is still **at-least-once**: handlers should be
-  idempotent for the crash case, where renewal stops and the lease lapses.
+  the lease duration keeps its lease fresh, so another node will not reclaim and
+  re-run the in-flight occurrence — even across a membership change. Execution is
+  still **at-least-once**: handlers should be idempotent for the crash case,
+  where renewal stops and the lease lapses.
+
+The heartbeat and both lease renewers run on a single shared maintenance thread
+(`ClusterMaintenanceExecutor`). They are all small, bounded database operations
+and none of them run handler work, so one thread is enough — a long handler
+(which runs on the poller thread) can never block it.
 
 ## Recurring Scheduled Tasks
 

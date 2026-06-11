@@ -1,6 +1,7 @@
 package app.epistola.suite.cluster.timers
 
 import app.epistola.suite.cluster.ClusterLeaseRenewer
+import app.epistola.suite.cluster.ClusterMaintenanceExecutor
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
@@ -41,6 +42,7 @@ class ClusterTimerScheduler(
     private val properties: ClusterProperties,
     private val meterRegistry: MeterRegistry,
     private val mediator: Mediator,
+    private val maintenanceExecutor: ClusterMaintenanceExecutor,
     handlers: List<ClusterTimerHandler>,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -50,7 +52,7 @@ class ClusterTimerScheduler(
     private var shuttingDown = false
 
     private val leaseRenewer = ClusterLeaseRenewer(
-        threadName = "cluster-timer-lease-renewer",
+        scheduler = maintenanceExecutor.scheduler,
         renewIntervalMs = properties.timers.leaseDurationMs / 3,
     ) { keys -> MediatorContext.runWithMediator(mediator) { timerRegistry.renewLeases(keys) } }
 
