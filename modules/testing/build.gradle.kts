@@ -31,6 +31,8 @@ dependencies {
     // Micrometer (needed by FakeExecutorTestConfiguration)
     implementation("io.micrometer:micrometer-core")
 
-    runtimeOnly("org.junit.platform:junit-platform-launcher")
+    // Compile-visible (not just runtime): modules/testing ships a JUnit Platform
+    // TestExecutionListener (the cross-cutting test-metrics harness) in its main source set.
+    api("org.junit.platform:junit-platform-launcher")
     runtimeOnly("org.postgresql:postgresql")
 }

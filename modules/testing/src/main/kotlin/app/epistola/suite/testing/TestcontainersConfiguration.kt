@@ -1,5 +1,6 @@
 package app.epistola.suite.testing
 
+import app.epistola.suite.testing.metrics.TestRunMetrics
 import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
@@ -75,7 +76,9 @@ class TestcontainersConfiguration {
             PostgreSQLContainer(DockerImageName.parse("postgres:17"))
                 .withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
                 .apply {
+                    val startNanos = System.nanoTime()
                     start()
+                    TestRunMetrics.recordPostgresStartupNanos(System.nanoTime() - startNanos)
                     Runtime.getRuntime().addShutdownHook(Thread { stop() })
                 }
     }

@@ -42,6 +42,7 @@ import org.springframework.test.context.TestPropertySource
     FakeExecutorTestConfiguration::class,
     UnloggedTablesTestConfiguration::class,
     DeterministicSchedulingTestConfiguration::class,
+    app.epistola.suite.testing.metrics.MediatorMetricsConfiguration::class,
 )
 // Inherited and merged into subclasses (unlike @SpringBootTest properties, which a
 // subclass's own @SpringBootTest replaces wholesale) — selects the deterministic
