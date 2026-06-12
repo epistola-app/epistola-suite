@@ -380,7 +380,17 @@ pseudo, blind `waitForSelector("…[open]")`, bare `page.navigate`, and forensic
 3. **Format all files** - `pnpm format` before committing (covers JSON, TypeScript, Markdown, CSS, etc. — includes documentation-only changes)
 4. **Format Kotlin** - `./gradlew ktlintFormat` after making Kotlin changes
 5. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
-6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`. Helm chart changes go in `charts/epistola/CHANGELOG.md`; all other changes go in the root `CHANGELOG.md`.
+6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`. Helm chart changes go in `charts/epistola/CHANGELOG.md`; all other changes go in the root `CHANGELOG.md`. The in-app Changelog dialog parses and filters these entries, so new entries follow a **commit-style format** (no `### Added/Changed/Fixed` headers — the type carries that):
+
+   ```
+   - [**[audience]** ]type(scope): **Title.** Description…
+   ```
+
+   - **`type(scope)` is REQUIRED.** `type` is a Conventional-Commit type (`feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`); `scope` is a required lowercase kebab-case area (e.g. `editor`, `generation`, `cluster`, `locale`, `logs`). Same vocabulary as commit messages; a change spanning areas may list comma-separated scopes (`feat(editor,pdf):`).
+   - **Audience badge is optional** and comes first: `**[user]**` for user-facing changes, `**[dev]**` for developer-internal ones; omit it for changes relevant to everyone. The dialog defaults to the **Users** view (which hides `**[dev]**`), so keep deep-internal churn (refactors, test infra, scheduler internals) tagged `**[dev]**`.
+   - Example: `- **[dev]** fix(logs): **Recursion guard narrowed.** Scoped to the ApplicationLogIngestor logger.`
+   - The dialog filters by **Audience** (Users/Developers/All), **Type** (the commit types), and **Scope**. Older released sections still use legacy Keep-a-Changelog `### ` headers (grandfathered — their type is mapped from the section, no scope); do not add `### ` headers to new entries. These conventions apply only to the root `CHANGELOG.md` (the Helm chart changelog is not shown in the UI). See [`CONTRIBUTING.md`](CONTRIBUTING.md#changelog-entries).
+
 7. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
 8. **Small commits** - Commit logical units of work separately
 9. **Cut a demo/system catalog release** - When modifying bundled resources in `modules/epistola-core/src/main/resources/epistola/catalogs/{demo,system}/`, bump `release.version` (SemVer, strictly increasing) **and** regenerate `release.fingerprint` in `catalog.json`: run `./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"`, paste the reported "actual" fingerprint, re-run green. The loaders detect changes by **fingerprint**, not the version string. See [`docs/catalog-versioning.md`](docs/catalog-versioning.md).

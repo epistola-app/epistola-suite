@@ -1,6 +1,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.changelog.AcknowledgeChangelog
+import app.epistola.suite.changelog.ChangelogAudience
 import app.epistola.suite.changelog.ChangelogService
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.mediator.execute
@@ -20,11 +21,25 @@ class ChangelogHandler(
 
     fun view(request: ServerRequest): ServerResponse {
         val version = request.queryParam("version")
-        val entries = changelogRenderer.entries()
+        val audienceParam = request.queryParam("audience")
+        val typeParam = request.queryParam("type")
+        val scopeParam = request.queryParam("scope")
 
-        val selectedVersion = version ?: entries.firstOrNull()?.version
+        val view = ChangelogAudience.viewFromParam(audienceParam)
+        val type = typeParam?.trim()?.lowercase()?.takeUnless { it.isBlank() || it == "all" }
+        val scope = scopeParam?.trim()?.takeUnless { it.isBlank() || it == "all" }
+
+        // The dialog previews the in-progress [Unreleased] section as an "Upcoming" entry at the top.
+        val entries = changelogRenderer.entries(view, includeUnreleased = true, type = type, scope = scope)
+        val availableTypes = changelogRenderer.availableTypes(view, includeUnreleased = true)
+        val availableScopes = changelogRenderer.availableScopes(view, includeUnreleased = true)
+
+        // Keep the requested version if it survives the filters; otherwise fall back to the latest shown.
+        val selectedVersion = entries.find { it.version == version }?.version ?: entries.firstOrNull()?.version
         val selectedEntry = entries.find { it.version == selectedVersion }
-        val fragment = if (version != null) "layout" else "content"
+        // Any selector is an in-dialog HTMX swap; a bare request renders the whole dialog.
+        val isSelection = version != null || audienceParam != null || typeParam != null || scopeParam != null
+        val fragment = if (isSelection) "layout" else "content"
 
         return ServerResponse.ok().render(
             "fragments/changelog :: $fragment",
@@ -32,13 +47,20 @@ class ChangelogHandler(
                 "entries" to listOfNotNull(selectedEntry),
                 "versions" to entries,
                 "selectedVersion" to selectedVersion,
+                "selectedView" to view.name.lowercase(),
+                "selectedType" to (type ?: "all"),
+                "selectedScope" to (scope ?: "all"),
+                "availableTypes" to availableTypes,
+                "availableScopes" to availableScopes,
             ),
         )
     }
 
     fun acknowledge(request: ServerRequest): ServerResponse {
         val principal = SecurityContext.current()
-        val entries = changelogRenderer.entries()
+        // The dashboard "What's New" banner is user-facing — acknowledge against the user view so a
+        // developer-only release does not become the effective version users are nagged about.
+        val entries = changelogRenderer.entries(ChangelogAudience.USER)
         val version = changelogService.effectiveVersion(appVersion, entries)
         AcknowledgeChangelog(userId = principal.userId, version = version).execute()
 
