@@ -1,5 +1,6 @@
 package app.epistola.suite.security
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 
 /**
@@ -24,4 +25,23 @@ object SystemUser {
     const val EMAIL = "system@epistola.app"
     const val DISPLAY_NAME = "System"
     const val PROVIDER = "LOCAL"
+
+    /**
+     * The all-roles **system principal** for background work owned by [tenantKey] —
+     * scheduler/virtual threads that run outside any HTTP request and therefore have
+     * no [SecurityContext]. It grants every role for that one tenant (so the
+     * mediator's permission checks pass) and sets `currentTenantId`, which also makes
+     * the work's application-log output attribute to that tenant.
+     *
+     * Single source for what was duplicated across the job poller and the
+     * snapshot/feedback background workers.
+     */
+    fun principalForTenant(tenantKey: TenantKey): EpistolaPrincipal = EpistolaPrincipal(
+        userId = ID,
+        externalId = EXTERNAL_ID,
+        email = EMAIL,
+        displayName = DISPLAY_NAME,
+        tenantMemberships = mapOf(tenantKey to TenantRole.entries.toSet()),
+        currentTenantId = tenantKey,
+    )
 }

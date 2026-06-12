@@ -52,6 +52,9 @@ class CoreNavContributor : NavContributor {
         if (context.hasPermission(Permission.TENANT_USERS)) {
             add(NavItem("operations", "api-keys", "API Keys", "api-keys", 40))
         }
+        if (context.hasPermission(Permission.TENANT_SETTINGS)) {
+            add(NavItem("operations", "logs", "Logs", "logs", 45))
+        }
 
         // Settings — managers only
         if (context.hasPermission(Permission.TENANT_SETTINGS)) {
