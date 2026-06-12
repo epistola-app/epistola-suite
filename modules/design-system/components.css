@@ -325,6 +325,44 @@
     flex: 0 0 auto;
   }
 
+  /* ── Layout utilities ──────────────────────────────────────────────────── */
+
+  .ep-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .ep-row-wrap {
+    flex-wrap: wrap;
+  }
+
+  .ep-row-between {
+    justify-content: space-between;
+  }
+
+  .ep-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-2);
+  }
+
+  .ep-gap-1 {
+    gap: var(--ep-space-1);
+  }
+
+  .ep-gap-3 {
+    gap: var(--ep-space-3);
+  }
+
+  .ep-gap-4 {
+    gap: var(--ep-space-4);
+  }
+
+  .ep-gap-6 {
+    gap: var(--ep-space-6);
+  }
+
   .ep-checkbox {
     width: 1rem;
     height: 1rem;

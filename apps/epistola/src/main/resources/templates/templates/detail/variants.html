@@ -53,7 +53,7 @@
                         <!-- Add-attribute picker. -->
                         <div class="form-group" data-add-attr-picker>
                             <label class="ep-label" for="create-add-attr">Add attribute</label>
-                            <div style="display: flex; gap: var(--ep-space-2); align-items: center;">
+                            <div class="ep-row">
                                 <select id="create-add-attr" class="ep-select" data-add-attr-select>
                                     <option value="">— Choose an attribute to add —</option>
                                     <option th:each="d : ${attributeDescriptors}"
