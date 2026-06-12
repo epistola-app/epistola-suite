@@ -80,6 +80,19 @@ class ApplicationLogAppenderTest {
     }
 
     @Test
+    fun `MDC tenant hints are ignored — attribution comes only from the principal`() {
+        val captured = mutableListOf<ApplicationLogRecord>()
+        ApplicationLogAppender(captured::add).append(
+            event("a.b.C", Level.INFO, "no principal bound", mdc = mapOf("tenantKey" to "sneaky", "tenantId" to "sneaky2")),
+        )
+        val record = captured.single()
+        // No bound principal → system row, regardless of MDC tenant hints.
+        assertThat(record.tenantKey).isNull()
+        // The MDC keys are still preserved as attributes (only trace/span are promoted out).
+        assertThat(record.attributes).containsEntry("tenantKey", "sneaky").containsEntry("tenantId", "sneaky2")
+    }
+
+    @Test
     fun `captures the active request tenant from the security context`() {
         val captured = mutableListOf<ApplicationLogRecord>()
         val appender = ApplicationLogAppender(captured::add)

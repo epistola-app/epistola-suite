@@ -47,7 +47,7 @@ class ApplicationLogAppender(
                 logger = loggerName,
                 message = event.formattedMessage ?: "",
                 thread = event.threadName,
-                tenantKey = resolveTenantKey(mdc),
+                tenantKey = resolveTenantKey(),
                 traceId = mdc[TRACE_ID_KEY],
                 spanId = mdc[SPAN_ID_KEY],
                 exception = event.throwableProxy?.let { ThrowableProxyUtil.asString(it) },
@@ -57,19 +57,19 @@ class ApplicationLogAppender(
     }
 
     /**
-     * Best-effort tenant attribution: the active request tenant when bound, else
-     * an MDC hint, else null (a system/background log). Never throws.
+     * Tenant attribution from the single source of truth: the active principal's
+     * `currentTenantId` (a `ScopedValue` propagated across request and background
+     * threads). Null when no principal is bound — a system/background log. Never
+     * throws.
      */
-    private fun resolveTenantKey(mdc: Map<String, String>): String? = runCatching {
+    private fun resolveTenantKey(): String? = runCatching {
         SecurityContext.currentOrNull()?.currentTenantId?.value
-    }.getOrNull() ?: mdc[MDC_TENANT_KEY] ?: mdc[MDC_TENANT_ID]
+    }.getOrNull()
 
     companion object {
         /** Events from this package are never captured (recursion guard). */
         const val SELF_PACKAGE = "app.epistola.suite.logs"
         private const val TRACE_ID_KEY = "traceId"
         private const val SPAN_ID_KEY = "spanId"
-        private const val MDC_TENANT_KEY = "tenantKey"
-        private const val MDC_TENANT_ID = "tenantId"
     }
 }

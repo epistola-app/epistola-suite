@@ -79,6 +79,25 @@ mirroring `PartitionMaintenanceScheduler`) and detached on shutdown, so there is
 "before Spring is ready" window where events drop for lack of a sink. The worker
 flushes whatever is queued on shutdown.
 
+### Tenant attribution
+
+`tenant_key` comes from a **single source**: the active principal's `currentTenantId`
+(`SecurityContext`, a `ScopedValue`) read on the logging thread. There is no separate
+"current tenant" mechanism and no MDC fallback — the principal already carries the
+tenant and is propagated across executor / virtual-thread handoffs by
+`MediatorContext.runnable/callable`. So:
+
+- **Request logs** attribute to the request's tenant (the `SecurityFilter` binds the principal).
+- **Background work** attributes when it binds a system principal for its tenant —
+  `SystemUser.principalForTenant(tenantKey)` (the job poller, snapshot backup/upgrading
+  schedulers, feedback sync, and tenant-scoped cluster scheduled tasks/timers).
+- **System/background work with no principal** (system-wide cluster tasks like partition
+  maintenance and log retention) → `tenant_key = NULL`, shown as **system**.
+
+A log line is "tenant X" because the work that emitted it runs as X — not because the
+message mentions X. (Making _all_ background work run under a system identity is a
+tracked consistency follow-up, issue #551.)
+
 ## Retention
 
 `ApplicationLogRetentionScheduler` is a `SINGLE_OWNER` cluster scheduled task

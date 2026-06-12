@@ -11,6 +11,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
@@ -130,7 +132,15 @@ class ClusterScheduledTaskScheduler(
             // Per-taskType timing/outcome so a single slow or failing task is
             // visible in the fleet metrics, not hidden inside the poll-cycle timer.
             meterRegistry.recordScheduledTask("cluster-scheduled-task:${task.taskType}") {
-                handler.handle(task)
+                // A tenant-scoped task runs as that tenant's system principal (mediator
+                // authorization + log attribution); system-wide tasks run with none.
+                // Consistency follow-up (always bind a system principal): see issue #551.
+                val principal = task.tenantKey?.let { SystemUser.principalForTenant(it) }
+                if (principal != null) {
+                    SecurityContext.runWithPrincipal(principal) { handler.handle(task) }
+                } else {
+                    handler.handle(task)
+                }
             }
             val nextDueAt = scheduleCalculator.nextAfterSuccess(task)
             taskRegistry.complete(task.taskKey, nextDueAt)

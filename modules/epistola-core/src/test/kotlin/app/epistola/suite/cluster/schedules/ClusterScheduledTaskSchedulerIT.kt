@@ -1,6 +1,8 @@
 package app.epistola.suite.cluster.schedules
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -12,6 +14,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import java.time.Duration
 import java.time.OffsetDateTime
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 @TestPropertySource(
@@ -37,12 +40,14 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         testClock.reset()
         handler.handled.clear()
         handler.failTaskKeys.clear()
+        handler.tenantSeen.clear()
         withMediator {
             DisableClusterScheduledTask("scheduler-missing-handler").execute()
             DisableClusterScheduledTask("scheduler-success").execute()
             DisableClusterScheduledTask("scheduler-failure").execute()
             DisableClusterScheduledTask("scheduler-each-node").execute()
             DisableClusterScheduledTask("scheduler-virtual-time").execute()
+            DisableClusterScheduledTask("scheduler-tenant").execute()
         }
     }
 
@@ -57,6 +62,8 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(task?.leaseOwnerNodeId).isNull()
         assertThat(task?.nextDueAt).isAfter(now())
         assertThat(task?.consecutiveFailures).isZero()
+        // A system-wide task (no tenantKey) runs with no principal → system/null log attribution.
+        assertThat(handler.tenantSeen).doesNotContainKey("scheduler-success")
     }
 
     @Test
@@ -106,6 +113,29 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(handler.handled).containsExactly("scheduler-virtual-time")
         assertThat(task?.leaseOwnerNodeId).isNull()
         assertThat(task?.nextDueAt).isAfter(now())
+    }
+
+    @Test
+    fun `tenant-scoped task runs under its tenant's system principal`() {
+        val tenant: TenantKey = createTenant("Cluster Task Tenant").id
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = "scheduler-tenant",
+                    routingKey = "system:scheduler-tenant",
+                    taskType = RecordingClusterScheduledTaskHandler.TYPE,
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    tenantKey = tenant,
+                ),
+            ).execute()
+        }
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        assertThat(handler.handled).contains("scheduler-tenant")
+        // The handler ran under the tenant's system principal (mediator authz + log attribution).
+        assertThat(handler.tenantSeen["scheduler-tenant"]).isEqualTo(tenant.value)
     }
 
     @Test
@@ -173,10 +203,14 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
 class RecordingClusterScheduledTaskHandler : ClusterScheduledTaskHandler {
     val handled = CopyOnWriteArrayList<String>()
     val failTaskKeys = CopyOnWriteArrayList<String>()
+
+    /** taskKey -> the `currentTenantId` bound while the handler ran (absent when no principal). */
+    val tenantSeen = ConcurrentHashMap<String, String>()
     override val taskType: String = TYPE
 
     override fun handle(task: ClusterScheduledTask) {
         handled += task.taskKey
+        SecurityContext.currentOrNull()?.currentTenantId?.value?.let { tenantSeen[task.taskKey] = it }
         if (task.taskKey in failTaskKeys) {
             throw IllegalStateException("planned failure")
         }
