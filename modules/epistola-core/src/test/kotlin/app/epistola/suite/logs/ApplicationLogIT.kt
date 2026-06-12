@@ -102,6 +102,34 @@ class ApplicationLogIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `rate cap sheds a sustained flood and counts it, keeping the DB writes bounded`() {
+        val registry = SimpleMeterRegistry()
+        // 10 events/s with a generous queue: a tight burst of 100 should admit only
+        // ~the bucket's worth (~10) and shed the rest as rate-limited, never dropped.
+        val ingestor = ApplicationLogIngestor(
+            jdbi = jdbi,
+            nodeIdentity = nodeIdentity,
+            objectMapper = objectMapper,
+            meterRegistry = registry,
+            properties = ApplicationLogProperties(queueCapacity = 1_000, maxRatePerSecond = 10),
+        )
+        val logger = "ratecap.test.${UUID.randomUUID()}"
+
+        repeat(100) { ingestor.enqueue(record(logger = logger)) }
+        ingestor.flush()
+
+        fun count(name: String) = registry.find(name).counter()?.count()?.toLong() ?: 0L
+        val persisted = count("epistola.logs.persisted")
+        val limited = count("epistola.logs.rate-limited")
+
+        assertThat(persisted).`as`("only ~one bucket admitted").isBetween(1L, 30L)
+        assertThat(limited).`as`("the flood is shed by the rate cap").isGreaterThan(0L)
+        assertThat(count("epistola.logs.dropped")).`as`("queue had room → shed by rate, not overflow").isEqualTo(0L)
+        assertThat(persisted + limited).`as`("every record accounted for").isEqualTo(100L)
+        assertThat(rowsForLogger(logger)).hasSize(persisted.toInt())
+    }
+
+    @Test
     fun `overflow drops records without blocking and counts them`() {
         val registry = SimpleMeterRegistry()
         val ingestor = newIngestor(registry, queueCapacity = 2)

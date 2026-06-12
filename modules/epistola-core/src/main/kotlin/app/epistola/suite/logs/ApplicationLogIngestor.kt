@@ -56,6 +56,9 @@ class ApplicationLogIngestor(
     private val dropped = Counter.builder("epistola.logs.dropped")
         .description("Application log events dropped because the capture queue was full")
         .register(meterRegistry)
+    private val rateLimited = Counter.builder("epistola.logs.rate-limited")
+        .description("Application log events shed by the per-second rate cap (log-bomb guard)")
+        .register(meterRegistry)
     private val persisted = Counter.builder("epistola.logs.persisted")
         .description("Application log events persisted to the table")
         .register(meterRegistry)
@@ -63,15 +66,53 @@ class ApplicationLogIngestor(
         .description("Application log batch inserts that failed (events dropped)")
         .register(meterRegistry)
 
+    // Token bucket guarding against a log bomb. Capacity = one second's worth, so
+    // normal bursts pass but a sustained flood is shed at `maxRatePerSecond`.
+    private val rateLimitEnabled = properties.maxRatePerSecond > 0
+    private val maxTokens = properties.maxRatePerSecond.toDouble()
+    private var tokens = maxTokens
+    private var lastRefillNanos = System.nanoTime()
+
     @Volatile
     private var running = false
     private var worker: Thread? = null
     private var appender: ApplicationLogAppender? = null
 
-    /** Offer a record for asynchronous persistence. Never blocks; drops on overflow. */
+    /** Offer a record for asynchronous persistence. Never blocks; drops on overflow or rate cap. */
     fun enqueue(record: ApplicationLogRecord) {
+        if (!rateAllows()) {
+            rateLimited.increment()
+            return
+        }
         if (!queue.offer(record)) {
             dropped.increment()
+        }
+    }
+
+    /**
+     * Token-bucket admission, refilled by elapsed wall time. Synchronized because
+     * many request threads call [enqueue] concurrently; the body is a handful of
+     * arithmetic ops, and under a bomb (the case this protects) shedding load is the
+     * point, so brief serialization here is acceptable. `System.nanoTime()` is a
+     * monotonic elapsed-time source (not application time), so it is the right clock.
+     */
+    @Synchronized
+    private fun rateAllows(): Boolean {
+        if (!rateLimitEnabled) return true
+        val now = System.nanoTime()
+        val elapsedNanos = now - lastRefillNanos
+        if (elapsedNanos > 0) {
+            val refill = elapsedNanos.toDouble() * maxTokens / 1_000_000_000.0
+            if (refill >= 1.0) {
+                tokens = (tokens + refill).coerceAtMost(maxTokens)
+                lastRefillNanos = now
+            }
+        }
+        return if (tokens >= 1.0) {
+            tokens -= 1.0
+            true
+        } else {
+            false
         }
     }
 

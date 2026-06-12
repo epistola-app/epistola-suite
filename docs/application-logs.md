@@ -66,6 +66,13 @@ Guarantees:
   (`app.epistola.suite.logs`), so a persistence-failure log can't re-enter the
   queue.
 - **Level threshold** — a Logback `ThresholdFilter` (default `INFO`) bounds volume.
+- **Log-bomb guard** — a token bucket at `enqueue` caps capture to
+  `epistola.logs.max-rate-per-second` (default 2000; `0` disables). The bucket
+  starts full so normal bursts pass, but a _sustained_ flood from a runaway logger
+  is shed and counted (`epistola.logs.rate-limited`) **before** it reaches the queue
+  — bounding both table/disk growth and DB write load, regardless of how fast the
+  application logs. The bounded queue (memory) and this rate cap (DB/disk) are
+  complementary: the queue caps a burst, the rate cap caps a sustained flood.
 
 The appender is attached programmatically on `ApplicationReadyEvent` (after Flyway,
 mirroring `PartitionMaintenanceScheduler`) and detached on shutdown, so there is no
@@ -84,21 +91,49 @@ so it is multi-pod safe without any extra advisory lock. It runs on
 
 All under `epistola.logs.*` (`ApplicationLogProperties`):
 
-| property            | default        | meaning                                           |
-| ------------------- | -------------- | ------------------------------------------------- |
-| `enabled`           | `true`         | master switch; when false no appender is attached |
-| `level`             | `INFO`         | minimum level captured                            |
-| `retention-days`    | `7`            | rows older than this are pruned                   |
-| `queue-capacity`    | `10000`        | bounded queue size; overflow is dropped           |
-| `batch-size`        | `200`          | max records per batched insert                    |
-| `flush-interval-ms` | `1000`         | max wait for the first record before looping      |
-| `retention-cron`    | `0 30 3 * * ?` | retention schedule (UTC)                          |
+| property              | default        | meaning                                                      |
+| --------------------- | -------------- | ------------------------------------------------------------ |
+| `enabled`             | `true`         | master switch; when false no appender is attached            |
+| `level`               | `INFO`         | minimum level captured                                       |
+| `retention-days`      | `7`            | rows older than this are pruned                              |
+| `queue-capacity`      | `10000`        | bounded queue size; overflow is dropped                      |
+| `max-rate-per-second` | `2000`         | log-bomb guard: max events captured/s, then shed (`0` = off) |
+| `batch-size`          | `200`          | max records per batched insert                               |
+| `flush-interval-ms`   | `1000`         | max wait for the first record before looping                 |
+| `retention-cron`      | `0 30 3 * * ?` | retention schedule (UTC)                                     |
 
 > The integration-test profile sets `epistola.logs.enabled=false` so the suite does
 > not attach the DB appender on every test. The capture/retention tests construct
 > `ApplicationLogIngestor` / `ApplicationLogRetentionScheduler` directly and drive
 > them via `flush()` / `deleteExpired()`, so capture is exercised deterministically
 > without the background worker's timing and without polluting the table.
+
+## Performance (load test)
+
+`ApplicationLogIngestPerfTest` (opt-in, `@Tag("perf")`) answers _how many log
+messages can we persist per second via batched inserts while keeping the database
+unstrained?_ It drives the real path (`enqueue` → `flush()` → JDBI `prepareBatch`)
+with one drain thread (the production worker) fed by virtual-thread producers, and
+captures throughput, effective batch size, and per-`INSERT` latency (the DB-strain
+signal) via a JDBI `SqlLogger`.
+
+For isolation it boots a **purpose-built slim Spring context** (`LogIngestPerfContext`
+— DataSource + Flyway + JDBI only, no `@SpringBootApplication`/component scan), so no
+cluster schedulers / JobPoller / MCP / generation beans contend for the DB or CPU. The
+shared Testcontainers Postgres is tmpfs-backed (disk = RAM-speed), so numbers are
+optimistic vs. real disk but consistent for comparison.
+
+Two scenarios: a **batch-size sweep** (`{50, 200, 500, 1000}`, 200k records, no drops —
+the single writer's sustained rate and the throughput/latency trade-off) and an
+**overload** case (1M records, bounded 10k queue) showing the bounded queue **shedding
+excess via drops** while `persistFailures == 0` and every record is accounted for.
+Report-only plus those sanity assertions; results print to the console and append to
+`build/perf-reports/application-log-ingest.csv`.
+
+```
+./gradlew :modules:epistola-core:perfTest \
+  --tests "*ApplicationLogIngestPerfTest" -Dperf.hardware=<tag>
+```
 
 ## UI
 
