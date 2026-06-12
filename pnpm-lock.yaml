@@ -47,7 +47,7 @@ importers:
     devDependencies:
       lucide-static:
         specifier: ^1.0.0
-        version: 1.17.0
+        version: 1.18.0
 
   modules/editor:
     dependencies:
@@ -1385,8 +1385,8 @@ packages:
   lodash.truncate@4.4.2:
     resolution: {integrity: sha512-jttmRe7bRse52OsWIMDLaXxWqRAmtIUccAQ3garviCqJjafXOfNMO0yMfNpdD6zbGaTU0P5Nz7e7gAT6cKmJRw==}
 
-  lucide-static@1.17.0:
-    resolution: {integrity: sha512-VORJmPqi4DZ5lf4/n2qqcIz1nTKGFReS83DJINcK5nXY7z+4P3G6CW/7SXpzlGllEI0vHKFH24eSM+aMFaK5zw==}
+  lucide-static@1.18.0:
+    resolution: {integrity: sha512-0WRXLQnjbte5SXuzom6yfeGlVSFsEsC9rzxn66DZN0pXows3+N34CQHy3BHI1qA3uH7u/SUzx8LQhjeAnxd8JQ==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -2988,7 +2988,7 @@ snapshots:
 
   lodash.truncate@4.4.2: {}
 
-  lucide-static@1.17.0: {}
+  lucide-static@1.18.0: {}
 
   magic-string@0.30.21:
     dependencies:
