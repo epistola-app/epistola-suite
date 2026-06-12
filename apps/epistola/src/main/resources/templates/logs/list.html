@@ -26,39 +26,56 @@
             .log-exception { margin-top: var(--ep-space-1, 0.25rem); }
             .log-exception pre { white-space: pre-wrap; font-size: var(--ep-text-xs, 0.75rem); overflow-x: auto; margin: 0; }
             .log-sentinel td { text-align: center; padding: var(--ep-space-2, 0.5rem); }
-            .log-filters { margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3); align-items: center; flex-wrap: wrap; }
+            .log-filters { margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3); align-items: flex-end; flex-wrap: wrap; }
+            .log-filter { display: flex; flex-direction: column; gap: var(--ep-space-1, 0.25rem); }
+            .log-filter > label { font-size: var(--ep-text-xs, 0.75rem); color: var(--ep-text-muted-color, #6b7280); font-weight: 500; }
+            .log-filter > .ep-input { height: 2rem; box-sizing: border-box; }
         </style>
 
         <div class="logs-fullbleed">
-            <!-- Filters: changing any control re-renders #log-results with a fresh newest-first page. -->
+            <!-- Filters: changing any control re-renders #log-results with a fresh newest-first page.
+                 Every field uses the same label-above-input structure so the row aligns. -->
             <form id="log-filters" class="log-filters">
-                <input class="ep-input ep-input-sm" type="search" name="q" placeholder="Search message…"
-                       th:value="${searchQuery}" style="width: 22rem;"
-                       hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
-                       hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters"
-                       hx-trigger="search, keyup changed delay:400ms" />
-                <select class="ep-input ep-input-sm" style="width: auto;" name="level"
-                        hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
-                        hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change">
-                    <option value="">All Levels</option>
-                    <option th:each="lvl : ${levels}" th:value="${lvl}" th:text="${lvl}"
-                            th:selected="${selectedLevel != null && selectedLevel == lvl}">LEVEL</option>
-                </select>
-                <input class="ep-input ep-input-sm" type="search" name="logger" placeholder="Filter by logger…"
-                       th:value="${loggerFilter}" style="width: 16rem;"
-                       hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
-                       hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters"
-                       hx-trigger="search, keyup changed delay:400ms" />
-                <label class="ep-text-muted ep-text-xs">From
-                    <input class="ep-input ep-input-sm" type="datetime-local" name="from" th:value="${fromValue}"
+                <div class="log-filter">
+                    <label for="log-filter-q">Search</label>
+                    <input id="log-filter-q" class="ep-input ep-input-sm" type="search" name="q"
+                           placeholder="Search message…" th:value="${searchQuery}" style="width: 22rem;"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                           hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters"
+                           hx-trigger="search, keyup changed delay:400ms" />
+                </div>
+                <div class="log-filter">
+                    <label for="log-filter-level">Level</label>
+                    <select id="log-filter-level" class="ep-input ep-input-sm" name="level"
+                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change">
+                        <option value="">All Levels</option>
+                        <option th:each="lvl : ${levels}" th:value="${lvl}" th:text="${lvl}"
+                                th:selected="${selectedLevel != null && selectedLevel == lvl}">LEVEL</option>
+                    </select>
+                </div>
+                <div class="log-filter">
+                    <label for="log-filter-logger">Logger</label>
+                    <input id="log-filter-logger" class="ep-input ep-input-sm" type="search" name="logger"
+                           placeholder="Filter by logger…" th:value="${loggerFilter}" style="width: 16rem;"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                           hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters"
+                           hx-trigger="search, keyup changed delay:400ms" />
+                </div>
+                <div class="log-filter">
+                    <label for="log-filter-from">From</label>
+                    <input id="log-filter-from" class="ep-input ep-input-sm" type="datetime-local" name="from"
+                           th:value="${fromValue}"
                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change" />
-                </label>
-                <label class="ep-text-muted ep-text-xs">To
-                    <input class="ep-input ep-input-sm" type="datetime-local" name="to" th:value="${toValue}"
+                </div>
+                <div class="log-filter">
+                    <label for="log-filter-to">To</label>
+                    <input id="log-filter-to" class="ep-input ep-input-sm" type="datetime-local" name="to"
+                           th:value="${toValue}"
                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change" />
-                </label>
+                </div>
                 <!-- Browser timezone, sent so the server interprets the From/To wall-clock values in it. -->
                 <input type="hidden" name="tz" id="log-tz" />
             </form>
