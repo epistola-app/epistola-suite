@@ -105,9 +105,24 @@ All under `epistola.logs.*` (`ApplicationLogProperties`):
 A tenant-scoped **Operations → Logs** page (`/tenants/{tenantId}/logs`,
 `LogsHandler` + `templates/logs/list.html`) lists the tenant's rows **plus system
 rows with no tenant** (`tenant_key = :tenantId OR tenant_key IS NULL`), newest
-first, filterable by level and logger and paginated. It is gated on
-`Permission.TENANT_SETTINGS` and reads through the permission-gated
-`ListApplicationLogs` CQRS query (no JDBI in the handler).
+first. It is gated on `Permission.TENANT_SETTINGS` and reads through the
+permission-gated `ListApplicationLogs` CQRS query (no JDBI in the handler).
+
+The dense, page-wide table shows the **newest 20** rows by default. Filters
+(free-text message search, level, logger, and a UTC date/time range) re-render
+the results region via HTMX. Incremental paging is **keyset (cursor) based** on
+`(occurred_at, id)` — stable across ties and unaffected by rows arriving while
+you browse:
+
+- **`ListApplicationLogs`** takes a `direction` (`OLDER`/`NEWER`) and an
+  `(occurred_at, id)` cursor, and always returns rows newest-first.
+- The viewer renders two self-replacing HTMX sentinel rows: **Load newer** (top)
+  `hx-get`s `/logs/newer` and prepends rows above; **Load older** (bottom)
+  `hx-get`s `/logs/older` and appends rows below. Each response carries a
+  refreshed sentinel with the next cursor (the older sentinel drops away when
+  history is exhausted), so the table grows in place with no offset drift and no
+  client-side JavaScript. The logger column shows the simple class name
+  (`ApplicationLogEntry.shortLogger`) with the full name on hover.
 
 ## Other surfaces
 

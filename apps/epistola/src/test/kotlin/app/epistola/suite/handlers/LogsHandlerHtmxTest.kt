@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 /**
  * Server-contract cover for the tenant Logs viewer: the full page renders, the
@@ -53,6 +54,30 @@ class LogsHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body).contains("first error message")
         // The INFO row must be filtered out by the level=ERROR query.
         assertThat(response.body).doesNotContain("an info message")
+    }
+
+    @Test
+    fun `HTMX load-older returns older rows plus a refreshed sentinel`() {
+        val tenantKey = seedLogs()
+        // A cursor in the future makes every row qualify as "older". UTC (Z) avoids '+' in the query.
+        val ts = OffsetDateTime.now(testClock).plusDays(1).withOffsetSameInstant(ZoneOffset.UTC)
+        val response = getHtmx("/tenants/$tenantKey/logs/older?ts=$ts&id=ffffffff-ffff-ffff-ffff-ffffffffffff")
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("first error message")
+        assertThat(response.body).contains("a system message")
+    }
+
+    @Test
+    fun `HTMX load-newer returns the newer sentinel`() {
+        val tenantKey = seedLogs()
+        // A cursor in the distant past makes every row qualify as "newer". UTC (Z) avoids '+' in the query.
+        val ts = OffsetDateTime.now(testClock).minusDays(1).withOffsetSameInstant(ZoneOffset.UTC)
+        val response = getHtmx("/tenants/$tenantKey/logs/newer?ts=$ts&id=00000000-0000-0000-0000-000000000000")
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("log-load-newer")
+        assertThat(response.body).contains("first error message")
     }
 
     private fun seedLogs(): String {

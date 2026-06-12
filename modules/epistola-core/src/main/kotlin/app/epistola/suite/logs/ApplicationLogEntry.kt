@@ -23,4 +23,7 @@ data class ApplicationLogEntry(
 ) {
     /** True for system/background rows that carry no tenant. */
     val isSystem: Boolean get() = tenantKey == null
+
+    /** The logger's simple class name (after the last dot); the full name on hover in the UI. */
+    val shortLogger: String get() = logger.substringAfterLast('.')
 }

@@ -13,6 +13,8 @@ class LogsRoutes(private val handler: LogsHandler) {
         "/tenants/{tenantId}/logs".nest {
             GET("", handler::list)
             GET("/search", handler::search)
+            GET("/older", handler::older)
+            GET("/newer", handler::newer)
         }
     }
 }

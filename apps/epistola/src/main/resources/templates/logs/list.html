@@ -5,105 +5,152 @@
         <div class="page-header">
             <h1>Logs</h1>
             <p class="ep-text-muted ep-text-sm">
-                Application log output for this tenant, plus system activity. Retained for a limited window.
+                Application log output for this tenant, plus system activity. Retained for a limited window. Times are UTC.
             </p>
         </div>
 
         <style>
+            /* Break the dense log table out of the centered content column. */
+            .logs-fullbleed { width: 96vw; position: relative; left: 50%; margin-left: -48vw; }
+            .log-table { table-layout: fixed; width: 100%; font-size: var(--ep-text-xs, 0.75rem); }
+            .log-table th, .log-table td { padding: var(--ep-space-1, 0.25rem) var(--ep-space-2, 0.5rem); }
             .log-table td { vertical-align: top; }
             .log-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+            .log-logger { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
             .log-msg { white-space: pre-wrap; word-break: break-word; }
-            .log-level { font-weight: 600; font-size: var(--ep-text-xs, 0.75rem); }
+            .log-level { font-weight: 600; }
             .log-level-ERROR { color: var(--ep-color-danger, #c0392b); }
             .log-level-WARN { color: var(--ep-color-warning, #b7791f); }
             .log-level-INFO { color: var(--ep-color-info, #2563eb); }
             .log-level-DEBUG, .log-level-TRACE { color: var(--ep-text-muted-color, #6b7280); }
-            .log-exception { margin-top: var(--ep-space-2, 0.5rem); }
-            .log-exception pre { white-space: pre-wrap; font-size: var(--ep-text-xs, 0.75rem); overflow-x: auto; }
+            .log-exception { margin-top: var(--ep-space-1, 0.25rem); }
+            .log-exception pre { white-space: pre-wrap; font-size: var(--ep-text-xs, 0.75rem); overflow-x: auto; margin: 0; }
+            .log-sentinel td { text-align: center; padding: var(--ep-space-2, 0.5rem); }
+            .log-filters { margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3); align-items: center; flex-wrap: wrap; }
         </style>
 
-        <!-- Filters -->
-        <form id="log-filters" class="ep-filters"
-              style="margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3); align-items: center;">
-            <select class="ep-input ep-input-sm" style="width: auto;"
-                    name="level"
-                    hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
-                    hx-target="#log-results"
-                    hx-swap="innerHTML"
-                    hx-include="#log-filters">
-                <option value="">All Levels</option>
-                <option th:each="lvl : ${levels}" th:value="${lvl}" th:text="${lvl}"
-                        th:selected="${selectedLevel != null && selectedLevel == lvl}">LEVEL</option>
-            </select>
-            <input class="ep-input ep-input-sm" type="search" name="logger"
-                   placeholder="Filter by logger…"
-                   th:value="${loggerFilter}"
-                   style="width: 18rem;"
-                   hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
-                   hx-target="#log-results"
-                   hx-swap="innerHTML"
-                   hx-include="#log-filters"
-                   hx-trigger="search, keyup changed delay:400ms" />
-        </form>
+        <div class="logs-fullbleed">
+            <!-- Filters: changing any control re-renders #log-results with a fresh newest-first page. -->
+            <form id="log-filters" class="log-filters">
+                <input class="ep-input ep-input-sm" type="search" name="q" placeholder="Search message…"
+                       th:value="${searchQuery}" style="width: 22rem;"
+                       hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                       hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters"
+                       hx-trigger="search, keyup changed delay:400ms" />
+                <select class="ep-input ep-input-sm" style="width: auto;" name="level"
+                        hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                        hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change">
+                    <option value="">All Levels</option>
+                    <option th:each="lvl : ${levels}" th:value="${lvl}" th:text="${lvl}"
+                            th:selected="${selectedLevel != null && selectedLevel == lvl}">LEVEL</option>
+                </select>
+                <input class="ep-input ep-input-sm" type="search" name="logger" placeholder="Filter by logger…"
+                       th:value="${loggerFilter}" style="width: 16rem;"
+                       hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                       hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters"
+                       hx-trigger="search, keyup changed delay:400ms" />
+                <label class="ep-text-muted ep-text-xs">From
+                    <input class="ep-input ep-input-sm" type="datetime-local" name="from" th:value="${fromValue}"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                           hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change" />
+                </label>
+                <label class="ep-text-muted ep-text-xs">To
+                    <input class="ep-input ep-input-sm" type="datetime-local" name="to" th:value="${toValue}"
+                           hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
+                           hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change" />
+                </label>
+            </form>
 
-        <div id="log-results">
-            <th:block th:fragment="results">
-                <div th:if="${#lists.isEmpty(logs)}" class="empty-state">
-                    <div class="empty-state-title">No log entries</div>
-                    <div class="empty-state-description">Nothing matches the current filters.</div>
-                </div>
+            <div id="log-results">
+                <th:block th:fragment="results">
+                    <div th:if="${!hasRows}" class="empty-state">
+                        <div class="empty-state-title">No log entries</div>
+                        <div class="empty-state-description">Nothing matches the current filters.</div>
+                    </div>
 
-                <table th:if="${!#lists.isEmpty(logs)}" class="ep-table log-table">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Level</th>
-                            <th>Logger</th>
-                            <th>Message</th>
-                            <th>Tenant</th>
-                            <th>Instance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="log : ${logs}">
-                            <td class="log-time" th:text="${#temporals.format(log.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-01-01 00:00:00</td>
-                            <td>
-                                <span class="log-level" th:classappend="'log-level-' + ${log.level}" th:text="${log.level}">INFO</span>
-                            </td>
-                            <td class="ep-text-sm" th:text="${log.logger}">logger</td>
-                            <td>
-                                <div class="log-msg ep-text-sm" th:text="${log.message}">message</div>
-                                <details th:if="${log.exception != null}" class="log-exception">
-                                    <summary class="ep-text-muted ep-text-xs">Stack trace</summary>
-                                    <pre th:text="${log.exception}">stack</pre>
-                                </details>
-                            </td>
-                            <td class="ep-text-sm">
-                                <span th:if="${log.tenantKey != null}" th:text="${log.tenantKey}">tenant</span>
-                                <span th:if="${log.tenantKey == null}" class="ep-text-muted" title="System / background log">system</span>
-                            </td>
-                            <td class="ep-text-muted ep-text-xs" th:text="${log.instanceId}">instance</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <!-- Pager: page param drives the offset; filters are included so they survive paging. -->
-                <div class="ep-pager" style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-3); align-items: center;"
-                     th:if="${page > 0 or hasMore}">
-                    <button type="button" class="ep-btn ep-btn-sm" th:disabled="${page == 0}"
-                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId}, page=${page - 1})}"
-                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters">
-                        Previous
-                    </button>
-                    <span class="ep-text-muted ep-text-sm" th:text="'Page ' + (${page} + 1)">Page 1</span>
-                    <button type="button" class="ep-btn ep-btn-sm" th:disabled="${!hasMore}"
-                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId}, page=${page + 1})}"
-                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters">
-                        Next
-                    </button>
-                </div>
-            </th:block>
+                    <table th:if="${hasRows}" class="ep-table log-table">
+                        <colgroup>
+                            <col style="width: 11rem;" />
+                            <col style="width: 4.5rem;" />
+                            <col style="width: 14rem;" />
+                            <col />
+                            <col style="width: 9rem;" />
+                            <col style="width: 10rem;" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Level</th>
+                                <th>Logger</th>
+                                <th>Message</th>
+                                <th>Tenant</th>
+                                <th>Instance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-rows">
+                            <th:block th:replace="~{logs/list :: newer-sentinel}" />
+                            <th:block th:replace="~{logs/list :: log-rows(${logs})}" />
+                            <th:block th:replace="~{logs/list :: older-sentinel}" />
+                        </tbody>
+                    </table>
+                </th:block>
+            </div>
         </div>
     </th:block>
+
+    <!-- Response for "Load older": rows appended below, then a refreshed older sentinel. -->
+    <th:block th:fragment="older-rows">
+        <th:block th:replace="~{logs/list :: log-rows(${logs})}" />
+        <th:block th:replace="~{logs/list :: older-sentinel}" />
+    </th:block>
+
+    <!-- Response for "Load newer": a refreshed newer sentinel, then the new rows prepended above. -->
+    <th:block th:fragment="newer-rows">
+        <th:block th:replace="~{logs/list :: newer-sentinel}" />
+        <th:block th:replace="~{logs/list :: log-rows(${logs})}" />
+    </th:block>
+
+    <!-- Reusable row markup (newest-first). -->
+    <tbody th:fragment="log-rows(logs)" th:remove="tag">
+        <tr th:each="log : ${logs}">
+            <td class="log-time" th:text="${#temporals.format(log.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-01-01 00:00:00</td>
+            <td><span class="log-level" th:classappend="'log-level-' + ${log.level}" th:text="${log.level}">INFO</span></td>
+            <td class="log-logger" th:title="${log.logger}" th:text="${log.shortLogger}">Logger</td>
+            <td>
+                <div class="log-msg" th:text="${log.message}">message</div>
+                <details th:if="${log.exception != null}" class="log-exception">
+                    <summary class="ep-text-muted ep-text-xs">Stack trace</summary>
+                    <pre th:text="${log.exception}">stack</pre>
+                </details>
+            </td>
+            <td>
+                <span th:if="${log.tenantKey != null}" th:text="${log.tenantKey}">tenant</span>
+                <span th:if="${log.tenantKey == null}" class="ep-text-muted" title="System / background log">system</span>
+            </td>
+            <td class="ep-text-muted log-logger" th:title="${log.instanceId}" th:text="${log.instanceId}">instance</td>
+        </tr>
+    </tbody>
+
+    <!-- Newer sentinel (top): self-replaces via outerHTML, prepending newer rows. -->
+    <tr th:fragment="newer-sentinel" id="log-load-newer" class="log-sentinel">
+        <td colspan="6">
+            <button type="button" class="ep-btn ep-btn-sm"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/logs/newer(tenantId=${tenantId}, ts=${newerCursorTs}, id=${newerCursorId})}"
+                    hx-include="#log-filters" hx-target="#log-load-newer" hx-swap="outerHTML">
+                Load newer
+            </button>
+        </td>
+    </tr>
+
+    <!-- Older sentinel (bottom): present only while more history exists; self-replaces, appending older rows. -->
+    <tr th:fragment="older-sentinel" id="log-load-older" class="log-sentinel" th:if="${hasOlder}">
+        <td colspan="6">
+            <button type="button" class="ep-btn ep-btn-sm"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/logs/older(tenantId=${tenantId}, ts=${olderCursorTs}, id=${olderCursorId})}"
+                    hx-include="#log-filters" hx-target="#log-load-older" hx-swap="outerHTML">
+                Load older
+            </button>
+        </td>
+    </tr>
 </body>
 </html>

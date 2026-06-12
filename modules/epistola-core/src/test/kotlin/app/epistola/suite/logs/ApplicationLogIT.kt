@@ -4,6 +4,7 @@ import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.logs.queries.ListApplicationLogs
 import app.epistola.suite.logs.queries.ListApplicationLogsHandler
+import app.epistola.suite.logs.queries.LogPageDirection
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.testing.IntegrationTestBase
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
@@ -205,6 +206,7 @@ class ApplicationLogIT : IntegrationTestBase() {
         logger: String,
         tenantKey: String? = null,
         level: String = "INFO",
+        message: String = "m",
         occurredAt: OffsetDateTime = OffsetDateTime.now(testClock),
     ) {
         jdbi.useHandle<Exception> { handle ->
@@ -218,10 +220,57 @@ class ApplicationLogIT : IntegrationTestBase() {
                 .bind("occurredAt", occurredAt)
                 .bind("level", level)
                 .bind("logger", logger)
-                .bind("message", "m")
+                .bind("message", message)
                 .bind("instanceId", nodeIdentity.nodeId)
                 .bind("tenantKey", tenantKey)
                 .execute()
         }
+    }
+
+    @Test
+    fun `keyset pagination pages older then newer, newest-first, without gaps`() {
+        val logger = "keyset.${UUID.randomUUID()}"
+        val tenant = TenantKey.of("keyset-tenant")
+        val base = OffsetDateTime.now(testClock).withNano(0)
+        (1..5).forEach { i -> insertRow(logger, message = "e$i", occurredAt = base.plusMinutes(i.toLong())) }
+
+        fun page(direction: LogPageDirection, cursor: ApplicationLogEntry?) = listHandler.handle(
+            ListApplicationLogs(
+                tenantId = tenant,
+                logger = logger,
+                limit = 2,
+                direction = direction,
+                cursorOccurredAt = cursor?.occurredAt,
+                cursorId = cursor?.id,
+            ),
+        )
+
+        // Newest-first default page.
+        val p1 = page(LogPageDirection.OLDER, null)
+        assertThat(p1.map { it.message }).containsExactly("e5", "e4")
+
+        // Load older from the oldest shown (e4) → the next two older, still newest-first.
+        val p2 = page(LogPageDirection.OLDER, p1.last())
+        assertThat(p2.map { it.message }).containsExactly("e3", "e2")
+
+        // Load newer from the oldest shown (e2) → the two immediately newer, newest-first.
+        val newer = page(LogPageDirection.NEWER, p2.last())
+        assertThat(newer.map { it.message }).containsExactly("e4", "e3")
+
+        // Nothing newer than the newest row.
+        assertThat(page(LogPageDirection.NEWER, p1.first())).isEmpty()
+    }
+
+    @Test
+    fun `message search matches case-insensitively`() {
+        val logger = "search.${UUID.randomUUID()}"
+        insertRow(logger, message = "Connection TIMEOUT to upstream")
+        insertRow(logger, message = "ordinary heartbeat")
+
+        val hits = listHandler.handle(
+            ListApplicationLogs(tenantId = TenantKey.of("search-tenant"), logger = logger, search = "timeout"),
+        )
+        assertThat(hits).hasSize(1)
+        assertThat(hits.single().message).contains("TIMEOUT")
     }
 }
