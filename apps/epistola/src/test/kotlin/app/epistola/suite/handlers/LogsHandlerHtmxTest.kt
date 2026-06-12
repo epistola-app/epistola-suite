@@ -97,6 +97,34 @@ class LogsHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(excluded.body).doesNotContain("tz-target")
     }
 
+    @Test
+    fun `an invalid timezone falls back to UTC`() {
+        val tenant: Tenant = createTenant("Logs Bad TZ")
+        val tenantKey = tenant.id.value
+        insert(tenantKey, "INFO", "utc-target", OffsetDateTime.parse("2026-06-12T00:30:00Z"))
+
+        // tz is unparseable → server falls back to UTC, so the From/To window is UTC and brackets 00:30Z.
+        val response = getHtmx("/tenants/$tenantKey/logs/search?tz=Not/AZone&from=2026-06-12T00:00&to=2026-06-12T01:00")
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("utc-target")
+    }
+
+    @Test
+    fun `a malformed pagination cursor is a 400, not a 500`() {
+        val tenantKey = seedLogs()
+        val response = getHtmx("/tenants/$tenantKey/logs/older?ts=garbage&id=not-a-uuid")
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
+    @Test
+    fun `an empty result renders the empty state`() {
+        val tenantKey = seedLogs()
+        val response = getHtmx("/tenants/$tenantKey/logs/search?q=no-such-message-anywhere")
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("No log entries")
+        assertThat(response.body).doesNotContain("first error message")
+    }
+
     private fun seedLogs(): String {
         val tenant: Tenant = createTenant("Logs Viewer")
         val tenantKey = tenant.id.value

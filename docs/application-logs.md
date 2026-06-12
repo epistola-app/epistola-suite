@@ -40,6 +40,13 @@ partitioning** (mirroring the documents partition approach in
 `PartitionMaintenanceScheduler`) and pruned by dropping partitions, without
 changing the read/write contracts.
 
+**Scaling levers (deferred — not needed at the expected low volume):** the viewer's
+`message`/`logger` filters use `ILIKE` (no index — a sequential scan), and the
+`(tenant_key = :t OR tenant_key IS NULL)` predicate can't fully use the
+`(tenant_key, occurred_at)` index. If volume grows enough to matter, options are a
+GIN/`pg_trgm` index for the substring search and/or splitting the OR into a `UNION`
+of two index scans. Left out deliberately to keep the schema simple.
+
 ## Capture (non-blocking, batched, fail-open)
 
 Capture bridges Logback (instantiated by the logging system) and Spring (owns
@@ -69,7 +76,7 @@ Guarantees:
 - **Log-bomb guard** — a token bucket at `enqueue` caps capture to
   `epistola.logs.max-rate-per-second` (default 2000; `0` disables). The bucket
   starts full so normal bursts pass, but a _sustained_ flood from a runaway logger
-  is shed and counted (`epistola.logs.rate-limited`) **before** it reaches the queue
+  is shed and counted (`epistola.logs.rate.limited`) **before** it reaches the queue
   — bounding both table/disk growth and DB write load, regardless of how fast the
   application logs. The bounded queue (memory) and this rate cap (DB/disk) are
   complementary: the queue caps a burst, the rate cap caps a sustained flood.

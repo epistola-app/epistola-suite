@@ -19,9 +19,10 @@ import java.time.ZoneOffset
  * them. The work is intentionally cheap: build an immutable record and a
  * non-blocking `offer`. Nothing here blocks the caller or throws into it.
  *
- * Recursion guard: events from this feature's own package (e.g. a persistence
- * failure logged by the ingestor) are ignored, so a DB outage cannot feed its
- * own error logs back into the queue.
+ * Recursion guard: the [ApplicationLogIngestor]'s own logger is ignored, so its
+ * persistence-failure warnings cannot feed back into the queue during a DB
+ * outage. It is scoped to that one logger (not the whole `logs` package) so the
+ * rest of the feature's diagnostics — e.g. the query handler — are still captured.
  *
  * Decoupled from the ingestor via a [sink] function so the conversion can be
  * unit-tested without a queue or database.
@@ -32,7 +33,7 @@ class ApplicationLogAppender(
 
     public override fun append(event: ILoggingEvent) {
         val loggerName = event.loggerName ?: ""
-        if (loggerName.startsWith(SELF_PACKAGE)) return
+        if (loggerName == INGESTOR_LOGGER) return
 
         val mdc = event.mdcPropertyMap ?: emptyMap()
         val attributes = mdc
@@ -42,6 +43,8 @@ class ApplicationLogAppender(
         sink(
             ApplicationLogRecord(
                 id = UUIDv7.generate(),
+                // Logback's wall-clock event time (epoch millis), not EpistolaClock — stored UTC;
+                // the UI renders it in the viewer's browser timezone.
                 occurredAt = Instant.ofEpochMilli(event.timeStamp).atOffset(ZoneOffset.UTC),
                 level = event.level?.toString() ?: "UNKNOWN",
                 logger = loggerName,
@@ -58,17 +61,19 @@ class ApplicationLogAppender(
 
     /**
      * Tenant attribution from the single source of truth: the active principal's
-     * `currentTenantId` (a `ScopedValue` propagated across request and background
-     * threads). Null when no principal is bound — a system/background log. Never
-     * throws.
+     * `currentTenantId` (a `ScopedValue`), read here on the **logging thread**.
+     * It is propagated across request and background threads by the security/mediator
+     * context, so background work that wants its logs attributed must run under a bound
+     * principal (e.g. `SystemUser.principalForTenant(...)`; see issue #551). Null when no
+     * principal is bound — a system/background log. Never throws.
      */
     private fun resolveTenantKey(): String? = runCatching {
         SecurityContext.currentOrNull()?.currentTenantId?.value
     }.getOrNull()
 
     companion object {
-        /** Events from this package are never captured (recursion guard). */
-        const val SELF_PACKAGE = "app.epistola.suite.logs"
+        /** The one logger excluded from capture (recursion guard) — see class KDoc. */
+        const val INGESTOR_LOGGER = "app.epistola.suite.logs.ApplicationLogIngestor"
         private const val TRACE_ID_KEY = "traceId"
         private const val SPAN_ID_KEY = "spanId"
     }

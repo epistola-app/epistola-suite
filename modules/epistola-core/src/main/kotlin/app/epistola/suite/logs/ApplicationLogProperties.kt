@@ -22,7 +22,7 @@ data class ApplicationLogProperties(
     val queueCapacity: Int = 10_000,
     /**
      * Maximum log events captured to the DB per second — a token bucket applied at
-     * enqueue. Excess is dropped and counted as `epistola.logs.rate-limited`. This
+     * enqueue. Excess is dropped and counted as `epistola.logs.rate.limited`. This
      * guards against a "log bomb" (a runaway/looping logger) bloating the table and
      * loading the database faster than retention can reclaim. The bucket starts full,
      * so normal bursts up to this size pass untouched — only a *sustained* flood is

@@ -120,13 +120,58 @@ class ApplicationLogIT : IntegrationTestBase() {
 
         fun count(name: String) = registry.find(name).counter()?.count()?.toLong() ?: 0L
         val persisted = count("epistola.logs.persisted")
-        val limited = count("epistola.logs.rate-limited")
+        val limited = count("epistola.logs.rate.limited")
 
         assertThat(persisted).`as`("only ~one bucket admitted").isBetween(1L, 30L)
         assertThat(limited).`as`("the flood is shed by the rate cap").isGreaterThan(0L)
         assertThat(count("epistola.logs.dropped")).`as`("queue had room → shed by rate, not overflow").isEqualTo(0L)
         assertThat(persisted + limited).`as`("every record accounted for").isEqualTo(100L)
         assertThat(rowsForLogger(logger)).hasSize(persisted.toInt())
+    }
+
+    @Test
+    fun `rate cap disabled (maxRatePerSecond=0) admits every event`() {
+        val registry = SimpleMeterRegistry()
+        val ingestor = ApplicationLogIngestor(
+            jdbi = jdbi,
+            nodeIdentity = nodeIdentity,
+            objectMapper = objectMapper,
+            meterRegistry = registry,
+            properties = ApplicationLogProperties(queueCapacity = 1_000, maxRatePerSecond = 0),
+        )
+        val logger = "ratedisabled.test.${UUID.randomUUID()}"
+
+        repeat(500) { ingestor.enqueue(record(logger = logger)) }
+        val persisted = ingestor.flush()
+
+        fun count(name: String) = registry.find(name).counter()?.count()?.toLong() ?: 0L
+        assertThat(count("epistola.logs.rate.limited")).`as`("rate cap off → nothing shed").isEqualTo(0L)
+        assertThat(count("epistola.logs.dropped")).`as`("queue had room").isEqualTo(0L)
+        assertThat(persisted).isEqualTo(500)
+        assertThat(rowsForLogger(logger)).hasSize(500)
+    }
+
+    @Test
+    fun `a failing batch is fail-open — counted, worker keeps going, recovers`() {
+        val registry = SimpleMeterRegistry()
+        val ingestor = newIngestor(registry)
+        val failLogger = "failopen.fail.${UUID.randomUUID()}"
+        val okLogger = "failopen.ok.${UUID.randomUUID()}"
+
+        // Two records sharing one primary key → the batched INSERT violates the PK and
+        // throws. persist() must swallow it, count it, and not wedge the worker.
+        val dupId = UUIDv7.generate()
+        ingestor.enqueue(record(logger = failLogger).copy(id = dupId))
+        ingestor.enqueue(record(logger = failLogger).copy(id = dupId))
+        ingestor.flush()
+
+        fun count(name: String) = registry.find(name).counter()?.count()?.toLong() ?: 0L
+        assertThat(count("epistola.logs.persist.failures")).`as`("the failing batch is counted").isGreaterThanOrEqualTo(1L)
+
+        // The worker/flush is not wedged: a subsequent good batch still persists.
+        ingestor.enqueue(record(logger = okLogger))
+        assertThat(ingestor.flush()).isEqualTo(1)
+        assertThat(rowsForLogger(okLogger)).hasSize(1)
     }
 
     @Test

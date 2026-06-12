@@ -48,7 +48,9 @@ class ApplicationLogIngestor(
     meterRegistry: MeterRegistry,
     private val properties: ApplicationLogProperties,
 ) {
-    // Self-excluded by the appender's recursion guard (package starts with SELF_PACKAGE).
+    // This logger is excluded from capture by the appender's recursion guard
+    // (ApplicationLogAppender.INGESTOR_LOGGER), so persistence-failure warnings below
+    // cannot feed back into the queue.
     private val logger = LoggerFactory.getLogger(ApplicationLogIngestor::class.java)
 
     private val queue = ArrayBlockingQueue<ApplicationLogRecord>(properties.queueCapacity.coerceAtLeast(1))
@@ -56,7 +58,7 @@ class ApplicationLogIngestor(
     private val dropped = Counter.builder("epistola.logs.dropped")
         .description("Application log events dropped because the capture queue was full")
         .register(meterRegistry)
-    private val rateLimited = Counter.builder("epistola.logs.rate-limited")
+    private val rateLimited = Counter.builder("epistola.logs.rate.limited")
         .description("Application log events shed by the per-second rate cap (log-bomb guard)")
         .register(meterRegistry)
     private val persisted = Counter.builder("epistola.logs.persisted")
