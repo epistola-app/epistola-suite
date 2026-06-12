@@ -1,0 +1,121 @@
+# Application logs
+
+Epistola persists its **application log output** (Logback events) into a bounded,
+queryable database table so operators can see what an instance is doing without
+shell access to the container or an external log stack. Logs are retained for a
+short window (default one week), viewable per tenant in the UI, and the schema is
+shaped so they can later be forwarded to **epistola-hub** for fleet aggregation.
+
+> This is distinct from the **`event_log`** table (`EventLogSubscriber`), which
+> is a command-completion **audit trail** (domain events), not logger output.
+
+## Storage
+
+Table `application_log` (migration `core/V20260612053608__core_application_log.sql`):
+
+| column        | notes                                                        |
+| ------------- | ------------------------------------------------------------ |
+| `id`          | UUIDv7 (time-ordered, generated in-app); stable forward id   |
+| `occurred_at` | event timestamp (not the DB clock)                           |
+| `level`       | ERROR / WARN / INFO / DEBUG / TRACE                          |
+| `logger`      | logger name                                                  |
+| `message`     | formatted message                                            |
+| `thread`      | producing thread name (nullable)                             |
+| `instance_id` | `NodeIdentity.nodeId` — which instance produced the event    |
+| `tenant_key`  | tenant the event was for; **NULL** for system/background     |
+| `trace_id`    | from MDC, when present                                       |
+| `span_id`     | from MDC, when present                                       |
+| `exception`   | rendered stack trace, when the event carried a throwable     |
+| `attributes`  | remaining MDC as JSONB (excludes trace/span, promoted above) |
+
+It is a **plain (non-partitioned) table** with indexes on `occurred_at`,
+`(tenant_key, occurred_at)` and `(level, occurred_at)`. Weekly volume is expected
+to be low, so a single indexed table plus a nightly `DELETE` is sufficient and the
+`occurred_at` index keeps both the retention delete and the newest-first viewer
+cheap. `tenant_key` is intentionally **not** a foreign key — the log is append-only
+and must survive tenant deletion and stay forwarding-friendly.
+
+If volume ever warrants it, the table can be converted to native **daily RANGE
+partitioning** (mirroring the documents partition approach in
+`PartitionMaintenanceScheduler`) and pruned by dropping partitions, without
+changing the read/write contracts.
+
+## Capture (non-blocking, batched, fail-open)
+
+Capture bridges Logback (instantiated by the logging system) and Spring (owns
+`Jdbi`/`NodeIdentity`):
+
+- **`ApplicationLogAppender`** (`AppenderBase<ILoggingEvent>`) converts each event
+  into an immutable `ApplicationLogRecord` **on the thread that logged**, because
+  the per-request tenant context (`SecurityContext`, a `ScopedValue`) and the MDC
+  are only bound on that thread. It then `offer`s the record to a bounded queue —
+  never blocking the caller, never throwing into it.
+- **`ApplicationLogIngestor`** owns the bounded `ArrayBlockingQueue` and a single
+  daemon worker that drains up to `batch-size` records per JDBI `prepareBatch`
+  insert. `instance_id` is stamped at drain time from `NodeIdentity`.
+
+Guarantees:
+
+- **Non-blocking** — `enqueue` only `offer`s; on overflow it drops the event and
+  increments `epistola.logs.dropped`.
+- **Fail-open** — a failing batch is dropped and counted
+  (`epistola.logs.persist.failures`), never retried in a tight loop, and never
+  allowed to kill the worker. A DB outage degrades logging silently rather than
+  breaking requests.
+- **No recursion** — the appender ignores events from this feature's own package
+  (`app.epistola.suite.logs`), so a persistence-failure log can't re-enter the
+  queue.
+- **Level threshold** — a Logback `ThresholdFilter` (default `INFO`) bounds volume.
+
+The appender is attached programmatically on `ApplicationReadyEvent` (after Flyway,
+mirroring `PartitionMaintenanceScheduler`) and detached on shutdown, so there is no
+"before Spring is ready" window where events drop for lack of a sink. The worker
+flushes whatever is queued on shutdown.
+
+## Retention
+
+`ApplicationLogRetentionScheduler` is a `SINGLE_OWNER` cluster scheduled task
+(`core.application-log-retention`) — exactly one capable node runs each occurrence,
+so it is multi-pod safe without any extra advisory lock. It runs on
+`epistola.logs.retention-cron` (default 03:30 UTC daily) and deletes rows older than
+`epistola.logs.retention-days`.
+
+## Configuration
+
+All under `epistola.logs.*` (`ApplicationLogProperties`):
+
+| property            | default        | meaning                                           |
+| ------------------- | -------------- | ------------------------------------------------- |
+| `enabled`           | `true`         | master switch; when false no appender is attached |
+| `level`             | `INFO`         | minimum level captured                            |
+| `retention-days`    | `7`            | rows older than this are pruned                   |
+| `queue-capacity`    | `10000`        | bounded queue size; overflow is dropped           |
+| `batch-size`        | `200`          | max records per batched insert                    |
+| `flush-interval-ms` | `1000`         | max wait for the first record before looping      |
+| `retention-cron`    | `0 30 3 * * ?` | retention schedule (UTC)                          |
+
+> The integration-test profile sets `epistola.logs.enabled=false` so the suite does
+> not attach the DB appender on every test. The capture/retention tests construct
+> `ApplicationLogIngestor` / `ApplicationLogRetentionScheduler` directly and drive
+> them via `flush()` / `deleteExpired()`, so capture is exercised deterministically
+> without the background worker's timing and without polluting the table.
+
+## UI
+
+A tenant-scoped **Operations → Logs** page (`/tenants/{tenantId}/logs`,
+`LogsHandler` + `templates/logs/list.html`) lists the tenant's rows **plus system
+rows with no tenant** (`tenant_key = :tenantId OR tenant_key IS NULL`), newest
+first, filterable by level and logger and paginated. It is gated on
+`Permission.TENANT_SETTINGS` and reads through the permission-gated
+`ListApplicationLogs` CQRS query (no JDBI in the handler).
+
+## Other surfaces
+
+- **REST API** — deferred. No `/api/.../logs` endpoint yet.
+- **MCP** — deferred. A read-only "recent logs" tool for AI-assisted ops is
+  plausible later.
+- **Hub forwarding (`LogSyncPort`)** — not built. The core table is the source of
+  truth; stable `id` (UUIDv7), `instance_id` and `occurred_at` make rows
+  forward-friendly. A future `epistola-support` `LogSyncPort` +
+  `HubLogSyncAdapter` + no-op fallback (gated on `epistola.support.enabled`) would
+  ship rows, mirroring the `FeedbackSyncPort` / snapshot-sync pattern.
