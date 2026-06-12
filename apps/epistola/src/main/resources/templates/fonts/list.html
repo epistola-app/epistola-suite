@@ -18,7 +18,7 @@
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
                         th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id.toString())}"></option>
+                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
             </select>
             <script th:inline="javascript">
                 document.getElementById('catalog-filter').addEventListener('change', function() {
