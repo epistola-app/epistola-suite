@@ -56,7 +56,7 @@
          class="form-group"
          th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
-        <textarea class="ep-input"
+        <textarea class="ep-textarea"
                   th:id="${name}"
                   th:name="${name}"
                   th:placeholder="${placeholder}"
@@ -78,7 +78,7 @@
          class="form-group"
          th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
         <label class="ep-label" th:for="${name}" th:text="${label}"></label>
-        <select class="ep-input"
+        <select class="ep-select"
                 th:id="${name}"
                 th:name="${name}"
                 th:attr="required=${required}">

@@ -60,7 +60,15 @@ data class Asset(
     val height: Int?,
     val createdAt: OffsetDateTime,
     val createdBy: UserKey? = null,
-)
+) {
+    /**
+     * Plain-[String] MIME accessor for Thymeleaf/SpringEL. Templates cannot read
+     * [mediaType] directly: Kotlin mangles the value-class getter
+     * (`getMediaType-<hash>()`), so SpringEL's `getMediaType()` lookup fails. This
+     * non-value-class getter is reachable from EL.
+     */
+    val mediaTypeMime: String get() = mediaType.mimeType
+}
 
 /**
  * Asset with binary content. Used for serving and PDF rendering.

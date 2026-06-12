@@ -43,7 +43,7 @@
                                     <option th:each="theme : ${catalog.value}"
                                             th:value="${theme.catalogKey + '/' + theme.id}"
                                             th:text="${theme.name}"
-                                            th:selected="${template.themeKey != null and template.themeKey.equals(theme.id) and (template.themeCatalogKey == null or template.themeCatalogKey.equals(theme.catalogKey))}"></option>
+                                            th:selected="${template.themeKey != null and template.themeKey == theme.id and (template.themeCatalogKey == null or template.themeCatalogKey == theme.catalogKey)}"></option>
                                 </optgroup>
                             </th:block>
                         </select>

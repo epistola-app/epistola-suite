@@ -120,9 +120,9 @@
             <div class="detail-section-body" id="usage-list">
                 <th:block th:fragment="usage">
                     <!-- Toolbar: version picker + apply button -->
-                    <div th:if="${auth.has('TEMPLATE_EDIT')}" style="display: flex; align-items: center; gap: var(--ep-space-3); margin-bottom: var(--ep-space-3);">
+                    <div th:if="${auth.has('TEMPLATE_EDIT')}" class="ep-row ep-gap-3" style="margin-bottom: var(--ep-space-3);">
                         <label class="ep-label" style="margin: 0; white-space: nowrap;">Upgrade to:</label>
-                        <select id="upgrade-version-select" class="ep-input" style="width: auto; min-width: 10rem;">
+                        <select id="upgrade-version-select" class="ep-select form-control-auto" style="min-width: 10rem;">
                             <th:block th:with="publishedVersions=${versions.?[status.name() == 'PUBLISHED']},
                                                draftVersions=${versions.?[status.name() == 'DRAFT']}">
                                 <th:block th:each="v, stat : ${publishedVersions}">
