@@ -206,16 +206,22 @@
   }
 
   .ep-input {
+    --ep-form-control-height: var(--ep-h-9);
+    --ep-form-control-padding-y: var(--ep-space-1-5);
+    --ep-form-control-padding-x: var(--ep-space-3);
+    --ep-form-control-font-size: var(--ep-text-sm);
+    --ep-form-control-radius: var(--ep-radius-md);
+
     display: flex;
     width: 100%;
-    height: var(--ep-h-9);
-    padding: var(--ep-space-1-5) var(--ep-space-3);
-    font-size: var(--ep-text-sm);
+    height: var(--ep-form-control-height);
+    padding: var(--ep-form-control-padding-y) var(--ep-form-control-padding-x);
+    font-size: var(--ep-form-control-font-size);
     line-height: var(--ep-leading-normal);
     color: var(--ep-foreground);
     background-color: var(--ep-white);
     border: 1px solid var(--ep-input-border);
-    border-radius: var(--ep-radius-md);
+    border-radius: var(--ep-form-control-radius);
     transition: var(--ep-transition-colors);
 
     &::placeholder {
@@ -239,16 +245,21 @@
   }
 
   .ep-textarea {
+    --ep-form-control-padding-y: var(--ep-space-2);
+    --ep-form-control-padding-x: var(--ep-space-3);
+    --ep-form-control-font-size: var(--ep-text-sm);
+    --ep-form-control-radius: var(--ep-radius-md);
+
     display: flex;
     width: 100%;
     min-height: 5rem;
-    padding: var(--ep-space-2) var(--ep-space-3);
-    font-size: var(--ep-text-sm);
+    padding: var(--ep-form-control-padding-y) var(--ep-form-control-padding-x);
+    font-size: var(--ep-form-control-font-size);
     line-height: var(--ep-leading-normal);
     color: var(--ep-foreground);
     background-color: var(--ep-white);
     border: 1px solid var(--ep-input-border);
-    border-radius: var(--ep-radius-md);
+    border-radius: var(--ep-form-control-radius);
     resize: vertical;
     transition: var(--ep-transition-colors);
 
@@ -269,16 +280,22 @@
   }
 
   .ep-select {
+    --ep-form-control-height: var(--ep-h-9);
+    --ep-form-control-padding-y: var(--ep-space-1-5);
+    --ep-form-control-padding-x: var(--ep-space-3);
+    --ep-form-control-font-size: var(--ep-text-sm);
+    --ep-form-control-radius: var(--ep-radius-md);
+
     display: flex;
     width: 100%;
-    height: var(--ep-h-9);
-    padding: var(--ep-space-1-5) var(--ep-space-3);
-    font-size: var(--ep-text-sm);
+    height: var(--ep-form-control-height);
+    padding: var(--ep-form-control-padding-y) var(--ep-form-control-padding-x);
+    font-size: var(--ep-form-control-font-size);
     line-height: var(--ep-leading-normal);
     color: var(--ep-foreground);
     background-color: var(--ep-white);
     border: 1px solid var(--ep-input-border);
-    border-radius: var(--ep-radius-md);
+    border-radius: var(--ep-form-control-radius);
     transition: var(--ep-transition-colors);
 
     &:focus {
@@ -291,6 +308,21 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+  }
+
+  .ep-input-sm,
+  .ep-select-sm,
+  .ep-textarea-sm {
+    --ep-form-control-height: var(--ep-h-8);
+    --ep-form-control-padding-y: var(--ep-space-1-5);
+    --ep-form-control-padding-x: var(--ep-space-2-5);
+    --ep-form-control-font-size: var(--ep-text-xs);
+    --ep-form-control-radius: var(--ep-radius-sm);
+  }
+
+  .form-control-auto {
+    width: auto;
+    flex: 0 0 auto;
   }
 
   .ep-checkbox {

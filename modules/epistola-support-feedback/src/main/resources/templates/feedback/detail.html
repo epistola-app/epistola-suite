@@ -17,7 +17,7 @@
                               hx-target="#feedback-content"
                               hx-swap="innerHTML"
                               style="display: flex; gap: var(--ep-space-2); align-items: center;">
-                            <select name="status" class="ep-input ep-input-sm" style="width: auto;">
+                            <select name="status" class="ep-select ep-select-sm form-control-auto">
                                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
                             </select>
@@ -113,8 +113,8 @@
                               hx-swap="innerHTML"
                               style="margin-top: var(--ep-space-4);">
                             <div class="form-group">
-                                <textarea name="body" class="ep-input" rows="3"
-                                          required placeholder="Add a comment..."></textarea>
+                                <textarea name="body" class="ep-textarea" rows="3"
+                                           required placeholder="Add a comment..."></textarea>
                             </div>
                             <div class="form-actions" style="margin-top: var(--ep-space-2);">
                                 <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add Comment</button>

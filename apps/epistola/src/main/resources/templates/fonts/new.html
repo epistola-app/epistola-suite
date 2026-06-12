@@ -13,7 +13,7 @@
                 <form id="font-upload-form" th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input" required>
+                        <select id="catalog" name="catalog" class="ep-select" required>
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"></option>
@@ -33,7 +33,7 @@
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="kind">Kind</label>
-                        <select id="kind" name="kind" class="ep-input" required>
+                        <select id="kind" name="kind" class="ep-select" required>
                             <option value="sans">Sans</option>
                             <option value="serif">Serif</option>
                             <option value="mono">Mono</option>
@@ -58,7 +58,7 @@
                                 </div>
                                 <div style="flex:1;">
                                     <label class="ep-label">Italic</label>
-                                    <select name="italic" class="ep-input">
+                                    <select name="italic" class="ep-select">
                                         <option value="false">No</option>
                                         <option value="true">Yes</option>
                                     </select>
