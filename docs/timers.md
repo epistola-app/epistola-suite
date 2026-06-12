@@ -255,13 +255,21 @@ need an explicit lifecycle when the code stops registering them.
 The lifecycle for code-defined scheduled tasks is:
 
 1. **Register and vouch.** Startup registration (`ClusterScheduledTaskRegistrar`)
-   upserts every `ClusterScheduledTaskDefinition` from code, then records this node
-   in `cluster_scheduled_task_registrations` (`task_key`, `node_id`,
-   `build_version`, `registered_at`) for exactly the definitions it carries — and
-   prunes its registration rows for definitions it no longer carries. That per-node
-   set is "which nodes vouch for this schedule." Re-upserting a definition also sets
-   `management_mode = 'code'` and clears any prior retirement, so a returning
-   definition is reclaimed.
+   upserts every `ClusterScheduledTaskDefinition` from code **and** records this
+   node in `cluster_scheduled_task_registrations` (`task_key`, `node_id`,
+   `build_version`, `registered_at`) for exactly the definitions it carries — in a
+   single transaction (`registry.registerAll`) — and prunes its registration rows
+   for definitions it no longer carries. Doing the upsert and the vouch atomically
+   means a reclaimed (un-retired) task is vouched for in the same commit that clears
+   its retirement, so a concurrent reconcile can never observe it
+   un-retired-but-unvouched and wrongly re-retire it. That per-node set is "which
+   nodes vouch for this schedule." Re-upserting a definition sets
+   `management_mode = 'code'` and clears any prior retirement; reclaiming a
+   _retired_ key also **starts the schedule fresh** (next-due reset to a fresh
+   initial occurrence, lease/attempt/failure/error state cleared), so reusing a
+   retired key for a new schedule never inherits the dead task's backoff or cadence.
+   A live task re-registering keeps its cadence and history. Enabling a retired task
+   (`EnableClusterScheduledTask`) likewise un-retires it.
 2. **Detect orphans.** Reconciliation looks for `management_mode = 'code'`,
    not-yet-retired rows that **no node carrying the definition has been seen
    running recently** (`ClusterScheduledTaskRegistry.findRetirableCodeTasks`). A

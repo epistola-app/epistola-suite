@@ -30,14 +30,31 @@ class ClusterScheduledTaskRegistry(
 ) {
     private val payloadType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
-    fun upsert(definition: ClusterScheduledTaskDefinition): ClusterScheduledTask {
+    fun upsert(definition: ClusterScheduledTaskDefinition): ClusterScheduledTask = jdbi.inTransaction<ClusterScheduledTask, Exception> { handle ->
+        upsertInTx(handle, definition)
+    }
+
+    /**
+     * Atomically (re-)registers every code definition for this node: upserts each
+     * row and records this node's vouch in one transaction. Reclaiming a retired
+     * task and recording the vouch in the same commit closes the window where a
+     * concurrent reconcile could re-retire a task that was just brought back but
+     * not yet vouched for.
+     */
+    fun registerAll(definitions: List<ClusterScheduledTaskDefinition>, buildVersion: String?) {
+        jdbi.useTransaction<Exception> { handle ->
+            definitions.forEach { upsertInTx(handle, it) }
+            recordNodeRegistrationsInTx(handle, definitions.map { it.taskKey }, buildVersion)
+        }
+    }
+
+    private fun upsertInTx(handle: Handle, definition: ClusterScheduledTaskDefinition): ClusterScheduledTask {
         val payloadJson = objectMapper.writeValueAsString(definition.payload)
         val scheduleFields = scheduleFields(definition.schedule)
         val initialDueAt = scheduleCalculator.initialDueAt(definition)
         val now = EpistolaClock.offsetDateTime()
-        return jdbi.inTransaction<ClusterScheduledTask, Exception> { handle ->
-            val task = handle.createQuery(
-                """
+        val task = handle.createQuery(
+            """
                 INSERT INTO cluster_tasks_scheduled (
                     task_key, tenant_key, routing_key, task_type, execution_scope, required_capability, payload,
                     schedule_kind, cron_expression, interval_ms, zone_id, failure_policy, catch_up_policy,
@@ -56,7 +73,11 @@ class ClusterScheduledTaskRegistry(
                     required_capability = EXCLUDED.required_capability,
                     payload = EXCLUDED.payload,
                     next_due_at = CASE
-                        WHEN cluster_tasks_scheduled.execution_scope <> EXCLUDED.execution_scope
+                        -- Reclaiming a retired key starts the schedule fresh (the
+                        -- prior task was "gone"); otherwise keep the live cadence
+                        -- unless the schedule shape changed.
+                        WHEN cluster_tasks_scheduled.retired_at IS NOT NULL
+                          OR cluster_tasks_scheduled.execution_scope <> EXCLUDED.execution_scope
                           OR cluster_tasks_scheduled.schedule_kind <> EXCLUDED.schedule_kind
                           OR cluster_tasks_scheduled.cron_expression IS DISTINCT FROM EXCLUDED.cron_expression
                           OR cluster_tasks_scheduled.interval_ms IS DISTINCT FROM EXCLUDED.interval_ms
@@ -71,6 +92,18 @@ class ClusterScheduledTaskRegistry(
                     failure_policy = EXCLUDED.failure_policy,
                     catch_up_policy = EXCLUDED.catch_up_policy,
                     enabled = EXCLUDED.enabled,
+                    -- Reclaiming a previously-retired key (even reusing it for a
+                    -- different task) must not inherit the dead task's lease,
+                    -- execution counters, retry-backoff position, or last error; a
+                    -- normal re-registration of a live task keeps its history.
+                    lease_owner_node_id = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN NULL ELSE cluster_tasks_scheduled.lease_owner_node_id END,
+                    lease_expires_at = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN NULL ELSE cluster_tasks_scheduled.lease_expires_at END,
+                    last_started_at = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN NULL ELSE cluster_tasks_scheduled.last_started_at END,
+                    last_completed_at = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN NULL ELSE cluster_tasks_scheduled.last_completed_at END,
+                    last_failed_at = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN NULL ELSE cluster_tasks_scheduled.last_failed_at END,
+                    attempt_count = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN 0 ELSE cluster_tasks_scheduled.attempt_count END,
+                    consecutive_failures = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN 0 ELSE cluster_tasks_scheduled.consecutive_failures END,
+                    last_error = CASE WHEN cluster_tasks_scheduled.retired_at IS NOT NULL THEN NULL ELSE cluster_tasks_scheduled.last_error END,
                     -- Re-appearing in code reclaims a code-managed task and
                     -- clears any prior retirement (the definition is back).
                     management_mode = 'code',
@@ -79,32 +112,31 @@ class ClusterScheduledTaskRegistry(
                     updated_at = :now
                 RETURNING ${selectColumns()}
                 """,
-            )
-                .bind("taskKey", definition.taskKey)
-                .bind("tenantKey", definition.tenantKey?.value)
-                .bind("routingKey", definition.routingKey)
-                .bind("taskType", definition.taskType)
-                .bind("executionScope", definition.executionScope.dbValue)
-                .bind("requiredCapability", normalizedCapability(definition.requiredCapability))
-                .bind("payload", payloadJson)
-                .bind("scheduleKind", scheduleFields.kind.dbValue)
-                .bind("cronExpression", scheduleFields.cronExpression)
-                .bind("intervalMs", scheduleFields.intervalMs)
-                .bind("zoneId", definition.zoneId)
-                .bind("failurePolicy", definition.failurePolicy.dbValue)
-                .bind("catchUpPolicy", definition.catchUpPolicy.dbValue)
-                .bind("enabled", definition.enabled)
-                .bind("initialDueAt", initialDueAt)
-                .bind("now", now)
-                .map { rs, _ -> mapTask(rs) }
-                .one()
-            // A single-owner task must never carry per-node runtime rows; clear any
-            // left over from a prior EACH_CAPABLE_NODE incarnation of this key.
-            if (task.executionScope == ClusterScheduledTaskExecutionScope.SINGLE_OWNER) {
-                deleteNodeState(handle, task.taskKey)
-            }
-            task
+        )
+            .bind("taskKey", definition.taskKey)
+            .bind("tenantKey", definition.tenantKey?.value)
+            .bind("routingKey", definition.routingKey)
+            .bind("taskType", definition.taskType)
+            .bind("executionScope", definition.executionScope.dbValue)
+            .bind("requiredCapability", normalizedCapability(definition.requiredCapability))
+            .bind("payload", payloadJson)
+            .bind("scheduleKind", scheduleFields.kind.dbValue)
+            .bind("cronExpression", scheduleFields.cronExpression)
+            .bind("intervalMs", scheduleFields.intervalMs)
+            .bind("zoneId", definition.zoneId)
+            .bind("failurePolicy", definition.failurePolicy.dbValue)
+            .bind("catchUpPolicy", definition.catchUpPolicy.dbValue)
+            .bind("enabled", definition.enabled)
+            .bind("initialDueAt", initialDueAt)
+            .bind("now", now)
+            .map { rs, _ -> mapTask(rs) }
+            .one()
+        // A single-owner task must never carry per-node runtime rows; clear any
+        // left over from a prior EACH_CAPABLE_NODE incarnation of this key.
+        if (task.executionScope == ClusterScheduledTaskExecutionScope.SINGLE_OWNER) {
+            deleteNodeState(handle, task.taskKey)
         }
+        return task
     }
 
     fun dueCandidates(limit: Int = properties.scheduledTasks.candidateScanSize): List<ClusterScheduledTask> = jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
@@ -495,46 +527,48 @@ class ClusterScheduledTaskRegistry(
      * node that restarts on a build lacking a task must stop vouching for it.
      */
     fun recordNodeRegistrations(taskKeys: Collection<String>, buildVersion: String?) {
+        jdbi.useTransaction<Exception> { handle -> recordNodeRegistrationsInTx(handle, taskKeys, buildVersion) }
+    }
+
+    private fun recordNodeRegistrationsInTx(handle: Handle, taskKeys: Collection<String>, buildVersion: String?) {
         val nodeId = nodeIdentity.nodeId
         val now = EpistolaClock.offsetDateTime()
-        jdbi.useTransaction<Exception> { handle ->
-            if (taskKeys.isEmpty()) {
-                handle.createUpdate("DELETE FROM cluster_scheduled_task_registrations WHERE node_id = :nodeId")
-                    .bind("nodeId", nodeId)
-                    .execute()
-                return@useTransaction
-            }
-
-            handle.createUpdate(
-                """
-                DELETE FROM cluster_scheduled_task_registrations
-                WHERE node_id = :nodeId
-                  AND task_key NOT IN (<taskKeys>)
-                """,
-            )
-                .bindList("taskKeys", taskKeys)
+        if (taskKeys.isEmpty()) {
+            handle.createUpdate("DELETE FROM cluster_scheduled_task_registrations WHERE node_id = :nodeId")
                 .bind("nodeId", nodeId)
                 .execute()
-
-            val batch = handle.prepareBatch(
-                """
-                INSERT INTO cluster_scheduled_task_registrations (task_key, node_id, build_version, registered_at)
-                VALUES (:taskKey, :nodeId, :buildVersion, :now)
-                ON CONFLICT (task_key, node_id) DO UPDATE
-                SET build_version = EXCLUDED.build_version,
-                    registered_at = EXCLUDED.registered_at
-                """,
-            )
-            taskKeys.forEach { taskKey ->
-                batch
-                    .bind("taskKey", taskKey)
-                    .bind("nodeId", nodeId)
-                    .bind("buildVersion", buildVersion)
-                    .bind("now", now)
-                    .add()
-            }
-            batch.execute()
+            return
         }
+
+        handle.createUpdate(
+            """
+            DELETE FROM cluster_scheduled_task_registrations
+            WHERE node_id = :nodeId
+              AND task_key NOT IN (<taskKeys>)
+            """,
+        )
+            .bindList("taskKeys", taskKeys)
+            .bind("nodeId", nodeId)
+            .execute()
+
+        val batch = handle.prepareBatch(
+            """
+            INSERT INTO cluster_scheduled_task_registrations (task_key, node_id, build_version, registered_at)
+            VALUES (:taskKey, :nodeId, :buildVersion, :now)
+            ON CONFLICT (task_key, node_id) DO UPDATE
+            SET build_version = EXCLUDED.build_version,
+                registered_at = EXCLUDED.registered_at
+            """,
+        )
+        taskKeys.forEach { taskKey ->
+            batch
+                .bind("taskKey", taskKey)
+                .bind("nodeId", nodeId)
+                .bind("buildVersion", buildVersion)
+                .bind("now", now)
+                .add()
+        }
+        batch.execute()
     }
 
     /**
@@ -772,6 +806,11 @@ class ClusterScheduledTaskRegistry(
             SET enabled = :enabled,
                 lease_owner_node_id = CASE WHEN :enabled THEN lease_owner_node_id ELSE NULL END,
                 lease_expires_at = CASE WHEN :enabled THEN lease_expires_at ELSE NULL END,
+                -- Enabling un-retires: a re-enabled task must not stay flagged
+                -- "retired" (which would hide it from re-retirement and mislead
+                -- Operations). Disabling leaves retirement state untouched.
+                retired_at = CASE WHEN :enabled THEN NULL ELSE retired_at END,
+                retirement_reason = CASE WHEN :enabled THEN NULL ELSE retirement_reason END,
                 updated_at = :now
             WHERE task_key = :taskKey
               AND tenant_key IS NOT DISTINCT FROM :tenantKey

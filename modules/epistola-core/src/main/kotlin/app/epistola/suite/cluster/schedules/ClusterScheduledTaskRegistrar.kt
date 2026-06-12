@@ -33,14 +33,13 @@ class ClusterScheduledTaskRegistrar(
 
     @EventListener(ApplicationReadyEvent::class)
     fun registerDefinitions() {
-        definitions.forEach { definition ->
-            val task = registry.upsert(definition)
-            log.debug("Registered cluster scheduled task '{}' nextDueAt={}", task.taskKey, task.nextDueAt)
-        }
-
-        registry.recordNodeRegistrations(definitions.map { it.taskKey }, buildProperties?.version)
+        // Upsert every definition and record this node's vouch in one transaction,
+        // so a reclaimed (un-retired) task is vouched for in the same commit that
+        // clears its retirement — a concurrent reconcile can never observe it
+        // un-retired-but-unvouched and wrongly re-retire it.
+        registry.registerAll(definitions, buildProperties?.version)
         log.debug(
-            "Recorded {} scheduled task registration(s) for node {}",
+            "Registered {} cluster scheduled task definition(s) for node {}",
             definitions.size,
             nodeIdentity.nodeId,
         )

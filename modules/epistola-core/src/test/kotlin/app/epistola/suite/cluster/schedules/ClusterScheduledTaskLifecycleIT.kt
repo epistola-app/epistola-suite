@@ -332,6 +332,89 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         assertThat(registry.find(key)?.retiredAt).isNull()
     }
 
+    // ---- enable / disable interaction with retirement ---------------------------------------
+
+    @Test
+    fun `enabling a retired task un-retires it`() {
+        val key = upsertTask("lifecycle-enable-unretire")
+        registry.retire(key, "gone")
+        assertThat(registry.find(key)?.retiredAt).isNotNull()
+
+        assertThat(registry.enable(key)).isTrue()
+
+        val task = registry.find(key)
+        assertThat(task?.enabled).isTrue()
+        assertThat(task?.retiredAt).isNull()
+        assertThat(task?.retirementReason).isNull()
+    }
+
+    @Test
+    fun `disabling a live code task does not retire it`() {
+        val key = upsertTask("lifecycle-disable-not-retire")
+        assertThat(registry.disable(key)).isTrue()
+
+        val task = registry.find(key)
+        assertThat(task?.enabled).isFalse()
+        assertThat(task?.retiredAt).isNull()
+    }
+
+    // ---- registerAll (atomic upsert + vouch) ------------------------------------------------
+
+    @Test
+    fun `registerAll records this node as vouching for each definition`() {
+        val keyA = "lifecycle-registerall-a-${UUID.randomUUID()}"
+        val keyB = "lifecycle-registerall-b-${UUID.randomUUID()}"
+
+        registry.registerAll(listOf(definition(keyA), definition(keyB)), "9.9.9")
+
+        assertThat(registrationNodeIds(keyA)).contains(nodeIdentity.nodeId)
+        assertThat(registrationNodeIds(keyB)).contains(nodeIdentity.nodeId)
+        assertThat(registrationBuildVersion(keyA, nodeIdentity.nodeId)).isEqualTo("9.9.9")
+    }
+
+    @Test
+    fun `registerAll reclaims a retired task and vouches so reconcile does not re-retire it`() {
+        val key = "lifecycle-reclaim-vouch-${UUID.randomUUID()}"
+        registry.upsert(definition(key))
+        registry.retire(key, "gone")
+        assertThat(registry.find(key)?.retiredAt).isNotNull()
+
+        // New deploy: this node now carries the definition again. registerAll
+        // un-retires AND records the vouch in one transaction, so there is no
+        // window where the task is un-retired but unvouched.
+        nodeRegistry.heartbeat()
+        registry.registerAll(listOf(definition(key)), "1.0.0")
+        assertThat(registry.find(key)?.retiredAt).isNull()
+        assertThat(registrationNodeIds(key)).contains(nodeIdentity.nodeId)
+
+        // A reconcile after the grace window must not re-retire it (this node vouches).
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat()
+        reconciler.reconcile()
+
+        assertThat(registry.find(key)?.retiredAt).isNull()
+    }
+
+    // ---- tenant-scoped tasks ----------------------------------------------------------------
+
+    @Test
+    fun `findRetirableCodeTasks flags an orphaned tenant-scoped code task`() {
+        val tenant = createTenant("Lifecycle Orphan Tenant")
+        val key = "lifecycle-tenant-orphan-${UUID.randomUUID()}"
+        registry.upsert(
+            ClusterScheduledTaskDefinition(
+                taskKey = key,
+                tenantKey = tenant.id,
+                routingKey = tenant.id.value,
+                taskType = "test",
+                schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+            ),
+        )
+        testClock.advanceBy(grace().plusSeconds(1))
+
+        assertThat(retirableKeys()).contains(key)
+    }
+
     // ---- purge ------------------------------------------------------------------------------
 
     @Test
@@ -481,6 +564,53 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `reusing a retired key for a new schedule starts the task fresh`() {
+        val key = "lifecycle-reuse-${UUID.randomUUID()}"
+        registry.upsert(definition(key))
+        // Accrued runtime state and a stale (past) due time on the row before retirement.
+        seedRuntimeState(key, nextDueAt = now().minusHours(1), attemptCount = 9, consecutiveFailures = 5, lastError = "old boom")
+        registry.retire(key, "definition removed")
+
+        // A new schedule reuses the same key (different task type/payload, same shape).
+        val reused = registry.upsert(
+            ClusterScheduledTaskDefinition(
+                taskKey = key,
+                routingKey = "system:$key",
+                taskType = "reused-type",
+                schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                payload = mapOf("v" to 2),
+            ),
+        )
+
+        assertThat(reused.retiredAt).isNull()
+        assertThat(reused.enabled).isTrue()
+        assertThat(reused.taskType).isEqualTo("reused-type")
+        assertThat(reused.payload["v"]).isEqualTo(2)
+        // Fresh start: a future due time and no inherited counters/lease/error.
+        assertThat(reused.nextDueAt).isAfter(now())
+        assertThat(reused.attemptCount).isZero()
+        assertThat(reused.consecutiveFailures).isZero()
+        assertThat(reused.lastError).isNull()
+        assertThat(reused.leaseOwnerNodeId).isNull()
+    }
+
+    @Test
+    fun `re-registering a live task keeps its cadence and execution history`() {
+        val key = "lifecycle-live-reupsert-${UUID.randomUUID()}"
+        registry.upsert(definition(key))
+        seedRuntimeState(key, nextDueAt = now().plusMinutes(5), attemptCount = 3, consecutiveFailures = 2, lastError = "transient")
+
+        registry.upsert(definition(key)) // same shape, not retired → preserve
+
+        val task = registry.find(key)
+        assertThat(task?.retiredAt).isNull()
+        assertThat(task?.nextDueAt).isEqualTo(now().plusMinutes(5))
+        assertThat(task?.attemptCount).isEqualTo(3)
+        assertThat(task?.consecutiveFailures).isEqualTo(2)
+        assertThat(task?.lastError).isEqualTo("transient")
+    }
+
+    @Test
     fun `upsert changing scope to single owner clears stale per-node state`() {
         val key = "lifecycle-scope-change-${UUID.randomUUID()}"
         registry.upsert(eachNodeDefinition(key))
@@ -611,6 +741,34 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
             .bind("taskKey", taskKey)
             .mapTo(Int::class.java)
             .one()
+    }
+
+    private fun seedRuntimeState(
+        taskKey: String,
+        nextDueAt: OffsetDateTime,
+        attemptCount: Int,
+        consecutiveFailures: Int,
+        lastError: String,
+    ) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE cluster_tasks_scheduled
+                SET next_due_at = :nextDueAt,
+                    attempt_count = :attemptCount,
+                    consecutive_failures = :consecutiveFailures,
+                    last_error = :lastError,
+                    last_failed_at = :nextDueAt
+                WHERE task_key = :taskKey
+                """,
+            )
+                .bind("taskKey", taskKey)
+                .bind("nextDueAt", nextDueAt)
+                .bind("attemptCount", attemptCount)
+                .bind("consecutiveFailures", consecutiveFailures)
+                .bind("lastError", lastError)
+                .execute()
+        }
     }
 
     private fun setManagementMode(taskKey: String, mode: String) {
