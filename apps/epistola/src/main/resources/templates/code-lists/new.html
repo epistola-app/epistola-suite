@@ -19,7 +19,7 @@
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"
-                                    th:selected="${formData?.catalog == cat.id.toString()}"></option>
+                                    th:selected="${formData?.catalog == cat.id}"></option>
                         </select>
                     </div>
 
