@@ -18,8 +18,9 @@ import java.util.UUID
 
 /**
  * Covers the retirement/purge lifecycle for code-defined scheduled tasks:
- * per-node registration tracking, orphan detection across an active fleet, soft
- * retirement, reclaim on re-registration, and purge after the retention window.
+ * per-node registration tracking, orphan detection by node liveness
+ * (`cluster_nodes.last_seen_at`), soft retirement, reclaim on re-registration,
+ * and purge after the retention window.
  *
  * Grace and retention windows are shrunk so the deterministic test clock can step
  * past them without large jumps.
@@ -54,6 +55,9 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     private lateinit var reconciler: ClusterScheduledTaskReconciler
 
     @Autowired
+    private lateinit var registrar: ClusterScheduledTaskRegistrar
+
+    @Autowired
     private lateinit var clock: Clock
 
     @Autowired
@@ -62,6 +66,13 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     @BeforeEach
     fun resetClock() {
         testClock.reset()
+        // Re-assert the current node's registrations for every real code
+        // definition. The shared DB is mutated by other tests/classes that prune
+        // this node's registrations; re-registering gives every test a clean
+        // baseline where the current node vouches for the real schedules, so a
+        // reconcile() in these tests never retires real tasks (no cross-test
+        // pollution) and un-retires anything a prior reconcile soft-retired.
+        registrar.registerDefinitions()
     }
 
     @Test
@@ -80,38 +91,39 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `findRetirableCodeTasks flags an orphaned code task only after the grace period`() {
+    fun `findRetirableCodeTasks flags a code task only after its node goes unseen past the grace window`() {
         val key = upsertTask("lifecycle-orphan")
-        insertRegistration(key, "ghost-node", now())
+        seedNode("ghost-node", now())
+        insertRegistration(key, "ghost-node")
 
-        // Within grace: not yet retirable.
+        // The ghost node was just seen: within grace, not retirable.
         assertThat(retirableKeys()).doesNotContain(key)
 
-        testClock.advanceBy(Duration.ofSeconds(61))
+        // Ghost stops heartbeating; once its last_seen falls outside the grace
+        // window the task it carried becomes retirable.
+        testClock.advanceBy(grace().plusSeconds(1))
 
-        // Past grace, and no active node vouches (ghost never heartbeats).
         assertThat(retirableKeys()).contains(key)
     }
 
     @Test
-    fun `findRetirableCodeTasks excludes tasks an active node still vouches for`() {
+    fun `findRetirableCodeTasks excludes tasks a node still vouches for`() {
         val key = upsertTask("lifecycle-vouched")
-        insertRegistration(key, "ghost-node", now())
-        testClock.advanceBy(Duration.ofSeconds(61))
+        seedNode("ghost-node", now())
+        insertRegistration(key, "ghost-node")
 
-        val retirable = registry.findRetirableCodeTasks(
-            activeNodeIds = listOf("ghost-node"),
-            graceBefore = now().minusSeconds(60),
-        )
+        // Even well past the grace window, a node seen recently keeps protecting.
+        testClock.advanceBy(grace().plusSeconds(1))
+        seedNode("ghost-node", now()) // fresh heartbeat
 
-        assertThat(retirable.map { it.taskKey }).doesNotContain(key)
+        assertThat(retirableKeys()).doesNotContain(key)
     }
 
     @Test
     fun `findRetirableCodeTasks never flags manual tasks`() {
         val key = upsertTask("lifecycle-manual")
         setManagementMode(key, "manual")
-        testClock.advanceBy(Duration.ofSeconds(61))
+        testClock.advanceBy(grace().plusSeconds(1))
 
         assertThat(retirableKeys()).doesNotContain(key)
     }
@@ -137,7 +149,8 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     @Test
     fun `purgeRetiredBefore deletes retired tasks and cascades registrations`() {
         val key = upsertTask("lifecycle-purge")
-        insertRegistration(key, "ghost-node", now())
+        seedNode("ghost-node", now())
+        insertRegistration(key, "ghost-node")
         registry.retire(key, "definition removed")
         assertThat(registrationNodeIds(key)).isNotEmpty()
 
@@ -173,18 +186,19 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         nodeRegistry.heartbeat()
 
         val orphanKey = upsertTask("lifecycle-reconcile-orphan")
-        insertRegistration(orphanKey, "ghost-node", now())
+        seedNode("ghost-node", now())
+        insertRegistration(orphanKey, "ghost-node")
 
-        testClock.advanceBy(Duration.ofSeconds(61))
-        nodeRegistry.heartbeat() // keep the current node active past the advance
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat() // keep the current node fresh; ghost stays stale
 
         reconciler.reconcile()
 
-        // The orphan (vouched only by a dead ghost node) is retired.
+        // The orphan (carried only by a now-unseen ghost node) is retired.
         val orphan = registry.find(orphanKey)
         assertThat(orphan?.retiredAt).isNotNull()
         assertThat(orphan?.enabled).isFalse()
-        // The reconciler's own definition (vouched by the active current node) is untouched.
+        // The reconciler's own definition (carried by the fresh current node) is untouched.
         assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)?.retiredAt).isNull()
     }
 
@@ -202,10 +216,9 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         assertThat(registry.find(key)).isNull()
     }
 
-    private fun retirableKeys(): List<String> = registry.findRetirableCodeTasks(
-        activeNodeIds = listOf(nodeIdentity.nodeId),
-        graceBefore = now().minusSeconds(60),
-    ).map { it.taskKey }
+    private fun grace(): Duration = Duration.ofMillis(properties.scheduledTasks.reconciliationGracePeriodMs)
+
+    private fun retirableKeys(): List<String> = registry.findRetirableCodeTasks(now().minus(grace())).map { it.taskKey }
 
     private fun definition(taskKey: String): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
         taskKey = taskKey,
@@ -220,7 +233,22 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         return key
     }
 
-    private fun insertRegistration(taskKey: String, nodeId: String, registeredAt: OffsetDateTime) {
+    private fun seedNode(nodeId: String, lastSeenAt: OffsetDateTime) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO cluster_nodes (node_id, capabilities, version, joined_at, last_seen_at, metadata)
+                VALUES (:nodeId, '["suite"]'::jsonb, '1.0.0', :lastSeenAt, :lastSeenAt, '{}'::jsonb)
+                ON CONFLICT (node_id) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at
+                """,
+            )
+                .bind("nodeId", nodeId)
+                .bind("lastSeenAt", lastSeenAt)
+                .execute()
+        }
+    }
+
+    private fun insertRegistration(taskKey: String, nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -231,7 +259,7 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
             )
                 .bind("taskKey", taskKey)
                 .bind("nodeId", nodeId)
-                .bind("registeredAt", registeredAt)
+                .bind("registeredAt", now())
                 .execute()
         }
     }

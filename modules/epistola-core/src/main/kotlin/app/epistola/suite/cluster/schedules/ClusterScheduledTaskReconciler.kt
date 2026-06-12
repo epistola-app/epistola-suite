@@ -1,6 +1,5 @@
 package app.epistola.suite.cluster.schedules
 
-import app.epistola.suite.cluster.ClusterNodeRegistry
 import app.epistola.suite.cluster.ClusterProperties
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
@@ -11,11 +10,13 @@ import org.springframework.stereotype.Component
  * Retires and purges code-defined scheduled tasks whose definition disappeared
  * from code.
  *
- * Detection is registration-based: each node records the schedules it actively
- * registers (see [ClusterScheduledTaskRegistrar]). A code-managed task is
- * orphaned only when no currently-active node vouches for it and its newest
- * registration is older than the configured grace period — naturally safe during
- * rolling deploys, where old nodes keep vouching until they leave.
+ * Detection is registration-based: each node records the schedules it carries
+ * (see [ClusterScheduledTaskRegistrar]). A code-managed task is orphaned only when
+ * **no node that registered it has been seen within the grace period** — liveness
+ * is judged by the registering node's `cluster_nodes.last_seen_at`, which the
+ * heartbeat keeps current. This is naturally safe during rolling deploys (old
+ * nodes keep vouching until they leave) and across long-running-node restarts (a
+ * restart gap shorter than the grace window still protects).
  *
  * Reconciliation runs both as a native `single_owner` scheduled task (so a fleet
  * that stabilises after a rolling deploy eventually retires orphans even though
@@ -24,7 +25,6 @@ import org.springframework.stereotype.Component
  */
 @Component
 class ClusterScheduledTaskReconciler(
-    private val nodeRegistry: ClusterNodeRegistry,
     private val taskRegistry: ClusterScheduledTaskRegistry,
     private val properties: ClusterProperties,
 ) : ClusterScheduledTaskHandler {
@@ -51,12 +51,11 @@ class ClusterScheduledTaskReconciler(
      */
     fun reconcile() {
         val now = EpistolaClock.offsetDateTime()
-        val activeNodeIds = nodeRegistry.activeNodes().map { it.nodeId }
-        val graceBefore = now.minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
+        val seenSince = now.minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
 
-        val retirable = taskRegistry.findRetirableCodeTasks(activeNodeIds, graceBefore)
+        val retirable = taskRegistry.findRetirableCodeTasks(seenSince)
         retirable.forEach { task ->
-            if (taskRegistry.retire(task.taskKey, "No code definition present on any active node")) {
+            if (taskRegistry.retire(task.taskKey, "No node carrying this definition seen within the grace window")) {
                 log.info("Retired orphaned cluster scheduled task '{}' (taskType={})", task.taskKey, task.taskType)
             }
         }

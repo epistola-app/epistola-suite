@@ -93,10 +93,12 @@ data class ClusterScheduledTaskProperties(
      */
     val reconciliationIntervalMs: Long = 3_600_000,
     /**
-     * A code-defined task is only retired once its newest node registration is
-     * older than this. The grace window absorbs node restarts and nodes that have
-     * not yet run their startup registrar, so a brief absence does not retire a
-     * still-present definition. Default 15 minutes.
+     * A code-defined task is only retired once **no node that registered it has
+     * been seen for this long** — i.e. every registering node's
+     * `cluster_nodes.last_seen_at` is older than this. Judging liveness by the
+     * heartbeat-maintained `last_seen_at` (not the startup `registered_at`) means
+     * a node restart shorter than this window keeps the node's schedules
+     * protected. Default 15 minutes.
      */
     val reconciliationGracePeriodMs: Long = 900_000,
     /**

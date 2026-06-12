@@ -254,15 +254,21 @@ The lifecycle for code-defined scheduled tasks is:
    `management_mode = 'code'` and clears any prior retirement, so a returning
    definition is reclaimed.
 2. **Detect orphans.** Reconciliation looks for `management_mode = 'code'`,
-   not-yet-retired rows that **no currently-active node vouches for**
-   (`ClusterScheduledTaskRegistry.findRetirableCodeTasks`). Detection is
+   not-yet-retired rows that **no node carrying the definition has been seen
+   running recently** (`ClusterScheduledTaskRegistry.findRetirableCodeTasks`). A
+   node "carries" a definition if it has a registration row; whether it counts as
+   _seen_ is judged by that node's `cluster_nodes.last_seen_at`, which the
+   heartbeat keeps current — not by the startup `registered_at`. Detection is
    registration-based, not build-version-based: it does not need all nodes to share
    a build version.
-3. **Wait out the grace period.** A task is retired only once its newest
-   registration is older than `epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms`
-   (default 15 min). This is naturally safe during rolling deploys — old nodes keep
-   vouching until they leave — and the grace window additionally absorbs a node that
-   is briefly absent (restart) or has not yet run its startup registrar.
+3. **Wait out the grace period.** A task is retired only once **every** node that
+   registered it has been unseen for
+   `epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms` (default
+   15 min) — i.e. every registering node's `last_seen_at` is older than the window.
+   Because liveness is the heartbeat-fresh `last_seen_at`, a node restart shorter
+   than the window keeps its schedules protected, and a rolling deploy is safe (old
+   nodes keep their schedules alive until they actually leave). `registered_at` is
+   retained for audit only, not as the grace basis.
 4. **Soft retire.** Orphaned tasks are marked disabled, `retired_at`/
    `retirement_reason` are recorded, and lease metadata is cleared. Retired tasks
    stay visible in Operations (shown with a "retired" status) so operators can see

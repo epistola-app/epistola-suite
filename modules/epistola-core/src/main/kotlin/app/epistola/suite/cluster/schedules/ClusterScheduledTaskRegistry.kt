@@ -532,40 +532,38 @@ class ClusterScheduledTaskRegistry(
     }
 
     /**
-     * Returns code-managed, not-yet-retired tasks that no currently-active node
-     * vouches for and whose newest registration is older than [graceBefore]. The
-     * grace window guards against a node that is briefly absent (restart) or has
-     * not yet run its startup registrar.
+     * Returns code-managed, not-yet-retired tasks that **no node carrying the
+     * definition has been seen within the grace window** — i.e. no registration
+     * row whose node has a `cluster_nodes.last_seen_at` newer than [seenSince].
+     *
+     * Liveness comes from the heartbeat-maintained node row, not from
+     * `registered_at` (written once at startup, so it goes stale for a
+     * long-running node). A restarting node's pre-restart `last_seen_at` keeps
+     * protecting its schedules until the node has genuinely been gone for the
+     * grace window; a registration whose node row is gone or stale no longer
+     * protects. A task with no registrations at all is retirable — nothing
+     * carries it.
      */
-    fun findRetirableCodeTasks(activeNodeIds: Collection<String>, graceBefore: OffsetDateTime): List<ClusterScheduledTask> {
-        // An empty IN () is invalid SQL; a sentinel that cannot be a real node id
-        // keeps the "no active node vouches" semantics when the fleet view is empty.
-        val nodeIds = activeNodeIds.ifEmpty { listOf(" __no_active_node__") }
-        return jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT ${selectColumns("t")}
-                FROM cluster_tasks_scheduled t
-                WHERE t.management_mode = 'code'
-                  AND t.retired_at IS NULL
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM cluster_scheduled_task_registrations r
-                      WHERE r.task_key = t.task_key
-                        AND r.node_id IN (<nodeIds>)
-                  )
-                  AND COALESCE(
-                      (SELECT MAX(r2.registered_at) FROM cluster_scheduled_task_registrations r2 WHERE r2.task_key = t.task_key),
-                      t.created_at
-                  ) < :graceBefore
-                ORDER BY t.task_key
-                """,
-            )
-                .bindList("nodeIds", nodeIds)
-                .bind("graceBefore", graceBefore)
-                .map { rs, _ -> mapTask(rs) }
-                .list()
-        }
+    fun findRetirableCodeTasks(seenSince: OffsetDateTime): List<ClusterScheduledTask> = jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT ${selectColumns("t")}
+            FROM cluster_tasks_scheduled t
+            WHERE t.management_mode = 'code'
+              AND t.retired_at IS NULL
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM cluster_scheduled_task_registrations r
+                  JOIN cluster_nodes n ON n.node_id = r.node_id
+                  WHERE r.task_key = t.task_key
+                    AND n.last_seen_at > :seenSince
+              )
+            ORDER BY t.task_key
+            """,
+        )
+            .bind("seenSince", seenSince)
+            .map { rs, _ -> mapTask(rs) }
+            .list()
     }
 
     /**
