@@ -551,19 +551,45 @@ class ClusterScheduledTaskRegistry(
             FROM cluster_tasks_scheduled t
             WHERE t.management_mode = 'code'
               AND t.retired_at IS NULL
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM cluster_scheduled_task_registrations r
-                  JOIN cluster_nodes n ON n.node_id = r.node_id
-                  WHERE r.task_key = t.task_key
-                    AND n.last_seen_at > :seenSince
-              )
+              AND NOT $LIVE_REGISTRATION_EXISTS
             ORDER BY t.task_key
             """,
         )
             .bind("seenSince", seenSince)
             .map { rs, _ -> mapTask(rs) }
             .list()
+    }
+
+    /**
+     * Atomically soft-retires [taskKey] **iff** it is an orphaned code task — no
+     * node carrying it has been seen within the grace window ([seenSince]). Returns
+     * true if it was retired. Used by the scheduler to clean up an orphan the
+     * moment it fires with no handler, instead of waiting for the periodic
+     * reconciler. The check and the retire are one statement so a node that
+     * (re-)registers concurrently cannot be raced into a wrongful retirement.
+     */
+    fun retireIfOrphaned(taskKey: String, seenSince: OffsetDateTime, reason: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        handle.createUpdate(
+            """
+            UPDATE cluster_tasks_scheduled t
+            SET retired_at = :now,
+                enabled = false,
+                lease_owner_node_id = NULL,
+                lease_expires_at = NULL,
+                retirement_reason = :reason,
+                updated_at = :now
+            WHERE t.task_key = :taskKey
+              AND t.management_mode = 'code'
+              AND t.retired_at IS NULL
+              AND NOT $LIVE_REGISTRATION_EXISTS
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("reason", reason.take(MAX_ERROR_LENGTH))
+            .bind("now", now)
+            .bind("seenSince", seenSince)
+            .execute() == 1
     }
 
     /**
@@ -889,5 +915,20 @@ class ClusterScheduledTaskRegistry(
         const val MAX_ERROR_LENGTH = 2_000
         const val NANOS_PER_MILLI = 1_000_000L
         const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
+
+        // A code task is still "in use" while some node that registered it has a
+        // heartbeat (cluster_nodes.last_seen_at) newer than :seenSince. The outer
+        // query must alias cluster_tasks_scheduled as `t` and bind :seenSince.
+        // Shared by the reconciler scan and the inline retire-on-dispatch check so
+        // the two cannot drift.
+        const val LIVE_REGISTRATION_EXISTS = """
+            EXISTS (
+                SELECT 1
+                FROM cluster_scheduled_task_registrations r
+                JOIN cluster_nodes n ON n.node_id = r.node_id
+                WHERE r.task_key = t.task_key
+                  AND n.last_seen_at > :seenSince
+            )
+        """
     }
 }

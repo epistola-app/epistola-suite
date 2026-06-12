@@ -217,13 +217,22 @@ The scheduled-task flow mirrors one-shot timers:
    advance to a future occurrence.
 
 Unlike one-shot timers, a scheduled task with **no registered handler** is not
-treated as a failure. A missing handler almost always means the definition was
-removed from code and the row is awaiting retirement, so the scheduler logs a
-warning and quietly advances `next_due_at` to the next occurrence without
-recording an error or incrementing the failure count. This avoids both error-state
-spam and a tight claim → fail → reclaim loop while
-`core.scheduled-task-reconciliation` retires the row (see "Scheduled Task
-Lifecycle"). A handler that exists and throws still follows the failure policy.
+treated as a failure. The dispatch path folds the orphan check in:
+
+- If **no node carrying the definition has been seen within the grace window**
+  (the same liveness gate the reconciler uses), the task is genuinely orphaned —
+  a registration means the node has the definition and therefore the handler, so
+  "no live node holds it" means nothing can ever run it — and it is **soft-retired
+  inline**, the moment it fires, rather than waiting for the periodic reconciler.
+- Otherwise a node still holds it (a rolling-deploy in-between state, or a
+  non-handler-bearing node that claimed it by capability), so the scheduler logs a
+  warning and quietly advances `next_due_at` without recording an error or
+  incrementing the failure count, letting a holding node run it.
+
+Either way there is no error-state spam and no tight claim → reclaim loop. The
+periodic `core.scheduled-task-reconciliation` task remains the backstop for
+orphans that never fire (see "Scheduled Task Lifecycle"). A handler that exists
+and throws still follows the failure policy.
 
 Use `single_owner` for installation-wide work that should run once per
 occurrence, such as feedback polling, backups, stale reapers, and cleanup. Use

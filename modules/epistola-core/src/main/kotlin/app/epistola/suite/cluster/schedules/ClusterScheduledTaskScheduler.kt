@@ -123,16 +123,7 @@ class ClusterScheduledTaskScheduler(
     private fun dispatch(task: ClusterScheduledTask) {
         val handler = handlersByType[task.taskType]
         if (handler == null) {
-            // A missing handler almost always means the definition was removed
-            // from code and the row is awaiting retirement by the reconciler.
-            // Quietly release the lease and advance to the next occurrence instead
-            // of recording a failure: no error-state spam, and no tight
-            // claim→fail→reclaim loop while reconciliation retires the row.
-            log.warn(
-                "No handler registered for cluster scheduled task type '{}' (orphaned? awaiting retirement)",
-                task.taskType,
-            )
-            taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))
+            handleMissingHandler(task)
             return
         }
 
@@ -158,6 +149,42 @@ class ClusterScheduledTaskScheduler(
         }
     }
 
+    /**
+     * Handles a claimed task whose `taskType` has no registered handler.
+     *
+     * If no node carrying the definition has been seen within the grace window,
+     * the task is genuinely orphaned (registration ⇒ the node has the definition
+     * ⇒ it has the handler, so "no live node holds it" means nothing can ever run
+     * it) and is soft-retired inline — cleaning it up the moment it fires instead
+     * of waiting for the periodic reconciler. Otherwise a holding node still
+     * exists (a rolling-deploy in-between state, or a non-handler-bearing node
+     * grabbed it by capability), so we quietly advance and let a holder run it
+     * without accruing failure/error state. The periodic reconciler remains the
+     * backstop for orphans that never fire.
+     */
+    private fun handleMissingHandler(task: ClusterScheduledTask) {
+        val seenSince = EpistolaClock.offsetDateTime().minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
+        val retired = taskRegistry.retireIfOrphaned(
+            task.taskKey,
+            seenSince,
+            "No handler and no node holding the definition seen within the grace window (retired on dispatch)",
+        )
+        if (retired) {
+            log.info(
+                "Retired orphaned cluster scheduled task '{}' on dispatch (taskType={}, no handler and no live node holds it)",
+                task.taskKey,
+                task.taskType,
+            )
+            return
+        }
+
+        log.warn(
+            "No handler on this node for cluster scheduled task type '{}'; advancing so a node that holds it can run it",
+            task.taskType,
+        )
+        taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))
+    }
+
     private fun fail(task: ClusterScheduledTask, error: String) {
         val nextDueAt = scheduleCalculator.nextAfterFailure(
             task = task,
@@ -166,5 +193,9 @@ class ClusterScheduledTaskScheduler(
             maxRetryDelayMs = properties.scheduledTasks.maxRetryDelayMs,
         )
         taskRegistry.fail(task.taskKey, nextDueAt, error)
+    }
+
+    private companion object {
+        const val NANOS_PER_MILLI = 1_000_000L
     }
 }
