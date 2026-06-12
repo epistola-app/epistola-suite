@@ -279,9 +279,14 @@ The lifecycle for code-defined scheduled tasks is:
    nodes keep their schedules alive until they actually leave). `registered_at` is
    retained for audit only, not as the grace basis.
 4. **Soft retire.** Orphaned tasks are marked disabled, `retired_at`/
-   `retirement_reason` are recorded, and lease metadata is cleared. Retired tasks
-   stay visible in Operations (shown with a "retired" status) so operators can see
-   that the definition disappeared from code.
+   `retirement_reason` are recorded, and lease metadata is cleared. Per-node
+   runtime rows (`cluster_tasks_scheduled_node_state`) are also deleted, since they
+   are only meaningful for a live `each_capable_node` definition — so a later
+   reclaim starts fresh and `ListClusterScheduledTaskNodeStates` shows no ghost
+   rows. (For the same reason, changing a task's scope to `single_owner` via
+   `upsert` clears any leftover per-node rows.) Retired tasks stay visible in
+   Operations (shown with a "retired" status) so operators can see that the
+   definition disappeared from code.
 5. **Purge later.** Retired tasks are retained for
    `epistola.cluster.scheduled-tasks.retired-retention-ms` (default 7 days) and then
    hard-deleted. Deleting the definition cascades per-node runtime state

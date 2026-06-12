@@ -35,8 +35,8 @@ class ClusterScheduledTaskRegistry(
         val scheduleFields = scheduleFields(definition.schedule)
         val initialDueAt = scheduleCalculator.initialDueAt(definition)
         val now = EpistolaClock.offsetDateTime()
-        return jdbi.withHandle<ClusterScheduledTask, Exception> { handle ->
-            handle.createQuery(
+        return jdbi.inTransaction<ClusterScheduledTask, Exception> { handle ->
+            val task = handle.createQuery(
                 """
                 INSERT INTO cluster_tasks_scheduled (
                     task_key, tenant_key, routing_key, task_type, execution_scope, required_capability, payload,
@@ -98,6 +98,12 @@ class ClusterScheduledTaskRegistry(
                 .bind("now", now)
                 .map { rs, _ -> mapTask(rs) }
                 .one()
+            // A single-owner task must never carry per-node runtime rows; clear any
+            // left over from a prior EACH_CAPABLE_NODE incarnation of this key.
+            if (task.executionScope == ClusterScheduledTaskExecutionScope.SINGLE_OWNER) {
+                deleteNodeState(handle, task.taskKey)
+            }
+            task
         }
     }
 
@@ -568,9 +574,9 @@ class ClusterScheduledTaskRegistry(
      * reconciler. The check and the retire are one statement so a node that
      * (re-)registers concurrently cannot be raced into a wrongful retirement.
      */
-    fun retireIfOrphaned(taskKey: String, seenSince: OffsetDateTime, reason: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    fun retireIfOrphaned(taskKey: String, seenSince: OffsetDateTime, reason: String): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
         val now = EpistolaClock.offsetDateTime()
-        handle.createUpdate(
+        val retired = handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled t
             SET retired_at = :now,
@@ -590,15 +596,17 @@ class ClusterScheduledTaskRegistry(
             .bind("now", now)
             .bind("seenSince", seenSince)
             .execute() == 1
+        if (retired) deleteNodeState(handle, taskKey)
+        retired
     }
 
     /**
      * Soft-retires a code-managed task: disables it, clears any lease, and records
      * when and why. The row stays visible in Operations until it is purged.
      */
-    fun retire(taskKey: String, reason: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    fun retire(taskKey: String, reason: String): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
         val now = EpistolaClock.offsetDateTime()
-        handle.createUpdate(
+        val retired = handle.createUpdate(
             """
             UPDATE cluster_tasks_scheduled
             SET retired_at = :now,
@@ -616,6 +624,8 @@ class ClusterScheduledTaskRegistry(
             .bind("reason", reason.take(MAX_ERROR_LENGTH))
             .bind("now", now)
             .execute() == 1
+        if (retired) deleteNodeState(handle, taskKey)
+        retired
     }
 
     /**
@@ -739,6 +749,19 @@ class ClusterScheduledTaskRegistry(
             .bind("nodeId", nodeIdentity.nodeId)
             .map { rs, _ -> mapTask(rs) }
             .list()
+    }
+
+    /**
+     * Deletes all per-node runtime rows for [taskKey]. Per-node state is only
+     * meaningful for an enabled EACH_CAPABLE_NODE definition, so it must be cleared
+     * when the definition is retired or changes scope to single-owner — otherwise a
+     * later reclaim inherits stale `next_due`/attempt/error state and
+     * [listNodeStates] shows ghost rows. Called inside an existing transaction.
+     */
+    private fun deleteNodeState(handle: Handle, taskKey: String) {
+        handle.createUpdate("DELETE FROM cluster_tasks_scheduled_node_state WHERE task_key = :taskKey")
+            .bind("taskKey", taskKey)
+            .execute()
     }
 
     private fun setEnabled(taskKey: String, tenantKey: TenantKey?, enabled: Boolean): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->

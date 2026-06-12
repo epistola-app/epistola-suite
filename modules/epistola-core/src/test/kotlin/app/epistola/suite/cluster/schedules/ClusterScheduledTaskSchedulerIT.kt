@@ -48,6 +48,9 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         withMediator {
             DisableClusterScheduledTask("scheduler-missing-handler").execute()
             DisableClusterScheduledTask("scheduler-missing-handler-held").execute()
+            DisableClusterScheduledTask("scheduler-missing-handler-eachnode-orphan").execute()
+            DisableClusterScheduledTask("scheduler-missing-handler-eachnode-held").execute()
+            DisableClusterScheduledTask("scheduler-missing-handler-manual").execute()
             DisableClusterScheduledTask("scheduler-success").execute()
             DisableClusterScheduledTask("scheduler-failure").execute()
             DisableClusterScheduledTask("scheduler-each-node").execute()
@@ -216,6 +219,98 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(task?.consecutiveFailures).isZero()
         assertThat(task?.lastError).isNull()
         assertThat(task?.nextDueAt).isAfter(now())
+    }
+
+    @Test
+    fun `poll retires an orphaned each-capable-node no-handler task inline`() {
+        val key = "scheduler-missing-handler-eachnode-orphan"
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = key,
+                    routingKey = "system:$key",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+                ),
+            ).execute()
+        }
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        val task = registry.find(key)
+        assertThat(handler.handled).isEmpty()
+        assertThat(task?.retiredAt).isNotNull()
+        assertThat(task?.enabled).isFalse()
+        // Per-node state created during the claim is cleared by the inline retire.
+        assertThat(registry.listNodeStates().filter { it.taskKey == key }).isEmpty()
+    }
+
+    @Test
+    fun `poll advances an each-capable-node no-handler task without retiring while a node holds it`() {
+        val key = "scheduler-missing-handler-eachnode-held"
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = key,
+                    routingKey = "system:$key",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+                ),
+            ).execute()
+        }
+        seedNode("holder-node", now())
+        insertRegistration(key, "holder-node")
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        val task = registry.find(key)
+        assertThat(handler.handled).isEmpty()
+        assertThat(task?.retiredAt).isNull()
+        assertThat(task?.enabled).isTrue()
+        // The current node's per-node occurrence was advanced (skipped), not retired.
+        val nodeStates = registry.listNodeStates().filter { it.taskKey == key }
+        assertThat(nodeStates).hasSize(1)
+        assertThat(nodeStates.single().nextDueAt).isAfter(now())
+    }
+
+    @Test
+    fun `poll advances a manual no-handler task without retiring it`() {
+        val key = "scheduler-missing-handler-manual"
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = key,
+                    routingKey = "system:$key",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                ),
+            ).execute()
+        }
+        setManagementMode(key, "manual")
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        // Manual tasks are never auto-retired; a missing handler just advances them.
+        val task = registry.find(key)
+        assertThat(handler.handled).isEmpty()
+        assertThat(task?.retiredAt).isNull()
+        assertThat(task?.enabled).isTrue()
+        assertThat(task?.managementMode).isEqualTo("manual")
+        assertThat(task?.nextDueAt).isAfter(now())
+    }
+
+    private fun setManagementMode(taskKey: String, mode: String) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("UPDATE cluster_tasks_scheduled SET management_mode = :mode WHERE task_key = :taskKey")
+                .bind("mode", mode)
+                .bind("taskKey", taskKey)
+                .execute()
+        }
     }
 
     private fun seedDueTask(taskKey: String) {
