@@ -14,7 +14,7 @@
         </div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-input" style="max-width: 300px;">
+            <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
                 <option th:each="cat : ${catalogs}"
                         th:value="${cat.id}"
@@ -183,7 +183,7 @@
                 </div>
                 <div class="form-group constraint-pane" data-constraint-pane="code-list">
                     <label class="ep-label" for="edit-attr-codeList">Code list</label>
-                    <select id="edit-attr-codeList" name="codeList" class="ep-input">
+                    <select id="edit-attr-codeList" name="codeList" class="ep-select">
                         <option value="">&mdash; Select a code list &mdash;</option>
                         <th:block th:each="cl : ${codeLists}">
                             <option th:value="${cl.catalogKey + '/' + cl.slug}"

@@ -13,7 +13,7 @@
                 <form th:action="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}" method="post">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input">
+                        <select id="catalog" name="catalog" class="ep-select">
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"

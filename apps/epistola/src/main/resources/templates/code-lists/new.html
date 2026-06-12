@@ -15,7 +15,7 @@
                       method="post" id="code-list-form">
                     <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
                         <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-input" required>
+                        <select id="catalog" name="catalog" class="ep-select" required>
                             <option th:each="cat : ${catalogs}"
                                     th:value="${cat.id}"
                                     th:text="${cat.name}"
