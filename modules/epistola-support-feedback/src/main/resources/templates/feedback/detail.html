@@ -16,8 +16,8 @@
                         <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
                               hx-target="#feedback-content"
                               hx-swap="innerHTML"
-                              style="display: flex; gap: var(--ep-space-2); align-items: center;">
-                            <select name="status" class="ep-input ep-input-sm" style="width: auto;">
+                              class="ep-row">
+                            <select name="status" class="ep-select ep-select-sm form-control-auto">
                                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
                             </select>
@@ -26,7 +26,7 @@
                     </div>
                 </div>
 
-                <div style="display: flex; gap: var(--ep-space-3); margin-bottom: var(--ep-space-6); flex-wrap: wrap;">
+                <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-6);">
                     <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: category-badge(${feedback.category})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${feedback.priority})}" />
@@ -95,7 +95,7 @@
 
                         <div th:each="comment : ${comments}" class="card" style="margin-bottom: var(--ep-space-3);">
                             <div class="card-content">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: var(--ep-space-2);">
+                                <div class="ep-row ep-row-between" style="margin-bottom: var(--ep-space-2);">
                                     <span style="font-weight: 500;">
                                         <span th:text="${comment.authorName}">Author</span>
                                         <span th:if="${comment.source.name() == 'GITHUB'}" class="ep-badge ep-badge-outline" style="margin-left: var(--ep-space-2);">GitHub</span>
@@ -113,8 +113,8 @@
                               hx-swap="innerHTML"
                               style="margin-top: var(--ep-space-4);">
                             <div class="form-group">
-                                <textarea name="body" class="ep-input" rows="3"
-                                          required placeholder="Add a comment..."></textarea>
+                                <textarea name="body" class="ep-textarea" rows="3"
+                                           required placeholder="Add a comment..."></textarea>
                             </div>
                             <div class="form-actions" style="margin-top: var(--ep-space-2);">
                                 <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Add Comment</button>

@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit
 
 @TestPropertySource(
     properties = [
-        "epistola.cluster.timers.poll-interval-ms=60000",
         "epistola.cluster.timers.lease-duration-ms=30000",
         "epistola.cluster.timers.retry-delay-ms=30000",
     ],

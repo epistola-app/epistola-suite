@@ -1,0 +1,2 @@
+org.springframework.context.ApplicationContextInitializer=\
+app.epistola.suite.testing.metrics.ContextBootCounter

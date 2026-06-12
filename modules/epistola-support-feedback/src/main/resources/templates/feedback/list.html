@@ -17,8 +17,8 @@
         </div>
 
         <!-- Filters -->
-        <div class="ep-filters" style="margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3);">
-            <select class="ep-input ep-input-sm" style="width: auto;"
+        <div class="ep-filters ep-row ep-gap-3" style="margin-bottom: var(--ep-space-4);">
+            <select class="ep-select ep-select-sm form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"
@@ -28,7 +28,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
-            <select class="ep-input ep-input-sm" style="width: auto;"
+            <select class="ep-select ep-select-sm form-control-auto"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
                     hx-target="#feedback-rows"
                     hx-swap="innerHTML"

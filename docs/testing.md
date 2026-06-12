@@ -290,6 +290,69 @@ val variantId = TestIdHelpers.nextVariantId()     // var-001, var-002, ...
 val environmentId = TestIdHelpers.nextEnvironmentId()
 ```
 
+### Scheduled work: `scheduling` (deterministic substrate)
+
+Integration tests never run the production wall-clock scheduler loop — it
+cannot see the per-test `ScopedValue` clock and its autonomous ticks would race
+parallel test classes on installation-wide state. `IntegrationTestBase` selects
+the deterministic substrate (`epistola.cluster.scheduling-substrate=test`) and
+exposes a driver that runs due cluster timers and scheduled tasks explicitly,
+synchronously, on the test thread:
+
+```kotlin
+// "a day passes and due scheduled work runs"
+scheduling.advanceTimeBy(Duration.ofHours(25))
+
+// run what is already due without moving the clock
+scheduling.runDue()
+
+// move time without firing anything
+testClock.advanceBy(Duration.ofMinutes(5))
+```
+
+Do not add `Thread.sleep`/Awaitility waits for scheduler ticks — drive them.
+Document generation is **opt-in** in tests: nothing drains automatically, so a
+test only renders a document when it explicitly calls
+`drainGenerationJobs(tenant.id)` (synchronous, tenant-scoped) and then asserts on
+the result. Tests that only need the created request (PENDING status, metadata,
+validation) should not call it. See
+[`docs/timers.md`](timers.md#scheduling-substrate-trigger-vs-engine).
+
+## Test-run metrics (cross-cutting)
+
+Test performance is captured automatically on **every** run by a cross-cutting
+harness in `modules/testing` (`app.epistola.suite.testing.metrics`) — there is no
+per-test instrumentation. It is wired through three seams:
+
+- **`TestTimingListener`** — a JUnit Platform `TestExecutionListener`
+  auto-registered via `META-INF/services`, so it observes every test in every
+  module that depends on `modules:testing`. It times each test class and, at the
+  end of the run, prints a compact summary and writes a machine-readable JSON
+  report.
+- **`ContextBootCounter`** — a Spring `ApplicationContextInitializer` registered
+  via `META-INF/spring.factories`. It runs once per fresh `ApplicationContext`
+  boot, so its count equals the **test-context cache misses** — the cost driver
+  behind context fragmentation (a class that adds `@TestPropertySource`/`@Import`/
+  `@MockkBean` gets its own context).
+- **`MetricsRecordingMediator`** — a `@Primary` `Mediator` decorator (imported by
+  `IntegrationTestBase`) that times every command/query. Because tests bind it via
+  `withMediator`, nested `.execute()`/`.query()` calls flow through it too, so a
+  command's time includes its nested work (e.g. `CreateTenant` includes the
+  `InstallSystemCatalog`/font import it triggers), and the tenant-bootstrap count
+  falls out of the `CreateTenant` count.
+
+Each test task writes `build/test-metrics/<module>-<task>.json`:
+
+```json
+{ "label": "...", "wallMillis": 0, "classCount": 0, "contextBoots": 0,
+  "tenantsCreated": 0, "classes": [...], "commands": [...], "queries": [...] }
+```
+
+CI uploads these as the `test-run-metrics` artifact (30-day retention), so suite
+performance is monitorable over time and regressions (like a series that silently
+adds minutes) are caught with evidence rather than eyeballing. The console summary
+also prints the slowest classes and costliest commands at the end of each run.
+
 ## Performance Optimizations
 
 - **Testcontainers reuse** — containers persist across test runs (`withReuse(true)`)

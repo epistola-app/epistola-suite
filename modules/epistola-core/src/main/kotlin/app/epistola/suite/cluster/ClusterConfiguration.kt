@@ -31,6 +31,16 @@ data class ClusterProperties(
     val capabilities: List<String> = listOf(DEFAULT_CAPABILITY),
     val timers: ClusterTimerProperties = ClusterTimerProperties(),
     val scheduledTasks: ClusterScheduledTaskProperties = ClusterScheduledTaskProperties(),
+    /**
+     * Which substrate triggers autonomous cluster work:
+     * [SUBSTRATE_WALL_CLOCK] (production default — pollers tick via the
+     * `@Scheduled` [WallClockClusterSchedulingDriver] and the node heartbeat
+     * self-schedules on the [ClusterMaintenanceExecutor]) or [SUBSTRATE_TEST]
+     * (deterministic driver from `modules/testing`; nothing runs autonomously,
+     * pollers and heartbeat are invoked explicitly on the test thread within the
+     * bound test clock). Read as a bean/lifecycle condition, not injected for behaviour.
+     */
+    val schedulingSubstrate: String = SUBSTRATE_WALL_CLOCK,
 ) {
     fun normalizedCapabilities(): List<String> = capabilities
         .map { it.trim() }
@@ -38,8 +48,13 @@ data class ClusterProperties(
         .distinct()
         .ifEmpty { listOf(DEFAULT_CAPABILITY) }
 
+    /** True when autonomous wall-clock triggering is active (production). */
+    fun autonomousSchedulingEnabled(): Boolean = schedulingSubstrate == SUBSTRATE_WALL_CLOCK
+
     companion object {
         const val DEFAULT_CAPABILITY = "suite"
+        const val SUBSTRATE_WALL_CLOCK = "wall-clock"
+        const val SUBSTRATE_TEST = "test"
     }
 }
 

@@ -11,18 +11,15 @@ import app.epistola.suite.generation.collect.domain.Partition
 import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.generation.collect.queries.FetchGenerationResults
 import app.epistola.suite.mediator.query
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 /**
  * End-to-end check that a successful document generation produces a row in
@@ -67,13 +64,10 @@ class EmitOnExecutorIT : IntegrationTestBase() {
                 ),
             )
         }.then { setup, request ->
-            // Wait for executor to terminate the request
-            await().atMost(10, TimeUnit.SECONDS).pollInterval(50, TimeUnit.MILLISECONDS).untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
-                    assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+            // Drain the tenant's pending generation jobs synchronously
+            drainGenerationJobs(setup.tenant.id)
+            val job = withMediator { mediator.query(GetGenerationJob(setup.tenant.id, request.id))!! }
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
 
             val expectedPartition = Partition.partitionFor("order-9999")
             val page = withMediator {
@@ -122,12 +116,9 @@ class EmitOnExecutorIT : IntegrationTestBase() {
                 ),
             )
         }.then { setup, request ->
-            await().atMost(10, TimeUnit.SECONDS).pollInterval(50, TimeUnit.MILLISECONDS).untilAsserted {
-                SecurityContext.runWithPrincipal(testUser) {
-                    val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
-                    assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
-                }
-            }
+            drainGenerationJobs(setup.tenant.id)
+            val job = withMediator { mediator.query(GetGenerationJob(setup.tenant.id, request.id))!! }
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
 
             val expectedPartition = Partition.partitionFor(request.id.value.toString())
             val page = withMediator {

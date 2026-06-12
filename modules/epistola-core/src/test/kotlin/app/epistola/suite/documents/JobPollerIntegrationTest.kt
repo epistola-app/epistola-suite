@@ -1,5 +1,6 @@
 package app.epistola.suite.documents
 
+import app.epistola.suite.cluster.WallClockClusterSchedulingDriver
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -23,6 +24,7 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import org.assertj.core.api.Assertions.assertThat
@@ -45,6 +47,7 @@ import java.util.concurrent.TimeUnit
  * requests and processes them correctly with real PDF rendering.
  */
 @SpringBootTest(
+    classes = [app.epistola.suite.testing.TestApplication::class],
     properties = [
         "epistola.demo.enabled=false",
     ],
@@ -66,6 +69,11 @@ class JobPollerIntegrationTest {
     @Autowired
     private lateinit var contentStore: ContentStore
 
+    // This test does not extend IntegrationTestBase, so it must get the production
+    // wall-clock scheduling substrate by default — required injection guards that.
+    @Autowired
+    private lateinit var wallClockDriver: WallClockClusterSchedulingDriver
+
     private val objectMapper = ObjectMapper()
 
     private val testUser = EpistolaPrincipal(
@@ -80,13 +88,12 @@ class JobPollerIntegrationTest {
     )
 
     private fun <T> withAuthentication(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        SecurityContext.runWithPrincipal(testUser) {
-            block()
-        }
+        // Ensures the principal's `users` row (audit FKs) and binds it for authz in one step.
+        TestPrincipalUsers.runWithPrincipal(mediator, testUser, block)
     }
 
     @Test
-    fun `JobPoller processes pending requests asynchronously with real PDF generation`() = withAuthentication {
+    fun `JobPoller processes pending requests asynchronously with real PDF generation`(): Unit = withAuthentication {
         // Create test data
         val tenant = mediator.send(
             CreateTenant(

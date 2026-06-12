@@ -206,7 +206,7 @@ class GenerateDocumentHandler(
 
             logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
 
-            // Request stays in PENDING status - the JobPoller will pick it up
+            // Request stays in PENDING status - the JobPoller drains it on its next poll.
             request
         }
 

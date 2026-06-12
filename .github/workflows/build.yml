@@ -229,6 +229,20 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      # Permanent test-performance evidence (per-module JSON: wall time, context
+      # boots, tenant bootstraps, slowest classes, per-command dispatch profile).
+      # Written by the cross-cutting harness in modules/testing; kept so test-suite
+      # performance is monitorable over time and regressions are caught. always():
+      # capture even when a test fails.
+      - name: Upload test-run metrics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-run-metrics
+          path: "**/build/test-metrics/*.json"
+          retention-days: 30
+          if-no-files-found: ignore
+
   # UI tests via the hardened `uiTest` task (serial, 2g, --disable-dev-shm-usage).
   # Dedicated runner = zero CPU contention (the #418 root cause). Re-run THIS job
   # alone to satisfy the #418 "3 consecutive green UI runs" gate.

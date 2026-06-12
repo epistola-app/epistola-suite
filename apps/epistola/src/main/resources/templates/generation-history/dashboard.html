@@ -60,9 +60,9 @@
 
         <!-- Recent Jobs -->
         <section>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--ep-space-3);">
+            <div class="ep-row ep-row-between" style="margin-bottom: var(--ep-space-3);">
                 <h2 style="margin: 0;">Recent Jobs</h2>
-                <select class="ep-input ep-input-sm" style="width: auto;"
+                <select class="ep-select ep-select-sm form-control-auto"
                         hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
                         hx-target="#job-rows"
                         hx-swap="innerHTML"

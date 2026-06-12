@@ -14,6 +14,17 @@ java {
     }
 }
 
+// The Spring Boot BOM (imported via io.spring.dependency-management in each module) manages
+// org.jetbrains.kotlin:* and would otherwise override the Kotlin compiler/scripting artifacts on
+// the Kotlin Gradle plugin's compiler classpath to the BOM's kotlin.version. When that diverges
+// from our Kotlin plugin version the compiler/scripting libs mismatch and the build dies with an
+// internal compiler error (ClassNotFoundException ...ExpectedLocationUtilKt). Pin the managed
+// kotlin.version to OUR Kotlin version so the BOM never clobbers the compiler classpath.
+val kotlinVersion =
+    extensions.getByType<org.gradle.api.artifacts.VersionCatalogsExtension>()
+        .named("libs").findVersion("kotlin").get().requiredVersion
+extra["kotlin.version"] = kotlinVersion
+
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
@@ -40,6 +51,16 @@ tasks.withType<Test> {
         "-Xms256m",
         "-Xmx1g",
     )
+
+    // Cross-cutting test-run metrics (see modules/testing .../metrics). A JUnit
+    // Platform listener + Spring context-boot counter write a per-task JSON report
+    // here so test performance (wall time, context boots, tenant bootstraps, slowest
+    // classes) is captured on every run and monitorable over time, not eyeballed.
+    systemProperty(
+        "epistola.test.metrics.outDir",
+        layout.buildDirectory.dir("test-metrics").get().asFile.absolutePath,
+    )
+    systemProperty("epistola.test.metrics.label", "${project.name}-$name")
 
     testLogging {
         events("passed", "skipped", "failed")
@@ -72,7 +93,9 @@ tasks.register<Test>("integrationTest") {
         includeTags("integration")
         excludeTags("ui", "perf")
     }
-    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
+    // Heap/GC flags inherited from the `tasks.withType<Test>` baseline above (1g) —
+    // JUnit class-level concurrency boots distinct Spring contexts in parallel and
+    // each context load's component scan transiently costs ~100MB+, so 512m OOMs.
     testLogging { events("passed", "skipped", "failed") }
     filter { isFailOnNoMatchingTests = false }
 }

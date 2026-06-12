@@ -47,17 +47,11 @@ class ImportAttributeHandler(
         val attributeKey = AttributeKey.of(command.slug)
         val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
-        val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) > 0 FROM variant_attribute_definitions WHERE id = :id AND tenant_key = :tenantKey AND catalog_key = :catalogKey")
-                .bind("id", attributeKey)
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .mapTo(Boolean::class.java)
-                .one()
-        }
-
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
+        // Single round-trip on one connection: the upsert reports INSTALLED vs
+        // UPDATED via `xmax = 0` (true only for the freshly inserted row), so we
+        // no longer need a separate existence SELECT on its own connection.
+        val inserted = jdbi.withHandle<Boolean, Exception> { handle ->
+            handle.createQuery(
                 """
                 INSERT INTO variant_attribute_definitions (
                     id, tenant_key, catalog_key, display_name, allowed_values,
@@ -75,6 +69,7 @@ class ImportAttributeHandler(
                     code_list_catalog_key  = :codeListCatalogKey,
                     code_list_slug         = :codeListSlug,
                     updated_at          = NOW()
+                RETURNING (xmax = 0) AS inserted
                 """,
             )
                 .bind("id", attributeKey)
@@ -84,9 +79,10 @@ class ImportAttributeHandler(
                 .bind("allowedValues", allowedValuesJson)
                 .bind("codeListCatalogKey", command.codeListCatalogKey)
                 .bind("codeListSlug", command.codeListSlug)
-                .execute()
+                .mapTo(Boolean::class.java)
+                .one()
         }
 
-        return if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED
+        return if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
     }
 }

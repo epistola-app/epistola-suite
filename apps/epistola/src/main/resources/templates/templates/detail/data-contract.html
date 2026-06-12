@@ -7,7 +7,7 @@
 
         <!-- Dialogs -->
         <dialog id="contract-breaking-dialog" class="ep-dialog" style="max-width: 600px;">
-            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="ep-dialog-header">
                 <h3>Breaking Contract Changes</h3>
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                         onclick="document.getElementById('contract-breaking-dialog').close()">&times;</button>
@@ -16,7 +16,7 @@
         </dialog>
 
         <dialog id="contract-usage-dialog" class="ep-dialog" style="max-width: 700px;">
-            <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="ep-dialog-header">
                 <h3>Contract Usage</h3>
                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                         onclick="document.getElementById('contract-usage-dialog').close()">&times;</button>
@@ -107,7 +107,7 @@
                         </h3>
                     </div>
                     <div class="detail-section-body" style="padding: var(--ep-space-3);">
-                        <div style="display: flex; flex-wrap: wrap; gap: var(--ep-space-2);">
+                        <div class="ep-row ep-row-wrap">
                             <span th:each="example : ${contractDataExamples}"
                                   class="badge badge-outline" th:text="${example.name}"></span>
                         </div>

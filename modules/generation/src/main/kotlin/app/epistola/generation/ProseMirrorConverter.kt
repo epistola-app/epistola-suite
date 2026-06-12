@@ -294,7 +294,15 @@ class ProseMirrorConverter(
         val listStyle = attrs?.get("listStyle") as? String ?: "disc"
 
         val list = List()
-        list.setListSymbol(renderingDefaults.bulletMarker(listStyle))
+        // Render the marker glyph in the *content* font, not iText's default (Helvetica).
+        // The standard WinAnsi font lacks the circle (○) / square (■) bullet glyphs; the
+        // selected family (e.g. Inter) carries them. When the content font also lacks the
+        // glyph, fall back to a font that has it, so the marker never silently drops to
+        // nothing — keeping the PDF in step with the editor, which renders these via CSS
+        // list-style-type (#401).
+        val marker = renderingDefaults.bulletMarker(listStyle)
+        val contentFont = fontCache.font(face.ref, face.baseWeight, face.baseItalic)
+        list.setListSymbol(Text(marker).setFont(fontCache.fontCoveringOrFallback(contentFont, marker)))
         list.setMarginBottom(renderingDefaults.listMarginBottom)
         list.setMarginLeft(renderingDefaults.listMarginLeft)
 
@@ -362,16 +370,22 @@ class ProseMirrorConverter(
         @Suppress("UNCHECKED_CAST")
         val content = item["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
 
-        // List items typically contain paragraphs
+        // A list item holds paragraphs and, for nested lists ("opsomming in een
+        // opsomming"), child bullet/ordered lists. Recurse so arbitrary nesting
+        // depth renders — matching what the editor shows.
         for (child in content) {
-            if (child["type"] == "paragraph") {
-                @Suppress("UNCHECKED_CAST")
-                val paragraphContent = child["content"] as? kotlin.collections.List<Map<String, Any>>
-                if (paragraphContent != null) {
-                    val paragraph = Paragraph()
-                    addInlineContent(paragraph, paragraphContent, data, loopContext, fontCache, face)
-                    listItem.add(paragraph)
+            when (child["type"]) {
+                "paragraph" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val paragraphContent = child["content"] as? kotlin.collections.List<Map<String, Any>>
+                    if (paragraphContent != null) {
+                        val paragraph = Paragraph()
+                        addInlineContent(paragraph, paragraphContent, data, loopContext, fontCache, face)
+                        listItem.add(paragraph)
+                    }
                 }
+                "bulletList", "bullet_list" -> listItem.add(convertBulletList(child, data, loopContext, fontCache, face))
+                "orderedList", "ordered_list" -> listItem.add(convertOrderedList(child, data, loopContext, fontCache, face))
             }
         }
 

@@ -100,7 +100,9 @@ Ordered lists support multiple numbering formats, and bullet lists support multi
 
 **Bullet list styles:** disc (•), circle (○), square (■), dash (–)
 
-**PDF rendering:** `ProseMirrorConverter` maps `listType` attribute to iText `ListNumberingType` for ordered lists, and `listStyle` attribute to custom `setListSymbol()` for bullet lists.
+**Nesting (sub-lists):** inside a list, **Tab** sinks the current item one level deeper (creating a nested sub-list), **Shift-Tab** lifts it back out, and **Enter** starts a new sibling item. Outside a list these keys keep their default behaviour. Wired in `plugins.ts` via `sinkListItem` / `liftListItem` / `splitListItem` (prosemirror-schema-list).
+
+**PDF rendering:** `ProseMirrorConverter` maps `listType` attribute to iText `ListNumberingType` for ordered lists, and `listStyle` attribute to the content-font `setListSymbol()` for bullet lists. Nested lists recurse through `convertListItem`.
 
 ## Page Components
 
@@ -207,14 +209,30 @@ A block that loops over a data expression and renders items as a formatted list.
 
 **Properties:**
 
-| Property   | Type       | Default | Description                     |
-| ---------- | ---------- | ------- | ------------------------------- |
-| expression | expression | —       | Array data source               |
-| itemAlias  | text       | item    | Variable name for current item  |
-| indexAlias | text       | —       | Variable name for current index |
-| listType   | select     | bullet  | List format                     |
+| Property    | Type       | Default | Description                                       |
+| ----------- | ---------- | ------- | ------------------------------------------------- |
+| expression  | expression | —       | Array data source                                 |
+| itemAlias   | text       | item    | Variable name for current item                    |
+| indexAlias  | text       | —       | Variable name for current index                   |
+| listType    | select     | bullet  | List format                                       |
+| bulletStyle | select     | disc    | Bullet glyph (only shown when `listType: bullet`) |
 
 **List types:** bullet, decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none
+
+**Bullet styles:** disc (•), circle (○), square (■), dash (–) — the same set the Text
+component's `bullet_list` exposes via its `listStyle` attribute. Both paths feed
+`RenderingDefaults.bulletMarker(style)`, so a data-driven bullet list and a typed bullet
+list render the **same** glyph (issue #401). `bulletStyle` only applies when
+`listType: bullet`; for the numbered formats the marker comes from the iText numbering type.
+
+**Marker font:** the marker glyph is rendered in the list's **content font** (via
+`StyleApplicator.resolveFont`), not iText's WinAnsi default. `circle` (U+25CB) and `square`
+(U+25A0) are absent from the standard WinAnsi encoding, so rendering the marker in Helvetica
+silently dropped them. If the resolved content font itself lacks the glyph (e.g. no font family
+is configured, so it falls back to the built-in Helvetica), the marker falls back to the bundled
+Liberation Sans — which carries all four glyphs — via `FontCache.fontCoveringOrFallback`. So
+**all four bullet styles render in the PDF regardless of the configured font**, keeping it in
+step with the editor (which renders these via CSS `list-style-type`).
 
 **PDF rendering:** `DataListNodeRenderer` evaluates the expression, iterates results, and renders each item's template as an iText `ListItem` inside a `List`.
 

@@ -16,7 +16,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @TestPropertySource(
     properties = [
-        "epistola.cluster.scheduled-tasks.poll-interval-ms=60000",
         "epistola.cluster.scheduled-tasks.lease-duration-ms=30000",
         "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
     ],
@@ -43,6 +42,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
             DisableClusterScheduledTask("scheduler-success").execute()
             DisableClusterScheduledTask("scheduler-failure").execute()
             DisableClusterScheduledTask("scheduler-each-node").execute()
+            DisableClusterScheduledTask("scheduler-virtual-time").execute()
         }
     }
 
@@ -80,6 +80,32 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         assertThat(handler.handled).containsExactly("scheduler-each-node")
         assertThat(nodeState.nextDueAt).isAfter(now())
         assertThat(nodeState.consecutiveFailures).isZero()
+    }
+
+    @Test
+    fun `advanceTimeBy runs a task that became due in the advanced window`() {
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = "scheduler-virtual-time",
+                    routingKey = "system:scheduler-virtual-time",
+                    taskType = RecordingClusterScheduledTaskHandler.TYPE,
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                ),
+            ).execute()
+        }
+
+        // Not yet due: moving time without firing keeps it pending.
+        testClock.advanceBy(Duration.ofSeconds(30))
+        assertThat(handler.handled).isEmpty()
+
+        // Virtual time: advance past due and run everything that became due.
+        scheduling.advanceTimeBy(Duration.ofSeconds(31))
+
+        val task = registry.find("scheduler-virtual-time")
+        assertThat(handler.handled).containsExactly("scheduler-virtual-time")
+        assertThat(task?.leaseOwnerNodeId).isNull()
+        assertThat(task?.nextDueAt).isAfter(now())
     }
 
     @Test

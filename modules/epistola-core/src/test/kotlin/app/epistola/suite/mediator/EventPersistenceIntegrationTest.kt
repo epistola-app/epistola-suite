@@ -1,6 +1,7 @@
 package app.epistola.suite.mediator
 
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.metrics.MetricsRecordingMediator
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -26,7 +27,11 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
         }
 
         then {
-            assertThat(mediator).isInstanceOf(SpringMediator::class.java)
+            // In tests the mediator is wrapped by the metrics-recording decorator
+            // (see MediatorMetricsConfiguration); the real dispatcher it delegates to
+            // is still the SpringMediator that publishes events / persists the audit log.
+            val dispatcher = (mediator as? MetricsRecordingMediator)?.delegate ?: mediator
+            assertThat(dispatcher).isInstanceOf(SpringMediator::class.java)
         }
     }
 
