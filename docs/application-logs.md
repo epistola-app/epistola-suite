@@ -109,8 +109,12 @@ first. It is gated on `Permission.TENANT_SETTINGS` and reads through the
 permission-gated `ListApplicationLogs` CQRS query (no JDBI in the handler).
 
 The dense, page-wide table shows the **newest 20** rows by default. Filters
-(free-text message search, level, logger, and a UTC date/time range) re-render
-the results region via HTMX. Incremental paging is **keyset (cursor) based** on
+(free-text message search, level, logger, and a date/time range) re-render the
+results region via HTMX. **Times are displayed in the browser's timezone**: each
+cell carries the ISO instant in `data-ts` and a CSP-safe inline script formats it
+client-side (re-running after every HTMX swap; the server-rendered UTC text is the
+no-JS fallback). The browser's IANA zone is sent as a hidden `tz` field so the
+**From/To** wall-clock values are interpreted in that same zone (UTC when absent). Incremental paging is **keyset (cursor) based** on
 `(occurred_at, id)` — stable across ties and unaffected by rows arriving while
 you browse:
 

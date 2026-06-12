@@ -5,7 +5,7 @@
         <div class="page-header">
             <h1>Logs</h1>
             <p class="ep-text-muted ep-text-sm">
-                Application log output for this tenant, plus system activity. Retained for a limited window. Times are UTC.
+                Application log output for this tenant, plus system activity. Retained for a limited window. Times are shown in your browser's timezone.
             </p>
         </div>
 
@@ -59,6 +59,8 @@
                            hx-get th:hx-get="@{/tenants/{tenantId}/logs/search(tenantId=${tenantId})}"
                            hx-target="#log-results" hx-swap="innerHTML" hx-include="#log-filters" hx-trigger="change" />
                 </label>
+                <!-- Browser timezone, sent so the server interprets the From/To wall-clock values in it. -->
+                <input type="hidden" name="tz" id="log-tz" />
             </form>
 
             <div id="log-results">
@@ -96,6 +98,44 @@
                 </th:block>
             </div>
         </div>
+
+        <!-- Render log times in the browser's timezone (CSP-safe: no eval). Re-runs after
+             each HTMX swap so newly loaded rows are formatted too; falls back to the
+             server-rendered UTC text when JavaScript is unavailable. -->
+        <script>
+            (function () {
+                var tz = document.getElementById("log-tz");
+                if (tz) {
+                    try {
+                        tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+                    } catch (e) {
+                        /* leave blank → server falls back to UTC */
+                    }
+                }
+                var fmt = new Intl.DateTimeFormat(undefined, {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false,
+                });
+                function formatLogTimes() {
+                    document.querySelectorAll(".log-time[data-ts]").forEach(function (el) {
+                        if (el.dataset.tsDone) return;
+                        var d = new Date(el.getAttribute("data-ts"));
+                        if (!isNaN(d.getTime())) {
+                            el.textContent = fmt.format(d);
+                            el.title = el.getAttribute("data-ts");
+                            el.dataset.tsDone = "1";
+                        }
+                    });
+                }
+                formatLogTimes();
+                document.body.addEventListener("htmx:afterSettle", formatLogTimes);
+            })();
+        </script>
     </th:block>
 
     <!-- Response for "Load older": rows appended below, then a refreshed older sentinel. -->
@@ -113,7 +153,8 @@
     <!-- Reusable row markup (newest-first). -->
     <tbody th:fragment="log-rows(logs)" th:remove="tag">
         <tr th:each="log : ${logs}">
-            <td class="log-time" th:text="${#temporals.format(log.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-01-01 00:00:00</td>
+            <td class="log-time" th:data-ts="${log.occurredAt}"
+                th:text="${#temporals.format(log.occurredAt, 'yyyy-MM-dd HH:mm:ss')} + ' UTC'">2026-01-01 00:00:00 UTC</td>
             <td><span class="log-level" th:classappend="'log-level-' + ${log.level}" th:text="${log.level}">INFO</span></td>
             <td class="log-logger" th:title="${log.logger}" th:text="${log.shortLogger}">Logger</td>
             <td>

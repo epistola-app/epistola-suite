@@ -15,6 +15,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.UUID
 
@@ -118,6 +119,7 @@ class LogsHandler {
         val tenantId = request.tenantId()
         val fromRaw = request.queryParam("from")?.takeIf { it.isNotBlank() }
         val toRaw = request.queryParam("to")?.takeIf { it.isNotBlank() }
+        val zone = browserZone(request)
         return Filters(
             tenantId = tenantId,
             tenantKey = tenantId.key.value,
@@ -126,10 +128,16 @@ class LogsHandler {
             search = request.queryParam("q")?.takeIf { it.isNotBlank() },
             fromRaw = fromRaw,
             toRaw = toRaw,
-            from = parseDateTime(fromRaw),
-            to = parseDateTime(toRaw),
+            from = parseDateTime(fromRaw, zone),
+            to = parseDateTime(toRaw, zone),
         )
     }
+
+    /** The browser's IANA timezone (sent as `tz`), or UTC when absent/invalid. */
+    private fun browserZone(request: ServerRequest): ZoneId = request.queryParam("tz")
+        ?.takeIf { it.isNotBlank() }
+        ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+        ?: ZoneOffset.UTC
 
     private fun cursor(request: ServerRequest): Cursor? {
         val ts = request.queryParam("ts")?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() } ?: return null
@@ -137,9 +145,9 @@ class LogsHandler {
         return Cursor(ts, id)
     }
 
-    /** datetime-local inputs carry no zone; interpret as UTC (the table renders UTC too). */
-    private fun parseDateTime(value: String?): OffsetDateTime? = value
-        ?.let { runCatching { LocalDateTime.parse(it).atOffset(ZoneOffset.UTC) }.getOrNull() }
+    /** datetime-local inputs carry no zone; interpret their wall-clock value in the browser's [zone]. */
+    private fun parseDateTime(value: String?, zone: ZoneId): OffsetDateTime? = value
+        ?.let { runCatching { LocalDateTime.parse(it).atZone(zone).toOffsetDateTime() }.getOrNull() }
 
     private data class Filters(
         val tenantId: TenantId,

@@ -80,6 +80,23 @@ class LogsHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body).contains("first error message")
     }
 
+    @Test
+    fun `date range filter interprets From and To in the browser timezone`() {
+        val tenant: Tenant = createTenant("Logs TZ")
+        val tenantKey = tenant.id.value
+        // 12:00 UTC == 08:00 in America/New_York (EDT, UTC-4) in June.
+        insert(tenantKey, "INFO", "tz-target", OffsetDateTime.parse("2026-06-12T12:00:00Z"))
+
+        // NY-local window 07:00–09:00 brackets the row's local 08:00 → included.
+        val included = getHtmx("/tenants/$tenantKey/logs/search?tz=America/New_York&from=2026-06-12T07:00&to=2026-06-12T09:00")
+        assertThat(included.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(included.body).contains("tz-target")
+
+        // NY-local window 13:00–14:00 excludes it — a UTC-interpreting server would have kept it.
+        val excluded = getHtmx("/tenants/$tenantKey/logs/search?tz=America/New_York&from=2026-06-12T13:00&to=2026-06-12T14:00")
+        assertThat(excluded.body).doesNotContain("tz-target")
+    }
+
     private fun seedLogs(): String {
         val tenant: Tenant = createTenant("Logs Viewer")
         val tenantKey = tenant.id.value
@@ -89,7 +106,12 @@ class LogsHandlerHtmxTest : BaseIntegrationTest() {
         return tenantKey
     }
 
-    private fun insert(tenantKey: String?, level: String, message: String) {
+    private fun insert(
+        tenantKey: String?,
+        level: String,
+        message: String,
+        occurredAt: OffsetDateTime = OffsetDateTime.now(testClock),
+    ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -98,7 +120,7 @@ class LogsHandlerHtmxTest : BaseIntegrationTest() {
                 """,
             )
                 .bind("id", UUIDv7.generate())
-                .bind("occurredAt", OffsetDateTime.now(testClock))
+                .bind("occurredAt", occurredAt)
                 .bind("level", level)
                 .bind("message", message)
                 .bind("tenantKey", tenantKey)
