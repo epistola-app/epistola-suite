@@ -155,23 +155,18 @@ class ClusterScheduledTaskScheduler(
      * If no node carrying the definition has been seen within the grace window,
      * the task is genuinely orphaned (registration ⇒ the node has the definition
      * ⇒ it has the handler, so "no live node holds it" means nothing can ever run
-     * it) and is soft-retired inline — cleaning it up the moment it fires instead
-     * of waiting for the periodic reconciler. Otherwise a holding node still
-     * exists (a rolling-deploy in-between state, or a non-handler-bearing node
-     * grabbed it by capability), so we quietly advance and let a holder run it
-     * without accruing failure/error state. The periodic reconciler remains the
-     * backstop for orphans that never fire.
+     * it) and is deleted inline — cleaning it up the moment it fires instead of
+     * waiting for the periodic reconciler. Otherwise a holding node still exists (a
+     * rolling-deploy in-between state, or a non-handler-bearing node grabbed it by
+     * capability), so we quietly advance and let a holder run it without accruing
+     * failure/error state. The periodic reconciler remains the backstop for orphans
+     * that never fire.
      */
     private fun handleMissingHandler(task: ClusterScheduledTask) {
         val seenSince = EpistolaClock.offsetDateTime().minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
-        val retired = taskRegistry.retireIfOrphaned(
-            task.taskKey,
-            seenSince,
-            "No handler and no node holding the definition seen within the grace window (retired on dispatch)",
-        )
-        if (retired) {
+        if (taskRegistry.deleteIfOrphaned(task.taskKey, seenSince)) {
             log.info(
-                "Retired orphaned cluster scheduled task '{}' on dispatch (taskType={}, no handler and no live node holds it)",
+                "Deleted orphaned cluster scheduled task '{}' on dispatch (taskType={}, no handler and no live node carries it)",
                 task.taskKey,
                 task.taskType,
             )
@@ -179,7 +174,7 @@ class ClusterScheduledTaskScheduler(
         }
 
         log.warn(
-            "No handler on this node for cluster scheduled task type '{}'; advancing so a node that holds it can run it",
+            "No handler on this node for cluster scheduled task type '{}'; advancing so a node that carries it can run it",
             task.taskType,
         )
         taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))

@@ -277,9 +277,6 @@ class ClusterScheduledTaskScheduleCalculatorTest {
         attemptCount = 0,
         consecutiveFailures = consecutiveFailures,
         lastError = null,
-        managementMode = "code",
-        retiredAt = null,
-        retirementReason = null,
         createdAt = nextDueAt,
         updatedAt = nextDueAt,
     )

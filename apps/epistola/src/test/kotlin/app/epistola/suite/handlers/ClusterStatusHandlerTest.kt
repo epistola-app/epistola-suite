@@ -123,36 +123,6 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
         }
     }
 
-    @Test
-    fun `GET dashboard renders a retired scheduled task with its status and reason`() = fixture {
-        lateinit var tenant: Tenant
-        val taskKey = "test.retired-task"
-        val reason = "no node carrying this definition seen within the grace window"
-
-        given {
-            tenant = tenant("Cluster Retired Tenant")
-            deleteScheduledTask(taskKey)
-            insertRetiredScheduledTask(taskKey, reason)
-        }
-
-        whenever {
-            restTemplate.getForEntity(
-                "/tenants/${tenant.id}/cluster",
-                String::class.java,
-            )
-        }
-
-        then {
-            deleteScheduledTask(taskKey)
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val body = response.body!!
-            assertThat(body).contains(taskKey)
-            assertThat(body).contains("retired")
-            assertThat(body).contains(reason)
-        }
-    }
-
     private fun deleteNode(nodeId: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM cluster_nodes WHERE node_id = :nodeId")
@@ -224,31 +194,6 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
                 .bind("taskKey", taskKey)
                 .bind("nodeId", nodeId)
                 .bind("nextDueAt", nextDueAt)
-                .execute()
-        }
-    }
-
-    private fun insertRetiredScheduledTask(taskKey: String, reason: String) {
-        val ts = OffsetDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO cluster_tasks_scheduled (
-                    task_key, routing_key, task_type, required_capability, payload,
-                    schedule_kind, interval_ms, enabled, next_due_at,
-                    management_mode, retired_at, retirement_reason
-                )
-                VALUES (
-                    :taskKey, :routingKey, :taskKey, 'suite', '{}'::jsonb,
-                    'fixed_delay', 60000, false, :ts,
-                    'code', :ts, :reason
-                )
-                """,
-            )
-                .bind("taskKey", taskKey)
-                .bind("routingKey", "system:$taskKey")
-                .bind("ts", ts)
-                .bind("reason", reason)
                 .execute()
         }
     }

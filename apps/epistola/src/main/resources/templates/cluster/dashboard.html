@@ -222,13 +222,12 @@
                     </thead>
                     <tbody>
                         <th:block th:each="entry : ${report.scheduledTasks}" th:with="task=${entry.task}">
-                            <tr th:classappend="${entry.retired} ? 'cluster-task-retired'">
+                            <tr>
                                 <td><code th:text="${task.taskKey}">task-key</code></td>
                                 <td><code th:text="${task.taskType}">type</code></td>
                                 <td><code th:text="${task.executionScope.dbValue}">single_owner</code></td>
                                 <td>
-                                    <span th:text="${entry.statusLabel}"
-                                          th:title="${task.retirementReason}">active</span>
+                                    <span th:text="${entry.statusLabel}">active</span>
                                 </td>
                                 <td>
                                     <span class="cluster-capability" th:text="${task.requiredCapability}">suite</span>

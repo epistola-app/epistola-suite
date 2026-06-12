@@ -151,18 +151,9 @@ data class ClusterScheduledTaskStatus(
 ) {
     val eachCapableNode: Boolean = task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE
     val effectiveNextDueAt: java.time.OffsetDateTime = nodeStates.minOfOrNull { it.nextDueAt } ?: task.nextDueAt
-    val retired: Boolean = task.retiredAt != null
 
-    /**
-     * Lifecycle label shown in Operations. A retired task's definition has
-     * disappeared from code and the row is awaiting purge; a disabled task was
-     * turned off but still has a code definition.
-     */
-    val statusLabel: String = when {
-        retired -> "retired"
-        !task.enabled -> "disabled"
-        else -> "active"
-    }
+    /** Lifecycle label shown in Operations. */
+    val statusLabel: String = if (task.enabled) "active" else "disabled"
 }
 
 /**

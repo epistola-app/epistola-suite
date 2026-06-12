@@ -181,8 +181,6 @@ The table is `cluster_tasks_scheduled`. A scheduled task stores:
 - `enabled`
 - `next_due_at`
 - lease and execution metadata
-- `management_mode` (`code` or `manual`) plus `retired_at` / `retirement_reason`
-  for the retirement lifecycle (see "Scheduled Task Lifecycle")
 
 The mediator-facing controls are:
 
@@ -222,12 +220,12 @@ treated as a failure. The dispatch path folds the orphan check in:
 - If **no node carrying the definition has been seen within the grace window**
   (the same liveness gate the reconciler uses), the task is genuinely orphaned —
   a registration means the node has the definition and therefore the handler, so
-  "no live node holds it" means nothing can ever run it — and it is **soft-retired
+  "no live node carries it" means nothing can ever run it — and it is **deleted
   inline**, the moment it fires, rather than waiting for the periodic reconciler.
-- Otherwise a node still holds it (a rolling-deploy in-between state, or a
+- Otherwise a node still carries it (a rolling-deploy in-between state, or a
   non-handler-bearing node that claimed it by capability), so the scheduler logs a
   warning and quietly advances `next_due_at` without recording an error or
-  incrementing the failure count, letting a holding node run it.
+  incrementing the failure count, letting a carrying node run it.
 
 Either way there is no error-state spam and no tight claim → reclaim loop. The
 periodic `core.scheduled-task-reconciliation` task remains the backstop for
@@ -252,69 +250,46 @@ delete pending one-shot work with `CancelClusterTimer`. Recurring scheduled task
 rows in `cluster_tasks_scheduled` are durable definitions, so code-defined rows
 need an explicit lifecycle when the code stops registering them.
 
-The lifecycle for code-defined scheduled tasks is:
+The lifecycle for code-defined scheduled tasks is deliberately small — three
+steps, and a deleted task simply reappears as a fresh row if its definition comes
+back:
 
 1. **Register and vouch.** Startup registration (`ClusterScheduledTaskRegistrar`)
    upserts every `ClusterScheduledTaskDefinition` from code **and** records this
-   node in `cluster_scheduled_task_registrations` (`task_key`, `node_id`,
-   `build_version`, `registered_at`) for exactly the definitions it carries — in a
-   single transaction (`registry.registerAll`) — and prunes its registration rows
-   for definitions it no longer carries. Doing the upsert and the vouch atomically
-   means a reclaimed (un-retired) task is vouched for in the same commit that clears
-   its retirement, so a concurrent reconcile can never observe it
-   un-retired-but-unvouched and wrongly re-retire it. That per-node set is "which
-   nodes vouch for this schedule." Re-upserting a definition sets
-   `management_mode = 'code'` and clears any prior retirement; reclaiming a
-   _retired_ key also **starts the schedule fresh** (next-due reset to a fresh
-   initial occurrence, lease/attempt/failure/error state cleared), so reusing a
-   retired key for a new schedule never inherits the dead task's backoff or cadence.
-   A live task re-registering keeps its cadence and history. Enabling a retired task
-   (`EnableClusterScheduledTask`) likewise un-retires it.
-2. **Detect orphans.** Reconciliation looks for `management_mode = 'code'`,
-   not-yet-retired rows that **no node carrying the definition has been seen
-   running recently** (`ClusterScheduledTaskRegistry.findRetirableCodeTasks`). A
-   node "carries" a definition if it has a registration row; whether it counts as
-   _seen_ is judged by that node's `cluster_nodes.last_seen_at`, which the
-   heartbeat keeps current — not by the startup `registered_at`. Detection is
-   registration-based, not build-version-based: it does not need all nodes to share
-   a build version.
-3. **Wait out the grace period.** A task is retired only once **every** node that
-   registered it has been unseen for
-   `epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms` (default
-   15 min) — i.e. every registering node's `last_seen_at` is older than the window.
-   Because liveness is the heartbeat-fresh `last_seen_at`, a node restart shorter
-   than the window keeps its schedules protected, and a rolling deploy is safe (old
-   nodes keep their schedules alive until they actually leave). `registered_at` is
-   retained for audit only, not as the grace basis.
-4. **Soft retire.** Orphaned tasks are marked disabled, `retired_at`/
-   `retirement_reason` are recorded, and lease metadata is cleared. Per-node
-   runtime rows (`cluster_tasks_scheduled_node_state`) are also deleted, since they
-   are only meaningful for a live `each_capable_node` definition — so a later
-   reclaim starts fresh and `ListClusterScheduledTaskNodeStates` shows no ghost
-   rows. (For the same reason, changing a task's scope to `single_owner` via
-   `upsert` clears any leftover per-node rows.) Retired tasks stay visible in
-   Operations (shown with a "retired" status) so operators can see that the
-   definition disappeared from code.
-5. **Purge later.** Retired tasks are retained for
-   `epistola.cluster.scheduled-tasks.retired-retention-ms` (default 7 days) and then
-   hard-deleted. Deleting the definition cascades per-node runtime state
-   (`cluster_tasks_scheduled_node_state`) and registrations
-   (`cluster_scheduled_task_registrations`).
+   node in `cluster_scheduled_task_registrations` (`task_key`, `node_id`) for
+   exactly the definitions it carries — in a single transaction
+   (`registry.registerAll`) — and prunes its registration rows for definitions it
+   no longer carries. Doing the upsert and the vouch atomically means a re-created
+   task is vouched for in the same commit, so a concurrent reconcile can never
+   observe it created-but-unvouched and wrongly delete it. That per-node set is
+   "which nodes carry this schedule."
+2. **Detect orphans.** A task is orphaned when **no node carrying it has been seen
+   within the grace window** — no registration row whose node has a
+   `cluster_nodes.last_seen_at` newer than `now − grace`
+   (`epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms`, default
+   15 min). Liveness is the heartbeat-fresh `last_seen_at`, so a node restart
+   shorter than the window keeps its schedules protected and a rolling deploy is
+   safe (old nodes keep their schedules alive until they actually leave). Detection
+   is registration-based, not build-version-based.
+3. **Delete.** Orphans are hard-deleted (`ClusterScheduledTaskRegistry`
+   `deleteOrphanedTasks` / `deleteIfOrphaned`); per-node runtime state
+   (`cluster_tasks_scheduled_node_state`) and registrations cascade via the
+   foreign keys. There is no soft-retire/purge two-phase and no retained state — a
+   returning definition is simply re-created fresh by the registrar on the next
+   startup.
 
-Startup reconciliation alone is not sufficient. In a rolling deploy, new nodes can
-start while old nodes are still active, correctly skip retirement because an old
-node still vouches, and then never retry after the old nodes leave. The cleanup
-work therefore runs as a native `single_owner` scheduled task,
-`core.scheduled-task-reconciliation` (`ClusterScheduledTaskReconciler`, default
-hourly), that reruns the same reconciliation after the fleet has stabilized. The
-reconciler is itself a code definition, so it always vouches for itself and is
-never retired.
+Deletion runs from two places, both using the same liveness gate: **inline** on
+dispatch when a task fires with no handler and no live node carries it (prompt
+cleanup), and the periodic **`core.scheduled-task-reconciliation`** native
+`single_owner` task (`ClusterScheduledTaskReconciler`, default hourly) as the
+backstop for orphans that never fire — needed because a rolling deploy can leave an
+orphan that no node restart would otherwise revisit. The reconciler is itself a
+code definition, so it always vouches for itself and is never deleted.
 
-Manual scheduled-task rows (`management_mode = 'manual'`) are out of scope for
-automatic retirement: a manual or operator-created task is never deleted merely
-because it is absent from code. There is no manual-creation surface today — all
-current callers register `code` tasks — so the mode future-proofs operator-created
-rows.
+All scheduled tasks are code-defined (registered by the startup registrar); there
+is no operator/manual creation path. If one is added later, it must also record a
+vouch (or reintroduce a "manual" distinction), otherwise its rows would be deleted
+as orphans.
 
 ## Ordering Guarantees
 
@@ -393,8 +368,8 @@ The Operations -> Cluster page shows:
 - active and stale nodes
 - node capabilities
 - known timers
-- known scheduled tasks, including a status of active, disabled, or retired (a
-  retired task's code definition disappeared and the row is awaiting purge)
+- known scheduled tasks, with an active/disabled status (an orphaned task whose
+  code definition disappeared is deleted, so it simply stops appearing)
 - per-node scheduled-task state for all-node tasks
 - required capabilities for timers and scheduled tasks
 
@@ -431,8 +406,8 @@ still active.
 
 ### Scheduled Task Lifecycle
 
-- Automatic retirement and purge for disappeared code-defined scheduled tasks is
-  implemented (see "Scheduled Task Lifecycle" above).
+- Automatic deletion of disappeared code-defined scheduled tasks is implemented
+  (see "Scheduled Task Lifecycle" above).
 - Keep scheduled tasks as durable recurring definitions, not chains of one-shot
   timer rows.
 

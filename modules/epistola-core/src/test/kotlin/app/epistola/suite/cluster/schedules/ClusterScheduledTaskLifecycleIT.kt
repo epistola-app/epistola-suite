@@ -10,26 +10,23 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
-import tools.jackson.databind.ObjectMapper
-import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * Covers the retirement/purge lifecycle for code-defined scheduled tasks:
- * per-node registration tracking, orphan detection by node liveness
- * (`cluster_nodes.last_seen_at`), soft retirement, reclaim on re-registration,
- * and purge after the retention window.
+ * Covers the simplified scheduled-task cleanup: each node records the schedules it
+ * carries (`cluster_scheduled_task_registrations`); a task no live node carries
+ * within the grace window is **deleted** (no soft-retire/purge). A returning
+ * definition is simply re-created fresh by the registrar.
  *
- * Grace and retention windows are shrunk so the deterministic test clock can step
- * past them without large jumps.
+ * Grace is shrunk so the deterministic test clock can step past it. Because
+ * `deleteOrphanedTasks` is destructive, delete-path tests heartbeat the current
+ * node first so the real startup definitions (vouched by the current node in
+ * `@BeforeEach`) stay protected and only the test's deliberate orphan is removed.
  */
 @TestPropertySource(
-    properties = [
-        "epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms=60000",
-        "epistola.cluster.scheduled-tasks.retired-retention-ms=3600000",
-    ],
+    properties = ["epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms=60000"],
 )
 class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
 
@@ -46,19 +43,10 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     private lateinit var properties: ClusterProperties
 
     @Autowired
-    private lateinit var objectMapper: ObjectMapper
-
-    @Autowired
-    private lateinit var scheduleCalculator: ClusterScheduledTaskScheduleCalculator
-
-    @Autowired
     private lateinit var reconciler: ClusterScheduledTaskReconciler
 
     @Autowired
     private lateinit var registrar: ClusterScheduledTaskRegistrar
-
-    @Autowired
-    private lateinit var clock: Clock
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -66,339 +54,140 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
     @BeforeEach
     fun resetClock() {
         testClock.reset()
-        // Re-assert the current node's registrations for every real code
-        // definition. The shared DB is mutated by other tests/classes that prune
-        // this node's registrations; re-registering gives every test a clean
-        // baseline where the current node vouches for the real schedules, so a
-        // reconcile() in these tests never retires real tasks (no cross-test
-        // pollution) and un-retires anything a prior reconcile soft-retired.
+        // Re-assert the current node's registrations for every real definition, so a
+        // delete-path test that heartbeats the current node never removes a real task.
         registrar.registerDefinitions()
     }
+
+    // ---- registration tracking --------------------------------------------------------------
 
     @Test
     fun `recordNodeRegistrations records this node and prunes definitions it no longer carries`() {
         val keyA = upsertTask("lifecycle-reg-a")
         val keyB = upsertTask("lifecycle-reg-b")
 
-        registry.recordNodeRegistrations(listOf(keyA, keyB), "1.0.0")
+        registry.recordNodeRegistrations(listOf(keyA, keyB))
         assertThat(registrationNodeIds(keyA)).contains(nodeIdentity.nodeId)
         assertThat(registrationNodeIds(keyB)).contains(nodeIdentity.nodeId)
 
         // The node restarts on a build that no longer carries keyB.
-        registry.recordNodeRegistrations(listOf(keyA), "1.1.0")
+        registry.recordNodeRegistrations(listOf(keyA))
         assertThat(registrationNodeIds(keyA)).contains(nodeIdentity.nodeId)
         assertThat(registrationNodeIds(keyB)).doesNotContain(nodeIdentity.nodeId)
     }
 
     @Test
-    fun `findRetirableCodeTasks flags a code task only after its node goes unseen past the grace window`() {
-        val key = upsertTask("lifecycle-orphan")
-        seedNode("ghost-node", now())
-        insertRegistration(key, "ghost-node")
+    fun `recordNodeRegistrations with an empty set clears this node's registrations`() {
+        val key = upsertTask("lifecycle-reg-empty")
+        registry.recordNodeRegistrations(listOf(key))
+        assertThat(registrationNodeIds(key)).contains(nodeIdentity.nodeId)
 
-        // The ghost node was just seen: within grace, not retirable.
-        assertThat(retirableKeys()).doesNotContain(key)
-
-        // Ghost stops heartbeating; once its last_seen falls outside the grace
-        // window the task it carried becomes retirable.
-        testClock.advanceBy(grace().plusSeconds(1))
-
-        assertThat(retirableKeys()).contains(key)
+        registry.recordNodeRegistrations(emptyList())
+        assertThat(registrationNodeIds(key)).doesNotContain(nodeIdentity.nodeId)
     }
-
-    @Test
-    fun `findRetirableCodeTasks excludes tasks a node still vouches for`() {
-        val key = upsertTask("lifecycle-vouched")
-        seedNode("ghost-node", now())
-        insertRegistration(key, "ghost-node")
-
-        // Even well past the grace window, a node seen recently keeps protecting.
-        testClock.advanceBy(grace().plusSeconds(1))
-        seedNode("ghost-node", now()) // fresh heartbeat
-
-        assertThat(retirableKeys()).doesNotContain(key)
-    }
-
-    @Test
-    fun `findRetirableCodeTasks never flags manual tasks`() {
-        val key = upsertTask("lifecycle-manual")
-        setManagementMode(key, "manual")
-        testClock.advanceBy(grace().plusSeconds(1))
-
-        assertThat(retirableKeys()).doesNotContain(key)
-    }
-
-    @Test
-    fun `retire soft-retires a code task and re-registering reclaims it`() {
-        val key = upsertTask("lifecycle-retire")
-
-        assertThat(registry.retire(key, "definition removed")).isTrue()
-        val retired = registry.find(key)
-        assertThat(retired?.retiredAt).isNotNull()
-        assertThat(retired?.enabled).isFalse()
-        assertThat(retired?.retirementReason).isEqualTo("definition removed")
-
-        // The definition reappears in code: re-upsert clears retirement.
-        registry.upsert(definition(key))
-        val reclaimed = registry.find(key)
-        assertThat(reclaimed?.retiredAt).isNull()
-        assertThat(reclaimed?.enabled).isTrue()
-        assertThat(reclaimed?.retirementReason).isNull()
-    }
-
-    @Test
-    fun `purgeRetiredBefore deletes retired tasks and cascades registrations`() {
-        val key = upsertTask("lifecycle-purge")
-        seedNode("ghost-node", now())
-        insertRegistration(key, "ghost-node")
-        registry.retire(key, "definition removed")
-        assertThat(registrationNodeIds(key)).isNotEmpty()
-
-        val purged = registry.purgeRetiredBefore(now().plusSeconds(1))
-
-        assertThat(purged).isGreaterThanOrEqualTo(1)
-        assertThat(registry.find(key)).isNull()
-        assertThat(registrationNodeIds(key)).isEmpty()
-    }
-
-    @Test
-    fun `skipNoHandler advances next due without recording failure state`() {
-        val key = "lifecycle-skip"
-        deleteTask(key)
-        registry.upsert(definition(key))
-        testClock.advanceBy(Duration.ofSeconds(61))
-        nodeRegistry.heartbeat()
-        val claimed = registry.claimDue(listOf(key)).single()
-        val nextDueAt = now().plusMinutes(5)
-
-        assertThat(registry.skipNoHandler(claimed.taskKey, nextDueAt)).isTrue()
-
-        val stored = registry.find(key)
-        assertThat(stored?.nextDueAt).isEqualTo(nextDueAt)
-        assertThat(stored?.leaseOwnerNodeId).isNull()
-        assertThat(stored?.consecutiveFailures).isZero()
-        assertThat(stored?.lastError).isNull()
-    }
-
-    @Test
-    fun `reconcile retires an orphaned code task while leaving vouched tasks active`() {
-        // The current node is active and vouches for the real startup definitions.
-        nodeRegistry.heartbeat()
-
-        val orphanKey = upsertTask("lifecycle-reconcile-orphan")
-        seedNode("ghost-node", now())
-        insertRegistration(orphanKey, "ghost-node")
-
-        testClock.advanceBy(grace().plusSeconds(1))
-        nodeRegistry.heartbeat() // keep the current node fresh; ghost stays stale
-
-        reconciler.reconcile()
-
-        // The orphan (carried only by a now-unseen ghost node) is retired.
-        val orphan = registry.find(orphanKey)
-        assertThat(orphan?.retiredAt).isNotNull()
-        assertThat(orphan?.enabled).isFalse()
-        // The reconciler's own definition (carried by the fresh current node) is untouched.
-        assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)?.retiredAt).isNull()
-    }
-
-    @Test
-    fun `reconcile purges a task retired beyond the retention window`() {
-        nodeRegistry.heartbeat()
-        val key = upsertTask("lifecycle-reconcile-purge")
-        registry.retire(key, "definition removed")
-
-        testClock.advanceBy(Duration.ofHours(2)) // past the 1h test retention window
-        nodeRegistry.heartbeat()
-
-        reconciler.reconcile()
-
-        assertThat(registry.find(key)).isNull()
-    }
-
-    // ---- liveness gate edge cases ----------------------------------------------------------
-
-    @Test
-    fun `findRetirableCodeTasks flags a code task with no registrations at all`() {
-        val key = upsertTask("lifecycle-no-reg")
-        // Nothing carries it → retirable regardless of the grace window.
-        assertThat(retirableKeys()).contains(key)
-    }
-
-    @Test
-    fun `findRetirableCodeTasks flags a task whose registering node never heartbeated`() {
-        val key = upsertTask("lifecycle-ghost-only")
-        insertRegistration(key, "never-seen-node") // no cluster_nodes row for it
-        assertThat(retirableKeys()).contains(key)
-    }
-
-    @Test
-    fun `findRetirableCodeTasks keeps a task while any one of several nodes stays fresh`() {
-        val key = upsertTask("lifecycle-multi-node")
-        seedNode("node-a", now())
-        seedNode("node-b", now())
-        insertRegistration(key, "node-a")
-        insertRegistration(key, "node-b")
-
-        // A goes stale, B refreshed → still protected by B.
-        testClock.advanceBy(grace().plusSeconds(1))
-        seedNode("node-b", now())
-        assertThat(retirableKeys()).doesNotContain(key)
-
-        // Now B also goes stale → both unseen past grace → retirable.
-        testClock.advanceBy(grace().plusSeconds(1))
-        assertThat(retirableKeys()).contains(key)
-    }
-
-    @Test
-    fun `findRetirableCodeTasks excludes an already-retired task`() {
-        val key = upsertTask("lifecycle-already-retired")
-        registry.retire(key, "gone")
-        assertThat(retirableKeys()).doesNotContain(key)
-    }
-
-    @Test
-    fun `findRetirableCodeTasks excludes a disabled but still-vouched code task`() {
-        val key = upsertTask("lifecycle-disabled-vouched")
-        seedNode("holder", now())
-        insertRegistration(key, "holder")
-        registry.disable(key)
-        testClock.advanceBy(grace().plusSeconds(1))
-        seedNode("holder", now()) // holder stays fresh
-
-        // Disabled is not retired: a live holder still protects it.
-        assertThat(retirableKeys()).doesNotContain(key)
-        assertThat(registry.find(key)?.retiredAt).isNull()
-    }
-
-    @Test
-    fun `findRetirableCodeTasks flags an orphaned each-capable-node task`() {
-        val key = "lifecycle-orphan-eachnode-${UUID.randomUUID()}"
-        registry.upsert(eachNodeDefinition(key))
-        insertRegistration(key, "never-seen-node")
-        assertThat(retirableKeys()).contains(key)
-    }
-
-    // ---- retire / retireIfOrphaned ----------------------------------------------------------
-
-    @Test
-    fun `retire is a no-op on a manual task`() {
-        val key = upsertTask("lifecycle-retire-manual")
-        setManagementMode(key, "manual")
-
-        assertThat(registry.retire(key, "should not happen")).isFalse()
-        val task = registry.find(key)
-        assertThat(task?.retiredAt).isNull()
-        assertThat(task?.enabled).isTrue()
-    }
-
-    @Test
-    fun `retire is idempotent`() {
-        val key = upsertTask("lifecycle-retire-idempotent")
-        assertThat(registry.retire(key, "gone")).isTrue()
-        assertThat(registry.retire(key, "again")).isFalse()
-        assertThat(registry.find(key)?.retirementReason).isEqualTo("gone")
-    }
-
-    @Test
-    fun `retire of an each-capable-node task clears its per-node state`() {
-        val key = "lifecycle-retire-eachnode-${UUID.randomUUID()}"
-        registry.upsert(eachNodeDefinition(key))
-        insertNodeState(key, "node-a", now())
-        insertNodeState(key, "node-b", now())
-        assertThat(nodeStateCount(key)).isEqualTo(2)
-
-        assertThat(registry.retire(key, "gone")).isTrue()
-
-        assertThat(nodeStateCount(key)).isZero()
-    }
-
-    @Test
-    fun `retireIfOrphaned is a no-op on a manual task`() {
-        val key = upsertTask("lifecycle-orphan-manual")
-        setManagementMode(key, "manual")
-
-        assertThat(registry.retireIfOrphaned(key, now().minus(grace()), "x")).isFalse()
-        assertThat(registry.find(key)?.retiredAt).isNull()
-    }
-
-    @Test
-    fun `retireIfOrphaned is a no-op while a live node holds it`() {
-        val key = upsertTask("lifecycle-orphan-held")
-        seedNode("holder", now())
-        insertRegistration(key, "holder")
-
-        assertThat(registry.retireIfOrphaned(key, now().minus(grace()), "x")).isFalse()
-        assertThat(registry.find(key)?.retiredAt).isNull()
-    }
-
-    // ---- enable / disable interaction with retirement ---------------------------------------
-
-    @Test
-    fun `enabling a retired task un-retires it`() {
-        val key = upsertTask("lifecycle-enable-unretire")
-        registry.retire(key, "gone")
-        assertThat(registry.find(key)?.retiredAt).isNotNull()
-
-        assertThat(registry.enable(key)).isTrue()
-
-        val task = registry.find(key)
-        assertThat(task?.enabled).isTrue()
-        assertThat(task?.retiredAt).isNull()
-        assertThat(task?.retirementReason).isNull()
-    }
-
-    @Test
-    fun `disabling a live code task does not retire it`() {
-        val key = upsertTask("lifecycle-disable-not-retire")
-        assertThat(registry.disable(key)).isTrue()
-
-        val task = registry.find(key)
-        assertThat(task?.enabled).isFalse()
-        assertThat(task?.retiredAt).isNull()
-    }
-
-    // ---- registerAll (atomic upsert + vouch) ------------------------------------------------
 
     @Test
     fun `registerAll records this node as vouching for each definition`() {
         val keyA = "lifecycle-registerall-a-${UUID.randomUUID()}"
         val keyB = "lifecycle-registerall-b-${UUID.randomUUID()}"
 
-        registry.registerAll(listOf(definition(keyA), definition(keyB)), "9.9.9")
+        registry.registerAll(listOf(definition(keyA), definition(keyB)))
 
         assertThat(registrationNodeIds(keyA)).contains(nodeIdentity.nodeId)
         assertThat(registrationNodeIds(keyB)).contains(nodeIdentity.nodeId)
-        assertThat(registrationBuildVersion(keyA, nodeIdentity.nodeId)).isEqualTo("9.9.9")
+    }
+
+    // ---- orphan detection (deleteOrphanedTasks) ---------------------------------------------
+
+    @Test
+    fun `deleteOrphanedTasks removes a task with no registrations at all`() {
+        nodeRegistry.heartbeat()
+        val key = upsertTask("lifecycle-no-reg")
+
+        val deleted = registry.deleteOrphanedTasks(seenSince())
+
+        assertThat(deleted).contains(key)
+        assertThat(registry.find(key)).isNull()
     }
 
     @Test
-    fun `registerAll reclaims a retired task and vouches so reconcile does not re-retire it`() {
-        val key = "lifecycle-reclaim-vouch-${UUID.randomUUID()}"
-        registry.upsert(definition(key))
-        registry.retire(key, "gone")
-        assertThat(registry.find(key)?.retiredAt).isNotNull()
-
-        // New deploy: this node now carries the definition again. registerAll
-        // un-retires AND records the vouch in one transaction, so there is no
-        // window where the task is un-retired but unvouched.
+    fun `deleteOrphanedTasks removes a task whose registering node never heartbeated`() {
         nodeRegistry.heartbeat()
-        registry.registerAll(listOf(definition(key)), "1.0.0")
-        assertThat(registry.find(key)?.retiredAt).isNull()
-        assertThat(registrationNodeIds(key)).contains(nodeIdentity.nodeId)
+        val key = upsertTask("lifecycle-ghost-only")
+        insertRegistration(key, "never-seen-node") // no cluster_nodes row
 
-        // A reconcile after the grace window must not re-retire it (this node vouches).
+        assertThat(registry.deleteOrphanedTasks(seenSince())).contains(key)
+        assertThat(registry.find(key)).isNull()
+    }
+
+    @Test
+    fun `deleteOrphanedTasks removes a task only after its node goes unseen past the grace window`() {
+        nodeRegistry.heartbeat()
+        val key = upsertTask("lifecycle-orphan")
+        seedNode("ghost-node", now())
+        insertRegistration(key, "ghost-node")
+
+        // Within grace: the carrying node was just seen → not deleted.
+        assertThat(registry.deleteOrphanedTasks(seenSince())).doesNotContain(key)
+        assertThat(registry.find(key)).isNotNull()
+
+        // Past grace: the node is unseen → deleted.
         testClock.advanceBy(grace().plusSeconds(1))
         nodeRegistry.heartbeat()
-        reconciler.reconcile()
-
-        assertThat(registry.find(key)?.retiredAt).isNull()
+        assertThat(registry.deleteOrphanedTasks(seenSince())).contains(key)
+        assertThat(registry.find(key)).isNull()
     }
 
-    // ---- tenant-scoped tasks ----------------------------------------------------------------
+    @Test
+    fun `deleteOrphanedTasks keeps a task while any one of several nodes stays fresh`() {
+        nodeRegistry.heartbeat()
+        val key = upsertTask("lifecycle-multi-node")
+        seedNode("node-a", now())
+        seedNode("node-b", now())
+        insertRegistration(key, "node-a")
+        insertRegistration(key, "node-b")
+
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat()
+        seedNode("node-b", now()) // b refreshed, a stale
+        assertThat(registry.deleteOrphanedTasks(seenSince())).doesNotContain(key)
+
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat() // both ghosts now stale
+        assertThat(registry.deleteOrphanedTasks(seenSince())).contains(key)
+    }
 
     @Test
-    fun `findRetirableCodeTasks flags an orphaned tenant-scoped code task`() {
+    fun `deleteOrphanedTasks does not remove a disabled but still-vouched task`() {
+        nodeRegistry.heartbeat()
+        val key = upsertTask("lifecycle-disabled-vouched")
+        seedNode("holder", now())
+        insertRegistration(key, "holder")
+        registry.disable(key)
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat()
+        seedNode("holder", now()) // holder stays fresh
+
+        assertThat(registry.deleteOrphanedTasks(seenSince())).doesNotContain(key)
+        assertThat(registry.find(key)).isNotNull()
+    }
+
+    @Test
+    fun `deleteOrphanedTasks removes an orphaned each-capable-node task and its per-node state`() {
+        nodeRegistry.heartbeat()
+        val key = "lifecycle-orphan-eachnode-${UUID.randomUUID()}"
+        registry.upsert(eachNodeDefinition(key))
+        insertNodeState(key, "node-a", now())
+        insertRegistration(key, "never-seen-node")
+
+        assertThat(registry.deleteOrphanedTasks(seenSince())).contains(key)
+        assertThat(registry.find(key)).isNull()
+        assertThat(nodeStateCount(key)).isZero() // cascaded
+    }
+
+    @Test
+    fun `deleteOrphanedTasks removes an orphaned tenant-scoped task`() {
+        nodeRegistry.heartbeat()
         val tenant = createTenant("Lifecycle Orphan Tenant")
         val key = "lifecycle-tenant-orphan-${UUID.randomUUID()}"
         registry.upsert(
@@ -410,39 +199,98 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
                 schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
             ),
         )
-        testClock.advanceBy(grace().plusSeconds(1))
 
-        assertThat(retirableKeys()).contains(key)
-    }
-
-    // ---- purge ------------------------------------------------------------------------------
-
-    @Test
-    fun `purgeRetiredBefore keeps a task retired exactly at the cutoff and deletes older ones`() {
-        val key = upsertTask("lifecycle-purge-boundary")
-        registry.retire(key, "gone")
-        val retiredAt = registry.find(key)?.retiredAt!!
-
-        // cutoff == retired_at → kept (delete uses strict <).
-        assertThat(registry.purgeRetiredBefore(retiredAt)).isZero()
-        assertThat(registry.find(key)).isNotNull()
-
-        // cutoff just after retired_at → deleted.
-        assertThat(registry.purgeRetiredBefore(retiredAt.plusSeconds(1))).isGreaterThanOrEqualTo(1)
+        assertThat(registry.deleteOrphanedTasks(seenSince())).contains(key)
         assertThat(registry.find(key)).isNull()
     }
 
     @Test
-    fun `purgeRetiredBefore leaves non-retired and manual tasks`() {
-        val active = upsertTask("lifecycle-purge-active")
-        val manual = upsertTask("lifecycle-purge-manual")
-        setManagementMode(manual, "manual")
+    fun `deleteIfOrphaned deletes an orphan and is a no-op while a live node carries it`() {
+        nodeRegistry.heartbeat()
+        val held = upsertTask("lifecycle-held")
+        seedNode("holder", now())
+        insertRegistration(held, "holder")
+        assertThat(registry.deleteIfOrphaned(held, seenSince())).isFalse()
+        assertThat(registry.find(held)).isNotNull()
 
-        registry.purgeRetiredBefore(now().plusYears(1))
-
-        assertThat(registry.find(active)).isNotNull()
-        assertThat(registry.find(manual)).isNotNull()
+        val orphan = upsertTask("lifecycle-orphan-single")
+        assertThat(registry.deleteIfOrphaned(orphan, seenSince())).isTrue()
+        assertThat(registry.find(orphan)).isNull()
     }
+
+    // ---- reconcile --------------------------------------------------------------------------
+
+    @Test
+    fun `reconcile deletes orphaned tasks while leaving vouched tasks (and itself) intact`() {
+        nodeRegistry.heartbeat()
+        val orphanA = upsertTask("lifecycle-reconcile-orphan-a")
+        val orphanB = upsertTask("lifecycle-reconcile-orphan-b")
+        seedNode("ghost", now())
+        insertRegistration(orphanA, "ghost")
+        insertRegistration(orphanB, "ghost")
+
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat() // current node fresh; ghost stale
+
+        reconciler.reconcile()
+
+        assertThat(registry.find(orphanA)).isNull()
+        assertThat(registry.find(orphanB)).isNull()
+        // The reconciler's own definition (carried by the fresh current node) survives.
+        assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)).isNotNull()
+    }
+
+    @Test
+    fun `reconcile does nothing when there are no orphans`() {
+        nodeRegistry.heartbeat()
+        val key = upsertTask("lifecycle-reconcile-noop")
+        seedNode("holder", now())
+        insertRegistration(key, "holder")
+
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat()
+        seedNode("holder", now()) // holder stays fresh
+
+        reconciler.reconcile()
+
+        assertThat(registry.find(key)).isNotNull()
+        assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)).isNotNull()
+    }
+
+    @Test
+    fun `reconcile is idempotent`() {
+        nodeRegistry.heartbeat()
+        val key = upsertTask("lifecycle-reconcile-idempotent")
+        seedNode("ghost", now())
+        insertRegistration(key, "ghost")
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat()
+
+        reconciler.reconcile()
+        reconciler.reconcile()
+
+        assertThat(registry.find(key)).isNull()
+        assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)).isNotNull()
+    }
+
+    @Test
+    fun `registerAll vouches for a re-created task so reconcile does not delete it`() {
+        nodeRegistry.heartbeat()
+        val key = "lifecycle-recreate-${UUID.randomUUID()}"
+
+        // A returning definition is re-created and vouched atomically by the registrar.
+        registry.registerAll(listOf(definition(key)))
+        assertThat(registry.find(key)).isNotNull()
+        assertThat(registrationNodeIds(key)).contains(nodeIdentity.nodeId)
+
+        testClock.advanceBy(grace().plusSeconds(1))
+        nodeRegistry.heartbeat()
+        reconciler.reconcile()
+
+        assertThat(registry.find(key)).isNotNull()
+    }
+
+    // ---- cascade & scope change -------------------------------------------------------------
 
     @Test
     fun `deleting a task cascades to per-node state and registrations`() {
@@ -457,159 +305,6 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         assertThat(registrationNodeIds(key)).isEmpty()
     }
 
-    // ---- recordNodeRegistrations ------------------------------------------------------------
-
-    @Test
-    fun `recordNodeRegistrations with an empty set clears this node's registrations`() {
-        val key = upsertTask("lifecycle-reg-empty")
-        registry.recordNodeRegistrations(listOf(key), "1.0.0")
-        assertThat(registrationNodeIds(key)).contains(nodeIdentity.nodeId)
-
-        registry.recordNodeRegistrations(emptyList(), "1.0.0")
-        assertThat(registrationNodeIds(key)).doesNotContain(nodeIdentity.nodeId)
-    }
-
-    @Test
-    fun `recordNodeRegistrations is idempotent and refreshes build version and timestamp`() {
-        val key = upsertTask("lifecycle-reg-idempotent")
-        registry.recordNodeRegistrations(listOf(key), "1.0.0")
-        val firstSeen = registrationRegisteredAt(key, nodeIdentity.nodeId)
-        assertThat(registrationBuildVersion(key, nodeIdentity.nodeId)).isEqualTo("1.0.0")
-
-        testClock.advanceBy(Duration.ofMinutes(1))
-        registry.recordNodeRegistrations(listOf(key), "2.0.0")
-
-        // One row per (task, node) — no duplicate.
-        assertThat(registrationNodeIds(key).count { it == nodeIdentity.nodeId }).isEqualTo(1)
-        assertThat(registrationBuildVersion(key, nodeIdentity.nodeId)).isEqualTo("2.0.0")
-        assertThat(registrationRegisteredAt(key, nodeIdentity.nodeId)).isAfter(firstSeen)
-    }
-
-    @Test
-    fun `recordNodeRegistrations accepts a null build version`() {
-        val key = upsertTask("lifecycle-reg-null-version")
-        registry.recordNodeRegistrations(listOf(key), null)
-        assertThat(registrationNodeIds(key)).contains(nodeIdentity.nodeId)
-        assertThat(registrationBuildVersion(key, nodeIdentity.nodeId)).isNull()
-    }
-
-    // ---- reconcile --------------------------------------------------------------------------
-
-    @Test
-    fun `reconcile retires multiple orphans in one pass`() {
-        nodeRegistry.heartbeat()
-        val orphanA = upsertTask("lifecycle-multi-orphan-a")
-        val orphanB = upsertTask("lifecycle-multi-orphan-b")
-        seedNode("ghost", now())
-        insertRegistration(orphanA, "ghost")
-        insertRegistration(orphanB, "ghost")
-
-        testClock.advanceBy(grace().plusSeconds(1))
-        nodeRegistry.heartbeat()
-
-        reconciler.reconcile()
-
-        assertThat(registry.find(orphanA)?.retiredAt).isNotNull()
-        assertThat(registry.find(orphanB)?.retiredAt).isNotNull()
-    }
-
-    @Test
-    fun `reconcile does nothing when there are no orphans`() {
-        nodeRegistry.heartbeat()
-        val key = upsertTask("lifecycle-reconcile-noop")
-        seedNode("holder", now())
-        insertRegistration(key, "holder")
-
-        testClock.advanceBy(grace().plusSeconds(1))
-        nodeRegistry.heartbeat()
-        seedNode("holder", now()) // holder stays fresh → key is not an orphan
-
-        reconciler.reconcile()
-
-        assertThat(registry.find(key)?.retiredAt).isNull()
-        assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)?.retiredAt).isNull()
-    }
-
-    @Test
-    fun `reconcile is idempotent`() {
-        nodeRegistry.heartbeat()
-        val key = upsertTask("lifecycle-reconcile-idempotent")
-        seedNode("ghost", now())
-        insertRegistration(key, "ghost")
-        testClock.advanceBy(grace().plusSeconds(1))
-        nodeRegistry.heartbeat()
-
-        reconciler.reconcile()
-        val firstRetiredAt = registry.find(key)?.retiredAt
-        reconciler.reconcile()
-
-        assertThat(firstRetiredAt).isNotNull()
-        assertThat(registry.find(key)?.retiredAt).isEqualTo(firstRetiredAt)
-        assertThat(registry.find(ClusterScheduledTaskReconciler.TASK_KEY)?.retiredAt).isNull()
-    }
-
-    // ---- reclaim / scope change (per-node state cleanup) ------------------------------------
-
-    @Test
-    fun `reclaiming a retired each-capable-node task starts with no stale per-node state`() {
-        val key = "lifecycle-reclaim-eachnode-${UUID.randomUUID()}"
-        registry.upsert(eachNodeDefinition(key))
-        insertNodeState(key, "node-a", now().minusDays(1)) // stale due time
-        registry.retire(key, "gone")
-        assertThat(nodeStateCount(key)).isZero() // cleared on retire
-
-        registry.upsert(eachNodeDefinition(key)) // reclaim
-        assertThat(registry.find(key)?.retiredAt).isNull()
-        assertThat(nodeStateCount(key)).isZero() // fresh, no inherited node state
-    }
-
-    @Test
-    fun `reusing a retired key for a new schedule starts the task fresh`() {
-        val key = "lifecycle-reuse-${UUID.randomUUID()}"
-        registry.upsert(definition(key))
-        // Accrued runtime state and a stale (past) due time on the row before retirement.
-        seedRuntimeState(key, nextDueAt = now().minusHours(1), attemptCount = 9, consecutiveFailures = 5, lastError = "old boom")
-        registry.retire(key, "definition removed")
-
-        // A new schedule reuses the same key (different task type/payload, same shape).
-        val reused = registry.upsert(
-            ClusterScheduledTaskDefinition(
-                taskKey = key,
-                routingKey = "system:$key",
-                taskType = "reused-type",
-                schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
-                payload = mapOf("v" to 2),
-            ),
-        )
-
-        assertThat(reused.retiredAt).isNull()
-        assertThat(reused.enabled).isTrue()
-        assertThat(reused.taskType).isEqualTo("reused-type")
-        assertThat(reused.payload["v"]).isEqualTo(2)
-        // Fresh start: a future due time and no inherited counters/lease/error.
-        assertThat(reused.nextDueAt).isAfter(now())
-        assertThat(reused.attemptCount).isZero()
-        assertThat(reused.consecutiveFailures).isZero()
-        assertThat(reused.lastError).isNull()
-        assertThat(reused.leaseOwnerNodeId).isNull()
-    }
-
-    @Test
-    fun `re-registering a live task keeps its cadence and execution history`() {
-        val key = "lifecycle-live-reupsert-${UUID.randomUUID()}"
-        registry.upsert(definition(key))
-        seedRuntimeState(key, nextDueAt = now().plusMinutes(5), attemptCount = 3, consecutiveFailures = 2, lastError = "transient")
-
-        registry.upsert(definition(key)) // same shape, not retired → preserve
-
-        val task = registry.find(key)
-        assertThat(task?.retiredAt).isNull()
-        assertThat(task?.nextDueAt).isEqualTo(now().plusMinutes(5))
-        assertThat(task?.attemptCount).isEqualTo(3)
-        assertThat(task?.consecutiveFailures).isEqualTo(2)
-        assertThat(task?.lastError).isEqualTo("transient")
-    }
-
     @Test
     fun `upsert changing scope to single owner clears stale per-node state`() {
         val key = "lifecycle-scope-change-${UUID.randomUUID()}"
@@ -622,27 +317,27 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         assertThat(nodeStateCount(key)).isZero()
     }
 
-    // ---- multi-node rolling deploy ----------------------------------------------------------
+    // ---- rolling deploy ---------------------------------------------------------------------
 
     @Test
     fun `a freshly heartbeating unrelated node does not protect another node's orphaned task`() {
+        nodeRegistry.heartbeat()
         val key = upsertTask("lifecycle-rolling")
         seedNode("old-node", now())
         insertRegistration(key, "old-node") // only old-node carries it
-        seedNode("new-node", now()) // new build is up but does not carry this task
+        seedNode("new-node", now()) // new build up, does not carry this task
 
-        // Old node still fresh → retained.
-        assertThat(retirableKeys()).doesNotContain(key)
+        assertThat(registry.deleteOrphanedTasks(seenSince())).doesNotContain(key) // old-node fresh
 
-        // Old node drains; new node keeps heartbeating but never registered this task.
         testClock.advanceBy(grace().plusSeconds(1))
-        seedNode("new-node", now())
-        assertThat(retirableKeys()).contains(key)
+        nodeRegistry.heartbeat()
+        seedNode("new-node", now()) // new-node still fresh, old-node drained
+        assertThat(registry.deleteOrphanedTasks(seenSince())).contains(key)
     }
 
     private fun grace(): Duration = Duration.ofMillis(properties.scheduledTasks.reconciliationGracePeriodMs)
 
-    private fun retirableKeys(): List<String> = registry.findRetirableCodeTasks(now().minus(grace())).map { it.taskKey }
+    private fun seenSince(): OffsetDateTime = now().minus(grace())
 
     private fun definition(taskKey: String): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
         taskKey = taskKey,
@@ -684,14 +379,13 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO cluster_scheduled_task_registrations (task_key, node_id, build_version, registered_at)
-                VALUES (:taskKey, :nodeId, '1.0.0', :registeredAt)
-                ON CONFLICT (task_key, node_id) DO UPDATE SET registered_at = EXCLUDED.registered_at
+                INSERT INTO cluster_scheduled_task_registrations (task_key, node_id)
+                VALUES (:taskKey, :nodeId)
+                ON CONFLICT (task_key, node_id) DO NOTHING
                 """,
             )
                 .bind("taskKey", taskKey)
                 .bind("nodeId", nodeId)
-                .bind("registeredAt", now())
                 .execute()
         }
     }
@@ -701,23 +395,6 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
             .bind("taskKey", taskKey)
             .mapTo(String::class.java)
             .list()
-    }
-
-    private fun registrationBuildVersion(taskKey: String, nodeId: String): String? = jdbi.withHandle<String?, Exception> { handle ->
-        handle.createQuery("SELECT build_version FROM cluster_scheduled_task_registrations WHERE task_key = :taskKey AND node_id = :nodeId")
-            .bind("taskKey", taskKey)
-            .bind("nodeId", nodeId)
-            .mapTo(String::class.java)
-            .findOne()
-            .orElse(null)
-    }
-
-    private fun registrationRegisteredAt(taskKey: String, nodeId: String): OffsetDateTime = jdbi.withHandle<OffsetDateTime, Exception> { handle ->
-        handle.createQuery("SELECT registered_at FROM cluster_scheduled_task_registrations WHERE task_key = :taskKey AND node_id = :nodeId")
-            .bind("taskKey", taskKey)
-            .bind("nodeId", nodeId)
-            .mapTo(OffsetDateTime::class.java)
-            .one()
     }
 
     private fun insertNodeState(taskKey: String, nodeId: String, nextDueAt: OffsetDateTime) {
@@ -741,43 +418,6 @@ class ClusterScheduledTaskLifecycleIT : IntegrationTestBase() {
             .bind("taskKey", taskKey)
             .mapTo(Int::class.java)
             .one()
-    }
-
-    private fun seedRuntimeState(
-        taskKey: String,
-        nextDueAt: OffsetDateTime,
-        attemptCount: Int,
-        consecutiveFailures: Int,
-        lastError: String,
-    ) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE cluster_tasks_scheduled
-                SET next_due_at = :nextDueAt,
-                    attempt_count = :attemptCount,
-                    consecutive_failures = :consecutiveFailures,
-                    last_error = :lastError,
-                    last_failed_at = :nextDueAt
-                WHERE task_key = :taskKey
-                """,
-            )
-                .bind("taskKey", taskKey)
-                .bind("nextDueAt", nextDueAt)
-                .bind("attemptCount", attemptCount)
-                .bind("consecutiveFailures", consecutiveFailures)
-                .bind("lastError", lastError)
-                .execute()
-        }
-    }
-
-    private fun setManagementMode(taskKey: String, mode: String) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE cluster_tasks_scheduled SET management_mode = :mode WHERE task_key = :taskKey")
-                .bind("mode", mode)
-                .bind("taskKey", taskKey)
-                .execute()
-        }
     }
 
     private fun deleteTask(taskKey: String) {

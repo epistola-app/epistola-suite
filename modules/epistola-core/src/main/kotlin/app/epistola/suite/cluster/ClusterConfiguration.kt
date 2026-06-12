@@ -88,22 +88,16 @@ data class ClusterScheduledTaskProperties(
     val batchSize: Int = 10,
     val candidateScanSize: Int = 100,
     /**
-     * How often the `core.scheduled-task-reconciliation` task retires orphaned
-     * code-defined definitions and purges long-retired rows. Default hourly.
+     * How often the `core.scheduled-task-reconciliation` task deletes orphaned
+     * code-defined tasks (no live node carries them). Default hourly.
      */
     val reconciliationIntervalMs: Long = 3_600_000,
     /**
-     * A code-defined task is only retired once **no node that registered it has
-     * been seen for this long** — i.e. every registering node's
-     * `cluster_nodes.last_seen_at` is older than this. Judging liveness by the
-     * heartbeat-maintained `last_seen_at` (not the startup `registered_at`) means
-     * a node restart shorter than this window keeps the node's schedules
-     * protected. Default 15 minutes.
+     * A code-defined task is only deleted once **no node that carries it has been
+     * seen for this long** — i.e. every carrying node's `cluster_nodes.last_seen_at`
+     * is older than this. Judging liveness by the heartbeat-maintained
+     * `last_seen_at` means a node restart shorter than this window keeps the node's
+     * schedules protected. Default 15 minutes.
      */
     val reconciliationGracePeriodMs: Long = 900_000,
-    /**
-     * How long a soft-retired task is retained (visible in Operations) before it
-     * is hard-deleted. Default 7 days.
-     */
-    val retiredRetentionMs: Long = 604_800_000,
 )
