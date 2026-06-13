@@ -26,7 +26,9 @@
            th:hx-get="${searchUrl}"
            hx-trigger="input changed delay:300ms, search"
            th:hx-target="${'#' + targetId}"
-           hx-swap="innerHTML">
+           hx-swap="innerHTML"
+           class="ep-input form-control-auto"
+           >
 </div>
 
 </body>
