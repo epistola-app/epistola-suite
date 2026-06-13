@@ -1,6 +1,9 @@
 package app.epistola.suite.support.telemetry
 
 import app.epistola.hub.client.port.InstallationStore
+import app.epistola.hub.contract.HubHeaders
+import app.epistola.hub.contract.OtlpContract
+import app.epistola.hub.contract.SupportFeature
 import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.support.HubTelemetryEndpointResolver
 import app.epistola.suite.support.SupportEntitlementService
@@ -86,9 +89,9 @@ class GrpcOtlpMetricsSender(
     }
 
     companion object {
-        const val SERVICE = "opentelemetry.proto.collector.metrics.v1.MetricsService"
+        const val SERVICE = OtlpContract.METRICS_SERVICE
 
-        private val TELEMETRY_FEATURE = FeatureKey.of("support-telemetry")
+        private val TELEMETRY_FEATURE = FeatureKey.of(SupportFeature.TELEMETRY.wireKey)
 
         private val BYTES: MethodDescriptor.Marshaller<ByteArray> =
             object : MethodDescriptor.Marshaller<ByteArray> {
@@ -101,11 +104,11 @@ class GrpcOtlpMetricsSender(
             MethodDescriptor
                 .newBuilder(BYTES, BYTES)
                 .setType(MethodDescriptor.MethodType.UNARY)
-                .setFullMethodName(MethodDescriptor.generateFullMethodName(SERVICE, "Export"))
+                .setFullMethodName(MethodDescriptor.generateFullMethodName(SERVICE, OtlpContract.EXPORT_METHOD))
                 .build()
 
         private fun apiKeyMetadata(apiKey: String): Metadata = Metadata().apply {
-            put(Metadata.Key.of("x-ep-api-key", Metadata.ASCII_STRING_MARSHALLER), apiKey)
+            put(Metadata.Key.of(HubHeaders.API_KEY, Metadata.ASCII_STRING_MARSHALLER), apiKey)
         }
     }
 }

@@ -1,6 +1,8 @@
 package app.epistola.suite.support.telemetry
 
 import app.epistola.hub.client.port.InstallationStore
+import app.epistola.hub.contract.HubHeaders
+import app.epistola.hub.contract.SupportFeature
 import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.observability.NodeIdentity
@@ -174,7 +176,7 @@ class TelemetryLeg(
     }
 
     companion object {
-        private val TELEMETRY_FEATURE = FeatureKey.of("support-telemetry")
-        private const val API_KEY_HEADER = "x-ep-api-key"
+        private val TELEMETRY_FEATURE = FeatureKey.of(SupportFeature.TELEMETRY.wireKey)
+        private const val API_KEY_HEADER = HubHeaders.API_KEY
     }
 }
