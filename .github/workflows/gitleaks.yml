@@ -1,0 +1,26 @@
+name: Secret Scan
+
+# Hard gate for committed secrets (the .husky/pre-commit hook is the fast local
+# check, but it is bypassable with --no-verify). Scans full git history with the
+# gitleaks version pinned in .mise.toml; allowlist lives in .gitleaks.toml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0 # full history so the scan covers every commit
+
+      - name: Setup tools with mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
+
+      - name: Scan for secrets
+        run: gitleaks git --no-banner --redact --exit-code 1

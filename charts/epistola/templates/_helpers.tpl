@@ -149,6 +149,37 @@ config.env to provide the datasource.
 {{- end }}
 
 {{/*
+Credential encryption-at-rest env (EPISTOLA_ENCRYPTION_*). Only the app
+Deployment needs this — the migration Job/init container never touch ciphertext.
+Each key's material is sourced from a Kubernetes Secret (existingSecret/secretKey)
+in production; an inline `material` is supported for dev convenience only.
+*/}}
+{{- define "epistola.encryptionEnv" -}}
+{{- if .Values.encryption.enabled }}
+- name: EPISTOLA_ENCRYPTION_ENABLED
+  value: "true"
+- name: EPISTOLA_ENCRYPTION_PRIMARYKEYID
+  value: {{ required "encryption.primaryKeyId is required when encryption.enabled is true" .Values.encryption.primaryKeyId | quote }}
+{{- range $i, $key := .Values.encryption.keys }}
+- name: EPISTOLA_ENCRYPTION_KEYS_{{ $i }}_ID
+  value: {{ required "each encryption.keys entry requires an id" $key.id | quote }}
+- name: EPISTOLA_ENCRYPTION_KEYS_{{ $i }}_MATERIAL
+  {{- if $key.existingSecret }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $key.existingSecret }}
+      key: {{ $key.secretKey | default $key.id }}
+  {{- else }}
+  value: {{ required "each encryption.keys entry requires existingSecret or inline material" $key.material | quote }}
+  {{- end }}
+{{- end }}
+{{- else }}
+- name: EPISTOLA_ENCRYPTION_ENABLED
+  value: "false"
+{{- end }}
+{{- end }}
+
+{{/*
 PGHOST/PGPORT env for the wait-for-db probe container. Empty for
 database.type=none (caller must skip the wait container).
 */}}

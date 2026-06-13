@@ -113,7 +113,7 @@ class BrowseCatalogHandler(
             ?: return BrowseResult(catalog = catalog, resources = installedResources(query))
 
         val manifest = try {
-            catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+            catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         } catch (e: Exception) {
             logger.warn(
                 "Browsing subscribed catalog '{}' — source {} unreachable ({}); showing installed resources only",

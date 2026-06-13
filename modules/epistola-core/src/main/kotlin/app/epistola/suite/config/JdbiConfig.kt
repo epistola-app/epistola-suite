@@ -9,6 +9,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.crypto.CredentialCipher
+import app.epistola.suite.crypto.Secret
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.core.mapper.ColumnMapper
@@ -29,6 +31,7 @@ class JdbiConfig {
     fun jdbi(
         dataSource: DataSource,
         mapper: ObjectMapper,
+        credentialCipher: CredentialCipher,
     ): Jdbi = Jdbi.create(SpringConnectionFactory(dataSource))
         .installPlugin(KotlinPlugin())
         .installPlugin(PostgresPlugin())
@@ -61,5 +64,10 @@ class JdbiConfig {
                     if (r.wasNull()) null else AssetMediaType.fromMimeType(value)
                 },
             )
+
+            // Transparent credential encryption-at-rest: Secret values are encrypted
+            // on bind and decrypted on read by the credential cipher.
+            registerArgument(SecretArgumentFactory(credentialCipher))
+            registerColumnMapper(Secret::class.java, SecretColumnMapper(credentialCipher))
         }
 }
