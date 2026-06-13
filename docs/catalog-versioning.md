@@ -2,7 +2,7 @@
 
 How catalogs declare a version, how "is this a new version?" is decided, and
 how that flows across the web UI, REST, MCP, catalog exchange and the bundled
-catalogs. Companion to [`docs/exchange.md`](exchange.md).
+catalogs. Companion to [`docs/exchange/README.md`](exchange/README.md).
 
 ## Why
 

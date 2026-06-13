@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -124,6 +125,7 @@ class ImportCatalogZipHandler(
     private val sizeLimits: CatalogSizeLimits,
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val analyzer: CatalogUpgradeAnalyzer,
+    private val schemaMigrator: CatalogSchemaMigrator,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -160,7 +162,10 @@ class ImportCatalogZipHandler(
         // Parse manifest
         val manifestBytes = entries["catalog.json"]
             ?: throw IllegalArgumentException("ZIP does not contain catalog.json")
-        val manifest = objectMapper.readValue(manifestBytes, CatalogManifest::class.java)
+        // Version gate + wire-format upgrade chain before binding (see
+        // CatalogSchemaMigrator). Resource details bind as-is for now; the
+        // detail-path migration wires in with the first real migration.
+        val manifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
         // A ZIP import targets a catalog *type*. A slug that already exists
