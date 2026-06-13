@@ -37,7 +37,20 @@ Move the `[Unreleased]` section in `CHANGELOG.md` to a new version heading:
 ## [X.Y.Z] - YYYY-MM-DD
 ```
 
-Add a fresh empty `[Unreleased]` section above it. Commit this change:
+**Write a release summary.** Immediately under the new version heading (a blank line, then the prose, then a blank line before the first entry), add a short **1–3 sentence** plain-prose summary of the release — the headline user-facing changes and any notable breaking change or theme. This paragraph is parsed by the in-app Changelog dialog (`ChangelogRenderer`) and shown above the entries, so write it for end users, not as a commit log. Derive it from the entries you just moved — lead with the `feat`/`fix` items tagged `**[user]**` or untagged (skip deep `**[dev]**` internals). Do **not** start the summary line with `- ` or `### ` (those delimit entries).
+
+Example:
+
+```
+## [0.23.0] - 2026-06-15
+
+This release adds audience/type/scope filtering to the in-app changelog and locale-aware number formatting in the editor, and fixes bullet glyphs vanishing in generated PDFs.
+
+- **[user]** feat(changelog): **…**
+- **[user]** fix(pdf): **…**
+```
+
+Add a fresh empty `[Unreleased]` section above the new version heading. Commit this change:
 
 ```
 docs: update changelog for vX.Y.Z release

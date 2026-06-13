@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.changelog.ChangelogAudience
 import app.epistola.suite.changelog.ChangelogService
 import app.epistola.suite.changelog.GetChangelogAcknowledgment
 import app.epistola.suite.common.ids.TenantKey
@@ -59,7 +60,7 @@ class TenantHandler(
 
         // Always show latest changelog entry; highlight if unseen
         val appVersion = buildProperties?.version ?: "dev"
-        val allEntries = changelogRenderer.entries()
+        val allEntries = changelogRenderer.entries(ChangelogAudience.USER)
         val latestEntry = allEntries.firstOrNull()
         val principal = SecurityContext.current()
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()

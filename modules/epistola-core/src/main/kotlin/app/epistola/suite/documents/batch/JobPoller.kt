@@ -11,9 +11,7 @@ import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
-import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SystemUser
-import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import jakarta.annotation.PreDestroy
@@ -257,7 +255,7 @@ class JobPoller(
 
                     // Execute on virtual thread, don't block the drain thread
                     jobThreadExecutor.submit(
-                        MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
+                        MediatorContext.runnable(mediator, SystemUser.principalForTenant(request.tenantKey)) {
                             try {
                                 executeClaimed(request)
                             } finally {
@@ -303,7 +301,7 @@ class JobPoller(
             if (requests.isEmpty()) break
             jobsClaimedCounter.increment(requests.size.toDouble())
             requests.forEach { request ->
-                MediatorContext.runnable(mediator, systemPrincipal(request.tenantKey)) {
+                MediatorContext.runnable(mediator, SystemUser.principalForTenant(request.tenantKey)) {
                     executeClaimed(request)
                 }.run()
                 processed++
@@ -437,22 +435,5 @@ class JobPoller(
         const val TASK_KEY = "core.document-job-poller"
         const val ROUTING_KEY = "system:core.document-job-poller"
         const val TASK_TYPE = "core.document-job-poller"
-
-        /**
-         * Creates a system principal for background job execution.
-         *
-         * Background jobs (virtual threads) run outside the HTTP request scope,
-         * so they have no SecurityContext. This principal grants all tenant roles
-         * for the tenant that owns the generation request, allowing the mediator's
-         * authorization checks to pass.
-         */
-        private fun systemPrincipal(tenantKey: TenantKey): EpistolaPrincipal = EpistolaPrincipal(
-            userId = SystemUser.ID,
-            externalId = SystemUser.EXTERNAL_ID,
-            email = SystemUser.EMAIL,
-            displayName = SystemUser.DISPLAY_NAME,
-            tenantMemberships = mapOf(tenantKey to TenantRole.entries.toSet()),
-            currentTenantId = tenantKey,
-        )
     }
 }

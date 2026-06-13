@@ -27,6 +27,63 @@ configure_shell() {
     esac
 }
 
+# Ensure a UTF-8 locale so the JVM encodes file paths correctly.
+#
+# The JVM derives `sun.jnu.encoding` (used for file paths and CLI args) from the
+# OS locale, independent of `file.encoding`. A non-UTF-8 locale — common on WSL
+# and minimal Linux images, where the default is often the POSIX "C" locale
+# (ASCII) — makes Kotlin compilation fail when a test/method name contains a
+# non-ASCII character, because the generated `.class` path cannot be encoded:
+#   java.nio.file.InvalidPathException: Malformed input or input contains
+#   unmappable characters
+configure_locale() {
+    local charmap
+    charmap=$(locale charmap 2>/dev/null || echo "")
+    if [[ "$charmap" == "UTF-8" ]]; then
+        return
+    fi
+
+    echo ""
+    echo "Detected non-UTF-8 locale (charmap: ${charmap:-unknown})."
+
+    # Prefer C.UTF-8 (always present, no generation needed); fall back to en_US.
+    local target=""
+    if locale -a 2>/dev/null | grep -qix "C.UTF-8\|C.utf8"; then
+        target="C.UTF-8"
+    elif locale -a 2>/dev/null | grep -qix "en_US.UTF-8\|en_US.utf8"; then
+        target="en_US.UTF-8"
+    elif command -v locale-gen >/dev/null 2>&1; then
+        echo "Generating en_US.UTF-8 locale (may require sudo)..."
+        sudo locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
+        sudo update-locale >/dev/null 2>&1 || true
+        target="en_US.UTF-8"
+    else
+        target="C.UTF-8"
+    fi
+
+    local shell_name rc_file
+    shell_name=$(basename "$SHELL")
+    rc_file=~/.bashrc
+    [[ "$shell_name" == "zsh" ]] && rc_file=~/.zshrc
+    [[ "$shell_name" == "bash" && "$OSTYPE" == "darwin"* ]] && rc_file=~/.bash_profile
+
+    if ! grep -q "LANG=.*UTF-8" "$rc_file" 2>/dev/null; then
+        {
+            echo ""
+            echo "# UTF-8 locale (required for JVM file-path encoding / Kotlin builds)"
+            echo "export LANG=$target"
+            echo "export LC_ALL=$target"
+        } >>"$rc_file"
+        echo "Configured UTF-8 locale ($target) in $rc_file"
+    fi
+
+    # The Gradle daemon caches the encoding from when its JVM started, so stop it
+    # to ensure the next build picks up the new locale.
+    if [[ -x ./gradlew ]]; then
+        ./gradlew --stop >/dev/null 2>&1 || true
+    fi
+}
+
 if ! command -v mise >/dev/null; then
     echo "mise is not installed."
     echo "Please install it first: https://mise.jdx.dev/getting-started.html"
@@ -35,6 +92,9 @@ fi
 
 # Configure shell if not already done
 configure_shell
+
+# Ensure a UTF-8 locale (matters on WSL / minimal Linux)
+configure_locale
 
 # Install versions from .mise.toml
 mise install
@@ -112,4 +172,4 @@ echo ""
 echo "Git hooks configured (conventional commit validation)"
 echo "Commit signing configured (SSH)"
 echo ""
-echo "NOTE: Restart your shell to activate mise."
+echo "NOTE: Restart your shell to activate mise (and any locale changes)."

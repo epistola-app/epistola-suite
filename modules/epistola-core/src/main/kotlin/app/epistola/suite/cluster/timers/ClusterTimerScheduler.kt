@@ -10,6 +10,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
@@ -113,7 +115,17 @@ class ClusterTimerScheduler(
         }
 
         try {
-            val result = meterRegistry.recordScheduledTask("cluster-timer:${timer.timerType}") { handler.handle(timer) }
+            // A tenant-scoped timer runs as that tenant's system principal (mediator
+            // authorization + log attribution); system-wide timers run with none.
+            // Consistency follow-up (always bind a system principal): see issue #551.
+            val principal = timer.tenantKey?.let { SystemUser.principalForTenant(it) }
+            val result = meterRegistry.recordScheduledTask("cluster-timer:${timer.timerType}") {
+                if (principal != null) {
+                    SecurityContext.runWithPrincipal(principal) { handler.handle(timer) }
+                } else {
+                    handler.handle(timer)
+                }
+            }
             when (result) {
                 ClusterTimerResult.Complete -> timerRegistry.complete(timer.timerKey)
                 is ClusterTimerResult.Reschedule -> timerRegistry.reschedule(timer.timerKey, result.nextDueAt, result.payload)

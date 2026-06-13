@@ -52,9 +52,35 @@ The frontend uses a **server-side rendering** approach:
 This will:
 
 - Configure mise in your shell (bash/zsh) if not already done
+- Ensure a UTF-8 locale (see [Platform support](#platform-support) below)
 - Install the required tool versions (Java Temurin 25, Node.js 24)
 - Install Git hooks (commitlint for conventional commit validation)
 - Configure SSH commit signing (if using SSH remote)
+
+### Platform support
+
+Development is actively tested on **macOS** and **Linux**. **Windows is not
+tested**; if you're on Windows, develop inside **WSL2** (treated as Linux).
+
+Your shell must use a **UTF-8 locale** (`LANG`/`LC_ALL` ending in `.UTF-8`). The
+JVM derives `sun.jnu.encoding` — the charset for file paths — from the OS
+locale, and a non-UTF-8 locale (the POSIX `C` locale is the default on many WSL
+and minimal Linux images) breaks Kotlin builds when a source name contains a
+non-ASCII character:
+
+```
+java.nio.file.InvalidPathException: Malformed input or input contains unmappable characters
+```
+
+`./scripts/init.sh` configures this automatically. To verify:
+
+```bash
+locale charmap                          # -> UTF-8
+java -XshowSettings:properties -version 2>&1 | grep sun.jnu.encoding
+#                                       # -> sun.jnu.encoding = UTF-8
+```
+
+If you change the locale, run `gradle --stop` so the daemon restarts with it.
 
 ### Build and Run
 

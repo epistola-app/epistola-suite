@@ -14,6 +14,10 @@ logging:
 # No OAuth2 configuration needed
 
 epistola:
+  logs:
+    # Don't attach the DB log appender across the whole suite — capture/retention
+    # tests opt in per-class with properties = ["epistola.logs.enabled=true"].
+    enabled: false
   storage:
     backend: memory
   auth:

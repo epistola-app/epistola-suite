@@ -11,6 +11,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.observability.NodeIdentity
 import app.epistola.suite.observability.recordScheduledTask
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.SystemUser
 import app.epistola.suite.time.EpistolaClock
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PreDestroy
@@ -121,8 +123,7 @@ class ClusterScheduledTaskScheduler(
     private fun dispatch(task: ClusterScheduledTask) {
         val handler = handlersByType[task.taskType]
         if (handler == null) {
-            fail(task, "No handler registered for scheduled task type '${task.taskType}'")
-            log.warn("No handler registered for cluster scheduled task type '{}'", task.taskType)
+            handleMissingHandler(task)
             return
         }
 
@@ -130,7 +131,15 @@ class ClusterScheduledTaskScheduler(
             // Per-taskType timing/outcome so a single slow or failing task is
             // visible in the fleet metrics, not hidden inside the poll-cycle timer.
             meterRegistry.recordScheduledTask("cluster-scheduled-task:${task.taskType}") {
-                handler.handle(task)
+                // A tenant-scoped task runs as that tenant's system principal (mediator
+                // authorization + log attribution); system-wide tasks run with none.
+                // Consistency follow-up (always bind a system principal): see issue #551.
+                val principal = task.tenantKey?.let { SystemUser.principalForTenant(it) }
+                if (principal != null) {
+                    SecurityContext.runWithPrincipal(principal) { handler.handle(task) }
+                } else {
+                    handler.handle(task)
+                }
             }
             val nextDueAt = scheduleCalculator.nextAfterSuccess(task)
             taskRegistry.complete(task.taskKey, nextDueAt)
@@ -138,6 +147,37 @@ class ClusterScheduledTaskScheduler(
             fail(task, e.message ?: e.javaClass.name)
             log.warn("Cluster scheduled task '{}' failed", task.taskKey, e)
         }
+    }
+
+    /**
+     * Handles a claimed task whose `taskType` has no registered handler.
+     *
+     * If no node carrying the definition has been seen within the grace window,
+     * the task is genuinely orphaned (registration ⇒ the node has the definition
+     * ⇒ it has the handler, so "no live node holds it" means nothing can ever run
+     * it) and is deleted inline — cleaning it up the moment it fires instead of
+     * waiting for the periodic reconciler. Otherwise a holding node still exists (a
+     * rolling-deploy in-between state, or a non-handler-bearing node grabbed it by
+     * capability), so we quietly advance and let a holder run it without accruing
+     * failure/error state. The periodic reconciler remains the backstop for orphans
+     * that never fire.
+     */
+    private fun handleMissingHandler(task: ClusterScheduledTask) {
+        val seenSince = EpistolaClock.offsetDateTime().minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
+        if (taskRegistry.deleteIfOrphaned(task.taskKey, seenSince)) {
+            log.info(
+                "Deleted orphaned cluster scheduled task '{}' on dispatch (taskType={}, no handler and no live node carries it)",
+                task.taskKey,
+                task.taskType,
+            )
+            return
+        }
+
+        log.warn(
+            "No handler on this node for cluster scheduled task type '{}'; advancing so a node that carries it can run it",
+            task.taskType,
+        )
+        taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))
     }
 
     private fun fail(task: ClusterScheduledTask, error: String) {
@@ -148,5 +188,9 @@ class ClusterScheduledTaskScheduler(
             maxRetryDelayMs = properties.scheduledTasks.maxRetryDelayMs,
         )
         taskRegistry.fail(task.taskKey, nextDueAt, error)
+    }
+
+    private companion object {
+        const val NANOS_PER_MILLI = 1_000_000L
     }
 }

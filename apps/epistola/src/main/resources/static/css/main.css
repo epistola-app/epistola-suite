@@ -1036,9 +1036,22 @@ a.stat-card:hover {
 
 /* ── Changelog two-panel layout ──────────────────────────────────────── */
 
+/* The changelog needs more room than the standard wide dialog: a full-width audience filter
+   bar above a version-list + content split. */
+#changelog-dialog {
+  max-width: 52rem;
+}
+
 .changelog-layout {
   display: flex;
+  flex-direction: column;
   max-height: 60vh;
+}
+
+.changelog-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .changelog-version-list {
@@ -1071,6 +1084,10 @@ a.stat-card:hover {
   font-weight: 600;
 }
 
+.changelog-version-item.unreleased .changelog-version-label {
+  color: var(--ep-blue-600);
+}
+
 .changelog-version-date {
   color: var(--ep-muted-foreground);
   font-size: var(--ep-text-xs);
@@ -1080,6 +1097,88 @@ a.stat-card:hover {
   flex: 1;
   overflow-y: auto;
   padding: var(--ep-space-3) var(--ep-space-5);
+}
+
+/* Release summary (prose under the version heading), shown above the entries. */
+.changelog-summary {
+  margin-bottom: var(--ep-space-4);
+  padding-bottom: var(--ep-space-3);
+  border-bottom: 1px solid var(--ep-border-color);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.changelog-summary p:first-child {
+  margin-top: 0;
+}
+
+.changelog-summary p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Filter bar (audience / type / scope dropdowns) ───────────────────── */
+
+.changelog-filters {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-4);
+  padding: var(--ep-space-3) var(--ep-space-4);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.changelog-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1);
+}
+
+.changelog-filter-label {
+  font-size: var(--ep-text-xs);
+  font-weight: 600;
+  color: var(--ep-muted-foreground);
+}
+
+.changelog-filter-field select {
+  padding: var(--ep-space-1) var(--ep-space-2);
+  font-size: var(--ep-text-xs);
+  cursor: pointer;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  background: var(--ep-card, #fff);
+  color: var(--ep-foreground);
+}
+
+/* ── Chips on tagged entries (audience + scope) ───────────────────────── */
+
+.changelog-badge {
+  display: inline-block;
+  vertical-align: baseline;
+  padding: 0 var(--ep-space-1);
+  margin-right: var(--ep-space-1);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: var(--ep-radius-md);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.changelog-badge--user {
+  background: var(--ep-blue-100);
+  color: var(--ep-blue-800);
+}
+
+.changelog-badge--dev {
+  background: var(--ep-amber-100);
+  color: var(--ep-amber-800);
+}
+
+.changelog-badge--scope {
+  background: var(--ep-gray-100);
+  color: var(--ep-gray-600);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 /* ── What's New compact teaser ────────────────────────────────────────── */

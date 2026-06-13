@@ -151,6 +151,9 @@ data class ClusterScheduledTaskStatus(
 ) {
     val eachCapableNode: Boolean = task.executionScope == ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE
     val effectiveNextDueAt: java.time.OffsetDateTime = nodeStates.minOfOrNull { it.nextDueAt } ?: task.nextDueAt
+
+    /** Lifecycle label shown in Operations. */
+    val statusLabel: String = if (task.enabled) "active" else "disabled"
 }
 
 /**
