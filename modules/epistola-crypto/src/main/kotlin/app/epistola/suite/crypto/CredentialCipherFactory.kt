@@ -21,6 +21,7 @@ object CredentialCipherFactory {
     const val DEV_KEY_ID = "dev-ephemeral"
 
     private val logger = LoggerFactory.getLogger(CredentialCipherFactory::class.java)
+    private val secureRandom = SecureRandom()
 
     fun create(properties: EncryptionProperties, isProdProfile: Boolean): CredentialCipher {
         if (!properties.enabled) {
@@ -40,7 +41,7 @@ object CredentialCipherFactory {
                     "Encrypted data will NOT be readable after a restart. Configure epistola.encryption.keys " +
                     "for any persistent environment.",
             )
-            val material = ByteArray(CredentialCipher.KEY_BYTES).also { SecureRandom().nextBytes(it) }
+            val material = ByteArray(CredentialCipher.KEY_BYTES).also(secureRandom::nextBytes)
             val keys = mapOf(DEV_KEY_ID to SecretKeySpec(material, "AES"))
             return CredentialCipher(enabled = true, keys = keys, primaryKeyId = DEV_KEY_ID).also { it.selfTest() }
         }
