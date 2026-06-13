@@ -18,6 +18,11 @@ dependencies {
     api(libs.epistola.model)
     api(project(":modules:generation"))
 
+    // Credential encryption-at-rest primitives (CredentialCipher, Secret). `api`
+    // because Secret appears in core domain types (Catalog, CodeList) that
+    // dependent modules read.
+    api(project(":modules:epistola-crypto"))
+
     // Spring Boot - core dependencies for business logic
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")

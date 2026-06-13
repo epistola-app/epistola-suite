@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.crypto.Secret
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
@@ -12,7 +13,8 @@ data class Catalog(
     val type: CatalogType,
     val sourceUrl: String? = null,
     val sourceAuthType: AuthType = AuthType.NONE,
-    val sourceAuthCredential: String? = null,
+    /** Encrypted at rest via the JDBI [Secret] mappers; plaintext only in memory. */
+    val sourceAuthCredential: Secret? = null,
     val installedReleaseVersion: String? = null,
     val installedFingerprint: String? = null,
     /**

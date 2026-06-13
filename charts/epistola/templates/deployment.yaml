@@ -191,6 +191,8 @@ spec:
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}
             {{- include "epistola.databaseEnv" . | nindent 12 }}
+            {{- /* Credential encryption-at-rest keyset (app pods only) */}}
+            {{- include "epistola.encryptionEnv" . | nindent 12 }}
             {{- /* When migrations run as a separate step, app pods must only
                    validate the schema and fail fast if it is behind. */}}
             {{- if ne .Values.migration.mode "embedded" }}

@@ -5,6 +5,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.crypto.Secret
 import org.jdbi.v3.core.mapper.reflect.ColumnName
 import java.time.OffsetDateTime
 
@@ -25,7 +26,8 @@ data class CodeList(
     val sourceType: CodeListSource,
     val sourceUrl: String? = null,
     val authType: AuthType = AuthType.NONE,
-    val credential: String? = null,
+    /** Encrypted at rest via the JDBI [Secret] mappers; plaintext only in memory. */
+    val credential: Secret? = null,
     val lastRefreshedAt: OffsetDateTime? = null,
     val lastRefreshError: String? = null,
     val createdAt: OffsetDateTime,

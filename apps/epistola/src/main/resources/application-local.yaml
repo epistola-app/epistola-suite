@@ -40,6 +40,17 @@ spring:
 epistola:
   demo:
     enabled: true
+
+  # A FIXED local-dev encryption key (not the in-memory ephemeral fallback) so
+  # credentials encrypted in your local DB survive app restarts. This is a
+  # throwaway, non-secret dev key — same spirit as the admin/admin users below;
+  # NEVER use it outside local development. Real environments inject keys from a
+  # Secret via the Helm chart. See docs/encryption.md.
+  encryption:
+    primary-key-id: local-dev
+    keys:
+      - id: local-dev
+        material: 3ILCfy3aRk48CuZ3Z/aWaOQS46/dq64jzl7DpG5Qn3o=
   auth:
     auto-provision: false # Not needed for in-memory users
     local-users:

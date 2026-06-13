@@ -1,0 +1,26 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# Extends the bundled ruleset and exempts known-benign matches: documented
+# example/placeholder API keys, and the clearly-marked dev/local Spring profile
+# files (which legitimately carry throwaway, non-production secrets — the same
+# policy the NoHardcodedSecretsTest allowlist encodes).
+#
+# Real secrets must never be committed; they belong in environment variables /
+# Kubernetes Secrets. See docs/encryption.md.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Epistola example placeholders and dev-only profile secrets"
+paths = [
+  # Dev/local Spring profiles — throwaway secrets only, never production.
+  '''apps/epistola/src/main/resources/application-(local|localauth|keycloak|demo)\.ya?ml''',
+  # Historical: the feedback module was relocated to epistola-support-feedback;
+  # this path no longer exists in the working tree (private-key match in git history).
+  '''modules/feedback/.*''',
+]
+regexes = [
+  # Documented/example/test API-key placeholders (real keys are never stored — only hashed).
+  '''epk_[A-Za-z0-9]+''',
+]

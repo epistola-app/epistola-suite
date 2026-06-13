@@ -94,7 +94,7 @@ class UpgradeCatalogHandler(
         val previousVersion = catalog.installedReleaseVersion
 
         // 1. Fetch manifest (once — reused for install and stale check)
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
 
         // 2. Find which resources are currently installed locally
@@ -158,7 +158,7 @@ class UpgradeCatalogHandler(
         //    just moved to (same provenance as installed_fingerprint), so the
         //    next preview diffs against this release, not the old one.
         val resourceFingerprintsJson = objectMapper.writeValueAsString(
-            fingerprintService.perResourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential),
+            fingerprintService.perResourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value),
         )
         updateCatalogVersion(
             command.tenantKey,

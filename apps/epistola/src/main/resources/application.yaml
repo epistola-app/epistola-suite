@@ -73,6 +73,30 @@ epistola:
     mode: embedded
   storage:
     backend: postgres
+  encryption:
+    # Encryption-at-rest for stored credentials (catalog/code-list auth, hub
+    # credentials). AES-256-GCM with a self-describing, key-id-tagged envelope.
+    # See docs/encryption.md.
+    enabled: true
+    # The keyset. Each key id is opaque and embedded in every ciphertext it
+    # produces; `material` is base64 of 32 random bytes (`openssl rand -base64 32`).
+    # `primary-key-id` selects the key used for new encryptions; all listed keys
+    # remain available for decryption (this is how rotation works).
+    #
+    # Leave empty in local/dev: the app generates an EPHEMERAL in-memory key and
+    # warns. The `prod` profile FAILS FAST if no key is configured. Provide keys
+    # via env/secret in any persistent environment, e.g.:
+    #   EPISTOLA_ENCRYPTION_PRIMARYKEYID=k1
+    #   EPISTOLA_ENCRYPTION_KEYS_0_ID=k1
+    #   EPISTOLA_ENCRYPTION_KEYS_0_MATERIAL=<base64-32-bytes>
+    primary-key-id: ""
+    keys: []
+  security:
+    api-key-cache:
+      # Short-TTL, bounded in-memory cache in front of the per-request API-key
+      # hash lookup. Revoking a key invalidates the cache immediately.
+      ttl-seconds: 60
+      max-size: 10000
   auth:
     auto-provision: false
   demo:

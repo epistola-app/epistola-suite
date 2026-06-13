@@ -7,6 +7,7 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.findByTenantAndId
+import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -71,7 +72,7 @@ class RegisterCatalogHandler(
                 .bind("description", manifest.catalog.description)
                 .bind("sourceUrl", command.sourceUrl)
                 .bind("authType", command.authType.name)
-                .bind("authCredential", command.authCredential)
+                .bind("authCredential", command.authCredential?.let(::Secret))
                 .bind("releaseVersion", manifest.release.version)
                 .bind("fingerprint", manifest.release.fingerprint)
                 .bind("resourceFingerprints", resourceFingerprintsJson)

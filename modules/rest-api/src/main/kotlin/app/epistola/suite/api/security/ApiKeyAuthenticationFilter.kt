@@ -2,6 +2,7 @@ package app.epistola.suite.api.security
 
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.writeProblemDetail
+import app.epistola.suite.apikeys.ApiKeyAuthCache
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.apikeys.commands.RecordApiKeyUsage
 import app.epistola.suite.apikeys.queries.LookupApiKeyByHash
@@ -57,6 +58,9 @@ class ApiKeyAuthenticationFilter(
     private val meterRegistry: MeterRegistry,
     private val headerName: String = DEFAULT_HEADER_NAME,
     private val objectMapper: ObjectMapper,
+    // Last with a default so unit tests can omit it; production wires the shared
+    // Spring bean explicitly (see SecurityConfig) so revoke-invalidation lands.
+    private val apiKeyAuthCache: ApiKeyAuthCache = ApiKeyAuthCache(),
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -98,7 +102,10 @@ class ApiKeyAuthenticationFilter(
         }
 
         val keyHash = apiKeyService.hashKey(apiKeyHeader)
-        val apiKey = LookupApiKeyByHash(keyHash).query()
+        // Cached lookup on the hot path; negative results are cached too. The
+        // loader runs in this filter's mediator scope. isUsable() is re-checked
+        // below so a cached-but-expired key still fails.
+        val apiKey = apiKeyAuthCache.get(keyHash) { LookupApiKeyByHash(it).query() }
 
         if (apiKey == null) {
             authCounter("invalid_key").increment()
