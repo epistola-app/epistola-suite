@@ -291,4 +291,4 @@ available — but as an explicit opt-in, not a default.
 - UI: catalog-browse stencil badge, export-blocked dialog (`alert-error`),
   import-dialog `onStencilConflict` checkbox, inline conflict-report
   fragment (`import-conflict-content`).
-- Operator-facing documentation: [`exchange.md`](../exchange.md).
+- Operator-facing documentation: [`exchange/README.md`](../exchange/README.md).
