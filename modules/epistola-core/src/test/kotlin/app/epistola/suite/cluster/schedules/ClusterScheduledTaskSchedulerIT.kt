@@ -5,6 +5,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -35,6 +36,9 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     @Autowired
     private lateinit var handler: RecordingClusterScheduledTaskHandler
 
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
     @BeforeEach
     fun reset() {
         testClock.reset()
@@ -43,6 +47,9 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         handler.tenantSeen.clear()
         withMediator {
             DisableClusterScheduledTask("scheduler-missing-handler").execute()
+            DisableClusterScheduledTask("scheduler-missing-handler-held").execute()
+            DisableClusterScheduledTask("scheduler-missing-handler-eachnode-orphan").execute()
+            DisableClusterScheduledTask("scheduler-missing-handler-eachnode-held").execute()
             DisableClusterScheduledTask("scheduler-success").execute()
             DisableClusterScheduledTask("scheduler-failure").execute()
             DisableClusterScheduledTask("scheduler-each-node").execute()
@@ -154,7 +161,7 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `poll records failure when no scheduled task handler is registered`() {
+    fun `poll deletes a no-handler task inline when no live node carries it`() {
         withMediator {
             UpsertClusterScheduledTask(
                 ClusterScheduledTaskDefinition(
@@ -167,14 +174,96 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
         }
         testClock.advanceBy(Duration.ofSeconds(61))
 
+        // No node carries this task type, so when it fires with no handler it is
+        // genuinely orphaned and is deleted inline — no waiting for the reconciler.
         scheduler.poll()
 
-        val task = registry.find("scheduler-missing-handler")
         assertThat(handler.handled).isEmpty()
+        assertThat(registry.find("scheduler-missing-handler")).isNull()
+    }
+
+    @Test
+    fun `poll advances a no-handler task without deleting it while a node still carries it`() {
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = "scheduler-missing-handler-held",
+                    routingKey = "system:scheduler-missing-handler-held",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                ),
+            ).execute()
+        }
+        // A different, currently-live node carries the definition (e.g. a rolling
+        // deploy in-between state, or a non-handler node grabbed it by capability).
+        seedNode("holder-node", now())
+        insertRegistration("scheduler-missing-handler-held", "holder-node")
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        // Not orphaned: quietly advanced for a carrying node to run, not deleted, no
+        // failure/error state.
+        val task = registry.find("scheduler-missing-handler-held")
+        assertThat(handler.handled).isEmpty()
+        assertThat(task).isNotNull()
+        assertThat(task?.enabled).isTrue()
         assertThat(task?.leaseOwnerNodeId).isNull()
-        assertThat(task?.consecutiveFailures).isEqualTo(1)
-        assertThat(task?.lastError).isEqualTo("No handler registered for scheduled task type 'missing-handler'")
-        assertThat(task?.nextDueAt).isEqualTo(now().plusSeconds(30))
+        assertThat(task?.consecutiveFailures).isZero()
+        assertThat(task?.lastError).isNull()
+        assertThat(task?.nextDueAt).isAfter(now())
+    }
+
+    @Test
+    fun `poll deletes an orphaned each-capable-node no-handler task inline`() {
+        val key = "scheduler-missing-handler-eachnode-orphan"
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = key,
+                    routingKey = "system:$key",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+                ),
+            ).execute()
+        }
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        assertThat(handler.handled).isEmpty()
+        assertThat(registry.find(key)).isNull()
+        // Per-node state created during the claim cascades away with the deleted task.
+        assertThat(registry.listNodeStates().filter { it.taskKey == key }).isEmpty()
+    }
+
+    @Test
+    fun `poll advances an each-capable-node no-handler task without deleting while a node carries it`() {
+        val key = "scheduler-missing-handler-eachnode-held"
+        withMediator {
+            UpsertClusterScheduledTask(
+                ClusterScheduledTaskDefinition(
+                    taskKey = key,
+                    routingKey = "system:$key",
+                    taskType = "missing-handler",
+                    schedule = ClusterScheduledTaskSchedule.FixedRate(60_000),
+                    executionScope = ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE,
+                ),
+            ).execute()
+        }
+        seedNode("holder-node", now())
+        insertRegistration(key, "holder-node")
+        testClock.advanceBy(Duration.ofSeconds(61))
+
+        scheduler.poll()
+
+        assertThat(handler.handled).isEmpty()
+        assertThat(registry.find(key)).isNotNull()
+        // The current node's per-node occurrence was advanced (skipped), not deleted.
+        val nodeStates = registry.listNodeStates().filter { it.taskKey == key }
+        assertThat(nodeStates).hasSize(1)
+        assertThat(nodeStates.single().nextDueAt).isAfter(now())
     }
 
     private fun seedDueTask(taskKey: String) {
@@ -192,6 +281,36 @@ class ClusterScheduledTaskSchedulerIT : IntegrationTestBase() {
     }
 
     private fun now(): OffsetDateTime = OffsetDateTime.now(testClock)
+
+    private fun seedNode(nodeId: String, lastSeenAt: OffsetDateTime) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO cluster_nodes (node_id, capabilities, version, joined_at, last_seen_at, metadata)
+                VALUES (:nodeId, '["suite"]'::jsonb, '1.0.0', :lastSeenAt, :lastSeenAt, '{}'::jsonb)
+                ON CONFLICT (node_id) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at
+                """,
+            )
+                .bind("nodeId", nodeId)
+                .bind("lastSeenAt", lastSeenAt)
+                .execute()
+        }
+    }
+
+    private fun insertRegistration(taskKey: String, nodeId: String) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO cluster_scheduled_task_registrations (task_key, node_id)
+                VALUES (:taskKey, :nodeId)
+                ON CONFLICT (task_key, node_id) DO NOTHING
+                """,
+            )
+                .bind("taskKey", taskKey)
+                .bind("nodeId", nodeId)
+                .execute()
+        }
+    }
 
     @TestConfiguration
     class TaskHandlerConfiguration {

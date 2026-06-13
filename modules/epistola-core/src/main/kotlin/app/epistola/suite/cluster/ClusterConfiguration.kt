@@ -87,4 +87,17 @@ data class ClusterScheduledTaskProperties(
     val maxRetryDelayMs: Long = 300_000,
     val batchSize: Int = 10,
     val candidateScanSize: Int = 100,
+    /**
+     * How often the `core.scheduled-task-reconciliation` task deletes orphaned
+     * code-defined tasks (no live node carries them). Default hourly.
+     */
+    val reconciliationIntervalMs: Long = 3_600_000,
+    /**
+     * A code-defined task is only deleted once **no node that carries it has been
+     * seen for this long** — i.e. every carrying node's `cluster_nodes.last_seen_at`
+     * is older than this. Judging liveness by the heartbeat-maintained
+     * `last_seen_at` means a node restart shorter than this window keeps the node's
+     * schedules protected. Default 15 minutes.
+     */
+    val reconciliationGracePeriodMs: Long = 900_000,
 )

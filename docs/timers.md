@@ -214,6 +214,24 @@ The scheduled-task flow mirrors one-shot timers:
 9. On failure, failure policy decides whether to retry the same occurrence or
    advance to a future occurrence.
 
+Unlike one-shot timers, a scheduled task with **no registered handler** is not
+treated as a failure. The dispatch path folds the orphan check in:
+
+- If **no node carrying the definition has been seen within the grace window**
+  (the same liveness gate the reconciler uses), the task is genuinely orphaned —
+  a registration means the node has the definition and therefore the handler, so
+  "no live node carries it" means nothing can ever run it — and it is **deleted
+  inline**, the moment it fires, rather than waiting for the periodic reconciler.
+- Otherwise a node still carries it (a rolling-deploy in-between state, or a
+  non-handler-bearing node that claimed it by capability), so the scheduler logs a
+  warning and quietly advances `next_due_at` without recording an error or
+  incrementing the failure count, letting a carrying node run it.
+
+Either way there is no error-state spam and no tight claim → reclaim loop. The
+periodic `core.scheduled-task-reconciliation` task remains the backstop for
+orphans that never fire (see "Scheduled Task Lifecycle"). A handler that exists
+and throws still follows the failure policy.
+
 Use `single_owner` for installation-wide work that should run once per
 occurrence, such as feedback polling, backups, stale reapers, and cleanup. Use
 `each_capable_node` for per-process work, such as local health probes and local
@@ -223,6 +241,55 @@ recovery state.
 Scheduled tasks are not implemented by creating a chain of one-shot timer rows.
 The recurring definition is the durable state. This avoids losing the schedule
 if a process fails before it can insert the next one-shot timer occurrence.
+
+## Scheduled Task Lifecycle
+
+One-shot timers and recurring scheduled tasks have different removal semantics.
+One-shot rows in `cluster_timers` are deleted when they complete, and callers can
+delete pending one-shot work with `CancelClusterTimer`. Recurring scheduled task
+rows in `cluster_tasks_scheduled` are durable definitions, so code-defined rows
+need an explicit lifecycle when the code stops registering them.
+
+The lifecycle for code-defined scheduled tasks is deliberately small — three
+steps, and a deleted task simply reappears as a fresh row if its definition comes
+back:
+
+1. **Register and vouch.** Startup registration (`ClusterScheduledTaskRegistrar`)
+   upserts every `ClusterScheduledTaskDefinition` from code **and** records this
+   node in `cluster_scheduled_task_registrations` (`task_key`, `node_id`) for
+   exactly the definitions it carries — in a single transaction
+   (`registry.registerAll`) — and prunes its registration rows for definitions it
+   no longer carries. Doing the upsert and the vouch atomically means a re-created
+   task is vouched for in the same commit, so a concurrent reconcile can never
+   observe it created-but-unvouched and wrongly delete it. That per-node set is
+   "which nodes carry this schedule."
+2. **Detect orphans.** A task is orphaned when **no node carrying it has been seen
+   within the grace window** — no registration row whose node has a
+   `cluster_nodes.last_seen_at` newer than `now − grace`
+   (`epistola.cluster.scheduled-tasks.reconciliation-grace-period-ms`, default
+   15 min). Liveness is the heartbeat-fresh `last_seen_at`, so a node restart
+   shorter than the window keeps its schedules protected and a rolling deploy is
+   safe (old nodes keep their schedules alive until they actually leave). Detection
+   is registration-based, not build-version-based.
+3. **Delete.** Orphans are hard-deleted (`ClusterScheduledTaskRegistry`
+   `deleteOrphanedTasks` / `deleteIfOrphaned`); per-node runtime state
+   (`cluster_tasks_scheduled_node_state`) and registrations cascade via the
+   foreign keys. There is no soft-retire/purge two-phase and no retained state — a
+   returning definition is simply re-created fresh by the registrar on the next
+   startup.
+
+Deletion runs from two places, both using the same liveness gate: **inline** on
+dispatch when a task fires with no handler and no live node carries it (prompt
+cleanup), and the periodic **`core.scheduled-task-reconciliation`** native
+`single_owner` task (`ClusterScheduledTaskReconciler`, default hourly) as the
+backstop for orphans that never fire — needed because a rolling deploy can leave an
+orphan that no node restart would otherwise revisit. The reconciler is itself a
+code definition, so it always vouches for itself and is never deleted.
+
+All scheduled tasks are code-defined (registered by the startup registrar); there
+is no operator/manual creation path. If one is added later, it must also record a
+vouch (or reintroduce a "manual" distinction), otherwise its rows would be deleted
+as orphans.
 
 ## Ordering Guarantees
 
@@ -301,7 +368,8 @@ The Operations -> Cluster page shows:
 - active and stale nodes
 - node capabilities
 - known timers
-- known scheduled tasks
+- known scheduled tasks, with an active/disabled status (an orphaned task whose
+  code definition disappeared is deleted, so it simply stops appearing)
 - per-node scheduled-task state for all-node tasks
 - required capabilities for timers and scheduled tasks
 
@@ -338,11 +406,8 @@ still active.
 
 ### Scheduled Task Lifecycle
 
-- Define what happens when a code-defined scheduled task is removed or renamed.
-  Options include leaving the database row disabled, tombstoning it, or deleting
-  system-defined rows during startup reconciliation.
-- Decide whether startup registration should record definition ownership and
-  source metadata.
+- Automatic deletion of disappeared code-defined scheduled tasks is implemented
+  (see "Scheduled Task Lifecycle" above).
 - Keep scheduled tasks as durable recurring definitions, not chains of one-shot
   timer rows.
 

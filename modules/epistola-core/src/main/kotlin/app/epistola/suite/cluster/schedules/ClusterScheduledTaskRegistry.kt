@@ -30,14 +30,31 @@ class ClusterScheduledTaskRegistry(
 ) {
     private val payloadType = objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java)
 
-    fun upsert(definition: ClusterScheduledTaskDefinition): ClusterScheduledTask {
+    fun upsert(definition: ClusterScheduledTaskDefinition): ClusterScheduledTask = jdbi.inTransaction<ClusterScheduledTask, Exception> { handle ->
+        upsertInTx(handle, definition)
+    }
+
+    /**
+     * Atomically (re-)registers every code definition for this node: upserts each
+     * row and records this node's vouch in one transaction. Reclaiming a retired
+     * task and recording the vouch in the same commit closes the window where a
+     * concurrent reconcile could re-retire a task that was just brought back but
+     * not yet vouched for.
+     */
+    fun registerAll(definitions: List<ClusterScheduledTaskDefinition>) {
+        jdbi.useTransaction<Exception> { handle ->
+            definitions.forEach { upsertInTx(handle, it) }
+            recordNodeRegistrationsInTx(handle, definitions.map { it.taskKey })
+        }
+    }
+
+    private fun upsertInTx(handle: Handle, definition: ClusterScheduledTaskDefinition): ClusterScheduledTask {
         val payloadJson = objectMapper.writeValueAsString(definition.payload)
         val scheduleFields = scheduleFields(definition.schedule)
         val initialDueAt = scheduleCalculator.initialDueAt(definition)
         val now = EpistolaClock.offsetDateTime()
-        return jdbi.withHandle<ClusterScheduledTask, Exception> { handle ->
-            handle.createQuery(
-                """
+        val task = handle.createQuery(
+            """
                 INSERT INTO cluster_tasks_scheduled (
                     task_key, tenant_key, routing_key, task_type, execution_scope, required_capability, payload,
                     schedule_kind, cron_expression, interval_ms, zone_id, failure_policy, catch_up_policy,
@@ -74,26 +91,31 @@ class ClusterScheduledTaskRegistry(
                     updated_at = :now
                 RETURNING ${selectColumns()}
                 """,
-            )
-                .bind("taskKey", definition.taskKey)
-                .bind("tenantKey", definition.tenantKey?.value)
-                .bind("routingKey", definition.routingKey)
-                .bind("taskType", definition.taskType)
-                .bind("executionScope", definition.executionScope.dbValue)
-                .bind("requiredCapability", normalizedCapability(definition.requiredCapability))
-                .bind("payload", payloadJson)
-                .bind("scheduleKind", scheduleFields.kind.dbValue)
-                .bind("cronExpression", scheduleFields.cronExpression)
-                .bind("intervalMs", scheduleFields.intervalMs)
-                .bind("zoneId", definition.zoneId)
-                .bind("failurePolicy", definition.failurePolicy.dbValue)
-                .bind("catchUpPolicy", definition.catchUpPolicy.dbValue)
-                .bind("enabled", definition.enabled)
-                .bind("initialDueAt", initialDueAt)
-                .bind("now", now)
-                .map { rs, _ -> mapTask(rs) }
-                .one()
+        )
+            .bind("taskKey", definition.taskKey)
+            .bind("tenantKey", definition.tenantKey?.value)
+            .bind("routingKey", definition.routingKey)
+            .bind("taskType", definition.taskType)
+            .bind("executionScope", definition.executionScope.dbValue)
+            .bind("requiredCapability", normalizedCapability(definition.requiredCapability))
+            .bind("payload", payloadJson)
+            .bind("scheduleKind", scheduleFields.kind.dbValue)
+            .bind("cronExpression", scheduleFields.cronExpression)
+            .bind("intervalMs", scheduleFields.intervalMs)
+            .bind("zoneId", definition.zoneId)
+            .bind("failurePolicy", definition.failurePolicy.dbValue)
+            .bind("catchUpPolicy", definition.catchUpPolicy.dbValue)
+            .bind("enabled", definition.enabled)
+            .bind("initialDueAt", initialDueAt)
+            .bind("now", now)
+            .map { rs, _ -> mapTask(rs) }
+            .one()
+        // A single-owner task must never carry per-node runtime rows; clear any
+        // left over from a prior EACH_CAPABLE_NODE incarnation of this key.
+        if (task.executionScope == ClusterScheduledTaskExecutionScope.SINGLE_OWNER) {
+            deleteNodeState(handle, task.taskKey)
         }
+        return task
     }
 
     fun dueCandidates(limit: Int = properties.scheduledTasks.candidateScanSize): List<ClusterScheduledTask> = jdbi.withHandle<List<ClusterScheduledTask>, Exception> { handle ->
@@ -476,6 +498,147 @@ class ClusterScheduledTaskRegistry(
         updated
     }
 
+    /**
+     * Records that this node carries [taskKeys] (one row per task) and prunes this
+     * node's registration rows for any task it no longer carries. The combined set
+     * of registrations (joined to live `cluster_nodes`) is what the reconciler uses
+     * to decide whether a task is orphaned, so a node that restarts on a build
+     * lacking a task must stop vouching for it.
+     */
+    fun recordNodeRegistrations(taskKeys: Collection<String>) {
+        jdbi.useTransaction<Exception> { handle -> recordNodeRegistrationsInTx(handle, taskKeys) }
+    }
+
+    private fun recordNodeRegistrationsInTx(handle: Handle, taskKeys: Collection<String>) {
+        val nodeId = nodeIdentity.nodeId
+        if (taskKeys.isEmpty()) {
+            handle.createUpdate("DELETE FROM cluster_scheduled_task_registrations WHERE node_id = :nodeId")
+                .bind("nodeId", nodeId)
+                .execute()
+            return
+        }
+
+        handle.createUpdate(
+            """
+            DELETE FROM cluster_scheduled_task_registrations
+            WHERE node_id = :nodeId
+              AND task_key NOT IN (<taskKeys>)
+            """,
+        )
+            .bindList("taskKeys", taskKeys)
+            .bind("nodeId", nodeId)
+            .execute()
+
+        val batch = handle.prepareBatch(
+            """
+            INSERT INTO cluster_scheduled_task_registrations (task_key, node_id)
+            VALUES (:taskKey, :nodeId)
+            ON CONFLICT (task_key, node_id) DO NOTHING
+            """,
+        )
+        taskKeys.forEach { taskKey ->
+            batch
+                .bind("taskKey", taskKey)
+                .bind("nodeId", nodeId)
+                .add()
+        }
+        batch.execute()
+    }
+
+    /**
+     * Deletes every orphaned task — one **no node carrying it has been seen within
+     * the grace window**, i.e. no registration row whose node has a
+     * `cluster_nodes.last_seen_at` newer than [seenSince]. Per-node state and
+     * registrations cascade. Returns the deleted task keys (for logging).
+     *
+     * Liveness comes from the heartbeat-maintained node row: a restarting node's
+     * pre-restart `last_seen_at` keeps protecting its schedules until it has
+     * genuinely been gone for the grace window; a registration whose node row is
+     * gone or stale no longer protects. A task with no registrations at all is
+     * orphaned — nothing carries it.
+     */
+    fun deleteOrphanedTasks(seenSince: OffsetDateTime): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery(
+            """
+            DELETE FROM cluster_tasks_scheduled t
+            WHERE NOT $LIVE_REGISTRATION_EXISTS
+            RETURNING t.task_key
+            """,
+        )
+            .bind("seenSince", seenSince)
+            .mapTo(String::class.java)
+            .list()
+    }
+
+    /**
+     * Atomically deletes [taskKey] **iff** it is orphaned — no node carrying it has
+     * been seen within the grace window ([seenSince]). Returns true if deleted.
+     * Used by the scheduler to clean up an orphan the moment it fires with no
+     * handler, instead of waiting for the periodic reconciler.
+     */
+    fun deleteIfOrphaned(taskKey: String, seenSince: OffsetDateTime): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        handle.createUpdate(
+            """
+            DELETE FROM cluster_tasks_scheduled t
+            WHERE t.task_key = :taskKey
+              AND NOT $LIVE_REGISTRATION_EXISTS
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("seenSince", seenSince)
+            .execute() == 1
+    }
+
+    /**
+     * Releases the lease and advances [taskKey] to [nextDueAt] without recording a
+     * failure or error. Used when no handler is registered for a claimed task: the
+     * task is almost certainly orphaned and awaiting retirement, so it should not
+     * accrue failure/error state or be reclaimed in a tight loop.
+     */
+    fun skipNoHandler(taskKey: String, nextDueAt: OffsetDateTime): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val now = EpistolaClock.offsetDateTime()
+        val singletonSkipped = handle.createUpdate(
+            """
+            UPDATE cluster_tasks_scheduled
+            SET next_due_at = :nextDueAt,
+                lease_owner_node_id = NULL,
+                lease_expires_at = NULL,
+                updated_at = :now
+            WHERE task_key = :taskKey
+              AND execution_scope = :singleOwner
+              AND lease_owner_node_id = :nodeId
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("singleOwner", ClusterScheduledTaskExecutionScope.SINGLE_OWNER.dbValue)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("nextDueAt", nextDueAt)
+            .bind("now", now)
+            .execute() == 1
+        if (singletonSkipped) return@withHandle true
+
+        handle.createUpdate(
+            """
+            UPDATE cluster_tasks_scheduled_node_state s
+            SET next_due_at = :nextDueAt,
+                lease_expires_at = NULL,
+                updated_at = :now
+            FROM cluster_tasks_scheduled t
+            WHERE s.task_key = t.task_key
+              AND s.task_key = :taskKey
+              AND s.node_id = :nodeId
+              AND t.execution_scope = :eachCapableNode
+              AND s.lease_expires_at IS NOT NULL
+            """,
+        )
+            .bind("taskKey", taskKey)
+            .bind("eachCapableNode", ClusterScheduledTaskExecutionScope.EACH_CAPABLE_NODE.dbValue)
+            .bind("nodeId", nodeIdentity.nodeId)
+            .bind("nextDueAt", nextDueAt)
+            .bind("now", now)
+            .execute() == 1
+    }
+
     fun find(taskKey: String): ClusterScheduledTask? = jdbi.withHandle<ClusterScheduledTask?, Exception> { handle ->
         handle.createQuery(
             """
@@ -531,6 +694,19 @@ class ClusterScheduledTaskRegistry(
             .bind("nodeId", nodeIdentity.nodeId)
             .map { rs, _ -> mapTask(rs) }
             .list()
+    }
+
+    /**
+     * Deletes all per-node runtime rows for [taskKey]. Per-node state is only
+     * meaningful for an enabled EACH_CAPABLE_NODE definition, so it must be cleared
+     * when the definition is retired or changes scope to single-owner — otherwise a
+     * later reclaim inherits stale `next_due`/attempt/error state and
+     * [listNodeStates] shows ghost rows. Called inside an existing transaction.
+     */
+    private fun deleteNodeState(handle: Handle, taskKey: String) {
+        handle.createUpdate("DELETE FROM cluster_tasks_scheduled_node_state WHERE task_key = :taskKey")
+            .bind("taskKey", taskKey)
+            .execute()
     }
 
     private fun setEnabled(taskKey: String, tenantKey: TenantKey?, enabled: Boolean): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
@@ -698,5 +874,20 @@ class ClusterScheduledTaskRegistry(
         const val MAX_ERROR_LENGTH = 2_000
         const val NANOS_PER_MILLI = 1_000_000L
         const val LIVENESS_QUERY_TIMEOUT_SECONDS = 5
+
+        // A code task is still "in use" while some node that registered it has a
+        // heartbeat (cluster_nodes.last_seen_at) newer than :seenSince. The outer
+        // query must alias cluster_tasks_scheduled as `t` and bind :seenSince.
+        // Shared by the reconciler scan and the inline retire-on-dispatch check so
+        // the two cannot drift.
+        const val LIVE_REGISTRATION_EXISTS = """
+            EXISTS (
+                SELECT 1
+                FROM cluster_scheduled_task_registrations r
+                JOIN cluster_nodes n ON n.node_id = r.node_id
+                WHERE r.task_key = t.task_key
+                  AND n.last_seen_at > :seenSince
+            )
+        """
     }
 }

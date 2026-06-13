@@ -123,8 +123,7 @@ class ClusterScheduledTaskScheduler(
     private fun dispatch(task: ClusterScheduledTask) {
         val handler = handlersByType[task.taskType]
         if (handler == null) {
-            fail(task, "No handler registered for scheduled task type '${task.taskType}'")
-            log.warn("No handler registered for cluster scheduled task type '{}'", task.taskType)
+            handleMissingHandler(task)
             return
         }
 
@@ -150,6 +149,37 @@ class ClusterScheduledTaskScheduler(
         }
     }
 
+    /**
+     * Handles a claimed task whose `taskType` has no registered handler.
+     *
+     * If no node carrying the definition has been seen within the grace window,
+     * the task is genuinely orphaned (registration ⇒ the node has the definition
+     * ⇒ it has the handler, so "no live node holds it" means nothing can ever run
+     * it) and is deleted inline — cleaning it up the moment it fires instead of
+     * waiting for the periodic reconciler. Otherwise a holding node still exists (a
+     * rolling-deploy in-between state, or a non-handler-bearing node grabbed it by
+     * capability), so we quietly advance and let a holder run it without accruing
+     * failure/error state. The periodic reconciler remains the backstop for orphans
+     * that never fire.
+     */
+    private fun handleMissingHandler(task: ClusterScheduledTask) {
+        val seenSince = EpistolaClock.offsetDateTime().minusNanos(properties.scheduledTasks.reconciliationGracePeriodMs * NANOS_PER_MILLI)
+        if (taskRegistry.deleteIfOrphaned(task.taskKey, seenSince)) {
+            log.info(
+                "Deleted orphaned cluster scheduled task '{}' on dispatch (taskType={}, no handler and no live node carries it)",
+                task.taskKey,
+                task.taskType,
+            )
+            return
+        }
+
+        log.warn(
+            "No handler on this node for cluster scheduled task type '{}'; advancing so a node that carries it can run it",
+            task.taskType,
+        )
+        taskRegistry.skipNoHandler(task.taskKey, scheduleCalculator.nextAfterSuccess(task))
+    }
+
     private fun fail(task: ClusterScheduledTask, error: String) {
         val nextDueAt = scheduleCalculator.nextAfterFailure(
             task = task,
@@ -158,5 +188,9 @@ class ClusterScheduledTaskScheduler(
             maxRetryDelayMs = properties.scheduledTasks.maxRetryDelayMs,
         )
         taskRegistry.fail(task.taskKey, nextDueAt, error)
+    }
+
+    private companion object {
+        const val NANOS_PER_MILLI = 1_000_000L
     }
 }
