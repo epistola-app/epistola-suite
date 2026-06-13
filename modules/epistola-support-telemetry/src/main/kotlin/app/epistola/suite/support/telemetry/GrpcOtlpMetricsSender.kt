@@ -1,12 +1,8 @@
 package app.epistola.suite.support.telemetry
 
-import app.epistola.hub.client.port.InstallationStore
+import app.epistola.hub.client.port.InstallationCredentials
 import app.epistola.hub.contract.HubHeaders
 import app.epistola.hub.contract.OtlpContract
-import app.epistola.hub.contract.SupportFeature
-import app.epistola.suite.common.ids.FeatureKey
-import app.epistola.suite.support.HubTelemetryEndpointResolver
-import app.epistola.suite.support.SupportEntitlementService
 import io.grpc.CallOptions
 import io.grpc.Channel
 import io.grpc.ClientInterceptors
@@ -29,15 +25,17 @@ import java.net.URI
  * no OTLP proto stubs are needed: the payload is forwarded verbatim and the empty response ignored.
  *
  * The registry exists as a Spring bean (so Boot composes it and fans all meters to it), so gating
- * lives here and is evaluated **per publish**: nothing is sent until the installation is registered
- * (credentials exist) **and** holds the installation-wide `support-telemetry` entitlement. The Hub's
- * `x-ep-api-key` authenticates the stream. A failed export throws; the `OtlpMeterRegistry` logs it and
- * drops that publish — fail-open, like the log leg.
+ * lives here and is evaluated **per publish** via injected functions (which also keeps the sender
+ * decoupled and unit-testable against an in-process server): nothing is sent until [credentials]
+ * yields an installation API key (registered) and [entitled] is true (installation-wide
+ * `support-telemetry`). The Hub's `x-ep-api-key` authenticates the stream. A failed export throws; the
+ * `OtlpMeterRegistry` logs it and drops that publish — fail-open, like the log leg.
  */
 class GrpcOtlpMetricsSender(
-    private val endpointResolver: HubTelemetryEndpointResolver,
-    private val installationStore: InstallationStore,
-    private val entitlement: SupportEntitlementService,
+    private val endpoint: () -> String,
+    private val credentials: () -> InstallationCredentials?,
+    private val entitled: () -> Boolean,
+    private val channelFactory: (String) -> ManagedChannel = ::plaintextOrTlsChannel,
 ) : OtlpMetricsSender,
     AutoCloseable {
     @Volatile private var channel: ManagedChannel? = null
@@ -45,10 +43,10 @@ class GrpcOtlpMetricsSender(
     @Volatile private var authenticated: Channel? = null
 
     override fun send(request: OtlpMetricsSender.Request) {
-        val credentials = installationStore.load() ?: return // not registered with the hub yet
-        if (!entitlement.isInstallationEntitled(TELEMETRY_FEATURE)) return // not entitled
+        val creds = credentials() ?: return // not registered with the hub yet
+        if (!entitled()) return // not entitled
         ClientCalls.blockingUnaryCall(
-            channelFor(credentials.apiKey),
+            channelFor(creds.apiKey),
             EXPORT,
             CallOptions.DEFAULT.withCompression("gzip"),
             request.metricsData,
@@ -59,7 +57,7 @@ class GrpcOtlpMetricsSender(
         authenticated?.let { return it }
         return synchronized(this) {
             authenticated ?: run {
-                val raw = buildChannel(endpointResolver.resolve())
+                val raw = channelFactory(endpoint())
                 val auth =
                     ClientInterceptors.intercept(raw, MetadataUtils.newAttachHeadersInterceptor(apiKeyMetadata(apiKey)))
                 channel = raw
@@ -69,29 +67,12 @@ class GrpcOtlpMetricsSender(
         }
     }
 
-    private fun buildChannel(endpoint: String): ManagedChannel {
-        val uri = URI(endpoint)
-        val plaintext = uri.scheme.equals("http", ignoreCase = true)
-        val port = if (uri.port != -1) {
-            uri.port
-        } else if (plaintext) {
-            80
-        } else {
-            443
-        }
-        val builder = ManagedChannelBuilder.forAddress(uri.host, port)
-        if (plaintext) builder.usePlaintext()
-        return builder.build()
-    }
-
     override fun close() {
         channel?.shutdown()
     }
 
     companion object {
         const val SERVICE = OtlpContract.METRICS_SERVICE
-
-        private val TELEMETRY_FEATURE = FeatureKey.of(SupportFeature.TELEMETRY.wireKey)
 
         private val BYTES: MethodDescriptor.Marshaller<ByteArray> =
             object : MethodDescriptor.Marshaller<ByteArray> {
@@ -111,4 +92,21 @@ class GrpcOtlpMetricsSender(
             put(Metadata.Key.of(HubHeaders.API_KEY, Metadata.ASCII_STRING_MARSHALLER), apiKey)
         }
     }
+}
+
+/** The production channel: plaintext for an `http://` endpoint, TLS for `https://`. */
+private fun plaintextOrTlsChannel(endpoint: String): ManagedChannel {
+    val uri = URI(endpoint)
+    val plaintext = uri.scheme.equals("http", ignoreCase = true)
+    val port =
+        if (uri.port != -1) {
+            uri.port
+        } else if (plaintext) {
+            80
+        } else {
+            443
+        }
+    val builder = ManagedChannelBuilder.forAddress(uri.host, port)
+    if (plaintext) builder.usePlaintext()
+    return builder.build()
 }

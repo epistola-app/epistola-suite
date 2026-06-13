@@ -1,6 +1,8 @@
 package app.epistola.suite.support.telemetry
 
 import app.epistola.hub.client.port.InstallationStore
+import app.epistola.hub.contract.SupportFeature
+import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.support.HubTelemetryEndpointResolver
 import app.epistola.suite.support.SupportEntitlementService
 import io.micrometer.core.instrument.Clock
@@ -34,7 +36,11 @@ class TelemetryMetricsConfiguration {
         endpointResolver: HubTelemetryEndpointResolver,
         installationStore: InstallationStore,
         entitlement: SupportEntitlementService,
-    ): GrpcOtlpMetricsSender = GrpcOtlpMetricsSender(endpointResolver, installationStore, entitlement)
+    ): GrpcOtlpMetricsSender = GrpcOtlpMetricsSender(
+        endpoint = endpointResolver::resolve,
+        credentials = installationStore::load,
+        entitled = { entitlement.isInstallationEntitled(TELEMETRY_FEATURE) },
+    )
 
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(prefix = "epistola.support.telemetry", name = ["metrics"], havingValue = "true", matchIfMissing = true)
@@ -61,5 +67,9 @@ class TelemetryMetricsConfiguration {
         override fun url(): String = "http://localhost"
 
         override fun step(): Duration = props.metricStep
+    }
+
+    private companion object {
+        val TELEMETRY_FEATURE = FeatureKey.of(SupportFeature.TELEMETRY.wireKey)
     }
 }

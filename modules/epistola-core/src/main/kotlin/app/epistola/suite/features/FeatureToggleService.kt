@@ -38,7 +38,7 @@ class FeatureToggleService(
     fun isEnabled(tenantKey: TenantKey, featureKey: FeatureKey): Boolean = resolveAll(tenantKey)[featureKey] ?: defaultFor(featureKey)
 
     /** Global default for a feature with no tenant override: support-tier follows the tier, else [FeatureDefaults]. */
-    private fun defaultFor(featureKey: FeatureKey): Boolean = if (featureKey in KnownFeatures.SUPPORT_TIER) supportEnabled else defaults.isEnabled(featureKey)
+    internal fun defaultFor(featureKey: FeatureKey): Boolean = if (featureKey in KnownFeatures.SUPPORT_TIER) supportEnabled else defaults.isEnabled(featureKey)
 
     fun resolveAll(tenantKey: TenantKey): Map<FeatureKey, Boolean> {
         if (!requestCache.isBound) return loadAll(tenantKey)
