@@ -1,9 +1,14 @@
 package app.epistola.suite.support.telemetry
 
+import app.epistola.hub.client.port.InstallationStore
+import app.epistola.suite.common.ids.FeatureKey
+import app.epistola.suite.support.HubTelemetryEndpointResolver
+import app.epistola.suite.support.SupportEntitlementService
 import io.grpc.CallOptions
 import io.grpc.Channel
 import io.grpc.ClientInterceptors
 import io.grpc.ManagedChannel
+import io.grpc.ManagedChannelBuilder
 import io.grpc.Metadata
 import io.grpc.MethodDescriptor
 import io.grpc.stub.ClientCalls
@@ -11,6 +16,7 @@ import io.grpc.stub.MetadataUtils
 import io.micrometer.registry.otlp.OtlpMetricsSender
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.net.URI
 
 /**
  * Ships Micrometer's already-serialized OTLP metrics payload (an `ExportMetricsServiceRequest`) to the
@@ -18,29 +24,71 @@ import java.io.InputStream
  * and endpoint as logs (ADR 0006). Micrometer's `OtlpMeterRegistry` only ships an HTTP sender; this
  * plugs into its `metricsSender` extension point. Request and response are marshalled as raw bytes, so
  * no OTLP proto stubs are needed: the payload is forwarded verbatim and the empty response ignored.
- * The installation API key is attached as `x-ep-api-key` metadata, matching the Hub's gRPC auth.
  *
- * A failed export throws (the Hub is unreachable, or rejects an unauthenticated/unentitled call); the
- * `OtlpMeterRegistry` catches and logs it and drops that publish — fail-open, like the log leg.
+ * The registry exists as a Spring bean (so Boot composes it and fans all meters to it), so gating
+ * lives here and is evaluated **per publish**: nothing is sent until the installation is registered
+ * (credentials exist) **and** holds the installation-wide `support-telemetry` entitlement. The Hub's
+ * `x-ep-api-key` authenticates the stream. A failed export throws; the `OtlpMeterRegistry` logs it and
+ * drops that publish — fail-open, like the log leg.
  */
 class GrpcOtlpMetricsSender(
-    channel: ManagedChannel,
-    apiKey: String,
-) : OtlpMetricsSender {
-    private val authenticated: Channel =
-        ClientInterceptors.intercept(channel, MetadataUtils.newAttachHeadersInterceptor(apiKeyMetadata(apiKey)))
+    private val endpointResolver: HubTelemetryEndpointResolver,
+    private val installationStore: InstallationStore,
+    private val entitlement: SupportEntitlementService,
+) : OtlpMetricsSender,
+    AutoCloseable {
+    @Volatile private var channel: ManagedChannel? = null
+
+    @Volatile private var authenticated: Channel? = null
 
     override fun send(request: OtlpMetricsSender.Request) {
+        val credentials = installationStore.load() ?: return // not registered with the hub yet
+        if (!entitlement.isInstallationEntitled(TELEMETRY_FEATURE)) return // not entitled
         ClientCalls.blockingUnaryCall(
-            authenticated,
+            channelFor(credentials.apiKey),
             EXPORT,
             CallOptions.DEFAULT.withCompression("gzip"),
             request.metricsData,
         )
     }
 
+    private fun channelFor(apiKey: String): Channel {
+        authenticated?.let { return it }
+        return synchronized(this) {
+            authenticated ?: run {
+                val raw = buildChannel(endpointResolver.resolve())
+                val auth =
+                    ClientInterceptors.intercept(raw, MetadataUtils.newAttachHeadersInterceptor(apiKeyMetadata(apiKey)))
+                channel = raw
+                authenticated = auth
+                auth
+            }
+        }
+    }
+
+    private fun buildChannel(endpoint: String): ManagedChannel {
+        val uri = URI(endpoint)
+        val plaintext = uri.scheme.equals("http", ignoreCase = true)
+        val port = if (uri.port != -1) {
+            uri.port
+        } else if (plaintext) {
+            80
+        } else {
+            443
+        }
+        val builder = ManagedChannelBuilder.forAddress(uri.host, port)
+        if (plaintext) builder.usePlaintext()
+        return builder.build()
+    }
+
+    override fun close() {
+        channel?.shutdown()
+    }
+
     companion object {
         const val SERVICE = "opentelemetry.proto.collector.metrics.v1.MetricsService"
+
+        private val TELEMETRY_FEATURE = FeatureKey.of("support-telemetry")
 
         private val BYTES: MethodDescriptor.Marshaller<ByteArray> =
             object : MethodDescriptor.Marshaller<ByteArray> {

@@ -191,11 +191,14 @@ Do not enable both the agent and `otlpEndpoint` for metrics, or you double-expor
 Forwarding metrics to **epistola-hub** (the commercial support tier) is a
 dedicated, isolated OTLP push leg the suite owns end-to-end — distinct from the
 bring-your-own agent / `management.otlp.metrics.export` self-export leg above, so the
-two never double-export. It lives in `modules/epistola-support-telemetry`
-(`TelemetryLeg`): a second Micrometer `OtlpMeterRegistry` is added to the composite,
-with a custom `OtlpMetricsSender` (`GrpcOtlpMetricsSender`) that ships the OTLP payload
-to the hub **over gRPC** — the same `MetricsService/Export` call the hub serves, on the
-same gRPC endpoint the suite already resolves for the hub (no separate port or proxy).
+two never double-export. It lives in `modules/epistola-support-telemetry`:
+a second Micrometer `OtlpMeterRegistry` is registered as a Spring bean
+(`TelemetryMetricsConfiguration`) so Boot composes it and fans every meter to it, with a
+custom `OtlpMetricsSender` (`GrpcOtlpMetricsSender`) that ships the OTLP payload to the hub
+**over gRPC** — the same `MetricsService/Export` call the hub serves, on the same gRPC
+endpoint the suite already resolves for the hub (no separate port or proxy). The sender
+gates per-publish (registered + entitled). Logs are wired separately by `TelemetryLeg` (a
+Logback appender).
 Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally — off
 unless `epistola.support.telemetry.enabled=true` **and** the installation holds an
 installation-wide `support-telemetry` entitlement (the capability is
