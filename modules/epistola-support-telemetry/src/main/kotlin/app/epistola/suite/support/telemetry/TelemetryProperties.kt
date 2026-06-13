@@ -13,8 +13,12 @@ import java.time.Duration
  */
 @ConfigurationProperties(prefix = "epistola.support.telemetry")
 data class TelemetryProperties(
-    /** Master switch for the hub telemetry leg. */
-    val enabled: Boolean = false,
+    /**
+     * Master switch for the hub telemetry leg. **On by default** — enabling the support tier
+     * (`epistola.support.enabled`) opts every support feature in; the hub's `support-telemetry`
+     * entitlement is the real gate on whether anything actually ships. Set to `false` to opt out.
+     */
+    val enabled: Boolean = true,
     /** Forward application-log events to the hub. */
     val logs: Boolean = true,
     /** Forward metrics to the hub. */

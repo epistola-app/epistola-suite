@@ -279,13 +279,13 @@ support:
     description: ""
 
   # Forward application logs + metrics to epistola-hub over OTLP-over-gRPC.
-  # Off by default. When enabled it also requires the installation's
-  # `support-telemetry` entitlement from the hub before anything is shipped
-  # (the hub gates the stream). The endpoint is the hub's own gRPC endpoint,
-  # derived at runtime by the support module — nothing to configure here.
-  # See modules/epistola-support-telemetry / docs/adr/0006.
+  # On by default when support.enabled is true (like every support feature) —
+  # the hub's `support-telemetry` entitlement is the real gate, so nothing is
+  # shipped until the installation is entitled. Set to false to opt out. The
+  # endpoint is the hub's own gRPC endpoint, derived at runtime by the support
+  # module — nothing to configure here. See modules/epistola-support-telemetry.
   telemetry:
-    enabled: false
+    enabled: true
 
   # Hub connection (only used when support.enabled is true).
   hub:

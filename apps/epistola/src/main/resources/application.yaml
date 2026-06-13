@@ -221,13 +221,14 @@ epistola:
         cron: "0 0 * * * *" # Hourly
         max-age: 24h
     # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
-    # hub-operated collector. Off by default; on top of `enabled` it also requires an installation-wide
-    # `support-telemetry` entitlement before anything is shipped. Separate from any bring-your-own
-    # OpenTelemetry agent / management.otlp.* self-export leg (no double export). See ADR 0006.
-    # OTLP-over-gRPC. The endpoint is resolved by the support module from the hub's gRPC endpoint
-    # (the hub serves the OTLP collector services on the same port — no separate port or proxy).
+    # hub-operated collector. **On by default when the support tier is enabled** — like every support
+    # feature, the hub's entitlement is the real gate: nothing ships unless the installation holds an
+    # installation-wide `support-telemetry` entitlement. Set `enabled: false` to opt out locally.
+    # Separate from any bring-your-own OpenTelemetry agent / management.otlp.* self-export leg (no
+    # double export). OTLP-over-gRPC; the endpoint is resolved by the support module from the hub's
+    # gRPC endpoint (same port — no separate port or proxy). See ADR 0006.
     telemetry:
-      enabled: false
+      enabled: true
       logs: true
       metrics: true
       log-level: INFO # Minimum level forwarded

@@ -199,10 +199,11 @@ custom `OtlpMetricsSender` (`GrpcOtlpMetricsSender`) that ships the OTLP payload
 endpoint the suite already resolves for the hub (no separate port or proxy). The sender
 gates per-publish (registered + entitled). Logs are wired separately by `TelemetryLeg` (a
 Logback appender).
-Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally — off
-unless `epistola.support.telemetry.enabled=true` **and** the installation holds an
-installation-wide `support-telemetry` entitlement (the capability is
-installation-wide; there is no per-tenant metrics toggle). The endpoint is the hub's own
+Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally and
+**on by default with the support tier** (`epistola.support.enabled=true`); the
+installation-wide `support-telemetry` entitlement is the real gate, so nothing ships unless
+the installation is entitled (the capability is installation-wide; there is no per-tenant
+metrics toggle). Opt out locally with `epistola.support.telemetry.enabled=false`. The endpoint is the hub's own
 gRPC endpoint, derived programmatically by the support module — there is nothing to
 configure. The per-tenant `tenant` tag is **stripped before forwarding** by default
 (`strip-tenant-tag-from-metrics`), keeping the hub feed data-residency-friendly; the

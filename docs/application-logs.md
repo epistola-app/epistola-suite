@@ -200,10 +200,11 @@ you browse:
   OpenTelemetry path: `modules/epistola-support-telemetry` attaches a second Logback
   appender (`TelemetryLogAppender`) that forwards events to the hub's OTLP collector
   service over gRPC (`OtlpGrpcLogRecordExporter`), in parallel with this table (the table
-  stays the local source of truth for the in-app viewer). It is off by default and ships
-  only when `epistola.support.telemetry.enabled=true` **and** the installation holds an
-  installation-wide `support-telemetry` entitlement; a tenant-scoped DENY excludes that
-  tenant's logs. The endpoint is the hub's own gRPC endpoint (resolved by the support
+  stays the local source of truth for the in-app viewer). It is **on by default with the
+  support tier** (`epistola.support.enabled=true`), but the installation-wide
+  `support-telemetry` entitlement is the real gate — nothing ships unless the installation
+  is entitled (opt out locally with `epistola.support.telemetry.enabled=false`); a
+  tenant-scoped DENY excludes that tenant's logs. The endpoint is the hub's own gRPC endpoint (resolved by the support
   module — no separate port or proxy), authenticated with the installation's
   `x-ep-api-key`. Forwarding is fail-open (the OTLP batch processor drops on overflow),
   matching this pipeline's own posture.
