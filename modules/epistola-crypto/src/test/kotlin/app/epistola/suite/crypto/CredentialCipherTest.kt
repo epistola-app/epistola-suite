@@ -67,8 +67,14 @@ class CredentialCipherTest {
     fun `rejects tampered ciphertext`() {
         val c = cipher()
         val token = c.encrypt("authentic")
-        // Flip the last base64 char of the payload.
-        val tampered = token.dropLast(1) + if (token.last() == 'A') 'B' else 'A'
+        // Flip a full byte in the GCM-tag region of the decoded payload, then
+        // re-encode. (Flipping a trailing base64 *char* is unreliable: the final
+        // group's unused padding bits are ignored by the decoder, so some flips
+        // decode to identical bytes and the tag still verifies.)
+        val parsed = CredentialEnvelope.parse(token)
+        val mutated = parsed.payload.copyOf()
+        mutated[mutated.size - 1] = (mutated[mutated.size - 1].toInt() xor 0xFF).toByte()
+        val tampered = CredentialEnvelope.format(parsed.keyId, mutated)
         assertFailsWith<EncryptionException> { c.decrypt(tampered) }
     }
 
