@@ -363,6 +363,10 @@
     gap: var(--ep-space-6);
   }
 
+  .hidden {
+    display: none;
+  }
+
   .ep-checkbox {
     width: 1rem;
     height: 1rem;

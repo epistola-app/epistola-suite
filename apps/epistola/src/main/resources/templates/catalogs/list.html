@@ -194,7 +194,7 @@
                             <option value="API_KEY">API Key</option>
                         </select>
                     </div>
-                    <div class="form-group" id="credential-group" style="display: none;">
+                    <div class="form-group hidden" id="credential-group">
                         <label class="ep-label" for="authCredential">Credential</label>
                         <input type="password" id="authCredential" name="authCredential" class="ep-input"
                                placeholder="Token or API key">
@@ -281,8 +281,12 @@
 
         <script>
             document.getElementById('authType').addEventListener('change', function() {
-                document.getElementById('credential-group').style.display =
-                    this.value === 'NONE' ? 'none' : 'block';
+                var group = document.getElementById('credential-group');
+                if (this.value === 'NONE') {
+                    group.classList.add('hidden');
+                } else {
+                    group.classList.remove('hidden');
+                }
             });
 
             // Release dialog: the fragment is injected on demand into

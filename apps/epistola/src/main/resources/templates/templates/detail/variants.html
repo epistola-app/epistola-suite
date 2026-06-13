@@ -35,8 +35,8 @@
                              excluded server-side), so leaving hidden rows
                              in the DOM is safe and lets the picker simply
                              toggle visibility. -->
-                        <div class="form-group" th:each="d : ${attributeDescriptors}"
-                             th:data-attr-row="${d.qualifiedKey}" style="display: none;">
+                        <div class="form-group hidden" th:each="d : ${attributeDescriptors}"
+                             th:data-attr-row="${d.qualifiedKey}">
                             <label class="ep-label" th:for="'create-attr_' + ${d.qualifiedKey}">
                                 <span th:text="${d.displayName}"></span>
                                 <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-2);"
@@ -214,7 +214,7 @@
                     if (!key) return;
                     const row = scope.querySelector('[data-attr-row="' + CSS.escape(key) + '"]');
                     if (row) {
-                        row.style.display = '';
+                        row.classList.remove('hidden');
                         const field = row.querySelector('select, input');
                         if (field) field.focus();
                         // Remove the option from the picker so it can't be
