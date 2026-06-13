@@ -1,7 +1,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -17,8 +16,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpStatus
 
 /**
@@ -32,8 +29,6 @@ import org.springframework.http.HttpStatus
  * matching option comes back `selected`, proving the comparison evaluates
  * (and is `true`) rather than silently never matching.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 class TemplateSettingsThemeRenderHtmxTest : BaseIntegrationTest() {
 
     @Autowired

@@ -1,7 +1,6 @@
 package app.epistola.suite.fonts
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
@@ -12,8 +11,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.core.io.ResourceLoader
 import org.springframework.http.HttpEntity
@@ -32,8 +29,6 @@ import tools.jackson.databind.ObjectMapper
  * family then appears in `ListFonts` + the JSON `/fonts/search` editor
  * surface.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 class FontUploadHandlerTest : BaseIntegrationTest() {
 
     @Autowired
