@@ -322,6 +322,26 @@ Before installing, the import validates that all declared cross-catalog dependen
 
 The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
 
+### Wire-format version gate
+
+Every part (the manifest and each resource detail) is gated by **its own** `schemaVersion` against that part's window in `CATALOG_PART_SCHEMAS` before it is bound (per-part versioning — [ADR 0006](../adr/0006-catalog-wire-format-migrations.md)). `CatalogSchemaMigrator` decides per part:
+
+| Part `schemaVersion`     | Behaviour                                                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `== current`             | Bind directly (fast path).                                                                                              |
+| `baseline ≤ v < current` | Run that part's migration chain `v → … → current`, then bind.                                                           |
+| `> current`              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                    |
+| `< baseline`             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source"). |
+| missing / non-integer    | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                   |
+
+The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so browse / preview / upgrade-check see migrated content too. Migration never recomputes `release.fingerprint` — see [catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm).
+
+**Operator surfaces for a rejected payload:**
+
+- **Web UI** (import dialog): the rejection is rendered inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation message — upgrade this instance, or re-export from a current source.
+- **REST** (`POST /api/tenants/{id}/catalogs/import`): an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
+- **MCP**: catalog import is not an MCP surface (the MCP server is read-only), so there is no MCP change.
+
 ### Dependency Resolution
 
 `DependencyScanner` scans template models for references to other resources:

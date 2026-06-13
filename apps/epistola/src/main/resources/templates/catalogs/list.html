@@ -463,6 +463,20 @@
         </div>
     </th:block>
 
+    <!-- Inline error for the Import ZIP dialog when the uploaded catalog's wire
+         format is incompatible (too new / too old / unrecognised). Rendered into
+         the same `#import-error` slot as the stencil-conflict report. The detail
+         text is the migrator's actionable remediation message. -->
+    <th:block th:fragment="import-schema-error">
+        <div class="alert alert-error">
+            <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title" th:text="${schemaErrorTitle}">Import blocked: incompatible catalog format</div>
+                <p style="margin: var(--ep-space-1) 0 0;" th:text="${schemaErrorDetail}"></p>
+            </div>
+        </div>
+    </th:block>
+
     <!-- Per-row SUBSCRIBED version + update status, rendered into the Version
          cell's #catver-<id> span. Explicit/user-driven: the row's
          "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which

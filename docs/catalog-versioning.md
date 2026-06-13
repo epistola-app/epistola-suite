@@ -64,6 +64,14 @@ Excluded by construction: `release.*`, `schemaVersion`, every `updatedAt`,
 the font-family fingerprint), so swapping an image flips the fingerprint even
 though the `AssetResource` JSON is unchanged.
 
+**Wire-format migration is fingerprint-transparent.** Because `schemaVersion` is
+excluded, the per-part import migration ([ADR 0006](adr/0006-catalog-wire-format-migrations.md),
+[`docs/exchange/`](exchange/README.md#wire-format-version-gate)) — which upgrades
+an older payload's shape and re-stamps `schemaVersion` to the part's current — is
+**preserved verbatim**: `release.fingerprint` / `release.version` are never
+touched or recomputed during migration, so a migrated import compares as the same
+source release and the idempotent-re-import SKIP still holds.
+
 **One definition (invariant).** There is a single canonicalization, run over
 the **serialized resource-detail JSON** (the exact wire form). The value
 stamped into an exported manifest / stored on release and the value any
