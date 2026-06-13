@@ -6,6 +6,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -82,7 +83,7 @@ class UpdateCodeListHandler(
                 .bind("description", command.description)
                 .bind("sourceUrl", command.sourceUrl)
                 .bind("authType", command.authType.name)
-                .bind("credential", command.credential)
+                .bind("credential", command.credential?.let(::Secret))
                 .mapTo<CodeList>()
                 .findOne()
                 .orElse(null) ?: return@inTransaction null

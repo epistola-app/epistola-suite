@@ -71,7 +71,7 @@ class RefreshCodeListHandler(
         // Fetch outside the transaction — long-running HTTP shouldn't hold a DB
         // connection. On failure we still record the error so the UI can surface it.
         val fetched = try {
-            codeListClient.fetchEntries(sourceUrl, current.authType, current.credential)
+            codeListClient.fetchEntries(sourceUrl, current.authType, current.credential?.value)
         } catch (e: CodeListFetchException) {
             recordRefreshError(command.id, e.message ?: "fetch failed")
             return jdbi.withHandle<CodeList?, Exception> { handle ->

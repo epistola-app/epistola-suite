@@ -62,6 +62,27 @@ class AppMetadataServiceIT : IntegrationTestBase() {
         assertNull(metadata.getAs<Sample>(uniqueKey("missing")))
     }
 
+    @Test
+    fun `setEncrypted stores ciphertext and getEncryptedAs round-trips`() {
+        val key = uniqueKey("encrypted")
+        val payload = Sample(name = "hub-token-xyz", count = 7)
+        metadata.setEncrypted(key, payload)
+
+        // Round-trips through decryption.
+        assertEquals(payload, metadata.getEncryptedAs<Sample>(key))
+
+        // The stored JSONB cell is an enc: envelope string, not the plaintext.
+        val storedAsString = metadata.get(key)?.asString()
+        assertNotNull(storedAsString)
+        assertTrue(storedAsString.startsWith("enc:v1:"), "expected ciphertext envelope, got: $storedAsString")
+        assertFalse(storedAsString.contains("hub-token-xyz"), "plaintext leaked into storage")
+    }
+
+    @Test
+    fun `getEncryptedAs returns null when key is absent`() {
+        assertNull(metadata.getEncryptedAs<Sample>(uniqueKey("missing-enc")))
+    }
+
     private fun uniqueKey(prefix: String): String = "test_${prefix}_${UUID.randomUUID().toString().substring(0, 8)}"
 
     data class Sample(val name: String, val count: Int)

@@ -112,7 +112,7 @@ class EpistolaCodeListApi : CodeListsApi {
             description = updateCodeListRequest.description ?: current.description,
             sourceUrl = updateCodeListRequest.sourceUrl ?: current.sourceUrl,
             authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
-            credential = updateCodeListRequest.credential ?: current.credential,
+            credential = updateCodeListRequest.credential ?: current.credential?.value,
             entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
         ).execute() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
         return ResponseEntity.ok(updated.toDto())
