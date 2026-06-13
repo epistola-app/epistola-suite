@@ -54,7 +54,10 @@ val CATALOG_PART_SCHEMAS: Map<CatalogPart, PartSchemaWindow> = mapOf(
     CatalogPart.FONT to PartSchemaWindow(baseline = 1, current = 1),
     CatalogPart.ATTRIBUTE to PartSchemaWindow(baseline = 3, current = 3),
     CatalogPart.THEME to PartSchemaWindow(baseline = 2, current = 2),
-    CatalogPart.STENCIL to PartSchemaWindow(baseline = 2, current = 2),
+    // STENCIL: v1 = pre-`version` shape (epistola-model < 0.6.0); v2 added the
+    // required published-version pin (ADR 0003). The v1→v2 chain upgrades an old
+    // export — StencilV1ToV2RequireVersionMigration.
+    CatalogPart.STENCIL to PartSchemaWindow(baseline = 1, current = 2),
     CatalogPart.TEMPLATE to PartSchemaWindow(baseline = 2, current = 2),
 )
 

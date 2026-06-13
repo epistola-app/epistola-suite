@@ -35,7 +35,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/cont
 
 **Maintaining these docs:** when you change a part's wire shape, add a new `vN+1/contract.md` for **that part only**, update its row's _Current_ above, and note the change under "Changed in vN+1". Leave the old version folder in place so the diff stays visible.
 
-> **Implementation status.** Per-part versioning is the decided model ([ADR 0006](../adr/0006-catalog-wire-format-migrations.md)); the per-part numbers above are the canonical contract versions (matching the bundled fixtures). The Phase-0 migration framework currently still stamps the single manifest version on every detail at export — splitting that into per-part stamps + per-part migration chains is the remaining implementation work, tracked in [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
+> **Implementation status.** Per-part versioning is implemented ([ADR 0006](../adr/0006-catalog-wire-format-migrations.md)): export stamps each detail with its own part's version (`CatalogContentBuilder`), and `CatalogSchemaMigrator` gates/migrates each part by its own `schemaVersion` against that part's chain — wired at both import chokepoints (the ZIP path and `CatalogClient`). The first real migration is the **stencil v1 → v2** step (`StencilV1ToV2RequireVersionMigration`): a pre-`0.6.0` stencil with no `version` is upgraded to version 1 on import. Other parts have empty chains (`baseline == current`) until their first shape change. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
 
 ## Concepts
 

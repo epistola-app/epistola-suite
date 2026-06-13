@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.migrations
 
 import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migratePartTree
+import app.epistola.suite.catalog.migrations.steps.StencilV1ToV2RequireVersionMigration
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -112,7 +113,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest binds a current-version manifest end to end`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         val bound = migrator.migrateAndBindManifest(
             mapper.writeValueAsBytes(manifest("4")),
         )
@@ -122,7 +123,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest rejects a too-new payload before binding`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         assertThatThrownBy { migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("9"))) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
     }
