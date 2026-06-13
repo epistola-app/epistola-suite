@@ -76,11 +76,11 @@ current` with an **empty** chain → **pass through** and bind as-is (how every
   `2`); `< baseline` (only reachable once a part has a chain) → `TooOldException`.
   The too-old / chain-execution branches exist and are unit-tested via the
   parameterised companion gate, just not reachable with the live empty chains.
-- **Detail-path import wiring stays deferred.** Today every detail binds as-is at
-  its own (current) version; `migrateAndBindResourceDetail` exists on the migrator
-  but is not yet invoked from the importers — it lands with the first real
-  resource migration (so the over-stamp/leniency edge cases never arise on the
-  empty-chain path).
+- **Detail-path import wiring — now wired.** `migrateAndBindResourceDetail` is
+  invoked at both chokepoints (`ImportCatalogZip`'s stencil pre-scan + per-resource
+  reads and `CatalogClient.fetchResourceDetail`), gating each detail by its own
+  `schemaVersion`. (Originally deferred from Phase 0; landed with the per-part
+  framework, so the first resource migration only needs to add its step.)
 
 **Placement decision (supersedes the open (a)/(b) question below).** The remote
 chokepoint `CatalogClient.fetchManifest` has ~10 callers, including read-only
@@ -125,7 +125,7 @@ Catalog import/export integration tests stay green.
      **manifest** part's window, then bind.
    - `migrateAndBindResourceDetail(type, raw): ResourceDetail` — gate/migrate by
      **that resource type's** window (keyed off the detail's own `schemaVersion`),
-     then bind. _Provided; not yet invoked from the importers._
+     then bind. _Invoked at both chokepoints._
    - companion `migratePartTree(tree, byFrom, baseline, current)` — the pure
      gate+chain primitive (no-op when `source == current`).
 5. **Wire into the chokepoints** (migrate → bind, replacing bind):
@@ -134,10 +134,11 @@ Catalog import/export integration tests stay green.
      chokepoint lives in `CatalogClient` so the ~10 read-only callers
      (`BrowseCatalog`, `PreviewInstall`, `CheckCatalogUpgrade`, fingerprinting)
      see migrated content too.
-   - **Detail (deferred):** the detail reads in `ImportCatalogZip` (stencil
-     pre-scan + per-resource loop) and `CatalogClient.fetchResourceDetail` still
-     bind directly. Routing them through `migrateAndBindResourceDetail` lands with
-     the first real resource migration, when there is something to migrate.
+   - **Detail (done):** the detail reads in `ImportCatalogZip` (stencil pre-scan +
+     per-resource loop) and `CatalogClient.fetchResourceDetail` route through
+     `migrateAndBindResourceDetail`, each gated by the detail's own `schemaVersion`.
+     A new resource-type migration only needs to add its step — the wiring is in
+     place.
 
 6. **Tests (Phase 0):**
    - `CatalogSchemaMigratorChainTest` (unit): empty chain valid; injected

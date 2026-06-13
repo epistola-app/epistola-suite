@@ -43,10 +43,10 @@ import tools.jackson.databind.node.ObjectNode
  *   [CatalogSchemaTooOldException].
  * - missing / non-integer `schemaVersion` — [CatalogSchemaUnknownException].
  *
- * The resource-detail path ([migrateAndBindResourceDetail]) is provided but not
- * yet invoked from the importers — detail-path wiring lands with the first real
- * resource migration (ADR 0006 / the implementation plan); today every detail
- * binds as-is at its own (current) version.
+ * The resource-detail path ([migrateAndBindResourceDetail]) is wired at both
+ * chokepoints — `ImportCatalogZip` (stencil pre-scan + per-resource reads) and
+ * [app.epistola.suite.catalog.CatalogClient.fetchResourceDetail] — gating each
+ * detail by **its own** `schemaVersion` against that resource type's window.
  */
 @Component
 class CatalogSchemaMigrator(
