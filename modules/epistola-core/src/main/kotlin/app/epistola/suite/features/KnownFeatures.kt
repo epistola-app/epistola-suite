@@ -10,6 +10,12 @@ object KnownFeatures {
 
     val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_UPGRADING, STENCIL_PARAMETERS)
 
+    /**
+     * Features that require the commercial support tier (a hub entitlement). They default **on** with
+     * the tier but are **unavailable when the tier is off** (OSS), regardless of their toggle default.
+     */
+    val SUPPORT_TIER: Set<FeatureKey> = setOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_UPGRADING)
+
     val descriptions: Map<FeatureKey, String> = mapOf(
         SUPPORT_FEEDBACK to "Enables the Support → Feedback feature (sync to epistola-hub).",
         SUPPORT_BACKUPS to "Enables the Support → Backups feature (catalog snapshot backups + restore via epistola-hub).",

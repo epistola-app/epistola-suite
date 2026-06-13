@@ -35,8 +35,7 @@ enum class EntitlementDecision {
 class SupportEntitlementService(
     private val store: EntitlementStore,
 ) : FeatureEntitlementGate {
-    override val gatedFeatures: Set<FeatureKey> =
-        setOf(KnownFeatures.SUPPORT_BACKUPS, KnownFeatures.SUPPORT_UPGRADING, KnownFeatures.SUPPORT_FEEDBACK)
+    override val gatedFeatures: Set<FeatureKey> = KnownFeatures.SUPPORT_TIER
 
     override fun isEntitled(
         featureKey: FeatureKey,

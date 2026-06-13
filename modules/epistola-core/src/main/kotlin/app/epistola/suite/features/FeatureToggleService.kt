@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.FeatureKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
 
@@ -26,13 +27,18 @@ import org.springframework.stereotype.Component
 class FeatureToggleService(
     private val jdbi: Jdbi,
     private val defaults: FeatureDefaults,
+    // Support-tier features default to the support tier: on when it's enabled, off otherwise (OSS).
+    @Value("\${epistola.support.enabled:false}") private val supportEnabled: Boolean,
 ) {
     private val requestCache: ScopedValue<MutableMap<TenantKey, Map<FeatureKey, Boolean>>> = ScopedValue.newInstance()
 
     /** Binds an empty per-request toggle cache for the duration of [block] (see class KDoc). */
     fun <T> withRequestCache(block: () -> T): T = ScopedValue.where(requestCache, HashMap<TenantKey, Map<FeatureKey, Boolean>>()).call<T, RuntimeException>(block)
 
-    fun isEnabled(tenantKey: TenantKey, featureKey: FeatureKey): Boolean = resolveAll(tenantKey)[featureKey] ?: defaults.isEnabled(featureKey)
+    fun isEnabled(tenantKey: TenantKey, featureKey: FeatureKey): Boolean = resolveAll(tenantKey)[featureKey] ?: defaultFor(featureKey)
+
+    /** Global default for a feature with no tenant override: support-tier follows the tier, else [FeatureDefaults]. */
+    private fun defaultFor(featureKey: FeatureKey): Boolean = if (featureKey in KnownFeatures.SUPPORT_TIER) supportEnabled else defaults.isEnabled(featureKey)
 
     fun resolveAll(tenantKey: TenantKey): Map<FeatureKey, Boolean> {
         if (!requestCache.isBound) return loadAll(tenantKey)
@@ -51,7 +57,7 @@ class FeatureToggleService(
                 .toMap()
         }
         return KnownFeatures.all.associateWith { feature ->
-            overrides[feature] ?: defaults.isEnabled(feature)
+            overrides[feature] ?: defaultFor(feature)
         }
     }
 }

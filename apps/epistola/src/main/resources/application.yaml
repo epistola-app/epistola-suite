@@ -170,9 +170,10 @@ epistola:
       enabled: true
       interval-ms: 60000
 
-  # Feature toggles — global defaults (tenant-level overrides stored in DB)
+  # Feature toggles — global defaults (tenant-level overrides stored in DB).
+  # Support-tier features (feedback/backups/upgrading) are NOT listed here: their default follows
+  # `epistola.support.enabled` (on with the tier, off in OSS), and the hub entitlement gates them.
   features:
-    support-feedback: true
     stencil-parameters: true
 
   # Application-wide default locale used for date/number formatting.
