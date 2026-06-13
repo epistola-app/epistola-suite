@@ -296,8 +296,8 @@ sampling is a poor trade and it abandons the OTLP investment.
 - A dedicated, isolated leg in `epistola-support-telemetry` (`TelemetryLeg`), gated on
   `epistola.support.enabled` + `epistola.support.telemetry.enabled` + an installation-wide
   `support-telemetry` entitlement, isolated from any bring-your-own agent/self-export leg.
-  The endpoint is resolved by the support module from the hub endpoint
-  (`HubTelemetryEndpointResolver`, override `epistola.support.hub.telemetry-endpoint`).
+  The endpoint is the hub's own gRPC endpoint, derived programmatically by the support
+  module (`HubTelemetryEndpointResolver`) — nothing to configure.
 - Logs: a `TelemetryLogAppender` → `OtlpGrpcLogRecordExporter`. Metrics: a dedicated
   Micrometer `OtlpMeterRegistry` with a custom `GrpcOtlpMetricsSender` (Micrometer ships only
   an HTTP sender), `tenant` tag stripped before forwarding.

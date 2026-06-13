@@ -202,10 +202,9 @@ Logback appender).
 Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally — off
 unless `epistola.support.telemetry.enabled=true` **and** the installation holds an
 installation-wide `support-telemetry` entitlement (the capability is
-installation-wide; there is no per-tenant metrics toggle). The endpoint is resolved by
-the support module from the hub gRPC endpoint (override with
-`epistola.support.hub.telemetry-endpoint`). The
-per-tenant `tenant` tag is **stripped before forwarding** by default
+installation-wide; there is no per-tenant metrics toggle). The endpoint is the hub's own
+gRPC endpoint, derived programmatically by the support module — there is nothing to
+configure. The per-tenant `tenant` tag is **stripped before forwarding** by default
 (`strip-tenant-tag-from-metrics`), keeping the hub feed data-residency-friendly; the
 local Prometheus / self-export leg keeps it. The hub authenticates the OTLP gRPC stream
 with the installation's `x-ep-api-key` (the same credential as its other gRPC services)
