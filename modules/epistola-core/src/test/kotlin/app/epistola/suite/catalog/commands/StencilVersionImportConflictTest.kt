@@ -568,7 +568,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             zos.write(objectMapper.writeValueAsBytes(manifest))
             zos.closeEntry()
             zos.putNextEntry(ZipEntry("resources/stencil/${stencil.slug}.json"))
-            zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 4, resource = stencil)))
+            zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 2, resource = stencil)))
             zos.closeEntry()
             if (template != null) {
                 val variantKey = "${templateKey!!.value}-default"
@@ -587,7 +587,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                     ),
                 )
                 zos.putNextEntry(ZipEntry("resources/template/${templateKey.value}.json"))
-                zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 4, resource = tpl)))
+                zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = 2, resource = tpl)))
                 zos.closeEntry()
             }
         }

@@ -53,7 +53,7 @@ class DependencyResolver(
                 if (key in scanned) continue
                 scanned += key
 
-                val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, authType, credential)
+                val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, authType, credential)
                 when (val resource = detail.resource) {
                     is TemplateResource -> {
                         // Resource-level theme reference (themeId field)

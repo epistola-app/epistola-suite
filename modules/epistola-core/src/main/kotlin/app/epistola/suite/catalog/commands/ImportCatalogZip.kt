@@ -5,7 +5,6 @@ import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
-import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
@@ -265,20 +264,23 @@ class ImportCatalogZipHandler(
 
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
-        // Pre-parse every stencil detail once. Surfaces missing/corrupt stencil
-        // JSON (including pre-0.6.0 ZIPs without `version`) as a hard import
-        // failure before any mutation, and the parsed StencilResource objects
-        // are reused by the install loop below so each stencil detail is
-        // deserialized only once. Other resource types stay in the per-resource
-        // try/catch so a missing/corrupt detail surfaces as a single failed
-        // install rather than aborting the whole import — stencil-version
-        // conflicts are the only deliberate group-decision (FAIL vs RENUMBER).
+        // Pre-parse every stencil detail once. Each detail is upgraded to its
+        // part's current wire shape by the migrator before binding (a pre-v2 ZIP
+        // whose stencil omits `version` is assigned version 1 — see
+        // StencilV1ToV2RequireVersionMigration — rather than failing). Missing /
+        // corrupt stencil JSON is still a hard import failure before any
+        // mutation, and the parsed StencilResource objects are reused by the
+        // install loop below so each stencil detail is deserialized only once.
+        // Other resource types stay in the per-resource try/catch so a
+        // missing/corrupt detail surfaces as a single failed install rather than
+        // aborting the whole import — stencil-version conflicts are the only
+        // deliberate group-decision (FAIL vs RENUMBER).
         val parsedStencilsBySlug: Map<String, StencilResource> = ordered
             .filter { it.type == "stencil" }
             .associate { entry ->
                 val detailBytes = entries[entry.detailUrl.removePrefix("./")]
                     ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                val parsed = objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                val parsed = schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes).resource
                 val stencil = parsed as? StencilResource
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
@@ -309,7 +311,7 @@ class ImportCatalogZipHandler(
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
                         ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                    objectMapper.readValue(detailBytes, ResourceDetail::class.java).resource
+                    schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes).resource
                 }
 
                 val status = installResource(

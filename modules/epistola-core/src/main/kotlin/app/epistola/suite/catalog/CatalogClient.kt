@@ -9,14 +9,12 @@ import org.springframework.core.io.ResourceLoader
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import tools.jackson.databind.ObjectMapper
 import java.net.URI
 import java.nio.file.Path
 
 @Component
 class CatalogClient(
     private val catalogRestClient: RestClient,
-    private val objectMapper: ObjectMapper,
     private val resourceLoader: ResourceLoader,
     private val schemaMigrator: CatalogSchemaMigrator,
     @Value("\${epistola.catalog.allow-http:false}") private val allowHttp: Boolean = false,
@@ -41,12 +39,18 @@ class CatalogClient(
         return schemaMigrator.migrateAndBindManifest(bytes)
     }
 
-    fun fetchResourceDetail(detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
+    /**
+     * Fetch one resource detail and upgrade it to its part's current wire shape
+     * before binding. [type] is the resource type discriminator (from the
+     * manifest entry); the migrator gates/migrates the detail by **its own**
+     * `schemaVersion` against that part's chain (per-part versioning).
+     */
+    fun fetchResourceDetail(type: String, detailUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
         validateUrl(resolvedUrl, allowedSchemes)
         logger.debug("Fetching resource detail from {}", resolvedUrl)
-        return readLocal(resolvedUrl, ResourceDetail::class.java)
-            ?: fetchHttp(resolvedUrl, authType, credential)
+        val bytes = readLocalBinary(resolvedUrl) ?: fetchHttpBinary(resolvedUrl, authType, credential)
+        return schemaMigrator.migrateAndBindResourceDetail(type, bytes)
     }
 
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
@@ -75,35 +79,6 @@ class CatalogClient(
         .applyAuth(authType, credential)
         .retrieve()
         .body(ByteArray::class.java)
-        ?: throw CatalogFetchException("Empty response from: $url")
-
-    private fun <T> readLocal(url: String, type: Class<T>): T? = when {
-        url.startsWith("file:") -> readFile(url, type)
-        url.startsWith("classpath:") -> readClasspath(url, type)
-        else -> null
-    }
-
-    private fun <T> readFile(fileUrl: String, type: Class<T>): T {
-        val path = Path.of(URI.create(fileUrl))
-        if (!path.toFile().exists()) {
-            throw CatalogFetchException("File not found: $path")
-        }
-        return objectMapper.readValue(path.toFile(), type)
-    }
-
-    private fun <T> readClasspath(classpathUrl: String, type: Class<T>): T {
-        val resource = resourceLoader.getResource(classpathUrl)
-        if (!resource.exists()) {
-            throw CatalogFetchException("Classpath resource not found: $classpathUrl")
-        }
-        return objectMapper.readValue(resource.contentAsByteArray, type)
-    }
-
-    private inline fun <reified T : Any> fetchHttp(url: String, authType: AuthType, credential: String?): T = catalogRestClient.get()
-        .uri(url)
-        .applyAuth(authType, credential)
-        .retrieve()
-        .body(T::class.java)
         ?: throw CatalogFetchException("Empty response from: $url")
 
     private fun RestClient.RequestHeadersSpec<*>.applyAuth(authType: AuthType, credential: String?): RestClient.RequestHeadersSpec<*> = apply {

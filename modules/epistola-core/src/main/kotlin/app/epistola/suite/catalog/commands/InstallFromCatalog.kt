@@ -90,7 +90,7 @@ class InstallFromCatalogHandler(
 
         ordered.map { entry ->
             try {
-                val detail = catalogClient.fetchResourceDetail(entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+                val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
                 val status = installResource(command, detail.resource, manifest.release.version, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
                 InstallResult(type = entry.type, slug = entry.slug, status = status)
             } catch (e: Exception) {
