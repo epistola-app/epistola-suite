@@ -50,7 +50,7 @@ class CheckCatalogUpgradeHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw IllegalStateException("Catalog '${query.catalogKey}' has no source URL — only subscribed catalogs can be upgraded")
 
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifestFingerprint = manifest.release.fingerprint
 
         val available = if (manifestFingerprint != null) {
