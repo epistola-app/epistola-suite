@@ -43,14 +43,15 @@ in `apps/epistola/src/test/kotlin/app/epistola/suite/architecture/`. They run ag
 app's full runtime classpath and the whole repository's sources, so feature modules are
 covered too:
 
-| Test                                                 | Enforces                                                                                                                                                      |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MediatorWiringTest`                                 | Every command/query has exactly one handler; handlers are `@Component`; every command/query implements an `Authorized` subtype                                |
-| `ApplicationClockUsageTest`                          | No direct JVM `now()` calls in production code — use `EpistolaClock` (see [`docs/clock.md`](clock.md)); with-clock overloads and database `NOW()` remain fine |
-| `DomainBoundaryTest`                                 | Mediator handlers are never imported outside their own package — cross-domain calls dispatch the command/query through the mediator                           |
-| `UiRestApiSeparationTest`                            | UI templates and static JS never call REST API endpoints                                                                                                      |
-| `UiTestHygieneTest`                                  | UI tests use the deterministic Playwright helpers (see [UI tests](#ui-tests-playwright))                                                                      |
-| `BundledCatalogFingerprintTest` (in `epistola-core`) | Bundled demo/system catalog fingerprints match their content                                                                                                  |
+| Test                                                 | Enforces                                                                                                                                                                                                       |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MediatorWiringTest`                                 | Every command/query has exactly one handler; handlers are `@Component`; every command/query implements an `Authorized` subtype                                                                                 |
+| `ApplicationClockUsageTest`                          | No direct JVM `now()` calls in production code — use `EpistolaClock` (see [`docs/clock.md`](clock.md)); with-clock overloads and database `NOW()` remain fine                                                  |
+| `DomainBoundaryTest`                                 | Mediator handlers are never imported outside their own package — cross-domain calls dispatch the command/query through the mediator                                                                            |
+| `NoHardcodedSecretsTest`                             | No hardcoded credentials in committed config (sensitive `application*.yaml`/`.properties` keys must use `${ENV}`/Secrets; dev/local files allowlisted) and no PEM private keys / AWS access keys in any source |
+| `UiRestApiSeparationTest`                            | UI templates and static JS never call REST API endpoints                                                                                                                                                       |
+| `UiTestHygieneTest`                                  | UI tests use the deterministic Playwright helpers (see [UI tests](#ui-tests-playwright))                                                                                                                       |
+| `BundledCatalogFingerprintTest` (in `epistola-core`) | Bundled demo/system catalog fingerprints match their content                                                                                                                                                   |
 
 Handler scanning is metadata-based and deliberately ignores `@Conditional` annotations:
 a handler gated on a property (e.g. `RefreshEntitlementsHandler` on
