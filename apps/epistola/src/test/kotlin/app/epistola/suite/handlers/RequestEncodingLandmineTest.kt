@@ -1,7 +1,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -17,8 +16,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
@@ -48,8 +45,6 @@ import java.nio.charset.StandardCharsets
  * still round-trips. Without the container-level fix this reproduces `CafÃ©`; with
  * it, the bug cannot be reintroduced by reading parameters early.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 @Import(RequestEncodingLandmineTest.RogueEarlyParamFilterConfig::class)
 class RequestEncodingLandmineTest : BaseIntegrationTest() {
 

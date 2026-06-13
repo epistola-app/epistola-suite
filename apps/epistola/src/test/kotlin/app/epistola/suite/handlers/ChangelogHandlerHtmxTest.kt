@@ -1,14 +1,11 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.changelog.ChangelogAudience
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
@@ -17,8 +14,6 @@ import org.springframework.http.ResponseEntity
  * renders the controls, a bare request defaults to the Users view, and each selection returns the partial
  * layout fragment with the chosen filters threaded through the version links.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 class ChangelogHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired

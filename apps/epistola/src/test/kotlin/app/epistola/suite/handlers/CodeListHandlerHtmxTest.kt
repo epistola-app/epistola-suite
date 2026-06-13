@@ -1,7 +1,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -18,8 +17,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -41,8 +38,6 @@ import org.springframework.http.ResponseEntity
  * covers the bug class better than observing the `htmx:targetError` symptom
  * through a browser, and is immune to dialog-binding timing.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired

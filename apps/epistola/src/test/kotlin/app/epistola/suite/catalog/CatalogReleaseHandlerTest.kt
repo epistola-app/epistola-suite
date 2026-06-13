@@ -1,7 +1,6 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -17,8 +16,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -31,8 +28,6 @@ import org.springframework.util.LinkedMultiValueMap
  * cuts a release; a bad version re-renders the dialog with an error and does
  * not release.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 class CatalogReleaseHandlerTest : BaseIntegrationTest() {
 
     @Autowired
