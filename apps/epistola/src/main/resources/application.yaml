@@ -220,6 +220,18 @@ epistola:
           enabled: false # Run the freshness sweep
         cron: "0 0 * * * *" # Hourly
         max-age: 24h
+    # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
+    # hub-operated collector. Off by default; on top of `enabled` it also requires an installation-wide
+    # `support-telemetry` entitlement before anything is shipped. Separate from any bring-your-own
+    # OpenTelemetry agent / management.otlp.* self-export leg (no double export). See ADR 0006.
+    # The OTLP endpoint is resolved by the support module from the hub endpoint (it proxies OTLP for
+    # now); override with `epistola.support.hub.telemetry-endpoint` once a dedicated collector exists.
+    telemetry:
+      enabled: false
+      logs: true
+      metrics: true
+      log-level: INFO # Minimum level forwarded
+      strip-tenant-tag-from-metrics: true # Drop the per-tenant metric tag before forwarding (data residency)
 
   # Installation identity. Required when epistola.support.enabled=true;
   # ignored otherwise. Override per environment via

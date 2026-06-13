@@ -58,4 +58,35 @@ class SupportEntitlementResolutionTest {
         val entries = listOf(entry(feature = "support-upgrading"))
         assertThat(resolveEntitlement(entries, "support-backups", "acme", now)).isEqualTo(EntitlementDecision.NOT_CONFIGURED)
     }
+
+    @Test
+    fun `installation-wide entitlement requires an installation-wide ALLOW`() {
+        assertThat(resolveInstallationEntitlement(emptyList(), "support-telemetry", now)).isFalse()
+        assertThat(resolveInstallationEntitlement(listOf(entry(feature = "support-telemetry")), "support-telemetry", now)).isTrue()
+    }
+
+    @Test
+    fun `a tenant-scoped ALLOW alone does not grant installation-wide entitlement`() {
+        val entries = listOf(entry(feature = "support-telemetry", tenant = "acme"))
+        assertThat(resolveInstallationEntitlement(entries, "support-telemetry", now)).isFalse()
+    }
+
+    @Test
+    fun `an installation-wide DENY withholds installation-wide entitlement`() {
+        val entries = listOf(entry(feature = "support-telemetry"), entry(feature = "support-telemetry", effect = EntitlementEffect.DENY))
+        assertThat(resolveInstallationEntitlement(entries, "support-telemetry", now)).isFalse()
+    }
+
+    @Test
+    fun `a tenant-scoped DENY does not affect installation-wide entitlement`() {
+        val entries =
+            listOf(entry(feature = "support-telemetry"), entry(feature = "support-telemetry", tenant = "acme", effect = EntitlementEffect.DENY))
+        assertThat(resolveInstallationEntitlement(entries, "support-telemetry", now)).isTrue()
+    }
+
+    @Test
+    fun `an expired installation-wide ALLOW does not grant entitlement`() {
+        val entries = listOf(entry(feature = "support-telemetry", expiresAt = now.minusSeconds(1)))
+        assertThat(resolveInstallationEntitlement(entries, "support-telemetry", now)).isFalse()
+    }
 }
