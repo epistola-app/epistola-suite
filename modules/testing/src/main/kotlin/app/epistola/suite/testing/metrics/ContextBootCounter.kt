@@ -1,5 +1,6 @@
 package app.epistola.suite.testing.metrics
 
+import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.springframework.context.ApplicationContextInitializer
 import org.springframework.context.ApplicationListener
 import org.springframework.context.ConfigurableApplicationContext
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class ContextBootCounter : ApplicationContextInitializer<ConfigurableApplicationContext> {
     override fun initialize(applicationContext: ConfigurableApplicationContext) {
+        TestRuntimeLifecycle.registerContext(applicationContext)
         val startNanos = System.nanoTime()
         TestRunMetrics.contextBoots.incrementAndGet()
         val recorded = AtomicBoolean(false)
