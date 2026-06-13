@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.migrations
 
-import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migrateManifestTree
+import app.epistola.suite.catalog.CatalogPart
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migratePartTree
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -33,10 +34,12 @@ class CatalogSchemaMigratorGateTest {
 
     /** Marks the tree as it passes through, so we can assert which steps ran. */
     private class TraceMigration(override val from: Int) : CatalogSchemaMigration {
-        override fun migrateManifest(manifest: ObjectNode, ctx: MigrationContext): ObjectNode {
-            val prior = manifest.get("trace")?.asString() ?: ""
-            manifest.put("trace", "$prior$from-$to;")
-            return manifest
+        override val part: CatalogPart = CatalogPart.MANIFEST
+
+        override fun migrate(node: ObjectNode, ctx: MigrationContext): ObjectNode {
+            val prior = node.get("trace")?.asString() ?: ""
+            node.put("trace", "$prior$from-$to;")
+            return node
         }
     }
 
@@ -45,7 +48,7 @@ class CatalogSchemaMigratorGateTest {
     @Test
     fun `current version passes through unchanged`() {
         val tree = manifest("4")
-        val result = migrateManifestTree(tree, byFrom = emptyMap(), baseline = 4, current = 4)
+        val result = migratePartTree(tree, byFrom = emptyMap(), baseline = 4, current = 4)
         assertThat(result.get("schemaVersion").asInt()).isEqualTo(4)
         assertThat(result.get("trace")).isNull()
     }
@@ -53,7 +56,7 @@ class CatalogSchemaMigratorGateTest {
     @Test
     fun `newer than current is rejected as too new`() {
         assertThatThrownBy {
-            migrateManifestTree(manifest("5"), byFrom = emptyMap(), baseline = 4, current = 4)
+            migratePartTree(manifest("5"), byFrom = emptyMap(), baseline = 4, current = 4)
         }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
             .hasMessageContaining("newer")
@@ -63,7 +66,7 @@ class CatalogSchemaMigratorGateTest {
     fun `older than current with no chain passes through (transitional)`() {
         // Phase-0 leniency: no migrations defined, so a sub-current payload is
         // assumed already current-shape and binds as-is.
-        val result = migrateManifestTree(manifest("2"), byFrom = emptyMap(), baseline = 4, current = 4)
+        val result = migratePartTree(manifest("2"), byFrom = emptyMap(), baseline = 4, current = 4)
         assertThat(result.get("schemaVersion").asInt()).isEqualTo(2)
     }
 
@@ -71,7 +74,7 @@ class CatalogSchemaMigratorGateTest {
     fun `older than baseline with a chain present is rejected as too old`() {
         // baseline 4, current 6, but the payload is v3 — below the floor.
         assertThatThrownBy {
-            migrateManifestTree(manifest("3"), byFrom = chain(4, 5), baseline = 4, current = 6)
+            migratePartTree(manifest("3"), byFrom = chain(4, 5), baseline = 4, current = 6)
         }
             .isInstanceOf(CatalogSchemaTooOldException::class.java)
             .hasMessageContaining("predates")
@@ -79,14 +82,14 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `an in-window payload runs every step in order and re-stamps to current`() {
-        val result = migrateManifestTree(manifest("1"), byFrom = chain(1, 2, 3), baseline = 1, current = 4)
+        val result = migratePartTree(manifest("1"), byFrom = chain(1, 2, 3), baseline = 1, current = 4)
         assertThat(result.get("schemaVersion").asInt()).isEqualTo(4)
         assertThat(result.get("trace").asString()).isEqualTo("1-2;2-3;3-4;")
     }
 
     @Test
     fun `a payload entering mid-window runs only the remaining steps`() {
-        val result = migrateManifestTree(manifest("3"), byFrom = chain(1, 2, 3), baseline = 1, current = 4)
+        val result = migratePartTree(manifest("3"), byFrom = chain(1, 2, 3), baseline = 1, current = 4)
         assertThat(result.get("schemaVersion").asInt()).isEqualTo(4)
         assertThat(result.get("trace").asString()).isEqualTo("3-4;")
     }
@@ -94,16 +97,16 @@ class CatalogSchemaMigratorGateTest {
     @Test
     fun `missing schemaVersion is rejected as unknown`() {
         val noVersion = mapper.readTree("""{ "catalog": { "slug": "x", "name": "X" } }""") as ObjectNode
-        assertThatThrownBy { migrateManifestTree(noVersion, emptyMap(), 4, 4) }
+        assertThatThrownBy { migratePartTree(noVersion, emptyMap(), 4, 4) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
             .hasMessageContaining("missing")
     }
 
     @Test
     fun `non-integer schemaVersion is rejected as unknown`() {
-        assertThatThrownBy { migrateManifestTree(manifest("\"four\""), emptyMap(), 4, 4) }
+        assertThatThrownBy { migratePartTree(manifest("\"four\""), emptyMap(), 4, 4) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
-        assertThatThrownBy { migrateManifestTree(manifest("4.5"), emptyMap(), 4, 4) }
+        assertThatThrownBy { migratePartTree(manifest("4.5"), emptyMap(), 4, 4) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
     }
 

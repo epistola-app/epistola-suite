@@ -1,21 +1,29 @@
 package app.epistola.suite.catalog.migrations
 
+import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.validateMigrationChain
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.node.ObjectNode
 import tools.jackson.module.kotlin.jsonMapper
 
 /**
  * Startup chain-integrity checks for [CatalogSchemaMigrator] — the contiguous,
- * total, gap-free invariant that fails application start (Flyway-like) when the
- * migration chain is malformed. Pure unit test; no Spring.
+ * total, gap-free invariant that fails application start (Flyway-like) when a
+ * part's migration chain is malformed. Pure unit test; no Spring.
  */
 class CatalogSchemaMigratorChainTest {
 
-    /** A migration step that does nothing but declare its [from]/[to]. */
-    private class NoopMigration(override val from: Int, override val to: Int = from + 1) : CatalogSchemaMigration
+    /** A migration step that does nothing but declare its [part]/[from]/[to]. */
+    private class NoopMigration(
+        override val from: Int,
+        override val to: Int = from + 1,
+        override val part: CatalogPart = CatalogPart.MANIFEST,
+    ) : CatalogSchemaMigration {
+        override fun migrate(node: ObjectNode, ctx: MigrationContext): ObjectNode = node
+    }
 
     @Test
     fun `empty chain is valid when baseline equals current`() {
