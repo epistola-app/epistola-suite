@@ -13,10 +13,14 @@ Feature toggles use a **two-tier resolution** model:
 
 When checking whether a feature is enabled, the system first looks for a tenant-specific override. If none exists, it falls back to the global default. If neither is configured, the feature defaults to disabled.
 
+**Support-tier features** (`KnownFeatures.SUPPORT_TIER` — feedback / backups / upgrading) are the exception: they are not configured in `FeatureDefaults`. Their global default follows the support tier — **on when `epistola.support.enabled=true`, off otherwise (OSS)** — and the hub entitlement gates actual availability on top (see [`adr/0006-shipping-logs-and-metrics-to-hub.md`](adr/0006-shipping-logs-and-metrics-to-hub.md) for the same principle applied to telemetry). So enabling the support tier opts every support feature in; an OSS deployment never shows them.
+
 ```
 Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
             ├── DB override exists? → use it
-            └── No override → FeatureDefaults.isEnabled(featureKey) → YAML config value
+            └── No override → default:
+                  ├── support-tier feature → epistola.support.enabled
+                  └── otherwise            → FeatureDefaults.isEnabled(featureKey) → YAML config value
 ```
 
 ## Key Classes

@@ -194,8 +194,17 @@ you browse:
 - **REST API** — deferred. No `/api/.../logs` endpoint yet.
 - **MCP** — deferred. A read-only "recent logs" tool for AI-assisted ops is
   plausible later.
-- **Hub forwarding (`LogSyncPort`)** — not built. The core table is the source of
-  truth; stable `id` (UUIDv7), `instance_id` and `occurred_at` make rows
-  forward-friendly. A future `epistola-support` `LogSyncPort` +
-  `HubLogSyncAdapter` + no-op fallback (gated on `epistola.support.enabled`) would
-  ship rows, mirroring the `FeedbackSyncPort` / snapshot-sync pattern.
+- **Hub forwarding (OTLP-over-gRPC)** — implemented as a dedicated OTLP leg, **not** the
+  table-draining `LogSyncPort` once sketched here. Per
+  [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md), logs ride the standard
+  OpenTelemetry path: `modules/epistola-support-telemetry` attaches a second Logback
+  appender (`TelemetryLogAppender`) that forwards events to the hub's OTLP collector
+  service over gRPC (`OtlpGrpcLogRecordExporter`), in parallel with this table (the table
+  stays the local source of truth for the in-app viewer). It is **on by default with the
+  support tier** (`epistola.support.enabled=true`), but the installation-wide
+  `support-telemetry` entitlement is the real gate — nothing ships unless the installation
+  is entitled (opt out locally with `epistola.support.telemetry.enabled=false`); a
+  tenant-scoped DENY excludes that tenant's logs. The endpoint is the hub's own gRPC endpoint (resolved by the support
+  module — no separate port or proxy), authenticated with the installation's
+  `x-ep-api-key`. Forwarding is fail-open (the OTLP batch processor drops on overflow),
+  matching this pipeline's own posture.

@@ -170,9 +170,10 @@ epistola:
       enabled: true
       interval-ms: 60000
 
-  # Feature toggles — global defaults (tenant-level overrides stored in DB)
+  # Feature toggles — global defaults (tenant-level overrides stored in DB).
+  # Support-tier features (feedback/backups/upgrading) are NOT listed here: their default follows
+  # `epistola.support.enabled` (on with the tier, off in OSS), and the hub entitlement gates them.
   features:
-    support-feedback: true
     stencil-parameters: true
 
   # Application-wide default locale used for date/number formatting.
@@ -220,6 +221,19 @@ epistola:
           enabled: false # Run the freshness sweep
         cron: "0 0 * * * *" # Hourly
         max-age: 24h
+    # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
+    # hub-operated collector. **On by default when the support tier is enabled** — like every support
+    # feature, the hub's entitlement is the real gate: nothing ships unless the installation holds an
+    # installation-wide `support-telemetry` entitlement. Set `enabled: false` to opt out locally.
+    # Separate from any bring-your-own OpenTelemetry agent / management.otlp.* self-export leg (no
+    # double export). OTLP-over-gRPC; the endpoint is resolved by the support module from the hub's
+    # gRPC endpoint (same port — no separate port or proxy). See ADR 0006.
+    telemetry:
+      enabled: true
+      logs: true
+      metrics: true
+      log-level: INFO # Minimum level forwarded
+      strip-tenant-tag-from-metrics: true # Drop the per-tenant metric tag before forwarding (data residency)
 
   # Installation identity. Required when epistola.support.enabled=true;
   # ignored otherwise. Override per environment via

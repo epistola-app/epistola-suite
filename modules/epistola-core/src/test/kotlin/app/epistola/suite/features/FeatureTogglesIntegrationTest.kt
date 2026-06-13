@@ -71,7 +71,7 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("toggle-default")
         withMediator {
             val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)
-            // No override and no test config → falls back to FeatureDefaults constructor default (false)
+            // No override; support-tier default follows epistola.support.enabled, which is off in tests → false
             assertThat(enabled).isFalse()
         }
     }
