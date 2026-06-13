@@ -2,35 +2,29 @@ package app.epistola.suite.architecture
 
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.test.assertTrue
 
 /**
- * Build-time guard: committed source must not contain real credentials.
+ * Project config-hygiene gate: sensitive keys in committed `application*.yaml` /
+ * `.properties` must not carry a hardcoded literal value — they must come from
+ * `${ENV}` (or a Kubernetes Secret). Empty values and `${...}` placeholders pass.
  *
- * Two rules:
- *  - **Config secrets** — in `application*.yaml` / `*.properties`, a sensitive key
- *    (password, client-secret, the encryption key `material`, …) must not carry a
- *    hardcoded literal value. Empty values and `${ENV}` placeholders are fine.
- *    A small allowlist of **dev/local** config files may carry throwaway secrets
- *    (the same spirit as the committed `admin/admin` local users) — anything
- *    outside that list (notably the base `application.yaml` and `prod` profile)
- *    must source secrets from the environment.
- *  - **Always-banned patterns** — PEM private-key blocks and AWS access-key ids
- *    must never appear in any committed source, even dev/test.
+ * This deliberately does **not** try to be a general secret scanner — that job
+ * belongs to **gitleaks** (`.husky/pre-commit` for staged changes, the *Secret
+ * Scan* CI workflow for full history; config in `.gitleaks.toml`). gitleaks is
+ * entropy/format-based, so it would happily ignore a low-entropy `password: admin`
+ * or `client-secret: foo` committed into a production config; this test catches
+ * exactly that policy violation. The two are complementary.
  *
- * Real secrets belong in environment variables / Kubernetes Secrets (see
- * `docs/encryption.md` and the Helm chart), never in the repo.
+ * A small allowlist of clearly-marked **dev/local** profile files may carry
+ * throwaway secrets (same spirit as the committed `admin/admin` local users).
  */
 class NoHardcodedSecretsTest {
 
     /** YAML/properties keys whose value must never be a committed literal (outside dev/local files). */
-    private val sensitiveKey = Regex("""^(password|client-?secret|material|private-?key|secret-?key|access-?key|api-?key|passphrase)$""", RegexOption.IGNORE_CASE)
-
-    /** Patterns that must never appear in ANY committed source. */
-    private val alwaysBanned = mapOf(
-        "PEM private key" to Regex("-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----"),
-        "AWS access key id" to Regex("""\bAKIA[0-9A-Z]{16}\b"""),
+    private val sensitiveKey = Regex(
+        """^(password|client-?secret|material|private-?key|secret-?key|access-?key|api-?key|passphrase)$""",
+        RegexOption.IGNORE_CASE,
     )
 
     /**
@@ -45,19 +39,15 @@ class NoHardcodedSecretsTest {
     )
 
     @Test
-    fun `committed config has no hardcoded secrets`() {
+    fun `committed config sources secrets from the environment, not literals`() {
         val violations = mutableListOf<String>()
 
         for (path in RepoSources.configFiles()) {
             val relative = RepoSources.relativize(path)
-            val devOrTest = relative in allowedConfigFiles || "/src/test/" in relative
+            if (relative in allowedConfigFiles || "/src/test/" in relative) continue
+
             Files.readString(path).lineSequence().forEachIndexed { index, raw ->
                 val line = raw.substringBefore('#').trim()
-                alwaysBanned.forEach { (label, pattern) ->
-                    if (pattern.containsMatchIn(raw)) violations += "$relative:${index + 1}: $label"
-                }
-                if (devOrTest) return@forEachIndexed
-
                 val colon = line.indexOf(':')
                 if (colon <= 0) return@forEachIndexed
                 val key = line.substring(0, colon).trim().trimStart('-', ' ').trim()
@@ -69,35 +59,11 @@ class NoHardcodedSecretsTest {
             }
         }
 
-        // PEM/AWS patterns are banned in Kotlin sources too.
-        for (path in RepoSources.mainKotlinFiles() + testKotlinFiles()) {
-            val relative = RepoSources.relativize(path)
-            val text = Files.readString(path)
-            alwaysBanned.forEach { (label, pattern) ->
-                if (pattern.containsMatchIn(text)) violations += "$relative: $label"
-            }
-        }
-
         assertTrue(
             violations.isEmpty(),
-            "Hardcoded credential(s) found in committed source. Move real secrets to env/Secret " +
+            "Hardcoded secret value(s) in committed config. Source them from \${ENV} / a Secret " +
                 "(see docs/encryption.md), or — for a genuine dev/local-only value — add the file to " +
                 "allowedConfigFiles with a documented reason:\n${violations.joinToString("\n")}",
         )
     }
-
-    private fun testKotlinFiles(): List<Path> = listOf("apps", "modules")
-        .map(RepoSources.repoRoot::resolve)
-        .filter(Files::exists)
-        .flatMap { base ->
-            Files.walk(base).use { stream ->
-                stream
-                    .filter { it.fileName.toString().endsWith(".kt") }
-                    .filter { p ->
-                        val r = RepoSources.relativize(p)
-                        "/src/test/" in r && "/build/" !in r
-                    }
-                    .toList()
-            }
-        }
 }
