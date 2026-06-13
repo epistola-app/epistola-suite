@@ -10,13 +10,15 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.filter.ThresholdFilter
+import io.grpc.ManagedChannel
+import io.grpc.ManagedChannelBuilder
 import io.micrometer.core.instrument.Clock
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry
 import io.micrometer.core.instrument.config.MeterFilter
 import io.micrometer.registry.otlp.OtlpConfig
 import io.micrometer.registry.otlp.OtlpMeterRegistry
-import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
+import io.opentelemetry.exporter.otlp.logs.OtlpGrpcLogRecordExporter
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.logs.SdkLoggerProvider
 import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor
@@ -31,12 +33,14 @@ import org.springframework.context.event.EventListener
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
+import java.net.URI
 import java.time.Duration
 
 /**
- * The dedicated, isolated OTLP telemetry leg (ADR 0006): forwards application logs (via a Logback
- * appender → OTLP) and metrics (via a dedicated Micrometer OTLP registry) to the hub-operated
- * collector. Bean only exists when **both** `epistola.support.enabled=true` and
+ * The dedicated, isolated OTLP telemetry leg (ADR 0006): forwards application logs (a Logback
+ * appender → OTLP-over-gRPC) and metrics (a dedicated Micrometer OTLP registry whose sender ships the
+ * payload over OTLP-over-gRPC) to the Hub. Everything speaks OTLP over gRPC on the same endpoint/port
+ * the Suite already resolves for the Hub. Bean only exists when **both** `epistola.support.enabled=true` and
  * `epistola.support.telemetry.enabled=true`; on top of that, it activates only when the installation
  * holds an installation-wide `support-telemetry` entitlement.
  *
@@ -63,6 +67,7 @@ class TelemetryLeg(
     private var openTelemetry: OpenTelemetrySdk? = null
     private var logAppender: TelemetryLogAppender? = null
     private var otlpMeterRegistry: OtlpMeterRegistry? = null
+    private var metricsChannel: ManagedChannel? = null
 
     /**
      * Activate after the rest of the context is ready (and, ordered last, after the support module's
@@ -117,6 +122,8 @@ class TelemetryLeg(
             it.close()
         }
         otlpMeterRegistry = null
+        metricsChannel?.shutdown()
+        metricsChannel = null
     }
 
     private fun startLogForwarding(
@@ -126,9 +133,9 @@ class TelemetryLeg(
         deniedTenants: Set<String>,
     ) {
         val exporter =
-            OtlpHttpLogRecordExporter
+            OtlpGrpcLogRecordExporter
                 .builder()
-                .setEndpoint(otlpUrl(endpoint, "/v1/logs"))
+                .setEndpoint(endpoint)
                 .addHeader(API_KEY_HEADER, apiKey)
                 .setCompression("gzip")
                 .setTimeout(props.exportTimeout)
@@ -166,13 +173,36 @@ class TelemetryLeg(
         endpoint: String,
         apiKey: String,
     ) {
-        val registry = OtlpMeterRegistry(otlpMeterConfig(endpoint, apiKey), Clock.SYSTEM)
+        val channel = buildChannel(endpoint)
+        val registry =
+            OtlpMeterRegistry
+                .builder(otlpMeterConfig(endpoint))
+                .clock(Clock.SYSTEM)
+                .metricsSender(GrpcOtlpMetricsSender(channel, apiKey))
+                .build()
         if (props.stripTenantTagFromMetrics) {
             registry.config().meterFilter(MeterFilter.ignoreTags("tenant"))
         }
         (meterRegistry as? CompositeMeterRegistry)?.add(registry)
             ?: log.warn("Primary MeterRegistry is not composite; telemetry metrics leg not attached")
+        metricsChannel = channel
         otlpMeterRegistry = registry
+    }
+
+    /** A gRPC channel to the OTLP endpoint (`http://host:port` → plaintext, `https` → TLS). */
+    private fun buildChannel(endpoint: String): ManagedChannel {
+        val uri = URI(endpoint)
+        val plaintext = uri.scheme.equals("http", ignoreCase = true)
+        val port = if (uri.port != -1) {
+            uri.port
+        } else if (plaintext) {
+            80
+        } else {
+            443
+        }
+        val builder = ManagedChannelBuilder.forAddress(uri.host, port)
+        if (plaintext) builder.usePlaintext()
+        return builder.build()
     }
 
     private fun buildResource(installationId: String): Resource = Resource
@@ -185,23 +215,14 @@ class TelemetryLeg(
         .put("service.version", buildProperties?.version ?: "dev")
         .build()
 
-    private fun otlpMeterConfig(
-        endpoint: String,
-        apiKey: String,
-    ): OtlpConfig = object : OtlpConfig {
+    private fun otlpMeterConfig(endpoint: String): OtlpConfig = object : OtlpConfig {
         override fun get(key: String): String? = null
 
-        override fun url(): String = otlpUrl(endpoint, "/v1/metrics")
+        // Address only — the gRPC sender owns transport and auth; the registry does not POST here.
+        override fun url(): String = endpoint
 
         override fun step(): Duration = props.metricStep
-
-        override fun headers(): Map<String, String> = mapOf(API_KEY_HEADER to apiKey)
     }
-
-    private fun otlpUrl(
-        endpoint: String,
-        path: String,
-    ): String = endpoint.trimEnd('/') + path
 
     private fun attachAppender(appender: TelemetryLogAppender) {
         val context = LoggerFactory.getILoggerFactory() as? LoggerContext ?: run {

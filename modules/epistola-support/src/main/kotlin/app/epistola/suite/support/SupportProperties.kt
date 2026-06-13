@@ -29,10 +29,11 @@ data class SupportProperties(
      * @property nodeId Per-pod node identifier reported to the hub.
      *   Blank/null → auto-detect from EPISTOLA_NODE_ID / HOSTNAME / POD_NAME
      *   / local hostname.
-     * @property telemetryEndpoint Override for the OTLP/HTTP base URL of the
+     * @property telemetryEndpoint Override for the OTLP-over-gRPC endpoint of the
      *   telemetry leg (logs + metrics — see `epistola-support-telemetry`). Blank →
-     *   the resolver derives it from the hub endpoint itself (the hub proxies OTLP
-     *   for now); set this once a dedicated collector endpoint exists.
+     *   the resolver derives it from the hub gRPC endpoint itself (the hub serves the
+     *   OTLP collector services on the same port); set this once a dedicated
+     *   collector endpoint exists.
      */
     data class HubProperties(
         val discoveryUrl: String = "",

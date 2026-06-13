@@ -286,17 +286,29 @@ sampling is a poor trade and it abandons the OTLP investment.
 
 ### Implementation (Option A — accepted)
 
-- Stand up / configure a **dedicated hub OTLP collector leg** in `epistola-support`
-  (endpoint + `ek_*` credentials discovered at runtime), isolated from any bring-your-own
-  agent/self-export leg to avoid double export.
-- Wire a dedicated Micrometer OTLP registry for metrics and the OpenTelemetry Logback
-  appender → OTLP exporter for logs, both pointed at that leg, with gzip + batch tuning.
-- Build the **collector-side installation authentication + entitlement gate** (the one
-  genuinely new mechanism); the suite additionally self-gates via a proactive entitlement
-  read so it never ships when not entitled.
+- **Transport: OTLP over gRPC.** Both signals speak OTLP on the **hub's existing gRPC
+  endpoint** — the same endpoint/port the suite already resolves for the hub — so there is
+  **no separate HTTP server, port, or proxy**, and authentication reuses the hub's existing
+  `x-ep-api-key` gRPC interceptor instead of a bespoke collector-auth path. (HTTP/protobuf
+  was the alternative; it was dropped because it forced a second server + port and Micrometer
+  metrics could not share the gRPC transport without a custom sender — which, once written,
+  let gRPC carry both signals cleanly.)
+- A dedicated, isolated leg in `epistola-support-telemetry` (`TelemetryLeg`), gated on
+  `epistola.support.enabled` + `epistola.support.telemetry.enabled` + an installation-wide
+  `support-telemetry` entitlement, isolated from any bring-your-own agent/self-export leg.
+  The endpoint is resolved by the support module from the hub endpoint
+  (`HubTelemetryEndpointResolver`, override `epistola.support.hub.telemetry-endpoint`).
+- Logs: a `TelemetryLogAppender` → `OtlpGrpcLogRecordExporter`. Metrics: a dedicated
+  Micrometer `OtlpMeterRegistry` with a custom `GrpcOtlpMetricsSender` (Micrometer ships only
+  an HTTP sender), `tenant` tag stripped before forwarding.
+- Hub side: `OtlpSink` registers the standard OTLP collector gRPC services and **discards**
+  the payload for now. It authenticates the installation via the existing interceptor
+  (UNAUTHENTICATED otherwise) **and** requires an installation-wide `support-telemetry`
+  entitlement (`EntitlementService.isInstallationEntitled`, PERMISSION_DENIED otherwise).
+  Real ingestion is a follow-up.
 - Close out `docs/metrics.md` #506; **supersede** the `LogSyncPort` sketch in
-  `docs/application-logs.md` (note logs now ship via OTLP, not a table drain). Update both
-  docs.
+  `docs/application-logs.md` (logs now ship via OTLP-over-gRPC, not a table drain). Update
+  both docs.
 
 ### If Option B is ever reopened (durability requirement emerges)
 

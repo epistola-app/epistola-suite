@@ -192,15 +192,19 @@ Forwarding metrics to **epistola-hub** (the commercial support tier) is a
 dedicated, isolated OTLP push leg the suite owns end-to-end — distinct from the
 bring-your-own agent / `management.otlp.metrics.export` self-export leg above, so the
 two never double-export. It lives in `modules/epistola-support-telemetry`
-(`TelemetryLeg`): a second Micrometer `OtlpMeterRegistry` is added to the composite
-and pushes to the hub-operated collector. Per
-[ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally — off
+(`TelemetryLeg`): a second Micrometer `OtlpMeterRegistry` is added to the composite,
+with a custom `OtlpMetricsSender` (`GrpcOtlpMetricsSender`) that ships the OTLP payload
+to the hub **over gRPC** — the same `MetricsService/Export` call the hub serves, on the
+same gRPC endpoint the suite already resolves for the hub (no separate port or proxy).
+Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally — off
 unless `epistola.support.telemetry.enabled=true` **and** the installation holds an
 installation-wide `support-telemetry` entitlement (the capability is
-installation-wide; there is no per-tenant metrics toggle). The OTLP endpoint is
-resolved by the support module from the hub endpoint (it proxies OTLP for now;
-override with `epistola.support.hub.telemetry-endpoint`). The
+installation-wide; there is no per-tenant metrics toggle). The endpoint is resolved by
+the support module from the hub gRPC endpoint (override with
+`epistola.support.hub.telemetry-endpoint`). The
 per-tenant `tenant` tag is **stripped before forwarding** by default
 (`strip-tenant-tag-from-metrics`), keeping the hub feed data-residency-friendly; the
-local Prometheus / self-export leg keeps it. The hub OTLP collector that authenticates
-the installation and enforces entitlement is separate infrastructure.
+local Prometheus / self-export leg keeps it. The hub authenticates the OTLP gRPC stream
+with the installation's `x-ep-api-key` (the same credential as its other gRPC services)
+and requires an installation-wide `support-telemetry` entitlement (else `PERMISSION_DENIED`);
+real ingestion is still to come (the hub discards the payload for now).
