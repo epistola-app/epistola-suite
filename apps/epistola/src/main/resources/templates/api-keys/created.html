@@ -2,12 +2,11 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}">API Keys</a> &raquo; <span>Key created</span>
-        </nav>
 
         <div th:replace="~{fragments/page-header :: page-header(
-            pageTitle='API key created'
+            pageTitle='API key created',
+            backLinkHref=@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})},
+            backLinkLabel='API Keys'
         )}"></div>
 
         <th:block th:replace="~{::created-panel}" />

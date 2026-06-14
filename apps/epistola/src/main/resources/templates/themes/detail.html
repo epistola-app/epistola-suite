@@ -4,13 +4,11 @@
     <th:block th:fragment="content">
         <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
 
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo;
-            <span th:text="${theme.name}">Theme Name</span>
-        </nav>
 
         <div th:replace="~{fragments/page-header :: page-header(
             pageTitle=${theme.name},
+            backLinkHref=@{/tenants/{tenantId}/themes(tenantId=${tenantId})},
+            backLinkLabel='Themes',
             actions=~{fragments/page-actions :: theme-detail-actions(${tenantId}, ${catalogId}, ${theme}, ${editable})}
         )}"></div>
 
@@ -88,8 +86,6 @@
                         document.title = result.name + ' - Epistola';
                         const h1 = document.querySelector('.page-header h1');
                         if (h1) h1.textContent = result.name;
-                        const breadcrumbName = document.querySelector('.breadcrumb > span:last-child');
-                        if (breadcrumbName) breadcrumbName.textContent = result.name;
                     }
                 },
             });

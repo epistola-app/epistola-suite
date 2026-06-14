@@ -2,12 +2,11 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}">Stencils</a> &raquo; <span>New Stencil</span>
-        </nav>
 
         <div th:replace="~{fragments/page-header :: page-header(
-            pageTitle='New Stencil'
+            pageTitle='New Stencil',
+            backLinkHref=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
+            backLinkLabel='Stencils'
         )}"></div>
 
         <div class="card create-form-card">

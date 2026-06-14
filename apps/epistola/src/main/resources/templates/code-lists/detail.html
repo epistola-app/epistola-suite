@@ -3,13 +3,11 @@
 <body>
     <th:block th:fragment="content">
         <th:block th:fragment="page-content">
-            <nav class="breadcrumb">
-                <a th:href="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}">Code lists</a> &raquo;
-                <span th:text="${codeList.displayName}"></span>
-            </nav>
 
             <div th:replace="~{fragments/page-header :: page-header(
                 pageTitle=${codeList.displayName},
+                backLinkHref=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
+                backLinkLabel='Code lists',
                 pageDescription=${codeList.description},
                 actions=~{fragments/page-actions :: code-list-detail-actions(${tenantId}, ${codeList}, ${editable})}
             )}"></div>

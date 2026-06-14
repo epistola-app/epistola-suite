@@ -2,15 +2,11 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
-            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-               th:text="${'Test ' + run.id}">Test</a> &raquo;
-            <span>Request Log</span>
-        </nav>
 
         <div th:replace="~{fragments/page-header :: page-header(
             pageTitle='Request Log',
+            backLinkHref=@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})},
+            backLinkLabel=${'Test ' + run.id},
             actions=~{fragments/page-actions :: load-test-request-actions(${tenantId}, ${run})}
         )}"></div>
 
