@@ -162,9 +162,10 @@ machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
    (`CatalogPart.P → PartSchemaWindow(baseline, N+1)`). Other parts are untouched.
 3. Add `steps/{P}V{N}ToV{N+1}_<desc>.kt` implementing `CatalogSchemaMigration`
    with `part = CatalogPart.P`, `from = N`, and the one-version `migrate`.
-4. **Wire the detail path** if `P` is a resource type and not yet wired: route
-   `ImportCatalogZip`'s detail reads + `CatalogClient.fetchResourceDetail` through
-   `migrateAndBindResourceDetail` (one-time, then every part benefits).
+4. **Detail path: already wired** (one-time, done) — `ImportCatalogZip`'s detail
+   reads and `CatalogClient.fetchResourceDetail` route through
+   `migrateAndBindResourceDetail`, so a resource-type migration needs no extra
+   wiring. (The manifest path is likewise wired.)
 5. Capture a **golden fixture**: a real exported catalog at `P = N`, committed
    under `modules/epistola-core/src/test/resources/test-catalogs/wire-{P}vN/`.
 6. **Tests:**
