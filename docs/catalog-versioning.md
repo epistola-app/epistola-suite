@@ -4,6 +4,10 @@ How catalogs declare a version, how "is this a new version?" is decided, and
 how that flows across the web UI, REST, MCP, catalog exchange and the bundled
 catalogs. Companion to [`docs/exchange/README.md`](exchange/README.md).
 
+> This covers the **release version + content fingerprint** axis. For how it
+> relates to the other version concepts (template/contract/stencil publish, and
+> the wire-format `schemaVersion`), see [version-axes.md](version-axes.md).
+
 ## Why
 
 Authored catalogs had no real version: the ZIP export stamped
