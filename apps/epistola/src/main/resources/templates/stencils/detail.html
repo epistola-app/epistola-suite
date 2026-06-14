@@ -3,7 +3,9 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{fragments/page-header :: page-header(
-            pageTitle=${stencil.name}
+            pageTitle=${stencil.name},
+            backLinkHref=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
+            backLinkLabel='Stencils'
         )}"></div>
 
         <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
