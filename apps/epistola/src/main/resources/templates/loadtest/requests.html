@@ -9,13 +9,10 @@
             <span>Request Log</span>
         </nav>
 
-        <div class="page-header">
-            <h1>Request Log</h1>
-            <div class="page-actions">
-                <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-                   class="ep-btn ep-btn-outline">Back to Test Details</a>
-            </div>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Request Log',
+            actions=~{fragments/page-actions :: load-test-request-actions(${tenantId}, ${run})}
+        )}"></div>
 
         <div th:if="${#lists.isEmpty(requests)}" class="empty-state">
             <div class="empty-state-icon">

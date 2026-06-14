@@ -9,7 +9,9 @@
 </head>
 <body>
     <main class="regular">
-        <h1 data-testid="page-title">Tenants</h1>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Tenants'
+        )}"></div>
 
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="form-section">

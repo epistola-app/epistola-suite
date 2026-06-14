@@ -2,21 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Themes</h1>
-            <div class="page-actions">
-                <div th:replace="~{fragments/search :: search-box(
-                    placeholder='Search themes...',
-                    searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
-                    targetId='theme-rows'
-                )}"></div>
-                <a th:if="${auth.has('THEME_EDIT')}"
-                   th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Theme
-                </a>
-            </div>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Themes',
+            searchPlaceholder='Search themes...',
+            searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
+            searchTargetId='theme-rows',
+            actions=~{fragments/page-actions :: theme-list-actions(${tenantId})}
+        )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;">

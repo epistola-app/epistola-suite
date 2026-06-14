@@ -211,9 +211,9 @@
             }
         </style>
 
-        <div class="page-header">
-            <h1 data-testid="page-title">Consumers</h1>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Consumers'
+        )}"></div>
 
         <div th:fragment="results"
              id="consumer-results"

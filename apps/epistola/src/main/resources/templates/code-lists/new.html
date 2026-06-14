@@ -7,7 +7,9 @@
             <span>New code list</span>
         </nav>
 
-        <h1>New code list</h1>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='New code list'
+        )}"></div>
 
         <div id="code-list-form-area" class="card create-form-card" th:fragment="form-card">
             <div class="card-content">

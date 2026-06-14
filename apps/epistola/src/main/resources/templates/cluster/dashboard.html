@@ -121,9 +121,9 @@
             }
         </style>
 
-        <div class="page-header">
-            <h1 data-testid="page-title">Cluster</h1>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Cluster'
+        )}"></div>
 
         <div th:fragment="results"
              id="cluster-results"

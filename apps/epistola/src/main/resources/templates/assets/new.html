@@ -6,7 +6,9 @@
             <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}">Assets</a> &raquo; <span>Upload Asset</span>
         </nav>
 
-        <h1>Upload Asset</h1>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Upload Asset'
+        )}"></div>
 
         <div class="card create-form-card">
             <div class="card-content">

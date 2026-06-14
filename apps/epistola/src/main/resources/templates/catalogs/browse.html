@@ -7,9 +7,12 @@
             &raquo; <span th:text="${catalog.name}"></span>
         </nav>
 
-        <h1 th:text="${catalog.name}"></h1>
-        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
-        <p th:if="${catalog.description}" class="text-muted text-sm" th:text="${catalog.description}"></p>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle=${catalog.name},
+            pageDescription=${catalog.description}
+        )}"></div>
+
+        <p th:if="${catalog.sourceUrl}" class="text-muted text-sm" style="margin-bottom: var(--ep-space-4);" th:text="${catalog.sourceUrl}"></p>
 
         <div id="catalog-alert"></div>
 

@@ -6,7 +6,9 @@
             <a th:href="@{/tenants/{tenantId}/api-keys(tenantId=${tenantId})}">API Keys</a> &raquo; <span>New API key</span>
         </nav>
 
-        <h1>New API key</h1>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='New API key'
+        )}"></div>
 
         <div id="api-key-form-area" class="card create-form-card">
             <div class="card-content">

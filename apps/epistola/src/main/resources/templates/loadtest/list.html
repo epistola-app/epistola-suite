@@ -2,13 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Load Tests</h1>
-            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Load Test
-            </a>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Load Tests',
+            actions=~{fragments/page-actions :: load-test-list-actions(${tenantId})}
+        )}"></div>
 
         <div th:if="${#lists.isEmpty(runs)}" class="empty-state">
             <div class="empty-state-icon">

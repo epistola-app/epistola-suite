@@ -9,18 +9,14 @@
             <span th:text="${theme.name}">Theme Name</span>
         </nav>
 
-        <div class="page-header">
-            <h1 data-testid="page-title" th:text="${theme.name}">Theme Name</h1>
-            <div class="page-actions">
-                <span th:if="${!editable}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                <form th:if="${editable}" id="delete-theme-form"
-                      th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
-                      method="post">
-                    <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
-                            onclick="epistolaConfirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.', { title: 'Delete Theme', confirmLabel: 'Delete', confirmClass: 'ep-btn-destructive' }).then(function(ok) { if (ok) document.getElementById('delete-theme-form').submit(); })">Delete Theme</button>
-                </form>
-            </div>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle=${theme.name},
+            actions=~{fragments/page-actions :: theme-detail-actions(${tenantId}, ${catalogId}, ${theme}, ${editable})}
+        )}"></div>
+
+        <p th:if="${!editable}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+            <span class="badge badge-muted">Read-only</span> This theme belongs to a subscribed catalog.
+        </p>
 
         <div class="detail-section">
             <div class="detail-section-header">

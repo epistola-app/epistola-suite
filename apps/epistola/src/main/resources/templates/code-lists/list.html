@@ -2,16 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Code lists</h1>
-            <div class="page-actions">
-                <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Code List
-                </a>
-            </div>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Code lists',
+            actions=~{fragments/page-actions :: code-list-list-actions(${tenantId})}
+        )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;">
@@ -85,7 +79,7 @@
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${cl.catalogKey},slug=${cl.slug})}"
-                           class="btn btn-sm btn-ghost">View</a>
+                           class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
                     </td>
                 </tr>
             </tbody>

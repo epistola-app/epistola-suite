@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <th:block th:fragment="new-template(tenantId)">
+        <a th:if="${auth.has('TEMPLATE_EDIT')}"
+           th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+           class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Template
+        </a>
+    </th:block>
+    <th:block th:fragment="template-page-actions(tenantId)">
+        <th:block th:replace="~{::new-template(${tenantId})}"></th:block>
+    </th:block>
+
+    <th:block th:fragment="api-key-list-actions(tenantId)">
+        <a th:if="${auth.has('TENANT_USERS')}"
+           th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New API key
+        </a>
+    </th:block>
+
+    <th:block th:fragment="asset-list-actions(tenantId)">
+        <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+            Upload Asset
+        </a>
+    </th:block>
+
+    <th:block th:fragment="attribute-list-actions(tenantId)">
+        <a th:if="${auth.has('TENANT_SETTINGS')}"
+           th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Attribute
+        </a>
+    </th:block>
+
+    <th:block th:fragment="backup-list-actions(tenantId, status)">
+        <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
+            <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${status != 'OK'}">
+                <th:block th:replace="~{fragments/icon :: icon(name='upload-cloud', class='ep-icon')}" />
+                Back up now
+            </button>
+        </form>
+    </th:block>
+
+    <th:block th:fragment="catalog-list-actions()">
+        <button type="button" class="ep-btn ep-btn-outline"
+                onclick="document.getElementById('import-dialog').showModal()">
+            <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon')}" />
+            Import ZIP
+        </button>
+        <button type="button" class="ep-btn ep-btn-outline"
+                onclick="document.getElementById('subscribe-dialog').showModal()">
+            <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
+            Subscribe
+        </button>
+        <button type="button" class="ep-btn ep-btn-primary"
+                onclick="document.getElementById('create-dialog').showModal()"
+                data-testid="catalog-create-open">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Catalog
+        </button>
+    </th:block>
+
+    <th:block th:fragment="code-list-list-actions(tenantId)">
+        <a th:if="${auth.has('TENANT_SETTINGS')}"
+           th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Code List
+        </a>
+    </th:block>
+
+    <th:block th:fragment="code-list-detail-actions(tenantId, codeList, editable)">
+        <form th:if="${editable and codeList.sourceUrl != null}"
+              th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
+              method="post" style="display: inline;">
+            <button type="submit" class="btn btn-outline">
+                <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                Refresh from source
+            </button>
+        </form>
+        <button th:if="${editable}" type="button"
+                class="btn btn-outline btn-destructive"
+                data-confirm-title="Delete code list"
+                data-confirm-target="#main-content"
+                th:attr="data-confirm-message='Delete code list &quot;' + ${codeList.displayName} + '&quot;? Bound attributes must be unbound first.',data-confirm-url=@{/tenants/{tenantId}/code-lists/{c}/{s}/delete(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
+                onclick="openConfirmDialog(this)">
+            Delete
+        </button>
+    </th:block>
+
+    <th:block th:fragment="environment-list-actions(tenantId)">
+        <a th:if="${auth.has('TENANT_SETTINGS')}"
+           th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Environment
+        </a>
+    </th:block>
+
+    <th:block th:fragment="feedback-detail-actions(tenantId, feedback, statuses, isManager)">
+        <form th:if="${isManager}"
+              hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
+              hx-target="#feedback-content"
+              hx-swap="innerHTML"
+              class="ep-row">
+            <select name="status" class="ep-select ep-select-sm form-control-auto">
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                        th:selected="${feedback.status.name() == s.name()}">STATUS</option>
+            </select>
+            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
+        </form>
+    </th:block>
+
+    <th:block th:fragment="feedback-list-actions(tenantId)">
+        <button type="button" class="ep-btn ep-btn-primary"
+                hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
+                hx-target="#feedback-dialog-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('feedback-dialog').showModal()">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Feedback
+        </button>
+    </th:block>
+
+    <th:block th:fragment="font-list-actions(tenantId)">
+        <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+            Upload Font
+        </a>
+    </th:block>
+
+    <th:block th:fragment="load-test-list-actions(tenantId)">
+        <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Load Test
+        </a>
+    </th:block>
+
+    <th:block th:fragment="load-test-detail-actions(tenantId, run)">
+        <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
+           class="ep-btn ep-btn-outline"
+           th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
+            View Request Log
+        </a>
+        <form th:if="${run.status.name() == 'RUNNING'}"
+              th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
+              method="post"
+              style="display: inline;">
+            <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
+        </form>
+    </th:block>
+
+    <th:block th:fragment="load-test-request-actions(tenantId, run)">
+        <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+           class="ep-btn ep-btn-outline">Back to Test Details</a>
+    </th:block>
+
+    <th:block th:fragment="stencil-list-actions(tenantId)">
+        <a th:if="${auth.has('STENCIL_EDIT')}"
+           th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Stencil
+        </a>
+    </th:block>
+
+    <th:block th:fragment="theme-detail-actions(tenantId, catalogId, theme, editable)">
+        <form th:if="${editable}" id="delete-theme-form"
+              th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+              method="post">
+            <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
+                    onclick="epistolaConfirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.', { title: 'Delete Theme', confirmLabel: 'Delete', confirmClass: 'ep-btn-destructive' }).then(function(ok) { if (ok) document.getElementById('delete-theme-form').submit(); })">Delete Theme</button>
+        </form>
+    </th:block>
+
+    <th:block th:fragment="theme-list-actions(tenantId)">
+        <a th:if="${auth.has('THEME_EDIT')}"
+           th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            New Theme
+        </a>
+    </th:block>
+
+</body>
+</html>

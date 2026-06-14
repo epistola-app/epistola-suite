@@ -2,12 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <div>
-                <h1 data-testid="page-title" th:text="${tenant.name}">Tenant Name</h1>
-                <p class="subtitle" th:text="'ID: ' + ${tenant.id}">ID: tenant-id</p>
-            </div>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle=${tenant.name},
+            pageDescription=${'ID: ' + tenant.id}
+        )}"></div>
 
         <!-- What's New compact teaser (always shown, emphasized when unseen) -->
         <div th:if="${changelogSummary != null}"

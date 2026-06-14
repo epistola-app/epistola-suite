@@ -2,9 +2,9 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1 data-testid="page-title">Generation History</h1>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Generation History'
+        )}"></div>
 
         <!-- Statistics -->
         <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">

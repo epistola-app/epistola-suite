@@ -2,20 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="page-header">
-            <h1>Assets</h1>
-            <div class="page-actions">
-                <div th:replace="~{fragments/search :: search-box(
-                    placeholder='Search assets...',
-                    searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
-                    targetId='asset-grid-items'
-                )}"></div>
-                <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
-                    Upload Asset
-                </a>
-            </div>
-        </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Assets',
+            searchPlaceholder='Search assets...',
+            searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
+            searchTargetId='asset-grid-items',
+            actions=~{fragments/page-actions :: asset-list-actions(${tenantId})}
+        )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;">

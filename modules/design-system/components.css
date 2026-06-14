@@ -501,11 +501,19 @@
   .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--ep-space-6);
+    align-items: start;
+    padding: var(--ep-space-4) 0;
 
-    & h1 {
-      margin: 0;
+    & .content {
+      & h1 {
+        margin: 0;
+      }
+
+      & p {
+        font-size: var(--ep-text-sm);
+        color: var(--ep-muted-foreground);
+        margin-top: var(--ep-space-2);
+      }
     }
   }
 

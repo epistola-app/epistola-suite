@@ -7,7 +7,9 @@
             <span>New Load Test</span>
         </nav>
 
-        <h1>New Load Test</h1>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='New Load Test'
+        )}"></div>
 
         <div id="form-error">
             <div th:if="${error}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">

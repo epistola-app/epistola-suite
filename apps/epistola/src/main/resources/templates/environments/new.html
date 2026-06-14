@@ -6,7 +6,9 @@
             <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Environments</a> &raquo; <span>New Environment</span>
         </nav>
 
-        <h1>New Environment</h1>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='New Environment'
+        )}"></div>
 
         <div class="card create-form-card">
             <div class="card-content">

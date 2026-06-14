@@ -7,30 +7,19 @@
             <span th:text="${'Test ' + run.id}">Test Details</span>
         </nav>
 
-        <div class="page-header">
-            <h1>
-                Load Test
-                <span class="badge"
-                      th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
-                                        run.status.name() == 'RUNNING' ? 'badge-primary' :
-                                        run.status.name() == 'FAILED' ? 'badge-destructive' :
-                                        run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
-                      th:text="${run.status}">
-                </span>
-            </h1>
-            <div class="page-actions">
-                <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
-                   class="ep-btn ep-btn-outline"
-                   th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
-                    View Request Log
-                </a>
-                <form th:if="${run.status.name() == 'RUNNING'}"
-                      th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
-                      method="post"
-                      style="display: inline;">
-                    <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
-                </form>
-            </div>
+        <div th:replace="~{fragments/page-header :: page-header(
+            pageTitle='Load Test',
+            actions=~{fragments/page-actions :: load-test-detail-actions(${tenantId}, ${run})}
+        )}"></div>
+
+        <div style="margin-bottom: var(--ep-space-4);">
+            <span class="badge"
+                  th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
+                                    run.status.name() == 'RUNNING' ? 'badge-primary' :
+                                    run.status.name() == 'FAILED' ? 'badge-destructive' :
+                                    run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
+                  th:text="${run.status}">
+            </span>
         </div>
 
         <!-- Configuration -->
