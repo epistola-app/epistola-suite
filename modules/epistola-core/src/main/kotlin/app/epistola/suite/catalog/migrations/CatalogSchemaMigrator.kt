@@ -87,8 +87,8 @@ class CatalogSchemaMigrator(
 
     /**
      * Parse [rawDetail], gate/upgrade the resource [type]'s detail to its part's
-     * current schema version, and bind it to [ResourceDetail]. Not yet wired into
-     * the importers (see class KDoc).
+     * current schema version, and bind it to [ResourceDetail]. Invoked at both
+     * import chokepoints (see class KDoc).
      */
     fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail {
         val part = CatalogPart.ofResourceType(type)
