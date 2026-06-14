@@ -6,40 +6,32 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FeatureDefaultsTest {
-
-    @Test
-    fun `isEnabled returns configured default for known feature`() {
-        val defaults = FeatureDefaults(supportFeedback = true)
-        assertTrue(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
-    }
-
-    @Test
-    fun `isEnabled returns false when feature is disabled`() {
-        val defaults = FeatureDefaults(supportFeedback = false)
-        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
-    }
-
-    @Test
-    fun `isEnabled returns false for unknown feature`() {
-        val defaults = FeatureDefaults(supportFeedback = true)
-        assertFalse(defaults.isEnabled(FeatureKey.of("unknown-feature")))
-    }
-
-    @Test
-    fun `default constructor has feedback disabled`() {
-        val defaults = FeatureDefaults()
-        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
-    }
-
     @Test
     fun `stencil-parameters defaults to enabled`() {
-        val defaults = FeatureDefaults()
-        assertTrue(defaults.isEnabled(KnownFeatures.STENCIL_PARAMETERS))
+        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.STENCIL_PARAMETERS))
     }
 
     @Test
     fun `stencil-parameters returns configured value when disabled`() {
-        val defaults = FeatureDefaults(stencilParameters = false)
-        assertFalse(defaults.isEnabled(KnownFeatures.STENCIL_PARAMETERS))
+        assertFalse(FeatureDefaults(stencilParameters = false).isEnabled(KnownFeatures.STENCIL_PARAMETERS))
+    }
+
+    @Test
+    fun `unknown feature is disabled`() {
+        assertFalse(FeatureDefaults().isEnabled(FeatureKey.of("unknown-feature")))
+    }
+
+    @Test
+    fun `feedback is freely usable and defaults on here`() {
+        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
+    }
+
+    @Test
+    fun `hub-only features are not resolved here (their default follows the support tier)`() {
+        // FeatureDefaults intentionally does not configure hub-only support features; FeatureToggleService
+        // derives their default from epistola.support.enabled. isEnabled treats them as unknown → false.
+        val defaults = FeatureDefaults()
+        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_BACKUPS))
+        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_UPGRADING))
     }
 }

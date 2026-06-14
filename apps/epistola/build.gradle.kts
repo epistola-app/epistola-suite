@@ -51,6 +51,10 @@ dependencies {
     // feature from Backups (gated by `support-upgrading`); both ride the shared snapshot sync.
     implementation(project(":modules:epistola-support-upgrading"))
 
+    // Telemetry — the dedicated OTLP leg that forwards application logs + metrics to epistola-hub
+    // when enabled (epistola.support.telemetry.enabled) and the installation is entitled. ADR 0006.
+    implementation(project(":modules:epistola-support-telemetry"))
+
     // Catalog module (catalog exchange for sharing templates)
 
     // Load test module (load testing functionality)

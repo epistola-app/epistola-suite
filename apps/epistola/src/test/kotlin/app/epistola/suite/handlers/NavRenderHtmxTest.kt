@@ -41,7 +41,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     @Test
     fun `support group is hidden when no support feature is enabled`() {
         val tenant = createTenant("Nav No Support")
-        // support-feedback defaults on (application.yaml), so disable every support feature to
+        // feedback defaults on (freely usable), so disable every support feature to
         // leave the Support group empty.
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
