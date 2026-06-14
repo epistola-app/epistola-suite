@@ -22,11 +22,15 @@ class FeatureDefaultsTest {
     }
 
     @Test
-    fun `support-tier features are not resolved here (their default follows the support tier)`() {
-        // FeatureDefaults intentionally does not configure support-tier features; FeatureToggleService
+    fun `feedback is freely usable and defaults on here`() {
+        assertTrue(FeatureDefaults().isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
+    }
+
+    @Test
+    fun `hub-only features are not resolved here (their default follows the support tier)`() {
+        // FeatureDefaults intentionally does not configure hub-only support features; FeatureToggleService
         // derives their default from epistola.support.enabled. isEnabled treats them as unknown → false.
         val defaults = FeatureDefaults()
-        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_FEEDBACK))
         assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_BACKUPS))
         assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_UPGRADING))
     }

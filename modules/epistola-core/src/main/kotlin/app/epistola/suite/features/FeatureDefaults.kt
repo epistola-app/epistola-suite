@@ -4,15 +4,18 @@ import app.epistola.suite.common.ids.FeatureKey
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
- * Global default state for non-support feature toggles. The **support-tier** features
- * ([KnownFeatures.SUPPORT_TIER]) are not configured here — their default follows
- * `epistola.support.enabled` (on with the tier, off otherwise), resolved in [FeatureToggleService].
+ * Global default state for feature toggles with no tenant override. The **hub-only** support
+ * features ([KnownFeatures.HUB_ONLY] — backups/upgrading) are not configured here; their default
+ * follows `epistola.support.enabled` (resolved in [FeatureToggleService]). Feedback, by contrast, is
+ * freely usable locally, so it defaults **on** here regardless of the support tier.
  */
 @ConfigurationProperties(prefix = "epistola.features")
 data class FeatureDefaults(
+    val supportFeedback: Boolean = true,
     val stencilParameters: Boolean = true,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
+        KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
         KnownFeatures.STENCIL_PARAMETERS -> stencilParameters
         else -> false
     }

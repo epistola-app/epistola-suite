@@ -27,7 +27,8 @@ import org.springframework.stereotype.Component
 class FeatureToggleService(
     private val jdbi: Jdbi,
     private val defaults: FeatureDefaults,
-    // Support-tier features default to the support tier: on when it's enabled, off otherwise (OSS).
+    // Hub-only support features (backups/upgrading) default to the support tier: on when it's enabled,
+    // off otherwise (OSS). Feedback is freely usable, so it keeps its FeatureDefaults default.
     @Value("\${epistola.support.enabled:false}") private val supportEnabled: Boolean,
 ) {
     private val requestCache: ScopedValue<MutableMap<TenantKey, Map<FeatureKey, Boolean>>> = ScopedValue.newInstance()
@@ -37,8 +38,8 @@ class FeatureToggleService(
 
     fun isEnabled(tenantKey: TenantKey, featureKey: FeatureKey): Boolean = resolveAll(tenantKey)[featureKey] ?: defaultFor(featureKey)
 
-    /** Global default for a feature with no tenant override: support-tier follows the tier, else [FeatureDefaults]. */
-    internal fun defaultFor(featureKey: FeatureKey): Boolean = if (featureKey in KnownFeatures.SUPPORT_TIER) supportEnabled else defaults.isEnabled(featureKey)
+    /** Global default for a feature with no tenant override: hub-only features follow the tier, else [FeatureDefaults]. */
+    internal fun defaultFor(featureKey: FeatureKey): Boolean = if (featureKey in KnownFeatures.HUB_ONLY) supportEnabled else defaults.isEnabled(featureKey)
 
     fun resolveAll(tenantKey: TenantKey): Map<FeatureKey, Boolean> {
         if (!requestCache.isBound) return loadAll(tenantKey)

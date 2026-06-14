@@ -61,7 +61,7 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
             DeleteFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK).execute()
 
             val features = GetFeatureToggles(tenant.id).query()
-            // Should fall back to global default (true in application.yaml)
+            // Should fall back to global default (feedback is freely usable → defaults on)
             assertThat(features[KnownFeatures.SUPPORT_FEEDBACK]).isNotNull()
         }
     }
@@ -71,8 +71,8 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("toggle-default")
         withMediator {
             val enabled = featureToggleService.isEnabled(tenant.id, KnownFeatures.SUPPORT_FEEDBACK)
-            // No override; support-tier default follows epistola.support.enabled, which is off in tests → false
-            assertThat(enabled).isFalse()
+            // No override → global default. Feedback is freely usable, so it defaults on (FeatureDefaults).
+            assertThat(enabled).isTrue()
         }
     }
 
@@ -112,14 +112,16 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("toggle-tenant1")
         val tenant2 = createTenant("toggle-tenant2")
         withMediator {
-            SaveFeatureToggle(tenant1.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
+            // Backups is hub-only, so with no override it defaults off in tests (support tier off) —
+            // a clean contrast against tenant1's explicit override.
+            SaveFeatureToggle(tenant1.id, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
 
             val features1 = featureToggleService.resolveAll(tenant1.id)
             val features2 = featureToggleService.resolveAll(tenant2.id)
 
             // tenant1 has override → true, tenant2 has no override → falls back to default (false)
-            assertThat(features1[KnownFeatures.SUPPORT_FEEDBACK]).isTrue()
-            assertThat(features2[KnownFeatures.SUPPORT_FEEDBACK]).isFalse()
+            assertThat(features1[KnownFeatures.SUPPORT_BACKUPS]).isTrue()
+            assertThat(features2[KnownFeatures.SUPPORT_BACKUPS]).isFalse()
         }
     }
 }

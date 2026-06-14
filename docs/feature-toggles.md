@@ -13,7 +13,7 @@ Feature toggles use a **two-tier resolution** model:
 
 When checking whether a feature is enabled, the system first looks for a tenant-specific override. If none exists, it falls back to the global default. If neither is configured, the feature defaults to disabled.
 
-**Support-tier features** (`KnownFeatures.SUPPORT_TIER` — feedback / backups / upgrading) are the exception: they are not configured in `FeatureDefaults`. Their global default follows the support tier — **on when `epistola.support.enabled=true`, off otherwise (OSS)** — and the hub entitlement gates actual availability on top (see [`adr/0006-shipping-logs-and-metrics-to-hub.md`](adr/0006-shipping-logs-and-metrics-to-hub.md) for the same principle applied to telemetry). So enabling the support tier opts every support feature in; an OSS deployment never shows them.
+**Hub-only support features** (`KnownFeatures.HUB_ONLY` — backups / upgrading) are the exception: they are not configured in `FeatureDefaults`. Their global default follows the support tier — **on when `epistola.support.enabled=true`, off otherwise (OSS)** — because they are inert without a live hub (the same principle applies to telemetry; see [`adr/0006-shipping-logs-and-metrics-to-hub.md`](adr/0006-shipping-logs-and-metrics-to-hub.md)). **Feedback is not hub-only** — it is freely usable locally, so it keeps a plain `FeatureDefaults` default of **on**. When the support tier _is_ enabled, the hub entitlement gates actual availability of all three (`SUPPORT_TIER` = the `gatedFeatures` set) on top of the toggle; with no tier present, availability is just the toggle.
 
 ```
 Request → FeatureToggleService.isEnabled(tenantKey, featureKey)
