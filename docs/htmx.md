@@ -487,14 +487,18 @@ val form = request.form {
     }
 }
 
-if (form.hasErrors()) {
-    return ServerResponse.ok().page("environments/new") {
-        "pageTitle" to "New Environment - Epistola"
-        "tenantId" to tenantId.value
-        "formData" to form.formData
-        "errors" to form.errors
+// Re-render the `createForm` fragment on error: over HTMX it swaps itself in
+// place (hx-target="this"), keeping the dialog open; non-HTMX redirects to the list.
+fun reRender(formData: Map<String, String>, errors: Map<String, String>) = request.htmx {
+    fragment("environments/new", "createForm") {
+        "tenantId" to tenantId.key
+        "formData" to formData
+        "errors" to errors
     }
+    onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
 }
+
+if (form.hasErrors()) return reRender(form.formData, form.errors)
 
 val environmentId = form.getEnvironmentId("slug")!!
 val name = form["name"]
@@ -504,14 +508,7 @@ val result = form.executeOrFormError {
     CreateEnvironment(id = environmentId, tenantId = tenantId, name = name).execute()
 }
 
-if (result.hasErrors()) {
-    return ServerResponse.ok().page("environments/new") {
-        "pageTitle" to "New Environment - Epistola"
-        "tenantId" to tenantId.value
-        "formData" to result.formData
-        "errors" to result.errors
-    }
-}
+if (result.hasErrors()) return reRender(result.formData, result.errors)
 ```
 
 **Supported validators:** `required()`, `pattern(regex)`, `minLength(n)`, `maxLength(n)`, `min(n)`, `max(n)`
@@ -524,48 +521,25 @@ if (result.hasErrors()) {
 
 ### Idea B: Unified Page + Fragment DSL
 
-Eliminate `if (!request.isHtmx)` branches by using `onNonHtmx { page(...) }` inside the htmx DSL:
-
-**Before (separate conditional):**
+Eliminate `if (!request.isHtmx)` branches by handling the non-HTMX case inside the htmx DSL. The
+`onNonHtmx { }` block supports both `page()` (list/detail pages) and `redirect()` (create dialogs,
+whose `…/new` is dialog-only):
 
 ```kotlin
-fun newForm(request: ServerRequest): ServerResponse {
-    val tenantId = TenantId.of(request.pathVariable("tenantId"))
+// Create dialog: fragment for HTMX, redirect to the list otherwise.
+fun newForm(request: ServerRequest): ServerResponse = request.htmx {
+    fragment("<entity>/new", "createDialog") { "tenantId" to tenantId.key }
+    onNonHtmx { redirect("/tenants/${tenantId.key}/<entities>") }
+}
 
-    if (!request.isHtmx || request.htmxBoosted) {
-        val templates = ListDocumentTemplates(tenantId = tenantId).query()
-        return ServerResponse.ok().page("loadtest/new") {
-            "pageTitle" to "Start Load Test"
-            "templates" to templates
-        }
-    }
-
-    // HTMX fragment logic...
-    return request.htmx {
-        fragment("loadtest/new", "template-options") { ... }
-    }
+// List/detail endpoint that also serves a fragment: render the full page on non-HTMX.
+fun list(request: ServerRequest): ServerResponse = request.htmx {
+    fragment("<entity>/list", "rows") { "items" to items }
+    onNonHtmx { page("<entity>/list") { "items" to items } }
 }
 ```
 
-**After (unified DSL):**
-
-```kotlin
-fun newForm(request: ServerRequest): ServerResponse {
-    val tenantId = TenantId.of(request.pathVariable("tenantId"))
-
-    return request.htmx {
-        onNonHtmx {
-            page("loadtest/new") {
-                "pageTitle" to "Start Load Test"
-                "templates" to ListDocumentTemplates(tenantId = tenantId).query()
-            }
-        }
-        fragment("loadtest/new", "template-options") { ... }
-    }
-}
-```
-
-The `onNonHtmx { }` block now supports both `page()` and `redirect()` calls, unifying request handling in a single DSL scope.
+This unifies request handling in a single DSL scope instead of a leading `if (!request.isHtmx)` branch.
 
 ### Idea F: HTMX Form Error Response Helper
 
@@ -603,67 +577,109 @@ The `formError()` helper:
 
 ## Common Patterns
 
-### Serving Full Pages and Fragments from One Endpoint
+### Serving Fragments and Pages from One Endpoint
 
-When `hx-boost="true"` is on `<body>`, all link navigation sends `HX-Request: true` with `HX-Boosted: true`. If your endpoint also handles HTMX fragment requests (e.g., dynamic form updates), you must distinguish boosted navigation from in-page fragment updates:
+When `hx-boost="true"` is on `<body>`, all link navigation sends `HX-Request: true` with
+`HX-Boosted: true`. A create-form `newForm` is dialog-only: it returns the dialog fragment for HTMX
+and redirects to the list otherwise.
 
 ```kotlin
-fun newForm(request: ServerRequest): ServerResponse {
-    if (!request.isHtmx || request.htmxBoosted) {
-        // Full page: navigation or boosted link click
-        return ServerResponse.ok().render("layout/shell", mapOf(...))
-    }
-
-    // HTMX fragment: in-page update (e.g., select changed)
-    return request.htmx {
-        fragment("mytemplate", "my-fragment") { ... }
-    }
+fun newForm(request: ServerRequest): ServerResponse = request.htmx {
+    fragment("<entity>/new", "createDialog") { "tenantId" to tenantId.key }
+    onNonHtmx { redirect("/tenants/${tenantId.key}/<entities>") }   // boosted/no-JS → list
 }
 ```
 
-Without the `htmxBoosted` check, boosted navigation receives a fragment instead of the full page.
+A **dual-purpose** endpoint that serves both the dialog and in-page fragment updates (the
+`loadtest/new` cascade) distinguishes them by `HX-Trigger-Name` — the cascade `<select>`s each carry
+a field name; the dialog-open trigger `<a>` carries none:
 
-### Create Forms: Prefer Plain Boosted Forms; Disinherit When You Must Target
-
-`hx-target` and `hx-swap` are **inherited** HTMX attributes. A form that scopes its swap to a
-sub-region leaks that target down to its descendant controls — including a boosted Cancel `<a>`:
-
-```html
-<form hx-post="/items" hx-target="#form-area" hx-swap="outerHTML">
-  ...
-  <a th:href="@{/items}">Cancel</a>
-  <!-- inherits #form-area / outerHTML! -->
-</form>
+```kotlin
+fun newForm(request: ServerRequest): ServerResponse {
+    if (!request.isHtmx) return redirect("/tenants/$tenantKey/load-tests")
+    val cascadeFields = setOf("templateId", "variantId", "versionId", "environmentId", "exampleId")
+    if (request.htmxTriggerName !in cascadeFields) {
+        return ServerResponse.ok().render("loadtest/new :: createDialog", model)   // open the dialog
+    }
+    // otherwise: a cascade update → return the template-options fragment
+}
 ```
 
-Because a boosted request renders the full `layout/shell` page (see above), that Cancel link
-swaps the **entire shell** into `#form-area` — a "nested shell".
+For an endpoint that serves a **full page** plus fragments (list/detail, not create), still guard on
+`!request.isHtmx || request.htmxBoosted` before rendering `layout/shell`, so boosted navigation
+receives the page and not a bare fragment.
 
-**The default: don't put HTMX attributes on a standalone create form at all.** Rely on the global
-`hx-boost`. Use a plain `<form th:action method="post">`; the handler renders the full page with
-errors on validation failure (`ServerResponse.ok().page("x/new") { "errors" to … }`) and `303`s on
-success. Cancel is a plain `<a th:href>`. This is what most create forms do (environments, themes,
-templates, attributes, stencils, api-keys, code-lists) — no inheritance, nothing to override.
+### Create Forms: Modal Dialogs
 
-**When a form genuinely needs an in-page swap** (e.g. `loadtest/new.html`, whose cascading
-dropdowns load via `hx-get` and whose submit-error preserves in-progress state), keep `hx-post` +
-`hx-target`, and add `hx-disinherit` so descendant links/controls don't inherit it:
+Standalone "create new entity" forms open in a **shared modal `<dialog>`** loaded from the list
+page over HTMX. There is **no full-page `…/new`** — a direct (non-HTMX) `GET …/new` redirects to the
+list. The shared pieces:
+
+- **`#dialog-host`** — an empty `<div>` in `layout/shell` that every create dialog is loaded into.
+- **Open/close wiring** in `fragments/htmx`: when a fragment lands in `#dialog-host`, the contained
+  `<dialog>` is `showModal()`-ed; any `[data-dialog-close]` button closes its dialog. (The
+  `htmx:afterSwap` listener binds to `document`, not `document.body` — that script runs in `<head>`
+  where `document.body` is still null.)
+
+**Trigger** (on the list page):
 
 ```html
-<form
-  th:hx-post="@{…}"
-  hx-target="#form-error"
+<a
+  th:href="@{…/new}"
+  th:hx-get="@{…/new}"
+  hx-target="#dialog-host"
   hx-swap="innerHTML"
-  hx-disinherit="hx-target hx-swap"
+  hx-boost="false"
+  >New …</a
 >
-  ...
-  <a th:href="@{…}">Cancel</a>
-  <!-- no longer inherits -->
-</form>
 ```
 
-Do **not** reach for per-link `hx-target="body"` overrides — disinherit at the form is the
-idiomatic fix.
+`hx-boost="false"` is **required**: a boosted request carries `HX-Boosted`, which the handler treats
+as non-HTMX and answers with a redirect instead of the dialog fragment — so the whole list page
+would be injected into `#dialog-host`.
+
+**Template** — `<entity>/new.html` exposes three fragments (no `content`/full page): `createDialog`
+(the `<dialog id="create-<entity>-dialog" class="ep-dialog ep-dialog-wide">` shell), `createForm`
+(`<form id="create-<entity>-form" th:hx-post hx-target="this" hx-swap="outerHTML" hx-boost="false">`,
+re-rendered on error so it swaps itself and the dialog stays open), and `fields` (the inputs + any
+inline `<script>`, so the script runs when the dialog is injected). **Name fragments so they don't
+collide with tags** — `createForm`/`createDialog`, never `form`/`dialog` (`:: form` is a markup
+selector matching every `<form>`).
+
+**Handler** — `newForm` returns the `createDialog` fragment for HTMX and `redirect`s to the list
+otherwise; `create` re-renders `createForm` on validation error (dialog stays open with field
+errors) and `HX-Redirect`s on success (`303` for non-HTMX). API keys are the exception: success
+swaps a `createdReveal` fragment over the form to show the one-time secret inside the dialog.
+
+**Disinherit when the form has an in-page sub-region swap.** `hx-target`/`hx-swap` are **inherited**,
+so a form that targets a sub-region leaks that target to descendant controls (e.g. a
+`[data-dialog-close]` Cancel). `loadtest/new.html` is the live example: its cascading dropdowns
+`hx-get` into `#template-options-section` _inside_ the dialog, so the form carries
+`hx-disinherit="hx-target hx-swap"`. Do **not** reach for per-link `hx-target="body"` overrides —
+disinherit at the form is the idiomatic fix.
+
+#### Why per-entity `new.html`, not one shared dialog shell
+
+Each entity keeps its own `new.html` (the `createDialog` / `createForm` / `fields` fragments), even
+though the **chrome** — the `<dialog>`, header, `<form>`, body/footer with Cancel + submit — is
+byte-identical across all of them. We deliberately do **not** factor that chrome into a single
+parameterized `fragments/create-dialog.html`. The reasoning:
+
+- The **fields are the substance and are irreducibly per-entity** (a slug + name vs. a multipart
+  face-upload vs. the load-test cascade). A shared shell only de-duplicates ~20 lines of trivial,
+  stable chrome.
+- A shared shell only fits cleanly for the ~7 self-swapping forms. **fonts/assets** post multipart
+  and don't self-swap, and **load-test** is bespoke (cascade + `hx-disinherit` + posts to
+  `#form-error`) — folding them in needs `multipart`/`selfSwap` flags that turn the shell into
+  config soup. So we'd trade "uniform but slightly repeated" for "DRY but two patterns."
+- The shell would move the chrome into **model-driven indirection** (the handler supplies
+  `dialogId` / `title` / `action` / `fieldsTemplate`), which reads worse than self-contained markup
+  and adds wiring to every handler.
+
+So the chosen trade-off is **self-contained, uniform per-entity templates** (every create form has
+the same three fragments, readable in one file) over a DRY-but-indirected shared shell. The repeated
+chrome is cheap and stable; the indirection is not. Revisit only if the chrome starts changing often
+or genuinely diverges.
 
 ### Multi-Select Cascading Dropdowns
 

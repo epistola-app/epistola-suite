@@ -20,45 +20,81 @@ Ask the user (if not already specified):
 
 There are **4 distinct form patterns** in the codebase. Pick the right one:
 
-### 1. Standalone Create (POST + redirect)
+### 1. Standalone Create (modal dialog)
 
-Full-page form that submits with POST and redirects on success.
+The create form opens in a shared modal `<dialog>` loaded from the list page over HTMX. **There is no full-page `/new`** — a direct (non-HTMX) `GET …/new` redirects to the list. This is the default for a new top-level entity.
 
-**Reference**: `EnvironmentHandler.newForm` + `EnvironmentHandler.create` + `environments/new.html`
+**Reference**: `EnvironmentHandler.newForm` + `EnvironmentHandler.create` + `environments/new.html` + the trigger in `environments/list.html`.
 
-**When**: Creating a new top-level entity (environments, themes, templates, attributes).
+**When**: Creating a new top-level entity (environments, themes, templates, attributes, stencils, fonts, assets, code lists, …).
 
-**Handler pattern**:
+**Template** (`<entity>/new.html`) — three fragments, no `content`/full page:
+
+- **`createDialog`** — `<dialog id="create-<entity>-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-<entity>-dialog">` with an `ep-dialog-header` and `~{<entity>/new :: createForm}`.
+- **`createForm`** — `<form th:fragment="createForm" id="create-<entity>-form" th:hx-post="@{…}" hx-target="this" hx-swap="outerHTML" hx-boost="false">` containing `ep-dialog-body` (`~{… :: fields}`) and `ep-dialog-footer` (`[data-dialog-close]` Cancel + a `data-testid="create-form-submit"` submit). It re-renders **itself** on validation error (`hx-target="this"`), so the dialog stays open with field errors.
+- **`fields`** — the inputs (single source of truth, included by `createForm`). Any inline `<script>` lives **here** so it runs when the dialog is injected (htmx executes `<script>` in swapped content).
+
+Fragment names must NOT be an HTML tag — use `createForm`/`createDialog`, never `form`/`dialog`. `:: form` is a markup selector that matches **every** `<form>` element and will pull extra forms into the dialog.
+
+Give each entity its **own** `new.html` with these fragments — do **not** factor the shared dialog/form chrome into one parameterized `fragments/create-dialog.html`. This is a deliberate choice (self-contained, uniform templates over DRY-but-indirected ones); see [`docs/htmx.md`](../../../docs/htmx.md) → "Why per-entity `new.html`, not one shared dialog shell".
+
+**List trigger** (`<entity>/list.html`):
+
+```html
+<a
+  th:href="@{…/new}"
+  th:hx-get="@{…/new}"
+  hx-target="#dialog-host"
+  hx-swap="innerHTML"
+  hx-boost="false"
+  data-testid="<entity>-create-open"
+  >New …</a
+>
+```
+
+`hx-boost="false"` is **required**: without it the request is boosted, and the handler's non-HTMX branch redirects to the list instead of returning the dialog. The shared `#dialog-host` (in `layout/shell`) plus the open/close wiring in `fragments/htmx` auto-open the injected `<dialog>` and close it on any `[data-dialog-close]`.
+
+**Handler**:
 
 ```kotlin
+fun newForm(request: ServerRequest): ServerResponse {
+    val tenantId = request.tenantId()
+    return request.htmx {
+        fragment("<entity>/new", "createDialog") { "tenantId" to tenantId.key; /* + options */ }
+        onNonHtmx { redirect("/tenants/${tenantId.key}/<entities>") }   // dialog-only: no page
+    }
+}
+
 fun create(request: ServerRequest): ServerResponse {
-    val tenantId = TenantId.of(request.pathVariable("tenantId"))
-    // ... extract form params ...
+    val tenantId = request.tenantId()
+    val form = request.form { /* field(...) { ... } */ }
 
-    fun renderFormWithErrors(errors: Map<String, String>): ServerResponse {
-        return ServerResponse.ok().render("layout/shell", mapOf(
-            "contentView" to "<entity>/new",
-            "tenantId" to tenantId.value,
-            "formData" to formData,
-            "errors" to errors,
-        ))
+    // On error the `createForm` fragment swaps itself in place over HTMX (dialog
+    // stays open); a non-HTMX request redirects to the list.
+    fun reRender(formData: Map<String, String>, errors: Map<String, String>) = request.htmx {
+        fragment("<entity>/new", "createForm") {
+            "tenantId" to tenantId.key
+            "formData" to formData
+            "errors" to errors
+        }
+        onNonHtmx { redirect("/tenants/${tenantId.key}/<entities>") }
     }
 
-    try {
-        CreateEntity(tenantId = tenantId, ...).execute()
-    } catch (e: ValidationException) {
-        return renderFormWithErrors(mapOf(e.field to e.message))
-    } catch (e: DuplicateIdException) {
-        return renderFormWithErrors(mapOf("slug" to "Already exists"))
-    }
+    if (form.hasErrors()) return reRender(form.formData, form.errors)
+    val result = form.executeOrFormError { CreateEntity(tenantId = tenantId.key, ...).execute() }
+    if (result.hasErrors()) return reRender(result.formData, result.errors)
 
-    return ServerResponse.status(303)
-        .header("Location", "/tenants/${tenantId.value}/<entities>")
-        .build()
+    // Success navigates client-side over HTMX; falls back to 303 for non-HTMX.
+    val location = "/tenants/${tenantId.key}/<entities>/..."   // detail/editor, or the list
+    return if (request.isHtmx) {
+        ServerResponse.ok().header("HX-Redirect", location).build()
+    } else {
+        ServerResponse.status(303).header("Location", location).build()
+    }
 }
 ```
 
-**Template pattern**: `<form th:action="@{...}" method="post">` — no HTMX attributes on the form.
+**Success-step variants**: most entities `HX-Redirect` to the new item's editor/detail (templates, themes) or back to the list (environments, attributes). **API keys** instead swap a `createdReveal` fragment over the form to show the one-time secret inside the dialog. **Multipart uploads** (fonts, assets) keep their existing `hx-post` + `hx-encoding="multipart/form-data"` + inline JSON error handling — only the dialog wrapper and `newForm` change.
 
 ### 2. Inline HTMX Create
 
@@ -72,7 +108,7 @@ Form embedded in a list/detail page that submits via HTMX and replaces a section
 
 **Template pattern**: Form has both `th:action` (fallback) and `th:hx-post` + `hx-target` + `hx-swap="outerHTML"`.
 
-`hx-target`/`hx-swap` are **inherited**, so a boosted Cancel link inside such a form would inherit them and nest a full page into the fragment target. Add `hx-disinherit="hx-target hx-swap"` to the form so descendant links/controls don't inherit; the Cancel link stays a plain `<a th:href>`. Do not add per-link `hx-target="body"` overrides — see [`docs/htmx.md`](../../../docs/htmx.md) → "Create Forms: Prefer Plain Boosted Forms". **Prefer pattern 1 (plain boosted) for standalone `/new` pages**; only reach for this inline-HTMX pattern when the form genuinely needs an in-page swap.
+`hx-target`/`hx-swap` are **inherited**, so a Cancel link inside such a form would inherit them. Add `hx-disinherit="hx-target hx-swap"` to the form so descendant links/controls don't inherit; the Cancel link stays a plain `<a th:href>`. Do not add per-link `hx-target="body"` overrides — see [`docs/htmx.md`](../../../docs/htmx.md) → "Create Forms: Modal Dialogs". This is the pattern for a form that needs **in-page** swaps inside a parent page; for a standalone new-entity create, use pattern 1 (the dialog). The load-test create dialog combines both: it is a dialog (pattern 1) whose form additionally uses `hx-disinherit` because its cascading selects swap a sub-region (`#template-options-section`).
 
 ### 3. Dialog Edit (HTMX PATCH + retarget/reswap)
 
@@ -211,6 +247,6 @@ UI deletes always use `POST /{id}/delete`. The `DELETE` HTTP verb is only used f
 - `redirect()` requires importing `app.epistola.suite.htmx.redirect`
 - `.execute()` and `.query()` require importing `app.epistola.suite.mediator.execute` / `.query`
 - Templates inside the HTMX DSL `fragment()` use the `"key" to value` syntax (infix `ModelBuilder.to`), not `mapOf()`
-- The `renderFormWithErrors()` inner function is a standard pattern for re-rendering forms — keep it local to the `create`/`update` method
-- Full-page renders use `ServerResponse.ok().render("layout/shell", mapOf("contentView" to "...", ...))`, fragments just use `request.htmx { fragment(...) }`
+- The `reRender(formData, errors)` inner function (re-rendering the `createForm` fragment on validation error) is a standard pattern — keep it local to the `create`/`update` method
+- Create forms are **dialog-only** (pattern 1): `newForm` returns the `createDialog` fragment for HTMX and `redirect`s to the list otherwise — never render a `…/new` page. List/detail pages still use full-page renders (`ServerResponse.ok().page("...")`); fragments use `request.htmx { fragment(...) }`
 - **`form.formData` includes ALL submitted params**, not just fields declared via `field()`. Declared fields get trimmed and validated; undeclared fields (e.g., hidden inputs like `sourceUrl`, `consoleLogs`) are passed through as-is. Access them via `form.formData["fieldName"]`.

@@ -27,11 +27,24 @@ for that consumer.
 
 ---
 
-## Create Forms (Batch 2)
+## Create Forms (dialogs)
 
-| `data-testid`        | Attached to                              | Covers                                                                                           |
-| -------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `create-form-submit` | Submit button inside `.create-form-card` | Theme create, template create, font upload, environment create, attribute create, API key create |
+Every "create new" form opens in a shared modal dialog loaded into `#dialog-host`
+(see [`htmx.md`](htmx.md) → "Create Forms: Modal Dialogs"). Each form exposes the
+same three anchors, with a per-entity prefix `<entity>` ∈ { `template`, `theme`,
+`api-key`, `environment`, `stencil`, `attribute`, `font`, `asset`, `code-list`,
+`load-test` }:
+
+| `data-testid`                | Attached to                                                         | Covers                                                                |
+| ---------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `<entity>-create-open`       | "New …" trigger on `<entity>/list.html` (`hx-get` → `#dialog-host`) | All ten create forms                                                  |
+| `<entity>-create-open-empty` | the same trigger inside the list's empty-state                      | The eight whose list can be empty (all except fonts/assets)           |
+| `create-form-submit`         | Submit button inside each create dialog (`#create-<entity>-dialog`) | All create dialogs — generic, since only one dialog is open at a time |
+
+The dialog element carries both `id="create-<entity>-dialog"` and a matching
+`data-testid` (e.g. `create-template-dialog`), so a test opens via the trigger and
+asserts/scopes on the dialog. Field inputs keep stable `id`s (`#name`, `#slug`, …),
+scoped as `#create-<entity>-dialog #name`.
 
 ---
 
@@ -80,11 +93,13 @@ for that consumer.
 
 ### API Keys
 
-| `data-testid`    | Attached to                                                      | Covers                           |
-| ---------------- | ---------------------------------------------------------------- | -------------------------------- |
-| `api-key-row`    | `<tr>` in `api-keys/list.html` (paired with `data-api-key-name`) | API key list rows                |
-| `api-key-delete` | Delete button on `api-keys/list.html`                            | Revoking an API key              |
-| `api-key-name`   | `<dd>` for the key name on `api-keys/created.html`               | Verifying the created key's name |
+| `data-testid`          | Attached to                                                                                        | Covers                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `api-key-row`          | `<tr>` in `api-keys/list.html` (paired with `data-api-key-name`)                                   | API key list rows                                     |
+| `api-key-delete`       | Delete button on `api-keys/list.html`                                                              | Revoking an API key                                   |
+| `api-key-created`      | The one-time-secret reveal swapped over the form (`createdReveal` fragment in `api-keys/new.html`) | Asserting the secret is revealed in the create dialog |
+| `api-key-created-done` | "Done" link in the reveal footer (back to the list)                                                | Closing the reveal after copying the key              |
+| `api-key-name`         | `<dd>` for the key name (reveal fragment, and the `api-keys/created.html` non-HTMX fallback page)  | Verifying the created key's name                      |
 
 ---
 
