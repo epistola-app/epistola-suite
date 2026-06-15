@@ -10,7 +10,7 @@
 **Install order:** 2 (after the assets its faces point at; before themes that reference it).
 **Wire location:** `./resources/font/{slug}.json`.
 
-> **No bundled example.** The demo/system catalogs ship no asset-backed fonts, so there is no committed fixture for this part. Its contract is documented here as the **v1** baseline (no prior shape change is known). See [docs/fonts.md](../../../../fonts.md) for the font model itself. (Note: until the export is split into per-part stamps — [ADR 0006](../../../../adr/0006-catalog-wire-format-migrations.md) — a real export still writes the manifest version into this `schemaVersion` field.)
+> **No bundled example.** The demo/system catalogs ship no asset-backed fonts, so there is no committed fixture for this part. Its contract is documented here as the **v1** baseline (no prior shape change is known). See [docs/fonts.md](../../../../fonts.md) for the font model itself. (Exports stamp this `schemaVersion` with the font part's own current version — `CatalogContentBuilder` applies per-part stamps, [ADR 0006](../../../../adr/0006-catalog-wire-format-migrations.md).)
 
 ## Shape
 

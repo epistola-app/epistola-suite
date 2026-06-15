@@ -162,8 +162,9 @@ class ImportCatalogZipHandler(
         val manifestBytes = entries["catalog.json"]
             ?: throw IllegalArgumentException("ZIP does not contain catalog.json")
         // Version gate + wire-format upgrade chain before binding (see
-        // CatalogSchemaMigrator). Resource details bind as-is for now; the
-        // detail-path migration wires in with the first real migration.
+        // CatalogSchemaMigrator). Resource details are routed through the same
+        // migrator below (per-part gate); the chains are empty today, so
+        // current-shape payloads pass straight through to binding.
         val manifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
@@ -264,11 +265,10 @@ class ImportCatalogZipHandler(
 
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
-        // Pre-parse every stencil detail once. Each detail is upgraded to its
-        // part's current wire shape by the migrator before binding (a pre-v2 ZIP
-        // whose stencil omits `version` is assigned version 1 — see
-        // StencilV1ToV2RequireVersionMigration — rather than failing). Missing /
-        // corrupt stencil JSON is still a hard import failure before any
+        // Pre-parse every stencil detail once. Each detail is routed through the
+        // migrator (per-part version gate + chain) before binding; the stencil
+        // chain is empty today, so current-shape details pass through unchanged.
+        // Missing / corrupt stencil JSON is still a hard import failure before any
         // mutation, and the parsed StencilResource objects are reused by the
         // install loop below so each stencil detail is deserialized only once.
         // Other resource types stay in the per-resource try/catch so a

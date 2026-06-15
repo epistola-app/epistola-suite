@@ -208,20 +208,20 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 
 | Field                       | Type    | Required    | Description                                                                                                                                               |
 | --------------------------- | ------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer | yes         | Protocol version. Currently `4`.                                                                                                                          |
+| `schemaVersion`             | integer | yes         | Manifest contract version (each resource part carries its own `schemaVersion` — see [per-part versioning](#parts--contract-versions)). Currently `4`.     |
 | `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                                                                                       |
 | `catalog.name`              | string  | yes         | Display name.                                                                                                                                             |
 | `publisher.name`            | string  | yes         | Publisher name.                                                                                                                                           |
 | `release.version`           | string  | yes         | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.     |
 | `release.fingerprint`       | string  | no          | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](../catalog-versioning.md). |
 | `resources`                 | array   | yes         | List of available resources.                                                                                                                              |
-| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                                                                                  |
+| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, `asset`, `codeList`, or `font`.                                                                              |
 | `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                                                                                     |
 | `resources[].name`          | string  | yes         | Display name.                                                                                                                                             |
 | `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                                                                                            |
 | `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                       |
-| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                                                                                           |
-| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global).                                                                 |
+| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, `asset`, `codeList`, or `font`.                                                                                                       |
+| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes, stencils, code lists, and fonts. Absent for assets (tenant-global).                                             |
 | `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                                                                                |
 
 ### Cross-Catalog Dependencies
@@ -231,6 +231,8 @@ Templates may reference resources from other catalogs:
 - **Themes**: via `themeRef.catalogKey` in the template model
 - **Stencils**: via `node.props.catalogKey` in stencil nodes
 - **Assets**: via `node.props.assetId` in image nodes (tenant-global, no catalog needed)
+- **Code lists**: via `codeListBinding.catalogKey` on an attribute
+- **Fonts**: via `fontFamily.catalogKey` in a theme or template's document styles
 
 During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
 
@@ -238,11 +240,13 @@ During import, Epistola validates that all declared dependencies exist in the ta
 
 Dependencies use a sealed type hierarchy:
 
-| Type      | Fields               | Scope                                                |
-| --------- | -------------------- | ---------------------------------------------------- |
-| `theme`   | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `stencil` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `asset`   | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
+| Type       | Fields               | Scope                                                |
+| ---------- | -------------------- | ---------------------------------------------------- |
+| `theme`    | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `stencil`  | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `codeList` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `font`     | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `asset`    | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
 
 ### Resource Detail Files
 
