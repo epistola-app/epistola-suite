@@ -1,6 +1,6 @@
 # ADR 0006: Catalog Wire-Format Schema Migrations
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-09
 - **Deciders:** Epistola team
 - **Tags:** catalog, exchange, versioning, import, wire-format
