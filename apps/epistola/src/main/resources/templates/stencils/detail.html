@@ -60,7 +60,7 @@
                                       hx-swap="innerHTML"
                                       style="display: inline;">
                                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">
-                                        <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon ep-icon-sm')}" />
                                         New Draft
                                     </button>
                                 </form>
@@ -168,7 +168,7 @@
                                            th:data-variant-id="${u.variantId}"
                                            th:data-catalog-key="${u.catalogKey}">
                                     <th:block th:if="${u.catalogType.name() == 'SUBSCRIBED'}">
-                                        <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                     </th:block>
                                 </td>
                                 <td>

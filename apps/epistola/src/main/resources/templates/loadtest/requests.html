@@ -12,7 +12,7 @@
 
         <div th:if="${#lists.isEmpty(requests)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No request data</div>
             <div class="empty-state-description">No request log entries are available for this test run.</div>

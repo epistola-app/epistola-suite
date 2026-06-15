@@ -6,7 +6,7 @@
         <a th:if="${auth.has('TEMPLATE_EDIT')}"
            th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
            class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Template
         </a>
     </th:block>
@@ -17,14 +17,14 @@
     <th:block th:fragment="api-key-list-actions(tenantId)">
         <a th:if="${auth.has('TENANT_USERS')}"
            th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New API key
         </a>
     </th:block>
 
     <th:block th:fragment="asset-list-actions(tenantId)">
         <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
             Upload Asset
         </a>
     </th:block>
@@ -32,7 +32,7 @@
     <th:block th:fragment="attribute-list-actions(tenantId)">
         <a th:if="${auth.has('TENANT_SETTINGS')}"
            th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Attribute
         </a>
     </th:block>
@@ -40,7 +40,7 @@
     <th:block th:fragment="backup-list-actions(tenantId, status)">
         <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
             <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${status != 'OK'}">
-                <th:block th:replace="~{fragments/icon :: icon(name='upload-cloud', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='upload-cloud', class='ep-icon')}" />
                 Back up now
             </button>
         </form>
@@ -49,18 +49,18 @@
     <th:block th:fragment="catalog-list-actions()">
         <button type="button" class="ep-btn ep-btn-outline"
                 onclick="document.getElementById('import-dialog').showModal()">
-            <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
             Import ZIP
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
                 onclick="document.getElementById('subscribe-dialog').showModal()">
-            <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
             Subscribe
         </button>
         <button type="button" class="ep-btn ep-btn-primary"
                 onclick="document.getElementById('create-dialog').showModal()"
                 data-testid="catalog-create-open">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Catalog
         </button>
     </th:block>
@@ -68,7 +68,7 @@
     <th:block th:fragment="code-list-list-actions(tenantId)">
         <a th:if="${auth.has('TENANT_SETTINGS')}"
            th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Code List
         </a>
     </th:block>
@@ -78,7 +78,7 @@
               th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
               method="post" style="display: inline;">
             <button type="submit" class="btn btn-outline">
-                <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                 Refresh from source
             </button>
         </form>
@@ -95,7 +95,7 @@
     <th:block th:fragment="environment-list-actions(tenantId)">
         <a th:if="${auth.has('TENANT_SETTINGS')}"
            th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Environment
         </a>
     </th:block>
@@ -120,21 +120,21 @@
                 hx-target="#feedback-dialog-content"
                 hx-swap="innerHTML"
                 onclick="document.getElementById('feedback-dialog').showModal()">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Feedback
         </button>
     </th:block>
 
     <th:block th:fragment="font-list-actions(tenantId)">
         <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
             Upload Font
         </a>
     </th:block>
 
     <th:block th:fragment="load-test-list-actions(tenantId)">
         <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Load Test
         </a>
     </th:block>
@@ -161,7 +161,7 @@
     <th:block th:fragment="stencil-list-actions(tenantId)">
         <a th:if="${auth.has('STENCIL_EDIT')}"
            th:href="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Stencil
         </a>
     </th:block>
@@ -178,7 +178,7 @@
     <th:block th:fragment="theme-list-actions(tenantId)">
         <a th:if="${auth.has('THEME_EDIT')}"
            th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
-            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
             New Theme
         </a>
     </th:block>

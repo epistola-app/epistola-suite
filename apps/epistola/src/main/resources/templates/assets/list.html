@@ -35,7 +35,7 @@
             <th:block th:fragment="asset-grid-items">
                 <div th:if="${#lists.isEmpty(assets)}" class="empty-state">
                     <div class="empty-state-icon">
-                        <th:block th:replace="~{fragments/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
                     </div>
                     <div class="empty-state-title">No assets yet</div>
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
@@ -66,7 +66,7 @@
                                         th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
                                         data-confirm-target="#asset-grid-items"
                                         onclick="openConfirmDialog(this)">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
                         </div>

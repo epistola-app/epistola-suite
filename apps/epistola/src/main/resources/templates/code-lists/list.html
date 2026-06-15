@@ -28,7 +28,7 @@
 
         <div th:if="${#lists.isEmpty(codeLists)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='list', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='list', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No code lists yet</div>
             <div class="empty-state-description">
@@ -38,7 +38,7 @@
             <a th:if="${auth.has('TENANT_SETTINGS')}"
                th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="btn btn-primary"
                style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New Code List
             </a>
         </div>

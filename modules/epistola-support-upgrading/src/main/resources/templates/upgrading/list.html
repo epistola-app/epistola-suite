@@ -21,7 +21,7 @@
 
         <div th:if="${status == 'OK' and #lists.isEmpty(groups)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='shield-check', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='shield-check', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No compatibility results yet</div>
             <div class="empty-state-description">Results appear here when Epistola tests your catalogs against an upcoming release.</div>

@@ -33,7 +33,7 @@
 
         <div th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No feedback yet</div>
             <div class="empty-state-description">Submit feedback to report issues, request features, or ask questions.</div>

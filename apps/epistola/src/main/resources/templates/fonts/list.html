@@ -30,7 +30,7 @@
             <th:block th:fragment="font-grid-items">
                 <div th:if="${#lists.isEmpty(fonts)}" class="empty-state">
                     <div class="empty-state-icon">
-                        <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                     </div>
                     <div class="empty-state-title">No fonts yet</div>
                     <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
@@ -63,7 +63,7 @@
                                         th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/fonts/{catalogId}/{slug}/delete(tenantId=${tenantId},catalogId=${font.catalogKey},slug=${font.slug})}"
                                         data-confirm-target="#font-grid-items"
                                         onclick="openConfirmDialog(this)">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
                         </div>

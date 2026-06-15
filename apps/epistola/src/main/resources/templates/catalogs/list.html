@@ -23,7 +23,7 @@
              th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div th:if="${catalogs.isEmpty()}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No catalogs yet</div>
             <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
@@ -75,26 +75,26 @@
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
-                            <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/export-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{fragments/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
-                            <th:block th:replace="~{fragments/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
                                 th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
-                            <th:block th:replace="~{fragments/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
@@ -105,7 +105,7 @@
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 data-confirm-target="#catalog-list"
                                 onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
                     </td>
                 </tr>
@@ -383,7 +383,7 @@
             </div>
             <div class="ep-dialog-body">
                 <div class="alert alert-error">
-                    <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                     <div>
                         <div class="alert-title">
                             Stencil version-pins in catalog '<span th:text="${catalogId}"></span>'
@@ -423,7 +423,7 @@
          opted in to renumber. Reuses the design-system alert-error pattern. -->
     <th:block th:fragment="import-conflict-content">
         <div class="alert alert-error">
-            <th:block th:replace="~{fragments/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
             <div>
                 <div class="alert-title">
                     Import blocked: stencil version conflicts in catalog '<span th:text="${catalogId}"></span>'.

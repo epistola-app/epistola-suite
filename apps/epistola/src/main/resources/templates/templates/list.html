@@ -32,13 +32,13 @@
 
         <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
             <a th:if="${auth.has('TEMPLATE_EDIT')}"
                th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template
             </a>
         </div>
@@ -69,7 +69,7 @@
                             <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
-                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
                         </td>
                     </tr>

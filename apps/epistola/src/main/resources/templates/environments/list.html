@@ -12,13 +12,13 @@
 
         <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No environments yet</div>
             <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
                th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                 New Environment
             </a>
         </div>
@@ -46,7 +46,7 @@
                                     th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
                                     data-confirm-target="#environment-rows"
                                     onclick="openConfirmDialog(this)">
-                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </td>
                     </tr>

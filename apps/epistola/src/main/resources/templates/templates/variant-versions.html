@@ -48,7 +48,7 @@
                             <th:block th:if="${version.status.name() == 'DRAFT'}">
                                 <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" hx-boost="false" title="Edit draft">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
@@ -60,7 +60,7 @@
 
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
 
@@ -76,7 +76,7 @@
 
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>
                                 <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                       method="post"
@@ -87,7 +87,7 @@
                                     <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                             th:disabled="${activationsByVersion.containsKey(version.id)}"
                                             th:title="${activationsByVersion.containsKey(version.id)} ? 'Cannot archive: version is active in one or more environments' : 'Archive version'">
-                                        <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                     </button>
                                 </form>
                             </th:block>
@@ -104,7 +104,7 @@
 
                                         onclick="previewPdf(this)"
                                         title="Preview PDF">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </th:block>
                         </td>

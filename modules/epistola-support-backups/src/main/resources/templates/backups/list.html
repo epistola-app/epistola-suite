@@ -30,7 +30,7 @@
 
         <div th:if="${status == 'OK' and #lists.isEmpty(snapshots)}" class="empty-state">
             <div class="empty-state-icon">
-                <th:block th:replace="~{fragments/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='database', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No backups yet</div>
             <div class="empty-state-description">Run a backup now, or wait for the next scheduled daily backup.</div>
@@ -64,7 +64,7 @@
                                 th:attr="data-confirm-message='Restore this tenant from the backup captured ' + ${snap.capturedAt} + '? This deletes every current catalog in the tenant (including any unpublished drafts) and replaces it with the published content from the backup. This cannot be undone.',
                                          data-confirm-url=@{/tenants/{tenantId}/backups/{snapshotId}/restore(tenantId=${tenantId},snapshotId=${snap.snapshotId})}"
                                 onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{fragments/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='rotate-ccw', class='ep-icon ep-icon-sm')}" />
                             Restore
                         </button>
                     </td>

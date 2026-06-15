@@ -245,7 +245,7 @@
 
             <div th:if="${#lists.isEmpty(report.consumers)}" class="empty-state">
                 <div class="empty-state-icon">
-                    <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon ep-icon-xl')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='monitor', class='ep-icon ep-icon-xl')}" />
                 </div>
                 <div class="empty-state-title">No consumers yet</div>
                 <div class="empty-state-description">
@@ -288,7 +288,7 @@
                               th:text="${consumer.state == 'DISABLED' or consumer.state == 'NOT_CONNECTED' ? consumer.activityLabel : 'active'}">active</span>
                     </span>
 
-                    <th:block th:replace="~{fragments/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm consumer-chevron')}" />
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm consumer-chevron')}" />
                 </summary>
 
                 <div class="consumer-body">

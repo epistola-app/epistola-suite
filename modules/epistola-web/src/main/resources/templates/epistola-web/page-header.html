@@ -18,7 +18,7 @@
             <a th:if="${backLinkHref != null and backLinkLabel != null}"
                th:href="${backLinkHref}"
                class="back-link">
-                <th:block th:replace="~{fragments/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
+                <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
                 <span th:text="${backLinkLabel}"></span>
             </a>
             <h1 data-testid="page-title" th:text="${pageTitle}"></h1>
