@@ -161,9 +161,7 @@ class ImportCatalogZipHandler(
         // Parse manifest
         val manifestBytes = entries["catalog.json"]
             ?: throw IllegalArgumentException("ZIP does not contain catalog.json")
-        // Version gate + wire-format upgrade chain before binding (see
-        // CatalogSchemaMigrator). Resource details bind as-is for now; the
-        // detail-path migration wires in with the first real migration.
+        // Version gate + wire-format upgrade chain before binding (see CatalogSchemaMigrator).
         val manifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
         val catalogKey = CatalogKey.of(manifest.catalog.slug)
 
