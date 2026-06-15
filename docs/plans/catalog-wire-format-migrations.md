@@ -39,7 +39,7 @@ All new code under `modules/epistola-core/src/main/kotlin/app/epistola/suite/cat
 ```
 migrations/
   CatalogSchemaMigration.kt        # the step interface (part / from / to / migrate)
-  MigrationContext.kt              # carries migrated manifest tree + source/target versions
+  MigrationContext.kt              # carries source/target versions of the part's chain
   CatalogSchemaMigrator.kt         # @Component: collects steps, validates chain, runs it
   CatalogSchemaExceptions.kt       # TooOld / TooNew / Unknown
   steps/                           # one file per version bump, e.g. V4ToV5_<desc>.kt  (empty until first real bump)
@@ -107,9 +107,9 @@ Catalog import/export integration tests stay green.
 1. **`CatalogSchemaMigration`** interface — `part: CatalogPart`, `from`,
    `to = from + 1`, and a single `migrate(node, ctx): ObjectNode` (the step
    belongs to one part and migrates that part's tree).
-2. **`MigrationContext`** — `data class(sourceVersion, targetVersion, manifest: ObjectNode?)`;
-   the endpoints are the part's chain, and `manifest` exposes the migrated
-   manifest to cross-part detail steps.
+2. **`MigrationContext`** — `data class(sourceVersion, targetVersion)`; the
+   endpoints of the part's chain (for logging / version-conditional logic). No
+   cross-part data is threaded yet — add it here if a step ever needs it.
 3. **`CatalogSchemaExceptions`** — `CatalogSchemaTooOldException`,
    `CatalogSchemaTooNewException`, `CatalogSchemaUnknownException`. Each carries
    the offending version and a remediation message; they extend

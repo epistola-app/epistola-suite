@@ -1,5 +1,6 @@
 package app.epistola.suite.catalog.migrations
 
+import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migratePartTree
 import org.assertj.core.api.Assertions.assertThat
@@ -125,5 +126,32 @@ class CatalogSchemaMigratorGateTest {
         val migrator = CatalogSchemaMigrator(mapper, emptyList())
         assertThatThrownBy { migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("9"))) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
+    }
+
+    private fun attributeDetail(schemaVersion: String, type: String = "attribute"): ByteArray = mapper.writeValueAsBytes(
+        mapper.readTree(
+            """
+                {
+                  "schemaVersion": $schemaVersion,
+                  "resource": { "type": "$type", "slug": "country", "name": "Country" }
+                }
+            """.trimIndent(),
+        ),
+    )
+
+    @Test
+    fun `migrateAndBindResourceDetail binds a current-version detail whose type matches`() {
+        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("3"))
+        assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
+    }
+
+    @Test
+    fun `migrateAndBindResourceDetail rejects a detail whose own type contradicts the manifest entry`() {
+        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        // Manifest entry says "theme", but the detail's own discriminator is "attribute".
+        assertThatThrownBy { migrator.migrateAndBindResourceDetail("theme", attributeDetail("3")) }
+            .isInstanceOf(CatalogSchemaUnknownException::class.java)
+            .hasMessageContaining("declares type 'attribute'")
     }
 }

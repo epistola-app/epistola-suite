@@ -89,11 +89,23 @@ class CatalogSchemaMigrator(
      * Parse [rawDetail], gate/upgrade the resource [type]'s detail to its part's
      * current schema version, and bind it to [ResourceDetail]. Invoked at both
      * import chokepoints (see class KDoc).
+     *
+     * [type] is the manifest-declared resource type; the detail's own
+     * `resource.type` discriminator must agree with it, otherwise the payload
+     * would be gated/migrated against the wrong part's window. A mismatch is
+     * rejected as a malformed payload before any migration runs.
      */
     fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail {
         val part = CatalogPart.ofResourceType(type)
             ?: throw CatalogSchemaUnknownException("unknown resource type '$type'")
-        val migrated = migratePartTree(part, parse(rawDetail))
+        val tree = parse(rawDetail)
+        val declared = tree.get("resource")?.get("type")?.takeIf { it.isString }?.asString()
+        if (declared != null && declared != type) {
+            throw CatalogSchemaUnknownException(
+                "resource detail declares type '$declared' but the manifest entry is '$type'",
+            )
+        }
+        val migrated = migratePartTree(part, tree)
         return objectMapper.treeToValue(migrated, ResourceDetail::class.java)
     }
 
