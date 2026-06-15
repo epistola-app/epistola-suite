@@ -26,8 +26,7 @@ import tools.jackson.databind.node.ObjectNode
  * contiguous at startup.
  *
  * For a cross-part change (e.g. lift a field out of every detail into the
- * manifest), ship a step in each affected part's chain; a resource-detail step
- * can read the already-migrated manifest via [MigrationContext].
+ * manifest), ship a step in each affected part's chain.
  *
  * `release.fingerprint` / `release.version` must never be touched — they are the
  * source's content identity (and the fingerprint excludes `schemaVersion` by

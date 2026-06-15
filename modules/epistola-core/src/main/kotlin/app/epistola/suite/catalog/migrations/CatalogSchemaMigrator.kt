@@ -152,9 +152,7 @@ class CatalogSchemaMigrator(
             byFrom: Map<Int, CatalogSchemaMigration>,
             current: Int,
         ): ObjectNode {
-            // manifest is not threaded through yet (see MigrationContext.manifest);
-            // wire it up alongside the first cross-part resource-detail migration.
-            val ctx = MigrationContext(sourceVersion = source, targetVersion = current, manifest = null)
+            val ctx = MigrationContext(sourceVersion = source, targetVersion = current)
             var node = tree
             var version = source
             while (version < current) {

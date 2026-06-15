@@ -114,7 +114,7 @@ Catalog import/export integration tests stay green.
    `CatalogSchemaTooNewException`, `CatalogSchemaUnknownException`. Each carries
    the offending version and a remediation message; they extend
    `IllegalArgumentException` so the import error paths map them to 400. (A
-   dedicated RFC7807 problem type is Phase 2.)
+   dedicated RFC 9457 problem type is Phase 2.)
 4. **`CatalogSchemaMigrator`** `@Component`:
    - constructor-injects `List<CatalogSchemaMigration>` + the `ObjectMapper`;
      **groups steps by `part`** into `chainsByPart`.
@@ -188,7 +188,7 @@ machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
      remediation message inline (same `alert-error` slot ADR 0003 uses for
      stencil conflicts). On a _successful_ migrated import, show a subtle
      "upgraded from wire v{N} to v{CURRENT}" note.
-   - REST `POST /api/tenants/{id}/catalogs/import`: return the RFC7807 problem
+   - REST `POST /api/tenants/{id}/catalogs/import`: return the RFC 9457 problem
      for too-old/too-new/unknown (Phase 0 already maps these).
    - MCP: read-only, no import tools today — no change, but note it in the PR.
 2. **Docs:** update [`exchange/README.md`](../exchange/README.md) (replace the "pre-`0.6.0`
