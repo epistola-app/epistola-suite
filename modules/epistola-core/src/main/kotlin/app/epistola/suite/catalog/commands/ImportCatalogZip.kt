@@ -262,11 +262,10 @@ class ImportCatalogZipHandler(
 
         val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
-        // Pre-parse every stencil detail once. Each detail is upgraded to its
-        // part's current wire shape by the migrator before binding (a pre-v2 ZIP
-        // whose stencil omits `version` is assigned version 1 — see
-        // StencilV1ToV2RequireVersionMigration — rather than failing). Missing /
-        // corrupt stencil JSON is still a hard import failure before any
+        // Pre-parse every stencil detail once. Each detail is routed through the schema migrator
+        // (version gate + any wire-format upgrades) before binding. Missing/corrupt stencil JSON
+        // is still a hard import failure before any mutation, and the parsed StencilResource
+        // objects are reused by the install loop below so each stencil detail is deserialized only once.
         // mutation, and the parsed StencilResource objects are reused by the
         // install loop below so each stencil detail is deserialized only once.
         // Other resource types stay in the per-resource try/catch so a
