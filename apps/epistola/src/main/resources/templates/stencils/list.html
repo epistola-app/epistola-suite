@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Stencils',
             searchPlaceholder='Search stencils...',
             searchUrl=@{/tenants/{tenantId}/stencils/search(tenantId=${tenantId})},
             searchTargetId='stencil-rows',
-            actions=~{fragments/page-actions :: stencil-list-actions(${tenantId})}
+            actions=~{epistola-web/page-actions :: stencil-list-actions(${tenantId})}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">

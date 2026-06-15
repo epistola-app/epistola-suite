@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Upgrading',
             pageDescription='Before a new Epistola release ships, Epistola tests the catalogs in this tenant against it and records the results here. A pass means your catalogs work as-is; a warning or failure flags something to review before you upgrade.'
         )}"></div>

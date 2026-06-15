@@ -2,13 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Templates',
             pageDescription='All of your templates are here.',
             searchPlaceholder='Search templates...',
             searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
             searchTargetId='template-rows',
-            actions=~{fragments/page-actions :: template-page-actions(${tenantId})}
+            actions=~{epistola-web/page-actions :: template-page-actions(${tenantId})}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">

@@ -3,11 +3,11 @@
 <body>
     <th:block th:fragment="content">
 
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Load Test',
             backLinkHref=@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})},
             backLinkLabel='Load Tests',
-            actions=~{fragments/page-actions :: load-test-detail-actions(${tenantId}, ${run})}
+            actions=~{epistola-web/page-actions :: load-test-detail-actions(${tenantId}, ${run})}
         )}"></div>
 
         <div style="margin-bottom: var(--ep-space-4);">

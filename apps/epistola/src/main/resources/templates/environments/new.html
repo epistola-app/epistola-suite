@@ -3,7 +3,7 @@
 <body>
     <th:block th:fragment="content">
 
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='New Environment',
             backLinkHref=@{/tenants/{tenantId}/environments(tenantId=${tenantId})},
             backLinkLabel='Environments'

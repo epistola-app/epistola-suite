@@ -2,12 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Assets',
             searchPlaceholder='Search assets...',
             searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
             searchTargetId='asset-grid-items',
-            actions=~{fragments/page-actions :: asset-list-actions(${tenantId})}
+            actions=~{epistola-web/page-actions :: asset-list-actions(${tenantId})}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">

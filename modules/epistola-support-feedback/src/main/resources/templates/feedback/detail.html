@@ -5,11 +5,11 @@
 
         <div id="feedback-content">
             <th:block th:fragment="feedback-content">
-                <div th:replace="~{fragments/page-header :: page-header(
+                <div th:replace="~{epistola-web/page-header :: page-header(
                     pageTitle=${feedback.title},
                     backLinkHref=@{/tenants/{tenantId}/feedback(tenantId=${tenantId})},
                     backLinkLabel='Feedback',
-                    actions=~{fragments/page-actions :: feedback-detail-actions(${tenantId}, ${feedback}, ${statuses}, ${isManager})}
+                    actions=~{epistola-web/page-actions :: feedback-detail-actions(${tenantId}, ${feedback}, ${statuses}, ${isManager})}
                 )}"></div>
 
                 <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-6);">

@@ -2,9 +2,9 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Catalogs',
-            actions=~{fragments/page-actions :: catalog-list-actions()}
+            actions=~{epistola-web/page-actions :: catalog-list-actions()}
         )}"></div>
 
         <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">

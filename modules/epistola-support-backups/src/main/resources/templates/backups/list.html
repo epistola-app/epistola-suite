@@ -2,10 +2,10 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Backups',
             pageDescription='A backup is a point-in-time copy of all published catalog content in this tenant, stored on the Epistola hub. Unpublished drafts are not included. Daily backups run automatically; you can also back up on demand. Restoring replaces every catalog in this tenant with the snapshot contents.',
-            actions=~{fragments/page-actions :: backup-list-actions(${tenantId}, ${status})}
+            actions=~{epistola-web/page-actions :: backup-list-actions(${tenantId}, ${status})}
         )}"></div>
 
         <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>

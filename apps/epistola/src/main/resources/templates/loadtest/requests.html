@@ -3,11 +3,11 @@
 <body>
     <th:block th:fragment="content">
 
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Request Log',
             backLinkHref=@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})},
             backLinkLabel=${'Test ' + run.id},
-            actions=~{fragments/page-actions :: load-test-request-actions(${tenantId}, ${run})}
+            actions=~{epistola-web/page-actions :: load-test-request-actions(${tenantId}, ${run})}
         )}"></div>
 
         <div th:if="${#lists.isEmpty(requests)}" class="empty-state">

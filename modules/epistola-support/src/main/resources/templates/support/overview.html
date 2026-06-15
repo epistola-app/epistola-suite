@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div th:replace="~{fragments/page-header :: page-header(
+        <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Support',
             pageDescription='Connection between this Epistola installation and the Epistola hub, reported per node. A node is connected when it last reached the hub. This reflects hub reachability; whether a specific managed feature works is shown on its own page.'
         )}"></div>

@@ -4,12 +4,12 @@
     <th:block th:fragment="content">
         <th:block th:fragment="page-content">
 
-            <div th:replace="~{fragments/page-header :: page-header(
+            <div th:replace="~{epistola-web/page-header :: page-header(
                 pageTitle=${codeList.displayName},
                 backLinkHref=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
                 backLinkLabel='Code lists',
                 pageDescription=${codeList.description},
-                actions=~{fragments/page-actions :: code-list-detail-actions(${tenantId}, ${codeList}, ${editable})}
+                actions=~{epistola-web/page-actions :: code-list-detail-actions(${tenantId}, ${codeList}, ${editable})}
             )}"></div>
 
             <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-4);">
