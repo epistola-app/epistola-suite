@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.migrations
  * All extend [IllegalArgumentException] so the existing import error paths
  * (`CatalogHandler` catches `IllegalArgumentException` → 400; the REST resolver
  * treats it as bad input) surface them as a client error without new wiring.
- * Dedicated RFC7807 problem types are a later refinement.
+ * Dedicated RFC 9457 problem types are mapped by the REST layer for operator-facing errors.
  */
 sealed class CatalogSchemaException(message: String) : IllegalArgumentException(message)
 
