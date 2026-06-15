@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Load Tests',
-            actions=~{epistola-web/page-actions :: load-test-list-actions(${tenantId})}
+            actions=~{::load-test-list-actions}
         )}"></div>
 
         <div th:if="${#lists.isEmpty(runs)}" class="empty-state">
@@ -76,5 +76,12 @@
             </tbody>
         </table>
     </th:block>
+    <th:block th:fragment="load-test-list-actions">
+        <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Load Test
+        </a>
+    </th:block>
+
 </body>
 </html>

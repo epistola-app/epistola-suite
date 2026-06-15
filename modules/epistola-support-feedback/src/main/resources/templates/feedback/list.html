@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Feedback',
-            actions=~{epistola-web/page-actions :: feedback-list-actions(${tenantId})}
+            actions=~{::feedback-list-actions}
         )}"></div>
 
         <!-- Filters -->
@@ -91,5 +91,16 @@
             });
         </script>
     </th:block>
+    <th:block th:fragment="feedback-list-actions">
+        <button type="button" class="ep-btn ep-btn-primary"
+                hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
+                hx-target="#feedback-dialog-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('feedback-dialog').showModal()">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Feedback
+        </button>
+    </th:block>
+
 </body>
 </html>

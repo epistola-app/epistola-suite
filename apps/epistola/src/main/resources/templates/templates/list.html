@@ -8,7 +8,7 @@
             searchPlaceholder='Search templates...',
             searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
             searchTargetId='template-rows',
-            actions=~{epistola-web/page-actions :: template-page-actions(${tenantId})}
+            actions=~{::template-list-actions}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
@@ -77,5 +77,14 @@
             </tbody>
         </table>
     </th:block>
+    <th:block th:fragment="template-list-actions">
+        <a th:if="${auth.has('TEMPLATE_EDIT')}"
+           th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+           class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Template
+        </a>
+    </th:block>
+
 </body>
 </html>

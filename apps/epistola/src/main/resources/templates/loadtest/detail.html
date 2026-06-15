@@ -7,7 +7,7 @@
             pageTitle='Load Test',
             backLinkHref=@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})},
             backLinkLabel='Load Tests',
-            actions=~{epistola-web/page-actions :: load-test-detail-actions(${tenantId}, ${run})}
+            actions=~{::load-test-detail-actions}
         )}"></div>
 
         <div style="margin-bottom: var(--ep-space-4);">
@@ -183,5 +183,19 @@
             </div>
         </div>
     </th:block>
+    <th:block th:fragment="load-test-detail-actions">
+        <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
+           class="ep-btn ep-btn-outline"
+           th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
+            View Request Log
+        </a>
+        <form th:if="${run.status.name() == 'RUNNING'}"
+              th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
+              method="post"
+              style="display: inline;">
+            <button type="submit" class="ep-btn ep-btn-destructive">Cancel Test</button>
+        </form>
+    </th:block>
+
 </body>
 </html>

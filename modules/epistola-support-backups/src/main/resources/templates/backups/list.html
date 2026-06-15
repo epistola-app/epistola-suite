@@ -5,7 +5,7 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Backups',
             pageDescription='A backup is a point-in-time copy of all published catalog content in this tenant, stored on the Epistola hub. Unpublished drafts are not included. Daily backups run automatically; you can also back up on demand. Restoring replaces every catalog in this tenant with the snapshot contents.',
-            actions=~{epistola-web/page-actions :: backup-list-actions(${tenantId}, ${status})}
+            actions=~{::backup-list-actions}
         )}"></div>
 
         <div th:if="${saved == 'backup'}" class="alert alert-success" role="status">Backup completed.</div>
@@ -74,5 +74,14 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+    <th:block th:fragment="backup-list-actions">
+        <form th:action="@{/tenants/{tenantId}/backups(tenantId=${tenantId})}" method="post">
+            <button type="submit" class="ep-btn ep-btn-primary" th:disabled="${status != 'OK'}">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='upload-cloud', class='ep-icon')}" />
+                Back up now
+            </button>
+        </form>
+    </th:block>
+
 </body>
 </html>

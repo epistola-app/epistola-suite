@@ -9,7 +9,7 @@
                     pageTitle=${feedback.title},
                     backLinkHref=@{/tenants/{tenantId}/feedback(tenantId=${tenantId})},
                     backLinkLabel='Feedback',
-                    actions=~{epistola-web/page-actions :: feedback-detail-actions(${tenantId}, ${feedback}, ${statuses}, ${isManager})}
+                    actions=~{::feedback-detail-actions}
                 )}"></div>
 
                 <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-6);">
@@ -111,5 +111,19 @@
             </th:block>
         </div>
     </th:block>
+    <th:block th:fragment="feedback-detail-actions">
+        <form th:if="${isManager}"
+              hx-post th:hx-post="@{/tenants/{tenantId}/feedback/{id}/status(tenantId=${tenantId},id=${feedback.id})}"
+              hx-target="#feedback-content"
+              hx-swap="innerHTML"
+              class="ep-row">
+            <select name="status" class="ep-select ep-select-sm form-control-auto">
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                        th:selected="${feedback.status.name() == s.name()}">STATUS</option>
+            </select>
+            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
+        </form>
+    </th:block>
+
 </body>
 </html>

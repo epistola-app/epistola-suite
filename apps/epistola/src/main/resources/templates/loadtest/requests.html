@@ -7,7 +7,7 @@
             pageTitle='Request Log',
             backLinkHref=@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})},
             backLinkLabel=${'Test ' + run.id},
-            actions=~{epistola-web/page-actions :: load-test-request-actions(${tenantId}, ${run})}
+            actions=~{::load-test-request-actions}
         )}"></div>
 
         <div th:if="${#lists.isEmpty(requests)}" class="empty-state">
@@ -71,5 +71,10 @@
             </div>
         </div>
     </th:block>
+    <th:block th:fragment="load-test-request-actions">
+        <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+           class="ep-btn ep-btn-outline">Back to Test Details</a>
+    </th:block>
+
 </body>
 </html>

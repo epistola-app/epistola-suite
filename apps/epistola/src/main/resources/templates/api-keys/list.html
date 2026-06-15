@@ -5,7 +5,7 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='API Keys',
             pageDescription='API keys authenticate external systems calling the REST API. Keys cannot be modified after creation, and the secret value is shown only once.',
-            actions=~{epistola-web/page-actions :: api-key-list-actions(${tenantId})}
+            actions=~{::api-key-list-actions}
         )}"></div>
 
         <div th:if="${#lists.isEmpty(apiKeys)}" class="empty-state">
@@ -75,5 +75,13 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+    <th:block th:fragment="api-key-list-actions">
+        <a th:if="${auth.has('TENANT_USERS')}"
+           th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New API key
+        </a>
+    </th:block>
+
 </body>
 </html>

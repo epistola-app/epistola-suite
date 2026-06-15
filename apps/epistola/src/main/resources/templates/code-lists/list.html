@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Code lists',
-            actions=~{epistola-web/page-actions :: code-list-list-actions(${tenantId})}
+            actions=~{::code-list-list-actions}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
@@ -85,5 +85,13 @@
             </tbody>
         </table>
     </th:block>
+    <th:block th:fragment="code-list-list-actions">
+        <a th:if="${auth.has('TENANT_SETTINGS')}"
+           th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Code List
+        </a>
+    </th:block>
+
 </body>
 </html>

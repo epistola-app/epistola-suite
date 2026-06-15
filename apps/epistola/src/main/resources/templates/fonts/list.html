@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Fonts',
-            actions=~{epistola-web/page-actions :: font-list-actions(${tenantId})}
+            actions=~{::font-list-actions}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
@@ -75,5 +75,12 @@
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
     </th:block>
+    <th:block th:fragment="font-list-actions">
+        <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+            Upload Font
+        </a>
+    </th:block>
+
 </body>
 </html>

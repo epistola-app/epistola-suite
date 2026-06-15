@@ -7,7 +7,7 @@
             searchPlaceholder='Search environments...',
             searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
             searchTargetId='environment-rows',
-            actions=~{epistola-web/page-actions :: environment-list-actions(${tenantId})}
+            actions=~{::environment-list-actions}
         )}"></div>
 
         <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
@@ -56,5 +56,13 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
+    <th:block th:fragment="environment-list-actions">
+        <a th:if="${auth.has('TENANT_SETTINGS')}"
+           th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+            New Environment
+        </a>
+    </th:block>
+
 </body>
 </html>

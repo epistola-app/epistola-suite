@@ -7,7 +7,7 @@
             searchPlaceholder='Search assets...',
             searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
             searchTargetId='asset-grid-items',
-            actions=~{epistola-web/page-actions :: asset-list-actions(${tenantId})}
+            actions=~{::asset-list-actions}
         )}"></div>
 
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
@@ -78,5 +78,12 @@
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
     </th:block>
+    <th:block th:fragment="asset-list-actions">
+        <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+            Upload Asset
+        </a>
+    </th:block>
+
 </body>
 </html>
