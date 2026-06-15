@@ -235,7 +235,7 @@ machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
 - [ ] Both chokepoints (`ImportCatalogZip`, `InstallFromCatalog`/`CatalogClient`)
       route through the migrator; current-version imports unchanged (regression
       test green).
-- [ ] Too-old / too-new / unknown payloads rejected with RFC7807 problems on
+- [ ] Too-old / too-new / unknown payloads rejected with RFC 9457 problems on
       REST and inline errors in the UI.
 - [ ] (When the first bump lands) a real migration step + golden fixture +
       "migrated == native" + cross-version idempotency tests, all green.
