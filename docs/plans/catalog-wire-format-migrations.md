@@ -243,6 +243,3 @@ machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
 - [ ] `./gradlew unitTest integrationTest` and `ktlintCheck` green;
       `pnpm format:check` green (docs are formatted).
 
-```
-
-```
