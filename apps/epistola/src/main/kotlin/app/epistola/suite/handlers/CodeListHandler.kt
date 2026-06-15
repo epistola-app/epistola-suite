@@ -63,10 +63,14 @@ class CodeListHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("code-lists/new") {
-            "pageTitle" to "New Code List - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
+        // HTMX requests load the dialog into #dialog-host; a direct GET redirects
+        // to the list (dialog-only — no full-page fallback).
+        return request.htmx {
+            fragment("code-lists/new", "createDialog") {
+                "tenantId" to tenantId.key
+                "catalogs" to catalogs
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/code-lists") }
         }
     }
 
@@ -94,15 +98,15 @@ class CodeListHandler(
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
         if (form.hasErrors()) {
-            return renderNew(form, catalogs, tenantId.key)
+            return renderNew(request, form, catalogs, tenantId.key)
         }
 
         val catalogKey = CatalogKey.validateOrNull(form["catalog"])
-            ?: return renderNewWithError(form, catalogs, tenantId.key, "catalog", "Invalid catalog")
+            ?: return renderNewWithError(request, form, catalogs, tenantId.key, "catalog", "Invalid catalog")
         val slug = CodeListKey.validateOrNull(form["slug"])
-            ?: return renderNewWithError(form, catalogs, tenantId.key, "slug", "Invalid slug format")
+            ?: return renderNewWithError(request, form, catalogs, tenantId.key, "slug", "Invalid slug format")
         val sourceType = runCatching { CodeListSource.valueOf(form["sourceType"]) }.getOrNull()
-            ?: return renderNewWithError(form, catalogs, tenantId.key, "sourceType", "Unknown source type")
+            ?: return renderNewWithError(request, form, catalogs, tenantId.key, "sourceType", "Unknown source type")
 
         val entries = if (sourceType == CodeListSource.INLINE) {
             parseInlineEntries(request.params().getFirst("entriesJson").orEmpty())
@@ -123,12 +127,15 @@ class CodeListHandler(
         }
 
         if (result.hasErrors()) {
-            return renderNew(result, catalogs, tenantId.key)
+            return renderNew(request, result, catalogs, tenantId.key)
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}")
-            .build()
+        val location = "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}"
+        return if (request.isHtmx) {
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
+        }
     }
 
     fun detail(request: ServerRequest): ServerResponse {
@@ -230,19 +237,28 @@ class CodeListHandler(
         }
     }
 
+    /**
+     * Re-render the create form on validation error: the lone `createForm`
+     * fragment swaps itself in place over HTMX (dialog stays open); a non-HTMX
+     * request redirects to the list (dialog-only — no full-page fallback).
+     */
     private fun renderNew(
+        request: ServerRequest,
         form: FormData,
         catalogs: List<Catalog>,
         tenantKey: TenantKey,
-    ): ServerResponse = ServerResponse.ok().page("code-lists/new") {
-        "pageTitle" to "New Code List - Epistola"
-        "tenantId" to tenantKey
-        "catalogs" to catalogs
-        "formData" to form.formData
-        "errors" to form.errors
+    ): ServerResponse = request.htmx {
+        fragment("code-lists/new", "createForm") {
+            "tenantId" to tenantKey
+            "catalogs" to catalogs
+            "formData" to form.formData
+            "errors" to form.errors
+        }
+        onNonHtmx { redirect("/tenants/$tenantKey/code-lists") }
     }
 
     private fun renderNewWithError(
+        request: ServerRequest,
         form: FormData,
         catalogs: List<Catalog>,
         tenantKey: TenantKey,
@@ -250,7 +266,7 @@ class CodeListHandler(
         message: String,
     ): ServerResponse {
         val errors: Map<String, String> = mapOf(field to message)
-        return renderNew(FormData(form.formData, errors), catalogs, tenantKey)
+        return renderNew(request, FormData(form.formData, errors), catalogs, tenantKey)
     }
 
     /**

@@ -33,9 +33,13 @@ class ApiKeyHandler {
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        return ServerResponse.ok().page("api-keys/new") {
-            "pageTitle" to "New API key - Epistola"
-            "tenantId" to tenantId.key
+        // HTMX requests load the dialog into #dialog-host; a direct GET still
+        // renders the full-page fallback.
+        return request.htmx {
+            fragment("api-keys/new", "createDialog") {
+                "tenantId" to tenantId.key
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
         }
     }
 
@@ -55,11 +59,15 @@ class ApiKeyHandler {
         if (expiresAtError != null) errors["expiresAt"] = expiresAtError
 
         if (errors.isNotEmpty()) {
-            return ServerResponse.ok().page("api-keys/new") {
-                "pageTitle" to "New API key - Epistola"
-                "tenantId" to tenantId.key
-                "formData" to form.formData
-                "errors" to errors
+            // Re-render the form: the lone `createForm` fragment swaps itself in
+            // place over HTMX (dialog stays open); a full page for non-HTMX.
+            return request.htmx {
+                fragment("api-keys/new", "createForm") {
+                    "tenantId" to tenantId.key
+                    "formData" to form.formData
+                    "errors" to errors
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
             }
         }
 
@@ -73,11 +81,22 @@ class ApiKeyHandler {
             createdBy = principal?.userId,
         ).execute()
 
-        return ServerResponse.ok().page("api-keys/created") {
-            "pageTitle" to "API key created - Epistola"
-            "tenantId" to tenantId.key
-            "plaintextKey" to result.plaintextKey
-            "apiKey" to result.apiKey
+        // Success reveals the secret once. Over HTMX the reveal swaps over the
+        // form inside the open dialog; non-HTMX renders the created page.
+        return request.htmx {
+            fragment("api-keys/new", "createdReveal") {
+                "tenantId" to tenantId.key
+                "plaintextKey" to result.plaintextKey
+                "apiKey" to result.apiKey
+            }
+            onNonHtmx {
+                page("api-keys/created") {
+                    "pageTitle" to "API key created - Epistola"
+                    "tenantId" to tenantId.key
+                    "plaintextKey" to result.plaintextKey
+                    "apiKey" to result.apiKey
+                }
+            }
         }
     }
 

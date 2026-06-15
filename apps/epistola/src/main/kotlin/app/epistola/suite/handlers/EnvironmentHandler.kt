@@ -8,6 +8,7 @@ import app.epistola.suite.htmx.environmentId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
@@ -48,9 +49,13 @@ class EnvironmentHandler {
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        return ServerResponse.ok().page("environments/new") {
-            "pageTitle" to "New Environment - Epistola"
-            "tenantId" to tenantId.key
+        // HTMX requests load the dialog into #dialog-host; a direct GET (no-JS,
+        // deep link) still renders the full-page fallback.
+        return request.htmx {
+            fragment("environments/new", "createDialog") {
+                "tenantId" to tenantId.key
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
         }
     }
 
@@ -68,13 +73,23 @@ class EnvironmentHandler {
             }
         }
 
-        if (form.hasErrors()) {
-            return ServerResponse.ok().page("environments/new") {
-                "pageTitle" to "New Environment - Epistola"
+        // Re-render on validation error: for HTMX the lone `createForm` fragment
+        // swaps itself in place (hx-target="this"), keeping the dialog open with
+        // field errors; for non-HTMX the full page is redrawn.
+        fun reRender(
+            formData: Map<String, String>,
+            errors: Map<String, String>,
+        ): ServerResponse = request.htmx {
+            fragment("environments/new", "createForm") {
                 "tenantId" to tenantId.key
-                "formData" to form.formData
-                "errors" to form.errors
+                "formData" to formData
+                "errors" to errors
             }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
+        }
+
+        if (form.hasErrors()) {
+            return reRender(form.formData, form.errors)
         }
 
         val environmentKey = form.getEnvironmentId("slug")!!
@@ -88,17 +103,15 @@ class EnvironmentHandler {
         }
 
         if (result.hasErrors()) {
-            return ServerResponse.ok().page("environments/new") {
-                "pageTitle" to "New Environment - Epistola"
-                "tenantId" to tenantId.key
-                "formData" to result.formData
-                "errors" to result.errors
-            }
+            return reRender(result.formData, result.errors)
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/environments")
-            .build()
+        val location = "/tenants/${tenantId.key}/environments"
+        return if (request.isHtmx) {
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
+        }
     }
 
     fun delete(request: ServerRequest): ServerResponse {

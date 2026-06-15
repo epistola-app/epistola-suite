@@ -77,6 +77,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders()
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "production")
             formData.add("name", "Production Again")
@@ -111,6 +112,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders()
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "my-theme")
             formData.add("name", "My Theme Again")
@@ -146,6 +148,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders()
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "my-template")
             formData.add("name", "My Template Again")
@@ -181,6 +184,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders()
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "language")
             formData.add("displayName", "Language Again")

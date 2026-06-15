@@ -58,7 +58,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     @Nested
     inner class NewForm {
         @Test
-        fun `GET new returns form with template dropdown`() = fixture {
+        fun `GET new (HTMX) returns the dialog with template dropdown`() = fixture {
             lateinit var testTenant: Tenant
 
             given {
@@ -66,8 +66,14 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             }
 
             whenever {
-                restTemplate.getForEntity(
+                // Dialog-only: opening the dialog is an HTMX request with no
+                // field trigger name (the trigger <a> carries none).
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                restTemplate.exchange(
                     "/tenants/${testTenant.id}/load-tests/new",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers),
                     String::class.java,
                 )
             }
@@ -75,9 +81,10 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("create-load-test-dialog")
                 assertThat(response.body).contains("New Load Test")
                 assertThat(response.body).contains("Select a template")
-                // Empty state: disabled dropdowns
+                // Empty state: disabled dropdowns embedded in the dialog
                 assertThat(response.body).contains("Select a template first")
             }
         }

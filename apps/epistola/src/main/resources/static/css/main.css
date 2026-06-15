@@ -1256,7 +1256,7 @@ a.stat-card:hover {
 /* ── Wide dialog variant ──────────────────────────────────────────────── */
 
 .ep-dialog-wide {
-  max-width: 40rem;
+  max-width: 38rem;
 }
 
 /* ── Fullscreen dialog variant ───────────────────────────────────────── */

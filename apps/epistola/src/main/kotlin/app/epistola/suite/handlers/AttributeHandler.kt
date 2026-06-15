@@ -21,6 +21,7 @@ import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -53,11 +54,15 @@ class AttributeHandler {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         val codeLists = ListCodeLists(tenantId).query()
-        return ServerResponse.ok().page("attributes/new") {
-            "pageTitle" to "New Attribute - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
-            "codeLists" to codeLists
+        // HTMX requests load the dialog into #dialog-host; a direct GET still
+        // renders the full-page fallback.
+        return request.htmx {
+            fragment("attributes/new", "createDialog") {
+                "tenantId" to tenantId.key
+                "catalogs" to catalogs
+                "codeLists" to codeLists
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
     }
 
@@ -81,33 +86,35 @@ class AttributeHandler {
             field("codeList") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         val codeLists = ListCodeLists(tenantId).query()
 
-        if (form.hasErrors()) {
-            return ServerResponse.ok().page("attributes/new") {
-                "pageTitle" to "New Attribute - Epistola"
+        // Re-render on validation error: the `createForm` fragment swaps itself
+        // in place over HTMX (dialog stays open); full page for non-HTMX.
+        fun reRender(
+            formData: Map<String, String>,
+            errors: Map<String, String>,
+        ): ServerResponse = request.htmx {
+            fragment("attributes/new", "createForm") {
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
                 "codeLists" to codeLists
-                "formData" to form.formData
-                "errors" to form.errors
+                "formData" to formData
+                "errors" to errors
             }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
+        }
+
+        val catalogValue = form.formData["catalog"]?.ifBlank { null }
+            ?: return reRender(form.formData, form.errors + ("catalog" to "Catalog is required"))
+        val catalogKey = CatalogKey.of(catalogValue)
+
+        if (form.hasErrors()) {
+            return reRender(form.formData, form.errors)
         }
 
         val attributeKey = AttributeKey.validateOrNull(form["slug"])
-        if (attributeKey == null) {
-            val errors = mapOf("slug" to "Invalid attribute ID format")
-            return ServerResponse.ok().page("attributes/new") {
-                "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "codeLists" to codeLists
-                "formData" to form.formData
-                "errors" to errors
-            }
-        }
+            ?: return reRender(form.formData, mapOf("slug" to "Invalid attribute ID format"))
 
         val displayName = form["displayName"]
         val constraintKind = form.formData["constraintKind"]?.ifBlank { null } ?: "free"
@@ -126,19 +133,15 @@ class AttributeHandler {
         }
 
         if (result.hasErrors()) {
-            return ServerResponse.ok().page("attributes/new") {
-                "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "codeLists" to codeLists
-                "formData" to result.formData
-                "errors" to result.errors
-            }
+            return reRender(result.formData, result.errors)
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/attributes")
-            .build()
+        val location = "/tenants/${tenantId.key}/attributes"
+        return if (request.isHtmx) {
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
+        }
     }
 
     fun editForm(request: ServerRequest): ServerResponse {

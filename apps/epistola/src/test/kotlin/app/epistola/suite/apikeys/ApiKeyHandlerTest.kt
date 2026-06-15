@@ -48,7 +48,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `GET new returns the create form`() = fixture {
+    fun `GET new returns the create dialog`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -56,8 +56,12 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity(
+            // The create form is dialog-only; HTMX loads the dialog fragment.
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange(
                 "/tenants/${testTenant.id}/api-keys/new",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(headers),
                 String::class.java,
             )
         }
@@ -65,7 +69,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("New API key")
+            assertThat(response.body).contains("create-api-key-dialog")
             assertThat(response.body).contains("name=\"name\"")
             assertThat(response.body).contains("name=\"expiresAt\"")
         }
@@ -125,6 +129,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             form.add("name", "")
             val headers = HttpHeaders().apply {
                 contentType = MediaType.APPLICATION_FORM_URLENCODED
+                set("HX-Request", "true")
             }
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/api-keys",

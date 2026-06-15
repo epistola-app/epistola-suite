@@ -16,6 +16,7 @@ import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.templateId
@@ -147,10 +148,14 @@ class DocumentTemplateHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("templates/new") {
-            "pageTitle" to "New Template - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
+        // HTMX requests load the dialog into #dialog-host; a direct GET (no-JS,
+        // deep link) still renders the full-page fallback.
+        return request.htmx {
+            fragment("templates/new", "createDialog") {
+                "tenantId" to tenantId.key
+                "catalogs" to catalogs
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
         }
     }
 
@@ -170,30 +175,34 @@ class DocumentTemplateHandler(
             }
         }
 
-        val catalogId = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
-        if (form.hasErrors()) {
-            return ServerResponse.ok().page("templates/new") {
-                "pageTitle" to "New Template - Epistola"
+        // Re-render on validation error: for HTMX the lone `form` fragment swaps
+        // itself in place (hx-target="this"), keeping the dialog open with field
+        // errors; for non-HTMX the full page is redrawn.
+        fun reRender(
+            formData: Map<String, String>,
+            errors: Map<String, String>,
+        ): ServerResponse = request.htmx {
+            fragment("templates/new", "createForm") {
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to form.errors
+                "formData" to formData
+                "errors" to errors
             }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
+        }
+
+        val catalogValue = form.formData["catalog"]?.ifBlank { null }
+            ?: return reRender(form.formData, form.errors + ("catalog" to "Catalog is required"))
+        val catalogId = CatalogKey.of(catalogValue)
+
+        if (form.hasErrors()) {
+            return reRender(form.formData, form.errors)
         }
 
         val templateKey = TemplateKey.validateOrNull(form["slug"])
-        if (templateKey == null) {
-            val errors = mapOf("slug" to "Invalid template ID format")
-            return ServerResponse.ok().page("templates/new") {
-                "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to errors
-            }
-        }
+            ?: return reRender(form.formData, mapOf("slug" to "Invalid template ID format"))
         val name = form["name"]
 
         val result = form.executeOrFormError {
@@ -204,18 +213,16 @@ class DocumentTemplateHandler(
         }
 
         if (result.hasErrors()) {
-            return ServerResponse.ok().page("templates/new") {
-                "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to result.formData
-                "errors" to result.errors
-            }
+            return reRender(result.formData, result.errors)
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/templates/$catalogId/$templateKey")
-            .build()
+        val location = "/tenants/${tenantId.key}/templates/$catalogId/$templateKey"
+        return if (request.isHtmx) {
+            // The dialog submits over HTMX; tell the client to navigate to the editor.
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
+        }
     }
 
     fun editor(request: ServerRequest): ServerResponse {

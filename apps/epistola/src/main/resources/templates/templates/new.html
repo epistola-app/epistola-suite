@@ -1,47 +1,63 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo; <span>New Template</span>
-        </nav>
+    <!--
+        New Template create form.
 
-        <h1>New Template</h1>
-
-        <div class="card create-form-card">
-            <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post">
-                    <div class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select">
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label class="ep-label" for="name">Name</label>
-                        <input type="text" id="name" name="name" class="ep-input"
-                               required placeholder="Monthly Invoice" data-slug-source="slug"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label class="ep-label" for="slug">Template ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" class="ep-input"
-                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="50"
-                               placeholder="monthly-invoice"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Template</button>
-                        <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+        Three fragments share one field set:
+          - content : full-page fallback (direct GET /new, no-JS) — rendered in layout/shell
+          - dialog  : the <dialog> shell loaded into #dialog-host for HTMX requests
+          - form    : the <form> on its own, re-rendered standalone on validation error
+                      (swaps itself via hx-target="this" hx-swap="outerHTML", keeping the dialog open)
+        The shared `fields` fragment is the single source of truth for the inputs.
+    -->
+    <th:block th:fragment="createDialog">
+        <dialog id="create-template-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-template-dialog">
+            <div class="ep-dialog-header">
+                <h3>New Template</h3>
             </div>
+            <th:block th:replace="~{templates/new :: createForm}"></th:block>
+        </dialog>
+    </th:block>
+
+    <form th:fragment="createForm" id="create-template-form"
+          th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
+          hx-target="this" hx-swap="outerHTML" hx-boost="false">
+        <div class="ep-dialog-body">
+            <th:block th:replace="~{templates/new :: fields}"></th:block>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Template</button>
+        </div>
+    </form>
+
+    <th:block th:fragment="fields">
+        <div class="form-group">
+            <label class="ep-label" for="catalog">Catalog</label>
+            <select id="catalog" name="catalog" class="ep-select">
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${formData?.catalog == cat.id}"></option>
+            </select>
+        </div>
+        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+            <label class="ep-label" for="name">Name</label>
+            <input type="text" id="name" name="name" class="ep-input"
+                   required placeholder="Monthly Invoice" data-slug-source="slug"
+                   th:value="${formData?.name}">
+            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+        </div>
+        <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+            <label class="ep-label" for="slug">Template ID (Slug)</label>
+            <input type="text" id="slug" name="slug" class="ep-input"
+                   required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                   minlength="3" maxlength="50"
+                   placeholder="monthly-invoice"
+                   th:value="${formData?.slug}">
+            <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+            <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
         </div>
     </th:block>
 </body>

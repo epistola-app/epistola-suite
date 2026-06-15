@@ -71,27 +71,38 @@ class LoadTestHandler(
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
 
-        // Check if this is a template selection (HTMX cascade update)
-        // Template select value is "catalogKey/templateKey"
+        // Dialog-only: a direct (non-HTMX) navigation has no dialog host, so
+        // bounce to the list instead of rendering a full page.
+        if (!request.isHtmx) {
+            return redirect("/tenants/$tenantKey/load-tests")
+        }
+
+        // The endpoint is dual-purpose. Opening the dialog (the trigger <a> has
+        // no field name) returns the dialog shell; the cascade selects each carry
+        // a field name and get the template-options fragment swapped into
+        // #template-options-section.
+        val cascadeFields = setOf("templateId", "variantId", "versionId", "environmentId", "exampleId")
+        if (request.htmxTriggerName !in cascadeFields) {
+            return ServerResponse.ok().render(
+                "loadtest/new :: createDialog",
+                mapOf(
+                    "tenantId" to tenantKey,
+                    "templates" to ListDocumentTemplates(tenantId = tenantId).query(),
+                    "environments" to ListEnvironments(tenantId = tenantId).query(),
+                ),
+            )
+        }
+
+        // Cascade update. Template select value is "catalogKey/templateKey".
         val templateIdStr = request.param("templateId").orElse("")
         val slashIdx = templateIdStr.indexOf('/')
         val catalogKey = if (slashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(templateIdStr.substring(0, slashIdx)) else null
         val templateKeyStr = if (slashIdx > 0) templateIdStr.substring(slashIdx + 1) else templateIdStr
         val templateKey = TemplateKey.validateOrNull(templateKeyStr)
 
-        // If no template selected, return empty fragment for HTMX or full page for non-HTMX
+        // No template selected yet → reset to the empty options.
         if (templateKey == null) {
-            return request.htmx {
-                onNonHtmx {
-                    page("loadtest/new") {
-                        "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantKey
-                        "templates" to ListDocumentTemplates(tenantId = tenantId).query()
-                        "environments" to ListEnvironments(tenantId = tenantId).query()
-                    }
-                }
-                fragment("loadtest/new", "template-options-empty")
-            }
+            return ServerResponse.ok().render("loadtest/new :: template-options-empty", emptyMap<String, Any>())
         }
 
         val templateId = TemplateId(templateKey, CatalogId(catalogKey ?: return ServerResponse.badRequest().build(), tenantId))
@@ -149,28 +160,21 @@ class LoadTestHandler(
             ""
         }
 
-        return request.htmx {
-            onNonHtmx {
-                page("loadtest/new") {
-                    "pageTitle" to "Start Load Test - Epistola"
-                    "tenantId" to tenantKey
-                    "templates" to ListDocumentTemplates(tenantId = tenantId).query()
-                    "environments" to ListEnvironments(tenantId = tenantId).query()
-                }
-            }
-            fragment("loadtest/new", "template-options") {
-                "variants" to variants
-                "versions" to versions
-                "dataExamples" to dataExamples
-                "environments" to environments
-                "selectedVariantId" to selectedVariantId
-                "selectedVersionId" to selectedVersionId
-                "selectedExampleId" to selectedExampleId
-                "selectedEnvironmentId" to selectedEnvironmentId
-                "testData" to testData
-                "tenantId" to tenantKey
-            }
-        }
+        return ServerResponse.ok().render(
+            "loadtest/new :: template-options",
+            mapOf(
+                "variants" to variants,
+                "versions" to versions,
+                "dataExamples" to dataExamples,
+                "environments" to environments,
+                "selectedVariantId" to selectedVariantId,
+                "selectedVersionId" to selectedVersionId,
+                "selectedExampleId" to selectedExampleId,
+                "selectedEnvironmentId" to selectedEnvironmentId,
+                "testData" to testData,
+                "tenantId" to tenantKey,
+            ),
+        )
     }
 
     /**
@@ -197,17 +201,7 @@ class LoadTestHandler(
                 fragment("loadtest/new", "form-error") {
                     "error" to errorMessage
                 }
-                onNonHtmx {
-                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
-                    val environments = ListEnvironments(tenantId = tenantId).query()
-                    ServerResponse.badRequest().page("loadtest/new") {
-                        "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantKey
-                        "templates" to templates
-                        "environments" to environments
-                        "error" to errorMessage
-                    }
-                }
+                onNonHtmx { redirect("/tenants/$tenantKey/load-tests") }
             }
         }
 
@@ -259,17 +253,7 @@ class LoadTestHandler(
                 fragment("loadtest/new", "form-error") {
                     "error" to errorMessage
                 }
-                onNonHtmx {
-                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
-                    val environments = ListEnvironments(tenantId = tenantId).query()
-                    ServerResponse.badRequest().page("loadtest/new") {
-                        "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantKey
-                        "templates" to templates
-                        "environments" to environments
-                        "error" to errorMessage
-                    }
-                }
+                onNonHtmx { redirect("/tenants/$tenantKey/load-tests") }
             }
         }
     }

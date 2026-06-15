@@ -1,97 +1,110 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}">Assets</a> &raquo; <span>Upload Asset</span>
-        </nav>
-
-        <h1>Upload Asset</h1>
-
-        <div class="card create-form-card">
-            <div class="card-content">
-                <form id="asset-upload-form" th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" hx-encoding="multipart/form-data">
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select" required>
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label">Image file</label>
-                        <div id="asset-upload-zone" class="asset-upload-zone"
-                             ondragover="event.preventDefault(); this.classList.add('dragover')"
-                             ondragleave="this.classList.remove('dragover')"
-                             ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event)">
-                            <div class="asset-upload-content">
-                                <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
-                                <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
-                                <p class="text-muted text-sm">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
-                            </div>
-                            <input type="file" id="asset-file-input" name="file"
-                                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                   style="display: none;"
-                                   required />
-                        </div>
-                        <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
-                            <span id="file-name" class="text-sm"></span>
-                        </div>
-                        <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary">Upload</button>
-                        <a th:href="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+    <!--
+        Upload Asset form. Already HTMX-driven (multipart hx-post; success sends
+        HX-Redirect, errors return JSON handled by the inline script). The dialog
+        reuses the same form + script via the shared `fields` fragment; htmx runs
+        the <script> when the dialog is injected into #dialog-host.
+    -->
+    <th:block th:fragment="createDialog">
+        <dialog id="create-asset-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-asset-dialog">
+            <div class="ep-dialog-header">
+                <h3>Upload Asset</h3>
             </div>
+            <th:block th:replace="~{assets/new :: createForm}"></th:block>
+        </dialog>
+    </th:block>
+
+    <form th:fragment="createForm" id="asset-upload-form"
+          th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}"
+          hx-encoding="multipart/form-data" hx-boost="false">
+        <div class="ep-dialog-body">
+            <th:block th:replace="~{assets/new :: fields}"></th:block>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Upload</button>
+        </div>
+    </form>
+
+    <th:block th:fragment="fields">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
+            <label class="ep-label" for="catalog">Catalog</label>
+            <select id="catalog" name="catalog" class="ep-select" required>
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"></option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="ep-label">Image file</label>
+            <div id="asset-upload-zone" class="asset-upload-zone"
+                 ondragover="event.preventDefault(); this.classList.add('dragover')"
+                 ondragleave="this.classList.remove('dragover')"
+                 ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event)">
+                <div class="asset-upload-content">
+                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
+                    <p>Drag and drop an image here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
+                    <p class="text-muted text-sm">PNG, JPEG, WebP, SVG &mdash; max 5MB</p>
+                </div>
+                <input type="file" id="asset-file-input" name="file"
+                       accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                       style="display: none;"
+                       required />
+            </div>
+            <div id="file-preview" style="display: none; margin-top: var(--ep-space-3);">
+                <span id="file-name" class="text-sm"></span>
+            </div>
+            <span id="asset-upload-error" class="form-error" th:text="${error}"></span>
         </div>
 
         <script>
-            var uploadForm = document.getElementById('asset-upload-form');
-            var uploadError = document.getElementById('asset-upload-error');
+            (function () {
+                var uploadForm = document.getElementById('asset-upload-form');
+                var uploadError = document.getElementById('asset-upload-error');
 
-            document.getElementById('asset-file-input').addEventListener('change', function() {
-                var preview = document.getElementById('file-preview');
-                var fileName = document.getElementById('file-name');
-                if (this.files.length > 0) {
-                    fileName.textContent = this.files[0].name;
-                    preview.style.display = 'block';
+                document.getElementById('asset-file-input').addEventListener('change', function() {
+                    var preview = document.getElementById('file-preview');
+                    var fileName = document.getElementById('file-name');
+                    if (this.files.length > 0) {
+                        fileName.textContent = this.files[0].name;
+                        preview.style.display = 'block';
+                        uploadError.textContent = '';
+                    } else {
+                        preview.style.display = 'none';
+                    }
+                });
+
+                uploadForm.addEventListener('htmx:responseError', function(event) {
+                    var xhr = event.detail && event.detail.xhr;
+                    if (!xhr || xhr.status < 400) {
+                        return;
+                    }
+
+                    try {
+                        var body = JSON.parse(xhr.responseText || '{}');
+                        uploadError.textContent = body.detail || body.error || 'Failed to upload asset. Please try again.';
+                    } catch (e) {
+                        uploadError.textContent = 'Failed to upload asset. Please try again.';
+                    }
+                });
+
+                uploadForm.addEventListener('htmx:beforeRequest', function() {
                     uploadError.textContent = '';
-                } else {
-                    preview.style.display = 'none';
-                }
-            });
+                });
 
-            uploadForm.addEventListener('htmx:responseError', function(event) {
-                var xhr = event.detail && event.detail.xhr;
-                if (!xhr || xhr.status < 400) {
-                    return;
-                }
-
-                try {
-                    var body = JSON.parse(xhr.responseText || '{}');
-                    uploadError.textContent = body.detail || body.error || 'Failed to upload asset. Please try again.';
-                } catch (e) {
-                    uploadError.textContent = 'Failed to upload asset. Please try again.';
-                }
-            });
-
-            uploadForm.addEventListener('htmx:beforeRequest', function() {
-                uploadError.textContent = '';
-            });
-
-            function handleFileDrop(event) {
-                var file = event.dataTransfer.files[0];
-                if (file) {
-                    var input = document.getElementById('asset-file-input');
-                    var dt = new DataTransfer();
-                    dt.items.add(file);
-                    input.files = dt.files;
-                    input.dispatchEvent(new Event('change'));
-                }
-            }
+                window.handleFileDrop = function(event) {
+                    var file = event.dataTransfer.files[0];
+                    if (file) {
+                        var input = document.getElementById('asset-file-input');
+                        var dt = new DataTransfer();
+                        dt.items.add(file);
+                        input.files = dt.files;
+                        input.dispatchEvent(new Event('change'));
+                    }
+                };
+            })();
         </script>
     </th:block>
 </body>

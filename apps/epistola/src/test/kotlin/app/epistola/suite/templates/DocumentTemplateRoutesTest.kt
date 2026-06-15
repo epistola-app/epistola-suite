@@ -327,6 +327,95 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET new for direct navigation redirects to the list`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            // The create form is dialog-only; a direct (non-HTMX) GET has no
+            // dialog host, so it bounces to the templates list. TestRestTemplate
+            // follows the 303 → the list page.
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates/new", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Document Templates")
+            // The bare create form is not rendered as a standalone page.
+            assertThat(response.body).doesNotContain("id=\"slug\"")
+            assertThat(response.body).doesNotContain("create-template-dialog")
+        }
+    }
+
+    @Test
+    fun `GET new returns dialog fragment for HTMX request`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/templates/new",
+                HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Dialog shell + the self-swapping form, without the page chrome.
+            assertThat(response.body).contains("id=\"create-template-dialog\"")
+            assertThat(response.body).contains("id=\"create-template-form\"")
+            assertThat(response.body).doesNotContain("breadcrumb")
+        }
+    }
+
+    @Test
+    fun `POST templates over HTMX returns HX-Redirect on success`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "dialog-template")
+            formData.add("name", "Dialog Template")
+            formData.add("catalog", "default")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // HTMX success closes the dialog by navigating client-side, not a 3xx.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Redirect"))
+                .isEqualTo("/tenants/${testTenant.id}/templates/default/dialog-template")
+
+            val templates = listDocumentTemplatesHandler.handle(
+                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "Dialog Template"),
+            )
+            assertThat(templates).hasSize(1)
+        }
+    }
+
+    @Test
     fun `POST templates validation error preserves form value`() = fixture {
         lateinit var testTenant: Tenant
 

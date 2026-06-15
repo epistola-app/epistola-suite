@@ -13,7 +13,8 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `slug field should reject invalid characters`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates/new")
+        gotoAndReady("/tenants/${tenant.id}/templates")
+        page.openDialogByTrigger(page.getByTestId("template-create-open-empty"), "#create-template-dialog")
         assertThat(page.locator("#slug")).isVisible()
 
         val slugInput = page.locator("#slug")
@@ -29,8 +30,9 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `slug auto-fill should work for elements added after page load`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates/new")
-        assertThat(page.locator("#slug")).isVisible()
+        // The MutationObserver wiring is global (document.body subtree), so any
+        // list page works — no dedicated /new page needed.
+        gotoAndReady("/tenants/${tenant.id}/templates")
 
         page.evaluate(
             """

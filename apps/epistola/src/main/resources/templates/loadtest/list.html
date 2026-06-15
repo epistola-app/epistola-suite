@@ -4,7 +4,10 @@
     <th:block th:fragment="content">
         <div class="page-header">
             <h1>Load Tests</h1>
-            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary">
+            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}"
+               th:hx-get="@{/tenants/{id}/load-tests/new(id=${tenantId})}"
+               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+               class="ep-btn ep-btn-primary" data-testid="load-test-create-open">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Load Test
             </a>
@@ -16,7 +19,11 @@
             </div>
             <div class="empty-state-title">No load tests yet</div>
             <div class="empty-state-description">Run a load test to measure document generation performance.</div>
-            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}"
+               th:hx-get="@{/tenants/{id}/load-tests/new(id=${tenantId})}"
+               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+               data-testid="load-test-create-open-empty">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Load Test
             </a>

@@ -6,7 +6,10 @@
             <h1>Attributes</h1>
             <div class="page-actions">
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+                   th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                   th:hx-get="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+                   class="ep-btn ep-btn-primary" data-testid="attribute-create-open">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Attribute
                 </a>
@@ -39,7 +42,11 @@
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);">
+               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+               th:hx-get="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+               data-testid="attribute-create-open-empty">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
             </a>

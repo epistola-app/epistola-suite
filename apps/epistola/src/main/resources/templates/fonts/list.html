@@ -5,7 +5,10 @@
         <div class="page-header">
             <h1>Fonts</h1>
             <div class="page-actions">
-                <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}" class="ep-btn ep-btn-primary">
+                <a th:href="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
+                   th:hx-get="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
+                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+                   class="ep-btn ep-btn-primary" data-testid="font-create-open">
                     <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
                     Upload Font
                 </a>

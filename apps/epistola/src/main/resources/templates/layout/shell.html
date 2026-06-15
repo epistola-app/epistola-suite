@@ -17,5 +17,8 @@
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}" />
+
+    <!-- Host for HTMX-loaded dialogs (create forms, etc.); opened by the form-dialog wiring in fragments/htmx. -->
+    <div id="dialog-host"></div>
 </body>
 </html>

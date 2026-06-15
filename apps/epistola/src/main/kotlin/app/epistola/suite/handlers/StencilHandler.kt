@@ -17,6 +17,7 @@ import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.stencilId
@@ -107,10 +108,14 @@ class StencilHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("stencils/new") {
-            "pageTitle" to "New Stencil - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
+        // HTMX requests load the dialog into #dialog-host; a direct GET (no-JS,
+        // deep link) still renders the full-page fallback.
+        return request.htmx {
+            fragment("stencils/new", "createDialog") {
+                "tenantId" to tenantId.key
+                "catalogs" to catalogs
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
         }
     }
 
@@ -147,30 +152,34 @@ class StencilHandler(
             field("description") {}
         }
 
-        val catalogKey = CatalogKey.of(form.formData["catalog"]?.ifBlank { null } ?: return ServerResponse.badRequest().build())
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
 
-        if (form.hasErrors()) {
-            return ServerResponse.ok().page("stencils/new") {
-                "pageTitle" to "New Stencil - Epistola"
+        // Re-render on validation error: for HTMX the lone `createForm` fragment
+        // swaps itself in place (hx-target="this"), keeping the dialog open with
+        // field errors; for non-HTMX the full page is redrawn.
+        fun reRender(
+            formData: Map<String, String>,
+            errors: Map<String, String>,
+        ): ServerResponse = request.htmx {
+            fragment("stencils/new", "createForm") {
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to form.errors
+                "formData" to formData
+                "errors" to errors
             }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
+        }
+
+        val catalogValue = form.formData["catalog"]?.ifBlank { null }
+            ?: return reRender(form.formData, form.errors + ("catalog" to "Catalog is required"))
+        val catalogKey = CatalogKey.of(catalogValue)
+
+        if (form.hasErrors()) {
+            return reRender(form.formData, form.errors)
         }
 
         val stencilKey = StencilKey.validateOrNull(form["slug"])
-        if (stencilKey == null) {
-            val errors = mapOf("slug" to "Invalid stencil ID format")
-            return ServerResponse.ok().page("stencils/new") {
-                "pageTitle" to "New Stencil - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to form.formData
-                "errors" to errors
-            }
-        }
+            ?: return reRender(form.formData, mapOf("slug" to "Invalid stencil ID format"))
 
         val name = form["name"]
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
@@ -187,18 +196,16 @@ class StencilHandler(
         }
 
         if (result.hasErrors()) {
-            return ServerResponse.ok().page("stencils/new") {
-                "pageTitle" to "New Stencil - Epistola"
-                "tenantId" to tenantId.key
-                "catalogs" to catalogs
-                "formData" to result.formData
-                "errors" to result.errors
-            }
+            return reRender(result.formData, result.errors)
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey")
-            .build()
+        val location = "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey"
+        return if (request.isHtmx) {
+            // The dialog submits over HTMX; tell the client to navigate to the stencil editor.
+            ServerResponse.ok().header("HX-Redirect", location).build()
+        } else {
+            ServerResponse.status(303).header("Location", location).build()
+        }
     }
 
     private data class CreateStencilJsonRequest(

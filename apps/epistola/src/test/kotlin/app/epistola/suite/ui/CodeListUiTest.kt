@@ -47,7 +47,9 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `create INLINE code list via new form lands on detail page with entries rendered`() {
         val tenant = withMediator { createUiTenant() }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        page.setViewportSize(1600, 900)
+        gotoAndReady("/tenants/${tenant.id}/code-lists")
+        page.openDialogByTrigger(page.getByTestId("code-list-create-open"), "#create-code-list-dialog")
 
         // The inline editor's bootstrap script auto-seeds one empty row when
         // there's no prior submission, so we don't need to click add for the
@@ -64,9 +66,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         rows.nth(1).locator("input[placeholder='code']").fill("nl")
         rows.nth(1).locator("input[placeholder='Label']").fill("Dutch")
 
-        // The page has multiple `type="submit"` buttons (form + nav-bar logout
-        // forms). Match by visible text to disambiguate.
-        page.locator("button:has-text('Create code list')").click()
+        page.getByTestId("create-form-submit").click()
         page.waitForURL(Pattern.compile(".*/code-lists/default/locales$"))
 
         // Detail page: both entries listed in the entries table.
@@ -79,7 +79,9 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `duplicate inline entry codes show validation error on new form`() {
         val tenant = withMediator { createUiTenant() }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        page.setViewportSize(1600, 900)
+        gotoAndReady("/tenants/${tenant.id}/code-lists")
+        val dialog = page.openDialogByTrigger(page.getByTestId("code-list-create-open"), "#create-code-list-dialog")
         assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Duplicate Codes")
@@ -92,13 +94,11 @@ class CodeListUiTest : BasePlaywrightTest() {
         rows.nth(1).locator("input[placeholder='code']").fill("test")
         rows.nth(1).locator("input[placeholder='Label']").fill("Second")
 
-        page.locator("button:has-text('Create code list')").click()
+        page.getByTestId("create-form-submit").click()
 
-        assertThat(page.locator("#code-list-form-area .alert-error")).hasText("Entry codes must be unique within a code list")
-        // Plain boosted form: a validation error re-renders the full page, so the URL
-        // is the form's POST action (the collection), not /new. The form + errors + the
-        // entered values are still shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
+        // The form re-renders inside the still-open dialog with the error; no navigation.
+        assertThat(page.locator("#create-code-list-dialog .alert-error")).hasText("Entry codes must be unique within a code list")
+        assertThat(dialog).isVisible()
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
         assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
@@ -118,7 +118,9 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        page.setViewportSize(1600, 900)
+        gotoAndReady("/tenants/${tenant.id}/code-lists")
+        val dialog = page.openDialogByTrigger(page.getByTestId("code-list-create-open"), "#create-code-list-dialog")
         assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Locales Again")
@@ -127,13 +129,11 @@ class CodeListUiTest : BasePlaywrightTest() {
         row.locator("input[placeholder='code']").fill("nl")
         row.locator("input[placeholder='Label']").fill("Dutch")
 
-        page.locator("button:has-text('Create code list')").click()
+        page.getByTestId("create-form-submit").click()
 
+        // The form re-renders inside the still-open dialog with the slug error; no navigation.
         assertThat(page.locator("#slug + .form-hint + .form-error")).hasText("A code-list with this ID already exists")
-        // Plain boosted form: a validation error re-renders the full page, so the URL
-        // is the form's POST action (the collection), not /new. The form + errors + the
-        // entered values are still shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists$"))
+        assertThat(dialog).isVisible()
         assertThat(page.locator("#slug")).hasValue("locales")
     }
 
@@ -151,7 +151,9 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/attributes/new")
+        page.setViewportSize(1600, 900)
+        gotoAndReady("/tenants/${tenant.id}/attributes")
+        page.openDialogByTrigger(page.getByTestId("attribute-create-open"), "#create-attribute-dialog")
 
         page.locator("#displayName").fill("Language")
         page.locator("#slug").fill("language")
@@ -165,7 +167,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // The select carries "<catalog>/<slug>" packed values.
         page.locator("#codeList").selectOption("default/locales")
 
-        page.locator("button:has-text('Create Attribute')").click()
+        page.getByTestId("create-form-submit").click()
         page.waitForURL(Pattern.compile(".*/attributes$"))
 
         // The attribute row's "Allowed values" cell renders "→ default/locales"

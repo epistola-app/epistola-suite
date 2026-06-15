@@ -1,54 +1,64 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <th:block th:fragment="content">
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo; <span>New Theme</span>
-        </nav>
-
-        <h1>New Theme</h1>
-
-        <div class="card create-form-card">
-            <div class="card-content">
-                <form th:action="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" method="post">
-                    <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
-                        <label class="ep-label" for="catalog">Catalog</label>
-                        <select id="catalog" name="catalog" class="ep-select">
-                            <option th:each="cat : ${catalogs}"
-                                    th:value="${cat.id}"
-                                    th:text="${cat.name}"
-                                    th:selected="${formData?.catalog == cat.id}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label class="ep-label" for="name">Name</label>
-                        <input type="text" id="name" name="name" class="ep-input"
-                               required placeholder="Corporate Theme" data-slug-source="slug"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label class="ep-label" for="slug">Theme ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" class="ep-input"
-                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="20"
-                               placeholder="corporate"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-20 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="description">Description (optional)</label>
-                        <textarea id="description" name="description" class="ep-textarea" rows="2"
-                                  placeholder="Theme description"
-                                  th:text="${formData?.description}"></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Theme</button>
-                        <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="ep-btn ep-btn-outline">Cancel</a>
-                    </div>
-                </form>
+    <!--
+        New Theme create form. Mirrors templates/new: a shared `fields` set feeds
+        the full-page fallback (`content`), the dialog shell (`createDialog`), and
+        the self-swapping `createForm` re-rendered on validation error.
+    -->
+    <th:block th:fragment="createDialog">
+        <dialog id="create-theme-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-theme-dialog">
+            <div class="ep-dialog-header">
+                <h3>New Theme</h3>
             </div>
+            <th:block th:replace="~{themes/new :: createForm}"></th:block>
+        </dialog>
+    </th:block>
+
+    <form th:fragment="createForm" id="create-theme-form"
+          th:hx-post="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}"
+          hx-target="this" hx-swap="outerHTML" hx-boost="false">
+        <div class="ep-dialog-body">
+            <th:block th:replace="~{themes/new :: fields}"></th:block>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Create Theme</button>
+        </div>
+    </form>
+
+    <th:block th:fragment="fields">
+        <div th:if="${catalogs != null && !catalogs.isEmpty()}" class="form-group">
+            <label class="ep-label" for="catalog">Catalog</label>
+            <select id="catalog" name="catalog" class="ep-select">
+                <option th:each="cat : ${catalogs}"
+                        th:value="${cat.id}"
+                        th:text="${cat.name}"
+                        th:selected="${formData?.catalog == cat.id}"></option>
+            </select>
+        </div>
+        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+            <label class="ep-label" for="name">Name</label>
+            <input type="text" id="name" name="name" class="ep-input"
+                   required placeholder="Corporate Theme" data-slug-source="slug"
+                   th:value="${formData?.name}">
+            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+        </div>
+        <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+            <label class="ep-label" for="slug">Theme ID (Slug)</label>
+            <input type="text" id="slug" name="slug" class="ep-input"
+                   required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                   minlength="3" maxlength="20"
+                   placeholder="corporate"
+                   th:value="${formData?.slug}">
+            <span class="form-hint">3-20 characters, lowercase letters, numbers, and hyphens only</span>
+            <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+        </div>
+        <div class="form-group">
+            <label class="ep-label" for="description">Description (optional)</label>
+            <textarea id="description" name="description" class="ep-textarea" rows="2"
+                      placeholder="Theme description"
+                      th:text="${formData?.description}"></textarea>
         </div>
     </th:block>
 </body>

@@ -25,7 +25,6 @@ import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
-import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -88,10 +87,15 @@ class FontHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val catalogs = ListCatalogs(tenantKey).query().filter { it.type == CatalogType.AUTHORED }
-        return ServerResponse.ok().page("fonts/new") {
-            "pageTitle" to "Upload Font - Epistola"
-            "tenantId" to tenantKey.value
-            "catalogs" to catalogs
+        // HTMX requests load the dialog into #dialog-host; a direct GET still
+        // renders the full-page fallback. Upload itself already HX-Redirects on
+        // success and returns inline JSON errors, so it is unchanged.
+        return request.htmx {
+            fragment("fonts/new", "createDialog") {
+                "tenantId" to tenantKey.value
+                "catalogs" to catalogs
+            }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
         }
     }
 
