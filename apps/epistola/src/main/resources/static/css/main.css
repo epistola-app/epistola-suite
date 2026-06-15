@@ -1467,6 +1467,8 @@ a.stat-card:hover {
   display: flex;
   gap: var(--ep-space-2);
   align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 /* ── Asset manager ────────────────────────────────────────────────────── */

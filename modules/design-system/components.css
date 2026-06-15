@@ -502,9 +502,12 @@
     display: flex;
     justify-content: space-between;
     align-items: start;
+    gap: var(--ep-space-4);
     padding: var(--ep-space-4) 0;
 
     & .content {
+      min-width: 0;
+
       & h1 {
         margin: 0;
       }
@@ -514,6 +517,12 @@
         color: var(--ep-muted-foreground);
         margin-top: var(--ep-space-2);
       }
+    }
+  }
+
+  @media (max-width: 56rem) {
+    .page-header {
+      flex-direction: column;
     }
   }
 
