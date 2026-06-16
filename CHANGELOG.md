@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** fix(generation): **Result sequence survives a destructive DB reset.** The collect feed is a Kafka-style log: each generation result gets a globally monotonic `sequence` and every external consumer (e.g. the Valtimo plugin) persists a high-water cursor **in its own database**, polling `WHERE sequence > cursor`. A destructive reset of the suite DB — a Flyway `clean` (embedded-mode self-heal on a checksum mismatch) — restarted the `BIGSERIAL` at 1 while the consumer's cursor survived, so every freshly emitted result fell at or below the stale cursor and was **silently never delivered** (observed in tst: cursor pinned at 4 while the reset sequence sat at 2, so Valtimo intermediate catch events never completed). A new migration seeds `generation_results_sequence_seq` from wall-clock **epoch-milliseconds** at (re)initialisation; since it re-runs on every schema rebuild and wall-clock only moves forward, any post-reset sequence strictly exceeds every previously issued one, so a stale cursor is always below new results and consumption self-heals with no client change. Milliseconds keep values under JS's 2^53 limit for ~285k years; `sequence` is an opaque internal token, so the large magnitude has no storage/index/comparison cost (`bigint` is a fixed 8 bytes). Deploying this also unblocks an already-stuck consumer on the next boot.
+
 ## [0.24.0] - 2026-06-16
 
 This release encrypts stored catalog, code-list, and hub credentials at rest with AES-256-GCM and no-downtime key rotation, and forwards application logs and metrics to epistola-hub over OTLP-over-gRPC. Enabling the support tier now turns the hub-only backups and upgrading features on by default, and integration-test CI shuts down its shared Postgres cleanly.
