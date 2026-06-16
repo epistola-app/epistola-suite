@@ -68,13 +68,21 @@ class TenantTableTopology {
         return TenantTopology(orderedTables = specs)
     }
 
-    /** Every base table in `public` that has a `tenant_key` column, plus `tenants` itself. */
+    /**
+     * Every non-partition base table in `public` that has a `tenant_key` column, plus `tenants`
+     * itself. Partition **children** (e.g. `documents_2026_06`) inherit `tenant_key` from their
+     * parent but are excluded — only the partitioned parent is classified.
+     */
     fun discoverTenantScopedTables(handle: Handle): Set<String> {
         val withTenantKey =
             handle
                 .createQuery(
-                    "SELECT table_name FROM information_schema.columns " +
-                        "WHERE table_schema = 'public' AND column_name = 'tenant_key'",
+                    "SELECT c.relname FROM pg_class c " +
+                        "JOIN pg_namespace n ON n.oid = c.relnamespace " +
+                        "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition " +
+                        "AND EXISTS (SELECT 1 FROM information_schema.columns col " +
+                        "  WHERE col.table_schema = 'public' AND col.table_name = c.relname " +
+                        "  AND col.column_name = 'tenant_key')",
                 ).mapTo(String::class.java)
                 .set()
         return withTenantKey + TENANTS
