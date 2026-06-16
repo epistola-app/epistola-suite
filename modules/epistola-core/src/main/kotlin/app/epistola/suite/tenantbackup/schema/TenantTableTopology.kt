@@ -230,6 +230,8 @@ class TenantTableTopology {
                 "cluster_tasks_scheduled",
                 "load_test_runs",
                 "feedback_sync_config",
+                // The local backup store itself — never back up the backups (would be recursive).
+                "tenant_backups",
             )
     }
 }

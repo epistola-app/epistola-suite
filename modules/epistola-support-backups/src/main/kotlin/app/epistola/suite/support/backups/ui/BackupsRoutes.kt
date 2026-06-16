@@ -15,7 +15,7 @@ class BackupsRoutes(
         "/tenants/{tenantId}/backups".nest {
             GET("", handler::list)
             POST("", handler::backupNow)
-            POST("/{snapshotId}/restore", handler::restore)
+            POST("/{backupId}/restore", handler::restore)
         }
     }
 }

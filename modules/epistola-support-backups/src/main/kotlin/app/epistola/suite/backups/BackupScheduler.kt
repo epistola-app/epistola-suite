@@ -12,8 +12,7 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
-import app.epistola.suite.snapshots.TenantSnapshotSyncService
-import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.security.SystemUser
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -22,11 +21,11 @@ import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
- * Runs the daily catalog backup for every tenant that has the `support-backups` feature toggle
- * enabled. Only active when `epistola.support.backups.scheduled.enabled=true`.
+ * Runs the daily faithful backup for every tenant that has the `support-backups` feature available.
+ * Only active when `epistola.support.backups.scheduled.enabled=true`.
  *
  * The native scheduled-task lease ensures only one node runs each cycle. Each tenant is processed
- * under a system principal so the permission-gated snapshot build authorizes; a failure on one
+ * under a system principal so the permission-gated backup build authorizes; a failure on one
  * tenant is logged and does not stop the others.
  */
 @Component
@@ -36,7 +35,7 @@ import org.springframework.stereotype.Component
     matchIfMissing = false,
 )
 class BackupScheduler(
-    private val snapshotSync: TenantSnapshotSyncService,
+    private val backupService: TenantBackupService,
     private val mediator: Mediator,
     private val jdbi: Jdbi,
     @Value("\${epistola.support.backups.cron:0 0 2 * * *}")
@@ -64,19 +63,17 @@ class BackupScheduler(
 
     private fun backupAllTenants() {
         val tenantKeys = allTenantKeys()
-        log.info("Daily catalog backup starting for {} tenant(s)", tenantKeys.size)
+        log.info("Daily backup starting for {} tenant(s)", tenantKeys.size)
         for (tenantKey in tenantKeys) {
-            // Backups owns the daily retained snapshot. Upgrading has its own freshness timer that
-            // makes a snapshot only when none was made in the last day, so it stays dormant for
-            // tenants that have backups on. Skip a tenant unless the feature is available — toggled on
-            // AND hub-entitled — so we never do work that would only be rejected with PERMISSION_DENIED.
+            // Skip a tenant unless the Backups feature is available, so we never do work that would
+            // only be rejected. Backups are stored locally; Upgrading keeps its own export snapshot.
             if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_BACKUPS] != true) continue
             try {
-                SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
-                    snapshotSync.syncTenant(tenantKey)
+                SecurityContext.runWithPrincipal(SystemUser.principalForTenant(tenantKey)) {
+                    backupService.backupTenant(tenantKey)
                 }
             } catch (e: Exception) {
-                log.error("Catalog backup failed for tenant {}: {}", tenantKey.value, e.message, e)
+                log.error("Backup failed for tenant {}: {}", tenantKey.value, e.message, e)
             }
         }
     }
