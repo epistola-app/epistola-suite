@@ -29,7 +29,7 @@ class ChangelogHandler(
         val type = typeParam?.trim()?.lowercase()?.takeUnless { it.isBlank() || it == "all" }
         val scope = scopeParam?.trim()?.takeUnless { it.isBlank() || it == "all" }
 
-        // The dialog previews the in-progress [Unreleased] section as an "Upcoming" entry at the top.
+        // The dialog previews the in-progress [Unreleased] section as an "Upcoming" entry when it has visible items.
         val entries = changelogRenderer.entries(view, includeUnreleased = true, type = type, scope = scope)
         val availableTypes = changelogRenderer.availableTypes(view, includeUnreleased = true)
         val availableScopes = changelogRenderer.availableScopes(view, includeUnreleased = true)
