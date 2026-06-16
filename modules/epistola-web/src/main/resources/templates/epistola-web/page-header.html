@@ -22,7 +22,7 @@
                 <span th:text="${backLinkLabel}"></span>
             </a>
             <h1 data-testid="page-title" th:text="${pageTitle}"></h1>
-            <p th:if="${pageDescription != null}" th:text="${pageDescription}"></p>
+            <p th:if="${!#strings.isEmpty(pageDescription)}" th:text="${pageDescription}"></p>
         </div>
 
         <div th:if="${searchUrl != null or actions != null}" class="page-actions">
