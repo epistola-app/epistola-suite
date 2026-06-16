@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-16
+
 ### Added
 
 - **`support.telemetry.enabled` — forward logs + metrics to epistola-hub.** **On by default** when `support.enabled=true` (set `false` to opt out); rendered as `EPISTOLA_SUPPORT_TELEMETRY_ENABLED` on the app Deployment. The app ships application logs and metrics to the hub over OTLP-over-gRPC, but the installation's `support-telemetry` entitlement from the hub is the real gate — nothing is shipped until the installation is entitled. The OTLP endpoint is the hub's own gRPC endpoint, derived at runtime by the support module — nothing to configure. See [`docs/adr/0006-shipping-logs-and-metrics-to-hub.md`](../../docs/adr/0006-shipping-logs-and-metrics-to-hub.md).
