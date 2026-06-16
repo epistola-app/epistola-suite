@@ -154,4 +154,22 @@ class CatalogSchemaMigratorGateTest {
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
             .hasMessageContaining("declares type 'attribute'")
     }
+
+    @Test
+    fun `invalid JSON is rejected as schema-unknown, not a raw Jackson error`() {
+        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val garbage = "{ not json".toByteArray()
+        assertThatThrownBy { migrator.migrateAndBindManifest(garbage) }
+            .isInstanceOf(CatalogSchemaUnknownException::class.java)
+        assertThatThrownBy { migrator.migrateAndBindResourceDetail("attribute", garbage) }
+            .isInstanceOf(CatalogSchemaUnknownException::class.java)
+    }
+
+    @Test
+    fun `a non-object JSON payload is rejected as schema-unknown`() {
+        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        assertThatThrownBy { migrator.migrateAndBindManifest("[]".toByteArray()) }
+            .isInstanceOf(CatalogSchemaUnknownException::class.java)
+            .hasMessageContaining("not a JSON object")
+    }
 }

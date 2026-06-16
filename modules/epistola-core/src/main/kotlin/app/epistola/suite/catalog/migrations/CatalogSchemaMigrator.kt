@@ -7,6 +7,7 @@ import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.PartSchemaWindow
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import tools.jackson.core.JacksonException
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -115,8 +116,18 @@ class CatalogSchemaMigrator(
         return migratePartTree(tree, chainsByPart.getValue(part), window.baseline, window.current)
     }
 
-    private fun parse(raw: ByteArray): ObjectNode = objectMapper.readTree(raw) as? ObjectNode
-        ?: throw CatalogSchemaUnknownException("payload is not a JSON object")
+    private fun parse(raw: ByteArray): ObjectNode {
+        // Invalid JSON must surface as a schema-unknown error too (→ HTTP 400 /
+        // inline UI fragment), not as a raw Jackson exception that escapes the
+        // gate. This is the single parse point for both import chokepoints.
+        val tree = try {
+            objectMapper.readTree(raw)
+        } catch (e: JacksonException) {
+            throw CatalogSchemaUnknownException("payload is not valid JSON: ${e.originalMessage}")
+        }
+        return tree as? ObjectNode
+            ?: throw CatalogSchemaUnknownException("payload is not a JSON object")
+    }
 
     companion object {
         private val logger = LoggerFactory.getLogger(CatalogSchemaMigrator::class.java)

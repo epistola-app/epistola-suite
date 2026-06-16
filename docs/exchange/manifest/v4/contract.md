@@ -72,7 +72,7 @@
 
 ## Validation / behaviour
 
-- **Version gate** (`CatalogSchemaMigrator`): payload `schemaVersion` greater than this instance's `CATALOG_MANIFEST_SCHEMA_VERSION` → `CatalogSchemaTooNewException`; below `CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION` (once migrations exist) → `CatalogSchemaTooOldException`; missing/non-integer → `CatalogSchemaUnknownException`. All map to HTTP 400. See [ADR 0006](../../../adr/0006-catalog-wire-format-migrations.md).
+- **Version gate** (`CatalogSchemaMigrator`): payload `schemaVersion` greater than this instance's `CATALOG_MANIFEST_SCHEMA_VERSION` → `CatalogSchemaTooNewException`; below `CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION` (once migrations exist) → `CatalogSchemaTooOldException`; unparseable JSON or a missing/non-integer `schemaVersion` → `CatalogSchemaUnknownException`. All map to HTTP 400. See [ADR 0006](../../../adr/0006-catalog-wire-format-migrations.md).
 - **Per-part versioning**: the manifest is gated by its own `schemaVersion`; each resource detail is gated independently by _its own_ `schemaVersion` against that part's window. The manifest version does not govern the details.
 
 ## Changed in v4

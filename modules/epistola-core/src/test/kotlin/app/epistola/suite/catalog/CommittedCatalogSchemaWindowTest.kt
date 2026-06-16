@@ -43,8 +43,14 @@ class CommittedCatalogSchemaWindowTest {
 
         val violations = files.mapNotNull { res ->
             val tree = res.inputStream.use { mapper.readTree(it) } as? ObjectNode ?: return@mapNotNull null
-            val schemaVersion = tree.get("schemaVersion")?.takeIf { it.isIntegralNumber }?.asInt()
-                ?: return@mapNotNull null // not a versioned wire file (e.g. component registry) — skip
+            val schemaVersionNode = tree.get("schemaVersion")
+                ?: return@mapNotNull null // no schemaVersion → not a versioned wire file (e.g. component registry) — skip
+            if (!schemaVersionNode.isIntegralNumber) {
+                // Present but non-integer: a malformed wire stamp the runtime would
+                // reject as CatalogSchemaUnknownException — never let it slip through.
+                return@mapNotNull "${res.uri}: schemaVersion=$schemaVersionNode is not an integer"
+            }
+            val schemaVersion = schemaVersionNode.asInt()
 
             val resourceType = (tree.get("resource") as? ObjectNode)?.get("type")?.asString()
             val part = if (resourceType == null) {
