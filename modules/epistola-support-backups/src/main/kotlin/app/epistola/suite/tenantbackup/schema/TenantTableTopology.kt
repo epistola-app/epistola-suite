@@ -179,6 +179,16 @@ class TenantTableTopology {
         /** The asset-blob key prefix in `content_store`; blobs are dumped/restored separately. */
         fun assetBlobPrefix(tenantKey: String): String = "assets/$tenantKey/"
 
+        // These two lists are the single hand-maintained source of truth for "what is in a backup" —
+        // a data-fidelity decision worth keeping auditable in one place. The drift test enforces that
+        // every tenant-scoped table is classified here, so a new table can't be silently omitted.
+        //
+        // A few entries (feedback*) belong to other feature modules; we reference them by name only
+        // (no compile dependency). That is fine while just one external module contributes tenant
+        // tables. When a SECOND one does, evolve this into a per-module contribution SPI — each module
+        // declares its own include/exclude and the topology aggregates them — mirroring the existing
+        // NavContributor / FooterContributor pattern. Premature until then; keep the explicit list.
+
         /**
          * Tenant-scoped tables that ARE backed up and merge-restored, in any order (FK order is
          * derived at runtime). `tenants` is included but update-in-place (never deleted).
