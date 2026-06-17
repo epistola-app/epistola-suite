@@ -10,14 +10,11 @@
                     searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
                     targetId='template-rows'
                 )}"></div>
-                <a th:if="${auth.has('TEMPLATE_EDIT')}"
-                   th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="ep-btn ep-btn-primary" data-testid="template-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Template
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})},
+                    label='New Template', icon='plus',
+                    testid='template-create-open',
+                    canCreate=${auth.has('TEMPLATE_EDIT')})}"></th:block>
             </div>
         </div>
 
@@ -46,15 +43,11 @@
             </div>
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
-            <a th:if="${auth.has('TEMPLATE_EDIT')}"
-               th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
-               th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
-               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-               data-testid="template-create-open-empty">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Template
-            </a>
+            <th:block th:replace="~{fragments/dialog :: openTrigger(
+                url=@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})},
+                label='New Template', icon='plus',
+                testid='template-create-open-empty',
+                canCreate=${auth.has('TEMPLATE_EDIT')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">

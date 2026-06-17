@@ -59,10 +59,7 @@
                     </fieldset>
                 </div>
 
-                <div class="ep-dialog-footer">
-                    <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-form-submit">Start Load Test</button>
-                </div>
+                <th:block th:replace="~{fragments/dialog :: dialogFooter('Start Load Test', 'create-form-submit')}"></th:block>
             </form>
         </dialog>
     </th:block>

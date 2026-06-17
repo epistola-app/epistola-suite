@@ -10,14 +10,11 @@
                     searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
                     targetId='theme-rows'
                 )}"></div>
-                <a th:if="${auth.has('THEME_EDIT')}"
-                   th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="ep-btn ep-btn-primary" data-testid="theme-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Theme
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})},
+                    label='New Theme', icon='plus',
+                    testid='theme-create-open',
+                    canCreate=${auth.has('THEME_EDIT')})}"></th:block>
             </div>
         </div>
 
@@ -46,15 +43,11 @@
             </div>
             <div class="empty-state-title">No themes yet</div>
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
-            <a th:if="${auth.has('THEME_EDIT')}"
-               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
-               th:hx-get="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
-               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-               data-testid="theme-create-open-empty">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Theme
-            </a>
+            <th:block th:replace="~{fragments/dialog :: openTrigger(
+                url=@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})},
+                label='New Theme', icon='plus',
+                testid='theme-create-open-empty',
+                canCreate=${auth.has('THEME_EDIT')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(themes)}" class="ep-table">

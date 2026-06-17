@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+  <!--
+    Shared chrome for the create-dialog pattern. Defining the trigger and footer
+    here (rather than per entity) keeps the nested-shell-safe attributes in one
+    place: every dialog-opening trigger carries hx-boost="false" so a boosted
+    full page can never be swapped into #dialog-host, and every Cancel is a
+    no-request <button data-dialog-close> (never a boosted <a> that would inherit
+    the form's hx-target). See docs/htmx.md "Create Forms: Modal Dialogs".
+  -->
+
+  <!--
+    Opens a create/upload dialog: GETs the …/new fragment into #dialog-host.
+    `canCreate` gates rendering (pass ${auth.has('<PERMISSION>')} or true).
+    `icon` is the fragments/icon name ('plus' for create, 'upload' for uploads).
+  -->
+  <a th:fragment="openTrigger(url, label, icon, testid, canCreate)"
+     th:if="${canCreate}"
+     th:href="${url}" th:hx-get="${url}"
+     hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
+     class="ep-btn ep-btn-primary" th:data-testid="${testid}">
+    <th:block th:replace="~{fragments/icon :: icon(name=${icon}, class='ep-icon')}" />
+    <span th:text="${label}">New</span>
+  </a>
+
+  <!--
+    Create-dialog footer: a no-request Cancel button + the submit. Used inside the
+    `createForm` fragment of each <entity>/new.html.
+  -->
+  <div th:fragment="dialogFooter(submitLabel, submitTestid)" class="ep-dialog-footer">
+    <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
+    <button type="submit" class="ep-btn ep-btn-primary"
+            th:data-testid="${submitTestid}" th:text="${submitLabel}">Create</button>
+  </div>
+</body>
+</html>

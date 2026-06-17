@@ -5,14 +5,11 @@
         <div class="page-header">
             <h1>API Keys</h1>
             <div class="page-actions">
-                <a th:if="${auth.has('TENANT_USERS')}"
-                   th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="ep-btn ep-btn-primary" data-testid="api-key-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New API key
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})},
+                    label='New API key', icon='plus',
+                    testid='api-key-create-open',
+                    canCreate=${auth.has('TENANT_USERS')})}"></th:block>
             </div>
         </div>
 
@@ -26,15 +23,11 @@
             </div>
             <div class="empty-state-title">No API keys</div>
             <div class="empty-state-description">Create an API key to let an external system authenticate against this tenant.</div>
-            <a th:if="${auth.has('TENANT_USERS')}"
-               th:href="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
-               th:hx-get="@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})}"
-               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-               data-testid="api-key-create-open-empty">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New API key
-            </a>
+            <th:block th:replace="~{fragments/dialog :: openTrigger(
+                url=@{/tenants/{tenantId}/api-keys/new(tenantId=${tenantId})},
+                label='New API key', icon='plus',
+                testid='api-key-create-open-empty',
+                canCreate=${auth.has('TENANT_USERS')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(apiKeys)}" class="ep-table">

@@ -10,14 +10,11 @@
                     searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
                     targetId='environment-rows'
                 )}"></div>
-                <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="ep-btn ep-btn-primary" data-testid="environment-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Environment
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})},
+                    label='New Environment', icon='plus',
+                    testid='environment-create-open',
+                    canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
             </div>
         </div>
 
@@ -27,15 +24,11 @@
             </div>
             <div class="empty-state-title">No environments yet</div>
             <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
-            <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
-               th:hx-get="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
-               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-               class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-               data-testid="environment-create-open-empty">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Environment
-            </a>
+            <th:block th:replace="~{fragments/dialog :: openTrigger(
+                url=@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})},
+                label='New Environment', icon='plus',
+                testid='environment-create-open-empty',
+                canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">

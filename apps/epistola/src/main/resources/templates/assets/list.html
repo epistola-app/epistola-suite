@@ -10,13 +10,11 @@
                     searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
                     targetId='asset-grid-items'
                 )}"></div>
-                <a th:href="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="ep-btn ep-btn-primary" data-testid="asset-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
-                    Upload Asset
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/assets/new(tenantId=${tenantId})},
+                    label='Upload Asset', icon='upload',
+                    testid='asset-create-open',
+                    canCreate=true)}"></th:block>
             </div>
         </div>
 

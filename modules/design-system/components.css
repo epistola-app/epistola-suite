@@ -536,6 +536,13 @@
       font-size: var(--ep-text-sm);
       max-width: 24rem;
     }
+
+    /* The empty-state's single action button (the create trigger); spacing lives
+       here instead of an inline style on each trigger so the shared openTrigger
+       fragment can be used verbatim in both the header and the empty state. */
+    & .ep-btn {
+      margin-top: var(--ep-space-4);
+    }
   }
 
   /* ── Alerts ───────────────────────────────────────────────────────────── */

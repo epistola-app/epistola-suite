@@ -26,10 +26,7 @@
         <div class="ep-dialog-body">
             <th:block th:replace="~{catalogs/new :: fields}"></th:block>
         </div>
-        <div class="ep-dialog-footer">
-            <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
-        </div>
+        <th:block th:replace="~{fragments/dialog :: dialogFooter('Create', 'catalog-create-submit')}"></th:block>
     </form>
 
     <th:block th:fragment="fields">

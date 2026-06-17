@@ -5,14 +5,11 @@
         <div class="page-header">
             <h1>Code lists</h1>
             <div class="page-actions">
-                <a th:if="${auth.has('TENANT_SETTINGS')}"
-                   th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="btn btn-primary" data-testid="code-list-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Code List
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})},
+                    label='New Code List', icon='plus',
+                    testid='code-list-create-open',
+                    canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
             </div>
         </div>
 
@@ -44,15 +41,11 @@
                 Code lists are reusable collections of code + label entries that attributes can bind to.
                 Use them to constrain variant attribute values to a curated set.
             </div>
-            <a th:if="${auth.has('TENANT_SETTINGS')}"
-               th:href="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}"
-               th:hx-get="@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})}"
-               hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-               class="btn btn-primary" style="margin-top: var(--ep-space-4);"
-               data-testid="code-list-create-open-empty">
-                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                New Code List
-            </a>
+            <th:block th:replace="~{fragments/dialog :: openTrigger(
+                url=@{/tenants/{tenantId}/code-lists/new(tenantId=${tenantId})},
+                label='New Code List', icon='plus',
+                testid='code-list-create-open-empty',
+                canCreate=${auth.has('TENANT_SETTINGS')})}"></th:block>
         </div>
 
         <table th:if="${!#lists.isEmpty(codeLists)}" class="ep-table">

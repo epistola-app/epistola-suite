@@ -15,13 +15,11 @@
                     <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon')}" />
                     Subscribe
                 </button>
-                <a th:href="@{/tenants/{tenantId}/catalogs/new(tenantId=${tenantId})}"
-                   th:hx-get="@{/tenants/{tenantId}/catalogs/new(tenantId=${tenantId})}"
-                   hx-target="#dialog-host" hx-swap="innerHTML" hx-boost="false"
-                   class="ep-btn ep-btn-primary" data-testid="catalog-create-open">
-                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
-                    New Catalog
-                </a>
+                <th:block th:replace="~{fragments/dialog :: openTrigger(
+                    url=@{/tenants/{tenantId}/catalogs/new(tenantId=${tenantId})},
+                    label='New Catalog', icon='plus',
+                    testid='catalog-create-open',
+                    canCreate=true)}"></th:block>
             </div>
         </div>
 
