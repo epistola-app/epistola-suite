@@ -3,6 +3,7 @@ package app.epistola.suite.catalog.migrations
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migratePartTree
+import app.epistola.suite.catalog.migrations.steps.StencilV1ToV2RequireVersionMigration
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -113,7 +114,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest binds a current-version manifest end to end`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         val bound = migrator.migrateAndBindManifest(
             mapper.writeValueAsBytes(manifest("4")),
         )
@@ -123,7 +124,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest rejects a too-new payload before binding`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         assertThatThrownBy { migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("9"))) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
     }
@@ -141,14 +142,14 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindResourceDetail binds a current-version detail whose type matches`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("3"))
         assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
     }
 
     @Test
     fun `migrateAndBindResourceDetail rejects a detail whose own type contradicts the manifest entry`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         // Manifest entry says "theme", but the detail's own discriminator is "attribute".
         assertThatThrownBy { migrator.migrateAndBindResourceDetail("theme", attributeDetail("3")) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
@@ -157,7 +158,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `invalid JSON is rejected as schema-unknown, not a raw Jackson error`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         val garbage = "{ not json".toByteArray()
         assertThatThrownBy { migrator.migrateAndBindManifest(garbage) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
@@ -167,7 +168,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `a non-object JSON payload is rejected as schema-unknown`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(StencilV1ToV2RequireVersionMigration()))
         assertThatThrownBy { migrator.migrateAndBindManifest("[]".toByteArray()) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
             .hasMessageContaining("not a JSON object")

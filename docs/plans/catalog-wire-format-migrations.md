@@ -150,11 +150,24 @@ Catalog import/export integration tests stay green.
      as before (regression guard that wiring is transparent). Reuse an existing
      `ImportCatalogZip` integration test catalog.
 
-### Phase 1 — First real migration (driven by the first non-additive bump)
+### Phase 1 — First real migration — ✅ IMPLEMENTED (stencil v1 → v2)
 
-This phase is exercised the first time some part's `epistola-model` shape
-changes non-additively (or immediately, with a synthetic bump, to prove the
-machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
+Landed as the documented real change rather than an invented one: the stencil
+`version` field that became **required** in `epistola-model 0.6.0` (ADR 0003).
+The stencil part's `baseline` was dropped to `1` (current stays `2`), defining
+v1 as the pre-`version` shape, and `StencilV1ToV2RequireVersionMigration`
+(`part = STENCIL`, `from = 1`) assigns `version = 1` when absent. This phase also
+**wired the resource-detail path** (the Phase-0 deferral): `ImportCatalogZip`'s
+stencil pre-scan + per-resource reads and `CatalogClient.fetchResourceDetail` now
+route through `migrateAndBindResourceDetail`, each detail gated by its own
+`schemaVersion`. One bundled straggler (`traffic-fine.json`, stamped template
+`v4`) was normalised to the template current (`v2`). Tests:
+`StencilV1ToV2RequireVersionMigrationTest` (unit) and `WireVersionImportFixtureTest`
+(integration — synthesises a v1 stencil from a native export, asserts
+migrated == native and a re-import is all `SKIPPED`). Docs:
+[`docs/exchange/resources/stencil/v1/`](../exchange/resources/stencil/v1/contract.md).
+
+The general recipe for the next bump of **one part** `P` from `N → N+1`:
 
 1. In `epistola-model`: make `P`'s shape change; the typed model now describes
    `P` at `N+1`.
