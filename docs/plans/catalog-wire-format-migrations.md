@@ -1,6 +1,6 @@
 # Plan: Catalog Wire-Format Schema Migrations (EF-style)
 
-> **Per-part axis (implemented).** [ADR 0006](../adr/0006-catalog-wire-format-migrations.md)
+> **Per-part axis (implemented).** [ADR 0007](../adr/0007-catalog-wire-format-migrations.md)
 > decides a **per-part** version axis — the manifest and each resource type
 > version independently, one chain each. Phase 0 now reflects this: a `CatalogPart`
 > enum and `CATALOG_PART_SCHEMAS` map hold the per-part windows, export stamps each
@@ -9,7 +9,7 @@
 > draft — read "the wire `schemaVersion`" as "each part's `schemaVersion`" and
 > "the chain" as "that part's chain".
 
-Companion to [ADR 0006](../adr/0006-catalog-wire-format-migrations.md). This is
+Companion to [ADR 0007](../adr/0007-catalog-wire-format-migrations.md). This is
 the implementation roadmap for an ordered, EF-Core-style migration chain that
 upgrades an imported catalog payload from the wire `schemaVersion` it was
 exported at to the version the current instance understands — applied on the
@@ -29,7 +29,7 @@ The protocol types (`CatalogManifest`, `ResourceDetail`, `CatalogResource` and
 its seven subtypes) come from the external `epistola-model:0.6.0` jar and only
 describe the **current** shape. An old-shaped payload cannot deserialize into
 them. So migrations operate on `JsonNode` and the migrated, current-shape tree
-is what gets bound. See ADR 0006 §"Considered options" for why this beats
+is what gets bound. See ADR 0007 §"Considered options" for why this beats
 versioned DTOs (Option B) and a tolerant reader (Option D).
 
 ## Package layout
@@ -45,7 +45,7 @@ migrations/
   steps/                           # one file per version bump, e.g. V4ToV5_<desc>.kt  (empty until first real bump)
 ```
 
-Constants in `CatalogConstants.kt` (per-part — ADR 0006):
+Constants in `CatalogConstants.kt` (per-part — ADR 0007):
 
 - `CatalogPart` enum — the manifest + each resource type, with its wire `type`.
 - `CATALOG_PART_SCHEMAS: Map<CatalogPart, PartSchemaWindow(baseline, current)>` —
@@ -62,7 +62,7 @@ current` for every part today → all chains empty.
 The whole framework lands before any real migration exists. Every part's
 `baseline == current`, so all chains are empty.
 
-**Per-part model (ADR 0006):**
+**Per-part model (ADR 0007):**
 
 - **Each part owns its version.** The committed bundled details carry independent
   per-type numbers (template/theme/stencil/asset `2`; attribute/code-list `3`;
@@ -197,7 +197,7 @@ machinery end-to-end). Steps for bumping **one part** `P` from `N → N+1`:
    (clarify fingerprint is preserved, not recomputed, through migration).
 3. **CHANGELOG.md** under `[Unreleased]`.
 
-## Key design decisions (carried from ADR 0006)
+## Key design decisions (carried from ADR 0007)
 
 | Decision                         | Choice                                                                                    |
 | -------------------------------- | ----------------------------------------------------------------------------------------- |

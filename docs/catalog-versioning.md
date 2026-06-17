@@ -69,7 +69,7 @@ the font-family fingerprint), so swapping an image flips the fingerprint even
 though the `AssetResource` JSON is unchanged.
 
 **Wire-format migration is fingerprint-transparent.** Because `schemaVersion` is
-excluded, the per-part import migration ([ADR 0006](adr/0006-catalog-wire-format-migrations.md),
+excluded, the per-part import migration ([ADR 0007](adr/0007-catalog-wire-format-migrations.md),
 [`docs/exchange/`](exchange/README.md#wire-format-version-gate)) — which upgrades
 an older payload's shape and re-stamps `schemaVersion` to the part's current — is
 **preserved verbatim**: `release.fingerprint` / `release.version` are never

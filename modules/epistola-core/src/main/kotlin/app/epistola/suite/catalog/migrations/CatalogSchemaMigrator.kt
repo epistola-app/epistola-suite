@@ -17,7 +17,7 @@ import tools.jackson.databind.node.ObjectNode
  * tree before binding**, then deserializing the current-shape tree into the
  * typed protocol model.
  *
- * **Per-part versioning** (`docs/adr/0006-catalog-wire-format-migrations.md`):
+ * **Per-part versioning** (`docs/adr/0007-catalog-wire-format-migrations.md`):
  * each [CatalogPart] — the manifest and each resource type — is versioned
  * independently with its own chain and its own [PartSchemaWindow]. The manifest
  * is gated by its own `schemaVersion`; each resource detail by its own. Steps

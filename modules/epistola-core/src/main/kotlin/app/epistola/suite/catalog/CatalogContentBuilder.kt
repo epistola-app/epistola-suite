@@ -91,7 +91,7 @@ class CatalogContentBuilder(
             )
             // Each part is versioned independently — stamp the detail with its own
             // part's current wire version, not the manifest's (per-part versioning,
-            // docs/adr/0006). Unknown types fall back to the manifest version.
+            // docs/adr/0007). Unknown types fall back to the manifest version.
             val schemaVersion = CatalogPart.ofResourceType(type)
                 ?.let { CATALOG_PART_SCHEMAS.getValue(it).current }
                 ?: CATALOG_MANIFEST_SCHEMA_VERSION

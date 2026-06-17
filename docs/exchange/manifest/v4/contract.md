@@ -2,7 +2,7 @@
 
 > Part of [catalog import/export](../../README.md). This is the **current** manifest version. [All manifest versions](../).
 
-**Role:** the top-level `catalog.json` — the entry point of every catalog. It carries the catalog identity, the release stamp (version + fingerprint), and a flat index of the resources, each pointing at its own [resource detail file](../../README.md#parts--contract-versions). The manifest is **one versioned part among the others** — its `schemaVersion` versions the manifest's own shape, not the whole catalog (each resource type carries its own version; see [ADR 0006](../../../adr/0006-catalog-wire-format-migrations.md)).
+**Role:** the top-level `catalog.json` — the entry point of every catalog. It carries the catalog identity, the release stamp (version + fingerprint), and a flat index of the resources, each pointing at its own [resource detail file](../../README.md#parts--contract-versions). The manifest is **one versioned part among the others** — its `schemaVersion` versions the manifest's own shape, not the whole catalog (each resource type carries its own version; see [ADR 0007](../../../adr/0007-catalog-wire-format-migrations.md)).
 
 **DTO:** `app.epistola.catalog.protocol.CatalogManifest` (external `epistola-model`).
 **Produced by:** [`CatalogContentBuilder.toManifest()`](../../../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogContentBuilder.kt) — stamps `schemaVersion = CATALOG_MANIFEST_SCHEMA_VERSION`.
@@ -49,7 +49,7 @@
 
 | Field                       | Type              | Required    | Description                                                                                                                                                                                                                                                                               |
 | --------------------------- | ----------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer           | yes         | **The manifest part's contract version** (currently `4`) — versions the manifest's own shape; each resource type carries its own version ([ADR 0006](../../../adr/0006-catalog-wire-format-migrations.md)). Read first, gated by `CatalogSchemaMigrator` before binding to a typed model. |
+| `schemaVersion`             | integer           | yes         | **The manifest part's contract version** (currently `4`) — versions the manifest's own shape; each resource type carries its own version ([ADR 0007](../../../adr/0007-catalog-wire-format-migrations.md)). Read first, gated by `CatalogSchemaMigrator` before binding to a typed model. |
 | `catalog.slug`              | string            | yes         | Catalog identifier (URL-safe slug).                                                                                                                                                                                                                                                       |
 | `catalog.name`              | string            | yes         | Display name.                                                                                                                                                                                                                                                                             |
 | `catalog.description`       | string            | no          | Free text.                                                                                                                                                                                                                                                                                |
@@ -72,7 +72,7 @@
 
 ## Validation / behaviour
 
-- **Version gate** (`CatalogSchemaMigrator`): payload `schemaVersion` greater than this instance's `CATALOG_MANIFEST_SCHEMA_VERSION` → `CatalogSchemaTooNewException`; below `CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION` (once migrations exist) → `CatalogSchemaTooOldException`; unparseable JSON or a missing/non-integer `schemaVersion` → `CatalogSchemaUnknownException`. All map to HTTP 400. See [ADR 0006](../../../adr/0006-catalog-wire-format-migrations.md).
+- **Version gate** (`CatalogSchemaMigrator`): payload `schemaVersion` greater than this instance's `CATALOG_MANIFEST_SCHEMA_VERSION` → `CatalogSchemaTooNewException`; below `CATALOG_MANIFEST_BASELINE_SCHEMA_VERSION` (once migrations exist) → `CatalogSchemaTooOldException`; unparseable JSON or a missing/non-integer `schemaVersion` → `CatalogSchemaUnknownException`. All map to HTTP 400. See [ADR 0007](../../../adr/0007-catalog-wire-format-migrations.md).
 - **Per-part versioning**: the manifest is gated by its own `schemaVersion`; each resource detail is gated independently by _its own_ `schemaVersion` against that part's window. The manifest version does not govern the details.
 
 ## Changed in v4
@@ -83,4 +83,4 @@
 
 - Each `resources[].type` → its [resource detail contract](../../README.md#parts--contract-versions).
 - Fingerprint & SemVer model: [`catalog-versioning.md`](../../../catalog-versioning.md).
-- Wire-version migrations: [ADR 0006](../../../adr/0006-catalog-wire-format-migrations.md).
+- Wire-version migrations: [ADR 0007](../../../adr/0007-catalog-wire-format-migrations.md).

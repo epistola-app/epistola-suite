@@ -1,4 +1,4 @@
-# ADR 0006: Catalog Wire-Format Schema Migrations
+# ADR 0007: Catalog Wire-Format Schema Migrations
 
 - **Status:** Accepted
 - **Date:** 2026-06-09

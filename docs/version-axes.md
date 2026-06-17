@@ -36,7 +36,7 @@ the map; each axis links to its detailed doc.
   so an import works between instances running different **software** versions.
   It changes **only when the format changes**, never when your content changes,
   and it is versioned **per part** (the manifest and each resource type move
-  independently). See [ADR 0006](adr/0006-catalog-wire-format-migrations.md) and
+  independently). See [ADR 0007](adr/0007-catalog-wire-format-migrations.md) and
   [exchange/README.md](exchange/README.md#wire-format-version-gate).
 
 ## How they relate (and don't)
@@ -52,7 +52,7 @@ the map; each axis links to its detailed doc.
   `StencilResource.version` and the importer installs at that number (see
   [ADR 0003](adr/0003-stencil-version-in-export.md)). This is also why the first
   wire-format migration exists: stencil wire **v1 → v2** made that field
-  required ([ADR 0006](adr/0006-catalog-wire-format-migrations.md)) — a _format_
+  required ([ADR 0007](adr/0007-catalog-wire-format-migrations.md)) — a _format_
   change carrying a _content_ version.
 - **Release version vs `schemaVersion` are orthogonal.** A catalog can publish
   release `5.9.0` (content) at wire `schemaVersion` 4 (format); editing content
@@ -66,5 +66,5 @@ the map; each axis links to its detailed doc.
 - [catalog-versioning.md](catalog-versioning.md) — release SemVer + content fingerprint, upgrade flow.
 - [schema-versioning.md](schema-versioning.md) — contract (data-model) draft/publish + compatibility.
 - [exchange/README.md](exchange/README.md) — the wire format, per-part contracts, and the version gate.
-- [ADR 0006](adr/0006-catalog-wire-format-migrations.md) — per-part wire-format migrations.
+- [ADR 0007](adr/0007-catalog-wire-format-migrations.md) — per-part wire-format migrations.
 - [ADR 0003](adr/0003-stencil-version-in-export.md) — stencil version on the wire.

@@ -10,7 +10,7 @@ import tools.jackson.databind.node.ObjectNode
  *
  * Each part (the manifest, or a resource type) is versioned independently and
  * has its own chain (per-part versioning — see
- * `docs/adr/0006-catalog-wire-format-migrations.md`). A step declares which
+ * `docs/adr/0007-catalog-wire-format-migrations.md`). A step declares which
  * [part] it migrates; [CatalogSchemaMigrator] groups steps by part and runs each
  * part's chain from the payload's version up to that part's current.
  *

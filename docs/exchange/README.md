@@ -8,7 +8,7 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/contract.md) plus one detail file per resource. Each of these is a **part** with its own JSON contract. Every part is documented in its own folder, with a version subfolder per contract version, so a contract change is a new folder you can diff against the previous one.
 
-**Each part is versioned independently.** The manifest is just another versioned part — there is no single "whole-catalog" version that the parts move together. A catalog is at a _set_ of part versions (e.g. manifest `v4`, template `v2`, attribute `v3`); changing one part's shape bumps only that part. This is the decision recorded in [ADR 0006](../adr/0006-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism applies one chain per part.
+**Each part is versioned independently.** The manifest is just another versioned part — there is no single "whole-catalog" version that the parts move together. A catalog is at a _set_ of part versions (e.g. manifest `v4`, template `v2`, attribute `v3`); changing one part's shape bumps only that part. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism applies one chain per part.
 
 **Current contract of each part:**
 
@@ -29,7 +29,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/cont
 
 | Axis                         | What it versions                                                     | Where                                               | Reference                                                 |
 | ---------------------------- | -------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| **Part `schemaVersion`**     | the JSON _shape_ of one part (manifest or a resource type), per part | each part's `schemaVersion`; the `vN/` folders here | [ADR 0006](../adr/0006-catalog-wire-format-migrations.md) |
+| **Part `schemaVersion`**     | the JSON _shape_ of one part (manifest or a resource type), per part | each part's `schemaVersion`; the `vN/` folders here | [ADR 0007](../adr/0007-catalog-wire-format-migrations.md) |
 | **Release version** (SemVer) | the catalog _content_ at a point in time                             | `release.version`, `catalog_releases`               | [catalog-versioning.md](../catalog-versioning.md)         |
 | **Content fingerprint**      | content _identity_ (did anything change?)                            | `release.fingerprint`                               | [catalog-versioning.md](../catalog-versioning.md)         |
 
@@ -37,7 +37,7 @@ These three are the **catalog-level** axes. For the full picture — including t
 
 **Maintaining these docs:** when you change a part's wire shape, add a new `vN+1/contract.md` for **that part only**, update its row's _Current_ above, and note the change under "Changed in vN+1". Leave the old version folder in place so the diff stays visible.
 
-> **Implementation status.** Per-part versioning is **implemented** ([ADR 0006](../adr/0006-catalog-wire-format-migrations.md)): export stamps each detail with its own part's version (`CatalogContentBuilder`), and `CatalogSchemaMigrator` gates/migrates each part by its own `schemaVersion` against that part's window — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). The per-part numbers above are the canonical contract versions (matching the bundled fixtures); a part's chain stays empty (`baseline == current`) until its shape changes, at which point a migration is added to that part's chain. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
+> **Implementation status.** Per-part versioning is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): export stamps each detail with its own part's version (`CatalogContentBuilder`), and `CatalogSchemaMigrator` gates/migrates each part by its own `schemaVersion` against that part's window — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). The per-part numbers above are the canonical contract versions (matching the bundled fixtures); a part's chain stays empty (`baseline == current`) until its shape changes, at which point a migration is added to that part's chain. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
 
 ## Concepts
 
@@ -330,7 +330,7 @@ The import runs within `CatalogImportContext.runAsImport {}` to bypass editabili
 
 ### Wire-format version gate
 
-Every part (the manifest and each resource detail) is gated by **its own** `schemaVersion` against that part's window in `CATALOG_PART_SCHEMAS` before it is bound (per-part versioning — [ADR 0006](../adr/0006-catalog-wire-format-migrations.md)). `CatalogSchemaMigrator` decides per part:
+Every part (the manifest and each resource detail) is gated by **its own** `schemaVersion` against that part's window in `CATALOG_PART_SCHEMAS` before it is bound (per-part versioning — [ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). `CatalogSchemaMigrator` decides per part:
 
 | Part `schemaVersion`                     | Behaviour                                                                                                                                           |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
