@@ -12,11 +12,13 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.htmxTriggerName
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.redirect
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
 import app.epistola.suite.loadtest.model.LoadTestRunKey
@@ -47,14 +49,23 @@ class LoadTestHandler(
      */
     fun list(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
         val tenant = GetTenant(tenantKey).query() ?: return ServerResponse.notFound().build()
         val runs = ListLoadTestRuns(tenantId = tenantKey, limit = 50).query()
 
+        // `?create` deep-links the dialog open: render it inline (with the model
+        // its dropdowns need). Only loaded on the deep-link path, not every list view.
+        val createOpen = request.param("create").isPresent
         return ServerResponse.ok().page("loadtest/list") {
             "pageTitle" to "Load Tests - Epistola"
             "tenant" to tenant
             "tenantId" to tenantKey
             "runs" to runs
+            "createOpen" to createOpen
+            if (createOpen) {
+                "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                "environments" to ListEnvironments(tenantId = tenantId).query()
+            }
         }
     }
 
@@ -83,14 +94,19 @@ class LoadTestHandler(
         // #template-options-section.
         val cascadeFields = setOf("templateId", "variantId", "versionId", "environmentId", "exampleId")
         if (request.htmxTriggerName !in cascadeFields) {
-            return ServerResponse.ok().render(
-                "loadtest/new :: createDialog",
-                mapOf(
-                    "tenantId" to tenantKey,
-                    "templates" to ListDocumentTemplates(tenantId = tenantId).query(),
-                    "environments" to ListEnvironments(tenantId = tenantId).query(),
-                ),
-            )
+            // Dialog-open branch only: push `?create` so the open dialog is
+            // deep-linkable. The cascade fetches below also hit this endpoint, so
+            // the push MUST stay guarded here — never on a cascade update.
+            return ServerResponse.ok()
+                .header("HX-Push-Url", urlWithCreateParam(request.htmxCurrentUrl, "/tenants/$tenantKey/load-tests"))
+                .render(
+                    "loadtest/new :: createDialog",
+                    mapOf(
+                        "tenantId" to tenantKey,
+                        "templates" to ListDocumentTemplates(tenantId = tenantId).query(),
+                        "environments" to ListEnvironments(tenantId = tenantId).query(),
+                    ),
+                )
         }
 
         // Cascade update. Template select value is "catalogKey/templateKey".

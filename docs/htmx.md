@@ -683,29 +683,41 @@ or genuinely diverges.
 
 #### Deep-linkable create dialogs
 
-By default a create dialog is **transient UI state with no URL** — refresh or Back loses it. Any
-create dialog can opt into making its open state **URL-addressable** (`?create`), so it becomes
-deep-linkable, refresh-safe, and closable with the Back button. It is **payable per entity** — adopt
-it form by form; a list that hasn't opted in just keeps the plain dialog above. The model is "the list
-view with a modifier", so it is a query param on the list URL (`/…/<entities>?create`), **not** a
-`/new` sub-path, and it composes with whatever other params that list already carries — preserved, not
-clobbered (e.g. on the templates list the open/close round-trip keeps the list's own `?catalog=`
-filter dropdown — the filter on the list page, not the separate Catalogs page).
+By default a list's dialog is **transient UI state with no URL** — refresh or Back loses it. Any
+list dialog can opt into making its open state **URL-addressable**, so it becomes deep-linkable,
+refresh-safe, and closable with the Back button. It is **payable per entity** — adopt it form by form;
+a list that hasn't opted in just keeps the plain dialog above. The model is "the list view with a
+modifier", so it is a query param on the list URL (`/…/<entities>?create`), **not** a `/new` sub-path,
+and it composes with whatever other params that list already carries — preserved, not clobbered (e.g.
+on the templates list the open/close round-trip keeps the list's own `?catalog=` filter dropdown — the
+filter on the list page, not the separate Catalogs page).
 
-The wiring below is **entity-agnostic**. The self-swapping create dialogs — templates, themes, API
-keys, environments, stencils, attributes, and code lists — have all opted in; fonts, assets, and load
-tests have not (their dialogs aren't the simple self-swap shape). The templates list is used as the
-running example.
+**The query param is per-dialog.** Create forms use `?create`; the file-upload forms (fonts, assets)
+use `?upload`. The dialog declares its param via `data-dialog-param` (default `create`), and the
+entity-agnostic reconcile/close JS reads that name — so the same wiring serves both, and the server's
+`urlWithDialogParam(currentUrl, fallback, param)` builds the matching `HX-Push-Url`.
+
+The wiring below is **entity-agnostic** and now covers **every** create dialog: the seven
+self-swapping create forms (templates, themes, API keys, environments, stencils, attributes, code
+lists, via `?create`); the two upload forms (fonts, assets, via `?upload`); the **Catalogs** page (via
+`?create`) — first converted _to_ this model from its old statically-rendered dialog + inline
+`onclick` + OOB-list-swap, its create now HX-Redirecting to the new catalog's `…/<slug>/browse`; and
+**load tests** (via `?create`). Load tests are the one case where `pushUrl` is **guarded**: its `/new`
+is dual-purpose (dialog-open vs. cascade-dropdown fetch, distinguished by `HX-Trigger-Name`), so the
+push fires only on the dialog-open branch — never on a cascade fetch. Only the dialog's _open_ state is
+in the URL; the cascade selections are deliberately not. The templates list is the running example.
 
 The split is **the server owns URL writes that ride a request; the client owns the writes that
 don't**:
 
-- **Open** — `newForm` adds `pushUrl(urlWithCreateParam(request.htmxCurrentUrl, …))`. The merge is a
-  single tested Kotlin function (`urlWithCreateParam`) that appends `create` to the current URL while
-  preserving every existing param — never a static `?create` string, which would clobber whatever the
-  list already carries (e.g. the templates list's `?catalog=` filter).
-- **Deep link / refresh / restore** — `list` sets `createOpen` when `?create` is present and renders
-  the `createDialog` fragment (marked `data-create-dialog`) inline on the page, closed.
+- **Open** — `newForm` adds `pushUrl(urlWithDialogParam(request.htmxCurrentUrl, …, param))` (the
+  `param` is `create` or `upload`; `urlWithCreateParam` is the `create` convenience). The merge is a
+  single tested Kotlin function that appends the param to the current URL while preserving every
+  existing param — never a static string, which would clobber whatever the list already carries (e.g.
+  the templates list's `?catalog=` filter).
+- **Deep link / refresh / restore** — `list` sets `createOpen` when its param is present and renders
+  the `createDialog` fragment (marked `data-create-dialog`, plus `data-dialog-param` for non-`create`
+  params) inline on the page, closed.
 - **Reconcile** — a persistent, **read-only** function in `fragments/htmx`, bound to
   `DOMContentLoaded` and `htmx:historyRestore`, calls `showModal()`/`close()` to match the URL. It
   **never writes history** — that one-directional flow is what prevents a close↔history loop. Its

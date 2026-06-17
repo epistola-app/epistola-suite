@@ -85,6 +85,11 @@
                 </tr>
             </tbody>
         </table>
+
+        <!-- Deep-link / refresh render site: `?create` opens the load-test dialog. -->
+        <th:block th:if="${createOpen}">
+            <th:block th:replace="~{loadtest/new :: createDialog}"></th:block>
+        </th:block>
     </th:block>
 </body>
 </html>

@@ -88,6 +88,85 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Select a template first")
             }
         }
+
+        @Test
+        fun `GET new (HTMX) opening the dialog pushes the create URL`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Test Tenant")
+            }
+
+            whenever {
+                // Dialog-open: HTMX, no field trigger name.
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                headers.set("HX-Current-URL", "/tenants/${testTenant.id}/load-tests")
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/load-tests/new",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.headers.getFirst("HX-Push-Url"))
+                    .isEqualTo("/tenants/${testTenant.id}/load-tests?create")
+            }
+        }
+
+        @Test
+        fun `GET new (HTMX) cascade fetch does NOT push the create URL`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Test Tenant")
+            }
+
+            whenever {
+                // A cascade update carries a field trigger name; it shares the /new
+                // endpoint but must never push history (the guard).
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                headers.set("HX-Trigger-Name", "templateId")
+                headers.set("HX-Current-URL", "/tenants/${testTenant.id}/load-tests?create")
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/load-tests/new?templateId=",
+                    HttpMethod.GET,
+                    HttpEntity<Void>(headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.headers.getFirst("HX-Push-Url")).isNull()
+            }
+        }
+
+        @Test
+        fun `GET list with create renders the dialog markup for deep linking`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Test Tenant")
+            }
+
+            whenever {
+                restTemplate.getForEntity("/tenants/${testTenant.id}/load-tests?create", String::class.java)
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("create-load-test-dialog")
+                assertThat(response.body).contains("data-create-dialog")
+            }
+        }
     }
 
     @Nested

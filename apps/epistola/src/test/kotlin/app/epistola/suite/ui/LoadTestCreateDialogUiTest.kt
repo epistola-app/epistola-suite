@@ -51,4 +51,15 @@ class LoadTestCreateDialogUiTest : BasePlaywrightTest() {
         // The populated variant select is now enabled and lives inside the dialog.
         assertThat(page.locator("#create-load-test-dialog #variantId")).isEnabled()
     }
+
+    @Test
+    fun `deep link to create opens the dialog`() {
+        val tenant: Tenant = createTenant("Load Test Deeplink")
+
+        // Deep-linkable open only — `?create` opens the (empty-cascade) dialog as a
+        // real top-layer modal. The cascade selections are intentionally NOT in the URL.
+        gotoAndReady("/tenants/${tenant.id}/load-tests?create")
+
+        page.assertNativeModalOpen("#create-load-test-dialog")
+    }
 }
