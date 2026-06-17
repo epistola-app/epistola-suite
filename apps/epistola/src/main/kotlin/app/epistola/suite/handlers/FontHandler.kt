@@ -24,7 +24,9 @@ import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.urlWithDialogParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -65,6 +67,9 @@ class FontHandler(
         val tenant = GetTenant(id = tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query()
         val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter).query()
+        // `?upload` deep-links the upload dialog open: render its markup so the
+        // reconcile script can showModal() it (the upload form is catalog-scoped,
+        // so it needs the AUTHORED catalogs, separate from the filter dropdown's).
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -76,6 +81,8 @@ class FontHandler(
                 "selectedCatalog" to (catalogFilter?.value ?: ""),
                 "fonts" to fonts.map { toFontView(tenantId, it) },
                 "activeNavSection" to "fonts",
+                "createOpen" to request.param("upload").isPresent,
+                "authoredCatalogs" to catalogs.filter { it.type == CatalogType.AUTHORED },
             ),
         )
     }
@@ -95,6 +102,7 @@ class FontHandler(
                 "tenantId" to tenantKey.value
                 "catalogs" to catalogs
             }
+            pushUrl(urlWithDialogParam(request.htmxCurrentUrl, "/tenants/${tenantKey.value}/fonts", "upload"))
             onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
         }
     }

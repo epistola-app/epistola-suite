@@ -7,8 +7,8 @@
         reuses the same form + script via the shared `fields` fragment; htmx runs
         the <script> when the dialog is injected into #dialog-host.
     -->
-    <th:block th:fragment="createDialog">
-        <dialog id="create-font-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-font-dialog">
+    <th:block th:fragment="createDialog(catalogs)">
+        <dialog id="create-font-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-font-dialog" data-create-dialog data-dialog-param="upload">
             <div class="ep-dialog-header">
                 <h3>Upload Font</h3>
             </div>

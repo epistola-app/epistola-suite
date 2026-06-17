@@ -32,4 +32,16 @@ class FontUploadDialogUiTest : BasePlaywrightTest() {
         page.locator("#create-font-dialog #add-face-btn").click()
         assertThat(faceRows).hasCount(2)
     }
+
+    @Test
+    fun `deep link to upload opens the dialog`() {
+        val tenant: Tenant = createTenant("Font Upload Deeplink")
+
+        // Upload dialogs are URL-addressable via `?upload` (not `?create`).
+        // Landing directly on it must promote the dialog into a real top-layer
+        // modal (`:modal`), proving the shared reconcile honours data-dialog-param.
+        gotoAndReady("/tenants/${tenant.id}/fonts?upload")
+
+        page.assertNativeModalOpen("#create-font-dialog")
+    }
 }

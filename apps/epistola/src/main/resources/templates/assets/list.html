@@ -87,6 +87,11 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
+        <!-- Deep-link / refresh render site: `?upload` opens the upload dialog. -->
+        <th:block th:if="${createOpen}">
+            <th:block th:replace="~{assets/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
+        </th:block>
+
     </th:block>
 </body>
 </html>

@@ -82,6 +82,57 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `GET new over HTMX pushes the upload URL`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = createTenant("Asset Upload Push URL")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-Current-URL", "/tenants/${tenant.id}/assets")
+            }
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/assets/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // Upload forms use `?upload`, not `?create`.
+            assertThat(response.headers.getFirst("HX-Push-Url"))
+                .isEqualTo("/tenants/${tenant.id}/assets?upload")
+        }
+    }
+
+    @Test
+    fun `GET list with upload renders the dialog markup for deep linking`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = createTenant("Asset Upload Deeplink")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${tenant.id}/assets?upload", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("create-asset-dialog")
+            assertThat(response.body).contains("data-create-dialog")
+            assertThat(response.body).contains("data-dialog-param=\"upload\"")
+        }
+    }
+
     private fun seedTenantWithPngAsset(name: String, assetName: String): String = withMediator {
         val tenant: Tenant = createTenant(name)
         UploadAsset(

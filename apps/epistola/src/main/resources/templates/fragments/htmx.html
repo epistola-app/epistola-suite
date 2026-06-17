@@ -138,9 +138,12 @@
             // is what prevents the close↔history loop (a close that wrote history
             // would re-trigger reconcile, which would close again, …).
             function epistolaReconcileCreateDialog() {
-                var wantsOpen = new URLSearchParams(window.location.search).has('create');
                 var dialog = document.querySelector('dialog[data-create-dialog]');
                 if (!dialog || typeof dialog.showModal !== 'function') return;
+                // The dialog names its URL param via data-dialog-param (default
+                // 'create'); the upload forms (fonts, assets) use 'upload'.
+                var param = dialog.dataset.dialogParam || 'create';
+                var wantsOpen = new URLSearchParams(window.location.search).has(param);
                 // Source of truth is modal-ness (top layer), NOT the `open` attribute.
                 // A restored history snapshot (back/forward) serializes a non-modal
                 // `<dialog open>` — the open attribute survives, the top-layer/modal
@@ -181,9 +184,10 @@
                 var dialog = event.target;
                 if (!dialog.matches || !dialog.matches('dialog[data-create-dialog]')) return;
 
+                var param = dialog.dataset.dialogParam || 'create';
                 var params = new URLSearchParams(window.location.search);
-                if (params.has('create')) {
-                    params.delete('create');
+                if (params.has(param)) {
+                    params.delete(param);
                     var qs = params.toString();
                     window.history.replaceState(
                         window.history.state,

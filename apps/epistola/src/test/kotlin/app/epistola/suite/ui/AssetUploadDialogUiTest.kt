@@ -40,4 +40,16 @@ class AssetUploadDialogUiTest : BasePlaywrightTest() {
         assertThat(preview).isVisible()
         assertThat(page.locator("#create-asset-dialog #file-name")).hasText("logo.png")
     }
+
+    @Test
+    fun `deep link to upload opens the dialog`() {
+        val tenant: Tenant = createTenant("Asset Upload Deeplink")
+
+        // Upload dialogs are URL-addressable via `?upload` (not `?create`).
+        // Landing directly on it must promote the dialog into a real top-layer
+        // modal (`:modal`), proving the shared reconcile honours data-dialog-param.
+        gotoAndReady("/tenants/${tenant.id}/assets?upload")
+
+        page.assertNativeModalOpen("#create-asset-dialog")
+    }
 }

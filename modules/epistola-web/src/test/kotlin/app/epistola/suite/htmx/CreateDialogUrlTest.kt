@@ -51,4 +51,15 @@ class CreateDialogUrlTest {
         assertThat(urlWithCreateParam("https://app.epistola.test/tenants/acme/templates?catalog=invoices", fallback))
             .isEqualTo("/tenants/acme/templates?catalog=invoices&create")
     }
+
+    @Test
+    fun `supports an alternate dialog param like upload`() {
+        // The upload forms (fonts, assets) use `upload` instead of `create`.
+        assertThat(urlWithDialogParam(null, "/tenants/acme/assets", "upload"))
+            .isEqualTo("/tenants/acme/assets?upload")
+        assertThat(urlWithDialogParam("/tenants/acme/assets?catalog=brand", "/tenants/acme/assets", "upload"))
+            .isEqualTo("/tenants/acme/assets?catalog=brand&upload")
+        assertThat(urlWithDialogParam("/tenants/acme/assets?catalog=brand&upload", "/tenants/acme/assets", "upload"))
+            .isEqualTo("/tenants/acme/assets?catalog=brand&upload")
+    }
 }
