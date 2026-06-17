@@ -13,7 +13,7 @@ your own OpenTelemetry pipeline.
 > (bring-your-own — the app's own OTLP export stays off so the agent owns that
 > leg with no double export). Forwarding to **epistola-hub** is a separate
 > commercial-tier leg configured at runtime by the support module — see
-> [Deferred: hub leg](#deferred-hub-leg).
+> [Hub leg](#hub-leg).
 
 ## Identity tags (on every meter)
 
@@ -122,7 +122,7 @@ cost.
 > operator needs to run the fleet; a per-tenant kill switch would only create
 > monitoring blind spots. The original "disable metrics per tenant" idea was
 > really about _not forwarding a tenant's data to the external hub_ — a
-> data-residency concern that travels with the [hub leg](#deferred-hub-leg)
+> data-residency concern that travels with the [hub leg](#hub-leg)
 > (and is more naturally per-installation, or solved by stripping the `tenant`
 > tag before forwarding). Feedback, by contrast, _is_ per-tenant toggleable
 > because it forwards user-submitted content — see
@@ -186,12 +186,28 @@ observability:
 
 Do not enable both the agent and `otlpEndpoint` for metrics, or you double-export.
 
-## Deferred: hub leg
+## Hub leg
 
 Forwarding metrics to **epistola-hub** (the commercial support tier) is a
-dedicated, isolated OTLP push leg the suite owns end-to-end. It is **not** wired
-through Helm: the hub endpoint and `ek_*` credentials are discovered and
-configured **at runtime by the support module** (`epistola-support`). Any control
-over _which_ tenants/installations are forwarded (per-installation switch, or
-stripping the `tenant` tag before forwarding) is decided with that leg. Tracked
-in issue #506.
+dedicated, isolated OTLP push leg the suite owns end-to-end — distinct from the
+bring-your-own agent / `management.otlp.metrics.export` self-export leg above, so the
+two never double-export. It lives in `modules/epistola-support-telemetry`:
+a second Micrometer `OtlpMeterRegistry` is registered as a Spring bean
+(`TelemetryMetricsConfiguration`) so Boot composes it and fans every meter to it, with a
+custom `OtlpMetricsSender` (`GrpcOtlpMetricsSender`) that ships the OTLP payload to the hub
+**over gRPC** — the same `MetricsService/Export` call the hub serves, on the same gRPC
+endpoint the suite already resolves for the hub (no separate port or proxy). The sender
+gates per-publish (registered + entitled). Logs are wired separately by `TelemetryLeg` (a
+Logback appender).
+Per [ADR 0006](adr/0006-shipping-logs-and-metrics-to-hub.md) it is gated globally and
+**on by default with the support tier** (`epistola.support.enabled=true`); the
+installation-wide `support-telemetry` entitlement is the real gate, so nothing ships unless
+the installation is entitled (the capability is installation-wide; there is no per-tenant
+metrics toggle). Opt out locally with `epistola.support.telemetry.enabled=false`. The endpoint is the hub's own
+gRPC endpoint, derived programmatically by the support module — there is nothing to
+configure. The per-tenant `tenant` tag is **stripped before forwarding** by default
+(`strip-tenant-tag-from-metrics`), keeping the hub feed data-residency-friendly; the
+local Prometheus / self-export leg keeps it. The hub authenticates the OTLP gRPC stream
+with the installation's `x-ep-api-key` (the same credential as its other gRPC services)
+and requires an installation-wide `support-telemetry` entitlement (else `PERMISSION_DENIED`);
+real ingestion is still to come (the hub discards the payload for now).

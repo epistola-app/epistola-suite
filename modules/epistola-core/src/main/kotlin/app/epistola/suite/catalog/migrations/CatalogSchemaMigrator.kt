@@ -7,6 +7,7 @@ import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.PartSchemaWindow
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import tools.jackson.core.JacksonException
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -16,7 +17,7 @@ import tools.jackson.databind.node.ObjectNode
  * tree before binding**, then deserializing the current-shape tree into the
  * typed protocol model.
  *
- * **Per-part versioning** (`docs/adr/0006-catalog-wire-format-migrations.md`):
+ * **Per-part versioning** (`docs/adr/0007-catalog-wire-format-migrations.md`):
  * each [CatalogPart] — the manifest and each resource type — is versioned
  * independently with its own chain and its own [PartSchemaWindow]. The manifest
  * is gated by its own `schemaVersion`; each resource detail by its own. Steps
@@ -43,10 +44,10 @@ import tools.jackson.databind.node.ObjectNode
  *   [CatalogSchemaTooOldException].
  * - missing / non-integer `schemaVersion` — [CatalogSchemaUnknownException].
  *
- * The resource-detail path ([migrateAndBindResourceDetail]) is provided but not
- * yet invoked from the importers — detail-path wiring lands with the first real
- * resource migration (ADR 0006 / the implementation plan); today every detail
- * binds as-is at its own (current) version.
+ * The resource-detail path ([migrateAndBindResourceDetail]) is wired at both
+ * chokepoints — `ImportCatalogZip` (stencil pre-scan + per-resource reads) and
+ * [app.epistola.suite.catalog.CatalogClient.fetchResourceDetail] — gating each
+ * detail by **its own** `schemaVersion` against that resource type's window.
  */
 @Component
 class CatalogSchemaMigrator(
@@ -62,10 +63,14 @@ class CatalogSchemaMigrator(
         val byPart = migrations.groupBy { it.part }
         // Validate every part's chain against that part's window — including parts
         // with no migrations (an empty chain is valid iff baseline == current).
-        chainsByPart = CATALOG_PART_SCHEMAS.mapValues { (part, window) ->
+        // Build the map eagerly here (associate, not a mapValues lambda whose
+        // validation reads as a side-effect) so each chain is validated exactly
+        // once at construction — this is a singleton @Component — and later
+        // lookups are plain O(1) reads.
+        chainsByPart = CATALOG_PART_SCHEMAS.entries.associate { (part, window) ->
             val steps = (byPart[part] ?: emptyList()).sortedBy { it.from }
             validateMigrationChain(steps, window.baseline, window.current)
-            steps.associateBy { it.from }
+            part to steps.associateBy { it.from }
         }
         val total = chainsByPart.values.sumOf { it.size }
         if (total == 0) {
@@ -87,13 +92,25 @@ class CatalogSchemaMigrator(
 
     /**
      * Parse [rawDetail], gate/upgrade the resource [type]'s detail to its part's
-     * current schema version, and bind it to [ResourceDetail]. Not yet wired into
-     * the importers (see class KDoc).
+     * current schema version, and bind it to [ResourceDetail]. Invoked at both
+     * import chokepoints (see class KDoc).
+     *
+     * [type] is the manifest-declared resource type; the detail's own
+     * `resource.type` discriminator must agree with it, otherwise the payload
+     * would be gated/migrated against the wrong part's window. A mismatch is
+     * rejected as a malformed payload before any migration runs.
      */
     fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail {
         val part = CatalogPart.ofResourceType(type)
             ?: throw CatalogSchemaUnknownException("unknown resource type '$type'")
-        val migrated = migratePartTree(part, parse(rawDetail))
+        val tree = parse(rawDetail)
+        val declared = tree.get("resource")?.get("type")?.takeIf { it.isString }?.asString()
+        if (declared != null && declared != type) {
+            throw CatalogSchemaUnknownException(
+                "resource detail declares type '$declared' but the manifest entry is '$type'",
+            )
+        }
+        val migrated = migratePartTree(part, tree)
         return objectMapper.treeToValue(migrated, ResourceDetail::class.java)
     }
 
@@ -103,8 +120,18 @@ class CatalogSchemaMigrator(
         return migratePartTree(tree, chainsByPart.getValue(part), window.baseline, window.current)
     }
 
-    private fun parse(raw: ByteArray): ObjectNode = objectMapper.readTree(raw) as? ObjectNode
-        ?: throw CatalogSchemaUnknownException("payload is not a JSON object")
+    private fun parse(raw: ByteArray): ObjectNode {
+        // Invalid JSON must surface as a schema-unknown error too (→ HTTP 400 /
+        // inline UI fragment), not as a raw Jackson exception that escapes the
+        // gate. This is the single parse point for both import chokepoints.
+        val tree = try {
+            objectMapper.readTree(raw)
+        } catch (e: JacksonException) {
+            throw CatalogSchemaUnknownException("payload is not valid JSON: ${e.originalMessage}")
+        }
+        return tree as? ObjectNode
+            ?: throw CatalogSchemaUnknownException("payload is not a JSON object")
+    }
 
     companion object {
         private val logger = LoggerFactory.getLogger(CatalogSchemaMigrator::class.java)
@@ -152,7 +179,7 @@ class CatalogSchemaMigrator(
             byFrom: Map<Int, CatalogSchemaMigration>,
             current: Int,
         ): ObjectNode {
-            val ctx = MigrationContext(sourceVersion = source, targetVersion = current, manifest = null)
+            val ctx = MigrationContext(sourceVersion = source, targetVersion = current)
             var node = tree
             var version = source
             while (version < current) {

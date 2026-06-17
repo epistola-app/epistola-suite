@@ -72,6 +72,8 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). This enable
 
 > **Note:** Commit messages are validated by a Git hook (commitlint). If your commit is rejected, check the error message and adjust your commit message format.
 
+> **Note:** A `pre-commit` hook also runs [gitleaks](https://github.com/gitleaks/gitleaks) over your staged changes to block accidentally committed secrets (run `mise install` once so the pinned gitleaks is available). Real secrets belong in environment variables / Kubernetes Secrets — see [`docs/encryption.md`](docs/encryption.md).
+
 **Format:** `<type>: <description>`
 
 | Type       | Description                             |

@@ -94,6 +94,17 @@ class SupportConfiguration {
         return HubDiscovery()
     }
 
+    /**
+     * Resolves the OTLP endpoint for the telemetry leg from the hub endpoint (or an explicit
+     * override). The leg ([`epistola-support-telemetry`]) consumes this so the hub address lives in
+     * one place.
+     */
+    @Bean
+    fun hubTelemetryEndpointResolver(
+        discovery: HubDiscovery,
+        props: SupportProperties,
+    ): HubTelemetryEndpointResolver = HubTelemetryEndpointResolver(discovery, props)
+
     @Bean(destroyMethod = "close")
     fun epistolaHubClient(
         store: InstallationStore,

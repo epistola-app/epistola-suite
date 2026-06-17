@@ -1,6 +1,6 @@
-# ADR 0006: Catalog Wire-Format Schema Migrations
+# ADR 0007: Catalog Wire-Format Schema Migrations
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-09
 - **Deciders:** Epistola team
 - **Tags:** catalog, exchange, versioning, import, wire-format
@@ -207,29 +207,28 @@ manifest version.
 
 ```kotlin
 interface CatalogSchemaMigration {
+    /** The wire-format part this step migrates (the manifest, or one resource type). */
+    val part: CatalogPart
     val from: Int
     val to: Int get() = from + 1
 
-    /** Upgrade the manifest (catalog.json) tree by exactly one version. */
-    fun migrateManifest(manifest: ObjectNode, ctx: MigrationContext): ObjectNode = manifest
-
-    /** Upgrade one resource-detail tree by exactly one version.
-     *  `type` is the resource type ("template", "theme", …). */
-    fun migrateResourceDetail(type: String, detail: ObjectNode, ctx: MigrationContext): ObjectNode = detail
+    /** Upgrade this part's tree by exactly one version (manifest tree for
+     *  CatalogPart.MANIFEST, or one resource-detail tree otherwise). */
+    fun migrate(node: ObjectNode, ctx: MigrationContext): ObjectNode
 }
 ```
 
-Both methods default to identity, so a migration overrides only what its
-version actually changed. `MigrationContext` carries the already-migrated
-manifest tree (so a detail migration that needs to read catalog-level data
-can), plus the source and target version numbers. Migrations are **pure**: no
-DB, no IO, no clock, no randomness — `JsonNode` in, `JsonNode` out.
+Each step declares the **single part** it belongs to (via [`CatalogPart`]) and a
+single `migrate` reshaping that part's tree by one version — the manifest and
+each resource type each have their own independent chain. Migrations are
+**pure**: no DB, no IO, no clock, no randomness — `JsonNode` in, `JsonNode` out.
+`MigrationContext` carries only the source and target version numbers of the
+part's chain (useful for logging or version-conditional logic).
 
-A migration that needs to **move data between files** (e.g. lift a field out
-of every detail into the manifest) is expressed as: `migrateManifest` reads
-what it needs from `ctx` and `migrateResourceDetail` strips/rewrites the
-detail. Because the manifest is always migrated before any detail (see below),
-the context is consistent.
+A cross-part change (e.g. lift a field out of every detail into the manifest)
+is expressed as one step in **each** affected part's chain. Steps do not read
+each other's trees today; if a step ever needs another part's data, extend
+`MigrationContext` at that point (YAGNI until then).
 
 ### The migrator
 
@@ -241,39 +240,40 @@ total**: exactly one step per version from that part's `BASELINE` to
 chain (for any part) fails application start — the same fail-fast posture as a
 broken Flyway sequence.
 
-It exposes two entry points matching the two chokepoints; each migrates by its
-own part's version:
+It exposes two entry points matching the two chokepoints; each gates and
+migrates by its own part's version, then binds the current-shape tree straight
+to the typed protocol model:
 
 ```kotlin
-/** Parse, validate the manifest part's own version, and upgrade the manifest
- *  tree to the manifest part's CURRENT. Returns the migrated tree (plus its
- *  detected source version, for cross-part migrations that read it via ctx). */
-fun migrateManifest(rawManifest: ByteArray): MigratedManifest
+/** Parse, gate/upgrade the manifest part to its CURRENT, and bind. */
+fun migrateAndBindManifest(rawManifest: ByteArray): CatalogManifest
 
-/** Upgrade one resource-detail tree from the detail's OWN `schemaVersion` to
- *  that resource type's CURRENT, using that type's chain. */
-fun migrateResourceDetail(type: String, rawDetail: ByteArray): JsonNode
+/** Parse, gate/upgrade resource `type`'s detail from its OWN `schemaVersion`
+ *  to that type's CURRENT (using that type's chain), and bind. The detail's
+ *  own `resource.type` must match the manifest-declared `type`. */
+fun migrateAndBindResourceDetail(type: String, rawDetail: ByteArray): ResourceDetail
 ```
 
 The orchestration at each call site becomes: **migrate → bind → import**,
-replacing today's **bind → import**. The migrated current-shape tree is what
-`objectMapper.treeToValue(node, CatalogManifest::class.java)` /
-`treeToValue(node, ResourceDetail::class.java)` binds — the existing typed
-model and every downstream importer (`ImportTemplates`, `ImportStencil`, …)
-are unchanged.
+replacing today's **bind → import**. Binding (`treeToValue` to
+`CatalogManifest` / `ResourceDetail`) happens inside the migrator, so the
+existing typed model and every downstream importer (`ImportTemplates`,
+`ImportStencil`, …) are unchanged. (A lower-level `migratePartTree` that returns
+the raw migrated `ObjectNode` backs both, for callers that bind themselves.)
 
 ### Version-range enforcement
 
 The gate is evaluated **per part** against that part's own `CURRENT`/`BASELINE`
 — for the manifest from its `schemaVersion`, and for each detail from its own:
 
-| Source version           | Behaviour                                                                                                                           |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `== CURRENT`             | No migration; bind directly. (Fast path; today's behaviour.)                                                                        |
-| `BASELINE ≤ v < CURRENT` | Run that part's chain `v → … → CURRENT`, then bind.                                                                                 |
-| `v < BASELINE`           | **Reject** — `CatalogSchemaTooOldException` ("export predates the oldest supported wire version; re-export from a current source"). |
-| `v > CURRENT`            | **Reject** — `CatalogSchemaTooNewException` ("produced by a newer Epistola; upgrade this instance").                                |
-| missing / non-integer    | **Reject** — `CatalogSchemaUnknownException`. (Pre-versioning artifacts are not in scope; they predate BASELINE.)                   |
+| Source version                           | Behaviour                                                                                                                                                                                                                                                                    |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `== CURRENT`                             | No migration; bind directly. (Fast path — today's behaviour for every part, since all chains are empty: `BASELINE == CURRENT`.)                                                                                                                                              |
+| `v < CURRENT`, part's chain **empty**    | **Pass through unchanged** and bind — Phase-0 transitional. With no chain there is nothing to upgrade through, and pre-versioning stamps are unreliable, so a sub-current payload is assumed current-shape. Replaced by the two rows below once the part gains a real chain. |
+| `BASELINE ≤ v < CURRENT` (chain present) | Run that part's chain `v → … → CURRENT`, then bind.                                                                                                                                                                                                                          |
+| `v < BASELINE` (chain present)           | **Reject** — `CatalogSchemaTooOldException` ("export predates the oldest supported wire version; re-export from a current source").                                                                                                                                          |
+| `v > CURRENT`                            | **Reject** — `CatalogSchemaTooNewException` ("produced by a newer Epistola; upgrade this instance").                                                                                                                                                                         |
+| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException`. (Unparseable payloads and pre-versioning artifacts are not in scope.)                                                                                                                                                          |
 
 The manifest is checked (and migrated) **first**, before any resource is
 fetched, bound, or mutated — consistent with the existing "read-only pre-scan,

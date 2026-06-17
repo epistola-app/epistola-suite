@@ -4,7 +4,7 @@ package app.epistola.suite.catalog
  * A versioned **part** of the catalog exchange wire format: the `catalog.json`
  * manifest, or one resource type. Each part owns an independent `schemaVersion`
  * and its own migration chain (per-part versioning — see
- * `docs/adr/0006-catalog-wire-format-migrations.md` and `docs/exchange/`). The
+ * `docs/adr/0007-catalog-wire-format-migrations.md` and `docs/exchange/`). The
  * manifest is not privileged; it is one part among the others.
  */
 enum class CatalogPart(
@@ -39,7 +39,7 @@ data class PartSchemaWindow(
 
 /**
  * Per-part wire schema versions. Each part is versioned independently
- * (`docs/adr/0006-catalog-wire-format-migrations.md`): export stamps each part's
+ * (`docs/adr/0007-catalog-wire-format-migrations.md`): export stamps each part's
  * [PartSchemaWindow.current], and an import upgrades a payload from its own
  * version up to that part's current via the per-part migration chain. The
  * canonical record of each part's current shape is `docs/exchange/`.
@@ -54,10 +54,7 @@ val CATALOG_PART_SCHEMAS: Map<CatalogPart, PartSchemaWindow> = mapOf(
     CatalogPart.FONT to PartSchemaWindow(baseline = 1, current = 1),
     CatalogPart.ATTRIBUTE to PartSchemaWindow(baseline = 3, current = 3),
     CatalogPart.THEME to PartSchemaWindow(baseline = 2, current = 2),
-    // STENCIL: v1 = pre-`version` shape (epistola-model < 0.6.0); v2 added the
-    // required published-version pin (ADR 0003). The v1→v2 chain upgrades an old
-    // export — StencilV1ToV2RequireVersionMigration.
-    CatalogPart.STENCIL to PartSchemaWindow(baseline = 1, current = 2),
+    CatalogPart.STENCIL to PartSchemaWindow(baseline = 2, current = 2),
     CatalogPart.TEMPLATE to PartSchemaWindow(baseline = 2, current = 2),
 )
 

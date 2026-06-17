@@ -1,11 +1,9 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.testing.metrics.TestRunMetrics
 import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.testcontainers.postgresql.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
 import java.sql.DriverManager
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -13,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class TestcontainersConfiguration {
     /**
      * Each Spring test context gets its **own logical database** inside the one shared
-     * [SHARED_POSTGRES] container. This keeps the single-container memory/startup win
+     * shared Postgres container. This keeps the single-container memory/startup win
      * while restoring the per-context database isolation that integration tests rely on:
      * always-on background schedulers (`JobPoller`, `StaleJobRecovery`, …) and the global
      * `generation_results.sequence` only ever see their own context's database, so a
@@ -29,57 +27,41 @@ class TestcontainersConfiguration {
      */
     @Bean
     fun postgresConnectionDetails(): JdbcConnectionDetails {
+        val postgres = TestRuntimeLifecycle.postgres()
         val databaseName = "ctx_${DATABASE_SEQUENCE.incrementAndGet()}"
-        createDatabase(databaseName)
-        val jdbcUrl = perContextJdbcUrl(databaseName)
+        createDatabase(postgres, databaseName)
+        val jdbcUrl = perContextJdbcUrl(postgres, databaseName)
         return object : JdbcConnectionDetails {
-            override fun getUsername(): String = SHARED_POSTGRES.username
-            override fun getPassword(): String = SHARED_POSTGRES.password
+            override fun getUsername(): String = postgres.username
+            override fun getPassword(): String = postgres.password
             override fun getJdbcUrl(): String = jdbcUrl
         }
     }
 
-    private fun createDatabase(databaseName: String) {
+    private fun createDatabase(
+        postgres: PostgreSQLContainer,
+        databaseName: String,
+    ) {
         DriverManager.getConnection(
-            SHARED_POSTGRES.jdbcUrl,
-            SHARED_POSTGRES.username,
-            SHARED_POSTGRES.password,
+            postgres.jdbcUrl,
+            postgres.username,
+            postgres.password,
         ).use { connection ->
             connection.createStatement().use { it.execute("CREATE DATABASE \"$databaseName\"") }
         }
     }
 
-    private fun perContextJdbcUrl(databaseName: String): String {
-        val queryParams = SHARED_POSTGRES.jdbcUrl.substringAfter('?', "")
-        val base = "jdbc:postgresql://${SHARED_POSTGRES.host}:" +
-            "${SHARED_POSTGRES.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)}/$databaseName"
+    private fun perContextJdbcUrl(
+        postgres: PostgreSQLContainer,
+        databaseName: String,
+    ): String {
+        val queryParams = postgres.jdbcUrl.substringAfter('?', "")
+        val base = "jdbc:postgresql://${postgres.host}:" +
+            "${postgres.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)}/$databaseName"
         return if (queryParams.isEmpty()) base else "$base?$queryParams"
     }
 
     companion object {
         private val DATABASE_SEQUENCE = AtomicInteger(0)
-
-        /**
-         * One Postgres container shared by every test context in the JVM. It is
-         * intentionally a plain static (not a Spring bean), so Spring never starts/stops it
-         * per context; per-context databases (above) provide isolation. The data directory
-         * is RAM-backed (tmpfs) for speed.
-         *
-         * Cleanup is via an explicit JVM shutdown hook rather than relying on Testcontainers'
-         * Ryuk reaper: Ryuk is unavailable or disabled in several environments (rootless
-         * Docker, some Docker-in-Docker / Podman setups, `TESTCONTAINERS_RYUK_DISABLED=true`,
-         * security-restricted CI). The hook stops the container on graceful test-JVM exit;
-         * Ryuk, when present, remains a backstop for non-graceful termination.
-         */
-        @JvmStatic
-        private val SHARED_POSTGRES: PostgreSQLContainer =
-            PostgreSQLContainer(DockerImageName.parse("postgres:17"))
-                .withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
-                .apply {
-                    val startNanos = System.nanoTime()
-                    start()
-                    TestRunMetrics.recordPostgresStartupNanos(System.nanoTime() - startNanos)
-                    Runtime.getRuntime().addShutdownHook(Thread { stop() })
-                }
     }
 }

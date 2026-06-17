@@ -20,6 +20,7 @@ dependencyResolutionManagement {
 
 include(":apps:epistola")
 include(":modules:epistola-core")
+include(":modules:epistola-crypto")
 include(":modules:epistola-web")
 include(":modules:loadtest")
 include(":modules:editor")
@@ -32,3 +33,4 @@ include(":modules:epistola-support-feedback")
 include(":modules:epistola-support-snapshots")
 include(":modules:epistola-support-backups")
 include(":modules:epistola-support-upgrading")
+include(":modules:epistola-support-telemetry")

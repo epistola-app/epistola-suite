@@ -40,6 +40,17 @@ spring:
 epistola:
   demo:
     enabled: true
+
+  # A FIXED local-dev encryption key (not the in-memory ephemeral fallback) so
+  # credentials encrypted in your local DB survive app restarts. This is a
+  # throwaway, non-secret dev key — same spirit as the admin/admin users below;
+  # NEVER use it outside local development. Real environments inject keys from a
+  # Secret via the Helm chart. See docs/encryption.md.
+  encryption:
+    primary-key-id: local-dev
+    keys:
+      - id: local-dev
+        material: 3ILCfy3aRk48CuZ3Z/aWaOQS46/dq64jzl7DpG5Qn3o=
   auth:
     auto-provision: false # Not needed for in-memory users
     local-users:
@@ -68,12 +79,9 @@ epistola:
     dev-server:
       auto-start: true
 
-  # Backups & Upgrading (catalog-sync) toggles ON for local dev so the Support
-  # nav items + pages are visible. These gate UI visibility only; the hub still
-  # gates the actual operations (and, later, entitlement).
-  features:
-    support-backups: true
-    support-upgrading: true
+  # Support features (feedback/backups/upgrading) default ON here because support is enabled
+  # below (their default follows `epistola.support.enabled`); the hub still gates the actual
+  # operations via the entitlement. No per-feature toggle needed.
 
   # Identity reported to epistola-hub when support is enabled. Sensible
   # defaults so a developer can just flip `epistola.support.enabled=true`

@@ -10,7 +10,7 @@ import tools.jackson.databind.node.ObjectNode
  *
  * Each part (the manifest, or a resource type) is versioned independently and
  * has its own chain (per-part versioning — see
- * `docs/adr/0006-catalog-wire-format-migrations.md`). A step declares which
+ * `docs/adr/0007-catalog-wire-format-migrations.md`). A step declares which
  * [part] it migrates; [CatalogSchemaMigrator] groups steps by part and runs each
  * part's chain from the payload's version up to that part's current.
  *
@@ -26,8 +26,7 @@ import tools.jackson.databind.node.ObjectNode
  * contiguous at startup.
  *
  * For a cross-part change (e.g. lift a field out of every detail into the
- * manifest), ship a step in each affected part's chain; a resource-detail step
- * can read the already-migrated manifest via [MigrationContext].
+ * manifest), ship a step in each affected part's chain.
  *
  * `release.fingerprint` / `release.version` must never be touched — they are the
  * source's content identity (and the fingerprint excludes `schemaVersion` by

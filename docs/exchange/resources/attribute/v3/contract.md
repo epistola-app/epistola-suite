@@ -19,6 +19,7 @@
     "type": "attribute",
     "slug": "country",
     "name": "Country",
+    "allowedValues": [],
     "codeListBinding": { "slug": "iso-3166-1-alpha2" }
   }
 }
@@ -26,12 +27,13 @@
 
 ## Fields (`resource`)
 
-| Field             | Type   | Required | Description                                                                                                                                                   |
-| ----------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`            | string | yes      | Discriminator: `"attribute"`.                                                                                                                                 |
-| `slug`            | string | yes      | Unique within the catalog.                                                                                                                                    |
-| `name`            | string | yes      | Display name.                                                                                                                                                 |
-| `codeListBinding` | object | no       | `{ slug, catalogKey? }` — binds allowed values to a [code list](../../code-list/v3/contract.md). A cross-catalog binding surfaces as a manifest `dependency`. |
+| Field             | Type           | Required | Description                                                                                                                                                   |
+| ----------------- | -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`            | string         | yes      | Discriminator: `"attribute"`.                                                                                                                                 |
+| `slug`            | string         | yes      | Unique within the catalog.                                                                                                                                    |
+| `name`            | string         | yes      | Display name.                                                                                                                                                 |
+| `allowedValues`   | array<string\> | no       | Inline enumeration of permitted values (may be empty). Round-tripped as-is by export/import; superseded by `codeListBinding` when a binding is present.       |
+| `codeListBinding` | object         | no       | `{ slug, catalogKey? }` — binds allowed values to a [code list](../../code-list/v3/contract.md). A cross-catalog binding surfaces as a manifest `dependency`. |
 
 ## Validation / behaviour
 
@@ -39,7 +41,7 @@
 
 ## Changed in v3
 
-- **Replaced inline `allowedValues` with a `codeListBinding`** reference. Earlier versions of this contract carried the enumeration inline on the attribute (`allowedValues`); v3 normalises values into a shared, reusable [code-list](../../code-list/v3/contract.md) resource and binds to it. This is the canonical example of a per-part contract change — diff this folder against a future `v4/` to see the next one.
+- **Added `codeListBinding`** as the preferred way to source allowed values. Earlier versions carried the enumeration only inline (`allowedValues`); v3 lets an attribute instead bind to a shared, reusable [code-list](../../code-list/v3/contract.md) resource. `allowedValues` is **not removed** — the wire model still carries and round-trips it (export emits it, import consumes it), so both can be present; a binding, when set, supersedes the inline list. This is the canonical example of a per-part contract change — diff this folder against a future `v4/` to see the next one.
 
 ## Related parts
 

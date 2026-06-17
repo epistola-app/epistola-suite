@@ -47,6 +47,7 @@ class SecurityConfig(
     private val clientRegistrationRepository: ClientRegistrationRepository? = null,
     private val userDetailsService: UserDetailsService? = null,
     private val apiKeyService: ApiKeyService,
+    private val apiKeyAuthCache: app.epistola.suite.apikeys.ApiKeyAuthCache,
     private val authProperties: AuthProperties,
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
     private val meterRegistry: MeterRegistry,
@@ -103,6 +104,7 @@ class SecurityConfig(
         val jwtResourceServerEnabled = hasOAuth2() && jwtAuthenticationConverter != null
         val apiKeyFilter = ApiKeyAuthenticationFilter(
             apiKeyService = apiKeyService,
+            apiKeyAuthCache = apiKeyAuthCache,
             meterRegistry = meterRegistry,
             headerName = authProperties.apiKey.headerName,
             objectMapper = objectMapper,

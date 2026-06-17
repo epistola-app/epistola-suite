@@ -7,6 +7,7 @@ import app.epistola.suite.documents.cleanup.PartitionMaintenanceScheduler
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.configuration.Configuration
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -33,6 +34,9 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var appFlyway: Flyway
+
     // Built via the exact production factory (web=NONE, banner off,
     // LoggingApplicationListener stripped). Properties go through command-line
     // args (high precedence) so they override application.yaml — mirrors
@@ -51,6 +55,12 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
             .use { ctx ->
                 assertThat(ctx).isNotInstanceOf(WebApplicationContext::class.java)
                 assertThat(ctx.getBeanNamesForType(Flyway::class.java)).isNotEmpty()
+                assertThat(snapshot(ctx.getBean(Flyway::class.java).configuration))
+                    .describedAs(
+                        "Isolated migration Flyway config drifted from the app's. " +
+                            "Re-align MigrationLauncher.MigrationConfig's @ImportAutoConfiguration.",
+                    )
+                    .isEqualTo(snapshot(appFlyway.configuration))
                 // The migration context never component-scans the app.
                 assertThat(ctx.getBeanNamesForType(PartitionMaintenanceScheduler::class.java)).isEmpty()
                 assertThat(ctx.getBeanNamesForType(DemoLoader::class.java)).isEmpty()
@@ -114,4 +124,22 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
             .mapTo(Int::class.java)
             .one()
     }
+
+    /** The Flyway settings that actually affect what/how migrations apply. */
+    private fun snapshot(cfg: Configuration): Map<String, Any?> = mapOf(
+        "locations" to cfg.locations.map { it.toString() }.sorted(),
+        "defaultSchema" to cfg.defaultSchema,
+        "schemas" to cfg.schemas.sorted(),
+        "table" to cfg.table,
+        "placeholders" to cfg.placeholders,
+        "placeholderPrefix" to cfg.placeholderPrefix,
+        "placeholderSuffix" to cfg.placeholderSuffix,
+        "sqlMigrationPrefix" to cfg.sqlMigrationPrefix,
+        "sqlMigrationSuffixes" to cfg.sqlMigrationSuffixes.toList(),
+        "repeatableSqlMigrationPrefix" to cfg.repeatableSqlMigrationPrefix,
+        "baselineOnMigrate" to cfg.isBaselineOnMigrate,
+        "baselineVersion" to cfg.baselineVersion?.toString(),
+        "createSchemas" to cfg.isCreateSchemas,
+        "callbacks" to cfg.callbacks.map { it.javaClass.name }.sorted(),
+    )
 }

@@ -8,7 +8,7 @@ Catalogs are first-class entities in Epistola for organizing, sharing, and impor
 
 Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/contract.md) plus one detail file per resource. Each of these is a **part** with its own JSON contract. Every part is documented in its own folder, with a version subfolder per contract version, so a contract change is a new folder you can diff against the previous one.
 
-**Each part is versioned independently.** The manifest is just another versioned part — there is no single "whole-catalog" version that the parts move together. A catalog is at a _set_ of part versions (e.g. manifest `v4`, template `v2`, attribute `v3`); changing one part's shape bumps only that part. This is the decision recorded in [ADR 0006](../adr/0006-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism applies one chain per part.
+**Each part is versioned independently.** The manifest is just another versioned part — there is no single "whole-catalog" version that the parts move together. A catalog is at a _set_ of part versions (e.g. manifest `v4`, template `v2`, attribute `v3`); changing one part's shape bumps only that part. This is the decision recorded in [ADR 0007](../adr/0007-catalog-wire-format-migrations.md), whose JSON-tree migration mechanism applies one chain per part.
 
 **Current contract of each part:**
 
@@ -29,13 +29,15 @@ Import/export is a **wire format**: a `catalog.json` [manifest](manifest/v4/cont
 
 | Axis                         | What it versions                                                     | Where                                               | Reference                                                 |
 | ---------------------------- | -------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| **Part `schemaVersion`**     | the JSON _shape_ of one part (manifest or a resource type), per part | each part's `schemaVersion`; the `vN/` folders here | [ADR 0006](../adr/0006-catalog-wire-format-migrations.md) |
+| **Part `schemaVersion`**     | the JSON _shape_ of one part (manifest or a resource type), per part | each part's `schemaVersion`; the `vN/` folders here | [ADR 0007](../adr/0007-catalog-wire-format-migrations.md) |
 | **Release version** (SemVer) | the catalog _content_ at a point in time                             | `release.version`, `catalog_releases`               | [catalog-versioning.md](../catalog-versioning.md)         |
 | **Content fingerprint**      | content _identity_ (did anything change?)                            | `release.fingerprint`                               | [catalog-versioning.md](../catalog-versioning.md)         |
 
+These three are the **catalog-level** axes. For the full picture — including the editorial **template / contract / stencil** versions and how they do (and don't) relate to import/export — see [version-axes.md](../version-axes.md).
+
 **Maintaining these docs:** when you change a part's wire shape, add a new `vN+1/contract.md` for **that part only**, update its row's _Current_ above, and note the change under "Changed in vN+1". Leave the old version folder in place so the diff stays visible.
 
-> **Implementation status.** Per-part versioning is implemented ([ADR 0006](../adr/0006-catalog-wire-format-migrations.md)): export stamps each detail with its own part's version (`CatalogContentBuilder`), and `CatalogSchemaMigrator` gates/migrates each part by its own `schemaVersion` against that part's chain — wired at both import chokepoints (the ZIP path and `CatalogClient`). The first real migration is the **stencil v1 → v2** step (`StencilV1ToV2RequireVersionMigration`): a pre-`0.6.0` stencil with no `version` is upgraded to version 1 on import. Other parts have empty chains (`baseline == current`) until their first shape change. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
+> **Implementation status.** Per-part versioning is **implemented** ([ADR 0007](../adr/0007-catalog-wire-format-migrations.md)): export stamps each detail with its own part's version (`CatalogContentBuilder`), and `CatalogSchemaMigrator` gates/migrates each part by its own `schemaVersion` against that part's window — wired at **both** import chokepoints (the ZIP path and `CatalogClient`, manifest and resource details). See [Wire-format version gate](#wire-format-version-gate). The per-part numbers above are the canonical contract versions (matching the bundled fixtures); a part's chain stays empty (`baseline == current`) until its shape changes, at which point a migration is added to that part's chain. Roadmap: [`plans/catalog-wire-format-migrations.md`](../plans/catalog-wire-format-migrations.md).
 
 ## Concepts
 
@@ -206,20 +208,20 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 
 | Field                       | Type    | Required    | Description                                                                                                                                               |
 | --------------------------- | ------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer | yes         | Protocol version. Currently `4`.                                                                                                                          |
+| `schemaVersion`             | integer | yes         | Manifest contract version (each resource part carries its own `schemaVersion` — see [per-part versioning](#parts--contract-versions)). Currently `4`.     |
 | `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                                                                                       |
 | `catalog.name`              | string  | yes         | Display name.                                                                                                                                             |
 | `publisher.name`            | string  | yes         | Publisher name.                                                                                                                                           |
 | `release.version`           | string  | yes         | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.     |
 | `release.fingerprint`       | string  | no          | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](../catalog-versioning.md). |
 | `resources`                 | array   | yes         | List of available resources.                                                                                                                              |
-| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, or `asset`.                                                                                                  |
+| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, `asset`, `codeList`, or `font`.                                                                              |
 | `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                                                                                     |
 | `resources[].name`          | string  | yes         | Display name.                                                                                                                                             |
 | `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                                                                                            |
 | `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                       |
-| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, or `asset`.                                                                                                                           |
-| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes and stencils. Absent for assets (tenant-global).                                                                 |
+| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, `asset`, `codeList`, or `font`.                                                                                                       |
+| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes, stencils, code lists, and fonts. Absent for assets (tenant-global).                                             |
 | `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                                                                                |
 
 ### Cross-Catalog Dependencies
@@ -229,6 +231,8 @@ Templates may reference resources from other catalogs:
 - **Themes**: via `themeRef.catalogKey` in the template model
 - **Stencils**: via `node.props.catalogKey` in stencil nodes
 - **Assets**: via `node.props.assetId` in image nodes (tenant-global, no catalog needed)
+- **Code lists**: via `codeListBinding.catalogKey` on an attribute
+- **Fonts**: via `fontFamily.catalogKey` in a theme or template's document styles
 
 During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
 
@@ -236,11 +240,13 @@ During import, Epistola validates that all declared dependencies exist in the ta
 
 Dependencies use a sealed type hierarchy:
 
-| Type      | Fields               | Scope                                                |
-| --------- | -------------------- | ---------------------------------------------------- |
-| `theme`   | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `stencil` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
-| `asset`   | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
+| Type       | Fields               | Scope                                                |
+| ---------- | -------------------- | ---------------------------------------------------- |
+| `theme`    | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `stencil`  | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `codeList` | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `font`     | `catalogKey`, `slug` | Catalog-scoped — must exist in the specified catalog |
+| `asset`    | `slug` (UUID)        | Tenant-global — must exist anywhere in the tenant    |
 
 ### Resource Detail Files
 
@@ -321,6 +327,27 @@ Remote catalogs support three authentication types:
 Before installing, the import validates that all declared cross-catalog dependencies exist in the target tenant. If any are missing, the import is rejected with a descriptive error.
 
 The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
+
+### Wire-format version gate
+
+Every part (the manifest and each resource detail) is gated by **its own** `schemaVersion` against that part's window in `CATALOG_PART_SCHEMAS` before it is bound (per-part versioning — [ADR 0007](../adr/0007-catalog-wire-format-migrations.md)). `CatalogSchemaMigrator` decides per part:
+
+| Part `schemaVersion`                     | Behaviour                                                                                                                                           |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `== current`                             | Bind directly (fast path).                                                                                                                          |
+| `v < current`, part's chain empty        | **Pass through unchanged** and bind — Phase-0 transitional (no chain yet, so nothing to upgrade through). This is today's behaviour for every part. |
+| `baseline ≤ v < current` (chain present) | Run that part's migration chain `v → … → current`, then bind.                                                                                       |
+| `> current`                              | **Reject** — `CatalogSchemaTooNewException` ("exported by a newer Epistola; upgrade this instance").                                                |
+| `< baseline` (chain present)             | **Reject** — `CatalogSchemaTooOldException` ("predates the oldest supported version; re-export from a current source").                             |
+| not valid JSON, or missing / non-integer | **Reject** — `CatalogSchemaUnknownException` (not a recognised catalog wire payload).                                                               |
+
+The gate runs at both import chokepoints (the ZIP path and `CatalogClient`), so browse / preview / upgrade-check see migrated content too. Migration never recomputes `release.fingerprint` — see [catalog-versioning.md](../catalog-versioning.md#fingerprint-algorithm).
+
+**Operator surfaces for a rejected payload:**
+
+- **Web UI** (import dialog): the rejection is rendered inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation message — upgrade this instance, or re-export from a current source.
+- **REST** (`POST /api/tenants/{id}/catalogs/import`): an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
+- **MCP**: catalog import is not an MCP surface (the MCP server is read-only), so there is no MCP change.
 
 ### Dependency Resolution
 

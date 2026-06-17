@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component
  *
  * [SystemInternal] for the same reason as [ResolveFeatureToggles] (UI/scheduler use, auth-bypassing).
  * When no [FeatureEntitlementGate] is present (OSS / support tier off) this degrades to the plain
- * toggle map.
+ * toggle map — hub-only features are already off by default there (see [FeatureToggleService]).
  */
 data class ResolveAvailableFeatures(
     val tenantKey: TenantKey,

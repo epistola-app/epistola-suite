@@ -35,13 +35,39 @@ enum class EntitlementDecision {
 class SupportEntitlementService(
     private val store: EntitlementStore,
 ) : FeatureEntitlementGate {
-    override val gatedFeatures: Set<FeatureKey> =
-        setOf(KnownFeatures.SUPPORT_BACKUPS, KnownFeatures.SUPPORT_UPGRADING, KnownFeatures.SUPPORT_FEEDBACK)
+    override val gatedFeatures: Set<FeatureKey> = KnownFeatures.SUPPORT_TIER
 
     override fun isEntitled(
         featureKey: FeatureKey,
         tenantKey: TenantKey,
     ): Boolean = decision(featureKey, tenantKey) == EntitlementDecision.ALLOWED
+
+    /**
+     * Whether the installation holds an installation-wide (`tenant == null`) ALLOW for [featureKey],
+     * ignoring per-tenant entries. Gates installation-scoped capabilities that have no per-tenant
+     * toggle (e.g. the telemetry leg — ADR 0006): for such a feature a tenant-scoped entry only ever
+     * withholds a single tenant's data (see [deniedTenants]).
+     */
+    fun isInstallationEntitled(featureKey: FeatureKey): Boolean = resolveInstallationEntitlement(store.load()?.entries.orEmpty(), featureKey.value, EpistolaClock.instant())
+
+    /**
+     * The tenants explicitly DENY'd for [featureKey] by a non-expired tenant-scoped entry — the
+     * per-tenant opt-out for an otherwise installation-wide capability.
+     */
+    fun deniedTenants(featureKey: FeatureKey): Set<String> {
+        val now = EpistolaClock.instant()
+        return store
+            .load()
+            ?.entries
+            .orEmpty()
+            .filter {
+                it.featureKey == featureKey.value &&
+                    it.tenant != null &&
+                    it.effect == EntitlementEffect.DENY &&
+                    (it.expiresAt == null || it.expiresAt.isAfter(now))
+            }.mapNotNull { it.tenant }
+            .toSet()
+    }
 
     /** The effective decision for a feature + tenant, for richer display on the overview page. */
     fun decision(
@@ -85,4 +111,24 @@ internal fun resolveEntitlement(
     } else {
         EntitlementDecision.ALLOWED
     }
+}
+
+/**
+ * Pure installation-wide resolution: true when at least one non-expired installation-wide
+ * (`tenant == null`) entry for [featureKey] exists and none of them is a DENY (DENY beats ALLOW
+ * within the scope). Per-tenant entries are ignored — they refine an installation-wide grant, they
+ * never create one.
+ */
+internal fun resolveInstallationEntitlement(
+    entries: List<StoredEntitlement>,
+    featureKey: String,
+    now: Instant,
+): Boolean {
+    val installWide =
+        entries.filter {
+            it.featureKey == featureKey &&
+                it.tenant == null &&
+                (it.expiresAt == null || it.expiresAt.isAfter(now))
+        }
+    return installWide.isNotEmpty() && installWide.none { it.effect == EntitlementEffect.DENY }
 }
