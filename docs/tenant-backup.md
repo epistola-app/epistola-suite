@@ -36,8 +36,8 @@ backup/restore.
 
 ## How it works (the `tenantbackup/` primitive)
 
-`BuildTenantBackup` / `RestoreTenantBackup` (in `epistola-core`,
-`app.epistola.suite.tenantbackup`) are **reflective**: they discover the table
+`BuildTenantBackup` / `RestoreTenantBackup` (in `epistola-support-backups`,
+package `app.epistola.suite.tenantbackup`) are **reflective**: they discover the table
 set, FK insert order, primary keys, and per-column types from `information_schema`
 at runtime. A schema migration that adds a column — or a whole table — is picked
 up automatically; only genuine special cases are hand-coded.
