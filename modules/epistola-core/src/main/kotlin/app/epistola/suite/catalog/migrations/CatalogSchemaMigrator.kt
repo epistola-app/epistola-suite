@@ -63,10 +63,14 @@ class CatalogSchemaMigrator(
         val byPart = migrations.groupBy { it.part }
         // Validate every part's chain against that part's window — including parts
         // with no migrations (an empty chain is valid iff baseline == current).
-        chainsByPart = CATALOG_PART_SCHEMAS.mapValues { (part, window) ->
+        // Build the map eagerly here (associate, not a mapValues lambda whose
+        // validation reads as a side-effect) so each chain is validated exactly
+        // once at construction — this is a singleton @Component — and later
+        // lookups are plain O(1) reads.
+        chainsByPart = CATALOG_PART_SCHEMAS.entries.associate { (part, window) ->
             val steps = (byPart[part] ?: emptyList()).sortedBy { it.from }
             validateMigrationChain(steps, window.baseline, window.current)
-            steps.associateBy { it.from }
+            part to steps.associateBy { it.from }
         }
         val total = chainsByPart.values.sumOf { it.size }
         if (total == 0) {

@@ -2,7 +2,6 @@ package app.epistola.suite.catalog.migrations
 
 import app.epistola.suite.catalog.CatalogPart
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.validateMigrationChain
-import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -111,8 +110,12 @@ class CatalogSchemaMigratorChainTest {
 
     @Test
     fun `chain integrity does not depend on the constants - probes the window directly`() {
-        // Documents that the checker is parameterised on the version window, so
-        // Phase-1 migrations can be validated against future baseline/current.
-        assertThat(listOf(NoopMigration(4), NoopMigration(5)).map { it.to }).containsExactly(5, 6)
+        // The checker is parameterised on the version window, so it validates a
+        // chain against an arbitrary baseline/current unrelated to today's
+        // constants (all baseline == current). A contiguous 10->11->12->13 chain
+        // over window [10, 13] must pass purely on its own merits.
+        val chain = listOf(NoopMigration(from = 10), NoopMigration(from = 11), NoopMigration(from = 12))
+        assertThatCode { validateMigrationChain(chain, baseline = 10, current = 13) }
+            .doesNotThrowAnyException()
     }
 }
