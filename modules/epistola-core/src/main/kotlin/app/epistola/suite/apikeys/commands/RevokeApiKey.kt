@@ -1,5 +1,6 @@
 package app.epistola.suite.apikeys.commands
 
+import app.epistola.suite.apikeys.ApiKeyAuthCache
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
@@ -23,22 +24,29 @@ data class RevokeApiKey(
 @Component
 class RevokeApiKeyHandler(
     private val jdbi: Jdbi,
+    private val apiKeyAuthCache: ApiKeyAuthCache,
 ) : CommandHandler<RevokeApiKey, Boolean> {
 
-    override fun handle(command: RevokeApiKey): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createUpdate(
-            """
-            UPDATE api_keys
-               SET enabled = false,
-                   revoked_at = NOW(),
-                   revoked_by = :revokedBy
-             WHERE id = :id
-               AND tenant_key = :tenantId
-            """,
-        )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
-            .bind("revokedBy", command.revokedBy?.value)
-            .execute() > 0
+    override fun handle(command: RevokeApiKey): Boolean {
+        val revoked = jdbi.withHandle<Boolean, Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE api_keys
+                   SET enabled = false,
+                       revoked_at = NOW(),
+                       revoked_by = :revokedBy
+                 WHERE id = :id
+                   AND tenant_key = :tenantId
+                """,
+            )
+                .bind("id", command.id)
+                .bind("tenantId", command.tenantId)
+                .bind("revokedBy", command.revokedBy?.value)
+                .execute() > 0
+        }
+        // Drop cached lookups so the revoked key stops authenticating immediately
+        // rather than lingering until its short TTL expires.
+        if (revoked) apiKeyAuthCache.invalidateAll()
+        return revoked
     }
 }

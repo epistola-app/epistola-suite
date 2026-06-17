@@ -1,7 +1,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -9,8 +8,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpStatus
 
 /**
@@ -19,11 +16,6 @@ import org.springframework.http.HttpStatus
  * active section is highlighted from the request path. Permission-based item visibility is covered
  * by the NavMenuAggregator unit test; here the default test user is a manager.
  */
-@SpringBootTest(
-    classes = [EpistolaSuiteApplication::class],
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-)
-@AutoConfigureTestRestTemplate
 class NavRenderHtmxTest : BaseIntegrationTest() {
 
     @Autowired
@@ -49,7 +41,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     @Test
     fun `support group is hidden when no support feature is enabled`() {
         val tenant = createTenant("Nav No Support")
-        // support-feedback defaults on (application.yaml), so disable every support feature to
+        // feedback defaults on (freely usable), so disable every support feature to
         // leave the Support group empty.
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()

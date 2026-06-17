@@ -79,12 +79,12 @@ class PreviewCatalogUpgradeHandler(
                 "not a subscribed catalog (no source URL) — only subscribed catalogs can be upgraded",
             )
 
-        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
 
         val incoming = fingerprintService.perResourceFingerprintsFromSource(
             sourceUrl,
             catalog.sourceAuthType,
-            catalog.sourceAuthCredential,
+            catalog.sourceAuthCredential?.value,
         )
 
         // Source-vs-source: the baseline was captured from the source manifest

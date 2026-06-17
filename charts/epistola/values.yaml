@@ -193,6 +193,29 @@ observability:
     datasourceName: "Prometheus"
     folder: "Epistola"
 
+# Credential encryption at rest (catalog/code-list auth, hub credentials).
+# AES-256-GCM with key-id-tagged envelopes. See docs/encryption.md.
+#
+# REQUIRED in production: the app's `prod` profile fails to start if encryption
+# is enabled but no key is configured. Generate a key with:
+#   openssl rand -base64 32
+# and store it in a Kubernetes Secret, then reference it below.
+encryption:
+  enabled: true
+  # Key id used for all NEW encryptions. Must match one of the `keys[].id` below.
+  primaryKeyId: ""
+  # The keyset. All listed keys are available for decryption (this is how
+  # rotation works: add a new key, point primaryKeyId at it, re-encrypt, then
+  # remove the old key). Each entry sources its 32-byte base64 material from a
+  # Secret (recommended) or inline (dev only):
+  #   keys:
+  #     - id: k1
+  #       existingSecret: epistola-encryption   # Secret name
+  #       secretKey: k1                          # key within the Secret (defaults to id)
+  #     - id: k2
+  #       material: "<base64-32-bytes>"          # inline — DEV ONLY, avoid in prod
+  keys: []
+
 # OIDC login configuration (optional, requires config.profiles to include "keycloak")
 oidc:
   enabled: false
@@ -254,6 +277,15 @@ support:
     name: ""
     # Optional free-form description shown in the hub.
     description: ""
+
+  # Forward application logs + metrics to epistola-hub over OTLP-over-gRPC.
+  # On by default when support.enabled is true (like every support feature) —
+  # the hub's `support-telemetry` entitlement is the real gate, so nothing is
+  # shipped until the installation is entitled. Set to false to opt out. The
+  # endpoint is the hub's own gRPC endpoint, derived at runtime by the support
+  # module — nothing to configure here. See modules/epistola-support-telemetry.
+  telemetry:
+    enabled: true
 
   # Hub connection (only used when support.enabled is true).
   hub:

@@ -73,6 +73,30 @@ epistola:
     mode: embedded
   storage:
     backend: postgres
+  encryption:
+    # Encryption-at-rest for stored credentials (catalog/code-list auth, hub
+    # credentials). AES-256-GCM with a self-describing, key-id-tagged envelope.
+    # See docs/encryption.md.
+    enabled: true
+    # The keyset. Each key id is opaque and embedded in every ciphertext it
+    # produces; `material` is base64 of 32 random bytes (`openssl rand -base64 32`).
+    # `primary-key-id` selects the key used for new encryptions; all listed keys
+    # remain available for decryption (this is how rotation works).
+    #
+    # Leave empty in local/dev: the app generates an EPHEMERAL in-memory key and
+    # warns. The `prod` profile FAILS FAST if no key is configured. Provide keys
+    # via env/secret in any persistent environment, e.g.:
+    #   EPISTOLA_ENCRYPTION_PRIMARYKEYID=k1
+    #   EPISTOLA_ENCRYPTION_KEYS_0_ID=k1
+    #   EPISTOLA_ENCRYPTION_KEYS_0_MATERIAL=<base64-32-bytes>
+    primary-key-id: ""
+    keys: []
+  security:
+    api-key-cache:
+      # Short-TTL, bounded in-memory cache in front of the per-request API-key
+      # hash lookup. Revoking a key invalidates the cache immediately.
+      ttl-seconds: 60
+      max-size: 10000
   auth:
     auto-provision: false
   demo:
@@ -146,9 +170,10 @@ epistola:
       enabled: true
       interval-ms: 60000
 
-  # Feature toggles — global defaults (tenant-level overrides stored in DB)
+  # Feature toggles — global defaults (tenant-level overrides stored in DB).
+  # Support-tier features (feedback/backups/upgrading) are NOT listed here: their default follows
+  # `epistola.support.enabled` (on with the tier, off in OSS), and the hub entitlement gates them.
   features:
-    support-feedback: true
     stencil-parameters: true
 
   # Application-wide default locale used for date/number formatting.
@@ -196,6 +221,19 @@ epistola:
           enabled: false # Run the freshness sweep
         cron: "0 0 * * * *" # Hourly
         max-age: 24h
+    # Telemetry — the dedicated, isolated OTLP leg that forwards application logs + metrics to the
+    # hub-operated collector. **On by default when the support tier is enabled** — like every support
+    # feature, the hub's entitlement is the real gate: nothing ships unless the installation holds an
+    # installation-wide `support-telemetry` entitlement. Set `enabled: false` to opt out locally.
+    # Separate from any bring-your-own OpenTelemetry agent / management.otlp.* self-export leg (no
+    # double export). OTLP-over-gRPC; the endpoint is resolved by the support module from the hub's
+    # gRPC endpoint (same port — no separate port or proxy). See ADR 0006.
+    telemetry:
+      enabled: true
+      logs: true
+      metrics: true
+      log-level: INFO # Minimum level forwarded
+      strip-tenant-tag-from-metrics: true # Drop the per-tenant metric tag before forwarding (data residency)
 
   # Installation identity. Required when epistola.support.enabled=true;
   # ignored otherwise. Override per environment via

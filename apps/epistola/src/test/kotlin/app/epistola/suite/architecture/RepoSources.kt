@@ -37,6 +37,24 @@ internal object RepoSources {
             }
         }
 
+    /** All YAML/properties config files under apps and modules src (main + test), excluding build output. */
+    fun configFiles(): List<Path> = listOf("apps", "modules")
+        .map(repoRoot::resolve)
+        .filter(Files::exists)
+        .flatMap { base ->
+            Files.walk(base).use { stream ->
+                stream
+                    .filter { p -> CONFIG_EXTENSIONS.any { p.name.endsWith(it) } }
+                    .filter { path ->
+                        val relative = relativize(path)
+                        "/src/" in relative && "/build/" !in relative && "/node_modules/" !in relative
+                    }
+                    .toList()
+            }
+        }
+
+    private val CONFIG_EXTENSIONS = listOf(".yaml", ".yml", ".properties")
+
     fun relativize(path: Path): String = repoRoot.relativize(path).toString()
 
     /**

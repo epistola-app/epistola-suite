@@ -1,14 +1,11 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.changelog.ChangelogAudience
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
@@ -17,8 +14,6 @@ import org.springframework.http.ResponseEntity
  * renders the controls, a bare request defaults to the Users view, and each selection returns the partial
  * layout fragment with the chosen filters threaded through the version links.
  */
-@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
 class ChangelogHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired
@@ -75,14 +70,18 @@ class ChangelogHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the dialog previews the unreleased section as an Upcoming entry`() {
-        // The bundled CHANGELOG.md always carries an [Unreleased] section, surfaced as "Upcoming".
+    fun `the dialog previews the unreleased section as Upcoming only when entries exist`() {
+        val hasVisibleUnreleased = renderer.entries(ChangelogAudience.USER, includeUnreleased = true).any { !it.released }
         val response = get("/changelog")
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains(">Upcoming<")
-        // The [Unreleased] section carries a summary paragraph, rendered above its entries.
-        assertThat(response.body).contains("changelog-summary")
+        if (hasVisibleUnreleased) {
+            assertThat(response.body).contains(">Upcoming<")
+            // The [Unreleased] section carries a summary paragraph, rendered above its entries.
+            assertThat(response.body).contains("changelog-summary")
+        } else {
+            assertThat(response.body).doesNotContain(">Upcoming<")
+        }
     }
 
     @Test

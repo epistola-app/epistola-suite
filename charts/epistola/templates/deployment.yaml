@@ -182,6 +182,11 @@ spec:
             - name: EPISTOLA_SUPPORT_HUB_DISCOVERYURL
               value: {{ .Values.support.hub.discoveryUrl | quote }}
             {{- end }}
+            {{- /* Forward application logs + metrics to the hub over OTLP-over-gRPC. On by
+                   default with the support tier; the hub's `support-telemetry` entitlement
+                   gates whether anything ships. Rendered as the value so it can be opted out. */}}
+            - name: EPISTOLA_SUPPORT_TELEMETRY_ENABLED
+              value: {{ .Values.support.telemetry.enabled | quote }}
             {{- /* No node-id env is injected. A chart value lives on the
                    Deployment, so it is identical for every replica and could
                    never provide per-pod identity. Node identity is resolved at
@@ -191,6 +196,8 @@ spec:
 
             {{- /* Database configuration (shared with the migration Job / init container) */}}
             {{- include "epistola.databaseEnv" . | nindent 12 }}
+            {{- /* Credential encryption-at-rest keyset (app pods only) */}}
+            {{- include "epistola.encryptionEnv" . | nindent 12 }}
             {{- /* When migrations run as a separate step, app pods must only
                    validate the schema and fail fast if it is behind. */}}
             {{- if ne .Values.migration.mode "embedded" }}
