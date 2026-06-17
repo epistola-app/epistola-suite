@@ -7,8 +7,8 @@
         runs whether rendered directly or injected into #dialog-host (htmx executes
         swapped-in <script>). `createForm` re-renders itself on validation error.
     -->
-    <th:block th:fragment="createDialog">
-        <dialog id="create-code-list-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-code-list-dialog">
+    <th:block th:fragment="createDialog(catalogs)">
+        <dialog id="create-code-list-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-code-list-dialog" data-create-dialog>
             <div class="ep-dialog-header">
                 <h3>New code list</h3>
             </div>

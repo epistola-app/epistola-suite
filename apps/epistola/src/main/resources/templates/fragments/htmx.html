@@ -128,6 +128,78 @@
                 }
             });
 
+            // ── Deep-linkable create dialog: reconcile <dialog data-create-dialog> to ?create ──
+            //
+            // The URL is the single source of truth for whether the create dialog
+            // is open. Opening pushes `?create` (the server sends HX-Push-Url on
+            // the .../new response, merged with any existing params). This reconcile
+            // path is strictly ONE-DIRECTIONAL: it only READS the URL and syncs the
+            // dialog's open/closed state to match. It must never write history — that
+            // is what prevents the close↔history loop (a close that wrote history
+            // would re-trigger reconcile, which would close again, …).
+            function epistolaReconcileCreateDialog() {
+                var wantsOpen = new URLSearchParams(window.location.search).has('create');
+                var dialog = document.querySelector('dialog[data-create-dialog]');
+                if (!dialog || typeof dialog.showModal !== 'function') return;
+                // Source of truth is modal-ness (top layer), NOT the `open` attribute.
+                // A restored history snapshot (back/forward) serializes a non-modal
+                // `<dialog open>` — the open attribute survives, the top-layer/modal
+                // state does not — so the dialog can report `.open === true` while not
+                // actually being a modal. Reconcile on `:modal` so forward re-promotes it.
+                var isModal = dialog.matches(':modal');
+                if (wantsOpen && !isModal) {
+                    // showModal() throws if the `open` attribute is already set, so clear
+                    // a stale one first. removeAttribute does NOT fire a `close` event
+                    // (unlike .close()), so this never re-enters the close→history path.
+                    if (dialog.hasAttribute('open')) dialog.removeAttribute('open');
+                    dialog.showModal();
+                } else if (!wantsOpen && dialog.open) {
+                    dialog.close();
+                }
+            }
+
+            // Direct load, refresh, and boosted navigation land here.
+            document.addEventListener('DOMContentLoaded', epistolaReconcileCreateDialog);
+            // Back/forward restore: htmx restores a cached innerHTML snapshot (which
+            // never re-runs inline scripts and gives a server-rendered <dialog> as
+            // CLOSED, since modal state lives in the browser's top layer, not markup),
+            // so we must re-open here too.
+            document.addEventListener('htmx:historyRestore', epistolaReconcileCreateDialog);
+
+            // Closing the create dialog (Cancel → .close(), ESC, or the closeDialog
+            // event) is pure DOM and does NOT touch the URL — so the URL would keep
+            // lying about an open dialog. Strip `create` here, on the dialog's own
+            // `close` event, so every close path is covered once.
+            //   - replaceState (not history.back): safe even on a deep link where
+            //     `?create` is the FIRST history entry (back would leave the app).
+            //   - preserve every other param: closing the dialog must not drop the
+            //     templates list's own catalog filter.
+            //   - guard on `create` being present: a reconcile-initiated close (back
+            //     button) already cleared the URL, so there is nothing to write —
+            //     this guard is the other half of the no-loop rule.
+            document.addEventListener('close', function(event) {
+                var dialog = event.target;
+                if (!dialog.matches || !dialog.matches('dialog[data-create-dialog]')) return;
+
+                var params = new URLSearchParams(window.location.search);
+                if (params.has('create')) {
+                    params.delete('create');
+                    var qs = params.toString();
+                    window.history.replaceState(
+                        window.history.state,
+                        '',
+                        window.location.pathname + (qs ? '?' + qs : '')
+                    );
+                }
+
+                // A deep-link dialog is server-rendered into the list page (outside
+                // #dialog-host); drop it on close so a later "New" click can inject a
+                // fresh copy into #dialog-host without colliding on the shared id.
+                if (!dialog.closest('#dialog-host')) {
+                    dialog.remove();
+                }
+            }, true); // capture: the `close` event does not bubble
+
             // ── Promise-based confirm (replaces native confirm()) ─────────
             //
             // Returns a Promise<boolean> that resolves true when the user

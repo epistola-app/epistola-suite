@@ -132,6 +132,55 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET new over HTMX pushes the create URL`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = createTenant("Stencil Push URL")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-Current-URL", "/tenants/${tenant.id}/stencils")
+            }
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/stencils/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Push-Url"))
+                .isEqualTo("/tenants/${tenant.id}/stencils?create")
+        }
+    }
+
+    @Test
+    fun `GET list with create renders the dialog markup for deep linking`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = createTenant("Stencil Deeplink")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${tenant.id}/stencils?create", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("create-stencil-dialog")
+            assertThat(response.body).contains("data-create-dialog")
+        }
+    }
+
+    @Test
     fun `POST upgrade with the template catalogKey upgrades the stencil in the template draft`() = fixture {
         lateinit var seeded: SeededUsage
 

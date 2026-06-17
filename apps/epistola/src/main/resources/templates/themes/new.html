@@ -6,8 +6,8 @@
         the full-page fallback (`content`), the dialog shell (`createDialog`), and
         the self-swapping `createForm` re-rendered on validation error.
     -->
-    <th:block th:fragment="createDialog">
-        <dialog id="create-theme-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-theme-dialog">
+    <th:block th:fragment="createDialog(catalogs)">
+        <dialog id="create-theme-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-theme-dialog" data-create-dialog>
             <div class="ep-dialog-header">
                 <h3>New Theme</h3>
             </div>

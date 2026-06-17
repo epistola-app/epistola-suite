@@ -17,11 +17,13 @@ import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.stencilId
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.ArchiveStencilVersion
@@ -61,12 +63,15 @@ class StencilHandler(
         val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val catalogs = ListCatalogs(tenantId.key).query()
         val stencils = ListStencils(tenantId = tenantId, catalogKey = catalogFilter).query()
+        val createOpen = request.queryParam("create") != null
         return ServerResponse.ok().page("stencils/list") {
             "pageTitle" to "Stencils - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
             "selectedCatalog" to (catalogFilter?.value ?: "")
             "stencils" to stencils
+            "createOpen" to createOpen
+            "authoredCatalogs" to catalogs.filter { it.type == CatalogType.AUTHORED }
         }
     }
 
@@ -111,6 +116,7 @@ class StencilHandler(
         // HTMX requests load the dialog into #dialog-host; a direct GET (no-JS,
         // deep link) still renders the full-page fallback.
         return request.htmx {
+            pushUrl(urlWithCreateParam(request.htmxCurrentUrl, "/tenants/${tenantId.key}/stencils"))
             fragment("stencils/new", "createDialog") {
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs

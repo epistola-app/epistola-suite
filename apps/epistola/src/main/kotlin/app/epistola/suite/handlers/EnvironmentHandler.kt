@@ -8,10 +8,12 @@ import app.epistola.suite.htmx.environmentId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -26,11 +28,13 @@ class EnvironmentHandler {
         val tenantId = request.tenantId()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val environments = ListEnvironments(tenantId = tenantId).query()
+        val createOpen = request.queryParam("create") != null
         return ServerResponse.ok().page("environments/list") {
             "pageTitle" to "Environments - Epistola"
             "tenant" to tenant
             "tenantId" to tenantId.key
             "environments" to environments
+            "createOpen" to createOpen
         }
     }
 
@@ -52,6 +56,7 @@ class EnvironmentHandler {
         // HTMX requests load the dialog into #dialog-host; a direct GET (no-JS,
         // deep link) still renders the full-page fallback.
         return request.htmx {
+            pushUrl(urlWithCreateParam(request.htmxCurrentUrl, "/tenants/${tenantId.key}/environments"))
             fragment("environments/new", "createDialog") {
                 "tenantId" to tenantId.key
             }

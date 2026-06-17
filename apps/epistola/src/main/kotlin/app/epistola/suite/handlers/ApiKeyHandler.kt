@@ -6,8 +6,11 @@ import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
@@ -24,10 +27,12 @@ class ApiKeyHandler {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val apiKeys = ListApiKeys(tenantId = tenantId.key).query().filter { it.enabled }
+        val createOpen = request.queryParam("create") != null
         return ServerResponse.ok().page("api-keys/list") {
             "pageTitle" to "API Keys - Epistola"
             "tenantId" to tenantId.key
             "apiKeys" to apiKeys
+            "createOpen" to createOpen
         }
     }
 
@@ -39,6 +44,7 @@ class ApiKeyHandler {
             fragment("api-keys/new", "createDialog") {
                 "tenantId" to tenantId.key
             }
+            pushUrl(urlWithCreateParam(request.htmxCurrentUrl, "/tenants/${tenantId.key}/api-keys"))
             onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
         }
     }

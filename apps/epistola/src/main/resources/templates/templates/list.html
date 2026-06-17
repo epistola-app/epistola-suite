@@ -90,6 +90,21 @@
                 </th:block>
             </tbody>
         </table>
+
+        <!--
+            Deep-link / refresh / back-restore render site for the create dialog.
+            When the URL carries `?create`, the list page ships the dialog markup
+            (closed) and the reconcile script in fragments/htmx opens it. The click
+            path injects the same fragment into #dialog-host instead; the two never
+            coexist (the reconcile close handler removes this one when it closes).
+        -->
+        <!--
+            Outer th:if, inner th:replace: th:replace has higher precedence than
+            th:if, so on a single element the fragment would render unconditionally.
+        -->
+        <th:block th:if="${createOpen}">
+            <th:block th:replace="~{templates/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
+        </th:block>
     </th:block>
 </body>
 </html>

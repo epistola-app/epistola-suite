@@ -76,6 +76,57 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET new over HTMX pushes the create URL`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("API Key Push URL")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-Current-URL", "/tenants/${testTenant.id}/api-keys")
+            }
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/api-keys/new",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Push-Url"))
+                .isEqualTo("/tenants/${testTenant.id}/api-keys?create")
+        }
+    }
+
+    @Test
+    fun `GET list with create renders the dialog markup for deep linking`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("API Key Deeplink")
+        }
+
+        whenever {
+            // Direct (non-HTMX) navigation to the deep link must ship the closed
+            // dialog markup (with the data-create-dialog hook) for the reconcile script.
+            restTemplate.getForEntity("/tenants/${testTenant.id}/api-keys?create", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("create-api-key-dialog")
+            assertThat(response.body).contains("data-create-dialog")
+        }
+    }
+
+    @Test
     fun `POST create returns plaintext key and persists an enabled record`() = fixture {
         lateinit var testTenant: Tenant
 

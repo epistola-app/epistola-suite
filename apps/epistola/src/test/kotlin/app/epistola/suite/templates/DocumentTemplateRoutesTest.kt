@@ -382,6 +382,80 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `GET new over HTMX pushes create URL merged with current params`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            // The browser is on the list filtered by catalog; the open must keep it.
+            headers.set("HX-Current-URL", "/tenants/${testTenant.id}/templates?catalog=default")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/templates/new",
+                HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // create is appended; the existing catalog filter is preserved, not clobbered.
+            assertThat(response.headers.getFirst("HX-Push-Url"))
+                .isEqualTo("/tenants/${testTenant.id}/templates?catalog=default&create")
+        }
+    }
+
+    @Test
+    fun `GET templates with create renders the dialog markup for deep linking`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            // A direct (non-HTMX) navigation to the deep link: the list page must
+            // ship the closed dialog markup so the reconcile script can open it.
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?create", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Document Templates")
+            assertThat(response.body).contains("id=\"create-template-dialog\"")
+            assertThat(response.body).contains("data-create-dialog")
+        }
+    }
+
+    @Test
+    fun `GET templates without create omits the dialog markup`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // No ?create → the dialog is not pre-rendered; it only loads on click.
+            assertThat(response.body).doesNotContain("create-template-dialog")
+        }
+    }
+
+    @Test
     fun `POST templates over HTMX returns HX-Redirect on success`() = fixture {
         lateinit var testTenant: Tenant
 

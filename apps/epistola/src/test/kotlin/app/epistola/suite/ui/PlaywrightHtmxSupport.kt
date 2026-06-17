@@ -133,3 +133,49 @@ fun Page.openDialogByTrigger(trigger: Locator, dialogSelector: String): Locator 
 fun Locator.assertVisibleCount(expected: Int) {
     assertThat(this).hasCount(expected)
 }
+
+/**
+ * Retrying assertion that [dialogSelector] is a *genuine native modal* — an
+ * element promoted into the browser's **top layer** by `showModal()`, as the
+ * `:modal` pseudo-class reflects.
+ *
+ * This is strictly stronger than visibility or the `[open]` attribute: `:modal`
+ * matches **only** a top-layer modal, so it distinguishes the real thing from
+ * (a) server-rendered `<dialog open>` markup, (b) a non-modal `dialog.show()`,
+ * and (c) plain HTML that merely contains the dialog. Modal state is browser
+ * runtime state, not markup — `:modal` is the canonical way to observe it (there
+ * is no `document.topLayer` API).
+ *
+ * Uses `waitForFunction` (the same mechanism `openDialogByTrigger` uses) so it
+ * auto-retries; `:modal` is evaluated by the browser's own `matches`, not the
+ * banned Playwright `:visible` selector engine.
+ */
+fun Page.assertNativeModalOpen(dialogSelector: String) {
+    waitForFunction(
+        """
+        (sel) => {
+            const el = document.querySelector(sel);
+            return !!el && el.matches(':modal');
+        }
+        """,
+        dialogSelector,
+    )
+}
+
+/**
+ * Retrying assertion that [dialogSelector] is **not** in the top layer — either
+ * gone from the DOM or present-but-closed (`dialog.close()` removes it from the
+ * top layer, so `:modal` no longer matches). The precise complement of
+ * [assertNativeModalOpen] for "the modal layer is dismissed".
+ */
+fun Page.assertNoNativeModal(dialogSelector: String) {
+    waitForFunction(
+        """
+        (sel) => {
+            const el = document.querySelector(sel);
+            return !el || !el.matches(':modal');
+        }
+        """,
+        dialogSelector,
+    )
+}

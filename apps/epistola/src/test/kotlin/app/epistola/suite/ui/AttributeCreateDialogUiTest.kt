@@ -61,4 +61,16 @@ class AttributeCreateDialogUiTest : BasePlaywrightTest() {
         assertThat(dialog).isVisible()
         assertThat(page.locator("#create-attribute-form .form-error")).isVisible()
     }
+
+    @Test
+    fun `deep link to create opens the dialog`() {
+        val tenant: Tenant = createTenant("Attribute Dialog Deeplink")
+
+        // Landing directly on ?create proves the per-entity wiring end-to-end: the
+        // list ships the dialog markup (with data-create-dialog) and the shared
+        // reconcile script promotes it into a real top-layer modal (`:modal`).
+        gotoAndReady("/tenants/${tenant.id}/attributes?create")
+
+        page.assertNativeModalOpen("#create-attribute-dialog")
+    }
 }

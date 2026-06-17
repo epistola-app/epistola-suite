@@ -57,4 +57,16 @@ class ThemeCreateDialogUiTest : BasePlaywrightTest() {
         assertThat(dialog).isVisible()
         assertThat(page.locator("#create-theme-form .form-error")).isVisible()
     }
+
+    @Test
+    fun `deep link to create opens the dialog`() {
+        val tenant: Tenant = createTenant("Theme Dialog Deeplink")
+
+        // Landing directly on ?create proves the per-entity wiring end-to-end:
+        // the list ships the dialog markup (with data-create-dialog) and the shared
+        // reconcile script promotes it into a real top-layer modal (`:modal`).
+        gotoAndReady("/tenants/${tenant.id}/themes?create")
+
+        page.assertNativeModalOpen("#create-theme-dialog")
+    }
 }

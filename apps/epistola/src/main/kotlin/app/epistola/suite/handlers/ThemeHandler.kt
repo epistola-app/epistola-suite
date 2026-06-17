@@ -10,11 +10,13 @@ import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.themeId
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DocumentStyles
@@ -58,6 +60,7 @@ class ThemeHandler(
         val tenant = GetTenant(id = tenantId.key).query()
         val catalogs = ListCatalogs(tenantId.key).query()
         val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter).query()
+        val createOpen = request.queryParam("create") != null
         return ServerResponse.ok().page("themes/list") {
             "pageTitle" to "Themes - Epistola"
             "tenantId" to tenantId.key
@@ -65,6 +68,8 @@ class ThemeHandler(
             "catalogs" to catalogs
             "selectedCatalog" to (catalogFilter?.value ?: "")
             "themes" to themes
+            "createOpen" to createOpen
+            "authoredCatalogs" to catalogs.filter { it.type == CatalogType.AUTHORED }
         }
     }
 
@@ -94,6 +99,7 @@ class ThemeHandler(
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
             }
+            pushUrl(urlWithCreateParam(request.htmxCurrentUrl, "/tenants/${tenantId.key}/themes"))
             onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
         }
     }

@@ -119,6 +119,10 @@
                 <!-- Content loaded via HTMX -->
             </div>
         </dialog>
+
+        <th:block th:if="${createOpen}">
+            <th:block th:replace="~{attributes/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
+        </th:block>
     </th:block>
 
     <!-- Fragment: edit attribute form (loaded into dialog via HTMX) -->

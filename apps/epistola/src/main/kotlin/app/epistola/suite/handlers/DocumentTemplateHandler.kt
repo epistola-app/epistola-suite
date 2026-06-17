@@ -16,11 +16,13 @@ import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
@@ -122,12 +124,18 @@ class DocumentTemplateHandler(
         val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
         val catalogs = ListCatalogs(tenantId.key).query()
         val templates = ListTemplateSummaries(tenantId = tenantId, catalogKey = catalogFilter).query()
+        // A `create` query param means "this list, with the create dialog open"
+        // (deep link / refresh / back-restore). When present we render the dialog
+        // markup inline so the persistent reconcile script can showModal() it.
+        val createOpen = request.queryParam("create") != null
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
             "selectedCatalog" to (catalogFilter?.value ?: "")
             "templates" to templates
+            "createOpen" to createOpen
+            "authoredCatalogs" to catalogs.filter { it.type == CatalogType.AUTHORED }
         }
     }
 
@@ -149,12 +157,18 @@ class DocumentTemplateHandler(
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query().filter { it.type == CatalogType.AUTHORED }
         // HTMX requests load the dialog into #dialog-host; a direct GET (no-JS,
-        // deep link) still renders the full-page fallback.
+        // deep link) redirects to the list (?create is the deep-link entry point,
+        // handled by `list`). On the HTMX open we also push `?create` onto the
+        // current URL — merged server-side from HX-Current-URL so existing params
+        // (e.g. the templates list's own catalog filter) are preserved — making the
+        // open dialog deep-linkable,
+        // refresh-safe, and closable with the back button.
         return request.htmx {
             fragment("templates/new", "createDialog") {
                 "tenantId" to tenantId.key
                 "catalogs" to catalogs
             }
+            pushUrl(urlWithCreateParam(request.htmxCurrentUrl, "/tenants/${tenantId.key}/templates"))
             onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
         }
     }

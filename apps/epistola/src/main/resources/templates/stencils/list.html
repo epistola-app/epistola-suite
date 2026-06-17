@@ -109,6 +109,10 @@
         </table>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <th:block th:if="${createOpen}">
+            <th:block th:replace="~{stencils/new :: createDialog(catalogs=${authoredCatalogs})}"></th:block>
+        </th:block>
     </th:block>
 </body>
 </html>

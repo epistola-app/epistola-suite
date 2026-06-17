@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
@@ -131,6 +132,55 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             // in-use message inline rather than a JSON 400.
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("still referenced")
+        }
+    }
+
+    @Test
+    fun `GET new over HTMX pushes the create URL`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = createTenant("Code List Push URL")
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                set("HX-Request", "true")
+                set("HX-Current-URL", "/tenants/${tenant.id}/code-lists")
+            }
+            restTemplate.exchange(
+                "/tenants/${tenant.id}/code-lists/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Push-Url"))
+                .isEqualTo("/tenants/${tenant.id}/code-lists?create")
+        }
+    }
+
+    @Test
+    fun `GET list with create renders the dialog markup for deep linking`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = createTenant("Code List Deeplink")
+        }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${tenant.id}/code-lists?create", String::class.java)
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("create-code-list-dialog")
+            assertThat(response.body).contains("data-create-dialog")
         }
     }
 

@@ -11,8 +11,8 @@
                       (swaps itself via hx-target="this" hx-swap="outerHTML", keeping the dialog open)
         The shared `fields` fragment is the single source of truth for the inputs.
     -->
-    <th:block th:fragment="createDialog">
-        <dialog id="create-template-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-template-dialog">
+    <th:block th:fragment="createDialog(catalogs)">
+        <dialog id="create-template-dialog" class="ep-dialog ep-dialog-wide" data-testid="create-template-dialog" data-create-dialog>
             <div class="ep-dialog-header">
                 <h3>New Template</h3>
             </div>
