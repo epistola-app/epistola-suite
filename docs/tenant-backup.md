@@ -97,3 +97,21 @@ Every tenant-scoped table must be classified INCLUDE or DENY in
 `TenantTableTopology`. A new migration that adds one will fail
 `TenantTableTopologyDriftIntegrationTest` until you decide — back it up (INCLUDE)
 or exclude it (DENY). See [`migrations.md`](migrations.md).
+
+### Why an explicit list (and when to change it)
+
+The `INCLUDE` / `DENY_TENANT_TABLES` lists are the **single, hand-maintained
+source of truth** for what leaves the database in a backup. That is deliberate:
+"what's in a backup" is a data-fidelity and security decision, and keeping it
+auditable in one place beats scattering it across migrations (e.g. as per-table
+SQL comments, which can't be reviewed at a glance, are easy to typo, and get lost
+in a migration consolidation). The drift test removes the only real downside —
+forgetting to update the list — by failing the build on any unclassified table.
+
+A few INCLUDE entries (the `feedback*` tables) are owned by other feature modules
+and referenced by name only (no compile dependency); a rename trips the drift test
+too. This is fine while **one** external module contributes tenant-scoped tables.
+When a **second** one does, evolve the central lists into a small per-module
+contribution SPI — each module declares its own include/exclude and the topology
+aggregates them — mirroring the existing `NavContributor` / `FooterContributor`
+pattern. Until then it would be premature; keep the explicit list.
