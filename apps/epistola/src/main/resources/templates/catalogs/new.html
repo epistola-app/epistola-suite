@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+        New Catalog create form, converted to the shared create-dialog model:
+          - createDialog : the <dialog> shell loaded into #dialog-host for HTMX
+          - createForm   : the <form>, re-rendered standalone on validation error
+                           (self-swaps via hx-target="this" hx-swap="outerHTML",
+                           keeping the dialog open)
+          - fields       : the inputs (single source of truth)
+        A direct (non-HTMX) GET .../new redirects to the list; `?create` deep-links
+        the open dialog. Success HX-Redirects to the new catalog's browse page.
+    -->
+    <th:block th:fragment="createDialog">
+        <dialog id="create-catalog-dialog" class="ep-dialog" data-testid="create-catalog-dialog" data-create-dialog>
+            <div class="ep-dialog-header">
+                <h3>New Catalog</h3>
+            </div>
+            <th:block th:replace="~{catalogs/new :: createForm}"></th:block>
+        </dialog>
+    </th:block>
+
+    <form th:fragment="createForm" id="create-catalog-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
+          hx-target="this" hx-swap="outerHTML" hx-boost="false">
+        <div class="ep-dialog-body">
+            <th:block th:replace="~{catalogs/new :: fields}"></th:block>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-dialog-close>Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-create-submit">Create</button>
+        </div>
+    </form>
+
+    <th:block th:fragment="fields">
+        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+            <label class="ep-label" for="catalogName">Name</label>
+            <input type="text" id="catalogName" name="name" class="ep-input"
+                   required placeholder="My Templates" data-slug-source="catalogSlug"
+                   th:value="${formData?.name}">
+            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+        </div>
+        <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+            <label class="ep-label" for="catalogSlug">Catalog ID (Slug)</label>
+            <input type="text" id="catalogSlug" name="slug" class="ep-input"
+                   required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                   minlength="3" maxlength="50"
+                   placeholder="my-templates"
+                   th:value="${formData?.slug}">
+            <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+            <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -40,7 +40,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `creating the first catalog returns the #catalog-list region with a table`() = fixture {
+    fun `creating a catalog over HTMX redirects to the new catalog's browse page`() = fixture {
         lateinit var t: Tenant
         given { t = tenant("Catalog List Create") }
 
@@ -57,14 +57,82 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Create now follows the shared dialog contract: HX-Redirect to the new
+            // catalog (by slug), not an in-place OOB list swap.
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val body = response.body!!
-            // The stable wrapper, containing the table (not a bare <tbody>),
-            // swapped directly into #catalog-list (no OOB marker).
-            assertThat(body).contains("id=\"catalog-list\"")
-            assertThat(body).contains("<table")
-            assertThat(body).contains("List Region Cat")
-            assertThat(body).doesNotContain("hx-swap-oob")
+            assertThat(response.headers.getFirst("HX-Redirect"))
+                .isEqualTo("/tenants/${t.id}/catalogs/list-region-cat/browse")
+        }
+    }
+
+    @Test
+    fun `GET new over HTMX pushes the create URL`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog New Push URL") }
+
+        whenever {
+            val headers = HttpHeaders().apply {
+                add("HX-Request", "true")
+                add("HX-Current-URL", "/tenants/${t.id}/catalogs")
+            }
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/new",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("create-catalog-dialog")
+            assertThat(response.headers.getFirst("HX-Push-Url"))
+                .isEqualTo("/tenants/${t.id}/catalogs?create")
+        }
+    }
+
+    @Test
+    fun `GET list with create renders the dialog markup for deep linking`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Deeplink") }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs?create", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("create-catalog-dialog")
+            assertThat(response.body).contains("data-create-dialog")
+        }
+    }
+
+    @Test
+    fun `POST create with a blank name re-renders the form with an error, dialog stays open`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog Create Error") }
+
+        whenever {
+            val payload = LinkedMultiValueMap<String, String>()
+            payload.add("slug", "valid-slug")
+            payload.add("name", "")
+            restTemplate.postForEntity(
+                "/tenants/${t.id}/catalogs/create",
+                HttpEntity(payload, htmxForm()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            // Validation error self-swaps the form (no HX-Redirect), keeping the
+            // dialog open with the field error.
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+            assertThat(response.body).contains("create-catalog-form")
+            assertThat(response.body).contains("form-error")
         }
     }
 

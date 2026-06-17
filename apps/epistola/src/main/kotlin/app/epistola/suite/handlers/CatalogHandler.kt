@@ -30,9 +30,11 @@ import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxCurrentUrl
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.urlWithCreateParam
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.slf4j.LoggerFactory
@@ -53,6 +55,21 @@ class CatalogHandler {
             "activeNavSection" to "catalogs"
             catalogListModel(request)
             if (saved) "saved" to true
+            "createOpen" to request.param("create").isPresent
+        }
+    }
+
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        // HTMX loads the dialog into #dialog-host and pushes `?create` so the open
+        // dialog is deep-linkable; a direct GET (no-JS / deep link) bounces to the
+        // list, where the `?create` branch re-renders the dialog open.
+        return request.htmx {
+            fragment("catalogs/new", "createDialog") {
+                "tenantId" to tenantId.key
+            }
+            pushUrl(urlWithCreateParam(request.htmxCurrentUrl, "/tenants/${tenantId.key}/catalogs"))
+            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs") }
         }
     }
 
@@ -71,28 +88,43 @@ class CatalogHandler {
             }
         }
 
-        if (form.hasErrors()) {
-            return listWithError(request, "Catalog slug and name are required.")
+        // Re-render the `createForm` fragment on error: for HTMX it self-swaps
+        // (hx-target="this"), keeping the dialog open with field errors; non-HTMX
+        // falls back to the list.
+        fun reRender(
+            formData: Map<String, String>,
+            errors: Map<String, String>,
+        ): ServerResponse = request.htmx {
+            fragment("catalogs/new", "createForm") {
+                "tenantId" to tenantId.key
+                "formData" to formData
+                "errors" to errors
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs") }
         }
 
+        if (form.hasErrors()) {
+            return reRender(form.formData, form.errors)
+        }
+
+        val slug = form["slug"]
         return try {
             CreateCatalog(
                 tenantKey = tenantId.key,
-                id = CatalogKey.of(form["slug"]),
+                id = CatalogKey.of(slug),
                 name = form["name"],
             ).execute()
 
-            request.htmx {
-                fragment("catalogs/list", "catalog-list") {
-                    catalogListModel(request)
-                }
-                onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
-                }
+            val location = "/tenants/${tenantId.key}/catalogs/$slug/browse"
+            if (request.isHtmx) {
+                // The dialog submits over HTMX; navigate to the new catalog.
+                ServerResponse.ok().header("HX-Redirect", location).build()
+            } else {
+                ServerResponse.status(303).header("Location", location).build()
             }
         } catch (e: Exception) {
             logger.warn("Failed to create catalog: ${e.message}", e)
-            listWithError(request, "Failed to create catalog. The slug may already be in use.")
+            reRender(form.formData, mapOf("slug" to "This catalog ID may already be in use."))
         }
     }
 
