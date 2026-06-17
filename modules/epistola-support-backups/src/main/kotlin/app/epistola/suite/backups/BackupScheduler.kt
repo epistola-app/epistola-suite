@@ -14,6 +14,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.support.HubConnectivityService
+import app.epistola.suite.support.isHubUnreachable
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -37,6 +39,7 @@ import org.springframework.stereotype.Component
 )
 class BackupScheduler(
     private val snapshotSync: TenantSnapshotSyncService,
+    private val connectivity: HubConnectivityService,
     private val mediator: Mediator,
     private val jdbi: Jdbi,
     @Value("\${epistola.support.backups.cron:0 0 2 * * *}")
@@ -71,11 +74,21 @@ class BackupScheduler(
             // tenants that have backups on. Skip a tenant unless the feature is available — toggled on
             // AND hub-entitled — so we never do work that would only be rejected with PERMISSION_DENIED.
             if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_BACKUPS] != true) continue
+            // Back off: if the hub is already known unreachable, skip the rest of the sweep with a
+            // single warning instead of failing once per tenant.
+            if (!connectivity.reachable()) {
+                log.warn("Epistola hub unreachable; skipping remaining tenant backup(s) this cycle")
+                break
+            }
             try {
                 SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
                     snapshotSync.syncTenant(tenantKey)
                 }
             } catch (e: Exception) {
+                if (e.isHubUnreachable()) {
+                    log.warn("Catalog backup skipped for tenant {} (hub unreachable): {}", tenantKey.value, e.message)
+                    break
+                }
                 log.error("Catalog backup failed for tenant {}: {}", tenantKey.value, e.message, e)
             }
         }

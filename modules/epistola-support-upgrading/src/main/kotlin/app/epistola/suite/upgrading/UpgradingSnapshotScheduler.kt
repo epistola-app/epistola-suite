@@ -14,6 +14,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.snapshots.TenantSnapshotSyncService
 import app.epistola.suite.snapshots.snapshotSystemPrincipal
+import app.epistola.suite.support.HubConnectivityService
+import app.epistola.suite.support.isHubUnreachable
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -44,6 +46,7 @@ import java.time.Duration
 )
 class UpgradingSnapshotScheduler(
     private val snapshotSync: TenantSnapshotSyncService,
+    private val connectivity: HubConnectivityService,
     private val mediator: Mediator,
     private val properties: UpgradingSnapshotProperties,
     private val jdbi: Jdbi,
@@ -75,11 +78,21 @@ class UpgradingSnapshotScheduler(
         for (tenantKey in tenantKeys) {
             if (ResolveAvailableFeatures(tenantKey).query()[KnownFeatures.SUPPORT_UPGRADING] != true) continue
             if (hasFreshSnapshot(tenantKey)) continue
+            // Back off: if the hub is already known unreachable, skip the rest of the sweep with a
+            // single warning instead of failing once per tenant.
+            if (!connectivity.reachable()) {
+                log.warn("Epistola hub unreachable; skipping remaining tenant snapshot refresh(es) this cycle")
+                break
+            }
             try {
                 SecurityContext.runWithPrincipal(snapshotSystemPrincipal(tenantKey)) {
                     snapshotSync.syncTenant(tenantKey)
                 }
             } catch (e: Exception) {
+                if (e.isHubUnreachable()) {
+                    log.warn("Upgrading snapshot refresh skipped for tenant {} (hub unreachable): {}", tenantKey.value, e.message)
+                    break
+                }
                 log.error("Upgrading snapshot refresh failed for tenant {}: {}", tenantKey.value, e.message, e)
             }
         }
