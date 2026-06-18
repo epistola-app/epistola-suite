@@ -2,6 +2,7 @@ package app.epistola.suite.catalog.migrations
 
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.migrate
+import app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -114,7 +115,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest binds a current-version manifest end to end`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
         val bound = migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("4")))
         assertThat(bound.catalog.slug).isEqualTo("x")
         assertThat(bound.release.version).isEqualTo("1.0.0")
@@ -122,32 +123,36 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `migrateAndBindManifest rejects a too-new payload before binding`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
         assertThatThrownBy { migrator.migrateAndBindManifest(mapper.writeValueAsBytes(manifest("9"))) }
             .isInstanceOf(CatalogSchemaTooNewException::class.java)
     }
 
-    private fun attributeDetail(schemaVersion: String, type: String = "attribute"): ByteArray = mapper.writeValueAsBytes(
-        mapper.readTree(
-            """
+    private fun attributeDetail(schemaVersion: String, type: String = "attribute", legacy: Boolean = false): ByteArray {
+        // legacy = the v3 shape (uses `displayName`); otherwise current `name`.
+        val nameField = if (legacy) """"displayName": "Country"""" else """"name": "Country""""
+        return mapper.writeValueAsBytes(
+            mapper.readTree(
+                """
                 {
                   "schemaVersion": $schemaVersion,
-                  "resource": { "type": "$type", "slug": "country", "name": "Country" }
+                  "resource": { "type": "$type", "slug": "country", $nameField }
                 }
-            """.trimIndent(),
-        ),
-    )
+                """.trimIndent(),
+            ),
+        )
+    }
 
     @Test
     fun `migrateAndBindResourceDetail binds a current-version detail whose type matches`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
         val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("4"))
         assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
     }
 
     @Test
     fun `migrateAndBindResourceDetail rejects a detail whose own type contradicts the manifest entry`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
         // Manifest entry says "theme", but the detail's own discriminator is "attribute".
         assertThatThrownBy { migrator.migrateAndBindResourceDetail("theme", attributeDetail("4")) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
@@ -156,7 +161,7 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `invalid JSON is rejected as schema-unknown, not a raw Jackson error`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
         val garbage = "{ not json".toByteArray()
         assertThatThrownBy { migrator.migrateAndBindManifest(garbage) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
@@ -166,9 +171,38 @@ class CatalogSchemaMigratorGateTest {
 
     @Test
     fun `a non-object JSON payload is rejected as schema-unknown`() {
-        val migrator = CatalogSchemaMigrator(mapper, emptyList())
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
         assertThatThrownBy { migrator.migrateAndBindManifest("[]".toByteArray()) }
             .isInstanceOf(CatalogSchemaUnknownException::class.java)
             .hasMessageContaining("not a JSON object")
+    }
+
+    @Test
+    fun `a v3 manifest is migrated to v4 and binds (legacy title to name)`() {
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val v3 = mapper.writeValueAsBytes(
+            mapper.readTree(
+                """
+                {
+                  "schemaVersion": 3,
+                  "catalog": { "slug": "acme", "title": "Acme Templates" },
+                  "publisher": { "name": "P" },
+                  "release": { "version": "1.0.0" },
+                  "resources": []
+                }
+                """.trimIndent(),
+            ),
+        )
+        val bound = migrator.migrateAndBindManifest(v3)
+        assertThat(bound.catalog.slug).isEqualTo("acme")
+        assertThat(bound.catalog.name).isEqualTo("Acme Templates")
+    }
+
+    @Test
+    fun `a v3 resource detail is migrated to v4 and binds (legacy displayName to name)`() {
+        val migrator = CatalogSchemaMigrator(mapper, listOf(CatalogV3ToV4ExampleMigration()))
+        val bound = migrator.migrateAndBindResourceDetail("attribute", attributeDetail("3", legacy = true))
+        assertThat(bound.resource).isInstanceOf(AttributeResource::class.java)
+        assertThat((bound.resource as AttributeResource).name).isEqualTo("Country")
     }
 }

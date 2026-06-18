@@ -1,6 +1,7 @@
 package app.epistola.suite.catalog.migrations
 
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator.Companion.validateMigrationChain
+import app.epistola.suite.catalog.migrations.steps.CatalogV3ToV4ExampleMigration
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -91,19 +92,27 @@ class CatalogSchemaMigratorChainTest {
     }
 
     @Test
-    fun `the real bean accepts an empty chain (baseline == current today)`() {
-        // Constructing the @Component with no migrations must not throw — this is
-        // the wired-in Phase-0 state (catalog baseline == current).
-        assertThatCode { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
+    fun `the real bean accepts the live v3 to v4 chain`() {
+        // Constructing the @Component with the wired-in chain must not throw. The
+        // catalog window is [3, 4], so its one migration (v3→v4) is required.
+        assertThatCode { CatalogSchemaMigrator(jsonMapper(), listOf(CatalogV3ToV4ExampleMigration())) }
             .doesNotThrowAnyException()
     }
 
     @Test
-    fun `the real bean rejects a stray migration (baseline == current leaves no room)`() {
-        // With current == baseline, any non-empty chain is malformed — a good
-        // guard that init actually validates against the live constants.
-        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), listOf(NoopMigration(from = 4))) }
+    fun `the real bean rejects a missing chain (v3 to v4 required)`() {
+        // baseline (3) < current (4) needs its migration — an empty chain is
+        // malformed against the live constants.
+        assertThatThrownBy { CatalogSchemaMigrator(jsonMapper(), emptyList()) }
             .isInstanceOf(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `the real bean rejects a stray migration past current`() {
+        // The required v3→v4 step plus a stray v4→v5 step overshoots current (4).
+        assertThatThrownBy {
+            CatalogSchemaMigrator(jsonMapper(), listOf(CatalogV3ToV4ExampleMigration(), NoopMigration(from = 4)))
+        }.isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test

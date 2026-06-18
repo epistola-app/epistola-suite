@@ -48,15 +48,16 @@ Constants in `CatalogConstants.kt` (one catalog-wide version — ADR 0007):
 
 - `CATALOG_SCHEMA_VERSION: Int = 4` — the current catalog wire version (the
   manifest is authoritative; every detail echoes it).
-- `CATALOG_BASELINE_SCHEMA_VERSION: Int = 4` — the oldest upgradable version.
-  `baseline == current` today → the chain is empty.
+- `CATALOG_BASELINE_SCHEMA_VERSION: Int = 3` — the oldest upgradable version.
+  The chain spans `[3, 4]` with the example `CatalogV3ToV4ExampleMigration`.
 
 ## Build sequence
 
-### Phase 0 — Whole-catalog framework, with an empty chain — ✅ IMPLEMENTED
+### Phase 0 — Whole-catalog framework — ✅ IMPLEMENTED
 
-The whole framework lands before any real migration exists. `baseline ==
-current == 4`, so the chain is empty.
+The whole framework landed first; an empty chain was valid while `baseline ==
+current`. The example `v3 → v4` step (Phase 1 below) then dropped `baseline` to
+`3`, so the chain now spans `[3, 4]`.
 
 **Whole-catalog model (ADR 0007):**
 
